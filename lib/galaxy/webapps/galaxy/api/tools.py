@@ -12,6 +12,7 @@ from galaxy.visualization.genomes import GenomeRegion
 from galaxy.util.json import dumps
 from galaxy.managers.collections_util import dictify_dataset_collection_instance
 
+from .biotools import json_formater
 import galaxy.queue_worker
 
 
@@ -85,6 +86,7 @@ class ToolsController( BaseAPIController, UsesVisualizationMixin ):
         return tool.to_dict( trans, io_details=io_details, link_details=link_details )
 
     @expose_api_anonymous_and_sessionless
+    @json_formater
     def biotools( self, trans, id, **kwd ):
         """
         GET /api/tools/{tool_id}/biotools
@@ -98,12 +100,17 @@ class ToolsController( BaseAPIController, UsesVisualizationMixin ):
         input_param = list()
         for name, param in tool.inputs.items():
             input_param.append(param.to_dict(trans))
+        output_param = list()
+        for name, param in tool.outputs.items():
+            output_param.append(param.to_dict(app=self.app))
 
+        # TODO: absent tags, contactEmail, contactName, usesHomepage, homepage, accessibility
         return {
             "tool_name": tool.name,
             "description": tool.description,
             "tool_id": tool.id,
             "inputs": input_param,
+            "outputs":output_param,
             "tool_version": tool.version,
             "section": tool.get_panel_section(),
             "dependency_shell_commands": tool.build_dependency_shell_commands(),
