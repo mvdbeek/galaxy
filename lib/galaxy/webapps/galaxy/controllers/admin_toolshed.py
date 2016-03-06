@@ -286,11 +286,27 @@ class AdminToolshed( AdminGalaxy ):
                         else:
                             removed = False
                     if removed:
+                        # get a list of repositories that depend on the uninstalled repo,
+                        # and in that list of repositories set the corresponding tool dependency relationship to uninstalled
+
+                        irm = self.app.installed_repository_manager
+                        repository_tup = irm.get_repository_tuple_for_installed_repository_manager( tool_shed_repository )
+                        # Get this repository's installed tool dependencies.
+                        installed_runtime_dependent_tool_dependencies = irm.get_installed_runtime_dependent_tool_dependencies_of_repository( repository_tup )
+                        dependent_tool_dependencies_to_uninstall = []
+                        for td_tup in installed_runtime_dependent_tool_dependencies:
+                            tool_shed_repository_id, name, version, type = td_tup
+                            if not irm.tool_dependency_is_provided_by_repository(repository_tup, td_tup):
+                                continue
+                            containing_repository = irm.get_containing_repository_for_tool_dependency( td_tup )
+                            tool_dependency = tool_dependency_util.get_tool_dependency_by_name_type_repository( self.app, containing_repository, name, type )
+                            dependent_tool_dependencies_to_uninstall.append( tool_dependency )
                         tool_shed_repository.uninstalled = True
                         # Remove all installed tool dependencies and tool dependencies stuck in the INSTALLING state, but don't touch any
                         # repository dependencies.
                         tool_dependencies_to_uninstall = tool_shed_repository.tool_dependencies_installed_or_in_error
                         tool_dependencies_to_uninstall.extend( tool_shed_repository.tool_dependencies_being_installed )
+                        tool_dependencies_to_uninstall.extend( dependent_tool_dependencies_to_uninstall )
                         for tool_dependency in tool_dependencies_to_uninstall:
                             uninstalled, error_message = tool_dependency_util.remove_tool_dependency( trans.app, tool_dependency )
                             if error_message:

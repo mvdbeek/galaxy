@@ -543,6 +543,7 @@ class InstalledRepositoryManager( object ):
 
     def get_repository_dependency_tups_for_installed_repository( self, repository, dependency_tups=None, status=None ):
         """
+        TODO: May need to use this instead of the in-memory dict to determine if a tool dependency should be uninstalled
         Return a list of of tuples defining tool_shed_repository objects (whose status can be anything) required by the
         received repository.  The returned list defines the entire repository dependency tree.  This method is called
         only from Galaxy.
@@ -1062,3 +1063,43 @@ class InstalledRepositoryManager( object ):
                     context.delete( tool_dependency )
                     context.flush()
         return new_tool_dependency
+
+    def get_installed_runtime_dependent_tool_dependencies_of_repository(self, repository_tup):
+        """
+        Returns a list of tuples defining all runtime dependent tool dependencies of a repository
+        """
+        installed_runtime_dependent_tool_dependencies = []
+        installed_tool_dependencies = self.installed_tool_dependencies_of_installed_repositories.get( repository_tup, [] )
+        for itd_tup in installed_tool_dependencies:
+                            installed_dependent_td_tups = \
+                                self.installed_runtime_dependent_tool_dependencies_of_installed_tool_dependencies.get( itd_tup, [] )
+                            if installed_dependent_td_tups:
+                                installed_runtime_dependent_tool_dependencies.extend( installed_dependent_td_tups )
+        return installed_runtime_dependent_tool_dependencies
+
+    def tool_dependency_is_provided_by_repository(self, repository_tup, tool_dependency_tup):
+        """
+        Returns a boolean indicating whether a tool dependencies of a repository is directly provided by this repository.
+        Tool dependencies may be defined by repository_dependencies, therefore we traverse the chain of repository dependencies
+        and determine if the tool_dependency is unique to this repository, and is hence provided by this repository.
+        """
+
+        def get_repo_chain(repo_chain, rdir, repo_tup, initial_repo_tup):
+            for repo in rdir.get(repo_tup, []):
+                if repo and repo not in repo_chain and repo != initial_repo_tup:
+                    repo_chain.append( repo )
+                    get_repo_chain( repo_chain, rdir, repo, initial_repo_tup )
+            return repo_chain
+
+        tool_shed_repository_id, name, version, type = tool_dependency_tup
+        dep_in_repo = [ True for td_tup in self.tool_dependencies_of_installed_repositories.get(repository_tup, []) if
+                        td_tup[1] == name and td_tup[2] == version and td_tup[3] == type ]
+        if not dep_in_repo:
+            return False
+
+        repo_chain = get_repo_chain( [], self.repository_dependencies_of_installed_repositories, repository_tup, repository_tup )
+        for repo_tup in repo_chain:
+            for td_tup in self.tool_dependencies_of_installed_repositories.get(repo_tup, []):
+                if td_tup[1] == name and td_tup[2] == version and td_tup[3] == type:
+                    return False
+        return True

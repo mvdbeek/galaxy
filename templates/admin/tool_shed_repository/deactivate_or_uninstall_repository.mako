@@ -125,20 +125,11 @@ else:
                         repository_tup = irm.get_repository_tuple_for_installed_repository_manager( repository )
 
                         # Get installed repositories that this repository requires.
-                        installed_dependent_repositories = []
-                        installed_runtime_dependent_tool_dependencies = []
                         installed_dependent_repositories = irm.installed_dependent_repositories_of_installed_repositories.get( repository_tup, [] )
 
-                        # Get this repository's installed tool dependencies.
-                        installed_tool_dependencies = irm.installed_tool_dependencies_of_installed_repositories.get( repository_tup, [] )
+                        # Get this repository's installed tool dependencies
+                        installed_runtime_dependent_tool_dependencies = irm.get_installed_runtime_dependent_tool_dependencies_of_repository( repository_tup )
 
-                        # Get installed runtime dependent tool dependencies of this repository's installed tool dependencies.
-                        installed_runtime_dependent_tool_dependencies = []
-                        for itd_tup in installed_tool_dependencies:
-                            installed_dependent_td_tups = \
-                                irm.installed_runtime_dependent_tool_dependencies_of_installed_tool_dependencies.get( itd_tup, [] )
-                            if installed_dependent_td_tups:
-                                installed_runtime_dependent_tool_dependencies.extend( installed_dependent_td_tups )
                     %>
                     %if installed_dependent_repositories or installed_runtime_dependent_tool_dependencies:
                         <table width="100%" border="0" cellpadding="0" cellspacing="0">
