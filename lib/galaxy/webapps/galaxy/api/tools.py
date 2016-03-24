@@ -12,6 +12,9 @@ from galaxy.web import _future_expose_api_anonymous_and_sessionless as expose_ap
 from galaxy.web.base.controller import BaseAPIController
 from galaxy.web.base.controller import UsesVisualizationMixin
 
+from .biotools import json_formater
+import galaxy.queue_worker
+
 log = logging.getLogger( __name__ )
 
 
@@ -82,6 +85,44 @@ class ToolsController( BaseAPIController, UsesVisualizationMixin ):
         link_details = util.string_as_bool( kwd.get( 'link_details', False ) )
         tool = self._get_tool( id, user=trans.user )
         return tool.to_dict( trans, io_details=io_details, link_details=link_details )
+
+    @expose_api_anonymous_and_sessionless
+    @json_formater
+    def biotools( self, trans, id, **kwd ):
+        """
+        GET /api/tools/{tool_id}/biotools
+        Return json that can be consumed by the ELIXIR registry.
+        """
+        # TODO: Move this into tool.
+        def to_dict(x):
+            return x.to_dict()
+
+        tool = self._get_tool( id, user=trans.user )
+        input_param = list()
+        for name, param in tool.inputs.items():
+            input_param.append(param.to_dict(trans))
+        output_param = list()
+        for name, param in tool.outputs.items():
+            output_param.append(param.to_dict(app=self.app))
+
+        # TODO: absent tags, contactEmail, contactName, usesHomepage, homepage, accessibility
+        return {
+            "tool_name": tool.name,
+            "description": tool.description,
+            "tool_id": tool.id,
+            "inputs": input_param,
+            "outputs":output_param,
+            "tool_version": tool.version,
+            "section": tool.get_panel_section(),
+            "dependency_shell_commands": tool.build_dependency_shell_commands(),
+            "tool_dir": tool.tool_dir,
+            "tool_shed": tool.tool_shed,
+            "repository_name": tool.repository_name,
+            "repository_owner": tool.repository_owner,
+            "installed_changeset_revision": None,
+            "guid": tool.guid,
+        }
+
 
     @expose_api_anonymous
     def build( self, trans, id, **kwd ):
