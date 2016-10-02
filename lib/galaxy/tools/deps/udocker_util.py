@@ -108,9 +108,8 @@ def build_docker_cache_command(
 
 
 def build_docker_images_command(truncate=True, **kwds):
-    #args = ["--no-trunc"] if not truncate else[]
-    #return command_shell("images", args, **kwds)
-    raise Exception('Not implemented')
+    args = ["--no-trunc"] if not truncate else[]
+    return command_shell("images", args, **kwds)
 
 
 def build_docker_load_command(**kwds):
