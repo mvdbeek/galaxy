@@ -897,6 +897,11 @@ class JobWrapper(HasResourceParameters):
         try:
             working_directory = self._create_working_directory(job)
             self.__working_directory = working_directory
+
+            if self.app.config.job_script_directory != self.app.config.jobs_directory:
+                self.app.object_store.create(job, base_dir='scripts', dir_only=True, obj_dir=True)
+                self.job_script_directory = self.app.object_store.get_filename(job, base_dir='scripts', dir_only=True, obj_dir=True)
+
             # The tool execution is given a working directory beneath the
             # "job" working directory.
             safe_makedirs(self.tool_working_directory)

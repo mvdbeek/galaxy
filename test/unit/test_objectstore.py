@@ -774,8 +774,9 @@ class TestConfig(object):
 
 class MockConfig(object):
 
-    def __init__(self, temp_directory, config_file, store_by="id"):
+    def __init__(self, temp_directory, config_file, store_by="id", job_script_directory=None):
         self.file_path = temp_directory
+        self.job_script_directory = job_script_directory or temp_directory
         self.object_store_config_file = os.path.join(temp_directory, config_file)
         self.object_store_check_old_style = False
         self.object_store_cache_path = os.path.join(temp_directory, "staging")

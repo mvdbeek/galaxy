@@ -105,6 +105,7 @@ class ObjectStore(object):
         extra_dirs.update(dict(
             (e['type'], e['path']) for e in config_dict.get('extra_dirs', [])))
         self.extra_dirs = extra_dirs
+        self.extra_dirs['scripts'] = config.job_script_directory
 
     def shutdown(self):
         """Close any connections for this ObjectStore."""
@@ -255,7 +256,7 @@ class DiskObjectStore(ObjectStore):
     >>> import tempfile
     >>> file_path=tempfile.mkdtemp()
     >>> obj = Bunch(id=1)
-    >>> s = DiskObjectStore(Bunch(umask=0o077, jobs_directory=file_path, new_file_path=file_path, object_store_check_old_style=False), dict(files_dir=file_path))
+    >>> s = DiskObjectStore(Bunch(umask=0o077, jobs_directory=file_path, job_script_directory=file_path, new_file_path=file_path, object_store_check_old_style=False), file_path=file_path)
     >>> s.create(obj)
     >>> s.exists(obj)
     True

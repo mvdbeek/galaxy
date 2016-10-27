@@ -26,8 +26,9 @@ class UsesApp(object):
 
     def setup_app(self):
         self.test_directory = tempfile.mkdtemp()
-        self.app = galaxy_mock.MockApp()
+        self.app = galaxy_mock.MockApp(job_script_directory=os.path.join(self.test_directory, "new_files"))
         self.app.config.new_file_path = os.path.join(self.test_directory, "new_files")
+        self.app.job_script_directory = self.app.config.new_file_path
         self.app.config.admin_users = "mary@example.com"
 
     def tear_down_app(self):
