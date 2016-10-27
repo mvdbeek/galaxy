@@ -38,7 +38,7 @@ class BaseTestCase(unittest.TestCase):
         self.set_up_trans()
 
     def set_up_mocks(self):
-        self.trans = galaxy_mock.MockTrans(admin_users=admin_users)
+        self.trans = galaxy_mock.MockTrans(admin_users=admin_users, job_script_directory='/tmp')
         self.app = self.trans.app
 
     def set_up_managers(self):

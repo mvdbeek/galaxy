@@ -99,6 +99,7 @@ class ObjectStore(object):
         self.check_old_style = config.object_store_check_old_style
         self.extra_dirs['job_work'] = config.jobs_directory
         self.extra_dirs['temp'] = config.new_file_path
+        self.extra_dirs['scripts'] = config.job_script_directory
 
     def shutdown(self):
         """Close any connections for this ObjectStore."""
@@ -217,7 +218,7 @@ class DiskObjectStore(ObjectStore):
     >>> import tempfile
     >>> file_path=tempfile.mkdtemp()
     >>> obj = Bunch(id=1)
-    >>> s = DiskObjectStore(Bunch(umask=0o077, jobs_directory=file_path, new_file_path=file_path, object_store_check_old_style=False), file_path=file_path)
+    >>> s = DiskObjectStore(Bunch(umask=0o077, jobs_directory=file_path, job_script_directory=file_path, new_file_path=file_path, object_store_check_old_style=False), file_path=file_path)
     >>> s.create(obj)
     >>> s.exists(obj)
     True

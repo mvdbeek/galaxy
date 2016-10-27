@@ -210,8 +210,9 @@ class TestConfig(object):
 
 class MockConfig(object):
 
-    def __init__(self, temp_directory):
+    def __init__(self, temp_directory, job_script_directory=None):
         self.file_path = temp_directory
+        self.job_script_directory = job_script_directory or temp_directory
         self.object_store_config_file = os.path.join(temp_directory, "store.xml")
         self.object_store_check_old_style = False
         self.jobs_directory = temp_directory
