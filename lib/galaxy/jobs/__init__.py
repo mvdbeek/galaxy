@@ -896,6 +896,11 @@ class JobWrapper(HasResourceParameters):
         try:
             working_directory = self._create_working_directory(job)
             self.__working_directory = working_directory
+
+            if self.app.config.job_script_directory != self.app.config.jobs_directory:
+                self.app.object_store.create(job, base_dir='scripts', dir_only=True, obj_dir=True)
+                self.job_script_directory = self.app.object_store.get_filename(job, base_dir='scripts', dir_only=True, obj_dir=True)
+
             # The tool execution is given a working directory beneath the
             # "job" working directory.
             safe_makedirs(self.tool_working_directory)
@@ -1520,6 +1525,9 @@ class JobWrapper(HasResourceParameters):
             galaxy.tools.imp_exp.JobImportHistoryArchiveWrapper(self.app, self.job_id).cleanup_after_job()
             if delete_files:
                 self.object_store.delete(self.get_job(), base_dir='job_work', entire_dir=True, dir_only=True, obj_dir=True)
+                if self.job_script_directory != self.working_directory:
+                    self.object_store.delete(self.get_job(), base_dir='scripts', entire_dir=True, dir_only=True,
+                                                 obj_dir=True)
         except Exception:
             log.exception("Unable to cleanup job %d", self.job_id)
 

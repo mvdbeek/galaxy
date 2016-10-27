@@ -58,6 +58,7 @@ class MockApp(object):
 
     def __init__(self, config=None, **kwargs):
         self.config = config or MockAppConfig(**kwargs)
+        self.config.job_script_directory = '/tmp'
         self.security = self.config.security
         self.name = kwargs.get('name', 'galaxy')
         self.object_store = objectstore.build_object_store_from_config(self.config)

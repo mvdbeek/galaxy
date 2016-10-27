@@ -70,7 +70,9 @@ class ShellJobRunner(AsynchronousJobRunner):
         galaxy_id_tag = job_wrapper.get_id_tag()
 
         # define job attributes
-        ajs = AsynchronousJobState(files_dir=job_wrapper.working_directory, job_wrapper=job_wrapper)
+        ajs = AsynchronousJobState(files_dir=job_wrapper.working_directory,
+                                   job_wrapper=job_wrapper,
+                                   job_script_directory=job_wrapper.job_script_directory)
 
         job_file_kwargs = job_interface.job_script_kwargs(ajs.output_file, ajs.error_file, ajs.job_name)
         script = self.get_job_file(
