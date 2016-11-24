@@ -19,7 +19,7 @@ from six import text_type
 from galaxy import util
 from galaxy.util import multi_byte
 from galaxy.util import unicodify
-from galaxy.util.checkers import check_binary, check_html, is_gzip
+from galaxy.util.checkers import check_binary, check_html, is_gzip, is_bz2
 from galaxy.datatypes.binary import Binary
 
 log = logging.getLogger(__name__)
