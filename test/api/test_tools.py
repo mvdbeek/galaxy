@@ -76,6 +76,10 @@ class ToolsTestCase( api.ApiTestCase ):
         assert f2_info["min"] is None
         assert f2_info["max"] is None
 
+    @skip_without_tool( "collection_creates_list_2" )
+    def show_collection_output( self ):
+        tool_info = self._show_valid_tool( "collection_creates_list_2" )
+
     def _show_valid_tool( self, tool_id ):
         tool_show_response = self._get( "tools/%s" % tool_id, data=dict( io_details=True ) )
         self._assert_status_code_is( tool_show_response, 200 )
