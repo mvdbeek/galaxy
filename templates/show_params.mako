@@ -89,8 +89,13 @@
                                     encoded_id = trans.security.encode_id( hda.id )
                                     show_params_url = h.url_for( controller='dataset', action='show_params', dataset_id=encoded_id )
                                 %>
-                                <a class="input-dataset-show-params" data-hda-id="${encoded_id}"
-                                       href="${show_params_url}">${hda.hid}: ${hda.name | h}</a>
+                                %if hda.name != hda.element_identifier:
+                                    <a class="input-dataset-show-params" data-hda-id="${encoded_id}"
+                                           href="${show_params_url}">${hda.hid}: ${hda.name (hda.element_identifier)| h}</a>
+                                %else
+                                    <a class="input-dataset-show-params" data-hda-id="${encoded_id}"
+                                           href="${show_params_url}">${hda.hid}: ${hda.name | h}</a>
+                                %endif
 
                             %else:
                                 ${element.hid}: ${element.name | h}
