@@ -21,7 +21,7 @@ from six import string_types
 from sqlalchemy import (and_, func, join, not_, or_, select, true, type_coerce,
                         types)
 from sqlalchemy.ext import hybrid
-from sqlalchemy.orm import aliased, joinedload, object_session
+from sqlalchemy.orm import aliased, joinedload, object_session, subqueryload
 
 import galaxy.model.metadata
 import galaxy.model.orm.now
@@ -1413,10 +1413,10 @@ class History( object, Dictifiable, UsesAnnotations, HasName ):
                       .filter( HistoryDatasetAssociation.table.c.history_id == self.id )
                       .filter( not_( HistoryDatasetAssociation.deleted ) )
                       .order_by( HistoryDatasetAssociation.table.c.hid.asc() )
-                      .options( joinedload("children"),
-                                joinedload("dataset"),
-                                joinedload("dataset.actions"),
-                                joinedload("dataset.actions.role"),
+                      .options( subqueryload("children"),
+                                subqueryload("dataset"),
+                                subqueryload("dataset.actions"),
+                                subqueryload("dataset.actions.role"),
                                 ))
             self._active_datasets_children_and_roles = query.all()
         return self._active_datasets_children_and_roles
