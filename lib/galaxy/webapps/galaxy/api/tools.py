@@ -1,6 +1,7 @@
 import logging
 import urllib
 from json import dumps
+from profilehooks import profile
 
 import galaxy.queue_worker
 from galaxy import exceptions, managers, util, web
@@ -85,6 +86,7 @@ class ToolsController( BaseAPIController, UsesVisualizationMixin ):
         tool = self._get_tool( id, user=trans.user )
         return tool.to_dict( trans, io_details=io_details, link_details=link_details )
 
+    @profile
     @expose_api_anonymous
     def build( self, trans, id, **kwd ):
         """

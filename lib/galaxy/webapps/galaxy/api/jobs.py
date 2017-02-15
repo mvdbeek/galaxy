@@ -3,6 +3,8 @@ API operations on a jobs.
 
 .. seealso:: :class:`galaxy.model.Jobs`
 """
+from profilehooks import profile
+
 
 import json
 import logging
@@ -186,6 +188,7 @@ class JobController( BaseAPIController, UsesLibraryMixinItems ):
         job = self.__get_job( trans, id )
         return self.__dictify_associations( trans, job.output_datasets, job.output_library_datasets )
 
+    @profile
     @expose_api_anonymous
     def build_for_rerun( self, trans, id, **kwd ):
         """
