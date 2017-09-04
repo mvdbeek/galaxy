@@ -83,10 +83,18 @@ class ShellJobRunner(AsynchronousJobRunner):
         )
 
         try:
-            self.write_executable_script(ajs.job_file, script)
+            self.write_executable_script(path=ajs.job_file, contents=script)
         except Exception:
             log.exception("(%s) failure writing job script" % galaxy_id_tag)
             job_wrapper.fail("failure preparing job script", exception=True)
+            return
+
+        # If we have write to the job script directory but we need to use the shell
+        # to mark the job script executable. Should make this configurable.
+        chmod_out = shell.execute("chmod +x %s/tool_script.sh" % job_wrapper.job_script_directory)
+        if chmod_out.returncode != 0:
+            log.error('(%s) setting executable bit failed (stdout): %s' % (galaxy_id_tag, chmod_out.stdout))
+            job_wrapper.fail("failure submitting job")
             return
 
         # job was deleted while we were preparing it
