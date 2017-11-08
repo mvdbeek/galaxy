@@ -1,6 +1,7 @@
 """Scripts for drivers of Galaxy functional tests."""
 
 import collections
+import fcntl
 import httplib
 import json
 import logging
@@ -8,6 +9,8 @@ import os
 import random
 import shutil
 import socket
+import string
+import struct
 import sys
 import tempfile
 import threading
@@ -17,9 +20,11 @@ import nose.config
 import nose.core
 import nose.loader
 import nose.plugins.manager
+
 from paste import httpserver
 
-from functional import database_contexts
+from six.moves.urllib.parse import urlparse
+
 from galaxy.app import UniverseApplication as GalaxyUniverseApplication
 from galaxy.util import asbool, download_to_file
 from galaxy.util.properties import load_app_properties
@@ -37,6 +42,7 @@ DEFAULT_WEB_HOST = "localhost"
 GALAXY_TEST_DIRECTORY = os.path.join(galaxy_root, "test")
 GALAXY_TEST_FILE_DIR = "test-data,https://github.com/galaxyproject/galaxy-test-data.git"
 TOOL_SHED_TEST_DATA = os.path.join(GALAXY_TEST_DIRECTORY, "shed_functional", "test_data")
+TEST_WEBHOOKS_DIR = os.path.join(galaxy_root, "test", "functional", "webhooks")
 FRAMEWORK_TOOLS_DIR = os.path.join(GALAXY_TEST_DIRECTORY, "functional", "tools")
 FRAMEWORK_UPLOAD_TOOL_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "upload_tool_conf.xml")
 FRAMEWORK_SAMPLE_TOOLS_CONF = os.path.join(FRAMEWORK_TOOLS_DIR, "samples_tool_conf.xml")
@@ -51,6 +57,13 @@ DEFAULT_LOCALES = "en"
 log = logging.getLogger("test_driver")
 
 
+# Global variables to pass database contexts around - only needed for older
+# Tool Shed twill tests that didn't utilize the API for such interactions.
+galaxy_context = None
+tool_shed_context = None
+install_context = None
+
+
 def setup_tool_shed_tmp_dir():
     tool_shed_test_tmp_dir = os.environ.get('TOOL_SHED_TEST_TMP_DIR', None)
     if tool_shed_test_tmp_dir is None:
@@ -58,7 +71,7 @@ def setup_tool_shed_tmp_dir():
     # Here's the directory where everything happens.  Temporary directories are created within this directory to contain
     # the hgweb.config file, the database, new repositories, etc.  Since the tool shed browses repository contents via HTTP,
     # the full path to the temporary directroy wher eht repositories are located cannot contain invalid url characters.
-    os.environ[ 'TOOL_SHED_TEST_TMP_DIR' ] = tool_shed_test_tmp_dir
+    os.environ['TOOL_SHED_TEST_TMP_DIR'] = tool_shed_test_tmp_dir
     return tool_shed_test_tmp_dir
 
 
@@ -74,16 +87,29 @@ def configure_environment():
     """Hack up environment for test cases."""
     # no op remove if unused
     if 'HTTP_ACCEPT_LANGUAGE' not in os.environ:
-        os.environ[ 'HTTP_ACCEPT_LANGUAGE' ] = DEFAULT_LOCALES
+        os.environ['HTTP_ACCEPT_LANGUAGE'] = DEFAULT_LOCALES
 
     # Used by get_filename in tool shed's twilltestcase.
     if "TOOL_SHED_TEST_FILE_DIR" not in os.environ:
         os.environ["TOOL_SHED_TEST_FILE_DIR"] = TOOL_SHED_TEST_DATA
 
+    os.environ["GALAXY_TEST_ENVIRONMENT_CONFIGURED"] = "1"
+
 
 def build_logger():
     """Build a logger for test driver script."""
     return log
+
+
+def ensure_test_file_dir_set():
+    """Ensure GALAXY_TEST_FILE_DIR setup in environment for test data resolver.
+
+    Return first directory for backward compat.
+    """
+    galaxy_test_file_dir = os.environ.get('GALAXY_TEST_FILE_DIR', GALAXY_TEST_FILE_DIR)
+    os.environ['GALAXY_TEST_FILE_DIR'] = galaxy_test_file_dir
+    first_test_file_dir = galaxy_test_file_dir.split(",")[0]
+    return first_test_file_dir
 
 
 def setup_galaxy_config(
@@ -98,19 +124,18 @@ def setup_galaxy_config(
     shed_tool_conf=None,
     datatypes_conf=None,
     update_integrated_tool_panel=False,
+    prefer_template_database=False,
 ):
     """Setup environment and build config for test Galaxy instance."""
     if not os.path.exists(tmpdir):
         os.makedirs(tmpdir)
     file_path = os.path.join(tmpdir, 'files')
     template_cache_path = tempfile.mkdtemp(prefix='compiled_templates_', dir=tmpdir)
-    new_file_path = tempfile.mkdtemp(prefix='new_files_path_', dir=tmpdir )
+    new_file_path = tempfile.mkdtemp(prefix='new_files_path_', dir=tmpdir)
     job_working_directory = tempfile.mkdtemp(prefix='job_working_directory_', dir=tmpdir)
 
     if use_test_file_dir:
-        galaxy_test_file_dir = os.environ.get('GALAXY_TEST_FILE_DIR', GALAXY_TEST_FILE_DIR)
-        os.environ['GALAXY_TEST_FILE_DIR'] = galaxy_test_file_dir
-        first_test_file_dir = galaxy_test_file_dir.split(",")[0]
+        first_test_file_dir = ensure_test_file_dir_set()
         if not os.path.isabs(first_test_file_dir):
             first_test_file_dir = os.path.join(galaxy_root, first_test_file_dir)
         library_import_dir = first_test_file_dir
@@ -129,8 +154,8 @@ def setup_galaxy_config(
         tool_dependency_dir = tempfile.mkdtemp(dir=tmpdir, prefix="tool_dependencies")
     tool_data_table_config_path = _tool_data_table_config_path(default_tool_data_table_config_path)
     default_data_manager_config = 'config/data_manager_conf.xml.sample'
-    for data_manager_config in ['config/data_manager_conf.xml', 'data_manager_conf.xml' ]:
-        if os.path.exists( data_manager_config ):
+    for data_manager_config in ['config/data_manager_conf.xml', 'data_manager_conf.xml']:
+        if os.path.exists(data_manager_config):
             default_data_manager_config = data_manager_config
     data_manager_config_file = "%s,test/functional/tools/sample_data_manager_conf.xml" % default_data_manager_config
     master_api_key = get_master_api_key()
@@ -159,9 +184,11 @@ def setup_galaxy_config(
         api_allow_run_as='test@bx.psu.edu',
         auto_configure_logging=logging_config_file is None,
         check_migrate_tools=False,
+        conda_auto_init=False,
         cleanup_job='onsuccess',
         data_manager_config_file=data_manager_config_file,
         enable_beta_tool_formats=True,
+        expose_dataset_path=True,
         file_path=file_path,
         galaxy_data_manager_data_path=galaxy_data_manager_data_path,
         id_secret='changethisinproductiontoo',
@@ -171,6 +198,7 @@ def setup_galaxy_config(
         library_import_dir=library_import_dir,
         log_destination="stdout",
         new_file_path=new_file_path,
+        override_tempdir=False,
         master_api_key=master_api_key,
         running_functional_tests=True,
         shed_tool_data_table_config=shed_tool_data_table_config,
@@ -184,8 +212,9 @@ def setup_galaxy_config(
         use_tasked_jobs=True,
         use_heartbeat=False,
         user_library_import_dir=user_library_import_dir,
+        webhooks_dir=TEST_WEBHOOKS_DIR,
     )
-    config.update(database_conf(tmpdir))
+    config.update(database_conf(tmpdir, prefer_template_database=prefer_template_database))
     config.update(install_database_conf(tmpdir, default_merged=default_install_db_merged))
     if datatypes_conf is not None:
         config['datatypes_config_file'] = datatypes_conf
@@ -206,14 +235,14 @@ def _tool_data_table_config_path(default_tool_data_table_config_path=None):
         # ... otherise find whatever Galaxy would use as the default and
         # the sample data for fucntional tests to that.
         default_tool_data_config = 'config/tool_data_table_conf.xml.sample'
-        for tool_data_config in ['config/tool_data_table_conf.xml', 'tool_data_table_conf.xml' ]:
-            if os.path.exists( tool_data_config ):
+        for tool_data_config in ['config/tool_data_table_conf.xml', 'tool_data_table_conf.xml']:
+            if os.path.exists(tool_data_config):
                 default_tool_data_config = tool_data_config
         tool_data_table_config_path = '%s,test/functional/tool-data/sample_tool_data_tables.xml' % default_tool_data_config
     return tool_data_table_config_path
 
 
-def nose_config_and_run( argv=None, env=None, ignore_files=[], plugins=None ):
+def nose_config_and_run(argv=None, env=None, ignore_files=[], plugins=None):
     """Setup a nose context and run tests.
 
     Tests are specified by argv (defaulting to sys.argv).
@@ -232,16 +261,16 @@ def nose_config_and_run( argv=None, env=None, ignore_files=[], plugins=None ):
     )
 
     # Add custom plugin to produce JSON data used by planemo.
-    test_config.plugins.addPlugin( StructuredTestDataPlugin() )
-    test_config.configure( argv )
+    test_config.plugins.addPlugin(StructuredTestDataPlugin())
+    test_config.configure(argv)
 
-    result = run( test_config )
+    result = run(test_config)
 
     success = result.wasSuccessful()
     return success
 
 
-def copy_database_template( source, db_path ):
+def copy_database_template(source, db_path):
     """Copy a 'clean' sqlite template database.
 
     From file or URL to specified path for sqlite database.
@@ -253,17 +282,31 @@ def copy_database_template( source, db_path ):
         shutil.copy(source, db_path)
         assert os.path.exists(db_path)
     elif source.lower().startswith(("http://", "https://", "ftp://")):
-        download_to_file(source, db_path)
+        try:
+            download_to_file(source, db_path)
+        except Exception as e:
+            # We log the exception but don't fail startup, since we can
+            # do all migration steps instead of downloading a template.
+            log.exception(e)
     else:
-        raise Exception( "Failed to copy database template from source %s" % source )
+        raise Exception("Failed to copy database template from source %s" % source)
 
 
-def database_conf(db_path, prefix="GALAXY"):
+def database_conf(db_path, prefix="GALAXY", prefer_template_database=False):
     """Find (and populate if needed) Galaxy database connection."""
     database_auto_migrate = False
     dburi_var = "%s_TEST_DBURI" % prefix
+    template_name = None
     if dburi_var in os.environ:
         database_connection = os.environ[dburi_var]
+        # only template if postgres - not mysql or sqlite
+        do_template = prefer_template_database and database_connection.startswith("p")
+        if do_template:
+            database_template_parsed = urlparse(database_connection)
+            template_name = database_template_parsed.path[1:]  # drop / from /galaxy
+            actual_db = "gxtest" + ''.join(random.choice(string.ascii_uppercase) for _ in range(10))
+            actual_database_parsed = database_template_parsed._replace(path="/%s" % actual_db)
+            database_connection = actual_database_parsed.geturl()
     else:
         default_db_filename = "%s.sqlite" % prefix.lower()
         template_var = "%s_TEST_DB_TEMPLATE" % prefix
@@ -284,6 +327,8 @@ def database_conf(db_path, prefix="GALAXY"):
     if not database_connection.startswith("sqlite://"):
         config["database_engine_option_max_overflow"] = "20"
         config["database_engine_option_pool_size"] = "10"
+    if template_name:
+        config["database_template"] = template_name
     return config
 
 
@@ -344,20 +389,20 @@ def get_webapp_global_conf():
     """Get the global_conf dictionary sent to ``app_factory``."""
     # (was originally sent 'dict()') - nothing here for now except static settings
     global_conf = dict()
-    global_conf.update( _get_static_settings() )
+    global_conf.update(_get_static_settings())
     return global_conf
 
 
 def wait_for_http_server(host, port):
     """Wait for an HTTP server to boot up."""
     # Test if the server is up
-    for i in range( 10 ):
+    for i in range(10):
         # directly test the app, not the proxy
         conn = httplib.HTTPConnection(host, port)
-        conn.request( "GET", "/" )
+        conn.request("GET", "/")
         if conn.getresponse().status == 200:
             break
-        time.sleep( 0.1 )
+        time.sleep(0.1)
     else:
         template = "Test HTTP server on host %s and port %s did not return '200 OK' after 10 tries"
         message = template % (host, port)
@@ -371,22 +416,22 @@ def serve_webapp(webapp, port=None, host=None):
     """
     server = None
     if port is not None:
-        server = httpserver.serve( webapp, host=host, port=port, start_loop=False )
+        server = httpserver.serve(webapp, host=host, port=port, start_loop=False)
     else:
         random.seed()
-        for i in range( 0, 9 ):
+        for i in range(0, 9):
             try:
-                port = str( random.randint( 8000, 10000 ) )
-                server = httpserver.serve( webapp, host=host, port=port, start_loop=False )
+                port = str(random.randint(8000, 10000))
+                server = httpserver.serve(webapp, host=host, port=port, start_loop=False)
                 break
             except socket.error as e:
                 if e[0] == 98:
                     continue
                 raise
         else:
-            raise Exception( "Unable to open a port between %s and %s to start Galaxy server" % ( 8000, 1000 ) )
+            raise Exception("Unable to open a port between %s and %s to start Galaxy server" % (8000, 1000))
 
-    t = threading.Thread( target=server.serve_forever )
+    t = threading.Thread(target=server.serve_forever)
     t.start()
 
     return server, port
@@ -399,10 +444,10 @@ def cleanup_directory(tempdir):
     """
     skip_cleanup = "GALAXY_TEST_NO_CLEANUP" in os.environ or "TOOL_SHED_TEST_NO_CLEANUP" in os.environ
     if skip_cleanup:
-        log.info( "GALAXY_TEST_NO_CLEANUP is on. Temporary files in %s" % tempdir )
+        log.info("GALAXY_TEST_NO_CLEANUP is on. Temporary files in %s" % tempdir)
         return
     try:
-        if os.path.exists(tempdir) and skip_cleanup:
+        if os.path.exists(tempdir) and not skip_cleanup:
             shutil.rmtree(tempdir)
     except Exception:
         pass
@@ -455,10 +500,14 @@ def build_galaxy_app(simple_kwargs):
         kwds=simple_kwargs
     )
     # Build the Universe Application
-    app = GalaxyUniverseApplication( **simple_kwargs )
-    log.info( "Embedded Galaxy application started" )
-    database_contexts.galaxy_context = app.model.context
-    database_contexts.install_context = app.install_model.context
+    app = GalaxyUniverseApplication(**simple_kwargs)
+    log.info("Embedded Galaxy application started")
+
+    global galaxy_context
+    global install_context
+    galaxy_context = app.model.context
+    install_context = app.install_model.context
+
     return app
 
 
@@ -473,9 +522,12 @@ def build_shed_app(simple_kwargs):
     simple_kwargs['__file__'] = 'tool_shed_wsgi.ini.sample'
     simple_kwargs['global_conf'] = get_webapp_global_conf()
 
-    app = ToolshedUniverseApplication( **simple_kwargs )
-    database_contexts.tool_shed_context = app.model.context
-    log.info( "Embedded Toolshed application started" )
+    app = ToolshedUniverseApplication(**simple_kwargs)
+    log.info("Embedded Toolshed application started")
+
+    global tool_shed_context
+    tool_shed_context = app.model.context
+
     return app
 
 
@@ -497,7 +549,25 @@ def _stop(self):
 ServerWrapper.stop = _stop
 
 
-def launch_server(app, webapp_factory, kwargs, prefix="GALAXY"):
+class classproperty(object):
+
+    def __init__(self, f):
+        self.f = f
+
+    def __get__(self, obj, owner):
+        return self.f(owner)
+
+
+def get_ip_address(ifname):
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    return socket.inet_ntoa(fcntl.ioctl(
+        s.fileno(),
+        0x8915,  # SIOCGIFADDR
+        struct.pack('256s', ifname[:15])
+    )[20:24])
+
+
+def launch_server(app, webapp_factory, kwargs, prefix="GALAXY", config_object=None):
     """Launch a web server for a given app using supplied factory.
 
     Consistently read either GALAXY_TEST_HOST and GALAXY_TEST_PORT or
@@ -508,11 +578,12 @@ def launch_server(app, webapp_factory, kwargs, prefix="GALAXY"):
 
     host_env_key = "%s_TEST_HOST" % prefix
     port_env_key = "%s_TEST_PORT" % prefix
-    host = os.environ.get(host_env_key, DEFAULT_WEB_HOST)
+    default_web_host = getattr(config_object, "default_web_host", DEFAULT_WEB_HOST)
+    host = os.environ.get(host_env_key, default_web_host)
     port = os.environ.get(port_env_key, None)
 
     webapp = webapp_factory(
-        kwargs[ 'global_conf' ],
+        kwargs['global_conf'],
         app=app,
         use_translogger=False,
         static_enabled=True
@@ -572,7 +643,7 @@ class TestDriver(object):
             log.info("Failure running tests")
             raise e
         finally:
-            log.info( "Shutting down")
+            log.info("Shutting down")
             self.tear_down()
 
 
@@ -618,6 +689,7 @@ class GalaxyTestDriver(TestDriver):
                     default_install_db_merged=True,
                     default_tool_conf=default_tool_conf,
                     datatypes_conf=datatypes_conf_override,
+                    prefer_template_database=getattr(config_object, "prefer_template_database", False),
                 )
                 galaxy_config = setup_galaxy_config(
                     galaxy_db_path,
@@ -636,11 +708,14 @@ class GalaxyTestDriver(TestDriver):
                 self.app,
                 buildapp.app_factory,
                 galaxy_config,
+                config_object=config_object,
             )
             self.server_wrappers.append(server_wrapper)
-            log.info("Functional tests will be run against %s:%s" % (server_wrapper.host, server_wrapper.port))
+            log.info("Functional tests will be run against external Galaxy server %s:%s" % (server_wrapper.host, server_wrapper.port))
         else:
-            log.info("Functional tests will be run against %s" % self.external_galaxy)
+            log.info("Functional tests will be run against test managed Galaxy server %s" % self.external_galaxy)
+            # Ensure test file directory setup even though galaxy config isn't built.
+            ensure_test_file_dir_set()
 
     def setup_shed_tools(self, testing_migrated_tools=False, testing_installed_tools=True):
         setup_shed_tools_for_test(
@@ -672,7 +747,7 @@ class GalaxyTestDriver(TestDriver):
         )
         return functional.test_toolbox
 
-    def run_tool_test(self, tool_id, index=0):
+    def run_tool_test(self, tool_id, index=0, resource_parameters={}):
         import functional.test_toolbox
         functional.test_toolbox.toolbox = self.app.toolbox
         tool = self.app.toolbox.get_tool(tool_id)
@@ -683,12 +758,13 @@ class GalaxyTestDriver(TestDriver):
         test_case.master_api_key = get_master_api_key()
         test_case.user_api_key = get_user_api_key()
         test_case.setUp()
-        test_case.do_it(testdef)
+        test_case.do_it(testdef, resource_parameters=resource_parameters)
 
 
 def drive_test(test_driver_class):
     """Instantiate driver class, run, and exit appropriately."""
-    sys.exit(test_driver_class().run())
+    test_driver = test_driver_class()
+    sys.exit(test_driver.run())
 
 
 __all__ = (

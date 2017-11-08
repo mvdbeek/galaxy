@@ -1,4 +1,5 @@
 from __future__ import print_function
+
 import os
 from xml.etree import ElementTree as ET
 
@@ -21,7 +22,7 @@ def getfilenamelist(startdir):
             elif fn.endswith('.xml'):
                 try:
                     doc = ET.parse(fullfn)
-                except:
+                except Exception:
                     print("An OOPS on", fullfn)
                     raise
                 rootelement = doc.getroot()

@@ -3,6 +3,7 @@ If the current installed python version is not 2.7, prints an error
 message to stderr and returns 1
 """
 from __future__ import print_function
+
 import sys
 
 msg = """ERROR: Your Python version is: %s
@@ -14,7 +15,7 @@ contains instructions on how to force Galaxy to use a different version.""" % sy
 
 def check_python():
     try:
-        assert sys.version_info[:2] == ( 2, 7 )
+        assert sys.version_info[:2] == (2, 7)
     except AssertionError:
         print(msg, file=sys.stderr)
         raise
@@ -26,4 +27,4 @@ if __name__ == '__main__':
         check_python()
     except Exception:
         rval = 1
-    sys.exit( rval )
+    sys.exit(rval)

@@ -52,7 +52,7 @@ class Wiff(Binary):
         return "\n".join(rval)
 
 
-Binary.register_sniffable_binary_format("wiff", "wiff", Wiff )
+Binary.register_sniffable_binary_format("wiff", "wiff", Wiff)
 
 
 class PepXmlReport(Tabular):
@@ -61,12 +61,12 @@ class PepXmlReport(Tabular):
     file_ext = "pepxml.tsv"
 
     def __init__(self, **kwd):
-        Tabular.__init__(self, **kwd)
-        self.column_names = ['Protein', 'Peptide', 'Assumed Charge', 'Neutral Pep Mass (calculated)', 'Neutral Mass', 'Retention Time', 'Start Scan', 'End Scan', 'Search Engine', 'PeptideProphet Probability', 'Interprophet Probabaility']
+        super(PepXmlReport, self).__init__(**kwd)
+        self.column_names = ['Protein', 'Peptide', 'Assumed Charge', 'Neutral Pep Mass (calculated)', 'Neutral Mass', 'Retention Time', 'Start Scan', 'End Scan', 'Search Engine', 'PeptideProphet Probability', 'Interprophet Probability']
 
     def display_peek(self, dataset):
         """Returns formated html of peek"""
-        return Tabular.make_html_table(self, dataset, column_names=self.column_names)
+        return self.make_html_table(dataset, column_names=self.column_names)
 
 
 class ProtXmlReport(Tabular):
@@ -76,7 +76,7 @@ class ProtXmlReport(Tabular):
     comment_lines = 1
 
     def __init__(self, **kwd):
-        Tabular.__init__(self, **kwd)
+        super(ProtXmlReport, self).__init__(**kwd)
         self.column_names = [
             "Entry Number", "Group Probability",
             "Protein", "Protein Link", "Protein Probability",
@@ -91,7 +91,7 @@ class ProtXmlReport(Tabular):
 
     def display_peek(self, dataset):
         """Returns formated html of peek"""
-        return Tabular.make_html_table(self, dataset, column_names=self.column_names)
+        return self.make_html_table(dataset, column_names=self.column_names)
 
 
 class ProteomicsXml(GenericXml):
@@ -150,6 +150,14 @@ class MzXML(ProteomicsXml):
     file_ext = "mzxml"
     blurb = "mzXML Mass Spectrometry data"
     root = "mzXML"
+
+
+class MzData(ProteomicsXml):
+    """mzData data"""
+    edam_format = "format_3245"
+    file_ext = "mzdata"
+    blurb = "mzData Mass Spectrometry data"
+    root = "mzData"
 
 
 class MzIdentML(ProteomicsXml):
@@ -277,7 +285,7 @@ class ThermoRAW(Binary):
             if header.find(finnigan) != -1:
                 return True
             return False
-        except:
+        except Exception:
             return False
 
     def set_peek(self, dataset, is_multi_byte=False):
@@ -291,11 +299,11 @@ class ThermoRAW(Binary):
     def display_peek(self, dataset):
         try:
             return dataset.peek
-        except:
+        except Exception:
             return "Thermo Finnigan RAW file (%s)" % (nice_size(dataset.get_size()))
 
 
-Binary.register_sniffable_binary_format("thermo.raw", "raw", ThermoRAW )
+Binary.register_sniffable_binary_format("thermo.raw", "raw", ThermoRAW)
 
 
 class Msp(Text):
@@ -319,14 +327,14 @@ class Msp(Text):
             return lines[0].startswith("Name:") and lines[1].startswith("MW:")
 
 
-class SPLibNoIndex( Text ):
+class SPLibNoIndex(Text):
     """SPlib without index file """
     file_ext = "splib_noindex"
 
-    def set_peek( self, dataset, is_multi_byte=False ):
+    def set_peek(self, dataset, is_multi_byte=False):
         """Set the peek and blurb text"""
         if not dataset.dataset.purged:
-            dataset.peek = data.get_file_peek( dataset.file_name, is_multi_byte=is_multi_byte )
+            dataset.peek = data.get_file_peek(dataset.file_name, is_multi_byte=is_multi_byte)
             dataset.blurb = 'Spectral Library without index files'
         else:
             dataset.peek = 'file does not exist'
@@ -417,3 +425,88 @@ class XHunterAslFormat(Binary):
 class Sf3(Binary):
     """Class describing a Scaffold SF3 files"""
     file_ext = "sf3"
+
+
+class ImzML(Binary):
+    """
+        Class for imzML files.
+        http://www.imzml.org
+    """
+    edam_format = "format_3682"
+    file_ext = 'imzml'
+    allow_datatype_change = False
+    composite_type = 'auto_primary_file'
+
+    def __init__(self, **kwd):
+        Binary.__init__(self, **kwd)
+
+        """The metadata"""
+        self.add_composite_file(
+            'imzml',
+            description='The imzML metadata component.',
+            is_binary=False)
+
+        """The mass spectral data"""
+        self.add_composite_file(
+            'ibd',
+            description='The mass spectral data component.',
+            is_binary=True)
+
+    def generate_primary_file(self, dataset=None):
+        rval = ['<html><head><title>imzML Composite Dataset </title></head><p/>']
+        rval.append('<div>This composite dataset is composed of the following files:<p/><ul>')
+        for composite_name, composite_file in self.get_composite_files(dataset=dataset).iteritems():
+            fn = composite_name
+            opt_text = ''
+            if composite_file.get('description'):
+                rval.append('<li><a href="%s" type="text/plain">%s (%s)</a>%s</li>' % (fn, fn, composite_file.get('description'), opt_text))
+            else:
+                rval.append('<li><a href="%s" type="text/plain">%s</a>%s</li>' % (fn, fn, opt_text))
+        rval.append('</ul></div></html>')
+        return "\n".join(rval)
+
+
+class Analyze75(Binary):
+    """
+        Mayo Analyze 7.5 files
+        http://www.imzml.org
+    """
+    file_ext = 'analyze75'
+    allow_datatype_change = False
+    composite_type = 'auto_primary_file'
+
+    def __init__(self, **kwd):
+        Binary.__init__(self, **kwd)
+
+        """The header file. Provides information about dimensions, identification, and processing history."""
+        self.add_composite_file(
+            'hdr',
+            description='The Analyze75 header file.',
+            is_binary=False)
+
+        """The image file.  Image data, whose data type and ordering are described by the header file."""
+        self.add_composite_file(
+            'img',
+            description='The Analyze75 image file.',
+            is_binary=True)
+
+        """The optional t2m file."""
+        self.add_composite_file(
+            't2m',
+            description='The Analyze75 t2m file.',
+            optional='True', is_binary=True)
+
+    def generate_primary_file(self, dataset=None):
+        rval = ['<html><head><title>Analyze75 Composite Dataset.</title></head><p/>']
+        rval.append('<div>This composite dataset is composed of the following files:<p/><ul>')
+        for composite_name, composite_file in self.get_composite_files(dataset=dataset).iteritems():
+            fn = composite_name
+            opt_text = ''
+            if composite_file.optional:
+                opt_text = ' (optional)'
+            if composite_file.get('description'):
+                rval.append('<li><a href="%s" type="text/plain">%s (%s)</a>%s</li>' % (fn, fn, composite_file.get('description'), opt_text))
+            else:
+                rval.append('<li><a href="%s" type="text/plain">%s</a>%s</li>' % (fn, fn, opt_text))
+        rval.append('</ul></div></html>')
+        return "\n".join(rval)

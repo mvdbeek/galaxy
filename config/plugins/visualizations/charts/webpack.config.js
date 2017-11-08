@@ -1,4 +1,3 @@
-var webpack = require( 'webpack' );
 var path = require( 'path' );
 var root = path.join( __dirname, 'static/repository' );
 var grunt = require( 'grunt' );
@@ -43,6 +42,6 @@ module.exports = {
         libraryTarget   : 'amd'
     },
     resolve : {
-        root : root
+        modules: [root]
     }
 };

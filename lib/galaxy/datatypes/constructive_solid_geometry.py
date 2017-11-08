@@ -111,7 +111,7 @@ class Ply(object):
     def display_peek(self, dataset):
         try:
             return dataset.peek
-        except:
+        except Exception:
             return "Ply file (%s)" % (nice_size(dataset.get_size()))
 
 
@@ -301,7 +301,7 @@ class Vtk(object):
                                 dataset.metadata.field_names.append(field_name)
                                 try:
                                     num_components = int(items[-1])
-                                except:
+                                except Exception:
                                     num_components = 1
                                 field_component_indexes = [str(i) for i in range(num_components)]
                                 field_components[field_name] = field_component_indexes
@@ -319,7 +319,7 @@ class Vtk(object):
                                         float(items[0])
                                         # Don't process the cell data.
                                         # 0.0123457 0.197531
-                                    except:
+                                    except Exception:
                                         # Line consists of arrayName numComponents numTuples dataType.
                                         # Example: surface_field1 1 12 double
                                         field_name = items[0]
@@ -438,7 +438,7 @@ class Vtk(object):
     def display_peek(self, dataset):
         try:
             return dataset.peek
-        except:
+        except Exception:
             return "Vtk file (%s)" % (nice_size(dataset.get_size()))
 
 
@@ -459,6 +459,10 @@ class VtkBinary(Vtk, Binary):
 
 
 Binary.register_sniffable_binary_format("vtkbinary", "vtkbinary", VtkBinary)
+
+
+class STL(data.Data):
+    file_ext = "stl"
 
 
 # Utility functions
