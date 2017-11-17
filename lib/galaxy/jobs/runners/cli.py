@@ -90,9 +90,10 @@ class ShellJobRunner(AsynchronousJobRunner):
 
         # If we have write to the job script directory but we need to use the shell
         # to mark the job script executable. Should make this configurable.
-        chmod_out = shell.execute("chmod +x %s/tool_script.sh" % job_wrapper.job_script_directory)
+        tool_script = "%s/tool_script.sh" % job_wrapper.job_script_directory
+        chmod_out = shell.execute("chmod +x %s" % tool_script)
         if chmod_out.returncode != 0:
-            log.error('(%s) setting executable bit failed (stdout): %s' % (galaxy_id_tag, chmod_out.stdout))
+            log.error('(%s) setting executable bit on %s failed (stdout): %s, (stderr): %s' % (tool_script, galaxy_id_tag, chmod_out.stdout, chmod_out.stderr))
             job_wrapper.fail("failure submitting job")
             return
 
