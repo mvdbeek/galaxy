@@ -1,0 +1,18 @@
+<tool id="implicit_conversion_bam" name="implicit_conversion_bam">
+  <command>
+    cp '$input1' '$output1'
+  </command>
+  <inputs>
+    <param type="data" format="bam" name="input1" label="Input 1" />
+  </inputs>
+  <outputs>
+    <data name="output1" format="tabular" />
+  </outputs>
+  <tests>
+    <!-- Test implicit conversion. -->
+    <test>
+      <param name="input1" value="sam_with_header.bam" ftype="sam" />
+      <output name="output1" file="bam_from_sam.bam" />
+    </test>
+  </tests>
+</tool>

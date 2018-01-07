@@ -726,6 +726,27 @@ steps:
                                                                                   assert_ok=False)
             assert unpaused_dataset['state'] == 'ok'
 
+    @skip_without_tool("implicit_conversion_bam")
+    def test_workflow_implicit_collection_conversion(self):
+        with self.dataset_populator.test_history() as history_id:
+            self._run_jobs("""
+    class: GalaxyWorkflow
+    steps:
+      - label: input_datasets
+        type: input_collection
+      - tool_id: implicit_conversion_bam
+        state:
+          input1:
+            $link: input_datasets
+    test_data:
+      input_datasets:
+        type: list
+        elements:
+          - identifier: sam
+            value: 1.sam
+            type: File
+    """, history_id=history_id)
+
     @skip_without_tool("fail_identifier")
     @skip_without_tool("identifier_multiple_in_conditional")
     def test_workflow_resume_with_mapped_over_input(self):
