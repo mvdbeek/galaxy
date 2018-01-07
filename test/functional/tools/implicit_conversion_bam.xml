@@ -6,7 +6,7 @@
     <param type="data" format="bam" name="input1" label="Input 1" />
   </inputs>
   <outputs>
-    <data name="output1" format="tabular" />
+    <data name="output1" format="bam" />
   </outputs>
   <tests>
     <!-- Test implicit conversion. -->

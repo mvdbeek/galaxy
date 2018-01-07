@@ -667,7 +667,7 @@ class BaseDatasetCollectionPopulator(object):
             del kwds["contents"]
 
         if "element_identifiers" not in kwds:
-            kwds["element_identifiers"] = json.dumps(identifiers_func(history_id, contents=contents))
+            kwds["element_identifiers"] = json.dumps(identifiers_func(history_id, contents=contents, file_type=kwds.pop('file_type')))
 
         if "name" not in kwds:
             kwds["name"] = "Test Dataset Collection"
@@ -688,17 +688,17 @@ class BaseDatasetCollectionPopulator(object):
         ]
         return element_identifiers
 
-    def list_identifiers(self, history_id, contents=None):
+    def list_identifiers(self, history_id, contents=None, file_type=None):
         count = 3 if contents is None else len(contents)
         # Contents can be a list of strings (with name auto-assigned here) or a list of
         # 2-tuples of form (name, dataset_content).
         if contents and isinstance(contents[0], tuple):
-            hdas = self.__datasets(history_id, count=count, contents=[c[1] for c in contents])
+            hdas = self.__datasets(history_id, count=count, contents=[c[1] for c in contents], file_type=file_type)
 
             def hda_to_identifier(i, hda):
                 return dict(name=contents[i][0], src="hda", id=hda["id"])
         else:
-            hdas = self.__datasets(history_id, count=count, contents=contents)
+            hdas = self.__datasets(history_id, count=count, contents=contents, file_type=file_type)
 
             def hda_to_identifier(i, hda):
                 return dict(name="data%d" % (i + 1), src="hda", id=hda["id"])
@@ -708,13 +708,13 @@ class BaseDatasetCollectionPopulator(object):
     def __create(self, payload):
         return self._create_collection(payload)
 
-    def __datasets(self, history_id, count, contents=None):
+    def __datasets(self, history_id, count, contents=None, file_type=None):
         datasets = []
         for i in range(count):
             new_kwds = {}
             if contents:
                 new_kwds["content"] = contents[i]
-            datasets.append(self.dataset_populator.new_dataset(history_id, **new_kwds))
+            datasets.append(self.dataset_populator.new_dataset(history_id, file_type=file_type, **new_kwds))
         return datasets
 
     def wait_for_dataset_collection(self, create_payload, assert_ok=False, timeout=DEFAULT_TIMEOUT):

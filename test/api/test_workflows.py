@@ -195,6 +195,8 @@ class BaseWorkflowsApiTestCase(api.ApiTestCase):
                 # TODO: make this collection_type
                 collection_type = value["type"]
                 new_collection_kwds = {}
+                if "file_type" in value:
+                    new_collection_kwds['file_type'] = value['file_type']
                 if "name" in value:
                     new_collection_kwds["name"] = value["name"]
                 if collection_type == "list:paired":
@@ -741,6 +743,7 @@ steps:
     test_data:
       input_datasets:
         type: list
+        file_type: sam
         elements:
           - identifier: sam
             value: 1.sam
