@@ -638,6 +638,15 @@
     <datatype extension="pttgf" type="galaxy.datatypes.plant_tribes:PlantTribesTargetedGeneFamilies" />
     <datatype extension="pttree" type="galaxy.datatypes.plant_tribes:PlantTribesPhylogeneticTree" />
     <datatype extension="smat" type="galaxy.datatypes.plant_tribes:Smat" display_in_upload="true" />
+
+    <!-- media datatypes -->
+    <datatype extension="wav" type="galaxy.datatypes.media:WAV" display_in_upload="true" mimetype="audio/wav"/>
+    <datatype extension="mkv" type="galaxy.datatypes.media:Mkv" display_in_upload="true" mimetype="video/mkv"/>
+    <datatype extension="mp4" type="galaxy.datatypes.media:Mp4" display_in_upload="true" mimetype="video/mp4"/>
+    <datatype extension="flv" type="galaxy.datatypes.media:Flv" display_in_upload="true" mimetype="video/flv"/>
+    <datatype extension="mpg" type="galaxy.datatypes.media:Mpg" display_in_upload="true" mimetype="video/mpeg"/>
+
+
   </registration>
   <sniffers>
     <!--
@@ -778,6 +787,11 @@
     <sniffer type="galaxy.datatypes.images:Xpm"/>
     <sniffer type="galaxy.datatypes.images:Eps"/>
     <sniffer type="galaxy.datatypes.images:Rast"/>
+    <sniffer type="galaxy.datatypes.media:WAV"/>
+    <sniffer type="galaxy.datatypes.media:Mkv"/>
+    <sniffer type="galaxy.datatypes.media:Mp4"/>
+    <sniffer type="galaxy.datatypes.media:Flv"/>
+    <sniffer type="galaxy.datatypes.media:Mpg"/>
     <!--
     Keep this commented until the sniff method in the assembly.py
     module is fixed to not read the entire file.
