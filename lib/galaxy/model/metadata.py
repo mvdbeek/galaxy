@@ -553,7 +553,9 @@ class FileParameter(MetadataParameter):
                                                          extra_dir='_metadata_files',
                                                          extra_dir_at_root=True,
                                                          alt_name=os.path.basename(mf.file_name))
-            os.unlink(file_name)
+            if os.path.exists(file_name):
+                # If we update_from_file moves the output the file may not exist anymore
+                os.unlink(file_name)
             value = mf.id
         return value
 
