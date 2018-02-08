@@ -2,6 +2,7 @@
 import json
 import logging
 import subprocess
+import wave
 
 from galaxy.datatypes.binary import Binary
 from galaxy.datatypes.metadata import MetadataElement
@@ -9,9 +10,8 @@ log = logging.getLogger(__name__)
 
 
 def ffprobe(path):
-    data = json.loads(subprocess.check_output(['ffprobe', '-show_format', '-show_streams', '-of', 'json', path]))
+    data = json.loads(subprocess.check_output(['ffprobe', '-loglevel', 'quiet', '-show_format', '-show_streams', '-of', 'json', path]))
     return data['format'], data['streams']
-
 
 class Video(Binary):
 
@@ -102,3 +102,53 @@ class Mpg(Video):
 
 
 Binary.register_sniffable_binary_format("mpg", "mpg", Mpg)
+
+
+class WAV( Binary ):
+    """RIFF WAV audio file"""
+
+    file_ext = "wav"
+    blurb = "RIFF WAV Audio file"
+    is_binary = True
+
+    MetadataElement( name="rate", desc="Sample Rate", default=0, no_value=0, readonly=True, visible=True, optional=True )
+    MetadataElement( name="nframes", desc="Number of Samples", default=0, no_value=0, readonly=True, visible=True, optional=True )
+    MetadataElement( name="nchannels", desc="Number of Channels", default=0, no_value=0, readonly=True, visible=True, optional=True )
+    MetadataElement( name="sampwidth", desc="Sample Width", default=0, no_value=0, readonly=True, visible=True, optional=True )
+
+    def get_mime(self):
+        """Returns the mime type of the datatype"""
+        return 'audio/wav'
+
+    def sniff(self, filename):
+        """
+        >>> from galaxy.datatypes.sniff import get_test_fname
+        >>> fname = get_test_fname('hello.wav')
+        >>> WAV().sniff(fname)
+        True
+
+        >>> fname = get_test_fname('drugbank_drugs.cml')
+        >>> WAV().sniff(fname)
+        False
+        """
+
+        try:
+            fp = wave.open(filename, 'rb')
+            fp.close()
+            return True
+        except wave.Error:
+            return False
+
+    def set_meta(self, dataset, overwrite=True, **kwd):
+        """Set the metadata for this dataset from the file contents
+        """
+
+        fd = wave.open(dataset.dataset.file_name, 'rb')
+        dataset.metadata.rate = fd.getframerate()
+        dataset.metadata.nframes = fd.getnframes()
+        dataset.metadata.sampwidth = fd.getsampwidth()
+        dataset.metadata.nchannels = fd.getnchannels()
+        fd.close()
+
+
+Binary.register_sniffable_binary_format('wav', 'wav', WAV)
