@@ -351,7 +351,11 @@ class PBSJobRunner(AsynchronousJobRunner):
         """
         new_watched = []
         # reduce pbs load by batching status queries
+        log.debug("Checking all jobs")
         (failures, statuses) = self.check_all_jobs()
+        log.debug("Got %d jobs", len(statuses))
+        if failures:
+            log.debug("These are failures:\n %s", failures)
         for pbs_job_state in self.watched:
             job_id = pbs_job_state.job_id
             galaxy_job_id = pbs_job_state.job_wrapper.get_id_tag()
@@ -364,7 +368,9 @@ class PBSJobRunner(AsynchronousJobRunner):
             try:
                 status = statuses[job_id]
             except KeyError:
-                if pbs_job_state.job_wrapper.get_state() == model.Job.states.DELETED:
+                state = pbs_job_state.job_wrapper.get_state()
+                if state == model.Job.states.DELETED:
+                    log.debug("Job '%s' is in deleted state", job_id)
                     continue
                 try:
                     # Recheck to make sure it wasn't a communication problem
