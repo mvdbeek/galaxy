@@ -2,7 +2,6 @@ import logging
 
 from markupsafe import escape
 from six import string_types
-from six.moves.urllib.parse import unquote_plus
 from sqlalchemy import and_, false, null, true
 from sqlalchemy.orm import eagerload, eagerload_all, undefer
 
@@ -583,8 +582,7 @@ class HistoryController(BaseUIController, SharableMixin, UsesAnnotations, UsesIt
 
         tools = {}
         for tool_id in set(j['tool_id'] for j in jobs):
-            unquoted_id = unquote_plus(tool_id)
-            tool = self.app.toolbox.get_tool(unquoted_id)
+            tool = self.app.toolbox.get_tool(tool_id)
             if not tool:
                 raise exceptions.ObjectNotFound("Could not find tool with id '%s'" % tool_id)
                 # TODO: some fallback for tool information
