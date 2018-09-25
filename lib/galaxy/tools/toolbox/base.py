@@ -327,7 +327,7 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
                             # If the tool is not defined in integrated_tool_panel.xml, append it to the tool panel.
                             panel_dict.append_tool(tool)
                             log_msg = "Loaded tool id: %s, version: %s into tool panel...." % (tool.id, tool.version)
-        if not hasattr(self.app, 'tool_cache') or tool_id in self.app.tool_cache._new_tool_ids:
+        if log_msg and (not hasattr(self.app, 'tool_cache') or tool_id in self.app.tool_cache._new_tool_ids):
             log.debug(log_msg)
 
     def _load_tool_panel(self):
@@ -446,6 +446,9 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
                 for tool in self._tools_by_id.values():
                     if tool.old_id == tool_id:
                         rval.append(tool)
+                # if we don't have a lineage_map for this tool we need to sort by version,
+                # so that the last tool in rval is the newest tool.
+                rval.sort(key=lambda t: t.version)
             if rval:
                 if get_all_versions:
                     return rval
@@ -455,8 +458,8 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
                         for tool in rval:
                             if tool.version == tool_version:
                                 return tool
-                    # No tool matches by version, simply return the first available tool found
-                    return rval[0]
+                    # No tool matches by version, simply return the newest matching tool
+                    return rval[-1]
             # We now likely have a Toolshed guid passed in, but no supporting database entries
             # If the tool exists by exact id and is loaded then provide exact match within a list
             if tool_id in self._tools_by_id:
@@ -711,7 +714,7 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
 
     def __watch_directory(self, directory, elems, integrated_elems, load_panel_dict, recursive, force_watch=False):
 
-        def quick_load(tool_file, async=True):
+        def quick_load(tool_file, async_load=True):
             try:
                 tool = self.load_tool(tool_file)
                 self.__add_tool(tool, load_panel_dict, elems)
@@ -719,7 +722,7 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
                 key = 'tool_%s' % str(tool.id)
                 integrated_elems[key] = tool
 
-                if async:
+                if async_load:
                     self._load_tool_panel()
                     self._save_integrated_tool_panel()
                 return tool.id
@@ -736,7 +739,7 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
             if os.path.isdir(child_path) and recursive:
                 self.__watch_directory(child_path, elems, integrated_elems, load_panel_dict, recursive)
             elif self._looks_like_a_tool(child_path):
-                quick_load(child_path, async=False)
+                quick_load(child_path, async_load=False)
                 tool_loaded = True
         if (tool_loaded or force_watch) and self._tool_watcher:
             self._tool_watcher.watch_directory(directory, quick_load)
