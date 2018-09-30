@@ -89,6 +89,8 @@ if [ "$run_server" = "python" -a -n "$GALAXY_RUN_ALL" ]; then
         fi
     done
 else
+    echo "PYTHONPATH: $PYTHONPATH"
+    echo "VIRTUALENV: $VIRTUALENV"
     echo "Executing: $run_server $server_args $pid_log_paster_args"
     # args are properly quoted so use eval
     eval $run_server $server_args $pid_log_paster_args
