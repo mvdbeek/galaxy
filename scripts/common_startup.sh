@@ -9,6 +9,7 @@ for arg in "$@"; do
     if [ "$arg" = "--skip-venv" ]; then
         SET_VENV=0
         skip_venv=1  # for common startup functions
+        echo "skip-venv is set, not activating virtualenv"
     fi
 done
 
