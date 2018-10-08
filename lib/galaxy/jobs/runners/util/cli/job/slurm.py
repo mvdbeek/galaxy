@@ -65,6 +65,7 @@ class Slurm(BaseJobExec):
     def parse_status(self, status, job_ids):
         # Get status for each job, skipping header.
         rval = {}
+        log.info("Status is '%s'", status)
         for line in status.splitlines()[1:]:
             id, state = line.split()
             if id in job_ids:
@@ -73,6 +74,7 @@ class Slurm(BaseJobExec):
         return rval
 
     def parse_single_status(self, status, job_id):
+        log.info('status is %s', status)
         status = status.splitlines()
         if len(status) > 1:
             # Job still on cluster and has state.
