@@ -209,7 +209,7 @@ class JobHandlerQueue(Monitors):
             try:
                 # If jobs are locked, there's nothing to monitor and we skip
                 # to the sleep.
-                if not self.app.job_manager.job_lock:
+                if hasattr(self.app, 'job_manager') and not self.app.job_manager.job_lock:
                     self.__monitor_step()
             except Exception:
                 log.exception("Exception in monitor_step")
