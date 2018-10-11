@@ -19,11 +19,11 @@ from galaxy.util.bunch import Bunch
 # TODO: Refactor this to be a proper class, not a bunch.
 class ModelMapping(Bunch):
 
-    def __init__(self, model_modules, engine):
+    def __init__(self, model_modules, engine, scopefunc=None):
         self.engine = engine
         Session = sessionmaker(autoflush=False, autocommit=True)
         versioned_session(Session)
-        context = scoped_session(Session)
+        context = scoped_session(Session, scopefunc=scopefunc)
         # For backward compatibility with "context.current"
         # deprecated?
         context.current = context

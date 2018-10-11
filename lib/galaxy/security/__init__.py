@@ -928,7 +928,7 @@ class GalaxyRBACAgent(RBACAgent):
                 permissions[action] = [dhp.role]
         return permissions
 
-    def set_all_dataset_permissions(self, dataset, permissions={}, new=False, flush=True):
+    def set_all_dataset_permissions(self, dataset, permissions={}, new=False, flush=True, lock=None):
         """
         Set new full permissions on a dataset, eliminating all current permissions.
         Permission looks like: { Action : [ Role, Role ] }
@@ -964,7 +964,11 @@ class GalaxyRBACAgent(RBACAgent):
                 self.sa_session.add(dp)
                 flush_needed = True
         if flush_needed and flush:
-            self.sa_session.flush()
+            if lock:
+                with lock:
+                    self.sa_session.flush()
+            else:
+                self.sa_session.flush()
         return ""
 
     def set_dataset_permission(self, dataset, permission={}):

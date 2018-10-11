@@ -1419,7 +1419,7 @@ class Tool(Dictifiable):
                         output_collections=execution_tracker.output_collections,
                         implicit_collections=execution_tracker.implicit_collections)
 
-    def handle_single_execution(self, trans, rerun_remap_job_id, execution_slice, history, execution_cache=None, completed_job=None, collection_info=None):
+    def handle_single_execution(self, trans, rerun_remap_job_id, execution_slice, history, execution_cache=None, completed_job=None, collection_info=None, lock=None):
         """
         Return a pair with whether execution is successful as well as either
         resulting output data or an error message indicating the problem.
@@ -1434,6 +1434,7 @@ class Tool(Dictifiable):
                 dataset_collection_elements=execution_slice.dataset_collection_elements,
                 completed_job=completed_job,
                 collection_info=collection_info,
+                lock=lock,
             )
         except webob.exc.HTTPFound as e:
             # if it's a webob redirect exception, pass it up the stack

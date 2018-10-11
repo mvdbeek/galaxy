@@ -177,6 +177,7 @@ class WebApplication(object):
     def handle_request(self, environ, start_response, body_renderer=None):
         # Grab the request_id (should have been set by middleware)
         request_id = environ.get('request_id', 'unknown')
+        self.api_controllers['tools'].app.thread_local.request_id = request_id
         # Map url using routes
         path_info = environ.get('PATH_INFO', '')
         client_match = self.clientside_routes.match(path_info, environ)

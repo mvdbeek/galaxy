@@ -50,7 +50,7 @@ class ToolAction(object):
     been converted and validated).
     """
 
-    def execute(self, tool, trans, incoming=None, set_output_hid=True):
+    def execute(self, tool, trans, incoming=None, set_output_hid=True, lock=None):
         incoming = incoming or {}
         raise TypeError("Abstract method")
 
@@ -255,7 +255,21 @@ class DefaultToolAction(object):
                         preserved_tags[tag.value] = tag
         return history, inp_data, inp_dataset_collections, preserved_tags, all_permissions
 
-    def execute(self, tool, trans, incoming=None, return_job=False, set_output_hid=True, history=None, job_params=None, rerun_remap_job_id=None, execution_cache=None, dataset_collection_elements=None, completed_job=None, collection_info=None):
+    def execute(self,
+                tool,
+                trans,
+                incoming=None,
+                return_job=False,
+                set_output_hid=True,
+                history=None,
+                job_params=None,
+                rerun_remap_job_id=None,
+                execution_cache=None,
+                dataset_collection_elements=None,
+                completed_job=None,
+                collection_info=None,
+                lock=None,
+                ):
         """
         Executes a tool, creating job and tool outputs, associating them, and
         submitting the job to the job queue. If history is not specified, use
@@ -382,12 +396,16 @@ class DefaultToolAction(object):
                     dataset_collection_elements[name].hda = data
                 trans.sa_session.add(data)
                 if not completed_job:
-                    trans.app.security_agent.set_all_dataset_permissions(data.dataset, output_permissions, new=True)
+                    trans.app.security_agent.set_all_dataset_permissions(data.dataset, output_permissions, new=True, lock=lock)
             data.copy_tags_to(preserved_tags)
 
             if not completed_job and trans.app.config.legacy_eager_objectstore_initialization:
                 # Must flush before setting object store id currently.
-                trans.sa_session.flush()
+                if lock:
+                    with lock:
+                        trans.sa_session.flush()
+                else:
+                    trans.sa_session.flush()
                 object_store_populator.set_object_store_id(data)
 
             # This may not be neccesary with the new parent/child associations
@@ -531,7 +549,11 @@ class DefaultToolAction(object):
         log.info("Setup for job %s complete, ready to flush %s" % (job.log_str(), job_setup_timer))
 
         job_flush_timer = ExecutionTimer()
-        trans.sa_session.flush()
+        if lock:
+            with lock:
+                trans.sa_session.flush()
+        else:
+            trans.sa_session.flush()
         log.info("Flushed transaction for job %s %s" % (job.log_str(), job_flush_timer))
         # Some tools are not really executable, but jobs are still created for them ( for record keeping ).
         # Examples include tools that redirect to other applications ( epigraph ).  These special tools must
@@ -551,7 +573,11 @@ class DefaultToolAction(object):
             job.set_state(app.model.Job.states.OK)
             job.info = "Redirected to: %s" % redirect_url
             trans.sa_session.add(job)
-            trans.sa_session.flush()
+            if lock:
+                with lock:
+                    trans.sa_session.flush()
+            else:
+                trans.sa_session.flush()
             trans.response.send_redirect(url_for(controller='tool_runner', action='redirect', redirect_url=redirect_url))
         else:
             # Put the job in the queue if tracking in memory

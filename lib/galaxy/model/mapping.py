@@ -2593,7 +2593,7 @@ model.WorkflowInvocation.update = _workflow_invocation_update
 
 def init(file_path, url, engine_options=None, create_tables=False, map_install_models=False,
         database_query_profiling_proxy=False, object_store=None, trace_logger=None, use_pbkdf2=True,
-        slow_query_log_threshold=0, thread_local_log=None):
+        slow_query_log_threshold=0, thread_local_log=None, scopefunc=None):
     """Connect mappings to the database"""
     if engine_options is None:
         engine_options = {}
@@ -2615,7 +2615,7 @@ def init(file_path, url, engine_options=None, create_tables=False, map_install_m
         from galaxy.model import tool_shed_install
         model_modules.append(tool_shed_install)
 
-    result = ModelMapping(model_modules, engine=engine)
+    result = ModelMapping(model_modules, engine=engine, scopefunc=scopefunc)
 
     # Create tables if needed
     if create_tables:

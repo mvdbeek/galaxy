@@ -3,7 +3,13 @@ from __future__ import absolute_import
 import logging
 import signal
 import sys
+try:
+    from threading import get_ident
+except ImportError:
+    # python2
+    from thread import get_ident
 import time
+import threading
 
 import galaxy.model
 import galaxy.queues
@@ -83,7 +89,13 @@ class UniverseApplication(config.ConfiguresGalaxyMixin):
         if config_file:
             log.debug('Using "galaxy.ini" config file: %s', config_file)
         check_migrate_tools = self.config.check_migrate_tools
-        self._configure_models(check_migrate_databases=True, check_migrate_tools=check_migrate_tools, config_file=config_file)
+        self.thread_local = threading.local()
+        self.thread_local.request_id = None
+        self._configure_models(check_migrate_databases=True,
+                               check_migrate_tools=check_migrate_tools,
+                               config_file=config_file,
+                               scopefunc=self.scope,
+                               )
 
         # Manage installed tool shed repositories.
         self.installed_repository_manager = installed_repository_manager.InstalledRepositoryManager(self)
@@ -230,7 +242,14 @@ class UniverseApplication(config.ConfiguresGalaxyMixin):
 
         self.model.engine.dispose()
         self.server_starttime = int(time.time())  # used for cachebusting
+
         log.info("Galaxy app startup finished %s" % self.startup_timer)
+
+    def scope(self):
+        request_id = None
+        if hasattr(self.thread_local, 'request_id'):
+            request_id = self.thread_local.request_id
+        return request_id or get_ident()
 
     def shutdown(self):
         log.debug('Shutting down')

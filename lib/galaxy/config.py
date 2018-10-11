@@ -951,7 +951,7 @@ def get_database_url(config):
     return db_url
 
 
-def init_models_from_config(config, map_install_models=False, object_store=None, trace_logger=None):
+def init_models_from_config(config, map_install_models=False, object_store=None, trace_logger=None, scopefunc=None):
     db_url = get_database_url(config)
     from galaxy.model import mapping
     model = mapping.init(
@@ -964,7 +964,8 @@ def init_models_from_config(config, map_install_models=False, object_store=None,
         trace_logger=trace_logger,
         use_pbkdf2=config.get_bool('use_pbkdf2', True),
         slow_query_log_threshold=config.slow_query_log_threshold,
-        thread_local_log=config.thread_local_log
+        thread_local_log=config.thread_local_log,
+        scopefunc=scopefunc,
     )
     return model
 
@@ -1108,7 +1109,7 @@ class ConfiguresGalaxyMixin(object):
         else:
             self.tool_shed_registry = None
 
-    def _configure_models(self, check_migrate_databases=False, check_migrate_tools=False, config_file=None):
+    def _configure_models(self, check_migrate_databases=False, check_migrate_tools=False, config_file=None, scopefunc=None):
         """
         Preconditions: object_store must be set on self.
         """
@@ -1145,7 +1146,8 @@ class ConfiguresGalaxyMixin(object):
             self.config,
             map_install_models=combined_install_database,
             object_store=self.object_store,
-            trace_logger=getattr(self, "trace_logger", None)
+            trace_logger=getattr(self, "trace_logger", None),
+            scopefunc=scopefunc
         )
         if combined_install_database:
             log.info("Install database targetting Galaxy's database configuration.")

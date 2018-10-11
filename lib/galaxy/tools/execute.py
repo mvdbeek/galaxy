@@ -5,7 +5,7 @@ collections from matched collections.
 """
 import collections
 import logging
-from threading import Thread
+import threading
 
 import six
 import six.moves
@@ -49,7 +49,7 @@ def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, colle
     app = trans.app
     execution_cache = ToolExecutionCache(trans)
 
-    def execute_single_job(execution_slice, completed_job):
+    def execute_single_job(execution_slice, completed_job, lock):
         job_timer = ExecutionTimer()
         params = execution_slice.param_combination
         if workflow_invocation_uuid:
@@ -64,7 +64,7 @@ def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, colle
             # Only workflow invocation code gets to set this, ignore user supplied
             # values or rerun parameters.
             del params['__workflow_resource_params__']
-        job, result = tool.handle_single_execution(trans, rerun_remap_job_id, execution_slice, history, execution_cache, completed_job, collection_info)
+        job, result = tool.handle_single_execution(trans, rerun_remap_job_id, execution_slice, history, execution_cache, completed_job, collection_info, lock)
         if job:
             message = EXECUTION_SUCCESS_MESSAGE % (tool.id, job.id, job_timer)
             log.debug(message)
@@ -104,16 +104,19 @@ def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, colle
                 execute_single_job(execution_slice, completed_jobs[i])
     else:
         # TODO: re-record success...
+        lock = threading.Lock()
         q = Queue()
 
         def worker():
             while True:
-                params = q.get()
-                execute_single_job(params)
+                execution_slice, completed_job, request_id, lock = q.get()
+                # Reuse session
+                trans.app.thread_local.request_id = request_id
+                execute_single_job(execution_slice, completed_job, lock)
                 q.task_done()
 
         for i in range(burst_threads):
-            t = Thread(target=worker)
+            t = threading.Thread(target=worker)
             t.daemon = True
             t.start()
 
@@ -122,7 +125,7 @@ def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, colle
                 has_remaining_jobs = True
                 break
             else:
-                q.put(execution_slice, completed_jobs[i])
+                q.put((execution_slice, completed_jobs[i], trans.app.thread_local.request_id, lock))
                 jobs_executed += 1
 
         q.join()

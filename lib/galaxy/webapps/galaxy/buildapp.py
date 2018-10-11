@@ -1105,6 +1105,7 @@ def wrap_in_middleware(app, global_conf, application_stack, **local_conf):
     if asbool(conf.get('enable_per_request_sql_debugging', False)):
         from galaxy.web.framework.middleware.sqldebug import SQLDebugMiddleware
         app = wrap_if_allowed(app, stack, SQLDebugMiddleware, args=(webapp, {}))
+    app.request_id = None
     return app
 
 
