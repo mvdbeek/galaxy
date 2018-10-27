@@ -207,7 +207,7 @@ body {
 
 .unified-panel-header {
     @extend .unselectable;
-    @extend .m-2;
+    @extend .mx-3;
     height: $panel_header_height;
     z-index: 1000;
     font-size: 1rem;
@@ -220,15 +220,12 @@ body {
     }
     .unified-panel-header-inner {
         width: 100%;
-        display: flex;
         align-items: center;
         justify-content: space-between;
     }
-
     .panel-header-buttons {
         order: 9999;
     }
-
     .panel-header-button {
         text-decoration: none;
         display: inline-block;
@@ -239,7 +236,6 @@ body {
         &:not(:last-child) {
             margin-right: 2px;
         }
-
         // Fade to maroon on hover
         &:hover {
             color: maroon;
@@ -258,7 +254,7 @@ body {
 }
 
 .unified-panel-controls {
-    padding: 0 $margin-v;
+    @extend .px-3;
 }
 
 .unified-panel-footer {
@@ -270,12 +266,10 @@ body {
     z-index: 1000; // Above #dd-helper
     border-top: $layout-border;
     background: $navbar-default-bg;
-
     color: #555;
     a {
         color: #555;
     }
-
     .drag {
         position: absolute;
         top: 0;
@@ -347,16 +341,11 @@ div.unified-panel-body {
     height: 100%;
     padding: 0px;
     flex: 1;
+    overflow: auto;
 }
 
 div.unified-panel-body-background {
     background: none repeat scroll 0 0 $panel-bg-color;
-}
-
-#left > div.unified-panel-body,
-#right > div.unified-panel-body {
-    bottom: $panel_footer_height;
-    overflow: auto;
 }
 
 // Used for dragging panels, popup menus, to deal with capturing clicks in iframes
@@ -787,8 +776,7 @@ button {
 
 #tool-search {
     position: relative;
-    margin: 10px 0;
-
+    @extend .mb-2;
     #search-clear-btn {
         position: absolute;
         right: 6px;
@@ -1612,7 +1600,7 @@ div.permissionContainer {
     }
     background: $panel-bg-color;
     min-height: 100%;
-    padding: $margin-h $margin-v;
+    @extend .m-3;
 }
 
 div.toolSectionPad {

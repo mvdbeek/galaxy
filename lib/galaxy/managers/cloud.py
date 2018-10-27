@@ -197,8 +197,8 @@ class CloudManager(sharable.SharableModelManager):
 
         :type  authz_id:    int
         :param authz_id:    the ID of CloudAuthz to be used for authorizing access to the resource provider. You may
-                            get a list of the defined authorizations via `/api/cloud/authz`. Also, you can
-                            use `/api/cloud/authz/create` to define a new authorization.
+                            get a list of the defined authorizations sending GET to `/api/cloud/authz`. Also, you can
+                            POST to `/api/cloud/authz` to define a new authorization.
 
         :type  input_args:  dict
         :param input_args:  a [Optional] a dictionary of input parameters:
@@ -214,7 +214,7 @@ class CloudManager(sharable.SharableModelManager):
             input_args = {}
 
         cloudauthz = trans.app.authnz_manager.try_get_authz_config(trans, authz_id)
-        credentials = trans.app.authnz_manager.get_cloud_access_credentials(trans, cloudauthz)
+        credentials = trans.app.authnz_manager.get_cloud_access_credentials(cloudauthz, trans.sa_session, trans.user.id, trans.request)
         connection = self._configure_provider(cloudauthz.provider, credentials)
         try:
             bucket = connection.storage.buckets.get(bucket_name)
@@ -316,6 +316,6 @@ class CloudManager(sharable.SharableModelManager):
                     downloaded.append(object_label)
                 except Exception as e:
                     log.debug("Failed to download dataset to cloud, maybe invalid or unauthorized credentials. "
-                              "{}".format(e.message))
+                              "{}".format(e))
                     failed.append(object_label)
         return downloaded, failed
