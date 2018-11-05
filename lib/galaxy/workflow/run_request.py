@@ -271,10 +271,20 @@ def build_workflow_run_configs(trans, workflow, payload):
             # and WorkflowRequestInputStepParameter objects.
             for step in workflow.steps:
                 normalized_key = step.id
-                if step.type == "parameter_input":
+                if step.type in ["parameter_input", 'data_input', 'data_collection_input']:
                     if normalized_key in param_map:
                         value = param_map.pop(normalized_key)
-                        normalized_inputs[normalized_key] = value["input"]
+                        if step.type in ['data_input', 'data_collection_input']:
+                            if 'values' in value["input"]:
+                                # I have no clue how we can get more than one value here,
+                                # but if we do we don't want to silently drop additional inputs
+                                if len(value["input"]['values']) != 1:
+                                    raise exceptions.RequestParameterInvalidException("Expected exactly 1 data input in %s" % value["input"]['values'])
+                                normalized_inputs[normalized_key] = value["input"]['values'][0]
+                            else:
+                                normalized_inputs[normalized_key] = value["input"]
+                        else:
+                            normalized_inputs[normalized_key] = value["input"]
 
         steps_by_id = workflow.steps_by_id
         # Set workflow inputs.
