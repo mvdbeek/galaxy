@@ -4,6 +4,7 @@ import tempfile
 
 import pytest
 
+from galaxy.datatypes.metadata import FileParameter
 from galaxy.datatypes.registry import Registry
 from galaxy.util.hash_util import md5_hash_file
 from .test_upload_configuration_options import BaseUploadContentConfigurationTestCase
@@ -97,3 +98,16 @@ def test_upload_datatype_auto(instance, test_data, temp_file):
                                                                            raw=True))
     temp_file.flush()
     assert md5_hash_file(test_data.path) == md5_hash_file(temp_file.name)
+    # Check metadata files are present and can be downloaded.
+    # All current Metadata FileParameter elements are optional,
+    # but it just happens that they are generated for our test data.
+    expected_metadata_files = []
+    for element_spec in test_data.datatype.metadata_spec.data.values():
+        if isinstance(element_spec.param, FileParameter):
+            expected_metadata_files.append(element_spec.name)
+    for meta_file in dataset['meta_files']:
+        r = instance.dataset_populator._get(meta_file['download_url'])
+        assert r.status_code == 200
+        assert len(r.content) > 0
+        expected_metadata_files.remove(meta_file['file_type'])
+    assert len(expected_metadata_files) == 0, "Could not find expected metadata file(s) %s" % expected_metadata_files

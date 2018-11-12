@@ -369,14 +369,16 @@ class DatasetsController(BaseAPIController, UsesVisualizationMixin):
     @web.expose_api_raw_anonymous
     def get_metadata_file(self, trans, history_content_id, history_id, metadata_file=None, **kwd):
         decoded_content_id = self.decode_id(history_content_id)
-        rval = ''
         try:
             hda = self.hda_manager.get_accessible(decoded_content_id, trans.user)
             file_ext = hda.metadata.spec.get(metadata_file).get("file_ext", metadata_file)
-            fname = ''.join(c in util.FILENAME_VALID_CHARS and c or '_' for c in hda.name)[0:150]
+            fname = hda.datatype._download_filename(dataset=hda,
+                                                    to_ext=file_ext,
+                                                    hdca=kwd.get('hdca'),
+                                                    element_identifier=kwd.get('element_identifier'))
             trans.response.headers["Content-Type"] = "application/octet-stream"
-            trans.response.headers["Content-Disposition"] = 'attachment; filename="Galaxy%s-[%s].%s"' % (hda.hid, fname, file_ext)
-            return open(hda.metadata.get(metadata_file).file_name)
+            trans.response.headers["Content-Disposition"] = 'attachment; filename="%s"' % fname
+            return open(hda.metadata.get(metadata_file).file_name, mode='rb')
         except Exception as exception:
             log.error("Error getting metadata_file (%s) for dataset (%s) from history (%s): %s",
                       metadata_file, history_content_id, history_id, str(exception), exc_info=True)
