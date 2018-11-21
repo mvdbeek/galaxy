@@ -484,7 +484,7 @@ class KubernetesJobRunner(AsynchronousJobRunner):
 
         return False
 
-    def stop_job(self, job):
+    def stop_job(self, job_wrapper):
         """Attempts to delete a dispatched job to the k8s cluster"""
         job = job_wrapper.get_job()
         try:
