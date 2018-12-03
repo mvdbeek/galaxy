@@ -112,6 +112,7 @@ def expand_meta_parameters(trans, tool, incoming):
     # order matters, so the following reorders incoming
     # according to tool.inputs (which is ordered).
     incoming_copy = incoming.copy()
+    log.debug("Reordering incoming: %s" % incoming_copy)
     nested_dict = {}
     for incoming_key in incoming_copy:
         if not incoming_key.startswith('__'):
