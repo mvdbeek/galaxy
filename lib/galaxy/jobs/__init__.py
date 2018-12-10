@@ -977,7 +977,7 @@ class JobWrapper(HasResourceParameters):
             if os.path.exists(path):
                 util.umask_fix_perms(path, self.app.config.umask, 0o666, self.app.config.gid)
 
-    def fail(self, message, exception=False, stdout="", stderr="", exit_code=None):
+    def fail(self, message, exception=False, tool_stdout="", tool_stderr="", exit_code=None, job_stdout=None, job_stderr=None):
         """
         Indicate job failure by setting state and message on all output
         datasets.
@@ -1025,7 +1025,7 @@ class JobWrapper(HasResourceParameters):
             job.info = message
             # TODO: Put setting the stdout, stderr, and exit code in one place
             # (not duplicated with the finish method).
-            job.set_streams(stdout, stderr)
+            job.set_streams(tool_stdout, tool_stderr, job_stdout=job_stdout, job_stderr=job_stderr)
             # Let the exit code be Null if one is not provided:
             if (exit_code is not None):
                 job.exit_code = exit_code
@@ -1203,9 +1203,11 @@ class JobWrapper(HasResourceParameters):
 
     def finish(
         self,
-        stdout,
-        stderr,
+        tool_stdout,
+        tool_stderr,
         tool_exit_code=None,
+        job_stdout=None,
+        job_stderr=None,
         check_output_detected_state=None,
         remote_metadata_directory=None,
     ):
@@ -1220,12 +1222,15 @@ class JobWrapper(HasResourceParameters):
         self.sa_session.expunge_all()
         job = self.get_job()
 
+        def fail():
+            return self.fail(job.info, tool_stdout=tool_stdout, tool_stderr=tool_stderr, exit_code=tool_exit_code, job_stdout=job_stdout, job_stderr=job_stderr)
+
         # TODO: After failing here, consider returning from the function.
         try:
             self.reclaim_ownership()
         except Exception:
             log.exception('(%s) Failed to change ownership of %s, failing' % (job.id, self.working_directory))
-            return self.fail(job.info, stdout=stdout, stderr=stderr, exit_code=tool_exit_code)
+            return fail()
 
         # if the job was deleted, don't finish it
         if job.state == job.states.DELETED or job.state == job.states.ERROR:
@@ -1234,7 +1239,7 @@ class JobWrapper(HasResourceParameters):
             # was deleted by an administrator (based on old comments), but it
             # could also mean that a job was broken up into tasks and one of
             # the tasks failed. So include the stderr, stdout, and exit code:
-            return self.fail(job.info, stderr=stderr, stdout=stdout, exit_code=tool_exit_code)
+            return fail()
 
         # We collect the stderr from tools that write their stderr to galaxy.json
         tool_provided_metadata = self.get_tool_provided_job_metadata()
@@ -1246,7 +1251,7 @@ class JobWrapper(HasResourceParameters):
         # We set final_job_state to use for dataset management, but *don't* set
         # job.state until after dataset discovery to prevent history issues
         if check_output_detected_state is None:
-            check_output_detected_state = self.check_tool_output(stdout, stderr, tool_exit_code, job)
+            check_output_detected_state = self.check_tool_output(tool_stdout, tool_stderr, tool_exit_code=tool_exit_code, job=job, job_stdout=job_stdout, job_stderr=job_stderr)
 
         if check_output_detected_state == DETECTED_JOB_STATE.OK and not tool_provided_metadata.has_failed_outputs():
             final_job_state = job.states.OK
@@ -1500,16 +1505,16 @@ class JobWrapper(HasResourceParameters):
         delete_files = cleanup_job == 'always' or (job.state == job.states.OK and cleanup_job == 'onsuccess')
         self.cleanup(delete_files=delete_files)
 
-    def check_tool_output(self, stdout, stderr, tool_exit_code, job):
+    def check_tool_output(self, tool_stdout, tool_stderr, tool_exit_code, job, job_stdout=None, job_stderr=None):
         job_id_tag = "<unknown job id>"
         if job is not None:
             job_id_tag = job.get_id_tag()
 
-        state, stdout_unicodified, stderr_unicodified, job_messages = check_output(self.tool.stdio_regexes, self.tool.stdio_exit_codes, stdout, stderr, tool_exit_code, job_id_tag)
+        state, tool_stdout, tool_stderr, job_messages = check_output(self.tool.stdio_regexes, self.tool.stdio_exit_codes, tool_stdout, tool_stderr, tool_exit_code, job_id_tag)
 
         # Store the modified stdout and stderr in the job:
         if job is not None:
-            job.set_streams(stdout_unicodified, stderr_unicodified, job_messages=job_messages)
+            job.set_streams(tool_stdout, tool_stderr, job_messages=job_messages, job_stdout=job_stdout, job_stderr=job_stderr)
 
         return state
 
@@ -2056,7 +2061,7 @@ class TaskWrapper(JobWrapper):
         # Check what the tool returned. If the stdout or stderr matched
         # regular expressions that indicate errors, then set an error.
         # The same goes if the tool's exit code was in a given range.
-        if self.check_tool_output(stdout, stderr, tool_exit_code, task) == DETECTED_JOB_STATE.OK:
+        if self.check_tool_output(stdout, stderr, tool_exit_code=tool_exit_code, job=task) == DETECTED_JOB_STATE.OK:
             task.state = task.states.OK
         else:
             task.state = task.states.ERROR

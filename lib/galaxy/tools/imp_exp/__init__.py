@@ -218,8 +218,8 @@ class JobImportHistoryArchiveWrapper(UsesAnnotations):
                     imported_job.info = job_attrs.get('info', None)
                     imported_job.exit_code = job_attrs.get('exit_code', None)
                     imported_job.traceback = job_attrs.get('traceback', None)
-                    imported_job.stdout = job_attrs.get('stdout', None)
-                    imported_job.stderr = job_attrs.get('stderr', None)
+                    imported_job.tool_stdout = job_attrs.get('stdout', None)
+                    imported_job.tool_stderr = job_attrs.get('stderr', None)
                     imported_job.command_line = job_attrs.get('command_line', None)
                     try:
                         imported_job.create_time = datetime.datetime.strptime(job_attrs["create_time"], "%Y-%m-%dT%H:%M:%S.%f")
@@ -280,7 +280,7 @@ class JobImportHistoryArchiveWrapper(UsesAnnotations):
                 if os.path.exists(archive_dir):
                     shutil.rmtree(archive_dir)
             except Exception as e:
-                jiha.job.stderr += "Error cleaning up history import job: %s" % e
+                jiha.job.tool_stderr += "Error cleaning up history import job: %s" % e
                 self.sa_session.flush()
                 raise
 
