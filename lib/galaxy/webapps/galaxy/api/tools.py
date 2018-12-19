@@ -228,11 +228,15 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
         Attempts to install requirements via the dependency resolver
 
         parameters:
+            index:                   index of dependency resolver to use when installing dependency.
+                                     Defaults to using the highest ranking resolver
+            resolver_type:           Use the dependency resolver of this resolver_type to install dependency.
             build_dependency_cache:  If true, attempts to cache dependencies for this tool
             force_rebuild:           If true and cache dir exists, attempts to delete cache dir
         """
         tool = self._get_tool(id)
-        tool._view.install_dependencies(tool.requirements)
+        kwds['install'] = True
+        tool._view.install_dependencies(tool.requirements, **kwds)
         if kwds.get('build_dependency_cache'):
             tool.build_dependency_cache(**kwds)
         # TODO: rework resolver install system to log and report what has been done.
@@ -246,9 +250,13 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
         DELETE /api/tools/{tool_id}/dependencies
         Attempts to uninstall requirements via the dependency resolver
 
+        parameters:
+            index:                   index of dependency resolver to use when installing dependency.
+                                     Defaults to using the highest ranking resolver
+            resolver_type:           Use the dependency resolver of this resolver_type to install dependency
         """
         tool = self._get_tool(id)
-        tool._view.uninstall_dependencies(index=None, requirements=tool.requirements)
+        tool._view.uninstall_dependencies(requirements=tool.requirements, **kwds)
         # TODO: rework resolver install system to log and report what has been done.
         return tool.tool_requirements_status
 
@@ -458,7 +466,7 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
         for k, v in inputs.items():
             if isinstance(v, dict) and v.get('src', '') == 'ldda' and 'id' in v:
                 ldda = trans.sa_session.query(trans.app.model.LibraryDatasetDatasetAssociation).get(self.decode_id(v['id']))
-                if trans.user_is_admin() or trans.app.security_agent.can_access_dataset(trans.get_current_user_roles(), ldda.dataset):
+                if trans.user_is_admin or trans.app.security_agent.can_access_dataset(trans.get_current_user_roles(), ldda.dataset):
                     input_patch[k] = ldda.to_history_dataset_association(target_history, add_to_history=True)
 
         for k, v in input_patch.items():

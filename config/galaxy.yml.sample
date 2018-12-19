@@ -242,6 +242,9 @@ galaxy:
   # guide/tasks/manage-channels.html)
   #conda_ensure_channels: 'iuc,conda-forge,bioconda,defaults'
 
+  # Use locally-built conda packages.
+  #conda_use_local: false
+
   # Set to True to instruct Galaxy to look for and install missing tool
   # dependencies before each job runs.
   #conda_auto_install: false
@@ -697,6 +700,9 @@ galaxy:
   # The URL linked by the "Galaxy/brand" text.
   #logo_url: /
 
+  # The URL linked by the "Galaxy Help" link in the "Help" menu.
+  #helpsite_url: ''
+
   # The URL linked by the "Wiki" link in the "Help" menu.
   #wiki_url: 'https://galaxyproject.org/'
 
@@ -1016,9 +1022,14 @@ galaxy:
 
   # When stopping Galaxy cleanly, how much time to give various
   # monitoring/polling threads to finish before giving up on joining
-  # them. Set to 0 to disable this and restore the pre-18.01 default
-  # behavior.
-  #monitor_thread_join_timeout: 5
+  # them. Set to 0 to disable this and terminate without waiting. Among
+  # others, these threads include the job handler workers, which are
+  # responsible for preparing/submitting and collecting/finishing jobs,
+  # and which can cause job errors if not shut down cleanly. If using
+  # supervisord, consider also increasing the value of `stopwaitsecs`.
+  # If using job handler mules, consider also setting the `mule-reload-
+  # mercy` uWSGI option. See the Galaxy Admin Documentation for more.
+  #monitor_thread_join_timeout: 30
 
   # Write thread status periodically to 'heartbeat.log',  (careful, uses
   # disk space rapidly!).  Useful to determine why your processes may be
@@ -1355,6 +1366,9 @@ galaxy:
   # of Galaxy's stable API.
   #enable_beta_workflow_modules: false
 
+  # Enable import and export of workflows as Galaxy Format 2 workflows.
+  #enable_beta_workflow_format: false
+
   # Following options only apply to workflows scheduled using the legacy
   # workflow run API (running workflows via a POST to /api/workflows).
   # Force usage of Galaxy's beta workflow scheduler under certain
@@ -1549,9 +1563,8 @@ galaxy:
   # failing jobs are just failed outright.
   #default_job_resubmission_condition: null
 
-  # In multiprocess configurations, notification between processes about
-  # new jobs must be done via the database.  In single process
-  # configurations, this can be done in memory, which is a bit quicker.
+  # This option is deprecated, use the `mem-self` handler assignment
+  # option in the job configuration instead.
   #track_jobs_in_database: true
 
   # This enables splitting of jobs into tasks, if specified by the

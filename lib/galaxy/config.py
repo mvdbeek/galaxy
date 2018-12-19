@@ -4,6 +4,7 @@ Universe configuration builder.
 # absolute_import needed for tool_shed package.
 from __future__ import absolute_import
 
+import collections
 import ipaddress
 import logging
 import logging.config
@@ -154,7 +155,7 @@ def find_root(kwargs):
 
 
 class Configuration(object):
-    deprecated_options = ('database_file', )
+    deprecated_options = ('database_file', 'track_jobs_in_database')
 
     def __init__(self, **kwargs):
         self.config_dict = kwargs
@@ -383,6 +384,8 @@ class Configuration(object):
         # workflows built using these modules may not function in the
         # future.
         self.enable_beta_workflow_modules = string_as_bool(kwargs.get('enable_beta_workflow_modules', 'False'))
+        # Enable use of gxformat2 workflows.
+        self.enable_beta_workflow_format = string_as_bool(kwargs.get('enable_beta_workflow_format', 'False'))
         # These are not even beta - just experiments - don't use them unless
         # you want yours tools to be broken in the future.
         self.enable_beta_tool_formats = string_as_bool(kwargs.get('enable_beta_tool_formats', 'False'))
@@ -424,7 +427,7 @@ class Configuration(object):
         self.use_heartbeat = string_as_bool(kwargs.get('use_heartbeat', 'False'))
         self.heartbeat_interval = int(kwargs.get('heartbeat_interval', 20))
         self.heartbeat_log = kwargs.get('heartbeat_log', None)
-        self.monitor_thread_join_timeout = int(kwargs.get("monitor_thread_join_timeout", 5))
+        self.monitor_thread_join_timeout = int(kwargs.get("monitor_thread_join_timeout", 30))
         self.log_actions = string_as_bool(kwargs.get('log_actions', 'False'))
         self.log_events = string_as_bool(kwargs.get('log_events', 'False'))
         self.sanitize_all_html = string_as_bool(kwargs.get('sanitize_all_html', True))
@@ -446,6 +449,7 @@ class Configuration(object):
         self.message_box_class = kwargs.get('message_box_class', 'info')
         self.support_url = kwargs.get('support_url', 'https://galaxyproject.org/support')
         self.citation_url = kwargs.get('citation_url', 'https://galaxyproject.org/citing-galaxy')
+        self.helpsite_url = kwargs.get('helpsite_url', None)
         self.wiki_url = kwargs.get('wiki_url', 'https://galaxyproject.org/')
         self.blog_url = kwargs.get('blog_url', None)
         self.screencasts_url = kwargs.get('screencasts_url', None)
@@ -1028,6 +1032,7 @@ class ConfiguresGalaxyMixin(object):
         from galaxy import tools
         from galaxy.managers.citations import CitationsManager
         from galaxy.tools.deps import containers
+        from galaxy.tools.deps.dependencies import AppInfo
         import galaxy.tools.search
 
         self.citations_manager = CitationsManager(self)
@@ -1040,7 +1045,7 @@ class ConfiguresGalaxyMixin(object):
         self.toolbox = tools.ToolBox(tool_configs, self.config.tool_path, self)
         galaxy_root_dir = os.path.abspath(self.config.root)
         file_path = os.path.abspath(getattr(self.config, "file_path"))
-        app_info = containers.AppInfo(
+        app_info = AppInfo(
             galaxy_root_dir=galaxy_root_dir,
             default_file_path=file_path,
             outputs_to_working_directory=self.config.outputs_to_working_directory,
@@ -1052,6 +1057,9 @@ class ConfiguresGalaxyMixin(object):
             involucro_auto_init=self.config.involucro_auto_init,
         )
         self.container_finder = containers.ContainerFinder(app_info)
+        self.toolbox.dependency_manager.resolver_classes.update(self.container_finder.container_registry.resolver_classes)
+        self.toolbox.dependency_manager.dependency_resolvers.extend(self.container_finder.container_registry.container_resolvers)
+        self._set_enabled_container_types()
         index_help = getattr(self.config, "index_tool_help", True)
         self.toolbox_search = galaxy.tools.search.ToolBoxSearch(self.toolbox, index_help)
         self.reindex_tool_search()
@@ -1060,6 +1068,14 @@ class ConfiguresGalaxyMixin(object):
         # Call this when tools are added or removed.
         self.toolbox_search.build_index(tool_cache=self.tool_cache)
         self.tool_cache.reset_status()
+
+    def _set_enabled_container_types(self):
+        container_types_to_destinations = collections.defaultdict(list)
+        for destinations in self.job_config.destinations.values():
+            for destination in destinations:
+                for enabled_container_type in self.container_finder._enabled_container_types(destination.params):
+                    container_types_to_destinations[enabled_container_type].append(destination)
+        self.toolbox.dependency_manager.set_enabled_container_types(container_types_to_destinations)
 
     def _configure_tool_data_tables(self, from_shed_config):
         from galaxy.tools.data import ToolDataTableManager

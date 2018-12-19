@@ -107,6 +107,7 @@ MODEL_TOOLS_PATH = os.path.abspath(os.path.dirname(__file__))
 # Tools that require Galaxy's Python environment to be preserved.
 GALAXY_LIB_TOOLS_UNVERSIONED = [
     "upload1",
+    "send_to_cloud",
     "__DATA_FETCH__",
     # Legacy tools bundled with Galaxy.
     "vcf_to_maf_customtrack1",
@@ -138,6 +139,7 @@ GALAXY_LIB_TOOLS_UNVERSIONED = [
     "CONVERTER_maf_to_fasta_0",
     "CONVERTER_maf_to_interval_0",
     "CONVERTER_wiggle_to_interval_0",
+    "CONVERTER_tar_to_directory",
     # Tools improperly migrated to the tool shed (devteam)
     "qualityFilter",
     "winSplitter",
@@ -559,16 +561,18 @@ class Tool(Dictifiable):
         assert rval is not None, 'Could not get a job tool configuration for Tool %s with job_params %s, this is a bug' % (self.id, job_params)
         return rval
 
-    def get_job_handler(self, job_params=None):
-        """Get a suitable job handler for this `Tool` given the provided `job_params`.  If multiple handlers are valid for combination of `Tool` and `job_params` (e.g. the defined handler is a handler tag), one will be selected at random.
+    def get_configured_job_handler(self, job_params=None):
+        """Get the configured job handler for this `Tool` given the provided `job_params`.
+
+        Unlike the former ``get_job_handler()`` method, this does not perform "preassignment" (random selection of
+        a configured handler ID from a tag).
 
         :param job_params: Any params specific to this job (e.g. the job source)
         :type job_params: dict or None
 
-        :returns: str -- The id of a job handler for a job run of this `Tool`
+        :returns: str or None -- The configured handler for a job run of this `Tool`
         """
-        # convert tag to ID if necessary
-        return self.app.job_config.get_handler(self.__get_job_tool_configuration(job_params=job_params).handler)
+        return self.__get_job_tool_configuration(job_params=job_params).handler
 
     def get_job_destination(self, job_params=None):
         """
@@ -893,11 +897,6 @@ class Tool(Dictifiable):
 
     def tool_provided_metadata(self, job_wrapper):
         meta_file = os.path.join(job_wrapper.tool_working_directory, self.provided_metadata_file)
-        # LEGACY: Remove in 17.XX
-        if not os.path.exists(meta_file):
-            # Maybe this is a legacy job, use the job working directory instead
-            meta_file = os.path.join(job_wrapper.working_directory, self.provided_metadata_file)
-
         if not os.path.exists(meta_file):
             return output_collect.NullToolProvidedMetadata()
         if self.provided_metadata_style == "legacy":
@@ -1514,7 +1513,16 @@ class Tool(Dictifiable):
         `self.tool_action`. In general this will create a `Job` that
         when run will build the tool's outputs, e.g. `DefaultToolAction`.
         """
-        return self.tool_action.execute(self, trans, incoming=incoming, set_output_hid=set_output_hid, history=history, **kwargs)
+        try:
+            return self.tool_action.execute(self, trans, incoming=incoming, set_output_hid=set_output_hid, history=history, **kwargs)
+        except exceptions.ToolExecutionError as exc:
+            job = exc.job
+            job_id = 'unknown'
+            if job is not None:
+                job.mark_failed(info=exc.err_msg, blurb=exc.err_code.default_error_message)
+                job_id = job.id
+            log.error("Tool execution failed for job: %s", job_id)
+            raise
 
     def params_to_strings(self, params, app, nested=False):
         return params_to_strings(self.inputs, params, app, nested)
@@ -1535,7 +1543,7 @@ class Tool(Dictifiable):
             if not error:
                 value, error = check_param(request_context, input, value, context)
             if error:
-                if update_values:
+                if update_values and not hasattr(input, 'data_ref'):
                     try:
                         previous_value = value
                         value = input.get_initial_value(request_context, context)
@@ -1703,7 +1711,7 @@ class Tool(Dictifiable):
             tool_help = tool.help._source
             # Check each line of the rendered tool help for an image tag that points to a location under static/
             for help_line in tool_help.split('\n'):
-                image_regex = re.compile('img alt="[^"]+" src="\${static_path}/([^"]+)"')
+                image_regex = re.compile(r'img alt="[^"]+" src="\${static_path}/([^"]+)"')
                 matches = re.search(image_regex, help_line)
                 if matches is not None:
                     tool_help_image = matches.group(1)
@@ -1813,7 +1821,7 @@ class Tool(Dictifiable):
             }
 
         # If an admin user, expose the path to the actual tool config XML file.
-        if trans.user_is_admin():
+        if trans.user_is_admin:
             tool_dict['config_file'] = os.path.abspath(self.config_file)
 
         # Add link details.
@@ -1968,9 +1976,9 @@ class Tool(Dictifiable):
                     tool_dict['value'] = input.value_to_basic(state_inputs.get(input.name, initial_value), self.app, use_security=True)
                     tool_dict['default_value'] = input.value_to_basic(initial_value, self.app, use_security=True)
                     tool_dict['text_value'] = input.value_to_display_text(tool_dict['value'])
-                except Exception as e:
+                except Exception:
                     tool_dict = input.to_dict(request_context)
-                    log.exception('tools::to_json() - Skipping parameter expansion \'%s\': %s.' % (input.name, e))
+                    log.exception("tools::to_json() - Skipping parameter expansion '%s'", input.name)
                     pass
             if input_index >= len(group_inputs):
                 group_inputs.append(tool_dict)
@@ -2760,7 +2768,7 @@ class RelabelFromFileTool(DatabaseOperationTool):
                 dce_object = dce.element_object
                 add_copied_value_to_new_elements(new_labels[i], dce_object)
         for key in new_elements.keys():
-            if not re.match("^[\w\-_]+$", key):
+            if not re.match(r"^[\w\-_]+$", key):
                 raise Exception("Invalid new colleciton identifier [%s]" % key)
         self._add_datasets_to_history(history, itervalues(new_elements))
         output_collections.create_collection(
