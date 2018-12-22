@@ -213,7 +213,7 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
         Return the resolver status for a specific tool id.
         [{"status": "installed", "name": "hisat2", "versionless": false, "resolver_type": "conda", "version": "2.0.3", "type": "package"}]
         """
-        tool = self._get_tool(id)
+        tool = self._get_tool(id, user=trans.user)
         return tool.tool_requirements_status
 
     @expose_api

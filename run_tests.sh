@@ -270,7 +270,7 @@ exists() {
     type "$1" >/dev/null 2>/dev/null
 }
 
-DOCKER_DEFAULT_IMAGE='galaxy/testing-base:18.09.0'
+DOCKER_DEFAULT_IMAGE='mvdbeek/testing-base:19.01.0'
 
 test_script="./scripts/functional_tests.py"
 report_file="run_functional_tests.html"
@@ -311,6 +311,7 @@ then
     DOCKER_RUN_EXTRA_ARGS="-e GALAXY_TEST_UID=${MY_UID} -e GALAXY_SKIP_CLIENT_BUILD=1 ${DOCKER_RUN_EXTRA_ARGS}"
     echo "Launching docker container for testing with extra args ${DOCKER_RUN_EXTRA_ARGS}..."
     docker $DOCKER_EXTRA_ARGS run $DOCKER_RUN_EXTRA_ARGS \
+        --privileged \
         -e "BUILD_NUMBER=$BUILD_NUMBER" \
         -e "GALAXY_TEST_DATABASE_TYPE=$db_type" \
         -e "LC_ALL=C" \
