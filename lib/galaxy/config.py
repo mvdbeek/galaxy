@@ -308,7 +308,6 @@ class Configuration(object):
         # Fall back to legacy job_working_directory config variable if set.
         default_jobs_directory = kwargs.get("job_working_directory", "database/jobs_directory")
         self.jobs_directory = resolve_path(kwargs.get("jobs_directory", default_jobs_directory), self.root)
-        self.job_script_directory = kwargs.get("job_script_directory", self.jobs_directory)
         self.default_job_shell = kwargs.get("default_job_shell", "/bin/bash")
         self.cleanup_job = kwargs.get("cleanup_job", "always")
         preserve_python_environment = kwargs.get("preserve_python_environment", "legacy_only")
@@ -521,7 +520,7 @@ class Configuration(object):
             involucro_path = os.path.join(tool_dependency_dir or "database", "involucro")
         self.involucro_path = resolve_path(involucro_path, self.root)
         self.involucro_auto_init = string_as_bool(kwargs.get('involucro_auto_init', True))
-        mulled_channels =  kwargs.get('mulled_channels')
+        mulled_channels = kwargs.get('mulled_channels')
         if mulled_channels:
             self.mulled_channels = [c.strip() for c in mulled_channels.split(',')]
         else:
