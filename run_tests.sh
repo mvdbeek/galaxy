@@ -304,6 +304,7 @@ then
     echo "Launching docker container for testing with extra args ${DOCKER_RUN_EXTRA_ARGS}..."
     docker $DOCKER_EXTRA_ARGS run $DOCKER_RUN_EXTRA_ARGS \
         --privileged \
+        --security-opt seccomp=unconfined \
         -e "BUILD_NUMBER=$BUILD_NUMBER" \
         -e "GALAXY_TEST_DATABASE_TYPE=$db_type" \
         -e "LC_ALL=C" \
