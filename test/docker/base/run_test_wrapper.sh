@@ -54,7 +54,7 @@ HOME=/home/galaxy
 find /usr/local/libexec/singularity -type f -name '*-suid' -exec chown root:root {} \; -exec chmod u+s {} \;
 
 echo "Testing singularity exec as galaxy user"
-su -c "singularity -d exec docker://busybox hostname" - galaxy
+su -c "singularity -d exec docker://busybox hostname" - galaxy || dmesg && exit 1
 
 echo "Running common startup for updated dependencies (if any)"
 sudo -E -u "#${GALAXY_TEST_UID}" ./scripts/common_startup.sh --dev-wheels || { echo "common_startup.sh failed"; exit 1; }
