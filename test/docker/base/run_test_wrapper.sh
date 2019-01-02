@@ -52,7 +52,7 @@ cd /galaxy
 HOME=/home/galaxy
 
 echo "Testing singularity exec as galaxy user"
-sudo -E -u "#${GALAXY_TEST_UID}" singularity -d exec docker://busybox hostname
+sudo -E -u "#${GALAXY_TEST_UID}" singularity -d exec --userns docker://busybox hostname
 
 echo "Running common startup for updated dependencies (if any)"
 sudo -E -u "#${GALAXY_TEST_UID}" ./scripts/common_startup.sh --dev-wheels || { echo "common_startup.sh failed"; exit 1; }
