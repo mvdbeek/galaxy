@@ -54,7 +54,7 @@ HOME=/home/galaxy
 find /usr/local/libexec/singularity -type f -name '*-suid' -exec chown root:root {} \; -exec chmod u+s {} \;
 
 echo "Testing singularity exec as galaxy user using capsh"
-capsh --print  --keep=1 --user=galaxy -- -c "singularity -d exec docker://busybox hostname"
+capsh --print  --keep=1 --caps="cap_chown,cap_dac_override,cap_dac_read_search,cap_fowner,cap_fsetid,cap_kill,cap_setgid,cap_setuid+eip,cap_setpcap,cap_linux_immutable,cap_net_bind_service,cap_net_broadcast,cap_net_admin,cap_net_raw,cap_ipc_lock,cap_ipc_owner,cap_sys_module,cap_sys_rawio,cap_sys_chroot,cap_sys_ptrace,cap_sys_pacct,cap_sys_admin,cap_sys_boot,cap_sys_nice,cap_sys_resource,cap_sys_time,cap_sys_tty_config,cap_mknod,cap_lease,cap_audit_write,cap_audit_control,cap_setfcap,cap_mac_override,cap_mac_admin,cap_syslog,cap_wake_alarm,cap_block_suspend" --user=galaxy -- -c "singularity -d exec docker://busybox hostname"
 
 echo "Running common startup for updated dependencies (if any)"
 sudo -E -u "#${GALAXY_TEST_UID}" ./scripts/common_startup.sh --dev-wheels || { echo "common_startup.sh failed"; exit 1; }
