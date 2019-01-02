@@ -131,9 +131,8 @@ USER seluser
 RUN export GOPATH=${HOME}/go && export PATH=/usr/local/go/bin:${PATH}:${GOPATH}/bin && \
     mkdir -p $GOPATH/src/github.com/sylabs && \
     cd $GOPATH/src/github.com/sylabs && \
-    git clone https://github.com/sylabs/singularity.git && \
+    git clone https://github.com/mvdbeek/singularity.git && \
     cd singularity && \
-    git checkout v3.0.1 && \
     ./mconfig && \
     cd builddir && make && sudo make install && \
     rm -Rf ${HOME}/go
