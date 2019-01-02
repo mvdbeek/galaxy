@@ -34,6 +34,7 @@ var AdminPanel = Backbone.View.extend({
                     {
                         title: _l("Display applications"),
                         url: "admin/display_applications",
+                        target: "__use_router__",
                         id: "admin-link-display-applications"
                     },
                     {
@@ -132,7 +133,8 @@ var AdminPanel = Backbone.View.extend({
                     },
                     {
                         title: _l("View error logs"),
-                        url: "admin/tool_errors"
+                        url: "admin/error_stack",
+                        target: "__use_router__"
                     }
                 ]
             }
