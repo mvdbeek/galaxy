@@ -53,7 +53,7 @@ HOME=/home/galaxy
 
 find /usr/local/libexec/singularity -type f -name '*-suid' -exec chown root:root {} \; -exec chmod u+s {} \;
 
-echo "Testing singularity exec as galaxy user"
+echo "Testing singularity exec as galaxy user using capsh"
 capsh --print  --keep=1 --user=galaxy -- -c "singularity -d exec docker://busybox hostname"
 
 echo "Running common startup for updated dependencies (if any)"
