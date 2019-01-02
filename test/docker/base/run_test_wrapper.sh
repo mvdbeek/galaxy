@@ -51,6 +51,8 @@ cd /galaxy
 
 HOME=/home/galaxy
 
+find /usr/local/libexec/singularity -type f -name '*-suid' -exec chown root:root {} \; -exec chmod u+s {} \;
+
 echo "Testing singularity exec as galaxy user"
 sudo -E -u "#${GALAXY_TEST_UID}" singularity -d exec docker://busybox hostname
 
