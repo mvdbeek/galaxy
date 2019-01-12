@@ -4,7 +4,7 @@ import unittest
 
 from galaxy import model
 from galaxy.jobs.datasets import DatasetPath
-from galaxy.metadata import get_metadata_compute_strategy
+from galaxy.metadata.collection import get_metadata_compute_strategy
 from galaxy.objectstore import ObjectStorePopulator
 from .. import tools_support
 

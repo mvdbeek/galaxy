@@ -19,19 +19,17 @@ import sys
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir)))
 
 from six.moves import cPickle
-from sqlalchemy.orm import clear_mappers
 
-import galaxy.model.mapping  # need to load this before we unpickle, in order to setup properties assigned by the mappers
-from galaxy.model.custom_types import total_size
-from galaxy.util import stringify_dictionary_keys
+from galaxy.util import stringify_dictionary_keys, total_size
+from galaxy.metadata.parameters import MetadataTempFile
+from galaxy.datatypes import sniff
+from galaxy.dataypes.registry import Registry
 
 # ensure supported version
 assert sys.version_info[:2] >= (2, 7), 'Python version must be at least 2.7, this is: %s' % sys.version
 
 logging.basicConfig()
 log = logging.getLogger(__name__)
-
-galaxy.model.Job()  # this looks REAL stupid, but it is REQUIRED in order for SA to insert parameters into the classes defined by the mappers --> it appears that instantiating ANY mapper'ed class would suffice here
 
 
 def set_meta_with_tool_provided(dataset_instance, file_dict, set_meta_kwds, datatypes_registry, max_metadata_value_size):
@@ -43,7 +41,6 @@ def set_meta_with_tool_provided(dataset_instance, file_dict, set_meta_kwds, data
     extension = dataset_instance.extension
     if extension == "_sniff_":
         try:
-            from galaxy.datatypes import sniff
             extension = sniff.handle_uploaded_dataset_file(dataset_instance.dataset.external_filename, datatypes_registry)
             # We need to both set the extension so it is available to set_meta
             # and record it in the metadata so it can be reloaded on the server
@@ -72,8 +69,7 @@ def set_meta_with_tool_provided(dataset_instance, file_dict, set_meta_kwds, data
 def set_metadata():
     # locate galaxy_root for loading datatypes
     galaxy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir))
-    import galaxy.model
-    galaxy.model.metadata.MetadataTempFile.tmp_dir = tool_job_working_directory = os.path.abspath(os.getcwd())
+    MetadataTempFile.tmp_dir = tool_job_working_directory = os.path.abspath(os.getcwd())
 
     # This is ugly, but to transition from existing jobs without this parameter
     # to ones with, smoothly, it has to be the last optional parameter and we
@@ -90,10 +86,11 @@ def set_metadata():
     if not os.path.exists(datatypes_config):
         print("Metadata setting failed because registry.xml could not be found. You may retry setting metadata.")
         sys.exit(1)
-    import galaxy.datatypes.registry
-    datatypes_registry = galaxy.datatypes.registry.Registry()
+    datatypes_registry = Registry()
     datatypes_registry.load_datatypes(root_dir=galaxy_root, config=datatypes_config)
-    galaxy.model.set_datatypes_registry(datatypes_registry)
+    # galaxy.model.set_datatypes_registry(datatypes_registry)
+    global _datatypes_registry
+    _datatypes_registry = datatypes_registry
 
     job_metadata = sys.argv.pop(1)
     existing_job_metadata_dict = {}
@@ -129,8 +126,8 @@ def set_metadata():
             # Metadata FileParameter types may not be writable on a cluster node, and are therefore temporarily substituted with MetadataTempFiles
             override_metadata = json.load(open(override_metadata))
             for metadata_name, metadata_file_override in override_metadata:
-                if galaxy.datatypes.metadata.MetadataTempFile.is_JSONified_value(metadata_file_override):
-                    metadata_file_override = galaxy.datatypes.metadata.MetadataTempFile.from_JSON(metadata_file_override)
+                if MetadataTempFile.is_JSONified_value(metadata_file_override):
+                    metadata_file_override = MetadataTempFile.from_JSON(metadata_file_override)
                 setattr(dataset.metadata, metadata_name, metadata_file_override)
             set_meta_with_tool_provided(dataset, file_dict, set_meta_kwds, datatypes_registry, max_metadata_value_size)
             dataset.metadata.to_JSON_dict(filename_out)  # write out results of set_meta
@@ -152,5 +149,3 @@ def set_metadata():
         with open(job_metadata, 'wt') as job_metadata_fh:
             for value in list(existing_job_metadata_dict.values()) + list(new_job_metadata_dict.values()):
                 job_metadata_fh.write("%s\n" % (json.dumps(value)))
-
-    clear_mappers()

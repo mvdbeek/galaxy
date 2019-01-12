@@ -14,19 +14,31 @@ import weakref
 from os.path import abspath
 
 from six import string_types
-from sqlalchemy.orm import object_session
+try:
+    from sqlalchemy.orm import object_session
+except ImportError:
+    def object_session(*args):
+        return None
 
-import galaxy.model
+try:
+    from galaxy.model import MetadataFile
+except ImportError:
+    MetadataFile = None
+
 from galaxy.util import (listify, string_as_bool,
                          stringify_dictionary_keys)
 from galaxy.util.json import safe_dumps
 from galaxy.util.object_wrapper import sanitize_lists_to_string
 from galaxy.util.odict import odict
-from galaxy.web import form_builder
 
 log = logging.getLogger(__name__)
 
 STATEMENTS = "__galaxy_statements__"  # this is the name of the property in a Datatype class where new metadata spec element Statements are stored
+
+
+def form_builder(**kwargs):
+    from galaxy.web import form_builder as _form_builder
+    return _form_builder(**kwargs)
 
 
 class Statement(object):
@@ -192,7 +204,6 @@ class MetadataCollection(object):
             dataset.extension = JSONified_dict['__extension__']
 
     def to_JSON_dict(self, filename=None):
-        # galaxy.model.customtypes.json_encoder.encode()
         meta_dict = {}
         dataset_meta_dict = self.parent._metadata
         for name, spec in self.spec.items():
@@ -512,15 +523,15 @@ class FileParameter(MetadataParameter):
     def wrap(self, value, session):
         if value is None:
             return None
-        if isinstance(value, galaxy.model.MetadataFile) or isinstance(value, MetadataTempFile):
+        if (MetadataFile and isinstance(value, MetadataFile)) or isinstance(value, MetadataTempFile):
             return value
-        mf = session.query(galaxy.model.MetadataFile).get(value)
+        mf = session.query(MetadataFile).get(value)
         return mf
 
     def make_copy(self, value, target_context, source_context):
         value = self.wrap(value, object_session(target_context.parent))
         if value:
-            new_value = galaxy.model.MetadataFile(dataset=target_context.parent, name=self.spec.name)
+            new_value = MetadataFile(dataset=target_context.parent, name=self.spec.name)
             object_session(target_context.parent).add(new_value)
             object_session(target_context.parent).flush()
             shutil.copy(value.file_name, new_value.file_name)
@@ -529,7 +540,7 @@ class FileParameter(MetadataParameter):
 
     @classmethod
     def marshal(cls, value):
-        if isinstance(value, galaxy.model.MetadataFile):
+        if isinstance(value, MetadataFile):
             value = value.id
         return value
 
@@ -562,7 +573,7 @@ class FileParameter(MetadataParameter):
         """
         Turns a value read from a metadata into its value to be pushed directly into the external dict.
         """
-        if isinstance(value, galaxy.model.MetadataFile):
+        if isinstance(value, MetadataFile):
             value = value.id
         elif isinstance(value, MetadataTempFile):
             value = MetadataTempFile.to_JSON(value)
@@ -570,7 +581,7 @@ class FileParameter(MetadataParameter):
 
     def new_file(self, dataset=None, **kwds):
         if object_session(dataset):
-            mf = galaxy.model.MetadataFile(name=self.spec.name, dataset=dataset, **kwds)
+            mf = MetadataFile(name=self.spec.name, dataset=dataset, **kwds)
             object_session(dataset).add(mf)
             object_session(dataset).flush()  # flush to assign id
             return mf
@@ -624,23 +635,3 @@ class MetadataTempFile(object):
                     os.unlink(value.file_name)
         except Exception as e:
             log.debug('Failed to cleanup MetadataTempFile temp files from %s: %s' % (filename, e))
-
-
-__all__ = (
-    "Statement",
-    "MetadataElement",
-    "MetadataCollection",
-    "MetadataSpecCollection",
-    "MetadataParameter",
-    "MetadataElementSpec",
-    "SelectParameter",
-    "DBKeyParameter",
-    "RangeParameter",
-    "ColumnParameter",
-    "ColumnTypesParameter",
-    "ListParameter",
-    "DictParameter",
-    "PythonObjectParameter",
-    "FileParameter",
-    "MetadataTempFile",
-)

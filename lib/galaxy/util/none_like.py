@@ -3,7 +3,7 @@ Objects with No values
 """
 
 from galaxy.datatypes.registry import Registry
-from galaxy.model.metadata import MetadataCollection
+from galaxy.metadata.parameters import MetadataCollection
 
 
 class RecursiveNone(object):

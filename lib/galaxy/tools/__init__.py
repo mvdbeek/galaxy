@@ -27,7 +27,7 @@ from galaxy import (
 )
 from galaxy.managers.jobs import JobSearch
 from galaxy.managers.tags import GalaxyTagManager
-from galaxy.metadata import get_metadata_compute_strategy
+from galaxy.metadata.collection import get_metadata_compute_strategy
 from galaxy.queue_worker import send_control_task
 from galaxy.tools.actions import DefaultToolAction
 from galaxy.tools.actions.data_manager import DataManagerToolAction

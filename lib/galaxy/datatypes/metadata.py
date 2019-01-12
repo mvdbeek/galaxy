@@ -5,7 +5,7 @@ to remain here for datatypes living in the tool shed so we might as
 well keep and use this interface from the datatypes module.
 """
 
-from galaxy.model.metadata import (
+from galaxy.metadata.parameters import (
     ColumnParameter,
     ColumnTypesParameter,
     DBKeyParameter,

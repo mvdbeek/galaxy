@@ -3,7 +3,7 @@ import os
 from json import dumps
 
 from galaxy.jobs.datasets import DatasetPath
-from galaxy.metadata import get_metadata_compute_strategy
+from galaxy.metadata.collection import get_metadata_compute_strategy
 from galaxy.util.odict import odict
 from . import ToolAction
 
