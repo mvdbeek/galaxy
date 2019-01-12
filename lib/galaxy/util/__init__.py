@@ -25,6 +25,7 @@ import unicodedata
 import xml.dom.minidom
 from datetime import datetime
 from hashlib import md5
+from itertools import chain
 from os.path import relpath
 from xml.etree import ElementInclude, ElementTree
 from xml.etree.ElementTree import ParseError
@@ -1389,6 +1390,46 @@ def size_to_bytes(size):
         return int(number * 1024 ** 6)
     else:
         raise ValueError("Unknown multiplier '%s' in '%s'" % (multiple, size))
+
+
+def total_size(o, handlers={}, verbose=False):
+    """ Returns the approximate memory footprint an object and all of its contents.
+
+    Automatically finds the contents of the following builtin containers and
+    their subclasses:  tuple, list, deque, dict, set and frozenset.
+    To search other containers, add handlers to iterate over their contents:
+
+        handlers = {SomeContainerClass: iter,
+                    OtherContainerClass: OtherContainerClass.get_elements}
+
+    Recipe from:  https://code.activestate.com/recipes/577504-compute-memory-footprint-of-an-object-and-its-cont/
+    """
+    def dict_handler(d):
+        return chain.from_iterable(d.items())
+
+    all_handlers = {tuple: iter,
+                    list: iter,
+                    collections.deque: iter,
+                    dict: dict_handler,
+                    set: iter,
+                    frozenset: iter}
+    all_handlers.update(handlers)     # user handlers take precedence
+    seen = set()                      # track which object id's have already been seen
+    default_size = sys.getsizeof(0)       # estimate sizeof object without __sizeof__
+
+    def sizeof(o):
+        if id(o) in seen:       # do not double count the same object
+            return 0
+        seen.add(id(o))
+        s = sys.getsizeof(o, default_size)
+
+        for typ, handler in all_handlers.items():
+            if isinstance(o, typ):
+                s += sum(map(sizeof, handler(o)))
+                break
+        return s
+
+    return sizeof(o)
 
 
 def send_mail(frm, to, subject, body, config, html=None):
