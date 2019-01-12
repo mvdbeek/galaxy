@@ -10,7 +10,7 @@ from bx.intervals.io import GenomicIntervalReader, ParseError
 from six.moves.urllib.parse import quote_plus
 
 from galaxy import util
-from galaxy.datatypes import metadata
+from galaxy.datatypes import metadata, url_for
 from galaxy.datatypes.metadata import MetadataElement
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
@@ -19,7 +19,6 @@ from galaxy.datatypes.sniff import (
 )
 from galaxy.datatypes.tabular import Tabular
 from galaxy.datatypes.util.gff_util import parse_gff3_attributes, parse_gff_attributes
-from galaxy.web import url_for
 from . import (
     data,
     dataproviders

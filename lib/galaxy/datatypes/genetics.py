@@ -19,14 +19,13 @@ from cgi import escape
 
 from six.moves.urllib.parse import quote_plus
 
-from galaxy.datatypes import metadata
+from galaxy.datatypes import metadata, url_for
 from galaxy.datatypes.data import Text
 from galaxy.datatypes.metadata import MetadataElement
 from galaxy.datatypes.sniff import build_sniff_from_prefix
 from galaxy.datatypes.tabular import Tabular
 from galaxy.datatypes.text import Html
 from galaxy.util import nice_size
-from galaxy.web import url_for
 
 gal_Log = logging.getLogger(__name__)
 verbose = False
