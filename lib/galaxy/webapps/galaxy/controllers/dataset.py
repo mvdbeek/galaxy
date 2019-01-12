@@ -18,7 +18,7 @@ from galaxy import (
     web
 )
 from galaxy.datatypes import sniff
-from galaxy.datatypes.display_applications.util import decode_dataset_user, encode_dataset_user
+from galaxy.display_applications.util import decode_dataset_user, encode_dataset_user
 from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.model.item_attrs import UsesAnnotations, UsesItemRatings
 from galaxy.util import (

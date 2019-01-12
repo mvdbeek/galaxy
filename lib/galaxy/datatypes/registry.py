@@ -27,7 +27,10 @@ from . import (
     tracks,
     xml
 )
-from .display_applications.application import DisplayApplication
+try:
+    from galaxy.display_applications import DisplayApplication
+except ImportError:
+    DisplayApplication = None
 
 
 class ConfigurationError(Exception):
@@ -655,7 +658,9 @@ class Registry(object):
                     config_path = os.path.join(self.display_applications_path, display_file)
                 try:
                     inherit = galaxy.util.string_as_bool(display_app.get('inherit', 'False'))
-                    display_app = DisplayApplication.from_file(config_path, app)
+                    display_app = None
+                    if DisplayApplication is not None:
+                        display_app = DisplayApplication.from_file(config_path, app)
                     if display_app:
                         if display_app.id in self.display_applications:
                             if deactivate:
