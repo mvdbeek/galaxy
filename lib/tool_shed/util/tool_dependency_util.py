@@ -5,7 +5,7 @@ import shutil
 from sqlalchemy import and_
 
 from galaxy import util
-from galaxy.web.form_builder import SelectField
+from galaxy.util.form_builder import SelectField
 from tool_shed.util import (
     hg_util,
     xml_util

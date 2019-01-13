@@ -22,13 +22,13 @@ from galaxy.display_applications.util import decode_dataset_user, encode_dataset
 from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.model.item_attrs import UsesAnnotations, UsesItemRatings
 from galaxy.util import (
+    form_builder,
     inflector,
     sanitize_text,
     smart_str
 )
 from galaxy.util.checkers import check_binary
 from galaxy.util.sanitize_html import sanitize_html
-from galaxy.web import form_builder
 from galaxy.web.base.controller import BaseUIController, ERROR, SUCCESS, url_for, UsesExtendedMetadataMixin
 from galaxy.web.framework.helpers import grids, iff, time_ago
 

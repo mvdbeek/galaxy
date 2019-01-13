@@ -81,13 +81,13 @@ from galaxy.util import (
 from galaxy.util.bunch import Bunch
 from galaxy.util.dictifiable import Dictifiable
 from galaxy.util.expressions import ExpressionContext
+from galaxy.util.form_builder import SelectField
 from galaxy.util.json import safe_loads
 from galaxy.util.odict import odict
 from galaxy.util.rules_dsl import RuleSet
 from galaxy.util.template import fill_template
 from galaxy.version import VERSION_MAJOR
 from galaxy.web import url_for
-from galaxy.web.form_builder import SelectField
 from galaxy.work.context import WorkRequestContext
 from tool_shed.util import common_util
 from .execute import (

@@ -5,7 +5,7 @@ from sqlalchemy import false, or_
 
 from galaxy import util
 from galaxy.util import inflector
-from galaxy.web.form_builder import SelectField
+from galaxy.util.form_builder import SelectField
 from tool_shed.metadata import metadata_generator
 from tool_shed.repository_types import util as rt_util
 from tool_shed.repository_types.metadata import TipOnly

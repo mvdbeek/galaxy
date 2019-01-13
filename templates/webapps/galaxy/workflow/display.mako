@@ -3,7 +3,7 @@
 
 <%!
     from galaxy.tools.parameters.basic import DataCollectionToolParameter, DataToolParameter, RuntimeValue
-    from galaxy.web import form_builder
+    from galaxy.util import form_builder
     import cgi
 %>
 

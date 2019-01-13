@@ -30,6 +30,7 @@ from galaxy.security.validate_user_input import (
     validate_publicname
 )
 from galaxy.util import biostar, hash_util
+from galaxy.util.form_builder import CheckboxField
 from galaxy.web import url_for
 from galaxy.web.base.controller import (
     BaseUIController,
@@ -37,7 +38,6 @@ from galaxy.web.base.controller import (
     CreatesUsersMixin,
     UsesFormDefinitionsMixin
 )
-from galaxy.web.form_builder import CheckboxField
 from galaxy.web.framework.helpers import grids, time_ago
 
 log = logging.getLogger(__name__)

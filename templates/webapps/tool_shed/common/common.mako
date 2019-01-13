@@ -1,5 +1,5 @@
 <%def name="render_checkbox(checkbox, disabled=False, refresh_on_change=False)">
-    <% from galaxy.web.form_builder import CheckboxField %>
+    <% from galaxy.util.form_builder import CheckboxField %>
     <input type="checkbox" id="${checkbox.name}" name="${checkbox.name}" value="true"
         ${"refresh_on_change='true'" if refresh_on_change else ""}
         ${"checked" if CheckboxField.is_checked(checkbox.value) else ""}

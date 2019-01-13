@@ -39,6 +39,7 @@ from galaxy.util import (
     hash_util,
     listify
 )
+from galaxy.util.form_builder import AddressField
 from galaxy.util.odict import odict
 from galaxy.web import (
     _future_expose_api as expose_api,
@@ -53,7 +54,6 @@ from galaxy.web.base.controller import (
     UsesFormDefinitionsMixin,
     UsesTagsMixin
 )
-from galaxy.web.form_builder import AddressField
 
 
 log = logging.getLogger(__name__)

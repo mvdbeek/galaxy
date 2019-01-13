@@ -36,15 +36,15 @@ from galaxy.model import (
 )
 from galaxy.model.item_attrs import UsesAnnotations
 from galaxy.util.dictifiable import Dictifiable
+from galaxy.util.form_builder import (
+    AddressField,
+    CheckboxField,
+    PasswordField
+)
 from galaxy.util.sanitize_html import sanitize_html
 from galaxy.web import (
     error,
     url_for
-)
-from galaxy.web.form_builder import (
-    AddressField,
-    CheckboxField,
-    PasswordField
 )
 from galaxy.workflow.modules import WorkflowModuleInjector
 

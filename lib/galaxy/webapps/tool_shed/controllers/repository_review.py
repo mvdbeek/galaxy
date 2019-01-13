@@ -12,9 +12,9 @@ from galaxy import (
     util,
     web
 )
+from galaxy.util.form_builder import CheckboxField
 from galaxy.util.odict import odict
 from galaxy.web.base.controller import BaseUIController
-from galaxy.web.form_builder import CheckboxField
 from galaxy.webapps.tool_shed.util import ratings_util
 from tool_shed.util import (
     hg_util,

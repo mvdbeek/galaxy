@@ -6,7 +6,7 @@
     from galaxy.util.expressions import ExpressionContext
     from galaxy import util
     from galaxy.tools.parameters.basic import DataToolParameter, ColumnListParameter, GenomeBuildParameter, SelectToolParameter
-    from galaxy.web.form_builder import SelectField, TextField
+    from galaxy.util.form_builder import SelectField, TextField
 %>
 
 <html>

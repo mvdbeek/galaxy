@@ -4,7 +4,7 @@
 <%namespace file="/webapps/tool_shed/common/repository_actions_menu.mako" import="render_tool_shed_repository_actions" />
 
 <%
-    from galaxy.web.form_builder import CheckboxField
+    from galaxy.util.form_builder import CheckboxField
     from tool_shed.util.container_util import STRSEP
     from tool_shed.util.basic_util import to_html_string
 %>

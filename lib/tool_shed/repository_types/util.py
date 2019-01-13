@@ -1,6 +1,6 @@
 import logging
 
-from galaxy.web.form_builder import SelectField
+from galaxy.util.form_builder import SelectField
 
 log = logging.getLogger(__name__)
 

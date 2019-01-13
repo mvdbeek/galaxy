@@ -47,7 +47,7 @@ $().ready(function() {
 </script>
 
 <%
-    from galaxy.web.form_builder import CheckboxField
+    from galaxy.util.form_builder import CheckboxField
     create_role_for_group_checkbox = CheckboxField( 'create_role_for_group' )
 %>
 

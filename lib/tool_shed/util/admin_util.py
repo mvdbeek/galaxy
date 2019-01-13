@@ -5,8 +5,8 @@ from sqlalchemy import false, func
 
 from galaxy import util, web
 from galaxy.util import inflector
+from galaxy.util.form_builder import CheckboxField
 from galaxy.util.hash_util import new_secure_hash
-from galaxy.web.form_builder import CheckboxField
 from tool_shed.util.web_util import escape
 
 

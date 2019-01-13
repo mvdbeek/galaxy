@@ -25,8 +25,11 @@ try:
 except ImportError:
     MetadataFile = None
 
-from galaxy.util import (listify, string_as_bool,
-                         stringify_dictionary_keys)
+from galaxy.util import (
+    form_builder,
+    listify,
+    string_as_bool,
+    stringify_dictionary_keys)
 from galaxy.util.json import safe_dumps
 from galaxy.util.object_wrapper import sanitize_lists_to_string
 from galaxy.util.odict import odict
@@ -34,11 +37,6 @@ from galaxy.util.odict import odict
 log = logging.getLogger(__name__)
 
 STATEMENTS = "__galaxy_statements__"  # this is the name of the property in a Datatype class where new metadata spec element Statements are stored
-
-
-def form_builder(**kwargs):
-    from galaxy.web import form_builder as _form_builder
-    return _form_builder(**kwargs)
 
 
 class Statement(object):
