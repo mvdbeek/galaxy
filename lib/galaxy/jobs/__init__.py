@@ -1760,6 +1760,7 @@ class JobWrapper(HasResourceParameters):
                                                                         datatypes_config=datatypes_config,
                                                                         job_metadata=os.path.join(self.tool_working_directory, self.tool.provided_metadata_file),
                                                                         max_metadata_value_size=self.app.config.max_metadata_value_size,
+                                                                        galaxy_version=self.app.config.version_major,
                                                                         **kwds)
         if resolve_metadata_dependencies:
             metadata_tool = self.app.toolbox.get_tool("__SET_METADATA__")

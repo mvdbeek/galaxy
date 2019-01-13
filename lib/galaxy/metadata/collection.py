@@ -9,10 +9,9 @@ from logging import getLogger
 from os.path import abspath
 
 import six
-from six.moves import cPickle
 
 import galaxy.model
-from .parameters import FileParameter, MetadataTempFile
+from galaxy.metadata.parameters import FileParameter, MetadataTempFile
 from galaxy.util import in_directory
 
 log = getLogger(__name__)
@@ -66,9 +65,7 @@ class JobExternalOutputMetadataWrapper(MetadataCollectionStrategy):
     Galaxy head.
     This class allows access to external metadata filenames for all outputs
     associated with a job.
-    We will use JSON as the medium of exchange of information, except for the
-    DatasetInstance object which will use pickle (in the future this could be
-    JSONified as well)
+    We will use JSON as the medium of exchange of information.
     """
 
     def __init__(self, job_id):
@@ -110,6 +107,7 @@ class JobExternalOutputMetadataWrapper(MetadataCollectionStrategy):
                                 config_file=None, datatypes_config=None,
                                 job_metadata=None, compute_tmp_dir=None,
                                 include_command=True, max_metadata_value_size=0,
+                                galaxy_version=None,
                                 kwds=None):
         kwds = kwds or {}
         if tmp_dir is None:
@@ -175,17 +173,20 @@ class JobExternalOutputMetadataWrapper(MetadataCollectionStrategy):
                 # file to store existing dataset
                 metadata_files.filename_in = abspath(tempfile.NamedTemporaryFile(dir=tmp_dir, prefix="metadata_in_%s_" % key).name)
 
-                # FIXME: HACK
-                # sqlalchemy introduced 'expire_on_commit' flag for sessionmaker at version 0.5x
-                # This may be causing the dataset attribute of the dataset_association object to no-longer be loaded into memory when needed for pickling.
-                # For now, we'll simply 'touch' dataset_association.dataset to force it back into memory.
-                dataset.dataset  # force dataset_association.dataset to be loaded before pickling
-                # A better fix could be setting 'expire_on_commit=False' on the session, or modifying where commits occur, or ?
-
-                # Touch also deferred column
-                dataset._metadata
-
-                cPickle.dump(dataset, open(metadata_files.filename_in, 'wb+'))
+                # We just dump the minimum amount of information needed for `set_meta`, which is
+                # file_name, extra_files_path, metadata and Galaxy version.
+                dataset_dict = dict(
+                    id=dataset.id,
+                    file_name=dataset.file_name,
+                    extension=dataset.extension,
+                    galaxy_version=galaxy_version,
+                    metadata=dataset.metadata.to_JSON_dict(),
+                    dataset=dict(
+                        id=dataset.dataset.id
+                    )
+                )
+                with open(metadata_files.filename_in, 'w') as dataset_out:
+                    json.dump(dataset_dict, dataset_out)
                 # file to store metadata results of set_meta()
                 metadata_files.filename_out = abspath(tempfile.NamedTemporaryFile(dir=tmp_dir, prefix="metadata_out_%s_" % key).name)
                 open(metadata_files.filename_out, 'wt+')  # create the file on disk, so it cannot be reused by tempfile (unlikely, but possible)
