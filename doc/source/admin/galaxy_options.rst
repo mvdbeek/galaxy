@@ -1230,7 +1230,8 @@
 ~~~~~~~~~~~~~~~~~~~~~
 
 :Description:
-    Show a message box under the masthead.
+    Class of the message box under the masthead. Possible values are:
+    'info' (the default), 'warning', 'error', 'done'.
 :Default: ``info``
 :Type: str
 
