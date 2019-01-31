@@ -3010,8 +3010,14 @@ class FilterFromFileTool(DatabaseOperationTool):
         filtered_identifiers_raw = open(filtered_path, "r").readlines(1024 * 1000000)
         filtered_identifiers = [i.strip() for i in filtered_identifiers_raw]
 
+        if hdca.collection.collection_type == 'list:paired':
+            elements = hdca.collection.elements
+        else:
+            elements = hdca.collection.dataset_elements
+
+
         # If filtered_dataset_assoc is not a two-column tabular dataset we label with the current line of the dataset
-        for i, dce in enumerate(hdca.collection.elements):
+        for i, dce in enumerate(elements):
             dce_object = dce.element_object
             element_identifier = dce.element_identifier
             in_filter_file = element_identifier in filtered_identifiers
