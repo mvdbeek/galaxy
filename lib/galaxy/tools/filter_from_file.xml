@@ -7,7 +7,7 @@
     <action module="galaxy.tools.actions.model_operations"
             class="ModelOperationToolAction"/>
     <inputs>
-        <param type="data_collection" name="input" label="Input Collection" help="A list whose elements will be filtered."/>
+        <param type="data_collection" collection_type="list,list:paired" name="input" label="Input Collection" help="A list whose elements will be filtered."/>
         <conditional name="how">
             <param type="select" name="how_filter" label="How should the elements to remove be determined?">
                 <option value="remove_if_absent" selected="true">Remove if identifiers are absent from supplied text file.</option>
