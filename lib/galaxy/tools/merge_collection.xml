@@ -51,7 +51,7 @@
   </macros>
   <inputs>
     <repeat name="inputs" title="Input Collections" min="2">
-        <param name="input" type="data_collection" label="Input Collection" />
+        <param name="input" type="data_collection" collection_type="list,list:paired" label="Input Collection" />
     </repeat>
     <section name="advanced" title="Advanced Options">
         <conditional name="conflict">
