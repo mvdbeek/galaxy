@@ -1,4 +1,6 @@
 /** This class creates/wraps a drill down element. */
+import $ from "jquery";
+import _ from "underscore";
 import Utils from "utils/utils";
 import Options from "mvc/ui/ui-options";
 var View = Options.BaseIcons.extend({
@@ -6,6 +8,11 @@ var View = Options.BaseIcons.extend({
         options.type = options.display || "checkbox";
         options.multiple = options.type == "checkbox";
         Options.BaseIcons.prototype.initialize.call(this, options);
+    },
+
+    /** Update available options */
+    update: function(input_def) {
+        this.model.set("data", input_def.options);
     },
 
     /** Set states for selected values */

@@ -1,22 +1,24 @@
+import $ from "jquery";
+import { getAppRoot } from "onload/loadConfig";
 import visualization from "viz/visualization";
 import * as bigwig from "libs/bbi/bigwig";
+
 /**
-     * Data manager for BBI datasets/files, including BigWig and BigBed.
-     */
+ * Data manager for BBI datasets/files, including BigWig and BigBed.
+ */
 var BBIDataManager = visualization.GenomeDataManager.extend({
     /**
-         * Load data from server and manage data entries. Adds a Deferred to manager
-         * for region; when data becomes available, replaces Deferred with data.
-         * Returns the Deferred that resolves when data is available.
-         */
+     * Load data from server and manage data entries. Adds a Deferred to manager
+     * for region; when data becomes available, replaces Deferred with data.
+     * Returns the Deferred that resolves when data is available.
+     */
     load_data: function(region, mode, resolution, extra_params) {
         var deferred = $.Deferred();
         this.set_data(region, deferred);
 
-        var url = `${Galaxy.root}datasets/${this.get("dataset").id}/display`;
+        var url = `${getAppRoot()}datasets/${this.get("dataset").id}/display`;
 
         var self = this;
-        var promise = new $.Deferred();
         $.when(bigwig.makeBwg(url)).then((bb, err) => {
             $.when(bb.readWigData(region.get("chrom"), region.get("start"), region.get("end"))).then(data => {
                 // Transform data into "bigwig" format for LinePainter. "bigwig" format is an array of 2-element arrays

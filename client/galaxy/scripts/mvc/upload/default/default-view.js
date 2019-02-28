@@ -1,5 +1,8 @@
 /** Renders contents of the default uploader */
-import Utils from "utils/utils";
+import $ from "jquery";
+import Backbone from "backbone";
+import _ from "underscore";
+import _l from "utils/localization";
 import UploadModel from "mvc/upload/upload-model";
 import UploadRow from "mvc/upload/default/default-row";
 import UploadFtp from "mvc/upload/upload-ftp";
@@ -9,6 +12,8 @@ import Select from "mvc/ui/ui-select";
 import Ui from "mvc/ui/ui-misc";
 import LazyLimited from "mvc/lazy/lazy-limited";
 import "utils/uploadbox";
+import { getGalaxyInstance } from "app";
+
 export default Backbone.View.extend({
     // current upload size in bytes
     upload_size: 0,
@@ -44,7 +49,7 @@ export default Backbone.View.extend({
         // append buttons to dom
         this.btnLocal = new Ui.Button({
             id: "btn-local",
-            title: "Choose local file",
+            title: _l("Choose local file"),
             onclick: function() {
                 self.uploadbox.select();
             },
@@ -52,7 +57,7 @@ export default Backbone.View.extend({
         });
         this.btnFtp = new Ui.Button({
             id: "btn-ftp",
-            title: "Choose FTP file",
+            title: _l("Choose FTP file"),
             onclick: function() {
                 self._eventFtp();
             },
@@ -68,28 +73,28 @@ export default Backbone.View.extend({
         });
         this.btnStart = new Ui.Button({
             id: "btn-start",
-            title: "Start",
+            title: _l("Start"),
             onclick: function() {
                 self._eventStart();
             }
         });
         this.btnStop = new Ui.Button({
             id: "btn-stop",
-            title: "Pause",
+            title: _l("Pause"),
             onclick: function() {
                 self._eventStop();
             }
         });
         this.btnReset = new Ui.Button({
             id: "btn-reset",
-            title: "Reset",
+            title: _l("Reset"),
             onclick: function() {
                 self._eventReset();
             }
         });
         this.btnClose = new Ui.Button({
             id: "btn-close",
-            title: "Close",
+            title: _l("Close"),
             onclick: function() {
                 self.app.modal.hide();
             }
@@ -103,7 +108,7 @@ export default Backbone.View.extend({
 
         // file upload
         this.uploadbox = this.$uploadbox.uploadbox({
-            url: this.app.options.nginx_upload_path,
+            url: this.app.options.upload_path,
             announce: function(index, file) {
                 self._eventAnnounce(index, file);
             },
@@ -119,6 +124,9 @@ export default Backbone.View.extend({
             error: function(index, message) {
                 self._eventError(index, message);
             },
+            warning: function(index, message) {
+                self._eventWarning(index, message);
+            },
             complete: function() {
                 self._eventComplete();
             },
@@ -131,8 +139,8 @@ export default Backbone.View.extend({
         });
 
         // add ftp file viewer
-        this.ftp = new Popover.View({
-            title: "FTP files",
+        this.ftp = new Popover({
+            title: _l("FTP files"),
             container: this.btnFtp.$el
         });
 
@@ -194,7 +202,7 @@ export default Backbone.View.extend({
 
     render: function() {
         var message = "";
-        if (this.counter.announce == 0) {
+        if (this.counter.announce === 0) {
             if (this.uploadbox.compatible()) {
                 message = "&nbsp;";
             } else {
@@ -202,18 +210,19 @@ export default Backbone.View.extend({
                     "Browser does not support Drag & Drop. Try Firefox 4+, Chrome 7+, IE 10+, Opera 12+ or Safari 6+.";
             }
         } else {
-            if (this.counter.running == 0) {
-                message = `You added ${this.counter
-                    .announce} file(s) to the queue. Add more files or click 'Start' to proceed.`;
+            if (this.counter.running === 0) {
+                message = `You added ${
+                    this.counter.announce
+                } file(s) to the queue. Add more files or click 'Start' to proceed.`;
             } else {
                 message = `Please wait...${this.counter.announce} out of ${this.counter.running} remaining.`;
             }
         }
         this.$(".upload-top-info").html(message);
         var enable_reset =
-            this.counter.running == 0 && this.counter.announce + this.counter.success + this.counter.error > 0;
-        var enable_start = this.counter.running == 0 && this.counter.announce > 0;
-        var enable_sources = this.counter.running == 0;
+            this.counter.running === 0 && this.counter.announce + this.counter.success + this.counter.error > 0;
+        var enable_start = this.counter.running === 0 && this.counter.announce > 0;
+        var enable_sources = this.counter.running === 0;
         var show_table = this.counter.announce + this.counter.success + this.counter.error > 0;
         this.btnReset[enable_reset ? "enable" : "disable"]();
         this.btnStart[enable_start ? "enable" : "disable"]();
@@ -245,12 +254,13 @@ export default Backbone.View.extend({
     /** Progress */
     _eventProgress: function(index, percentage) {
         var it = this.collection.get(index);
-        it.set("percentage", percentage);
+        it.set({ percentage: percentage, status: "running", info: "" });
         this.ui_button.model.set("percentage", this._uploadPercentage(percentage, it.get("file_size")));
     },
 
     /** Success */
     _eventSuccess: function(index, message) {
+        let Galaxy = getGalaxyInstance();
         var it = this.collection.get(index);
         it.set({ percentage: 100, status: "success" });
         this.ui_button.model.set("percentage", this._uploadPercentage(100, it.get("file_size")));
@@ -259,6 +269,12 @@ export default Backbone.View.extend({
         this.counter.success++;
         this.render();
         Galaxy.currHistoryPanel.refreshContents();
+    },
+
+    /** Warning */
+    _eventWarning: function(index, message) {
+        var it = this.collection.get(index);
+        it.set({ status: "warning", info: message });
     },
 
     /** Error */
@@ -278,7 +294,9 @@ export default Backbone.View.extend({
     /** Queue is done */
     _eventComplete: function() {
         this.collection.each(model => {
-            model.get("status") == "queued" && model.set("status", "init");
+            if (model.get("status") == "queued") {
+                model.set("status", "init");
+            }
         });
         this.counter.running = 0;
         this.render();
@@ -304,32 +322,26 @@ export default Backbone.View.extend({
 
     /** Show/hide ftp popup */
     _eventFtp: function() {
-        if (!this.ftp.visible) {
-            this.ftp.empty();
-            var self = this;
-            this.ftp.append(
-                new UploadFtp({
-                    collection: this.collection,
-                    ftp_upload_site: this.ftp_upload_site,
-                    onadd: function(ftp_file) {
-                        return self.uploadbox.add([
-                            {
-                                mode: "ftp",
-                                name: ftp_file.path,
-                                size: ftp_file.size,
-                                path: ftp_file.path
-                            }
-                        ]);
-                    },
-                    onremove: function(model_index) {
-                        self.collection.remove(model_index);
-                    }
-                }).$el
-            );
-            this.ftp.show();
-        } else {
-            this.ftp.hide();
-        }
+        var self = this;
+        this.ftp.show(
+            new UploadFtp({
+                collection: this.collection,
+                ftp_upload_site: this.ftp_upload_site,
+                onadd: function(ftp_file) {
+                    return self.uploadbox.add([
+                        {
+                            mode: "ftp",
+                            name: ftp_file.path,
+                            size: ftp_file.size,
+                            path: ftp_file.path
+                        }
+                    ]);
+                },
+                onremove: function(model_index) {
+                    self.collection.remove(model_index);
+                }
+            }).$el
+        );
     },
 
     /** Create a new file */
@@ -339,7 +351,7 @@ export default Backbone.View.extend({
 
     /** Start upload process */
     _eventStart: function() {
-        if (this.counter.announce != 0 && this.counter.running == 0) {
+        if (this.counter.announce !== 0 && this.counter.running === 0) {
             // prepare upload process
             var self = this;
             this.upload_size = 0;
@@ -361,7 +373,11 @@ export default Backbone.View.extend({
             this._uploadFtp();
 
             // queue remaining files
-            this.uploadbox.start();
+            let Galaxy = getGalaxyInstance();
+            this.uploadbox.start({
+                id: Galaxy.user.id,
+                chunk_upload_size: this.app.options.chunk_upload_size
+            });
             this.render();
         }
     },
@@ -377,8 +393,7 @@ export default Backbone.View.extend({
 
     /** Remove all */
     _eventReset: function() {
-        if (this.counter.running == 0) {
-            var self = this;
+        if (this.counter.running === 0) {
             this.collection.reset();
             this.counter.reset();
             this.uploadbox.reset();
@@ -428,7 +443,7 @@ export default Backbone.View.extend({
         if (list.length > 0) {
             $.uploadpost({
                 data: this.app.toData(list),
-                url: this.app.options.nginx_upload_path,
+                url: this.app.options.upload_path,
                 success: function(message) {
                     _.each(list, model => {
                         self._eventSuccess(model.id);
@@ -450,37 +465,37 @@ export default Backbone.View.extend({
 
     /** Template */
     _template: function() {
-        return (
-            '<div class="upload-view-default">' +
-            '<div class="upload-top">' +
-            '<h6 class="upload-top-info"/>' +
-            "</div>" +
-            '<div class="upload-box">' +
-            '<div class="upload-helper"><i class="fa fa-files-o"/>Drop files here</div>' +
-            '<table class="upload-table ui-table-striped" style="display: none;">' +
-            "<thead>" +
-            "<tr>" +
-            "<th>Name</th>" +
-            "<th>Size</th>" +
-            "<th>Type</th>" +
-            "<th>Genome</th>" +
-            "<th>Settings</th>" +
-            "<th>Status</th>" +
-            "<th/>" +
-            "</tr>" +
-            "</thead>" +
-            "<tbody/>" +
-            "</table>" +
-            "</div>" +
-            '<div class="upload-footer">' +
-            '<span class="upload-footer-title">Type (set all):</span>' +
-            '<span class="upload-footer-extension"/>' +
-            '<span class="upload-footer-extension-info upload-icon-button fa fa-search"/> ' +
-            '<span class="upload-footer-title">Genome (set all):</span>' +
-            '<span class="upload-footer-genome"/>' +
-            "</div>" +
-            '<div class="upload-buttons"/>' +
-            "</div>"
-        );
+        return `<div class="upload-view-default">
+                    <div class="upload-top">
+                        <div class="upload-top-info"/>
+                    </div>
+                    <div class="upload-box">
+                        <div class="upload-helper">
+                            <i class="fa fa-files-o"/>Drop files here
+                        </div>
+                        <table class="upload-table ui-table-striped" style="display: none;">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>Size</th>
+                                    <th>Type</th>
+                                    <th>Genome</th>
+                                    <th>Settings</th>
+                                    <th>Status</th>
+                                    <th/>
+                                </tr>
+                            </thead>
+                            <tbody/>
+                        </table>
+                    </div>
+                    <div class="upload-footer">
+                        <span class="upload-footer-title">Type (set all):</span>
+                        <span class="upload-footer-extension"/>
+                        <span class="upload-footer-extension-info upload-icon-button fa fa-search"/>
+                        <span class="upload-footer-title">Genome (set all):</span>
+                        <span class="upload-footer-genome"/>
+                    </div>
+                    <div class="upload-buttons"/>
+                </div>`;
     }
 });

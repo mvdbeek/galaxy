@@ -1,4 +1,8 @@
-var View = Backbone.View.extend({
+import $ from "jquery";
+import _ from "underscore";
+import Backbone from "backbone";
+
+export var View = Backbone.View.extend({
     className: "ui-modal",
 
     // defaults
@@ -10,6 +14,7 @@ var View = Backbone.View.extend({
         backdrop: true,
         height: null,
         width: null,
+        xlarge: false /* BS4 max-width already expanded in Galaxy, expand even more if true. */,
         closing_events: false,
         closing_callback: null,
         title_separator: true
@@ -30,7 +35,7 @@ var View = Backbone.View.extend({
 
     /**
      * Displays modal
-    */
+     */
     show: function(options) {
         if (options) {
             this.options = _.defaults(options, this.optionsDefault);
@@ -39,23 +44,22 @@ var View = Backbone.View.extend({
         if (!this.visible) {
             this.visible = true;
             this.$el.fadeIn("fast");
-            if (this.options.closing_events) {
-                var self = this;
-                $(document).on("keyup.ui-modal", e => {
-                    if (e.keyCode == 27) {
-                        self.hide(true);
-                    }
-                });
-                this.$backdrop.on("click", () => {
-                    self.hide(true);
-                });
-            }
+        }
+        if (this.options.closing_events) {
+            $(document).on("keyup.ui-modal", e => {
+                if (e.keyCode == 27) {
+                    this.hide(true);
+                }
+            });
+            this.$backdrop.on("click", () => {
+                this.hide(true);
+            });
         }
     },
 
     /**
      * Hide modal
-    */
+     */
     hide: function(canceled) {
         this.visible = false;
         this.$el.fadeOut("fast");
@@ -68,7 +72,7 @@ var View = Backbone.View.extend({
 
     /**
      * Render modal
-    */
+     */
     render: function() {
         var self = this;
         this.$el.html(this._template());
@@ -130,12 +134,15 @@ var View = Backbone.View.extend({
         if (this.options.width) {
             this.$dialog.css("width", this.options.width);
         }
+        if (this.options.xlarge) {
+            this.$dialog.css("max-width", "3000px");
+        }
     },
 
     /**
      * Returns the button dom
      * @param{String}   name    - Button name/title
-    */
+     */
     getButton: function(name) {
         return this.buttonList[name];
     },
@@ -143,7 +150,7 @@ var View = Backbone.View.extend({
     /**
      * Enables a button
      * @param{String}   name    - Button name/title
-    */
+     */
     enableButton: function(name) {
         this.getButton(name).prop("disabled", false);
     },
@@ -151,7 +158,7 @@ var View = Backbone.View.extend({
     /**
      * Disables a button
      * @param{String}   name    - Button name/title
-    */
+     */
     disableButton: function(name) {
         this.getButton(name).prop("disabled", true);
     },
@@ -159,7 +166,7 @@ var View = Backbone.View.extend({
     /**
      * Show a button
      * @param{String}   name    - Button name/title
-    */
+     */
     showButton: function(name) {
         this.getButton(name).show();
     },
@@ -167,21 +174,21 @@ var View = Backbone.View.extend({
     /**
      * Hide a button
      * @param{String}   name    - Button name/title
-    */
+     */
     hideButton: function(name) {
         this.getButton(name).hide();
     },
 
     /**
      * Returns scroll top for body element
-    */
+     */
     scrollTop: function() {
         return this.$body.scrollTop();
     },
 
     /**
      * Returns the modal template
-    */
+     */
     _template: function() {
         return (
             '<div class="modal-backdrop fade"/>' +

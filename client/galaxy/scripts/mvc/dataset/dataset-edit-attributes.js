@@ -1,16 +1,25 @@
 /** Dataset edit attributes view */
-import Utils from "utils/utils";
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import { getGalaxyInstance } from "app";
+import _l from "utils/localization";
+// import Utils from "utils/utils";
 import Tabs from "mvc/ui/ui-tabs";
 import Ui from "mvc/ui/ui-misc";
 import Form from "mvc/form/form-view";
+
 var View = Backbone.View.extend({
     initialize: function() {
+        let Galaxy = getGalaxyInstance();
         this.setElement("<div/>");
         this.model = new Backbone.Model({
             dataset_id: Galaxy.params.dataset_id
         });
         this.message = new Ui.Message({ persistent: true });
         this.tabs = this._createTabs();
+        this.active_tab = "user";
         this.$el
             .append($("<h4/>").append("Edit dataset attributes"))
             .append(this.message.$el)
@@ -24,7 +33,7 @@ var View = Backbone.View.extend({
     render: function() {
         var self = this;
         $.ajax({
-            url: `${Galaxy.root}dataset/get_edit?dataset_id=${self.model.get("dataset_id")}`,
+            url: `${getAppRoot()}dataset/get_edit?dataset_id=${self.model.get("dataset_id")}`,
             success: function(response) {
                 !self.initial_message && self.message.update(response);
                 self.initial_message = true;
@@ -39,7 +48,7 @@ var View = Backbone.View.extend({
                 var err_msg = response.responseJSON && response.responseJSON.err_msg;
                 self.message.update({
                     status: "danger",
-                    message: err_msg || "Error occured while loading the dataset."
+                    message: err_msg || "Error occurred while loading the dataset."
                 });
             }
         });
@@ -53,7 +62,7 @@ var View = Backbone.View.extend({
         data.operation = operation;
         $.ajax({
             type: "PUT",
-            url: `${Galaxy.root}dataset/set_edit`,
+            url: `${getAppRoot()}dataset/set_edit`,
             data: data,
             success: function(response) {
                 self.message.update(response);
@@ -64,7 +73,7 @@ var View = Backbone.View.extend({
                 var err_msg = response.responseJSON && response.responseJSON.err_msg;
                 self.message.update({
                     status: "danger",
-                    message: err_msg || "Error occured while editing the dataset attributes."
+                    message: err_msg || "Error occurred while editing the dataset attributes."
                 });
             }
         });
@@ -81,30 +90,30 @@ var View = Backbone.View.extend({
         var tabs = new Tabs.View();
         tabs.add({
             id: "attribute",
-            title: "Attributes",
+            title: _l("Attributes"),
             icon: "fa fa-bars",
-            tooltip: "Edit dataset attributes",
+            tooltip: _l("Edit dataset attributes"),
             $el: this.forms.attribute.$el
         });
         tabs.add({
             id: "convert",
-            title: "Convert",
+            title: _l("Convert"),
             icon: "fa-gear",
-            tooltip: "Convert to new format",
+            tooltip: _l("Convert to new format"),
             $el: this.forms.conversion.$el
         });
         tabs.add({
             id: "datatype",
-            title: "Datatypes",
+            title: _l("Datatypes"),
             icon: "fa-database",
-            tooltip: "Change data type",
+            tooltip: _l("Change data type"),
             $el: this.forms.datatype.$el
         });
         tabs.add({
             id: "permissions",
-            title: "Permissions",
+            title: _l("Permissions"),
             icon: "fa-user",
-            tooltip: "Permissions",
+            tooltip: _l("Permissions"),
             $el: this.forms.permission.$el
         });
         return tabs;
@@ -114,17 +123,17 @@ var View = Backbone.View.extend({
     _getAttribute: function() {
         var self = this;
         var form = new Form({
-            title: "Edit attributes",
+            title: _l("Edit attributes"),
             operations: {
-                submit_attributes: new Ui.ButtonIcon({
-                    tooltip: "Save attributes of the dataset.",
+                submit_attributes: new Ui.Button({
+                    tooltip: _l("Save attributes of the dataset."),
                     icon: "fa-floppy-o",
-                    title: "Save",
+                    title: _l("Save"),
                     onclick: function() {
                         self._submit("attributes", form);
                     }
                 }),
-                submit_autodetect: new Ui.ButtonIcon({
+                submit_autodetect: new Ui.Button({
                     tooltip:
                         "This will inspect the dataset and attempt to correct the values of fields if they are not accurate.",
                     icon: "fa-undo",
@@ -142,11 +151,11 @@ var View = Backbone.View.extend({
     _getConversion: function() {
         var self = this;
         var form = new Form({
-            title: "Convert to new format",
+            title: _l("Convert to new format"),
             operations: {
-                submit_conversion: new Ui.ButtonIcon({
-                    tooltip: "Convert the datatype to a new format.",
-                    title: "Convert datatype",
+                submit_conversion: new Ui.Button({
+                    tooltip: _l("Convert the datatype to a new format."),
+                    title: _l("Convert datatype"),
                     icon: "fa-exchange",
                     onclick: function() {
                         self._submit("conversion", form);
@@ -161,14 +170,22 @@ var View = Backbone.View.extend({
     _getDatatype: function() {
         var self = this;
         var form = new Form({
-            title: "Change datatype",
+            title: _l("Change datatype"),
             operations: {
-                submit_datatype: new Ui.ButtonIcon({
-                    tooltip: "Change the datatype to a new type.",
-                    title: "Change datatype",
+                submit_datatype: new Ui.Button({
+                    tooltip: _l("Change the datatype to a new type."),
+                    title: _l("Change datatype"),
                     icon: "fa-exchange",
                     onclick: function() {
                         self._submit("datatype", form);
+                    }
+                }),
+                submit_datatype_detect: new Ui.Button({
+                    tooltip: _l("Detect the datatype and change it."),
+                    title: _l("Detect datatype"),
+                    icon: "fa-undo",
+                    onclick: function() {
+                        self._submit("datatype_detect", form);
                     }
                 })
             }
@@ -180,11 +197,11 @@ var View = Backbone.View.extend({
     _getPermission: function() {
         var self = this;
         var form = new Form({
-            title: "Manage dataset permissions",
+            title: _l("Manage dataset permissions"),
             operations: {
-                submit_permission: new Ui.ButtonIcon({
-                    tooltip: "Save permissions.",
-                    title: "Save permissions",
+                submit_permission: new Ui.Button({
+                    tooltip: _l("Save permissions."),
+                    title: _l("Save permissions"),
                     icon: "fa-floppy-o ",
                     onclick: function() {
                         self._submit("permission", form);
@@ -197,8 +214,9 @@ var View = Backbone.View.extend({
 
     /** reload Galaxy's history after updating dataset's attributes */
     _reloadHistory: function() {
-        if (window.Galaxy) {
-            window.Galaxy.currHistoryPanel.loadCurrentHistory();
+        let Galaxy = getGalaxyInstance();
+        if (Galaxy) {
+            Galaxy.currHistoryPanel.loadCurrentHistory();
         }
     }
 });

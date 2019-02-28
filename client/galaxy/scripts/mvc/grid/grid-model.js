@@ -1,9 +1,10 @@
-// dependencies
-
-// grid model
+import $ from "jquery";
+import _ from "underscore";
+import Backbone from "backbone";
 export default Backbone.Model.extend({
     defaults: {
         url_base: "",
+        title_id: undefined,
         async: false,
         async_ops: [],
         categorical_filters: [],
@@ -15,13 +16,6 @@ export default Backbone.Model.extend({
         num_pages: 1,
         operation: undefined,
         item_ids: undefined
-    },
-
-    /**
-     * Return true if operation can be done asynchronously.
-     */
-    can_async_op: function(op) {
-        return _.indexOf(this.attributes.async_ops, op) !== -1;
     },
 
     /**

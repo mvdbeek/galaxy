@@ -1,5 +1,7 @@
-import * as _ from "libs/underscore";
-import * as Backbone from "libs/backbone";
+import jQuery from "jquery";
+import _ from "underscore";
+import Backbone from "backbone";
+import { getGalaxyInstance } from "app";
 import BASE_MVC from "mvc/base-mvc";
 
 //=============================================================================
@@ -26,16 +28,18 @@ var ControlledFetchCollection = Backbone.Collection.extend({
      */
     fetch: function(options) {
         options = this._buildFetchOptions(options);
+        let Galaxy = getGalaxyInstance();
         Galaxy.debug("fetch options:", options);
         return Backbone.Collection.prototype.fetch.call(this, options);
     },
 
     /** build ajax data/parameters from options */
     _buildFetchOptions: function(options) {
+        let Galaxy = getGalaxyInstance();
+
         // note: we normally want options passed in to override the defaults built here
         // so most of these fns will generate defaults
         options = _.clone(options) || {};
-        var self = this;
 
         // jquery ajax option; allows multiple q/qv for filters (instead of 'q[]')
         options.traditional = true;
@@ -47,7 +51,7 @@ var ControlledFetchCollection = Backbone.Collection.extend({
         //   to the pagination options too
         //      (i.e. this.on( 'sync', function( options ){ if( options.limit ){ ... } }))
         // however, when we send to xhr/jquery we copy them to data also so that they become API query params
-        options.data = options.data || self._buildFetchData(options);
+        options.data = options.data || this._buildFetchData(options);
         Galaxy.debug("data:", options.data);
 
         // options.data.filters --> options.data.q, options.data.qv
@@ -267,6 +271,7 @@ var InfinitelyScrollingCollection = ControlledFetchCollection.extend({
 
     /** fetch the first 'page' of data */
     fetchFirst: function(options) {
+        let Galaxy = getGalaxyInstance();
         Galaxy.debug("ControlledFetchCollection.fetchFirst:", options);
         options = options ? _.clone(options) : {};
         this.allFetched = false;
@@ -281,6 +286,8 @@ var InfinitelyScrollingCollection = ControlledFetchCollection.extend({
 
     /** fetch the next page of data */
     fetchMore: function(options) {
+        let Galaxy = getGalaxyInstance();
+
         Galaxy.debug("ControlledFetchCollection.fetchMore:", options);
         options = _.clone(options || {});
         var collection = this;

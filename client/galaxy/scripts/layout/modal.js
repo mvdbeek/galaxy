@@ -1,11 +1,7 @@
-import jQuery from "jquery";
-
-// ============================================================================
-//TODO: (the older version) unify with ui-modal (the newer version)
-var $ = jQuery;
+import $ from "jquery";
 
 // Modal dialog boxes
-var Modal = function(options) {
+export const Modal = function(options) {
     this.$overlay = options.overlay;
     this.$dialog = options.dialog;
     this.$header = this.$dialog.find(".modal-header");
@@ -68,28 +64,19 @@ $.extend(Modal.prototype, {
         this.$body.html(body);
     },
     show: function(options, callback) {
-        if (!this.$dialog.is(":visible")) {
-            if (options.backdrop) {
-                this.$backdrop.addClass("in");
-            } else {
-                this.$backdrop.removeClass("in");
-            }
-            this.$overlay.show();
-            this.$dialog.show();
-            this.$overlay.addClass("in");
-            // Fix min-width so that modal cannot shrink considerably if new content is loaded.
-            this.$body.css("min-width", this.$body.width());
-            // Set max-height so that modal does not exceed window size and is in middle of page.
-            // TODO: this could perhaps be handled better using CSS.
-            this.$body.css(
-                "max-height",
-                $(window).height() -
-                    this.$footer.outerHeight() -
-                    this.$header.outerHeight() -
-                    parseInt(this.$dialog.css("padding-top"), 10) -
-                    parseInt(this.$dialog.css("padding-bottom"), 10)
-            );
+        if (options.backdrop) {
+            this.$backdrop.addClass("in");
+        } else {
+            this.$backdrop.removeClass("in");
         }
+        this.$overlay.show();
+        this.$dialog.show();
+        this.$overlay.addClass("in");
+        // Fix min-width so that modal cannot shrink considerably if new content is loaded.
+        this.$body.css("min-width", this.$body.width());
+        // Set max-height so that modal does not exceed window size and is in middle of page.
+        // TODO: this could perhaps be handled better using CSS.
+        this.$body.css("max-height", $(window).height() / 1.5);
         // Callback on init
         if (callback) {
             callback();
@@ -109,6 +96,7 @@ $.extend(Modal.prototype, {
 
 var modal;
 
+// TODO: move into init chain
 $(() => {
     modal = new Modal({
         overlay: $("#top-modal"),
@@ -118,11 +106,11 @@ $(() => {
 });
 
 // Backward compatibility
-function hide_modal() {
+export function hide_modal() {
     modal.hide();
 }
 
-function show_modal(title, body, buttons, extra_buttons, init_fn) {
+export function show_modal(title, body, buttons, extra_buttons, init_fn) {
     modal.setContent({
         title: title,
         body: body,
@@ -132,7 +120,7 @@ function show_modal(title, body, buttons, extra_buttons, init_fn) {
     modal.show({ backdrop: true }, init_fn);
 }
 
-function show_message(title, body, buttons, extra_buttons, init_fn) {
+export function show_message(title, body, buttons, extra_buttons, init_fn) {
     modal.setContent({
         title: title,
         body: body,
@@ -142,7 +130,7 @@ function show_message(title, body, buttons, extra_buttons, init_fn) {
     modal.show({ backdrop: false }, init_fn);
 }
 
-function show_in_overlay(options) {
+export function show_in_overlay(options) {
     var width = options.width || "600";
     var height = options.height || "400";
     var scroll = options.scroll || "auto";
@@ -154,17 +142,10 @@ function show_in_overlay(options) {
         closeButton: true,
         title: "&nbsp;",
         body: $(
-            `<div style='margin: -5px;'><iframe style='margin: 0; padding: 0;' src='${options.url}' width='${width}' height='${height}' scrolling='${scroll}' frameborder='0'></iframe></div>`
+            `<div style='margin: -5px;'><iframe style='margin: 0; padding: 0;' src='${
+                options.url
+            }' width='${width}' height='${height}' scrolling='${scroll}' frameborder='0'></iframe></div>`
         )
     });
     modal.show({ backdrop: true });
 }
-
-// ============================================================================
-export default {
-    Modal: Modal,
-    hide_modal: hide_modal,
-    show_modal: show_modal,
-    show_message: show_message,
-    show_in_overlay: show_in_overlay
-};

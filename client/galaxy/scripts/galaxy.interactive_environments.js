@@ -1,3 +1,6 @@
+/* global $ */
+/* global toastr */
+// TODO: this file is transpiled and used directly without bundling; fix imports when that is no longer the case.
 /**
  * Internal function to remove content from the main area and add the notebook.
  * Not idempotent
@@ -18,9 +21,7 @@ export function clear_main_area() {
 }
 
 export function display_spinner() {
-    $("#main").append(
-        `<img id="spinner" src="${galaxy_root}static/style/largespinner.gif" style="position:absolute;margin:auto;top:0;left:0;right:0;bottom:0;">`
-    );
+    $("#main").append(`<div id="ie-loading-spinner"></div>`);
 }
 
 /* Create a spin_state object used by spin() and spin_again() */
@@ -70,8 +71,9 @@ function spin_again(spin_state) {
     }
     if (spin_state.log_attempts) {
         console.log(
-            `${spin_state.type} request ${spin_state.count} request timeout ${spin_state.ajax_timeout}ms sleeping ${spin_state.sleep /
-                1000}s`
+            `${spin_state.type} request ${spin_state.count} request timeout ${
+                spin_state.ajax_timeout
+            }ms sleeping ${spin_state.sleep / 1000}s`
         );
     }
     window.setTimeout(spin_state.spinner, spin_state.sleep);
@@ -119,7 +121,7 @@ export function spin(url, bool_response, success_callback, timeout_callback, err
 }
 
 /*
- * Spin on a URL forever until there is an acceptable response. 
+ * Spin on a URL forever until there is an acceptable response.
  * @param {String} url: URL to test response of. Must return a 200 (302->200 is OK).
  * @param {Boolean} bool_response: If set to `true`, do not stop spinning until the response is `true`. Otherwise, stop
  *     as soon as a successful response is received.

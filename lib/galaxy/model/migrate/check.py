@@ -3,7 +3,6 @@ import os.path
 import sys
 
 from migrate.versioning import repository, schema
-
 from sqlalchemy import (
     create_engine,
     MetaData,
@@ -111,8 +110,15 @@ def create_or_verify_database(url, galaxy_config_file, engine_options={}, app=No
         config_arg = ''
         if galaxy_config_file and os.path.abspath(os.path.join(os.getcwd(), 'config', 'galaxy.ini')) != galaxy_config_file:
             config_arg = ' -c %s' % galaxy_config_file.replace(os.path.abspath(os.getcwd()), '.')
-        raise Exception("Your database has version '%d' but this code expects version '%d'.  Please backup your database and then migrate the schema by running 'sh manage_db.sh%s upgrade'."
-                        % (db_schema.version, migrate_repository.versions.latest, config_arg))
+        expect_msg = "Your database has version '%d' but this code expects version '%d'" % (db_schema.version, migrate_repository.versions.latest)
+        instructions = ""
+        if db_schema.version > migrate_repository.versions.latest:
+            instructions = "To downgrade the database schema you have to checkout the Galaxy version that you were running previously. "
+            cmd_msg = "sh manage_db.sh%s downgrade %d" % (config_arg, migrate_repository.versions.latest)
+        else:
+            cmd_msg = "sh manage_db.sh%s upgrade" % config_arg
+        backup_msg = "Please backup your database and then migrate the database schema by running '%s'." % cmd_msg
+        raise Exception("%s. %s%s" % (expect_msg, instructions, backup_msg))
     else:
         log.info("At database version %d" % db_schema.version)
 

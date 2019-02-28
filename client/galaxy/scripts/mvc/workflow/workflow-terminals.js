@@ -1,5 +1,10 @@
+import $ from "jquery";
+import _ from "underscore";
+import Backbone from "backbone";
+
 // TODO; tie into Galaxy state?
 window.workflow_globals = window.workflow_globals || {};
+
 function CollectionTypeDescription(collectionType) {
     this.collectionType = collectionType;
     this.isCollection = true;
@@ -8,10 +13,10 @@ function CollectionTypeDescription(collectionType) {
 
 var NULL_COLLECTION_TYPE_DESCRIPTION = {
     isCollection: false,
-    canMatch: function(other) {
+    canMatch: function() {
         return false;
     },
-    canMapOver: function(other) {
+    canMapOver: function() {
         return false;
     },
     toString: function() {
@@ -30,14 +35,14 @@ var ANY_COLLECTION_TYPE_DESCRIPTION = {
     canMatch: function(other) {
         return NULL_COLLECTION_TYPE_DESCRIPTION !== other;
     },
-    canMapOver: function(other) {
+    canMapOver: function() {
         return false;
     },
     toString: function() {
         return "AnyCollectionType[]";
     },
-    append: function(otherCollectionType) {
-        throw "Cannot append to ANY_COLLECTION_TYPE_DESCRIPTION";
+    append: function() {
+        return ANY_COLLECTION_TYPE_DESCRIPTION;
     },
     equal: function(other) {
         return other === this;
@@ -50,7 +55,7 @@ $.extend(CollectionTypeDescription.prototype, {
             return this;
         }
         if (otherCollectionTypeDescription === ANY_COLLECTION_TYPE_DESCRIPTION) {
-            return otherCollectionType;
+            return otherCollectionTypeDescription;
         }
         return new CollectionTypeDescription(`${this.collectionType}:${otherCollectionTypeDescription.collectionType}`);
     },
@@ -129,6 +134,9 @@ var Terminal = Backbone.Model.extend({
         if (this.node) {
             this.node.markChanged();
             this.resetMappingIfNeeded();
+            if (!connector.dragging) {
+                connector.handle2.resetCollectionTypeSource();
+            }
         }
     },
     redraw: function() {
@@ -143,7 +151,9 @@ var Terminal = Backbone.Model.extend({
     },
     destroyInvalidConnections: function() {
         _.each(this.connectors, connector => {
-            connector && connector.destroyIfInvalid();
+            if (connector) {
+                connector.destroyIfInvalid();
+            }
         });
     },
     setMapOver: function(val) {
@@ -170,6 +180,17 @@ var Terminal = Backbone.Model.extend({
     },
     resetMapping: function() {
         this.terminalMapping.disableMapOver();
+    },
+
+    resetCollectionTypeSource: function() {
+        let node = this.node;
+        _.each(node.output_terminals, function(output_terminal) {
+            let type_source = output_terminal.attributes.collection_type_source;
+            if (type_source && output_terminal.attributes.collection_type) {
+                output_terminal.attributes.collection_type = null;
+                output_terminal.update(output_terminal.attributes);
+            }
+        });
     },
 
     resetMappingIfNeeded: function() {} // Subclasses should override this...
@@ -258,7 +279,7 @@ var BaseInputTerminal = Terminal.extend({
                 if (this._collectionAttached()) {
                     // Can only attach one collection to multiple input
                     // data parameter.
-                    inputsFilled = true;
+                    inputFilled = true;
                 } else {
                     inputFilled = false;
                 }
@@ -317,17 +338,17 @@ var BaseInputTerminal = Terminal.extend({
             if (thisDatatype == "input") {
                 return true;
             }
-            var cat_outputs = new Array();
+            var cat_outputs = [];
             cat_outputs = cat_outputs.concat(other.datatypes);
             if (other.node.post_job_actions) {
                 for (var pja_i in other.node.post_job_actions) {
                     var pja = other.node.post_job_actions[pja_i];
                     if (
                         pja.action_type == "ChangeDatatypeAction" &&
-                        (pja.output_name == "" || pja.output_name == other.name) &&
+                        (pja.output_name === "" || pja.output_name == other.name) &&
                         pja.action_arguments
                     ) {
-                        cat_outputs.push(pja.action_arguments["newtype"]);
+                        cat_outputs.push(pja.action_arguments.newtype);
                     }
                 }
             }
@@ -414,10 +435,23 @@ var InputTerminal = BaseInputTerminal.extend({
     }
 });
 
+var InputParameterTerminal = BaseInputTerminal.extend({
+    update: function(input) {
+        this.type = input.type;
+    },
+    connect: function(connector) {
+        BaseInputTerminal.prototype.connect.call(this, connector);
+    },
+    attachable: function(other) {
+        return this.type == other.attributes.type;
+    }
+});
+
 var InputCollectionTerminal = BaseInputTerminal.extend({
     update: function(input) {
         this.multiple = false;
         this.collection = true;
+        this.collection_type = input.collection_type;
         this.datatypes = input.extensions;
         var collectionTypes = [];
         if (input.collection_types) {
@@ -434,6 +468,24 @@ var InputCollectionTerminal = BaseInputTerminal.extend({
         var other = connector.handle1;
         if (!other) {
             return;
+        } else {
+            let node = this.node;
+            _.each(node.output_terminals, function(output_terminal) {
+                if (output_terminal.attributes.collection_type_source && !connector.dragging) {
+                    if (other.isMappedOver()) {
+                        if (other.isCollection) {
+                            output_terminal.attributes.collection_type = other.terminalMapping.mapOver.append(
+                                other.collectionType
+                            ).collectionType;
+                        } else {
+                            output_terminal.attributes.collection_type = other.terminalMapping.mapOver.collectionType;
+                        }
+                    } else {
+                        output_terminal.attributes.collection_type = other.attributes.collection_type;
+                    }
+                    output_terminal.update(output_terminal.attributes);
+                }
+            });
         }
 
         var effectiveMapOver = this._effectiveMapOver(other);
@@ -519,19 +571,25 @@ var OutputCollectionTerminal = Terminal.extend({
             newCollectionType = ANY_COLLECTION_TYPE_DESCRIPTION;
         }
 
-        if (newCollectionType.collectionType != this.collectionType.collectionType) {
-            _.each(this.connectors, connector => {
-                // TODO: consider checking if connection valid before removing...
-                connector.destroy();
+        let oldCollectionType = this.collectionType;
+        this.collectionType = newCollectionType;
+        // we need to iterate over a copy, as we slice this.connectors in the process of destroying connections
+        var connectors = this.connectors.slice(0);
+        if (newCollectionType.collectionType != oldCollectionType.collectionType) {
+            _.each(connectors, connector => {
+                connector.destroyIfInvalid(true);
             });
         }
-        this.collectionType = newCollectionType;
     }
 });
 
+var OutputParameterTerminal = Terminal.extend({});
+
 export default {
     InputTerminal: InputTerminal,
+    InputParameterTerminal: InputParameterTerminal,
     OutputTerminal: OutputTerminal,
+    OutputParameterTerminal: OutputParameterTerminal,
     InputCollectionTerminal: InputCollectionTerminal,
     OutputCollectionTerminal: OutputCollectionTerminal,
     TerminalMapping: TerminalMapping,

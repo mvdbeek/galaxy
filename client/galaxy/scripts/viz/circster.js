@@ -1,10 +1,17 @@
-import * as _ from "libs/underscore";
-import * as d3 from "libs/d3";
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import { getGalaxyInstance } from "app";
+import _l from "utils/localization";
+import * as d3 from "d3";
+import { event as currentEvent } from "d3";
 import visualization from "viz/visualization";
 import mod_utils from "utils/utils";
 import config from "utils/config";
 import mod_icon_btn from "mvc/ui/icon-button";
 import "libs/farbtastic";
+
 /**
  * Utility class for working with SVG.
  */
@@ -50,7 +57,7 @@ var UsesTicks = {
             .enter()
             .append("g")
             .attr("class", "tick")
-            .attr("transform", d => `rotate(${d.angle * 180 / Math.PI - 90})translate(${d.radius},0)`);
+            .attr("transform", d => `rotate(${(d.angle * 180) / Math.PI - 90})translate(${d.radius},0)`);
 
         // Add line + text for ticks.
         var tick_coords = [];
@@ -177,22 +184,21 @@ var CircsterView = Backbone.View.extend({
         var track_gap = this.model.get("config").get_value("track_gap");
 
         var // Subtract 20 to make sure chrom labels are on screen.
-        min_dimension = Math.min(this.$el.width(), this.$el.height()) - 20;
+            min_dimension = Math.min(this.$el.width(), this.$el.height()) - 20;
 
         var // Compute radius start based on model, will be centered
-        // and fit entirely inside element by default.
-        radius_start =
-            min_dimension / 2 -
-            circular_tracks.length * (dataset_arc_height + track_gap) +
-            // Add track_gap back in because no gap is needed for last track.
-            track_gap -
-            this.label_arc_height;
+            // and fit entirely inside element by default.
+            radius_start =
+                min_dimension / 2 -
+                circular_tracks.length * (dataset_arc_height + track_gap) +
+                // Add track_gap back in because no gap is needed for last track.
+                track_gap -
+                this.label_arc_height;
 
         var // Compute range of track starting radii.
-        tracks_start_radii = d3.range(radius_start, min_dimension / 2, dataset_arc_height + track_gap);
+            tracks_start_radii = d3.range(radius_start, min_dimension / 2, dataset_arc_height + track_gap);
 
         // Map from track start to bounds.
-        var self = this;
         return _.map(tracks_start_radii, radius => [radius, radius + dataset_arc_height]);
     },
 
@@ -209,43 +215,43 @@ var CircsterView = Backbone.View.extend({
         var tracks_bounds = this.get_tracks_bounds();
 
         var // Set up SVG element.
-        svg = d3
-            .select(self.$el[0])
-            .append("svg")
-            .attr("width", width)
-            .attr("height", height)
-            .attr("pointer-events", "all")
-            // Set up zooming, dragging.
-            .append("svg:g")
-            .call(
-                d3.behavior.zoom().on("zoom", () => {
-                    // Do zoom, drag.
-                    var scale = d3.event.scale;
-                    svg.attr("transform", `translate(${d3.event.translate}) scale(${scale})`);
+            svg = d3
+                .select(self.$el[0])
+                .append("svg")
+                .attr("width", width)
+                .attr("height", height)
+                .attr("pointer-events", "all")
+                // Set up zooming, dragging.
+                .append("svg:g")
+                .call(
+                    d3.behavior.zoom().on("zoom", () => {
+                        // Do zoom, drag.
+                        var scale = currentEvent.scale;
+                        svg.attr("transform", `translate(${currentEvent.translate}) scale(${scale})`);
 
-                    // Propagate scale changes to views.
-                    if (self.scale !== scale) {
-                        // Use timeout to wait for zooming/dragging to stop before rendering more detail.
-                        if (self.zoom_drag_timeout) {
-                            clearTimeout(self.zoom_drag_timeout);
-                        }
-                        self.zoom_drag_timeout = setTimeout(() => {
-                            // Render more detail in tracks' visible elements.
-                            // FIXME: do not do this right now; it is not fully implemented--e.g. data bounds
-                            // are not updated when new data is fetched--and fetching more detailed quantitative
-                            // data is not that useful.
-                            /*
+                        // Propagate scale changes to views.
+                        if (self.scale !== scale) {
+                            // Use timeout to wait for zooming/dragging to stop before rendering more detail.
+                            if (self.zoom_drag_timeout) {
+                                clearTimeout(self.zoom_drag_timeout);
+                            }
+                            self.zoom_drag_timeout = setTimeout(() => {
+                                // Render more detail in tracks' visible elements.
+                                // FIXME: do not do this right now; it is not fully implemented--e.g. data bounds
+                                // are not updated when new data is fetched--and fetching more detailed quantitative
+                                // data is not that useful.
+                                /*
                         _.each(self.circular_views, function(view) {
                             view.update_scale(scale);
                         });
                         */
-                        }, 400);
-                    }
-                })
-            )
-            .attr("transform", `translate(${width / 2},${height / 2})`)
-            .append("svg:g")
-            .attr("class", "tracks");
+                            }, 400);
+                        }
+                    })
+                )
+                .attr("transform", `translate(${width / 2},${height / 2})`)
+                .append("svg:g")
+                .attr("class", "tracks");
 
         // -- Render circular tracks. --
 
@@ -440,19 +446,19 @@ var CircsterTrackView = Backbone.View.extend({
             .outerRadius(this.radius_bounds[1]);
 
         var // Attach data to group element.
-        chroms_elts = track_parent_elt
-            .selectAll("g")
-            .data(genome_arcs)
-            .enter()
-            .append("svg:g");
+            chroms_elts = track_parent_elt
+                .selectAll("g")
+                .data(genome_arcs)
+                .enter()
+                .append("svg:g");
 
         var // Draw chrom arcs/paths.
-        chroms_paths = chroms_elts
-            .append("path")
-            .attr("d", arc_gen)
-            .attr("class", "chrom-background")
-            .style("stroke", this.bg_stroke)
-            .style("fill", this.loading_bg_fill);
+            chroms_paths = chroms_elts
+                .append("path")
+                .attr("d", arc_gen)
+                .attr("class", "chrom-background")
+                .style("stroke", this.bg_stroke)
+                .style("fill", this.loading_bg_fill);
 
         // Append titles to paths.
         chroms_paths.append("title").text(d => d.data.chrom);
@@ -464,7 +470,7 @@ var CircsterTrackView = Backbone.View.extend({
         var data_manager = self.track.get("data_manager");
 
         var // If track has a data manager, get deferred that resolves when data is ready.
-        data_ready_deferred = data_manager ? data_manager.data_is_ready() : true;
+            data_ready_deferred = data_manager ? data_manager.data_is_ready() : true;
 
         // When data is ready, render track.
         $.when(data_ready_deferred).then(() => {
@@ -563,8 +569,7 @@ var CircsterTrackView = Backbone.View.extend({
 
                     // Add new data path and apply preferences.
                     var color = self.get_fill_color();
-                    self
-                        ._render_chrom_data(self.parent_elt, chrom_arc, data)
+                    self._render_chrom_data(self.parent_elt, chrom_arc, data)
                         .style("stroke", color)
                         .style("fill", color);
                 });
@@ -605,8 +610,7 @@ var CircsterTrackView = Backbone.View.extend({
                 // Transition each path for data and color.
                 var color = track.get("config").get_value("color");
                 chrom_data_paths.each(function(path, index) {
-                    d3
-                        .select(this)
+                    d3.select(this)
                         .transition()
                         .duration(1000)
                         .style("stroke", color)
@@ -627,7 +631,6 @@ var CircsterTrackView = Backbone.View.extend({
      * default data bounds.
      */
     _update_data_bounds: function(new_bounds) {
-        var old_bounds = this.data_bounds;
         this.data_bounds =
             new_bounds || this.get_data_bounds(this.track.get("data_manager").get_genome_wide_data(this.genome));
         this._transition_chrom_data();
@@ -705,7 +708,7 @@ var CircsterTrackView = Backbone.View.extend({
             .sort(null);
 
         var init_arcs = pie_layout(chroms_info);
-        var gap_per_chrom = 2 * Math.PI * this.total_gap / chroms_info.length;
+        var gap_per_chrom = (2 * Math.PI * this.total_gap) / chroms_info.length;
 
         var chrom_arcs = _.map(init_arcs, (arc, index) => {
             // For short chroms, endAngle === startAngle.
@@ -893,7 +896,7 @@ var CircsterQuantitativeTrackView = CircsterTrackView.extend({
         var self = this;
 
         var // Keep counter of visible chroms.
-        textTransform = () => "rotate(90)";
+            textTransform = () => "rotate(90)";
 
         // FIXME:
         // (1) using min_max class below is needed for _update_min_max, which could be improved.
@@ -952,7 +955,7 @@ var CircsterQuantitativeTrackView = CircsterTrackView.extend({
             .selectAll("g.tick")
             .data(new_data)
             .transition()
-            .attr("transform", d => `rotate(${d.angle * 180 / Math.PI - 90})translate(${d.radius},0)`);
+            .attr("transform", d => `rotate(${(d.angle * 180) / Math.PI - 90})translate(${d.radius},0)`);
     },
 
     /**
@@ -961,7 +964,6 @@ var CircsterQuantitativeTrackView = CircsterTrackView.extend({
     _data_bounds_ticks_fn: function() {
         // Closure vars.
         var self = this;
-        visibleChroms = 0;
 
         // Return function for locating ticks based on chrom arc data.
         return (
@@ -1087,8 +1089,7 @@ var CircsterChromInteractionsTrackView = CircsterTrackView.extend({
         // Return angle at position.
         return (
             chrom_angle_data.endAngle -
-            (chrom_angle_data.endAngle - chrom_angle_data.startAngle) *
-                (chrom_angle_data.data.len - position) /
+            ((chrom_angle_data.endAngle - chrom_angle_data.startAngle) * (chrom_angle_data.data.len - position)) /
                 chrom_angle_data.data.len
         );
     }
@@ -1100,9 +1101,9 @@ var Circster = Backbone.View.extend({
         // load css
         mod_utils.cssLoadFile("static/style/circster.css");
         // -- Configure visualization --
-        var genome = new visualization.Genome(galaxy_config.app.genome);
+        var genome = new visualization.Genome(window.galaxy_config.app.genome);
 
-        var vis = new visualization.GenomeVisualization(galaxy_config.app.viz_config);
+        var vis = new visualization.GenomeVisualization(window.galaxy_config.app.viz_config);
 
         // Add Circster-specific config options.
         vis.get("config").add([
@@ -1142,7 +1143,7 @@ var Circster = Backbone.View.extend({
 
         // setup title
         $("#center .unified-panel-header-inner").append(
-            `${galaxy_config.app.viz_config.title} ${galaxy_config.app.viz_config.dbkey}`
+            `${window.galaxy_config.app.viz_config.title} ${window.galaxy_config.app.viz_config.dbkey}`
         );
 
         // setup menu
@@ -1150,7 +1151,7 @@ var Circster = Backbone.View.extend({
             [
                 {
                     icon_class: "plus-button",
-                    title: "Add tracks",
+                    title: _l("Add tracks"),
                     on_click: function() {
                         visualization.select_datasets({ dbkey: vis.get("dbkey") }, tracks => {
                             vis.add_tracks(tracks);
@@ -1159,7 +1160,7 @@ var Circster = Backbone.View.extend({
                 },
                 {
                     icon_class: "gear",
-                    title: "Settings",
+                    title: _l("Settings"),
                     on_click: function() {
                         var view = new config.ConfigSettingCollectionView({
                             collection: vis.get("config")
@@ -1169,17 +1170,19 @@ var Circster = Backbone.View.extend({
                 },
                 {
                     icon_class: "disk--arrow",
-                    title: "Save",
+                    title: _l("Save"),
                     on_click: function() {
+                        let Galaxy = getGalaxyInstance();
+
                         // show saving dialog box
                         Galaxy.modal.show({
-                            title: "Saving...",
+                            title: _l("Saving..."),
                             body: "progress"
                         });
 
                         // send to server
                         $.ajax({
-                            url: `${Galaxy.root}visualization/save`,
+                            url: `${getAppRoot()}visualization/save`,
                             type: "POST",
                             dataType: "json",
                             data: {
@@ -1197,7 +1200,7 @@ var Circster = Backbone.View.extend({
                             .error(() => {
                                 // show dialog
                                 Galaxy.modal.show({
-                                    title: "Could Not Save",
+                                    title: _l("Could Not Save"),
                                     body: "Could not save visualization. Please try again later.",
                                     buttons: {
                                         Cancel: function() {
@@ -1210,9 +1213,9 @@ var Circster = Backbone.View.extend({
                 },
                 {
                     icon_class: "cross-circle",
-                    title: "Close",
+                    title: _l("Close"),
                     on_click: function() {
-                        window.location = `${Galaxy.root}visualizations/list`;
+                        window.top.location = `${getAppRoot()}visualizations/list`;
                     }
                 }
             ],

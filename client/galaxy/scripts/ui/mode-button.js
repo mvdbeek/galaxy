@@ -4,44 +4,44 @@ import jQuery from "jquery";
 var $ = jQuery;
 
 /** Multi 'mode' button (or any element really) that changes the html
-     *      contents of itself when clicked. Pass in an ordered list of
-     *      objects with 'html' and (optional) onclick functions.
-     *
-     *      When clicked in a particular node, the onclick function will
-     *      be called (with the element as this) and the element will
-     *      switch to the next mode, replacing its html content with
-     *      that mode's html.
-     *
-     *      If there is no next mode, the element will switch back to
-     *      the first mode.
-     * @example:
-     *     $( '.myElement' ).modeButton({
-     *         modes : [
-     *             {
-     *                 mode: 'bler',
-     *                 html: '<h5>Bler</h5>',
-     *                 onclick : function(){
-     *                     $( 'body' ).css( 'background-color', 'red' );
-     *                 }
-     *             },
-     *             {
-     *                 mode: 'bloo',
-     *                 html: '<h4>Bloo</h4>',
-     *                 onclick : function(){
-     *                     $( 'body' ).css( 'background-color', 'blue' );
-     *                 }
-     *             },
-     *             {
-     *                 mode: 'blah',
-     *                 html: '<h3>Blah</h3>',
-     *                 onclick : function(){
-     *                     $( 'body' ).css( 'background-color', 'grey' );
-     *                 }
-     *             },
-     *         ]
-     *     });
-     *     $( '.myElement' ).modeButton( 'callModeFn', 'bler' );
-     */
+ *      contents of itself when clicked. Pass in an ordered list of
+ *      objects with 'html' and (optional) onclick functions.
+ *
+ *      When clicked in a particular node, the onclick function will
+ *      be called (with the element as this) and the element will
+ *      switch to the next mode, replacing its html content with
+ *      that mode's html.
+ *
+ *      If there is no next mode, the element will switch back to
+ *      the first mode.
+ * @example:
+ *     $( '.myElement' ).modeButton({
+ *         modes : [
+ *             {
+ *                 mode: 'bler',
+ *                 html: '<h5>Bler</h5>',
+ *                 onclick : function(){
+ *                     $( 'body' ).css( 'background-color', 'red' );
+ *                 }
+ *             },
+ *             {
+ *                 mode: 'bloo',
+ *                 html: '<h4>Bloo</h4>',
+ *                 onclick : function(){
+ *                     $( 'body' ).css( 'background-color', 'blue' );
+ *                 }
+ *             },
+ *             {
+ *                 mode: 'blah',
+ *                 html: '<h3>Blah</h3>',
+ *                 onclick : function(){
+ *                     $( 'body' ).css( 'background-color', 'grey' );
+ *                 }
+ *             },
+ *         ]
+ *     });
+ *     $( '.myElement' ).modeButton( 'callModeFn', 'bler' );
+ */
 /** constructor */
 function ModeButton(element, options) {
     this.currModeIndex = 0;
@@ -130,7 +130,9 @@ ModeButton.prototype.getMode = function getMode(modeKey) {
 ModeButton.prototype.hasMode = function hasMode(modeKey) {
     try {
         return !!this.getMode(modeKey);
-    } catch (err) {}
+    } catch (err) {
+        console.debug(err);
+    }
     return false;
 };
 /** set the current mode to the mode with the given name */

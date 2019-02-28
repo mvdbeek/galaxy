@@ -1,7 +1,7 @@
+import $ from "jquery";
+import _ from "underscore";
 import DC_LI from "mvc/collection/collection-li";
 import DATASET_LI_EDIT from "mvc/dataset/dataset-li-edit";
-import BASE_MVC from "mvc/base-mvc";
-import _l from "utils/localization";
 
 //==============================================================================
 var DCListItemView = DC_LI.DCListItemView;
@@ -61,14 +61,14 @@ var DatasetDCEListItemEdit = DATASET_LI_EDIT.DatasetListItemEdit.extend(
         // NOTE: this does not inherit from DatasetDCEListItemView - so we duplicate this here
         //TODO: fix
         /** In this override, only get details if in the ready state.
-     *  Note: fetch with no 'change' event triggering to prevent automatic rendering.
-     */
+         *  Note: fetch with no 'change' event triggering to prevent automatic rendering.
+         */
         _fetchModelDetails: function() {
             var view = this;
             if (view.model.inReadyState() && !view.model.hasDetails()) {
                 return view.model.fetch({ silent: true });
             }
-            return jQuery.when();
+            return $.when();
         },
 
         /** Override to remove delete button */

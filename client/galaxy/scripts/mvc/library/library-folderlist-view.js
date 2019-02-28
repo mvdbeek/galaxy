@@ -1,9 +1,11 @@
-import mod_masthead from "layout/masthead";
-import mod_utils from "utils/utils";
+import $ from "jquery";
+import _ from "underscore";
+import Backbone from "backbone";
 import mod_toastr from "libs/toastr";
 import mod_library_model from "mvc/library/library-model";
 import mod_library_folderrow_view from "mvc/library/library-folderrow-view";
-import mod_library_dataset_view from "mvc/library/library-dataset-view";
+import { getGalaxyInstance } from "app";
+
 var FolderListView = Backbone.View.extend({
     el: "#folder_items_element",
     // progress percentage
@@ -57,8 +59,7 @@ var FolderListView = Backbone.View.extend({
         this.fetchFolder();
     },
 
-    fetchFolder: function(options) {
-        var options = options || {};
+    fetchFolder: function(options = {}) {
         this.options.include_deleted = options.include_deleted;
         var self = this;
 
@@ -76,6 +77,7 @@ var FolderListView = Backbone.View.extend({
                 self.render();
             },
             error: function(model, response) {
+                let Galaxy = getGalaxyInstance();
                 if (typeof response.responseJSON !== "undefined") {
                     mod_toastr.error(`${response.responseJSON.err_msg} Click this to go back.`, "", {
                         onclick: function() {
@@ -134,11 +136,12 @@ var FolderListView = Backbone.View.extend({
             }
             this.paginate();
         }
-        $("#center [data-toggle]").tooltip();
+        $('#center [data-toggle="tooltip"]').tooltip({ trigger: "hover" });
         $("#center").css("overflow", "auto");
     },
 
     paginate: function(options) {
+        let Galaxy = getGalaxyInstance();
         this.options = _.extend(this.options, options);
 
         if (this.options.show_page === null || this.options.show_page < 1) {
@@ -178,12 +181,13 @@ var FolderListView = Backbone.View.extend({
      *  be added to the view's collection.
      */
     addAll: function(models) {
+        let Galaxy = getGalaxyInstance();
         _.each(models, model => {
             Galaxy.libraries.folderListView.collection.add(model, {
                 current_sort_order: false
             });
         });
-        $("#center [data-toggle]").tooltip();
+        $('#center [data-toggle="tooltip"]').tooltip({ trigger: "hover" });
         this.checkEmptiness();
         this.postRender();
     },
@@ -194,6 +198,7 @@ var FolderListView = Backbone.View.extend({
      * and that event will be bound on all subviews.
      */
     postRender: function() {
+        let Galaxy = getGalaxyInstance();
         var fetched_metadata = this.folderContainer.attributes.metadata;
         fetched_metadata.contains_file_or_folder =
             typeof this.collection.findWhere({ type: "file" }) !== "undefined" ||
@@ -325,32 +330,26 @@ var FolderListView = Backbone.View.extend({
 
     makeDarkRow: function($row) {
         $row.removeClass("light").addClass("dark");
-        $row
-            .find("a")
+        $row.find("a")
             .removeClass("light")
             .addClass("dark");
-        $row
-            .find(".fa-file-o")
+        $row.find(".fa-file-o")
             .removeClass("fa-file-o")
             .addClass("fa-file");
-        $row
-            .find(".fa-folder-o")
+        $row.find(".fa-folder-o")
             .removeClass("fa-folder-o")
             .addClass("fa-folder");
     },
 
     makeWhiteRow: function($row) {
         $row.removeClass("dark").addClass("light");
-        $row
-            .find("a")
+        $row.find("a")
             .removeClass("dark")
             .addClass("light");
-        $row
-            .find(".fa-file")
+        $row.find(".fa-file")
             .removeClass("fa-file")
             .addClass("fa-file-o");
-        $row
-            .find(".fa-folder")
+        $row.find(".fa-folder")
             .removeClass("fa-folder")
             .addClass("fa-folder-o");
     },
@@ -369,23 +368,22 @@ var FolderListView = Backbone.View.extend({
     templateFolder: function() {
         return _.template(
             [
-                // BREADCRUMBS
                 '<ol class="breadcrumb">',
-                '<li><a title="Return to the list of libraries" href="#">Libraries</a></li>',
+                '<li class="breadcrumb-item"><a title="Return to the list of libraries" href="#">Libraries</a></li>',
                 "<% _.each(path, function(path_item) { %>",
                 "<% if (path_item[0] != id) { %>",
-                '<li><a title="Return to this folder" href="#/folders/<%- path_item[0] %>"><%- path_item[1] %></a> </li> ',
+                '<li class="breadcrumb-item"><a title="Return to this folder" href="#/folders/<%- path_item[0] %>"><%- path_item[1] %></a> </li> ',
                 "<% } else { %>",
-                '<li class="active"><span title="You are in this folder"><%- path_item[1] %></span></li>',
+                '<li class="breadcrumb-item active"><span title="You are in this folder"><%- path_item[1] %></span></li>',
                 "<% } %>",
                 "<% }); %>",
                 "</ol>",
 
                 // FOLDER CONTENT
-                '<table data-library-id="<%- parent_library_id  %>" class="grid table table-condensed">',
+                '<table data-library-id="<%- parent_library_id  %>" class="grid table table-sm">',
                 "<thead>",
                 '<th class="button_heading"></th>',
-                '<th style="text-align: center; width: 20px; " title="Check to select all datasets"><input id="select-all-checkboxes" style="margin: 0;" type="checkbox"></th>',
+                '<th class="mid" style="width: 20px; " title="Check to select all datasets"><input id="select-all-checkboxes" style="margin: 0;" type="checkbox"></th>',
                 '<th><a class="sort-folder-name" title="Click to reverse order" href="#">name</a> <span title="Sorted alphabetically" class="sort-icon-name fa fa-sort-alpha-<%- order %>"></span></th>',
                 '<th style="width:20%;"><a class="sort-folder-description" title="Click to reverse order" href="#">description</a> <span title="Sorted alphabetically" class="sort-icon-description fa"></span></th>',
                 '<th style="width:5%;"><a class="sort-folder-file_ext" title="Click to reverse order" href="#">data type</a> <span title="Sorted alphabetically" class="sort-icon-file_ext fa"></span></th>',
@@ -397,7 +395,7 @@ var FolderListView = Backbone.View.extend({
                 '<tbody id="folder_list_body">',
                 '<tr id="first_folder_item">',
                 "<td>",
-                '<a href="#<% if (upper_folder_id !== 0){ print("folders/" + upper_folder_id)} %>" title="Go to parent folder" class="btn_open_folder btn btn-default btn-xs">..<a>',
+                '<a href="#<% if (upper_folder_id !== 0){ print("folders/" + upper_folder_id)} %>" title="Go to parent folder" class="btn_open_folder btn btn-secondary btn-sm">..<a>',
                 "</td>",
                 "<td></td>",
                 "<td></td>",

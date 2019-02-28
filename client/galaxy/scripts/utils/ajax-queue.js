@@ -1,4 +1,5 @@
-//ASSUMES: jquery
+import $ from "jquery";
+
 //=============================================================================
 /** @class AjaxQueue
  *  Class that allows queueing functions that return jQuery promises (such
@@ -11,7 +12,7 @@
 class AjaxQueue {
     constructor(initialFunctions) {
         /** the main deferred for the entire queue - note: also sends notifications of progress */
-        this.deferred = jQuery.Deferred();
+        this.deferred = $.Deferred();
         /** the queue array of functions */
         this.queue = [];
         /** cache the response from each deferred call - error or success */
@@ -84,7 +85,7 @@ class AjaxQueue {
             this.deferred.resolve(this.responses);
         }
         this.numToProcess = 0;
-        this.deferred = jQuery.Deferred();
+        this.deferred = $.Deferred();
         return this;
     }
 
@@ -129,6 +130,11 @@ class AjaxQueue {
  *    fn:   the deferring fn or ajax call }
  */
 class NamedAjaxQueue extends AjaxQueue {
+    constructor(initialFunctions) {
+        super(initialFunctions);
+        this.names = {};
+    }
+
     /** add the obj.fn to the queue if obj.name hasn't been used before */
     add(obj) {
         if (!(obj.hasOwnProperty("name") && obj.hasOwnProperty("fn"))) {

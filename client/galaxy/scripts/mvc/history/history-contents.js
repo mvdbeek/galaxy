@@ -1,9 +1,16 @@
+import _ from "underscore";
+import jQuery from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
 import CONTROLLED_FETCH_COLLECTION from "mvc/base/controlled-fetch-collection";
 import HDA_MODEL from "mvc/history/hda-model";
 import HDCA_MODEL from "mvc/history/hdca-model";
 import HISTORY_PREFS from "mvc/history/history-preferences";
+import JOB_STATES_MODEL from "mvc/history/job-states-model";
 import BASE_MVC from "mvc/base-mvc";
 import AJAX_QUEUE from "utils/ajax-queue";
+
+const limitPerPageDefault = window.localStorage.getItem("historyContentsLimitPerPageDefault") || 500;
 
 //==============================================================================
 var _super = CONTROLLED_FETCH_COLLECTION.PaginatedCollection;
@@ -15,20 +22,17 @@ var _super = CONTROLLED_FETCH_COLLECTION.PaginatedCollection;
  *          HDAs or child dataset collections on one level.
  *      This is why this does not inherit from any of the DatasetCollections (currently).
  */
-var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
+export var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
     _logNamespace: "history",
 
     // ........................................................................ set up
-    limitPerPage: 500,
+    limitPerPage: limitPerPageDefault,
 
     /** @type {Integer} how many contents per call to fetch when using progressivelyFetchDetails */
-    limitPerProgressiveFetch: 500,
+    limitPerProgressiveFetch: limitPerPageDefault,
 
     /** @type {String} order used here and when fetching from server */
     order: "hid",
-
-    /** root api url */
-    urlRoot: `${Galaxy.root}api/histories`,
 
     /** complete api url */
     url: function() {
@@ -37,7 +41,12 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
 
     /** Set up */
     initialize: function(models, options) {
+        this.on({
+            "sync add": this.trackJobStates
+        });
+
         options = options || {};
+        this.urlRoot = `${getAppRoot()}api/histories`;
         _super.prototype.initialize.call(this, models, options);
 
         this.history = options.history || null;
@@ -53,46 +62,67 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
         this.model.prototype.idAttribute = "type_id";
     },
 
+    trackJobStates: function() {
+        this.each(historyContent => {
+            if (historyContent.has("job_states_summary")) {
+                return;
+            }
+
+            if (historyContent.attributes.history_content_type === "dataset_collection") {
+                var jobSourceType = historyContent.attributes.job_source_type;
+                var jobSourceId = historyContent.attributes.job_source_id;
+                if (jobSourceType && this.jobStateSummariesCollection) {
+                    this.jobStateSummariesCollection.add({
+                        id: jobSourceId,
+                        model: jobSourceType,
+                        history_id: this.history_id,
+                        collection_id: historyContent.attributes.id
+                    });
+                    var jobStatesSummary = this.jobStateSummariesCollection.get(jobSourceId);
+                    historyContent.jobStatesSummary = jobStatesSummary;
+                }
+            }
+        });
+    },
+
     // ........................................................................ composite collection
     /** since history content is a mix, override model fn into a factory, creating based on history_content_type */
     model: function(attrs, options) {
         if (attrs.history_content_type === "dataset") {
             return new HDA_MODEL.HistoryDatasetAssociation(attrs, options);
         } else if (attrs.history_content_type === "dataset_collection") {
-            switch (attrs.collection_type) {
-                case "list":
-                    return new HDCA_MODEL.HistoryListDatasetCollection(attrs, options);
-                case "paired":
-                    return new HDCA_MODEL.HistoryPairDatasetCollection(attrs, options);
-                case "list:paired":
-                    return new HDCA_MODEL.HistoryListPairedDatasetCollection(attrs, options);
-                case "list:list":
-                    return new HDCA_MODEL.HistoryListOfListsDatasetCollection(attrs, options);
-            }
-            // This is a hack inside a hack:
-            // Raise a plain object with validationError to fake a model.validationError
-            // (since we don't have a model to use validate with)
-            // (the outer hack being the mixed content/model function in this collection)
-            var msg = `Unknown collection_type: ${attrs.collection_type}`;
-            console.warn(msg, attrs);
-            return { validationError: msg };
+            return new HDCA_MODEL.HistoryDatasetCollection(attrs, options);
+        } else {
+            return {
+                validationError: `Unknown history_content_type: ${attrs.history_content_type}`
+            };
         }
-        return {
-            validationError: `Unknown history_content_type: ${attrs.history_content_type}`
-        };
+    },
+
+    stopPolling: function() {
+        if (this.jobStateSummariesCollection) {
+            this.jobStateSummariesCollection.active = false;
+            this.jobStateSummariesCollection.clearUpdateTimeout();
+        }
     },
 
     setHistoryId: function(newId) {
+        this.stopPolling();
         this.historyId = newId;
-        this._setUpWebStorage();
+        if (newId) {
+            // If actually reflecting a history - setup storage and monitor jobs.
+
+            this._setUpWebStorage();
+
+            this.jobStateSummariesCollection = new JOB_STATES_MODEL.JobStatesSummaryCollection();
+            this.jobStateSummariesCollection.historyId = newId;
+            this.jobStateSummariesCollection.monitor();
+        }
     },
 
     /** Set up client side storage. Currently PersistanStorage keyed under 'history:<id>' */
     _setUpWebStorage: function(initialSettings) {
         // TODO: use initialSettings
-        if (!this.historyId) {
-            return;
-        }
         this.storage = new HISTORY_PREFS.HistoryPrefs({
             id: HISTORY_PREFS.HistoryPrefs.historyStorageKey(this.historyId)
         });
@@ -267,7 +297,6 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
     /** fetch all the deleted==true contents of this collection */
     fetchDeleted: function(options) {
         options = options || {};
-        var self = this;
         options.filters = _.extend(options.filters, {
             // all deleted, purged or not
             deleted: true,
@@ -275,24 +304,23 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
         });
         options.remove = false;
 
-        self.trigger("fetching-deleted", self);
-        return self.fetch(options).always(() => {
-            self.trigger("fetching-deleted-done", self);
+        this.trigger("fetching-deleted", this);
+        return this.fetch(options).always(() => {
+            this.trigger("fetching-deleted-done", this);
         });
     },
 
     /** fetch all the visible==false contents of this collection */
     fetchHidden: function(options) {
         options = options || {};
-        var self = this;
         options.filters = _.extend(options.filters, {
             visible: false
         });
         options.remove = false;
 
-        self.trigger("fetching-hidden", self);
-        return self.fetch(options).always(() => {
-            self.trigger("fetching-hidden-done", self);
+        this.trigger("fetching-hidden", this);
+        return this.fetch(options).always(() => {
+            this.trigger("fetching-hidden-done", this);
         });
     },
 
@@ -304,32 +332,20 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
         return this.fetch(options);
     },
 
-    /** specialty fetch method for retrieving the element_counts of all hdcas in the history */
-    fetchCollectionCounts: function(options) {
-        options = options || {};
-        options.keys = ["type_id", "element_count"].join(",");
-        options.filters = _.extend(options.filters || {}, {
-            history_content_type: "dataset_collection"
-        });
-        options.remove = false;
-        return this.fetch(options);
-    },
-
     // ............. quasi-batch ops
     // TODO: to batch
     /** helper that fetches using filterParams then calls save on each fetched using updateWhat as the save params */
     _filterAndUpdate: function(filterParams, updateWhat) {
-        var self = this;
-        var idAttribute = self.model.prototype.idAttribute;
+        var idAttribute = this.model.prototype.idAttribute;
         var updateArgs = [updateWhat];
 
-        return self.fetch({ filters: filterParams, remove: false }).then(fetched => {
+        return this.fetch({ filters: filterParams, remove: false }).then(fetched => {
             // convert filtered json array to model array
             fetched = fetched.reduce((modelArray, currJson, i) => {
-                var model = self.get(currJson[idAttribute]);
+                var model = this.get(currJson[idAttribute]);
                 return model ? modelArray.concat(model) : modelArray;
             }, []);
-            return self.ajaxQueue("save", updateArgs, fetched);
+            return this.ajaxQueue("save", updateArgs, fetched);
         });
     },
 
@@ -347,43 +363,44 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
         ).deferred;
     },
 
+    _recursivelyFetch: function(options, detailKeys, deferred, limit, offset) {
+        offset = offset || 0;
+        var _options = _.extend(_.clone(options), {
+            view: "summary",
+            keys: detailKeys,
+            limit: limit,
+            offset: offset,
+            reset: offset === 0,
+            remove: false
+        });
+
+        _.defer(() => {
+            this.fetch
+                .call(this, _options)
+                .fail(deferred.reject)
+                .done(response => {
+                    deferred.notify(response, limit, offset);
+                    if (response.length !== limit) {
+                        this.allFetched = true;
+                        deferred.resolve(response, limit, offset);
+                    } else {
+                        this._recursivelyFetch(options, detailKeys, deferred, limit, offset + limit);
+                    }
+                });
+        });
+    },
+
     /** fetch contents' details in batches of limitPerCall - note: only get searchable details here */
     progressivelyFetchDetails: function(options) {
-        options = options || {};
-        var deferred = jQuery.Deferred();
-        var self = this;
-        var limit = options.limitPerCall || self.limitPerProgressiveFetch;
         // TODO: only fetch tags and annotations if specifically requested
-        var searchAttributes = HDA_MODEL.HistoryDatasetAssociation.prototype.searchAttributes;
-        var detailKeys = searchAttributes.join(",");
-
-        function _recursivelyFetch(offset) {
-            offset = offset || 0;
-            var _options = _.extend(_.clone(options), {
-                view: "summary",
-                keys: detailKeys,
-                limit: limit,
-                offset: offset,
-                reset: offset === 0,
-                remove: false
-            });
-
-            _.defer(() => {
-                self.fetch
-                    .call(self, _options)
-                    .fail(deferred.reject)
-                    .done(response => {
-                        deferred.notify(response, limit, offset);
-                        if (response.length !== limit) {
-                            self.allFetched = true;
-                            deferred.resolve(response, limit, offset);
-                        } else {
-                            _recursivelyFetch(offset + limit);
-                        }
-                    });
-            });
-        }
-        _recursivelyFetch();
+        options = options || {};
+        let deferred = jQuery.Deferred();
+        this._recursivelyFetch(
+            options,
+            HDA_MODEL.HistoryDatasetAssociation.prototype.searchAttributes.join(","),
+            deferred,
+            options.limitPerCall || this.limitPerProgressiveFetch
+        );
         return deferred;
     },
 
@@ -443,16 +460,21 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
     },
 
     /** create a new HDCA in this collection */
-    createHDCA: function(elementIdentifiers, collectionType, name, hideSourceItems, options) {
+    createHDCA: function(elementIdentifiers, collectionType, name, hideSourceItems, copyElements, options) {
         // normally collection.create returns the new model, but we need the promise from the ajax, so we fake create
         //precondition: elementIdentifiers is an array of plain js objects
         //  in the proper form to create the collectionType
+        if (copyElements === undefined) {
+            copyElements = true;
+        }
+
         var hdca = this.model({
             history_content_type: "dataset_collection",
             collection_type: collectionType,
             history_id: this.historyId,
             name: name,
             hide_source_items: hideSourceItems || false,
+            copy_elements: copyElements,
             // should probably be able to just send in a bunch of json here and restruct per class
             // note: element_identifiers is now (incorrectly) an attribute
             element_identifiers: elementIdentifiers
@@ -494,8 +516,3 @@ var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
         return ["HistoryContents(", [this.historyId, this.length].join(), ")"].join("");
     }
 });
-
-//==============================================================================
-export default {
-    HistoryContents: HistoryContents
-};

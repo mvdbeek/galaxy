@@ -17,9 +17,6 @@ Please visit <a href="https://galaxyproject.org/admin" target="_blank">the Galax
                     <strong>Data tables</strong> - See all data tables available in this Galaxy.
                 </li>
                 <li>
-                    <strong>Data libraries</strong> - Data libraries enable authorized Galaxy users to share datasets with other groups or users. Only administrators can create data libraries. See <a href="https://galaxyproject.org/data-libraries" target="_blank">wiki</a> for details.
-                </li>
-                <li>
                     <strong>Display applications</strong> - See all display applications configured in this Galaxy.
                 </li>
                 <li>
@@ -33,7 +30,7 @@ Please visit <a href="https://galaxyproject.org/admin" target="_blank">the Galax
         <h4>User Management</h4>
             <ul>
                 <li>
-                    <strong>Users</strong> - A view of all users and all groups and non-private roles associated with each user.
+                    <strong>Users</strong> - The primary user management interface, displaying information associated with each user and providing operations for resetting passwords, updating user information, impersonating a user, and more.
                 </li>
             %if trans.app.config.enable_quotas:
                 <li>
@@ -50,14 +47,6 @@ Please visit <a href="https://galaxyproject.org/admin" target="_blank">the Galax
                 <li>
                     <strong>Forms</strong> - Manage local form definitions.
                 </li>
-                <li>
-                    <strong>API keys</strong> - A view of all generated API keys with an option to re-generate.
-                </li>
-            %if trans.app.config.allow_user_impersonation:
-                <li>
-                    <strong>Impersonate a user</strong> - Allows to view Galaxy as another user in order to help troubleshoot issues.
-                </li>
-            %endif
             </ul>
 
         <h4>Tool Management</h4>

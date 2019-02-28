@@ -1,5 +1,10 @@
 /** Renders contents of the collection uploader */
-import Utils from "utils/utils";
+
+import _l from "utils/localization";
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getGalaxyInstance } from "app";
 import UploadModel from "mvc/upload/upload-model";
 import UploadRow from "mvc/upload/collection/collection-row";
 import UploadFtp from "mvc/upload/upload-ftp";
@@ -7,8 +12,8 @@ import UploadExtension from "mvc/upload/upload-extension";
 import Popover from "mvc/ui/ui-popover";
 import Select from "mvc/ui/ui-select";
 import Ui from "mvc/ui/ui-misc";
-import LIST_COLLECTION_CREATOR from "mvc/collection/list-collection-creator";
 import "utils/uploadbox";
+
 export default Backbone.View.extend({
     // current upload size in bytes
     upload_size: 0,
@@ -40,7 +45,7 @@ export default Backbone.View.extend({
         // append buttons to dom
         this.btnLocal = new Ui.Button({
             id: "btn-local",
-            title: "Choose local files",
+            title: _l("Choose local files"),
             onclick: function() {
                 self.uploadbox.select();
             },
@@ -48,7 +53,7 @@ export default Backbone.View.extend({
         });
         this.btnFtp = new Ui.Button({
             id: "btn-ftp",
-            title: "Choose FTP files",
+            title: _l("Choose FTP files"),
             onclick: function() {
                 self._eventFtp();
             },
@@ -64,35 +69,35 @@ export default Backbone.View.extend({
         });
         this.btnStart = new Ui.Button({
             id: "btn-start",
-            title: "Start",
+            title: _l("Start"),
             onclick: function() {
                 self._eventStart();
             }
         });
         this.btnBuild = new Ui.Button({
             id: "btn-build",
-            title: "Build",
+            title: _l("Build"),
             onclick: function() {
                 self._eventBuild();
             }
         });
         this.btnStop = new Ui.Button({
             id: "btn-stop",
-            title: "Pause",
+            title: _l("Pause"),
             onclick: function() {
                 self._eventStop();
             }
         });
         this.btnReset = new Ui.Button({
             id: "btn-reset",
-            title: "Reset",
+            title: _l("Reset"),
             onclick: function() {
                 self._eventReset();
             }
         });
         this.btnClose = new Ui.Button({
             id: "btn-close",
-            title: "Close",
+            title: _l("Close"),
             onclick: function() {
                 self.app.modal.hide();
             }
@@ -115,7 +120,7 @@ export default Backbone.View.extend({
 
         // file upload
         this.uploadbox = this.$(".upload-box").uploadbox({
-            url: this.app.options.nginx_upload_path,
+            url: this.app.options.upload_path,
             announce: function(index, file) {
                 self._eventAnnounce(index, file);
             },
@@ -143,14 +148,13 @@ export default Backbone.View.extend({
         });
 
         // add ftp file viewer
-        this.ftp = new Popover.View({
-            title: "FTP files",
+        this.ftp = new Popover({
+            title: _l("FTP files"),
             container: this.btnFtp.$el
         });
 
         // select extension
         this.select_extension = new Select.View({
-            css: "upload-footer-selection-compressed",
             container: this.$(".upload-footer-extension"),
             data: _.filter(this.list_extensions, ext => !ext.composite_files),
             value: this.options.default_extension,
@@ -161,7 +165,6 @@ export default Backbone.View.extend({
 
         this.collectionType = "list";
         this.select_collection = new Select.View({
-            css: "upload-footer-selection-compressed",
             container: this.$(".upload-footer-collection-type"),
             data: [
                 { id: "list", text: "List" },
@@ -245,6 +248,7 @@ export default Backbone.View.extend({
         this.counter.announce--;
         this.counter.success++;
         this._updateScreen();
+        let Galaxy = getGalaxyInstance();
         Galaxy.currHistoryPanel.refreshContents();
     },
 
@@ -272,6 +276,7 @@ export default Backbone.View.extend({
     },
 
     _eventBuild: function() {
+        let Galaxy = getGalaxyInstance();
         var allHids = [];
         _.forEach(this.collection.models, upload => {
             allHids.push.apply(allHids, upload.get("hids"));
@@ -307,32 +312,26 @@ export default Backbone.View.extend({
 
     /** Show/hide ftp popup */
     _eventFtp: function() {
-        if (!this.ftp.visible) {
-            this.ftp.empty();
-            var self = this;
-            this.ftp.append(
-                new UploadFtp({
-                    collection: this.collection,
-                    ftp_upload_site: this.ftp_upload_site,
-                    onadd: function(ftp_file) {
-                        return self.uploadbox.add([
-                            {
-                                mode: "ftp",
-                                name: ftp_file.path,
-                                size: ftp_file.size,
-                                path: ftp_file.path
-                            }
-                        ]);
-                    },
-                    onremove: function(model_index) {
-                        self.collection.remove(model_index);
-                    }
-                }).$el
-            );
-            this.ftp.show();
-        } else {
-            this.ftp.hide();
-        }
+        var self = this;
+        this.ftp.show(
+            new UploadFtp({
+                collection: this.collection,
+                ftp_upload_site: this.ftp_upload_site,
+                onadd: function(ftp_file) {
+                    return self.uploadbox.add([
+                        {
+                            mode: "ftp",
+                            name: ftp_file.path,
+                            size: ftp_file.size,
+                            path: ftp_file.path
+                        }
+                    ]);
+                },
+                onremove: function(model_index) {
+                    self.collection.remove(model_index);
+                }
+            }).$el
+        );
     },
 
     /** Create a new file */
@@ -398,7 +397,6 @@ export default Backbone.View.extend({
 
     /** Update collection type */
     updateCollectionType: function(collectionType) {
-        var self = this;
         this.collectionType = collectionType;
     },
 
@@ -427,8 +425,9 @@ export default Backbone.View.extend({
             }
         } else {
             if (this.counter.running == 0) {
-                message = `You added ${this.counter
-                    .announce} file(s) to the queue. Add more files or click 'Start' to proceed.`;
+                message = `You added ${
+                    this.counter.announce
+                } file(s) to the queue. Add more files or click 'Start' to proceed.`;
             } else {
                 message = `Please wait...${this.counter.announce} out of ${this.counter.running} remaining.`;
             }
@@ -465,36 +464,36 @@ export default Backbone.View.extend({
 
     /** Template */
     _template: function() {
-        return (
-            '<div class="upload-view-default">' +
-            '<div class="upload-top">' +
-            '<h6 class="upload-top-info"/>' +
-            "</div>" +
-            '<div class="upload-box">' +
-            '<div class="upload-helper"><i class="fa fa-files-o"/>Drop files here</div>' +
-            '<table class="upload-table ui-table-striped" style="display: none;">' +
-            "<thead>" +
-            "<tr>" +
-            "<th>Name</th>" +
-            "<th>Size</th>" +
-            "<th>Status</th>" +
-            "<th/>" +
-            "</tr>" +
-            "</thead>" +
-            "<tbody/>" +
-            "</table>" +
-            "</div>" +
-            '<div class="upload-footer">' +
-            '<span class="upload-footer-title-compressed">Collection Type:</span>' +
-            '<span class="upload-footer-collection-type"/>' +
-            '<span class="upload-footer-title-compressed">File Type:</span>' +
-            '<span class="upload-footer-extension"/>' +
-            '<span class="upload-footer-extension-info upload-icon-button fa fa-search"/> ' +
-            '<span class="upload-footer-title-compressed">Genome (set all):</span>' +
-            '<span class="upload-footer-genome"/>' +
-            "</div>" +
-            '<div class="upload-buttons"/>' +
-            "</div>"
-        );
+        return `<div class="upload-view-default">
+                <div class="upload-top">
+                    <div class="upload-top-info"/>
+                </div>
+                <div class="upload-box">
+                    <div class="upload-helper">
+                        <i class="fa fa-files-o"/>Drop files here
+                    </div>
+                    <table class="upload-table ui-table-striped" style="display: none;">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Size</th>
+                                <th>Status</th>
+                                <th/>
+                            </tr>
+                        </thead>
+                        <tbody/>
+                    </table>
+                </div>
+                <div class="upload-footer">
+                    <span class="upload-footer-title">Collection Type:</span>
+                    <span class="upload-footer-collection-type"/>
+                    <span class="upload-footer-title">File Type:</span>
+                    <span class="upload-footer-extension"/>
+                    <span class="upload-footer-extension-info upload-icon-button fa fa-search"/>
+                    <span class="upload-footer-title">Genome (set all):</span>
+                    <span class="upload-footer-genome"/>
+                </div>
+                <div class="upload-buttons"/>
+            </div>`;
     }
 });

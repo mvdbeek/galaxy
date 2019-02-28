@@ -1,8 +1,12 @@
+import _ from "underscore";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
 import HISTORY_CONTENTS from "mvc/history/history-contents";
 import STATES from "mvc/dataset/states";
 import AJAX_QUEUE from "utils/ajax-queue";
 import BASE_MVC from "mvc/base-mvc";
-import _l from "utils/localization";
+// import _l from "utils/localization";
+
 var logNamespace = "jobs";
 //==============================================================================
 var searchableMixin = BASE_MVC.SearchableModelMixin;
@@ -58,8 +62,8 @@ var Job = Backbone.Model.extend(BASE_MVC.LoggableMixin).extend(
             },
 
             /** set up any event listeners
-     *  event: state:ready  fired when this DA moves into/is already in a ready state
-     */
+             *  event: state:ready  fired when this DA moves into/is already in a ready state
+             */
             _setUpListeners: function() {
                 // if the state has changed and the new state is a ready state, fire an event
                 this.on("change:state", function(currModel, newState) {
@@ -72,8 +76,8 @@ var Job = Backbone.Model.extend(BASE_MVC.LoggableMixin).extend(
 
             // ........................................................................ common queries
             /** Is this job in a 'ready' state; where 'Ready' states are states where no
-     *      processing is left to do on the server.
-     */
+             *      processing is left to do on the server.
+             */
             inReadyState: function() {
                 return _.contains(STATES.READY_STATES, this.get("state"));
             },
@@ -86,7 +90,7 @@ var Job = Backbone.Model.extend(BASE_MVC.LoggableMixin).extend(
 
             // ........................................................................ ajax
             /** root api url */
-            urlRoot: `${Galaxy.root}api/jobs`,
+            urlRoot: `${getAppRoot()}api/jobs`,
             //url : function(){ return this.urlRoot; },
 
             // ........................................................................ searching
@@ -115,7 +119,7 @@ var JobCollection = Backbone.Collection.extend(BASE_MVC.LoggableMixin).extend(
         model: Job,
 
         /** root api url */
-        urlRoot: `${Galaxy.root}api/jobs`,
+        urlRoot: `${getAppRoot()}api/jobs`,
         url: function() {
             return this.urlRoot;
         },
@@ -126,15 +130,15 @@ var JobCollection = Backbone.Collection.extend(BASE_MVC.LoggableMixin).extend(
 
         // ........................................................................ common queries
         /** Get the ids of every item in this collection
-     *  @returns array of encoded ids
-     */
+         *  @returns array of encoded ids
+         */
         ids: function() {
             return this.map(item => item.get("id"));
         },
 
         /** Get jobs that are not ready
-     *  @returns array of content models
-     */
+         *  @returns array of content models
+         */
         notReady: function() {
             return this.filter(job => !job.inReadyState());
         },

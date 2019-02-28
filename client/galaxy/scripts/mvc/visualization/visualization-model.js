@@ -1,10 +1,14 @@
+import _ from "underscore";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+
 //==============================================================================
 /** @class Model for a saved Galaxy visualization.
  *
  *  @augments Backbone.Model
  *  @constructs
  */
-var Visualization = Backbone.Model.extend(
+export var Visualization = Backbone.Model.extend(
     /** @lends Visualization.prototype */ {
         ///** logger used to record this.log messages, commonly set to console */
         //// comment this out to suppress log output
@@ -18,12 +22,12 @@ var Visualization = Backbone.Model.extend(
         /** override urlRoot to handle prefix */
         urlRoot: function() {
             var apiUrl = "api/visualizations";
-            return Galaxy.root + apiUrl;
+            return getAppRoot() + apiUrl;
         },
 
         /** Set up the model, determine if accessible, bind listeners
-     *  @see Backbone.Model#initialize
-     */
+         *  @see Backbone.Model#initialize
+         */
         initialize: function(data) {
             //this.log( this + '.initialize', data, this.attributes );
 
@@ -36,7 +40,7 @@ var Visualization = Backbone.Model.extend(
         },
 
         /** set up any event listeners
-     */
+         */
         _setUpListeners: function() {
             //this.on( 'change', function(){
             //    console.info( 'change:', arguments );
@@ -76,7 +80,7 @@ var Visualization = Backbone.Model.extend(
  *
  *  @constructs
  */
-var VisualizationCollection = Backbone.Collection.extend(
+export var VisualizationCollection = Backbone.Collection.extend(
     /** @lends VisualizationCollection.prototype */ {
         model: Visualization,
 
@@ -85,12 +89,12 @@ var VisualizationCollection = Backbone.Collection.extend(
         //logger              : console,
 
         url: function() {
-            return `${Galaxy.root}api/visualizations`;
+            return `${getAppRoot()}api/visualizations`;
         },
 
         /** Set up.
-     *  @see Backbone.Collection#initialize
-     */
+         *  @see Backbone.Collection#initialize
+         */
         initialize: function(models, options) {
             options = options || {};
             //this._setUpListeners();

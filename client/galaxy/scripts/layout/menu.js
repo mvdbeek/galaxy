@@ -1,8 +1,27 @@
 /** Masthead Collection **/
-import GenericNav from "layout/generic-nav-view";
-import Webhooks from "mvc/webhooks";
+import _ from "underscore";
+import $ from "jquery";
+import axios from "axios";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import { getGalaxyInstance } from "app";
 import _l from "utils/localization";
+import { CommunicationServerView } from "layout/communication-server-view";
+import Webhooks from "mvc/webhooks";
 import Utils from "utils/utils";
+
+function logoutClick() {
+    let galaxy = getGalaxyInstance();
+    let session_csrf_token = galaxy.session_csrf_token;
+    let url = `${galaxy.root}user/logout?session_csrf_token=${session_csrf_token}`;
+    axios.get(url).then(() => {
+        if (galaxy.user) {
+            galaxy.user.clearSessionStorage();
+        }
+        window.top.location.href = `${galaxy.root}login`;
+    });
+}
+
 var Collection = Backbone.Collection.extend({
     model: Backbone.Model.extend({
         defaults: {
@@ -11,14 +30,15 @@ var Collection = Backbone.Collection.extend({
         }
     }),
     fetch: function(options) {
-        var self = this;
         options = options || {};
         this.reset();
+
+        let Galaxy = getGalaxyInstance();
 
         //
         // Chat server tab
         //
-        var extendedNavItem = new GenericNav.GenericNavView();
+        var extendedNavItem = new CommunicationServerView();
         this.add(extendedNavItem.render());
 
         //
@@ -39,7 +59,30 @@ var Collection = Backbone.Collection.extend({
             title: _l("Workflow"),
             tooltip: _l("Chain tools into workflows"),
             disabled: !Galaxy.user.id,
-            url: "workflow"
+            url: "workflows/list",
+            target: "__use_router__"
+        });
+
+        //
+        // Visualization tab.
+        //
+        this.add({
+            id: "visualization",
+            title: _l("Visualize"),
+            tooltip: _l("Visualize datasets"),
+            disabled: !Galaxy.user.id,
+            menu: [
+                {
+                    title: _l("Create Visualization"),
+                    url: "visualizations",
+                    target: "__use_router__"
+                },
+                {
+                    title: _l("Interactive Environments"),
+                    url: "visualization/gie_list",
+                    target: "galaxy_main"
+                }
+            ]
         });
 
         //
@@ -57,47 +100,23 @@ var Collection = Backbone.Collection.extend({
                 },
                 {
                     title: _l("Histories"),
-                    url: "histories/list_published"
+                    url: "histories/list_published",
+                    target: "__use_router__"
                 },
                 {
                     title: _l("Workflows"),
-                    url: "workflows/list_published"
+                    url: "workflows/list_published",
+                    target: "__use_router__"
                 },
                 {
                     title: _l("Visualizations"),
-                    url: "visualizations/list_published"
+                    url: "visualizations/list_published",
+                    target: "__use_router__"
                 },
                 {
                     title: _l("Pages"),
-                    url: "pages/list_published"
-                }
-            ]
-        });
-
-        //
-        // Visualization tab.
-        //
-        this.add({
-            id: "visualization",
-            title: _l("Visualization"),
-            url: "visualizations/list",
-            tooltip: _l("Visualize datasets"),
-            disabled: !Galaxy.user.id,
-            menu: [
-                {
-                    title: _l("New Track Browser"),
-                    url: "visualization/trackster",
-                    target: "_frame"
-                },
-                {
-                    title: _l("Saved Visualizations"),
-                    url: "visualizations/list",
-                    target: "_frame"
-                },
-                {
-                    title: _l("Interactive Environments"),
-                    url: "visualization/gie_list",
-                    target: "galaxy_main"
+                    url: "pages/list_published",
+                    target: "__use_router__"
                 }
             ]
         });
@@ -105,22 +124,24 @@ var Collection = Backbone.Collection.extend({
         //
         // Webhooks
         //
-        Webhooks.add({
-            url: "api/webhooks/masthead/all",
+        Webhooks.load({
+            type: "masthead",
             callback: function(webhooks) {
                 $(document).ready(() => {
-                    $.each(webhooks.models, (index, model) => {
+                    webhooks.each(model => {
                         var webhook = model.toJSON();
                         if (webhook.activate) {
                             var obj = {
-                                id: webhook.name,
+                                id: webhook.id,
                                 icon: webhook.config.icon,
                                 url: webhook.config.url,
                                 tooltip: webhook.config.tooltip,
+                                /*jslint evil: true */
                                 onclick: webhook.config.function && new Function(webhook.config.function)
                             };
 
                             // Galaxy.page is undefined for data libraries, workflows pages
+                            let Galaxy = getGalaxyInstance();
                             if (Galaxy.page) {
                                 Galaxy.page.masthead.collection.add(obj);
                             } else if (Galaxy.masthead) {
@@ -138,7 +159,7 @@ var Collection = Backbone.Collection.extend({
         //
         // Admin.
         //
-        Galaxy.user.get("is_admin") &&
+        if (Galaxy.user.get("is_admin")) {
             this.add({
                 id: "admin",
                 title: _l("Admin"),
@@ -146,6 +167,7 @@ var Collection = Backbone.Collection.extend({
                 tooltip: _l("Administer this Galaxy"),
                 cls: "admin-only"
             });
+        }
 
         //
         // Help tab.
@@ -191,24 +213,34 @@ var Collection = Backbone.Collection.extend({
                 }
             ]
         };
-        options.terms_url &&
+        if (options.terms_url) {
             helpTab.menu.push({
                 title: _l("Terms and Conditions"),
                 url: options.terms_url,
                 target: "_blank"
             });
-        options.biostar_url &&
+        }
+        if (options.biostar_url) {
             helpTab.menu.unshift({
                 title: _l("Ask a question"),
                 url: "biostar/biostar_question_redirect",
                 target: "_blank"
             });
-        options.biostar_url &&
+        }
+        if (options.biostar_url) {
             helpTab.menu.unshift({
                 title: _l("Galaxy Biostar"),
                 url: options.biostar_url_redirect,
                 target: "_blank"
             });
+        }
+        if (options.helpsite_url) {
+            helpTab.menu.unshift({
+                title: _l("Galaxy Help"),
+                url: options.helpsite_url,
+                target: "_blank"
+            });
+        }
         this.add(helpTab);
 
         //
@@ -221,21 +253,8 @@ var Collection = Backbone.Collection.extend({
                     id: "user",
                     title: _l("Login or Register"),
                     cls: "loggedout-only",
-                    tooltip: _l("Account registration or login"),
-                    menu: [
-                        {
-                            title: _l("Login"),
-                            url: "user/login",
-                            target: "galaxy_main",
-                            noscratchbook: true
-                        },
-                        {
-                            title: _l("Register"),
-                            url: "user/create",
-                            target: "galaxy_main",
-                            noscratchbook: true
-                        }
-                    ]
+                    url: "login",
+                    tooltip: _l("Account registration or login")
                 };
             } else {
                 userTab = {
@@ -260,40 +279,44 @@ var Collection = Backbone.Collection.extend({
                     },
                     {
                         title: _l("Preferences"),
-                        url: "user"
+                        url: "user",
+                        target: "__use_router__"
                     },
                     {
                         title: _l("Custom Builds"),
-                        url: "custom_builds"
+                        url: "custom_builds",
+                        target: "__use_router__"
                     },
                     {
                         title: _l("Logout"),
-                        url: `user/logout?session_csrf_token=${Galaxy.session_csrf_token}`,
-                        target: "_top",
-                        divider: true
-                    },
-                    {
-                        title: _l("Saved Histories"),
-                        url: "histories/list",
-                        target: "_top"
+                        divider: true,
+                        onclick: logoutClick
                     },
                     {
                         title: _l("Saved Datasets"),
                         url: "datasets/list",
-                        target: "_top"
+                        target: "__use_router__"
+                    },
+                    {
+                        title: _l("Saved Histories"),
+                        url: "histories/list",
+                        target: "__use_router__"
                     },
                     {
                         title: _l("Saved Pages"),
                         url: "pages/list",
-                        target: "_top"
+                        target: "__use_router__"
+                    },
+                    {
+                        title: _l("Saved Visualizations"),
+                        url: "visualizations/list",
+                        target: "__use_router__"
                     }
                 ]
             };
         }
         this.add(userTab);
-        var activeView = this.get(options.active_view);
-        activeView && activeView.set("active", true);
-        return new jQuery.Deferred().resolve().promise();
+        return new $.Deferred().resolve().promise();
     }
 });
 
@@ -302,49 +325,51 @@ var Tab = Backbone.View.extend({
     initialize: function(options) {
         this.model = options.model;
         this.setElement(this._template());
-        this.$dropdown = this.$(".dropdown");
-        this.$toggle = this.$(".dropdown-toggle");
+        this.$link = this.$(".nav-link");
+        this.$note = this.$(".nav-note");
         this.$menu = this.$(".dropdown-menu");
-        this.$note = this.$(".dropdown-note");
         this.listenTo(this.model, "change", this.render, this);
     },
 
     events: {
-        "click .dropdown-toggle": "_toggleClick"
+        "click .nav-link": "_toggleClick"
     },
 
     render: function() {
-        var self = this;
         $(".tooltip").remove();
-        this.$el.attr("id", this.model.id).css({
-            visibility: (this.model.get("visible") && "visible") || "hidden"
-        });
+        this.$el
+            .removeClass()
+            .addClass(this.model.get("disabled") && "disabled")
+            .addClass(this.model.get("active") && "active")
+            .addClass(this.model.get("menu") && "dropdown")
+            .attr("id", this.model.id)
+            .css({
+                visibility: (this.model.get("visible") && "visible") || "hidden"
+            });
         this.model.set("url", this._formatUrl(this.model.get("url")));
         this.$note
             .html(this.model.get("note") || "")
             .removeClass()
-            .addClass("dropdown-note")
+            .addClass("nav-note")
             .addClass(this.model.get("note_cls"))
             .css({
                 display: (this.model.get("show_note") && "block") || "none"
             });
-        this.$toggle
+        this.$link
             .html(this.model.get("title") || "")
             .removeClass()
-            .addClass("dropdown-toggle")
+            .addClass("nav-link")
             .addClass(this.model.get("cls"))
-            .addClass(this.model.get("icon") && `dropdown-icon fa ${this.model.get("icon")}`)
+            .addClass(this.model.get("icon") && `nav-icon fa ${this.model.get("icon")}`)
+            .addClass(this.model.get("menu") && "dropdown-toggle")
             .addClass(this.model.get("toggle") && "toggle")
             .attr("target", this.model.get("target"))
             .attr("href", this.model.get("url"))
             .attr("title", this.model.get("tooltip"))
-            .tooltip("destroy");
-        this.model.get("tooltip") && this.$toggle.tooltip({ placement: "bottom" });
-        this.$dropdown
-            .removeClass()
-            .addClass("dropdown")
-            .addClass(this.model.get("disabled") && "disabled")
-            .addClass(this.model.get("active") && "active");
+            .tooltip("dispose");
+        if (this.model.get("tooltip")) {
+            this.$link.tooltip({ placement: "bottom" });
+        }
         if (this.model.get("menu") && this.model.get("show_menu")) {
             this.$menu.show();
             $("#dd-helper")
@@ -352,109 +377,125 @@ var Tab = Backbone.View.extend({
                 .off()
                 .on("click", () => {
                     $("#dd-helper").hide();
-                    self.model.set("show_menu", false);
+                    this.model.set("show_menu", false);
                 });
         } else {
-            self.$menu.hide();
+            this.$menu.hide();
             $("#dd-helper").hide();
         }
-        this.$menu.empty().removeClass("dropdown-menu");
+        this.$menu.empty().removeClass();
         if (this.model.get("menu")) {
             _.each(this.model.get("menu"), menuItem => {
-                self.$menu.append(self._buildMenuItem(menuItem));
-                menuItem.divider && self.$menu.append($("<li/>").addClass("divider"));
+                this.$menu.append(this._buildMenuItem(menuItem));
+                if (menuItem.divider) {
+                    this.$menu.append($("<div/>").addClass("dropdown-divider"));
+                }
             });
-            self.$menu.addClass("dropdown-menu");
-            self.$toggle.append($("<b/>").addClass("caret"));
+            this.$menu.addClass("dropdown-menu");
+            this.$link.append($("<b/>").addClass("caret"));
         }
         return this;
     },
 
     /** Add new menu item */
     _buildMenuItem: function(options) {
-        var self = this;
         options = _.defaults(options || {}, {
             title: "",
             url: "",
             target: "_parent",
             noscratchbook: false
         });
-        options.url = self._formatUrl(options.url);
-        return $("<li/>").append(
-            $("<a/>")
-                .attr("href", options.url)
-                .attr("target", options.target)
-                .html(options.title)
-                .on("click", e => {
-                    e.preventDefault();
-                    self.model.set("show_menu", false);
-                    if (options.onclick) {
-                        options.onclick();
+        options.url = this._formatUrl(options.url);
+        return $("<a/>")
+            .addClass("dropdown-item")
+            .attr("href", options.url)
+            .attr("target", options.target)
+            .html(options.title)
+            .on("click", e => {
+                e.preventDefault();
+                this.model.set("show_menu", false);
+                if (options.onclick) {
+                    options.onclick();
+                } else {
+                    let Galaxy = getGalaxyInstance();
+                    if (options.target == "__use_router__" && typeof Galaxy.page != "undefined") {
+                        Galaxy.page.router.push(options.url);
                     } else {
-                        Galaxy.frame.add(options);
+                        try {
+                            Galaxy.frame.add(options);
+                        } catch (err) {
+                            console.warn("Missing frame element on galaxy instance", err);
+                        }
                     }
-                })
-        );
+                }
+            });
+    },
+
+    buildLink: function(label, url) {
+        return $("<div/>")
+            .append(
+                $("<a/>")
+                    .attr("href", getAppRoot() + url)
+                    .html(label)
+            )
+            .html();
     },
 
     /** Handle click event */
     _toggleClick: function(e) {
-        var self = this;
         var model = this.model;
         e.preventDefault();
         $(".tooltip").hide();
         model.trigger("dispatch", m => {
-            model.id !== m.id && m.get("menu") && m.set("show_menu", false);
+            if (model.id !== m.id && m.get("menu")) {
+                m.set("show_menu", false);
+            }
         });
         if (!model.get("disabled")) {
             if (!model.get("menu")) {
-                model.get("onclick") ? model.get("onclick")() : Galaxy.frame.add(model.attributes);
+                if (model.get("onclick")) {
+                    model.get("onclick")();
+                } else {
+                    let Galaxy = getGalaxyInstance();
+                    if (model.attributes.target == "__use_router__" && typeof Galaxy.page != "undefined") {
+                        Galaxy.page.router.push(model.attributes.url);
+                    } else {
+                        Galaxy.frame.add(model.attributes);
+                    }
+                }
             } else {
                 model.set("show_menu", true);
             }
         } else {
-            function buildLink(label, url) {
-                return $("<div/>")
-                    .append(
-                        $("<a/>")
-                            .attr("href", Galaxy.root + url)
-                            .html(label)
-                    )
-                    .html();
+            if (this.$link.popover) {
+                this.$link.popover("dispose");
             }
-            this.$toggle.popover && this.$toggle.popover("destroy");
-            this.$toggle
+            this.$link
                 .popover({
                     html: true,
                     placement: "bottom",
-                    content: `Please ${buildLink("login", "user/login?use_panels=True")} or ${buildLink(
-                        "register",
-                        "user/create?use_panels=True"
-                    )} to use this feature.`
+                    content: `Please ${this.buildLink("login or register", "login")} to use this feature.`
                 })
                 .popover("show");
-            setTimeout(() => {
-                self.$toggle.popover("destroy");
-            }, 5000);
+            window.setTimeout(() => {
+                this.$link.popover("dispose");
+            }, 3000);
         }
     },
 
     /** Url formatting */
     _formatUrl: function(url) {
-        return typeof url == "string" && url.indexOf("//") === -1 && url.charAt(0) != "/" ? Galaxy.root + url : url;
+        return typeof url == "string" && url.indexOf("//") === -1 && url.charAt(0) != "/" ? getAppRoot() + url : url;
     },
 
     /** body tempate */
     _template: function() {
-        return (
-            '<ul class="nav navbar-nav">' +
-            '<li class="dropdown">' +
-            '<a class="dropdown-toggle"/>' +
-            '<ul class="dropdown-menu"/>' +
-            '<div class="dropdown-note"/>' +
-            "</li>" +
-            "</ul>"
-        );
+        return `
+            <li class="nav-item">
+                <a class="nav-link"/>
+                <div class="nav-note"/>
+                <div class="dropdown-menu"/>
+            </li>`;
     }
 });
 

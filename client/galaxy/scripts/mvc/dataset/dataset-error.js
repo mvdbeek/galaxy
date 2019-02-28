@@ -1,67 +1,88 @@
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import { getGalaxyInstance } from "app";
+import _l from "utils/localization";
 import Utils from "utils/utils";
 import Ui from "mvc/ui/ui-misc";
 import Form from "mvc/form/form-view";
+
 /** Dataset edit attributes view */
 var View = Backbone.View.extend({
     initialize: function() {
+        let Galaxy = getGalaxyInstance();
         this.setElement("<div/>");
         this.model = new Backbone.Model({
             dataset_id: Galaxy.params.dataset_id
         });
+        this.active_tab = "user";
         this.render();
     },
 
     // Fetch data for the selected dataset and
     render: function() {
-        var data_url = `${Galaxy.root}api/datasets/${this.model.get("dataset_id")}`;
-
-        var self = this;
+        var data_url = `${getAppRoot()}api/datasets/${this.model.get("dataset_id")}`;
 
         Utils.get({
             url: data_url,
-            success: function(dataset) {
-                var job_url = `${Galaxy.root}api/jobs/${dataset.creating_job}?full=True`;
+            success: dataset => {
+                var job_url = `${getAppRoot()}api/jobs/${dataset.creating_job}?full=True`;
                 Utils.get({
                     url: job_url,
-                    success: function(job) {
-                        var job_url = `${Galaxy.root}api/jobs/${dataset.creating_job}?full=True`;
-                        self.render_error_page(self, dataset, job);
+                    success: job => {
+                        this.render_error_page(dataset, job);
                     },
-                    error: function(response) {
+                    error: response => {
                         var error_response = {
                             status: "error",
-                            message: "Error occured while loading the job.",
+                            message: "Error occurred while loading the job.",
                             persistent: true,
                             cls: "errormessage"
                         };
-                        self.display_message(error_response, self.$(".response-message"));
+                        this.display_message(error_response, this.$(".response-message"));
                     }
                 });
             },
-            error: function(response) {
+            error: response => {
                 var error_response = {
                     status: "error",
-                    message: "Error occured while loading the dataset.",
+                    message: "Error occurred while loading the dataset.",
                     persistent: true,
                     cls: "errormessage"
                 };
-                self.display_message(error_response, self.$(".response-message"));
+                this.display_message(error_response, this.$(".response-message"));
             }
         });
     },
 
     /** Render the view */
-    render_error_page: function(self, dataset, job) {
-        self.$el.empty().append(self._templateHeader());
-        self.$el.append("<h2>Dataset Error</h2>");
-        self.$el.append(`<p>An error occured while running the tool <b>${job.tool_id}</b>.</p>`);
-        self.$el.append("<p>Tool execution generated the following messages:</p>");
-        self.$el.append(`<pre class="code">${job.stderr}</pre>`);
-        self.$el.append("<h2>Report This Error</pre>");
-        self.$el.append(
-            "<p>Usually the local Galaxy administrators regularly review errors that occur on the server. However, if you would like to provide additional information (such as what you were trying to do when the error occurred) and a contact e-mail address, we will be better able to investigate your problem and get back to you.</p>"
-        );
-        self.$el.append(self._getBugFormTemplate(dataset, job));
+    render_error_page: function(dataset, job) {
+        this.$el.empty().append(`
+            ${this._templateHeader()}
+            <h2>Dataset Error</h2>
+            <p>An error occurred while running the tool <b>${job.tool_id}</b>.</p>
+            <p>Tool execution generated the following messages:</p>
+            <pre class="code">${_.escape(job.stderr)}</pre>
+
+            <h3>Troubleshoot This Error</h3>
+            <p>
+                There are a number of help resources to self diagnose and
+                correct problems.
+                Start here: <a
+                href="https://galaxyproject.org/support/tool-error/"
+                target="_blank"> My job ended with an error. What can I do?</a>
+            </p>
+
+            <h3>Report This Error</h3>
+            <p>
+                Usually the local Galaxy administrators regularly review errors
+                that occur on the server However, if you would like to provide
+                additional information (such as what you were trying to do when
+                the error occurred) and a contact e-mail address, we will be
+                better able to investigate your problem and get back to you.
+            </p>`);
+        this.$el.append(this._getBugFormTemplate(dataset, job));
     },
 
     /** Display actions messages */
@@ -83,15 +104,15 @@ var View = Backbone.View.extend({
 
     /** Main template */
     _templateHeader: function() {
-        return '<div class="page-container edit-attr">' + '<div class="response-message"></div>' + "</div>";
+        return `<div class="page-container edit-attr"><div class="response-message"></div></div>`;
     },
 
     /** Convert tab template */
     _getBugFormTemplate: function(dataset, job) {
-        var self = this;
+        let Galaxy = getGalaxyInstance();
         var inputs = [
             {
-                help: "Your email address",
+                help: _l("Your email address"),
                 options: [],
                 type: "text",
                 name: "email",
@@ -99,7 +120,9 @@ var View = Backbone.View.extend({
                 value: Galaxy.user.get("email")
             },
             {
-                help: "Any additional comments you can provide regarding what you were doing at the time of the bug.",
+                help: _l(
+                    "Any additional comments you can provide regarding what you were doing at the time of the bug."
+                ),
                 options: [],
                 type: "text",
                 area: true,
@@ -124,19 +147,19 @@ var View = Backbone.View.extend({
         */
 
         var form = new Form({
-            title: "Error Report",
+            title: _l("Error Report"),
             inputs: inputs,
             buttons: {
                 save: new Ui.Button({
                     icon: "fa-bug",
-                    title: "Report",
+                    title: _l("Report"),
                     cls: "ui-button btn btn-primary",
                     floating: "clear",
-                    onclick: function() {
+                    onclick: () => {
                         var form_data = form.data.create();
-                        var url = `${Galaxy.root}api/jobs/${job.id}/error`;
+                        var url = `${getAppRoot()}api/jobs/${job.id}/error`;
                         form_data.dataset_id = dataset.id;
-                        self.submit(form_data, url);
+                        this.submit(form_data, url);
                     }
                 })
             }
@@ -146,37 +169,36 @@ var View = Backbone.View.extend({
 
     /** Make ajax request */
     submit: function(form_data, url) {
-        var self = this;
         // Some required metadata
         $.ajax({
             type: "POST",
             url: url,
             data: form_data,
-            success: function(response) {
+            success: response => {
                 // Clear out the div
-                self.$el.empty().append(self._templateHeader());
+                this.$el.empty().append(this._templateHeader());
                 // And display the messages.
                 response.messages.forEach(message => {
-                    self.display_message(
+                    this.display_message(
                         {
                             status: message[1],
                             message: message[0],
                             persistent: true
                         },
-                        self.$(".response-message"),
+                        this.$(".response-message"),
                         true,
                         true
                     );
                 });
             },
-            error: function(response) {
+            error: response => {
                 var error_response = {
                     status: "error",
-                    message: "Error occured while saving. Please fill all the required fields and try again.",
+                    message: "Error occurred while saving. Please fill all the required fields and try again.",
                     persistent: true,
                     cls: "errormessage"
                 };
-                self.display_message(error_response, self.$(".response-message"));
+                this.display_message(error_response, this.$(".response-message"));
             }
         });
     }

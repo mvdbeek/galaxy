@@ -1,5 +1,9 @@
+import Backbone from "backbone";
+import _ from "underscore";
+import _l from "utils/localization";
 import toolshed_model from "mvc/toolshed/toolshed-model";
 import toolshed_util from "mvc/toolshed/util";
+
 var View = Backbone.View.extend({
     defaults: {
         tool_sheds: [
@@ -11,7 +15,6 @@ var View = Backbone.View.extend({
     },
 
     initialize: function(options) {
-        var self = this;
         this.options = _.defaults(this.options || {}, this.defaults);
         this.model = new toolshed_model.ShedsCollection();
         this.listenTo(this.model, "sync", this.render);
@@ -25,23 +28,17 @@ var View = Backbone.View.extend({
         var toolshed_list_template = this.templateToolshedList;
         this.$el.html(
             toolshed_list_template({
-                title: "Configured Galaxy Tool Sheds",
+                title: _l("Configured Galaxy Tool Sheds"),
                 tool_sheds: this.model.models,
                 queue: toolshed_util.queueLength()
             })
         );
     },
 
-    reDraw: function(options) {
-        this.$el.empty();
-        this.render(options);
-    },
-
     templateToolshedList: _.template(
         [
             '<div class="unified-panel-header" id="panel_header" unselectable="on">',
-            '<div class="unified-panel-header-inner"><%= title %></div>',
-            '<div class="unified-panel-header-inner" style="position: absolute; right: 5px; top: 0px;"><a href="#/queue">Repository Queue (<%= queue %>)</a></div>',
+            '<div class="unified-panel-header-inner"><%= title %><a class="ml-auto" href="#/queue">Repository Queue (<%= queue %>)</a></div>',
             "</div>",
             '<div class="unified-panel-body" id="list_toolsheds">',
             '<div class="form-row">',

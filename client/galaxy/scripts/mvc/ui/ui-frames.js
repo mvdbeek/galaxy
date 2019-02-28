@@ -1,7 +1,12 @@
 /** Frame view */
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import _l from "utils/localization";
+import { getGalaxyInstance } from "app";
+
 var FrameView = Backbone.View.extend({
     initialize: function(options) {
-        var self = this;
         this.model = (options && options.model) || new Backbone.Model(options);
         this.setElement($("<div/>").addClass("corner frame"));
         this.$el
@@ -13,7 +18,7 @@ var FrameView = Backbone.View.extend({
                         $("<div/>")
                             .addClass("f-icon f-close fa fa-close")
                             .tooltip({
-                                title: "Close",
+                                title: _l("Close"),
                                 placement: "bottom"
                             })
                     )
@@ -35,7 +40,7 @@ var FrameView = Backbone.View.extend({
     render: function() {
         var self = this;
         var options = this.model.attributes;
-        this.$title.html(options.title || "");
+        this.$title.html(_.escape(options.title) || "");
         this.$header.find(".f-icon-left").remove();
         _.each(options.menu, option => {
             var $option = $("<div/>")
@@ -49,7 +54,7 @@ var FrameView = Backbone.View.extend({
                         option.onclick(self);
                     })
                     .tooltip({
-                        title: option.tooltip,
+                        title: option.tooltip || "",
                         placement: "bottom"
                     });
             }
@@ -63,7 +68,11 @@ var FrameView = Backbone.View.extend({
                     .attr("src", `${options.url + (options.url.indexOf("?") === -1 ? "?" : "&")}widget=True`)
             );
         } else if (options.content) {
-            _.isFunction(options.content) ? options.content(self.$content) : self.$content.html(options.content);
+            if (_.isFunction(options.content)) {
+                options.content(self.$content);
+            } else {
+                self.$content.html(options.content);
+            }
         }
     }
 });
@@ -119,10 +128,16 @@ var View = Backbone.View.extend({
         this.frame_list["#frame-shadow"] = this.frame_shadow;
 
         // initialize panel
-        this.visible ? this.show() : this.hide();
+        if (this.visible) {
+            this.show();
+        } else {
+            this.hide();
+        }
         this._panelRefresh();
         $(window).resize(() => {
-            self.visible && self._panelRefresh();
+            if (self.visible) {
+                self._panelRefresh();
+            }
         });
     },
 
@@ -141,9 +156,10 @@ var View = Backbone.View.extend({
      *              argument that is the frame's content DOM element
      */
     add: function(options) {
+        let Galaxy = getGalaxyInstance();
         if (this.frame_counter >= this.options.frame_max) {
             Galaxy.modal.show({
-                title: "Warning",
+                title: _l("Warning"),
                 body: `You have reached the maximum number of allowed frames (${this.options.frame_max}).`,
                 buttons: {
                     Close: function() {
@@ -155,7 +171,7 @@ var View = Backbone.View.extend({
             var frame_id = `#frame-${this.frame_uid++}`;
             if ($(frame_id).length !== 0) {
                 Galaxy.modal.show({
-                    title: "Error",
+                    title: _l("Error"),
                     body: "This frame already exists. This page might contain multiple frame managers.",
                     buttons: {
                         Close: function() {
@@ -183,7 +199,9 @@ var View = Backbone.View.extend({
                     height: options.height
                 });
                 this._frameInsert(frame, { top: 0, left: 0 }, true);
-                !this.visible && this.show();
+                if (!this.visible) {
+                    this.show();
+                }
                 this.trigger("add");
             }
         }
@@ -309,7 +327,9 @@ var View = Backbone.View.extend({
                     top: this._toGridCoord("top", p.top),
                     left: this._toGridCoord("left", p.left)
                 };
-                l.left !== 0 && l.left++;
+                if (l.left !== 0) {
+                    l.left++;
+                }
                 this._frameInsert(this.frame_shadow, l);
             }
         }
@@ -333,7 +353,9 @@ var View = Backbone.View.extend({
 
     /** Hide all frames */
     _eventHide: function(e) {
-        !this.event.type && this.hide();
+        if (!this.event.type) {
+            this.hide();
+        }
     },
 
     /** Fired when scrolling occurs on panel */
@@ -410,7 +432,9 @@ var View = Backbone.View.extend({
     /** Converts a pixel to a grid dimension */
     _toGridCoord: function(type, px) {
         var sign = type == "width" || type == "height" ? 1 : -1;
-        type == "top" && (px -= this.top);
+        if (type == "top") {
+            px -= this.top;
+        }
         return parseInt((px + sign * this.options.margin) / this.options.cell, 10);
     },
 
@@ -418,7 +442,9 @@ var View = Backbone.View.extend({
     _toPixelCoord: function(type, g) {
         var sign = type == "width" || type == "height" ? 1 : -1;
         var px = g * this.options.cell - sign * this.options.margin;
-        type == "top" && (px += this.top);
+        if (type == "top") {
+            px += this.top;
+        }
         return px;
     },
 

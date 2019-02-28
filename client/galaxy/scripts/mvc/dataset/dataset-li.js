@@ -1,3 +1,7 @@
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getGalaxyInstance } from "app";
 import LIST_ITEM from "mvc/list/list-item";
 import STATES from "mvc/dataset/states";
 import faIconButton from "ui/fa-icon-button";
@@ -16,7 +20,7 @@ var _super = LIST_ITEM.ListItemView;
 /** @class Read only list view for either LDDAs, HDAs, or HDADCEs.
  *      Roughly, any DatasetInstance (and not a raw Dataset).
  */
-var DatasetListItemView = _super.extend(
+export var DatasetListItemView = _super.extend(
     /** @lends DatasetListItemView.prototype */ {
         _logNamespace: logNamespace,
 
@@ -75,21 +79,21 @@ var DatasetListItemView = _super.extend(
 
         // ......................................................................... expandable
         /** In this override, only get details if in the ready state, get rerunnable if in other states.
-     *  Note: fetch with no 'change' event triggering to prevent automatic rendering.
-     */
+         *  Note: fetch with no 'change' event triggering to prevent automatic rendering.
+         */
         _fetchModelDetails: function() {
             var view = this;
             if (view.model.inReadyState() && !view.model.hasDetails()) {
                 return view.model.fetch({ silent: true });
             }
-            return jQuery.when();
+            return $.when();
         },
 
         // ......................................................................... removal
         /** Remove this view's html from the DOM and remove all event listeners.
-     *  @param {Number or String} speed jq effect speed
-     *  @param {Function} callback      an optional function called when removal is done (scoped to this view)
-     */
+         *  @param {Number or String} speed jq effect speed
+         *  @param {Function} callback      an optional function called when removal is done (scoped to this view)
+         */
         remove: function(speed, callback) {
             var view = this;
             speed = speed || this.fxSpeed;
@@ -162,6 +166,7 @@ var DatasetListItemView = _super.extend(
                 // add frame manager option onclick event
                 var self = this;
                 displayBtnData.onclick = ev => {
+                    let Galaxy = getGalaxyInstance();
                     if (Galaxy.frame && Galaxy.frame.active) {
                         // Add dataset to frames.
                         Galaxy.frame.addDataset(self.model.get("id"));
@@ -175,8 +180,8 @@ var DatasetListItemView = _super.extend(
 
         // ......................................................................... rendering details
         /** Render the enclosing div of the hda body and, if expanded, the html in the body
-     *  @returns {jQuery} rendered DOM
-     */
+         *  @returns {jQuery} rendered DOM
+         */
         _renderDetails: function() {
             //TODO: generalize to be allow different details for each state
 
@@ -248,8 +253,8 @@ var DatasetListItemView = _super.extend(
         },
 
         /** Render icon-button to show the input and output (stdout/err) for the job that created this.
-     *  @returns {jQuery} rendered DOM
-     */
+         *  @returns {jQuery} rendered DOM
+         */
         _renderShowParamsButton: function() {
             // gen. safe to show in all cases
             return faIconButton({
@@ -259,9 +264,10 @@ var DatasetListItemView = _super.extend(
                 target: this.linkTarget,
                 faIcon: "fa-info-circle",
                 onclick: function(ev) {
+                    let Galaxy = getGalaxyInstance();
                     if (Galaxy.frame && Galaxy.frame.active) {
                         Galaxy.frame.add({
-                            title: "Dataset details",
+                            title: _l("Dataset details"),
                             url: this.href
                         });
                         ev.preventDefault();
@@ -272,8 +278,8 @@ var DatasetListItemView = _super.extend(
         },
 
         /** Render icon-button/popupmenu to download the data (and/or the associated meta files (bai, etc.)) for this.
-     *  @returns {jQuery} rendered DOM
-     */
+         *  @returns {jQuery} rendered DOM
+         */
         _renderDownloadButton: function() {
             // don't show anything if the data's been purged
             if (this.model.get("purged") || !this.model.hasData()) {
@@ -286,47 +292,39 @@ var DatasetListItemView = _super.extend(
                 return this._renderMetaFileDownloadButton();
             }
 
-            return $(
-                [
-                    '<a class="download-btn icon-btn" ',
-                    'href="',
-                    this.model.urls.download,
-                    `" title="${_l("Download")}" download>`,
-                    '<span class="fa fa-floppy-o"></span>',
-                    "</a>"
-                ].join("")
-            );
+            return $(`
+                <a class="download-btn icon-btn" href="${this.model.urls.download}" title="${_l("Download")}">
+                    <span class="fa fa-floppy-o"></span>
+                </a>`);
         },
 
-        /** Render the download button which opens a dropdown with links to download assoc. meta files (indeces, etc.) */
+        /** Render the download button which opens a dropdown with links to download assoc. meta files (indices, etc.) */
         _renderMetaFileDownloadButton: function() {
             var urls = this.model.urls;
-            return $(
-                [
-                    '<div class="metafile-dropdown dropdown">',
-                    '<a class="download-btn icon-btn" href="javascript:void(0)" data-toggle="dropdown"',
-                    ` title="${_l("Download")}">`,
-                    '<span class="fa fa-floppy-o"></span>',
-                    "</a>",
-                    '<ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">',
-                    `<li><a href="${urls.download}" download>`,
-                    _l("Download dataset"),
-                    "</a></li>",
-                    _.map(this.model.get("meta_files"), meta_file =>
-                        [
-                            '<li><a href="',
-                            urls.meta_download + meta_file.file_type,
-                            '">',
-                            _l("Download"),
-                            " ",
-                            meta_file.file_type,
-                            "</a></li>"
-                        ].join("")
-                    ).join("\n"),
-                    "</ul>",
-                    "</div>"
-                ].join("\n")
-            );
+            return $(`
+                <div class="metafile-dropdown dropdown">
+                    <a class="download-btn icon-btn" href="${urls.download}" data-toggle="dropdown" title="${_l(
+                "Download"
+            )}">
+                        <span class="fa fa-floppy-o"></span>
+                    </a>
+                    <ul class="dropdown-menu" role="menu">
+                        <li>
+                            <a href="${urls.download}">
+                                ${_l("Download dataset")}
+                            </a>
+                        </li>
+                        ${_.map(
+                            this.model.get("meta_files"),
+                            meta_file =>
+                                `<li>
+                                    <a href="${urls.meta_download + meta_file.file_type}">
+                                        ${_l("Download")} ${meta_file.file_type}
+                                    </a>
+                                </li>`
+                        )}
+                    </ul>
+                </div>`);
         },
 
         _renderNametags: function() {
@@ -334,7 +332,7 @@ var DatasetListItemView = _super.extend(
                 [
                     "<% _.each(_.sortBy(_.uniq(tags), function(x) { return x }), function(tag){ %>",
                     '<% if (tag.indexOf("name:") == 0){ %>',
-                    '<span class="label label-info"><%- tag.slice(5) %></span>',
+                    '<span class="badge badge-primary badge-tags"><%- tag.slice(5) %></span>',
                     "<% } %>",
                     "<% }); %>"
                 ].join("")
@@ -510,7 +508,12 @@ DatasetListItemView.prototype.templates = (() => {
         "dataset"
     );
     summaryTemplates[STATES.PAUSED] = BASE_MVC.wrapTemplate(
-        ["<div>", _l('This job is paused. Use the "Resume Paused Jobs" in the history menu to resume'), "</div>"],
+        [
+            "<div>",
+            _l('This job is paused. Use the "Resume Paused Jobs" in the history menu to resume'),
+            "</div>",
+            '<div class="info"><%- dataset.misc_info %></div>'
+        ],
         "dataset"
     );
     summaryTemplates[STATES.ERROR] = BASE_MVC.wrapTemplate(

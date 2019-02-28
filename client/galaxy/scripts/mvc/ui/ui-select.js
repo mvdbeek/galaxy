@@ -1,9 +1,10 @@
-// dependencies
+import Backbone from "backbone";
+import _ from "underscore";
 import Utils from "utils/utils";
 /**
  * A plugin for initializing select2 input items.
  * Make sure the select2 library itself is loaded beforehand.
- * Also the element to which select2 will be appended has to 
+ * Also the element to which select2 will be appended has to
  * be created before select2 initialization (and passed as option).
  */
 var View = Backbone.View.extend({
@@ -15,6 +16,7 @@ var View = Backbone.View.extend({
         value: null,
         multiple: false,
         minimumInputLength: 0,
+        maximumTextLength: 100,
         // example format of initial data: "id:name,55:anotherrole@role.com,27:role@role.com"
         initialData: ""
     },
@@ -146,10 +148,22 @@ var View = Backbone.View.extend({
 
     // refresh
     _refresh: function() {
+        let select_opt;
         // add select2 data based on type of input
         if (!this.options.multiple) {
+            if (this.select_data) {
+                this.select_data.map(value => {
+                    let mx = this.options.maximumTextLength + 3;
+                    if (value.text && value.text.length > mx) {
+                        let pos = value.text.indexOf(`(${value.id})`);
+                        pos = pos != -1 && pos < mx ? pos : mx;
+                        let sub = value.text.substring(0, pos).replace(/[ .]*$/, "");
+                        value.text = `${sub}...(${value.id})`;
+                    }
+                });
+            }
             var selected = this._getValue();
-            var select_opt = {
+            select_opt = {
                 data: this.select_data,
                 containerCssClass: this.options.css,
                 placeholder: this.options.placeholder,
@@ -159,7 +173,7 @@ var View = Backbone.View.extend({
             // select previous value (if exists)
             this._setValue(selected);
         } else {
-            var select_opt = {
+            select_opt = {
                 multiple: this.options.multiple,
                 containerCssClass: this.options.css,
                 placeholder: this.options.placeholder,

@@ -1,7 +1,12 @@
+import $ from "jquery";
+import Backbone from "backbone";
+import _l from "utils/localization";
 import * as d3 from "libs/d3";
 import visualization_mod from "viz/visualization";
-import data_mod from "mvc/dataset/data";
+import { Dataset } from "mvc/dataset/data";
 import mod_icon_btn from "mvc/ui/icon-button";
+import { show_message, hide_modal } from "layout/modal";
+
 /**
  * Base class of any menus that takes in user interaction. Contains checking methods.
  */
@@ -65,21 +70,21 @@ function PhyloTreeLayout() {
         .value(null);
 
     var // ! represents both the layout angle and the height of the layout, in px
-    height = 360;
+        height = 360;
 
     var layoutMode = "Linear";
 
     var // height of each individual leaf node
-    leafHeight = 18;
+        leafHeight = 18;
 
     var // separation between nodes of different depth, in px
-    depthSeparation = 200;
+        depthSeparation = 200;
 
     var // change to recurssive call
-    leafIndex = 0;
+        leafIndex = 0;
 
     var // tree defaults to 0.5 dist if no dist is specified
-    defaultDist = 0.5;
+        defaultDist = 0.5;
 
     var maxTextWidth = 50;
 
@@ -224,7 +229,7 @@ var PhyloTree = visualization_mod.Visualization.extend({
         separation: 250, // px dist between nodes of different depth to represent 1 evolutionary until
         leafHeight: 18,
         type: "phyloviz", // visualization type
-        title: "Title",
+        title: _l("Title"),
         scaleFactor: 1,
         translate: [0, 0],
         fontSize: 12, //fontSize of node label
@@ -235,7 +240,7 @@ var PhyloTree = visualization_mod.Visualization.extend({
     initialize: function(options) {
         this.set(
             "dataset",
-            new data_mod.Dataset({
+            new Dataset({
                 id: options.dataset_id
             })
         );
@@ -268,7 +273,7 @@ var PhyloTree = visualization_mod.Visualization.extend({
     toggleAll: function(d) {
         if (d.children && d.children.length !== 0) {
             d.children.forEach(this.toggleAll);
-            toggle(d);
+            this.toggle(d);
         }
     },
 
@@ -305,7 +310,7 @@ var PhyloTree = visualization_mod.Visualization.extend({
             }
         }
 
-        var config = jQuery.extend(true, {}, this.attributes);
+        var config = $.extend(true, {}, this.attributes);
         config.selectedNode = null;
 
         show_message("Saving to Galaxy", "progress");
@@ -358,7 +363,6 @@ var PhylovizLayoutBase = Backbone.View.extend({
      *  AND possibly when the tree is edited.
      */
     updateAndRender: function(source) {
-        var vis = d3.select(".vis");
         var self = this;
         source = source || self.model.root;
 
@@ -372,9 +376,6 @@ var PhylovizLayoutBase = Backbone.View.extend({
      */
     renderLinks: function(source) {
         var self = this;
-        var diagonal = self.diagonal;
-        var duration = self.duration;
-        var layoutMode = self.layoutMode;
         var link = self.vis.selectAll("g.completeLink").data(self.tree.links(self.nodes), d => d.target.id);
 
         var calcalateLinePos = d => {
@@ -406,7 +407,7 @@ var PhylovizLayoutBase = Backbone.View.extend({
             return `M ${d.pos0} L ${d.pos1} L ${d.pos2}`;
         });
 
-        var linkExit = link.exit().remove();
+        link.exit().remove();
     },
 
     // User Interaction methods below
@@ -447,9 +448,9 @@ var PhylovizLayoutBase = Backbone.View.extend({
                 var d = this.__data__;
                 var annotation = d.annotation || "None";
                 return d
-                    ? `${d.name ? `${d.name}<br/>` : ""}Dist: ${d.dist} <br/>Annotation1: ${annotation}${d.bootstrap
-                          ? `<br/>Confidence level: ${Math.round(100 * d.bootstrap)}`
-                          : ""}`
+                    ? `${d.name ? `${d.name}<br/>` : ""}Dist: ${d.dist} <br/>Annotation1: ${annotation}${
+                          d.bootstrap ? `<br/>Confidence level: ${Math.round(100 * d.bootstrap)}` : ""
+                      }`
                     : "";
             })
             .tooltip({ placement: "top", trigger: "hover" });
@@ -580,7 +581,7 @@ var PhylovizLinearView = PhylovizLayoutBase.extend({
     }
 });
 
-var PhylovizView = Backbone.View.extend({
+export var PhylovizView = Backbone.View.extend({
     className: "phyloviz",
 
     initialize: function(options) {
@@ -668,7 +669,7 @@ var PhylovizView = Backbone.View.extend({
         $("#title").text(`Phylogenetic Tree from ${self.phyloTree.get("title")}:`);
 
         // -- Create Linear view instance --
-        var linearView = new PhylovizLinearView(self.layoutOptions);
+        new PhylovizLinearView(self.layoutOptions);
     },
 
     /**
@@ -784,7 +785,7 @@ var HeaderButtons = Backbone.View.extend({
             [
                 {
                     icon_class: "gear",
-                    title: "PhyloViz Settings",
+                    title: _l("PhyloViz Settings"),
                     on_click: function() {
                         $("#SettingsMenu").show();
                         self.settingsMenu.updateUI();
@@ -792,7 +793,7 @@ var HeaderButtons = Backbone.View.extend({
                 },
                 {
                     icon_class: "disk",
-                    title: "Save visualization",
+                    title: _l("Save visualization"),
                     on_click: function() {
                         var nexSelected = $("#phylovizNexSelector option:selected").text();
                         if (nexSelected) {
@@ -810,7 +811,7 @@ var HeaderButtons = Backbone.View.extend({
                 },
                 {
                     icon_class: "information",
-                    title: "Phyloviz Help",
+                    title: _l("Phyloviz Help"),
                     on_click: function() {
                         window.open("https://galaxyproject.org/learn/visualization/phylogenetic-tree/");
                         // https://docs.google.com/document/d/1AXFoJgEpxr21H3LICRs3EyMe1B1X_KFPouzIgrCz3zk/edit
@@ -831,14 +832,14 @@ var HeaderButtons = Backbone.View.extend({
             [
                 {
                     icon_class: "zoom-in",
-                    title: "Zoom in",
+                    title: _l("Zoom in"),
                     on_click: function() {
                         self.phylovizView.zoomAndPan({ zoom: "+" });
                     }
                 },
                 {
                     icon_class: "zoom-out",
-                    title: "Zoom out",
+                    title: _l("Zoom out"),
                     on_click: function() {
                         self.phylovizView.zoomAndPan({ zoom: "-" });
                     }
@@ -985,7 +986,7 @@ var NodeSelectionView = UserMenuBase.extend({
                     }
                 });
             };
-        })(jQuery);
+        })($);
 
         self.UI.enableEdit.off().on("click", () => {
             self.toggleUI();
@@ -1101,7 +1102,3 @@ var PhyloVizSearch = UserMenuBase.extend({
         });
     }
 });
-
-export default {
-    PhylovizView: PhylovizView
-};

@@ -1,6 +1,12 @@
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import _l from "utils/localization";
 import Utils from "utils/utils";
 import Ui from "mvc/ui/ui-misc";
 import Select from "mvc/ui/ui-select-default";
+import { getGalaxyInstance } from "app";
+
 /** Batch mode variations */
 var Batch = { DISABLED: "disabled", ENABLED: "enabled", LINKED: "linked" };
 
@@ -10,21 +16,21 @@ var Configurations = {
         {
             src: "hda",
             icon: "fa-file-o",
-            tooltip: "Single dataset",
+            tooltip: _l("Single dataset"),
             multiple: false,
             batch: Batch.DISABLED
         },
         {
             src: "hda",
             icon: "fa-files-o",
-            tooltip: "Multiple datasets",
+            tooltip: _l("Multiple datasets"),
             multiple: true,
             batch: Batch.LINKED
         },
         {
             src: "hdca",
             icon: "fa-folder-o",
-            tooltip: "Dataset collection",
+            tooltip: _l("Dataset collection"),
             multiple: false,
             batch: Batch.LINKED
         }
@@ -33,14 +39,14 @@ var Configurations = {
         {
             src: "hda",
             icon: "fa-files-o",
-            tooltip: "Multiple datasets",
+            tooltip: _l("Multiple datasets"),
             multiple: true,
             batch: Batch.DISABLED
         },
         {
             src: "hdca",
             icon: "fa-folder-o",
-            tooltip: "Dataset collections",
+            tooltip: _l("Dataset collections"),
             multiple: true,
             batch: Batch.DISABLED
         }
@@ -49,7 +55,7 @@ var Configurations = {
         {
             src: "hdca",
             icon: "fa-folder-o",
-            tooltip: "Dataset collection",
+            tooltip: _l("Dataset collection"),
             multiple: false,
             batch: Batch.DISABLED
         }
@@ -58,7 +64,7 @@ var Configurations = {
         {
             src: "hda",
             icon: "fa-file-o",
-            tooltip: "Single dataset",
+            tooltip: _l("Single dataset"),
             multiple: false,
             batch: Batch.DISABLED
         }
@@ -67,7 +73,7 @@ var Configurations = {
         {
             src: "hda",
             icon: "fa-files-o",
-            tooltip: "Multiple datasets",
+            tooltip: _l("Multiple datasets"),
             multiple: true,
             batch: Batch.DISABLED
         }
@@ -76,7 +82,7 @@ var Configurations = {
         {
             src: "hdca",
             icon: "fa-folder-o",
-            tooltip: "Dataset collection",
+            tooltip: _l("Dataset collection"),
             multiple: false,
             batch: Batch.DISABLED
         }
@@ -85,14 +91,14 @@ var Configurations = {
         {
             src: "hda",
             icon: "fa-file-o",
-            tooltip: "Single dataset",
+            tooltip: _l("Single dataset"),
             multiple: false,
             batch: Batch.DISABLED
         },
         {
             src: "hda",
             icon: "fa-files-o",
-            tooltip: "Multiple datasets",
+            tooltip: _l("Multiple datasets"),
             multiple: true,
             batch: Batch.ENABLED
         }
@@ -101,14 +107,14 @@ var Configurations = {
         {
             src: "hdca",
             icon: "fa-folder-o",
-            tooltip: "Dataset collection",
+            tooltip: _l("Dataset collection"),
             multiple: false,
             batch: Batch.DISABLED
         },
         {
             src: "hdca",
             icon: "fa-folder",
-            tooltip: "Multiple collections",
+            tooltip: _l("Multiple collections"),
             multiple: true,
             batch: Batch.ENABLED
         }
@@ -144,7 +150,7 @@ var View = Backbone.View.extend({
             ]
         });
         var $batch_div = $("<div/>")
-            .addClass("ui-form-info")
+            .addClass("form-text text-muted")
             .append($("<i/>").addClass("fa fa-sitemap"))
             .append(
                 $("<span/>").html(
@@ -168,20 +174,20 @@ var View = Backbone.View.extend({
         };
 
         // add drag-drop event handlers
-        this.$el
-            .on("dragenter", function(e) {
-                this.lastenter = e.target;
-                self.$el.addClass("ui-dragover");
-            })
-            .on("dragover", e => {
-                e.preventDefault();
-            })
-            .on("dragleave", function(e) {
-                this.lastenter === e.target && self.$el.removeClass("ui-dragover");
-            })
-            .on("drop", e => {
-                self._handleDrop(e);
-            });
+        let element = this.$el.get(0);
+        element.addEventListener("dragenter", e => {
+            this.lastenter = e.target;
+            self.$el.addClass("ui-dragover");
+        });
+        element.addEventListener("dragover", e => {
+            e.preventDefault();
+        });
+        element.addEventListener("dragleave", e => {
+            this.lastenter === e.target && self.$el.removeClass("ui-dragover");
+        });
+        element.addEventListener("drop", e => {
+            self._handleDrop(e);
+        });
 
         // track current history elements
         this.history = {};
@@ -222,12 +228,13 @@ var View = Backbone.View.extend({
     },
 
     /** Update data representing selectable options */
-    update: function(options) {
-        this.model.set("data", options);
+    update: function(input_def) {
+        this.model.set("data", input_def.options);
     },
 
     /** Return the currently selected dataset values */
     value: function(new_value) {
+        let Galaxy = getGalaxyInstance();
         new_value !== undefined && this.model.set("value", new_value);
         var current = this.model.get("current");
         if (this.config[current]) {
@@ -276,6 +283,7 @@ var View = Backbone.View.extend({
 
     /** Change of type */
     _changeType: function() {
+        let Galaxy = getGalaxyInstance();
         var self = this;
 
         // identify selector type identifier i.e. [ flavor ]_[ type ]_[ multiple ]
@@ -332,7 +340,7 @@ var View = Backbone.View.extend({
         var button_width = 0;
         if (this.fields.length > 1) {
             this.$el.append(this.button_type.$el);
-            button_width = `${Math.max(0, this.fields.length * 36)}px`;
+            button_width = `${Math.max(0, this.fields.length * 40)}px`;
         }
         _.each(this.fields, field => {
             self.$el.append(field.$el.css({ "margin-left": button_width }));
@@ -411,11 +419,22 @@ var View = Backbone.View.extend({
             var current = this.model.get("current");
             var config = this.config[current];
             var field = this.fields[current];
-            var drop_data = JSON.parse(ev.originalEvent.dataTransfer.getData("text"))[0];
+            var drop_data = JSON.parse(ev.dataTransfer.getData("text"))[0];
             var new_id = drop_data.id;
-            var new_src = drop_data.history_content_type == "dataset" ? "hda" : "hdca";
+            var new_src = drop_data.history_content_type == "dataset_collection" ? "hdca" : "hda";
             var new_value = { id: new_id, src: new_src };
-            if (data && _.findWhere(data[new_src], new_value)) {
+            if (data && drop_data.history_id) {
+                if (!_.findWhere(data[new_src], new_value)) {
+                    data[new_src].push({
+                        id: new_id,
+                        src: new_src,
+                        hid: drop_data.hid || "Dropped",
+                        name: drop_data.hid ? drop_data.name : new_id,
+                        keep: true,
+                        tags: []
+                    });
+                    this._changeData();
+                }
                 if (config.src == new_src) {
                     var current_value = field.value();
                     if (current_value && config.multiple) {
@@ -455,7 +474,7 @@ var View = Backbone.View.extend({
         result["batch"] = false;
         var current = this.model.get("current");
         var config = this.config[current];
-        if (config.src == "hdca" && !config.multiple) {
+        if (config.src == "hdca") {
             var hdca = this.history[`${this.fields[current].value()}_hdca`];
             if (hdca && hdca.map_over_type) {
                 result["batch"] = true;

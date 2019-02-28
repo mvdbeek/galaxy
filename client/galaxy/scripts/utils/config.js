@@ -1,6 +1,9 @@
-import * as _ from "libs/underscore";
+import $ from "jquery";
+import _ from "underscore";
+import Backbone from "backbone";
 import util_mod from "viz/trackster/util";
-import config_mod from "utils/config";
+import { getGalaxyInstance } from "app";
+
 /**
  * A configuration setting. Currently key is used as id.
  */
@@ -142,9 +145,9 @@ var ConfigSettingCollection = Backbone.Collection.extend(
         model: ConfigSetting,
 
         /**
-     * Save settings as a dictionary of key-value pairs.
-     * This function is needed for backwards compatibility.
-     */
+         * Save settings as a dictionary of key-value pairs.
+         * This function is needed for backwards compatibility.
+         */
         to_key_value_dict: function() {
             var rval = {};
             this.each(setting => {
@@ -155,8 +158,8 @@ var ConfigSettingCollection = Backbone.Collection.extend(
         },
 
         /**
-     * Returns value for a given key. Returns undefined if there is no setting with the specified key.
-     */
+         * Returns value for a given key. Returns undefined if there is no setting with the specified key.
+         */
         get_value: function(key) {
             var s = this.get(key);
             if (s) {
@@ -167,8 +170,8 @@ var ConfigSettingCollection = Backbone.Collection.extend(
         },
 
         /**
-     * Set value for a setting.
-     */
+         * Set value for a setting.
+         */
         set_value: function(key, value, options) {
             var s = this.get(key);
             if (s) {
@@ -179,8 +182,8 @@ var ConfigSettingCollection = Backbone.Collection.extend(
         },
 
         /**
-      * Set default value for a setting.
-      */
+         * Set default value for a setting.
+         */
         set_default_value: function(key, default_value) {
             var s = this.get(key);
             if (s) {
@@ -192,9 +195,9 @@ var ConfigSettingCollection = Backbone.Collection.extend(
     },
     {
         /**
-     * Utility function that creates a ConfigSettingsCollection from a set of models
-     * and a saved_values dictionary.
-     */
+         * Utility function that creates a ConfigSettingsCollection from a set of models
+         * and a saved_values dictionary.
+         */
         from_models_and_saved_values: function(models, saved_values) {
             // If there are saved values, copy models and update with saved values.
             if (saved_values) {
@@ -282,14 +285,12 @@ var ConfigSettingCollectionView = Backbone.View.extend({
                         var tip = $(this)
                             .siblings(".tooltip")
                             .addClass("in");
-                        tip
-                            .css({
-                                // left: $(this).position().left + ( $(input).width() / 2 ) - 60,
-                                // top: $(this).position().top + $(this.height)
-                                left: $(this).position().left + $(this).width() + 5,
-                                top: $(this).position().top - $(tip).height() / 2 + $(this).height() / 2
-                            })
-                            .show();
+                        tip.css({
+                            // left: $(this).position().left + ( $(input).width() / 2 ) - 60,
+                            // top: $(this).position().top + $(this.height)
+                            left: $(this).position().left + $(this).width() + 5,
+                            top: $(this).position().top - $(tip).height() / 2 + $(this).height() / 2
+                        }).show();
 
                         // Click management:
 
@@ -307,23 +308,22 @@ var ConfigSettingCollectionView = Backbone.View.extend({
                         // No propagation to avoid triggering document click (and tip hiding) above.
                         e.stopPropagation();
                     });
-
-                var // Icon for setting a new random color; behavior set below.
-                new_color_icon = $("<a href='javascript:void(0)'/>")
+                // Icon for setting a new random color; behavior set below.
+                var new_color_icon = $("<a href='javascript:void(0)'/>")
                     .addClass("icon-button arrow-circle")
                     .appendTo(container_div)
                     .attr("title", "Set new random color")
                     .tooltip();
 
-                var // Color picker in tool tip style.
-                tip = $("<div class='tooltip right' style='position: absolute;' />")
+                // Color picker in tool tip style.
+                var tip = $("<div class='tooltip right' style='position: absolute;' />")
                     .appendTo(container_div)
                     .hide();
 
-                var // Inner div for padding purposes
-                tip_inner = $("<div class='tooltip-inner' style='text-align: inherit'></div>").appendTo(tip);
+                // Inner div for padding purposes
+                var tip_inner = $("<div class='tooltip-inner' style='text-align: inherit'></div>").appendTo(tip);
 
-                var tip_arrow = $("<div class='tooltip-arrow'></div>").appendTo(tip);
+                $("<div class='tooltip-arrow'></div>").appendTo(tip);
 
                 var farb_obj = $.farbtastic(tip_inner, {
                     width: 100,
@@ -364,6 +364,7 @@ var ConfigSettingCollectionView = Backbone.View.extend({
     render_in_modal: function(title) {
         // Set up handlers for cancel, ok button and for handling esc key.
         var self = this;
+        let Galaxy = getGalaxyInstance();
 
         var cancel_fn = () => {
             Galaxy.modal.hide();

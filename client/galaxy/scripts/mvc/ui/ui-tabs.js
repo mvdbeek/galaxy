@@ -1,10 +1,11 @@
 /**
  *  Renders tabs e.g. used in the charts editor, behaves similar to repeat and section rendering
  */
-import Utils from "utils/utils";
-var View = Backbone.View.extend({
+import $ from "jquery";
+import Backbone from "backbone";
+
+export var View = Backbone.View.extend({
     initialize: function(options) {
-        var self = this;
         this.collection = new Backbone.Collection();
         this.model =
             (options && options.model) ||
@@ -31,9 +32,9 @@ var View = Backbone.View.extend({
         var id = this.model.get("current");
         id = this.$(`#${id}`).length > 0 ? id : this.first();
         if (id) {
-            this.$nav.children().removeClass("active");
+            this.$nav.find(".nav-link.active").removeClass("active");
             this.$content.children().removeClass("active");
-            this.$(`#tab-${id}`).addClass("active");
+            this.$(`#tab-${id} .nav-link`).addClass("active");
             this.$(`#${id}`).addClass("active");
         }
         this.$el[this.model.get("visible") ? "fadeIn" : "fadeOut"]("fast");
@@ -108,7 +109,7 @@ var View = Backbone.View.extend({
             $(this._template_tab(options))
                 .show()
                 .tooltip({
-                    title: options.tooltip,
+                    title: options.tooltip || "",
                     placement: "bottom",
                     container: self.$el
                 })
@@ -142,30 +143,39 @@ var View = Backbone.View.extend({
     /** Main template */
     _template: function() {
         return $("<div/>")
-            .addClass("ui-tabs tabbable tabs-left")
-            .append($("<ul/>").addClass("tab-navigation nav nav-tabs"))
+            .addClass("tabbable tabs-left")
+            .append(
+                $("<ul/>")
+                    .attr("style", "display: flex")
+                    .addClass("tab-navigation nav nav-tabs")
+            )
             .append($("<div/>").addClass("tab-content"));
     },
 
     /** Tab template */
     _template_tab: function(options) {
         var $tmpl = $("<li/>")
-            .addClass("tab-element")
+            .addClass("nav-item")
             .attr("id", `tab-${options.id}`)
-            .append($("<a/>").attr("id", `tab-title-link-${options.id}`));
+            .append(
+                $("<a/>")
+                    .addClass("nav-link")
+                    .attr("id", `tab-title-link-${options.id}`)
+            );
         var $href = $tmpl.find("a");
         options.icon &&
             $href.append(
                 $("<i/>")
-                    .addClass("tab-icon fa")
+                    .addClass("fa")
                     .addClass(options.icon)
             );
-        $href.append(
-            $("<span/>")
-                .attr("id", `tab-title-text-${options.id}`)
-                .addClass("tab-title-text")
-                .append(options.title)
-        );
+        options.title &&
+            $href.append(
+                $("<span/>")
+                    .attr("id", `tab-title-text-${options.id}`)
+                    .addClass("tab-title-text ml-1")
+                    .append(options.title)
+            );
         return $tmpl;
     }
 });

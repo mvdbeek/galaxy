@@ -42,7 +42,7 @@
     //nlsRegExp.exec('foo/bar/baz/nls/foo') gives:
     //['foo/bar/baz/nls/foo', 'foo/bar/baz/nls/', '/', '/', 'foo', '']
     //so, if match[5] is blank, it means this is the top bundle definition.
-    var nlsRegExp = /(^.*(^|\/)nls(\/|$))([^\/]*)\/?([^\/]*)/;
+    var nlsRegExp = /(^.*(^|\/)nls(\/|$))([^/]*)\/?([^/]*)/;
 
     //Helper function to avoid repeating code. Lots of arguments in the
     //desire to stay functional and support RequireJS contexts without having
@@ -127,7 +127,8 @@
                         locale = masterConfig.locale =
                             typeof navigator === "undefined"
                                 ? "root"
-                                : ((navigator.languages && navigator.languages[0]) ||
+                                : (
+                                      (navigator.languages && navigator.languages[0]) ||
                                       navigator.language ||
                                       navigator.userLanguage ||
                                       "root"

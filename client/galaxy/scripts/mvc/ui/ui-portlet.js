@@ -1,6 +1,9 @@
+import $ from "jquery";
+import Backbone from "backbone";
 import Utils from "utils/utils";
 import Ui from "mvc/ui/ui-misc";
-var View = Backbone.View.extend({
+
+export var View = Backbone.View.extend({
     visible: false,
     initialize: function(options) {
         var self = this;
@@ -14,10 +17,9 @@ var View = Backbone.View.extend({
                 buttons: null,
                 body: null,
                 scrollable: true,
-                nopadding: false,
                 operations: null,
                 collapsible: false,
-                collapsible_button: false,
+                collapsible_button: true,
                 collapsed: false,
                 onchange_title: null
             }).set(options);
@@ -25,6 +27,7 @@ var View = Backbone.View.extend({
 
         // link all dom elements
         this.$body = this.$(".portlet-body");
+        this.$title = this.$(".portlet-title");
         this.$title_text = this.$(".portlet-title-text");
         this.$title_icon = this.$(".portlet-title-icon");
         this.$header = this.$(".portlet-header");
@@ -37,7 +40,7 @@ var View = Backbone.View.extend({
         this.model.get("body") && this.append(this.model.get("body"));
 
         // add icon for collapsible option
-        this.collapsible_button = new Ui.ButtonIcon({
+        this.collapsible_button = new Ui.Button({
             icon: "fa-eye",
             tooltip: "Collapse/Expand",
             cls: "ui-button-icon-plain",
@@ -57,15 +60,15 @@ var View = Backbone.View.extend({
             .attr("id", options.id);
         this.$header[options.title ? "show" : "hide"]();
         this.$title_text.html(options.title);
-        _.each([this.$content, this.$body], $el => {
-            $el[options.nopadding ? "addClass" : "removeClass"]("no-padding");
-        });
+        if (options.title_id) {
+            this.$title.attr("id", options.title_id);
+        }
 
         // render title icon
         if (options.icon) {
             this.$title_icon
                 .removeClass()
-                .addClass("portlet-title-icon fa")
+                .addClass("portlet-title-icon fa mr-1")
                 .addClass(options.icon)
                 .show();
         } else {
@@ -103,7 +106,7 @@ var View = Backbone.View.extend({
 
         // render operations
         this.$operations.empty;
-        if (options.collapsible_button) {
+        if (options.collapsible && options.collapsible_button) {
             this.$operations.append(this.collapsible_button.$el);
         }
         if (options.operations) {
@@ -184,16 +187,14 @@ var View = Backbone.View.extend({
     /** Collapse portlet */
     collapse: function() {
         this.collapsed = true;
-        this.$content.height("0%");
-        this.$body.hide();
+        this.$content.hide();
         this.collapsible_button.setIcon("fa-eye-slash");
     },
 
     /** Expand portlet */
     expand: function() {
         this.collapsed = false;
-        this.$content.height("100%");
-        this.$body.fadeIn("fast");
+        this.$content.show();
         this.collapsible_button.setIcon("fa-eye");
     },
 
@@ -224,7 +225,7 @@ var View = Backbone.View.extend({
                 $("<div/>")
                     .addClass("portlet-content")
                     .append($("<div/>").addClass("portlet-body"))
-                    .append($("<div/>").addClass("portlet-buttons"))
+                    .append($("<div/>").addClass("portlet-buttons mt-3 mb-3"))
             )
             .append($("<div/>").addClass("portlet-backdrop"));
     }

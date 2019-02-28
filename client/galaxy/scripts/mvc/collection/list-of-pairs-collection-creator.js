@@ -1,3 +1,8 @@
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import { getGalaxyInstance } from "app";
 import levenshteinDistance from "utils/levenshtein";
 import naturalSort from "utils/natural-sort";
 import baseCreator from "mvc/collection/base-creator";
@@ -204,8 +209,7 @@ function autoPairFnBuilder(options) {
 // ============================================================================
 /** An interface for building collections of paired datasets.
  */
-var PairedCollectionCreator = Backbone.View
-    .extend(baseMVC.LoggableMixin)
+var PairedCollectionCreator = Backbone.View.extend(baseMVC.LoggableMixin)
     .extend(baseCreator.CollectionCreatorMixin)
     .extend({
         _logNamespace: logNamespace,
@@ -396,8 +400,8 @@ var PairedCollectionCreator = Backbone.View
 
         // ------------------------------------------------------------------------ auto pairing
         /** two passes to automatically create pairs:
-     *  use both simpleAutoPair, then the fn mentioned in strategy
-     */
+         *  use both simpleAutoPair, then the fn mentioned in strategy
+         */
         autoPair: function(strategy) {
             // split first using exact matching
             var split = this._splitByFilters();
@@ -555,6 +559,15 @@ var PairedCollectionCreator = Backbone.View
                 revName.replace(new RegExp(this.filters[1]), "")
             );
 
+            /** remove url prefix if files were uploaded by url */
+            var lastSlashIndex = lcs.lastIndexOf("/");
+            if (lastSlashIndex > 0) {
+                var urlprefix = lcs.slice(0, lastSlashIndex + 1);
+                lcs = lcs.replace(urlprefix, "");
+                fwdName = fwdName.replace(extension, "");
+                revName = revName.replace(extension, "");
+            }
+
             if (removeExtensions) {
                 var lastDotIndex = lcs.lastIndexOf(".");
                 if (lastDotIndex > 0) {
@@ -594,8 +607,7 @@ var PairedCollectionCreator = Backbone.View
 
         // ------------------------------------------------------------------------ API
         /** convert a pair into JSON compatible with the collections API */
-        _pairToJSON: function(pair, src) {
-            src = src || "hda";
+        _pairToJSON: function(pair) {
             //TODO: consider making this the pair structure when created instead
             return {
                 collection_type: "paired",
@@ -605,42 +617,41 @@ var PairedCollectionCreator = Backbone.View
                     {
                         name: "forward",
                         id: pair.forward.id,
-                        src: src
+                        src: pair.forward.src || "hda"
                     },
                     {
                         name: "reverse",
                         id: pair.reverse.id,
-                        src: src
+                        src: pair.reverse.src || "hda"
                     }
                 ]
             };
         },
 
         /** create the collection via the API
-     *  @returns {jQuery.xhr Object}    the jquery ajax request
-     */
+         *  @returns {jQuery.xhr Object}    the jquery ajax request
+         */
         createList: function(name) {
             var self = this;
 
-            var url = `${Galaxy.root}api/histories/${this.historyId}/contents/dataset_collections`;
+            var url = `${getAppRoot()}api/histories/${this.historyId}/contents/dataset_collections`;
 
-            //TODO: use ListPairedCollection.create()
             var ajaxData = {
                 type: "dataset_collection",
                 collection_type: "list:paired",
                 hide_source_items: self.hideOriginals || false,
+                copy_elements: self.copyElements,
                 name: _.escape(name || self.$(".collection-name").val()),
                 element_identifiers: self.paired.map(pair => self._pairToJSON(pair))
             };
             //this.debug( JSON.stringify( ajaxData ) );
             self.blocking = true;
-            return jQuery
-                .ajax(url, {
-                    type: "POST",
-                    contentType: "application/json",
-                    dataType: "json",
-                    data: JSON.stringify(ajaxData)
-                })
+            return $.ajax(url, {
+                type: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify(ajaxData)
+            })
                 .always(() => {
                     self.blocking = false;
                 })
@@ -869,8 +880,7 @@ var PairedCollectionCreator = Backbone.View
             this.paired.forEach((pair, i) => {
                 //TODO: cache these?
                 var pairView = new PairView({ pair: pair });
-                self
-                    .$(".paired-columns .column-datasets")
+                self.$(".paired-columns .column-datasets")
                     .append(pairView.render().$el)
                     .append(
                         [
@@ -1175,9 +1185,9 @@ var PairedCollectionCreator = Backbone.View
         },
 
         /** Toggle the selection of an unpaired dataset representation.
-     *  @param [jQuery] $dataset        the unpaired dataset dom rep to select
-     *  @param [Boolean] options.force  if defined, force selection based on T/F; otherwise, toggle
-     */
+         *  @param [jQuery] $dataset        the unpaired dataset dom rep to select
+         *  @param [Boolean] options.force  if defined, force selection based on T/F; otherwise, toggle
+         */
         toggleSelectUnpaired: function($dataset, options) {
             options = options || {};
             var dataset = $dataset.data("dataset");
@@ -1244,8 +1254,7 @@ var PairedCollectionCreator = Backbone.View
                 var $startTarget = $(ev.target).addClass("selected");
 
                 var moveListener = ev => {
-                    self
-                        .$(ev.target)
+                    self.$(ev.target)
                         .filter(".dataset")
                         .addClass("selected");
                 };
@@ -1433,8 +1442,8 @@ var PairedCollectionCreator = Backbone.View
         },
 
         /** get the nearest *previous* paired dataset PairView based on the mouse's Y coordinate.
-     *      If the y is at the end of the list, return an empty jQuery object.
-     */
+         *      If the y is at the end of the list, return an empty jQuery object.
+         */
         _getNearestPairedDatasetLi: function(y) {
             var WIGGLE = 4;
             var lis = this.$(".paired-columns .column-datasets li").toArray();
@@ -1560,7 +1569,7 @@ var PairedCollectionCreator = Backbone.View
                     "</span>",
                     '<span class="title-info unpaired-info"></span>',
                     "</div>",
-                    '<div class="unpaired-filter forward-unpaired-filter pull-left">',
+                    '<div class="unpaired-filter forward-unpaired-filter float-left">',
                     '<input class="search-query" placeholder="',
                     _l("Filter this list"),
                     '" />',
@@ -1588,7 +1597,7 @@ var PairedCollectionCreator = Backbone.View
                     "</span>",
                     '<span class="title-info unpaired-info"></span>',
                     "</div>",
-                    '<div class="unpaired-filter reverse-unpaired-filter pull-left">',
+                    '<div class="unpaired-filter reverse-unpaired-filter float-left">',
                     '<input class="search-query" placeholder="',
                     _l("Filter this list"),
                     '" />',
@@ -1638,35 +1647,35 @@ var PairedCollectionCreator = Backbone.View
                 [
                     '<div class="attributes clear">',
                     '<div class="clear">',
-                    '<label class="setting-prompt pull-right">',
+                    '<label class="setting-prompt float-right">',
                     _l("Hide original elements"),
                     "?",
-                    '<input class="hide-originals pull-right" type="checkbox" />',
+                    '<input class="hide-originals float-right" type="checkbox" />',
                     "</label>",
-                    '<label class="setting-prompt pull-right">',
+                    '<label class="setting-prompt float-right">',
                     _l("Remove file extensions from pair names"),
                     "?",
-                    '<input class="remove-extensions pull-right" type="checkbox" />',
+                    '<input class="remove-extensions float-right" type="checkbox" />',
                     "</label>",
                     "</div>",
                     '<div class="clear">',
-                    '<input class="collection-name form-control pull-right" ',
+                    '<input class="collection-name form-control float-right" ',
                     'placeholder="',
                     _l("Enter a name for your new list"),
                     '" />',
-                    '<div class="collection-name-prompt pull-right">',
+                    '<div class="collection-name-prompt float-right">',
                     _l("Name"),
                     ":</div>",
                     "</div>",
                     "</div>",
 
                     '<div class="actions clear vertically-spaced">',
-                    '<div class="other-options pull-left">',
+                    '<div class="other-options float-left">',
                     '<button class="cancel-create btn" tabindex="-1">',
                     _l("Cancel"),
                     "</button>",
                     '<div class="create-other btn-group dropup">',
-                    '<button class="btn btn-default dropdown-toggle" data-toggle="dropdown">',
+                    '<button class="btn btn-secondary dropdown-toggle" data-toggle="dropdown">',
                     _l("Create a different kind of collection"),
                     ' <span class="caret"></span>',
                     "</button>",
@@ -1681,7 +1690,7 @@ var PairedCollectionCreator = Backbone.View
                     "</div>",
                     "</div>",
 
-                    '<div class="main-options pull-right">',
+                    '<div class="main-options float-right">',
                     '<button class="create-collection btn btn-primary">',
                     _l("Create list"),
                     "</button>",
@@ -1786,7 +1795,8 @@ var PairedCollectionCreator = Backbone.View
 //=============================================================================
 /** a modal version of the paired collection creator */
 var pairedCollectionCreatorModal = function _pairedCollectionCreatorModal(datasets, options) {
-    var deferred = jQuery.Deferred();
+    var Galaxy = getGalaxyInstance();
+    var deferred = $.Deferred();
     var creator;
 
     options = _.defaults(options || {}, {
@@ -1798,16 +1808,17 @@ var pairedCollectionCreatorModal = function _pairedCollectionCreatorModal(datase
         oncreate: function(creator, response) {
             Galaxy.modal.hide();
             deferred.resolve(response);
-        }
+        },
+        title: _l("Create a collection of paired datasets")
     });
 
-    if (!window.Galaxy || !Galaxy.modal) {
+    if (!Galaxy || !Galaxy.modal) {
         throw new Error("Galaxy or Galaxy.modal not found");
     }
 
     creator = new PairedCollectionCreator(options);
     Galaxy.modal.show({
-        title: "Create a collection of paired datasets",
+        title: options.title,
         body: creator.$el,
         width: "80%",
         height: "800px",
@@ -1826,7 +1837,8 @@ function createListOfPairsCollection(collection, defaultHideSourceItems) {
     //TODO: validate elements
     return pairedCollectionCreatorModal(elements, {
         historyId: collection.historyId,
-        defaultHideSourceItems: defaultHideSourceItems
+        defaultHideSourceItems: defaultHideSourceItems,
+        copyElements: !defaultHideSourceItems
     });
 }
 

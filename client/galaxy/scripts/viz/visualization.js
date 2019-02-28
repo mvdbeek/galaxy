@@ -1,10 +1,15 @@
-import * as _ from "libs/underscore";
-import data_mod from "mvc/dataset/data";
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import _l from "utils/localization";
+import { Dataset } from "mvc/dataset/data";
 import util_mod from "viz/trackster/util";
 import config_mod from "utils/config";
 import GridView from "mvc/grid/grid-view";
 import Tabs from "mvc/ui/ui-tabs";
-import Ui from "mvc/ui/ui-misc";
+import { getGalaxyInstance } from "app";
+
 /**
  * Mixin for returning custom JSON representation from toJSON. Class attribute to_json_keys defines a set of attributes
  * to include in the representation; to_json_mappers defines mappers for returned objects.
@@ -43,16 +48,14 @@ var CustomToJSON = {
 var select_datasets = (filters, success_fn) => {
     // history dataset selection tab
     var history_grid = new GridView({
-        url_base: `${Galaxy.root}visualization/list_history_datasets`,
+        url_base: `${getAppRoot()}visualization/list_history_datasets`,
         filters: filters,
-        dict_format: true,
         embedded: true
     });
 
     // library dataset selection tab
     var library_grid = new GridView({
-        url_base: `${Galaxy.root}visualization/list_library_datasets`,
-        dict_format: true,
+        url_base: `${getAppRoot()}visualization/list_library_datasets`,
         embedded: true
     });
 
@@ -60,18 +63,19 @@ var select_datasets = (filters, success_fn) => {
     var tabs = new Tabs.View();
     tabs.add({
         id: "histories",
-        title: "Histories",
+        title: _l("Histories"),
         $el: $("<div/>").append(history_grid.$el)
     });
     tabs.add({
         id: "libraries",
-        title: "Libraries",
+        title: _l("Libraries"),
         $el: $("<div/>").append(library_grid.$el)
     });
 
     // modal
+    let Galaxy = getGalaxyInstance();
     Galaxy.modal.show({
-        title: "Select datasets for new tracks",
+        title: _l("Select datasets for new tracks"),
         body: tabs.$el,
         closing_events: true,
         buttons: {
@@ -83,7 +87,7 @@ var select_datasets = (filters, success_fn) => {
                 tabs.$("input.grid-row-select-checkbox[name=id]:checked").each(function() {
                     window.console.log($(this).val());
                     requests[requests.length] = $.ajax({
-                        url: `${Galaxy.root}api/datasets/${$(this).val()}`,
+                        url: `${getAppRoot()}api/datasets/${$(this).val()}`,
                         dataType: "json",
                         data: {
                             data_type: "track_config",
@@ -134,7 +138,7 @@ _.extend(CanvasManager.prototype, {
         var patterns = this.patterns;
         var dummy_context = this.dummy_context;
         var image = new Image();
-        image.src = `${Galaxy.root}static/images${path}`;
+        image.src = `${getAppRoot()}static/images${path}`;
         image.onload = () => {
             patterns[key] = dummy_context.createPattern(image, "repeat");
         };
@@ -310,11 +314,13 @@ var GenomeDataManager = Cache.extend({
         var ready_deferred = $.Deferred();
 
         var // If requesting raw data, query dataset state; if requesting (converted) data,
-        // need to query converted datasets state.
-        query_type =
-            this.get("data_type") === "raw_data"
-                ? "state"
-                : this.get("data_type") === "data" ? "converted_datasets_state" : "error";
+            // need to query converted datasets state.
+            query_type =
+                this.get("data_type") === "raw_data"
+                    ? "state"
+                    : this.get("data_type") === "data"
+                    ? "converted_datasets_state"
+                    : "error";
 
         var ss_deferred = new util_mod.ServerStateDeferred({
             ajax_settings: {
@@ -603,22 +609,22 @@ var GenomeDataManager = Cache.extend({
         var all_data_available = true;
 
         var //  Map chromosome info into genome data.
-        gw_data = _.map(genome.get("chroms_info").chrom_info, chrom_info => {
-            var chrom_data = self.get_elt(
-                new GenomeRegion({
-                    chrom: chrom_info.chrom,
-                    start: 0,
-                    end: chrom_info.len
-                })
-            );
+            gw_data = _.map(genome.get("chroms_info").chrom_info, chrom_info => {
+                var chrom_data = self.get_elt(
+                    new GenomeRegion({
+                        chrom: chrom_info.chrom,
+                        start: 0,
+                        end: chrom_info.len
+                    })
+                );
 
-            // Set flag if data is not available.
-            if (!chrom_data) {
-                all_data_available = false;
-            }
+                // Set flag if data is not available.
+                if (!chrom_data) {
+                    all_data_available = false;
+                }
 
-            return chrom_data;
-        });
+                return chrom_data;
+            });
 
         // -- If all data is available, return it. --
         if (all_data_available) {
@@ -739,9 +745,9 @@ var GenomeRegion = Backbone.Model.extend(
         },
 
         /**
-     * Returns true if this region is the same as a given region.
-     * It does not test the genome right now.
-     */
+         * Returns true if this region is the same as a given region.
+         * It does not test the genome right now.
+         */
         same: function(region) {
             return (
                 this.attributes.chrom === region.get("chrom") &&
@@ -751,8 +757,8 @@ var GenomeRegion = Backbone.Model.extend(
         },
 
         /**
-     * If from_str specified, use it to initialize attributes.
-     */
+         * If from_str specified, use it to initialize attributes.
+         */
         initialize: function(options) {
             if (options.from_str) {
                 var pieces = options.from_str.split(":");
@@ -804,9 +810,9 @@ var GenomeRegion = Backbone.Model.extend(
         },
 
         /**
-     * Compute the type of overlap between this region and another region. The overlap is computed relative to the given/second region;
-     * hence, OVERLAP_START indicates that the first region overlaps the start (but not the end) of the second region.
-     */
+         * Compute the type of overlap between this region and another region. The overlap is computed relative to the given/second region;
+         * hence, OVERLAP_START indicates that the first region overlaps the start (but not the end) of the second region.
+         */
         compute_overlap: function(a_region) {
             var first_chrom = this.get("chrom");
             var second_chrom = a_region.get("chrom");
@@ -851,8 +857,8 @@ var GenomeRegion = Backbone.Model.extend(
         },
 
         /**
-     * Trim a region to match genome's constraints.
-     */
+         * Trim a region to match genome's constraints.
+         */
         trim: function(genome) {
             // Assume that all chromosome/contigs start at 0.
             if (this.attributes.start < 0) {
@@ -871,15 +877,15 @@ var GenomeRegion = Backbone.Model.extend(
         },
 
         /**
-     * Returns true if this region contains a given region.
-     */
+         * Returns true if this region contains a given region.
+         */
         contains: function(a_region) {
             return this.compute_overlap(a_region) === GenomeRegion.overlap_results.CONTAINS;
         },
 
         /**
-     * Returns true if regions overlap.
-     */
+         * Returns true if regions overlap.
+         */
         overlaps: function(a_region) {
             return (
                 _.intersection(
@@ -942,7 +948,7 @@ var BackboneTrack = Backbone.Model.extend(CustomToJSON).extend(
         },
 
         initialize: function(options) {
-            this.set("dataset", new data_mod.Dataset(options.dataset));
+            this.set("dataset", new Dataset(options.dataset));
 
             // -- Set up config settings. --
             var models = [
@@ -1025,7 +1031,7 @@ var Visualization = Backbone.Model.extend({
         type: ""
     },
 
-    urlRoot: `${Galaxy.root}api/visualizations`,
+    urlRoot: `${getAppRoot()}api/visualizations`,
 
     /**
      * POSTs visualization's JSON to its URL using the parameter 'vis_json'
@@ -1071,8 +1077,8 @@ var GenomeVisualization = Visualization.extend(CustomToJSON).extend(
         },
 
         /**
-     * Add a track or array of tracks to the visualization.
-     */
+         * Add a track or array of tracks to the visualization.
+         */
         add_tracks: function(tracks) {
             this.get("drawables").add(tracks);
         }
@@ -1110,12 +1116,11 @@ var TrackBrowserRouter = Backbone.Router.extend({
         // Can't put regular expression in routes dictionary.
         // NOTE: parentheses are used to denote parameters returned to callback.
         this.route(/([\w]+)$/, "change_location");
-        this.route(/([\w\+]+\:[\d,]+-[\d,]+)$/, "change_location");
+        this.route(/([\w+]+:[\d,]+-[\d,]+)$/, "change_location");
 
         // Handle navigate events from view.
-        var self = this;
-        self.view.on("navigate", new_loc => {
-            self.navigate(new_loc);
+        this.view.on("navigate", new_loc => {
+            this.navigate(new_loc);
         });
     },
 

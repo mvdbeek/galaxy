@@ -1,11 +1,12 @@
+import _ from "underscore";
+import Backbone from "backbone";
 import baseMVC from "mvc/base-mvc";
 import _l from "utils/localization";
 import "ui/editable-text";
 // =============================================================================
 /** A view on any model that has a 'annotation' attribute
  */
-var AnnotationEditor = Backbone.View
-    .extend(baseMVC.LoggableMixin)
+var AnnotationEditor = Backbone.View.extend(baseMVC.LoggableMixin)
     .extend(baseMVC.HiddenUntilActivatedViewMixin)
     .extend({
         tagName: "div",

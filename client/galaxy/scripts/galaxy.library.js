@@ -2,11 +2,15 @@
 // === MAIN GALAXY LIBRARY MODULE ====
 // MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
-import mod_masthead from "layout/masthead";
-import mod_utils from "utils/utils";
+/* global ga */
+import $ from "jquery";
+import Backbone from "backbone";
+import { getAppRoot } from "onload/loadConfig";
+import { getGalaxyInstance } from "app";
+// import mod_utils from "utils/utils";
 import mod_toastr from "libs/toastr";
 import mod_baseMVC from "mvc/base-mvc";
-import mod_library_model from "mvc/library/library-model";
+// import mod_library_model from "mvc/library/library-model";
 import mod_folderlist_view from "mvc/library/library-folderlist-view";
 import mod_librarylist_view from "mvc/library/library-librarylist-view";
 import mod_librarytoolbar_view from "mvc/library/library-librarytoolbar-view";
@@ -49,11 +53,11 @@ var LibraryRouter = Backbone.Router.extend({
     },
 
     /**
-   * If more than one route has been hit the user did not land on current
-   * page directly so we can go back safely. Otherwise go to the home page.
-   * Use replaceState if available so the navigation doesn't create an
-   * extra history entry
-   */
+     * If more than one route has been hit the user did not land on current
+     * page directly so we can go back safely. Otherwise go to the home page.
+     * Use replaceState if available so the navigation doesn't create an
+     * extra history entry
+     */
     back: function() {
         if (this.routesHit > 1) {
             window.history.back();
@@ -63,8 +67,8 @@ var LibraryRouter = Backbone.Router.extend({
     },
 
     /**
-   * Track every route change as a page view in Google Analytics.
-   */
+     * Track every route change as a page view in Google Analytics.
+     */
     trackPageview: function() {
         var url = Backbone.history.getFragment();
         //prepend slash
@@ -72,7 +76,7 @@ var LibraryRouter = Backbone.Router.extend({
             url = `/${url}`;
         }
         if (typeof ga !== "undefined") {
-            ga("send", "pageview", `${Galaxy.root}library/list${url}`);
+            ga("send", "pageview", `${getAppRoot()}library/list${url}`);
         }
     }
 });
@@ -106,7 +110,8 @@ var GalaxyLibrary = Backbone.View.extend({
 
     initialize: function() {
         // This should go upstream in the js app once available
-        if (window.Galaxy.config.ga_code) {
+        let Galaxy = getGalaxyInstance();
+        if (Galaxy.config.ga_code) {
             ((i, s, o, g, r, a, m) => {
                 i["GoogleAnalyticsObject"] = r;
                 (i[r] =
@@ -120,7 +125,7 @@ var GalaxyLibrary = Backbone.View.extend({
                 a.src = g;
                 m.parentNode.insertBefore(a, m);
             })(window, document, "script", "//www.google-analytics.com/analytics.js", "ga");
-            ga("create", window.Galaxy.config.ga_code, "auto");
+            ga("create", Galaxy.config.ga_code, "auto");
             ga("send", "pageview");
         }
 
@@ -177,7 +182,7 @@ var GalaxyLibrary = Backbone.View.extend({
                 mod_toastr.info("You must select at least one dataset to download");
                 Galaxy.libraries.library_router.navigate(`folders/${folder_id}`, { trigger: true, replace: true });
             } else {
-                Galaxy.libraries.folderToolbarView.download(folder_id, format);
+                Galaxy.libraries.folderToolbarView.download(format);
                 Galaxy.libraries.library_router.navigate(`folders/${folder_id}`, { trigger: false, replace: true });
             }
         });

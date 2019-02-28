@@ -1,5 +1,7 @@
-import * as _ from "libs/underscore";
-var extend = _.extend;
+import $ from "jquery";
+import _l from "utils/localization";
+import _ from "libs/underscore";
+import { getGalaxyInstance } from "app";
 
 /**
  * Filters that enable users to show/hide data points dynamically.
@@ -14,7 +16,7 @@ var Filter = function(obj_dict) {
     this.tool_exp_name = obj_dict.tool_exp_name;
 };
 
-extend(Filter.prototype, {
+_.extend(Filter.prototype, {
     /**
      * Convert filter to dictionary.
      */
@@ -41,7 +43,7 @@ var create_action_icon = (title, css_class, on_click_fn) =>
         .click(on_click_fn);
 
 /**
- * Number filters have a min, max as well as a low, high; low and high are used 
+ * Number filters have a min, max as well as a low, high; low and high are used
  */
 var NumberFilter = function(obj_dict) {
     //
@@ -150,7 +152,7 @@ var NumberFilter = function(obj_dict) {
         .addClass("elt-label")
         .appendTo(filter.parent_div);
 
-    var name_span = $("<span/>")
+    $("<span/>")
         .addClass("slider-name")
         .text(`${filter.name}  `)
         .appendTo(filter_label);
@@ -258,13 +260,14 @@ var NumberFilter = function(obj_dict) {
     // Add to clear floating layout.
     $("<div style='clear: both;'/>").appendTo(filter.parent_div);
 };
-extend(NumberFilter.prototype, {
+
+_.extend(NumberFilter.prototype, {
     /**
      * Convert filter to dictionary.
      */
     to_dict: function() {
         var obj_dict = Filter.prototype.to_dict.call(this);
-        return extend(obj_dict, {
+        return _.extend(obj_dict, {
             type: "number",
             min: this.min,
             max: this.max,
@@ -315,7 +318,7 @@ extend(NumberFilter.prototype, {
             }
         }, 25);
     },
-    /** 
+    /**
      * Returns true if filter can be applied to element.
      */
     applies_to: function(element) {
@@ -331,7 +334,7 @@ extend(NumberFilter.prototype, {
         return isNaN(val) || (val >= this.low && val <= this.high);
     },
     /**
-     * Returns true if (a) element's value(s) is in [low, high] (range is inclusive) 
+     * Returns true if (a) element's value(s) is in [low, high] (range is inclusive)
      * or (b) if value is non-numeric and hence unfilterable.
      */
     keep: function(element) {
@@ -339,9 +342,6 @@ extend(NumberFilter.prototype, {
             // No element to filter on.
             return true;
         }
-
-        // Keep value function.
-        var filter = this;
 
         // Do filtering.
         var to_filter = element[this.index];
@@ -481,7 +481,7 @@ var FiltersManager = function(track, obj_dict) {
                     filter.height_icon.addClass("active").show();
                 }
             } else {
-                console.log("ERROR: unsupported filter: ", name, type);
+                console.log("ERROR: unsupported filter: ", filters_dict[i]);
             }
         }
 
@@ -505,7 +505,7 @@ var FiltersManager = function(track, obj_dict) {
     }
 };
 
-extend(FiltersManager.prototype, {
+_.extend(FiltersManager.prototype, {
     // HTML manipulation and inspection.
     show: function() {
         this.parent_div.show();
@@ -639,7 +639,7 @@ extend(FiltersManager.prototype, {
         // iteratively application.
         (function run_filter(input_dataset_id, filters) {
             var // Set up filtering info and params.
-            filter_tuple = filters[0];
+                filter_tuple = filters[0];
 
             var tool_id = filter_tuple[0];
             var tool_filters = filter_tuple[1];
@@ -655,18 +655,22 @@ extend(FiltersManager.prototype, {
             // Remove current filter.
             filters = filters.slice(1);
 
+            // DBTODO: This will never work, run_tool_url doesn't exist?
+            // https://github.com/galaxyproject/galaxy/issues/7224
+            // eslint-disable-next-line no-undef
             $.getJSON(run_tool_url, url_params, response => {
+                let Galaxy = getGalaxyInstance();
                 if (response.error) {
                     // General error.
                     Galaxy.modal.show({
-                        title: "Filter Dataset",
+                        title: _l("Filter Dataset"),
                         body: `Error running tool ${tool_id}`,
                         buttons: { Close: Galaxy.modal.hide() }
                     });
                 } else if (filters.length === 0) {
                     // No more filters to run.
                     Galaxy.modal.show({
-                        title: "Filtering Dataset",
+                        title: _l("Filtering Dataset"),
                         body: "Filter(s) are running on the complete dataset. Outputs are in dataset's history.",
                         buttons: { Close: Galaxy.modal.hide() }
                     });

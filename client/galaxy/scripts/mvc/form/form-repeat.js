@@ -1,23 +1,31 @@
 /** This class creates a ui component which enables the dynamic creation of portlets */
+import _l from "utils/localization";
+import _ from "underscore";
+import $ from "jquery";
+import Backbone from "backbone";
+import { getGalaxyInstance } from "app";
 import Utils from "utils/utils";
 import Portlet from "mvc/ui/ui-portlet";
 import Ui from "mvc/ui/ui-misc";
-var View = Backbone.View.extend({
+
+export var View = Backbone.View.extend({
     initialize: function(options) {
         this.list = {};
         this.options = Utils.merge(options, {
-            title: "Repeat",
+            title: _l("Repeat"),
             empty_text: "Not available.",
             max: null,
             min: null
         });
-        this.button_new = new Ui.ButtonIcon({
+        this.button_new = new Ui.Button({
             icon: "fa-plus",
             title: `Insert ${this.options.title}`,
             tooltip: `Add new ${this.options.title} block`,
-            cls: "ui-button-icon ui-clear-float form-repeat-add",
+            cls: "btn btn-secondary float-none form-repeat-add",
             onclick: function() {
-                options.onnew && options.onnew();
+                if (options.onnew) {
+                    options.onnew();
+                }
             }
         });
         this.setElement(
@@ -34,34 +42,40 @@ var View = Backbone.View.extend({
 
     /** Add new repeat block */
     add: function(options) {
+        let Galaxy = getGalaxyInstance();
         if (!options.id || this.list[options.id]) {
             Galaxy.emit.debug("form-repeat::add()", "Duplicate or invalid repeat block id.");
             return;
         }
-        var button_delete = new Ui.ButtonIcon({
+        var button_delete = new Ui.Button({
             icon: "fa-trash-o",
-            tooltip: "Delete this repeat block",
+            tooltip: _l("Delete this repeat block"),
             cls: "ui-button-icon-plain form-repeat-delete",
             onclick: function() {
-                options.ondel && options.ondel();
+                if (options.ondel) {
+                    options.ondel();
+                }
             }
         });
         var portlet = new Portlet.View({
             id: options.id,
-            title: "placeholder",
-            cls: options.cls || "ui-portlet-repeat",
+            title: _l("placeholder"),
+            cls: options.cls || "ui-portlet-section",
             operations: { button_delete: button_delete }
         });
         portlet.append(options.$el);
         portlet.$el.addClass("section-row").hide();
         this.list[options.id] = portlet;
         this.$list.append(portlet.$el.fadeIn("fast"));
-        this.options.max > 0 && this.size() >= this.options.max && this.button_new.disable();
+        if (this.options.max > 0 && this.size() >= this.options.max) {
+            this.button_new.disable();
+        }
         this._refresh();
     },
 
     /** Delete repeat block */
     del: function(id) {
+        let Galaxy = getGalaxyInstance();
         if (!this.list[id]) {
             Galaxy.emit.debug("form-repeat::del()", "Invalid repeat block id.");
             return;
@@ -85,12 +99,13 @@ var View = Backbone.View.extend({
         _.each(this.list, portlet => {
             portlet.hideOperation("button_delete");
         });
-        _.isEmpty(this.list) &&
+        if (_.isEmpty(this.list)) {
             this.$el.append(
                 $("<div/>")
-                    .addClass("ui-form-info")
+                    .addClass("form-text text-muted")
                     .html(this.options.empty_text)
             );
+        }
     },
 
     /** Refresh view */
