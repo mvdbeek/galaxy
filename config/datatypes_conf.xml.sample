@@ -695,6 +695,7 @@
     <datatype extension="ptphylip" type="galaxy.datatypes.plant_tribes:PlantTribesPhylip" />
     <datatype extension="pttgf" type="galaxy.datatypes.plant_tribes:PlantTribesTargetedGeneFamilies" />
     <datatype extension="pttree" type="galaxy.datatypes.plant_tribes:PlantTribesPhylogeneticTree" />
+    -->
 
     <!-- media datatypes -->
     <datatype extension="wav" type="galaxy.datatypes.media:WAV" display_in_upload="true" mimetype="audio/wav"/>
