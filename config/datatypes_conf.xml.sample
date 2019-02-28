@@ -109,7 +109,7 @@
       <converter file="fasta_to_fai.xml" target_datatype="fai"/>
       <display file="igv/genome_fasta.xml" inherit="true"/>
     </datatype>
-    <datatype extension="fastg" type="galaxy.datatypes.sequence:Fastg" display_in_upload="true" description="fastg format faithfully represents genome assemblies in the face of allelic polymorphism and assembly uncertainty" description_url="http://fastg.sourceforge.net/FASTG_Spec_v1.00.pdf"/> 
+    <datatype extension="fastg" type="galaxy.datatypes.sequence:Fastg" display_in_upload="true" description="fastg format faithfully represents genome assemblies in the face of allelic polymorphism and assembly uncertainty" description_url="http://fastg.sourceforge.net/FASTG_Spec_v1.00.pdf"/>
     <datatype extension="fastq" auto_compressed_types="gz,bz2" type="galaxy.datatypes.sequence:Fastq" display_in_upload="true" description="FASTQ format is a text-based format for storing both a biological sequence (usually nucleotide sequence) and its corresponding quality scores." description_url="https://wiki.galaxyproject.org/Learn/Datatypes#Fastq">
       <converter file="fastq_to_fqtoc.xml" target_datatype="fqtoc"/>
     </datatype>
@@ -704,6 +704,9 @@
     <datatype extension="mp4" type="galaxy.datatypes.media:Mp4" display_in_upload="true" mimetype="video/mp4"/>
     <datatype extension="flv" type="galaxy.datatypes.media:Flv" display_in_upload="true" mimetype="video/flv"/>
     <datatype extension="mpg" type="galaxy.datatypes.media:Mpg" display_in_upload="true" mimetype="video/mpeg"/>
+    <!-- speech datatypes -->
+    <datatype extension="textgrid" type="galaxy.datatypes.speech:TextGrid" display_in_upload="true" mimetype="text/plain"/>
+    <datatype extension="par" type="galaxy.datatypes.speech:BPF" display_in_upload="true" mimetype="text/plain-bas"/>
 
     <datatype extension="smat" type="galaxy.datatypes.plant_tribes:Smat" display_in_upload="true"/>
     <!-- Start Haplotype / LOD Datatypes -->
@@ -899,6 +902,8 @@
     <sniffer type="galaxy.datatypes.media:Mp4"/>
     <sniffer type="galaxy.datatypes.media:Flv"/>
     <sniffer type="galaxy.datatypes.media:Mpg"/>
+    <sniffer type="galaxy.datatypes.speech:TextGrid" />
+    <sniffer type="galaxy.datatypes.speech:BPF" />
     <!--
     Keep this commented until the sniff method in the assembly.py
     module is fixed to not read the entire file.
