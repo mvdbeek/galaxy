@@ -11,6 +11,7 @@ from galaxy.queue_worker import (
     send_control_task,
 )
 from galaxy.queues import connection_from_config
+from galaxy.util import which
 from ..tools_support import UsesApp
 
 
@@ -64,6 +65,7 @@ def create_test(amqp_connection):
 
 @pytest.mark.skipif(sys.version_info[0] < 3,
                     reason="postgresql_db fixture requires python 3 or higher")
+@pytest.mark.skipif(not which('initdb'), reason='reason postgresql initdb not on PATH')
 def test_queue_worker_echo_postgresql(postgres_app):
     postgres_app.some_var = 'foo'
     send_control_task(app=postgres_app, task='echo')
