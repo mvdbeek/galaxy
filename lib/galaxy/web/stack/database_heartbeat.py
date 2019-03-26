@@ -7,7 +7,7 @@ from galaxy.model.orm.now import now
 
 class DatabaseHeartbeat(object):
 
-    def __init__(self, sa_session, server_name=None, application_stack=None, heartbeat_interval=10):
+    def __init__(self, sa_session, server_name=None, application_stack=None, heartbeat_interval=60):
         self.sa_session = sa_session
         self._server_name = server_name
         self.application_stack = application_stack
@@ -34,8 +34,10 @@ class DatabaseHeartbeat(object):
         if self.thread:
             self.thread.join()
 
-    def get_active_processes(self, last_seen_seconds=10):
+    def get_active_processes(self, last_seen_seconds=None):
         """Return all processes seen in ``last_seen_seconds`` seconds."""
+        if last_seen_seconds is None:
+            last_seen_seconds = self.heartbeat_interval
         seconds_ago = now() - datetime.timedelta(seconds=last_seen_seconds)
         return self.sa_session.query(WorkerProcess).filter(WorkerProcess.table.c.update_time > seconds_ago).all()
 
