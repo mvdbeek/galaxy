@@ -102,19 +102,17 @@ class ControlTask(object):
             self.correlation_id = uuid()
         try:
             with producers[self.connection].acquire(block=True) as producer:
-                producer.publish(payload,
-                                 exchange=None if local else self.exchange,
-                                 declare=declare_queues,
-                                 routing_key=routing_key,
-                                 reply_to=reply_to,
-                                 correlation_id=self.correlation_id,
-                                 retry=True,
-                                 )
+                producer.publish(
+                    payload,
+                    exchange=None if local else self.exchange,
+                    declare=declare_queues,
+                    routing_key=routing_key,
+                    reply_to=reply_to,
+                    correlation_id=self.correlation_id,
+                    retry=True,
+                )
             if get_response:
-                with Consumer(self.connection,
-                              on_message=self.on_response,
-                              queues=callback_queue,
-                              no_ack=True):
+                with Consumer(self.connection, on_message=self.on_response, queues=callback_queue, no_ack=True):
                     while self.response is self._response:
                         self.connection.drain_events(timeout=timeout)
                 return self.response
