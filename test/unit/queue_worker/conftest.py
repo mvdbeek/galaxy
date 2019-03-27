@@ -4,12 +4,14 @@ import tempfile
 import pytest
 
 from galaxy.util import which
+from galaxy.model import mapping
 from ..unittest_utils import galaxy_mock
 
 
 def create_base_test(connection, amqp_type, amqp_connection=None):
-    app = galaxy_mock.MockApp(database_connection=connection)
+    app = galaxy_mock.MockApp()
     app.config.database_connection = connection
+    app.model = mapping.init("/tmp", connection, create_tables=True, object_store=app.object_store)
     app.config.amqp_internal_connection = amqp_connection or "sqlalchemy+%s" % app.config.database_connection
     app.amqp_type = amqp_type
     return app
