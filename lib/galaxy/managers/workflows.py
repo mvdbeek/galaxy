@@ -44,7 +44,10 @@ from galaxy.workflow.modules import (
     WorkflowModuleInjector
 )
 from galaxy.workflow.resources import get_resource_mapper_function
-from galaxy.workflow.steps import attach_ordered_steps
+from galaxy.workflow.steps import (
+    attach_ordered_steps,
+    WORKFLOW_OUTPUT_STEP_TYPES,
+)
 from .base import decode_id
 
 log = logging.getLogger(__name__)
@@ -1108,7 +1111,7 @@ class WorkflowContentsManager(UsesAnnotations):
         steps.append(step)
         external_id = step_dict["id"]
         steps_by_external_id[external_id] = step
-        if 'workflow_outputs' in step_dict:
+        if 'workflow_outputs' in step_dict and step.type in WORKFLOW_OUTPUT_STEP_TYPES:
             workflow_outputs = step_dict['workflow_outputs']
             found_output_names = set([])
             for workflow_output in workflow_outputs:

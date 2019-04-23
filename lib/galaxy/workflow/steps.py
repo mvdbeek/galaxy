@@ -9,6 +9,8 @@ from galaxy.util.topsort import (
     topsort_levels
 )
 
+WORKFLOW_OUTPUT_STEP_TYPES = ('tool', 'subworkflow')
+
 
 def attach_ordered_steps(workflow, steps):
     """ Attempt to topologically order steps and attach to workflow. If this
