@@ -7,7 +7,6 @@ import NodeView from "mvc/workflow/workflow-view-node";
 
 // unused
 //var StepParameterTypes = ["text", "integer", "float", "boolean", "color"];
-const WORKFLOW_OUTPUT_STEP_TYPES = ["tool", "subworkflow"];
 
 var Node = Backbone.Model.extend({
     initialize: function(app, attr) {
@@ -26,9 +25,6 @@ var Node = Backbone.Model.extend({
     isWorkflowOutput: function(outputName) {
         return this.getWorkflowOutput(outputName) !== undefined;
     },
-    canBeWorkflowOutput: function() {
-        return WORKFLOW_OUTPUT_STEP_TYPES.indexOf(this.type) >= 0
-    },
     removeWorkflowOutput: function(outputName) {
         while (this.isWorkflowOutput(outputName)) {
             const target = this.getWorkflowOutput(outputName);
@@ -36,7 +32,7 @@ var Node = Backbone.Model.extend({
         }
     },
     addWorkflowOutput: function(outputName, label) {
-        if (this.canBeWorkflowOutput() && !this.isWorkflowOutput(outputName)) {
+        if (!this.isWorkflowOutput(outputName)) {
             var output = { output_name: outputName };
             if (label) {
                 output.label = label;

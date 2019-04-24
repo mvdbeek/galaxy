@@ -53,7 +53,7 @@ var DataOutputView = Backbone.View.extend({
         }
         this.$el.html(label);
         this.calloutView = null;
-        if (node.canBeWorkflowOutput()) {
+        if (["tool", "subworkflow"].indexOf(node.type) >= 0) {
             var calloutView = new OutputCalloutView({
                 label: label,
                 output: output,
@@ -100,7 +100,7 @@ var ParameterOutputView = Backbone.View.extend({
 
         this.$el.html(label);
         this.calloutView = null;
-        if (node.canBeWorkflowOutput()) {
+        if (["tool", "subworkflow"].indexOf(node.type) >= 0) {
             var calloutView = new OutputCalloutView({
                 label: label,
                 output: output,
