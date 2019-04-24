@@ -1358,11 +1358,14 @@ input1:
 class: GalaxyWorkflow
 inputs:
   input1: data
+  text_input: text
 outputs:
   wf_output_1:
     outputSource: input1
+  wf_output_param:
+    outputSource: text_input
 steps: []
-""", test_data={"input1": "hello world"}, history_id=history_id)
+""", test_data={"input1": "hello world", "text_input": "A text variable"}, history_id=history_id)
             workflow_id = summary.workflow_id
             invocation_id = summary.invocation_id
             invocation_response = self._get("workflows/%s/invocations/%s" % (workflow_id, invocation_id))

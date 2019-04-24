@@ -4875,7 +4875,13 @@ class WorkflowInvocation(UsesCreateAndUpdateTime, Dictifiable, RepresentById):
         return [wid for wid in query.all()]
 
     def add_output(self, workflow_output, step, output_object):
-        if output_object.history_content_type == "dataset":
+        if step.type == 'parameter_input':
+            output_assoc = WorkflowInvocationOutputParameter()
+            output_assoc.workflow_invocation = self
+            output_assoc.workflow_output = workflow_output
+            output_assoc.workflow_step = step
+            output_assoc.parameter_value = output_object
+        elif output_object.history_content_type == "dataset":
             output_assoc = WorkflowInvocationOutputDatasetAssociation()
             output_assoc.workflow_invocation = self
             output_assoc.workflow_output = workflow_output
@@ -4956,6 +4962,16 @@ class WorkflowInvocation(UsesCreateAndUpdateTime, Dictifiable, RepresentById):
 
             rval['outputs'] = outputs
             rval['output_collections'] = output_collections
+
+            output_parameters = {}
+            for output_param in self.output_parameters:
+                label = output_param.workflow_output.label
+                output_parameters[label] = {
+                    'src': 'parameter_input',
+                    'id': output_param.id,
+                }
+            rval['output_parameters'] = output_parameters
+
         return rval
 
     def update(self):
@@ -5149,6 +5165,11 @@ class WorkflowInvocationOutputDatasetAssociation(Dictifiable, RepresentById):
 class WorkflowInvocationOutputDatasetCollectionAssociation(Dictifiable, RepresentById):
     """Represents links to output dataset collections for the workflow."""
     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'dataset_collection_id', 'name']
+
+
+class WorkflowInvocationOutputParameter(Dictifiable, RepresentById):
+    """Represents a link to a specified or computed workflow parameter."""
+    dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'parameter_value']
 
 
 class WorkflowInvocationStepOutputDatasetAssociation(Dictifiable, RepresentById):
