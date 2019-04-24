@@ -9,7 +9,7 @@ from galaxy.util.topsort import (
     topsort_levels
 )
 
-WORKFLOW_OUTPUT_STEP_TYPES = ('tool', 'subworkflow', 'data_input', 'data_collection_input')
+WORKFLOW_OUTPUT_STEP_TYPES = ('tool', 'subworkflow')
 
 
 def attach_ordered_steps(workflow, steps):
