@@ -86,6 +86,7 @@ inv.task('build')
         .run('rm', '-rf', '/data/dist')
     .using(conda_image)
         .withHostConfig({binds = bind_args})
+        .withConfig({Env = { 'HTTP_PROXY=http://www-cache:3128', 'HTTPS_PROXY=http://www-cache:3128', 'NO_PROXY=localhost,127.0.0.1,u934-bdd-4-70-6580.curie.fr,rabbit'}})
         .run('/bin/sh', '-c', preinstall
             .. 'conda install '
             .. channel_args .. ' '
@@ -102,7 +103,7 @@ if VAR.SINGULARITY ~= '' then
     inv.task('singularity')
         .using(singularity_image)
         .withHostConfig({binds = {"build:/data",singularity_image_dir .. ":/import"}, privileged = true})
-        .withConfig({entrypoint = {'/bin/sh', '-c'}})
+        .withConfig({entrypoint = {'/bin/sh', '-c'}, Env = { 'HTTP_PROXY=http://www-cache:3128', 'HTTPS_PROXY=http://www-cache:3128', 'NO_PROXY=localhost,127.0.0.1,u934-bdd-4-70-6580.curie.fr,rabbit'}})
         .run('mkdir -p /usr/local/var/singularity/mnt/container && singularity build /import/' .. VAR.SINGULARITY_IMAGE_NAME .. ' /import/Singularity.def')
         .run('chown ' .. VAR.USER_ID .. ' /import/' .. VAR.SINGULARITY_IMAGE_NAME)
 end
