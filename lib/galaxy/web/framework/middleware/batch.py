@@ -180,7 +180,7 @@ class BatchMiddleware(object):
         return {
             'x-frame-options': 'SAMEORIGIN',
             'content-type'   : 'application/json',
-            'cache-control'  : 'max-age=0,no-cache,no-store'
+            'Cache-Control'  : 'max-age=0,no-cache,no-store'
         }
 
     def handle_exception(self, environ):
