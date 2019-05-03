@@ -122,7 +122,7 @@ def preprocess_volumes(volumes_raw_str, container_type):
         how = volume[1]
 
         if how == "default_ro":
-            how = "ro"
+            how = "rw"
             if container_type == SINGULARITY_CONTAINER_TYPE:
                 for rw_path in rw_paths:
                     if in_directory(rw_path, path):
