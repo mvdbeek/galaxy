@@ -128,6 +128,7 @@ def identifier_to_cached_target(identifier, hash_func, namespace=None):
 
 def list_cached_mulled_images_from_path(directory, hash_func="v2"):
     contents = os.listdir(directory)
+    contents = [x.replace('\xef\x80\xa2', ':') for x in contents]
     raw_images = map(lambda name: identifier_to_cached_target(name, hash_func), contents)
     return [i for i in raw_images if i is not None]
 
