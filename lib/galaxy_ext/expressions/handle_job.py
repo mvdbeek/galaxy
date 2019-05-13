@@ -27,7 +27,7 @@ def run(environment_path=None):
         raise Exception("Python library cwltool must be available to evaluate expressions.")
 
     if environment_path is None:
-        environment_path = os.environ.get("GALAXY_EXPRESSION_INPUTS")
+        environment_path = os.environ.get("GALAXY_EXPRESSION_INPUTS", "_expression_inputs_.json")
     with open(environment_path, "r") as f:
         raw_inputs = json.load(f)
 
