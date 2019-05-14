@@ -520,7 +520,7 @@ class ToolEvaluator(object):
             fd, config_filename = tempfile.mkstemp(dir=directory)
             os.close(fd)
             self.__write_workdir_file(config_filename, environment_variable_template, param_dict)
-            config_file_basename = os.path.basename(config_filename)
+            config_file_basename = config_filename
             environment_variable["value"] = "`cat %s`" % config_file_basename
             environment_variable["raw"] = True
             environment_variables.append(environment_variable)
