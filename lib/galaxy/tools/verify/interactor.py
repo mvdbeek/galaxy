@@ -782,7 +782,15 @@ def verify_tool(tool_id,
             assert data_list or data_collection_list
 
             try:
-                job_stdio = _verify_outputs(testdef, test_history, jobs, tool_id, data_list, data_collection_list, galaxy_interactor, quiet=quiet)
+                job_stdio = _verify_outputs(testdef,
+                                            test_history,
+                                            jobs,
+                                            tool_id,
+                                            data_list,
+                                            data_collection_list,
+                                            galaxy_interactor,
+                                            quiet=quiet,
+                                            maxseconds=maxseconds)
             except JobOutputsError as e:
                 job_stdio = e.job_stdio
                 job_output_exceptions = e.output_exceptions
@@ -828,11 +836,10 @@ def _handle_def_errors(testdef):
             raise Exception("Test parse failure")
 
 
-def _verify_outputs(testdef, history, jobs, tool_id, data_list, data_collection_list, galaxy_interactor, quiet=False):
+def _verify_outputs(testdef, history, jobs, tool_id, data_list, data_collection_list, galaxy_interactor, quiet=False, maxseconds=DEFAULT_TOOL_TEST_WAIT):
     assert len(jobs) == 1, "Test framework logic error, somehow tool test resulted in more than one job."
     job = jobs[0]
 
-    maxseconds = testdef.maxseconds
     if testdef.num_outputs is not None:
         expected = testdef.num_outputs
         actual = len(data_list) + len(data_collection_list)
