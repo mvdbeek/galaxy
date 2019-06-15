@@ -492,12 +492,14 @@ class InstallRepositoryManager(object):
 
     def __handle_repository_contents(self, tool_shed_repository, tool_path, repository_clone_url, relative_install_dir,
                                      tool_shed=None, tool_section=None, shed_tool_conf=None, reinstalling=False,
-                                     tool_panel_section_mapping={}):
+                                     tool_panel_section_mapping=None):
         """
         Generate the metadata for the installed tool shed repository, among other things.
         This method is called when an administrator is installing a new repository or
         reinstalling an uninstalled repository.
         """
+        if tool_panel_section_mapping is None:
+            tool_panel_section_mapping = {}
         shed_config_dict = self.app.toolbox.get_shed_config_dict_by_filename(shed_tool_conf)
         stdtm = ShedToolDataTableManager(self.app)
         irmm = InstalledRepositoryMetadataManager(app=self.app,
@@ -850,7 +852,9 @@ class InstallRepositoryManager(object):
         return installed_tool_shed_repositories
 
     def install_tool_shed_repository(self, tool_shed_repository, repo_info_dict, tool_panel_section_key, shed_tool_conf, tool_path,
-                                     install_resolver_dependencies, install_tool_dependencies, reinstalling=False, tool_panel_section_mapping={}):
+                                     install_resolver_dependencies, install_tool_dependencies, reinstalling=False, tool_panel_section_mapping=None):
+        if tool_panel_section_mapping is None:
+            tool_panel_section_mapping = {}
         self.app.install_model.context.flush()
         if tool_panel_section_key:
             _, tool_section = self.app.toolbox.get_section(tool_panel_section_key)

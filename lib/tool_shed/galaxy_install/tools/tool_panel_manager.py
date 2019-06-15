@@ -44,9 +44,11 @@ class ToolPanelManager(object):
             self.app.wait_for_toolbox_reload(old_toolbox)
 
     def add_to_tool_panel(self, repository_name, repository_clone_url, changeset_revision, repository_tools_tups, owner,
-                          shed_tool_conf, tool_panel_dict, new_install=True, tool_panel_section_mapping={}):
+                          shed_tool_conf, tool_panel_dict, new_install=True, tool_panel_section_mapping=None):
         """A tool shed repository is being installed or updated so handle tool panel alterations accordingly."""
         # We need to change the in-memory version and the file system version of the shed_tool_conf file.
+        if tool_panel_section_mapping is None:
+            tool_panel_section_mapping = {}
         shed_tool_conf_dict = self.get_shed_tool_conf_dict(shed_tool_conf)
         tool_panel_dict = self.update_tool_panel_dict(tool_panel_dict, tool_panel_section_mapping, repository_tools_tups)
         # Generate the list of ElementTree Element objects for each section or tool.
