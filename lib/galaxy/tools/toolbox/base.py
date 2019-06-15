@@ -257,8 +257,7 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
                 'id': section_id,
                 'version': '',
             }
-            self.create_section(section_dict)
-            tool_section = self._tool_panel[tool_panel_section_key]
+            tool_section = self.create_section(section_dict)
             self._save_integrated_tool_panel()
         else:
             tool_section = None
