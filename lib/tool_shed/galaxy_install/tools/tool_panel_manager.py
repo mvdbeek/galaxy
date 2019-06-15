@@ -324,15 +324,15 @@ class ToolPanelManager(object):
         # is received, a new section will be added to the tool panel.
         if new_tool_panel_section_label:
             section_id = str(new_tool_panel_section_label.lower().replace(' ', '_'))
-            tool_panel_section_key, tool_section = \
-                self.get_or_create_tool_section(toolbox,
-                                                tool_panel_section_id=section_id,
-                                                new_tool_panel_section_label=new_tool_panel_section_label)
+            return self.get_or_create_tool_section(
+                toolbox,
+                tool_panel_section_id=section_id,
+                new_tool_panel_section_label=new_tool_panel_section_label
+            )
         elif tool_panel_section_id:
-            tool_panel_section_key, tool_section = toolbox.get_section(tool_panel_section_id)
+            return toolbox.get_section(tool_panel_section_id)
         else:
             return None, None
-        return tool_panel_section_key, tool_section
 
     def handle_tool_panel_selection(self, toolbox, metadata, no_changes_checked, tool_panel_section_id,
                                     new_tool_panel_section_label):

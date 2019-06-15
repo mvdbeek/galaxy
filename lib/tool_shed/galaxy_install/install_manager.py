@@ -620,15 +620,15 @@ class InstallRepositoryManager(object):
         tool_path = installation_dict['tool_path']
         tool_shed_url = installation_dict['tool_shed_url']
         rdim = repository_dependency_manager.RepositoryDependencyInstallManager(self.app)
-        created_or_updated_tool_shed_repositories, tool_panel_section_keys, repo_info_dicts, filtered_repo_info_dicts = \
-            rdim.create_repository_dependency_objects(tool_path=tool_path,
-                                                      tool_shed_url=tool_shed_url,
-                                                      repo_info_dicts=repo_info_dicts,
-                                                      install_repository_dependencies=install_repository_dependencies,
-                                                      no_changes_checked=no_changes_checked,
-                                                      tool_panel_section_id=tool_panel_section_id,
-                                                      new_tool_panel_section_label=new_tool_panel_section_label)
-        return created_or_updated_tool_shed_repositories, tool_panel_section_keys, repo_info_dicts, filtered_repo_info_dicts
+        return rdim.create_repository_dependency_objects(
+            tool_path=tool_path,
+            tool_shed_url=tool_shed_url,
+            repo_info_dicts=repo_info_dicts,
+            install_repository_dependencies=install_repository_dependencies,
+            no_changes_checked=no_changes_checked,
+            tool_panel_section_id=tool_panel_section_id,
+            new_tool_panel_section_label=new_tool_panel_section_label
+        )
 
     def initiate_repository_installation(self, installation_dict):
         # The following installation_dict entries are all required.
@@ -655,7 +655,7 @@ class InstallRepositoryManager(object):
             self.tpm.handle_tool_panel_section(self.app.toolbox,
                                                tool_panel_section_id=tool_panel_section_id,
                                                new_tool_panel_section_label=new_tool_panel_section_label)
-        if includes_tools_for_display_in_tool_panel and (tool_panel_section_mapping is not None):
+        if includes_tools_for_display_in_tool_panel and tool_panel_section_mapping is not None:
             for tool_guid in tool_panel_section_mapping:
                 if tool_panel_section_mapping[tool_guid]['action'] == 'create':
                     new_tool_panel_section_name = tool_panel_section_mapping[tool_guid]['tool_panel_section']
