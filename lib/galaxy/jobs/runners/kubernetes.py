@@ -433,7 +433,8 @@ class KubernetesJobRunner(AsynchronousJobRunner):
             elif failed > max_pod_retries:
                 return self._handle_job_failure(job, job_state)
             elif job_state.job_wrapper.get_job().state == model.Job.states.DELETED:
-                # Job has been deleted via stop_job, cleanup and remove from watched_jobs by returning `None`
+                # Job has been deleted via stop_job and job has not been deleted,
+                # remove from watched_jobs by returning `None`
                 if job_state.job_wrapper.cleanup_job in ("always", "onsuccess"):
                     job_state.job_wrapper.cleanup()
                 return None
@@ -442,6 +443,12 @@ class KubernetesJobRunner(AsynchronousJobRunner):
                 log.info("Kubernetes job '%s' not classified as succ., active or failed. Full Job object: \n%s", job.name, job.obj)
 
         elif len(jobs.response['items']) == 0:
+            if job_state.job_wrapper.get_job().state == model.Job.states.DELETED:
+                # Job has been deleted via stop_job and job has been deleted,
+                # cleanup and remove from watched_jobs by returning `None`
+                if job_state.job_wrapper.cleanup_job in ("always", "onsuccess"):
+                    job_state.job_wrapper.cleanup()
+                return None
             # there is no job responding to this job_id, it is either lost or something happened.
             log.error("No Jobs are available under expected selector app=%s", job_state.job_id)
             with open(job_state.error_file, 'w') as error_file:
@@ -508,7 +515,7 @@ class KubernetesJobRunner(AsynchronousJobRunner):
         try:
             jobs = Job.objects(self._pykube_api).filter(selector="app=" +
                                                                  self.__produce_unique_k8s_job_name(job.get_id_tag()))
-            if len(jobs.response['items']) >= 0:
+            if len(jobs.response['items']) > 0:
                 job_to_delete = Job(self._pykube_api, jobs.response['items'][0])
                 self.__cleanup_k8s_job(job_to_delete)
             # TODO assert whether job parallelism == 0
