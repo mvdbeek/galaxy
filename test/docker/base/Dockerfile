@@ -8,7 +8,7 @@ ARG CHROME_DRIVER_VERSION="2.38"
 ENV DEBIAN_FRONTEND=noninteractive \
     DEBCONF_NONINTERACTIVE_SEEN=true \
     MYSQL_MAJOR=5.7 \
-    POSTGRES_MAJOR=9.5 \
+    POSTGRES_MAJOR=10 \
     GALAXY_ROOT=/galaxy \
     GALAXY_VIRTUAL_ENV=/galaxy_venv \
     GALAXY_VIRTUAL_ENV_2=/galaxy_venv \
@@ -20,7 +20,6 @@ RUN apt-get update -y && apt-get install -y software-properties-common apt-trans
     apt-add-repository -y ppa:ansible/ansible && \
     curl -s https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
     echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list && \
-    apt-key adv --recv-keys --keyserver hkp://pool.sks-keyservers.net:80 0xA5D32F012649A5A9 && \
     apt-get update -y && \
     apt-get install -y --no-install-recommends postgresql postgresql-client ansible wget \
             python3-dev \
