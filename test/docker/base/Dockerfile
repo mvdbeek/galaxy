@@ -1,4 +1,4 @@
-FROM ubuntu:16.04
+FROM ubuntu:18.04
 LABEL maintainer="John Chilton <jmchilton@gmail.com>"
 
 ARG CHROME_VERSION="google-chrome-beta"
@@ -20,7 +20,6 @@ RUN apt-get update -y && apt-get install -y software-properties-common apt-trans
     apt-add-repository -y ppa:ansible/ansible && \
     curl -s https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add - && \
     echo "deb http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list && \
-    curl -s http://neuro.debian.net/lists/xenial.us-ca.full > /etc/apt/sources.list.d/neurodebian.sources.list && \
     apt-key adv --recv-keys --keyserver hkp://pool.sks-keyservers.net:80 0xA5D32F012649A5A9 && \
     apt-get update -y && \
     apt-get install -y --no-install-recommends postgresql postgresql-client ansible wget \
