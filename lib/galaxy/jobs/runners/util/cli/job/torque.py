@@ -1,3 +1,4 @@
+import os
 from logging import getLogger
 try:
     import xml.etree.cElementTree as et
@@ -66,7 +67,10 @@ class Torque(BaseJobExec):
         return dict(headers=template_pbsargs)
 
     def submit(self, script_file):
-        return 'qsub %s' % script_file
+        script_path = "/data/users/mvandenb/gx/s/jsd/%s" os.path.basename(script_file)
+        with open(script_file) as f, open(script_path, 'w'):
+            script_path.write(f.read())
+        return 'qsub %s && rm %s' % (script_path, script_path)
 
     def delete(self, job_id):
         return 'qdel %s' % job_id
