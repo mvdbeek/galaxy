@@ -106,6 +106,7 @@ if VAR.SINGULARITY ~= '' then
         .withConfig({entrypoint = {'/bin/sh', '-c'}, Env = { 'HTTP_PROXY=http://www-cache:3128', 'HTTPS_PROXY=http://www-cache:3128', 'NO_PROXY=localhost,127.0.0.1,u934-bdd-4-70-6580.curie.fr,rabbit'}})
         .run('mkdir -p /usr/local/var/singularity/mnt/container && singularity build /import/' .. VAR.SINGULARITY_IMAGE_NAME .. ' /import/Singularity.def')
         .run('chown ' .. VAR.USER_ID .. ' /import/' .. VAR.SINGULARITY_IMAGE_NAME)
+        .run('for f in /import/*:*; do mv -v "$f" $(echo "$f" | tr ":" ";"); done')
 end
 
 inv.task('cleanup')

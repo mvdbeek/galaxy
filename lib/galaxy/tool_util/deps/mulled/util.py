@@ -175,10 +175,10 @@ def v2_image_name(targets, image_build=None, name_override=None):
 
     >>> single_targets = [build_target("samtools", version="1.3.1")]
     >>> v2_image_name(single_targets)
-    'samtools:1.3.1'
+    'samtools;1.3.1'
     >>> multi_targets = [build_target("samtools", version="1.3.1"), build_target("bwa", version="0.7.13")]
     >>> v2_image_name(multi_targets)
-    'mulled-v2-fe8faa35dbf6dc65a0f7f5d4ea12e31a79f73e40:4d0535c94ef45be8459f429561f0894c3fe0ebcf'
+    'mulled-v2-fe8faa35dbf6dc65a0f7f5d4ea12e31a79f73e40;4d0535c94ef45be8459f429561f0894c3fe0ebcf'
     >>> multi_targets_on_versionless = [build_target("samtools", version="1.3.1"), build_target("bwa")]
     >>> v2_image_name(multi_targets_on_versionless)
     'mulled-v2-fe8faa35dbf6dc65a0f7f5d4ea12e31a79f73e40:b0c847e4fb89c343b04036e33b2daa19c4152cf5'
@@ -219,7 +219,7 @@ def v2_image_name(targets, image_build=None, name_override=None):
             build_suffix = image_build
         suffix = ""
         if version_hash_str or build_suffix:
-            suffix = ":%s%s" % (version_hash_str, build_suffix)
+            suffix = ";%s%s" % (version_hash_str, build_suffix)
         return "mulled-v2-%s%s" % (package_hash.hexdigest(), suffix)
 
 

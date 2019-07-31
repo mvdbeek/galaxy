@@ -83,8 +83,8 @@ def list_docker_cached_mulled_images(namespace=None, hash_func="v2"):
 
 
 def identifier_to_cached_target(identifier, hash_func, namespace=None):
-    if ":" in identifier:
-        image_name, version = identifier.rsplit(":", 1)
+    if ";" in identifier:
+        image_name, version = identifier.rsplit(";", 1)
     else:
         image_name = identifier
         version = None
@@ -159,8 +159,8 @@ def find_best_matching_cached_image(targets, cached_images, hash_func):
                 break
     elif hash_func == "v2":
         name = v2_image_name(targets)
-        if ":" in name:
-            package_hash, version_hash = name.split(":", 2)
+        if ";" in name:
+            package_hash, version_hash = name.split(";", 2)
         else:
             package_hash, version_hash = name, None
 
@@ -248,17 +248,17 @@ def targets_to_mulled_name(targets, hash_func, namespace):
                     version = tag
                     build = None
                 if version == target_version:
-                    name = "%s:%s" % (target.package_name, version)
+                    name = "%s;%s" % (target.package_name, version)
                     if build:
                         name = "%s--%s" % (name, build)
                     break
         else:
             version, build = split_tag(tags[0])
-            name = "%s:%s--%s" % (target.package_name, version, build)
+            name = "%s;%s--%s" % (target.package_name, version, build)
     else:
         def tags_if_available(image_name):
-            if ":" in image_name:
-                repo_name, tag_prefix = image_name.split(":", 2)
+            if ";" in image_name:
+                repo_name, tag_prefix = image_name.split(";", 2)
             else:
                 repo_name = image_name
                 tag_prefix = None
@@ -269,14 +269,14 @@ def targets_to_mulled_name(targets, hash_func, namespace):
             base_image_name = v2_image_name(targets)
             tags = tags_if_available(base_image_name)
             if tags:
-                if ":" in base_image_name:
+                if ";" in base_image_name:
                     # base_image_name of form <package_hash>:<version_hash>, expand tag
                     # to include build number in tag.
-                    name = "%s:%s" % (base_image_name.split(":")[0], tags[0])
+                    name = "%s;%s" % (base_image_name.split(":")[0], tags[0])
                 else:
                     # base_image_name of form <package_hash>, simply add build number
                     # as tag to fully qualify image.
-                    name = "%s:%s" % (base_image_name, tags[0])
+                    name = "%s;%s" % (base_image_name, tags[0])
         elif hash_func == "v1":
             base_image_name = v1_image_name(targets)
             tags = tags_if_available(base_image_name)
