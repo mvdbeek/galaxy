@@ -11,6 +11,7 @@ from galaxy.tool_util.loader import (
     load_tool_with_refereces,
     raw_xml_tree,
 )
+from galaxy.util.hash_util import md5_hash_file
 from galaxy.util.odict import odict
 from .cwl import CwlToolSource
 from .interface import InputSource
@@ -47,6 +48,7 @@ def get_tool_source(config_file=None, xml_tree=None, enable_beta_formats=True, t
             return CwlToolSource(config_file)
 
     expanded_config_file = "%s.full.xml" % config_file
+
     if os.path.exists(expanded_config_file):
         config_file = expanded_config_file
         tree = raw_xml_tree(expanded_config_file)
@@ -56,15 +58,23 @@ def get_tool_source(config_file=None, xml_tree=None, enable_beta_formats=True, t
             macro_paths = [os.path.abspath(os.path.join(os.path.dirname(config_file), e.text)) for e in macro_element.getchildren()]
     else:
         tree, macro_paths = load_tool_with_refereces(config_file)
-        if macro_paths:
-            mip = ElementTree.SubElement(tree.getroot(), 'macro_import_paths')
-            for macro_path in macro_paths:
-                macro_path = os.path.relpath(macro_path, os.path.dirname(config_file))
-                path_element = ElementTree.SubElement(mip, 'path')
-                path_element.text = macro_path
+        record_macro_in_tree(tree, macro_paths, os.path.dirname(config_file))
     if config_file != expanded_config_file:
         tree.write(expanded_config_file)
     return XmlToolSource(tree, source_path=config_file, macro_paths=macro_paths)
+
+
+def record_macro_in_tree(tree, macro_paths, xml_base_dir):
+    if macro_paths:
+        mip = ElementTree.SubElement(tree.getroot(), 'macro_import_paths')
+        for macro_path in macro_paths:
+            rel_macro_path = os.path.relpath(macro_path, xml_base_dir)
+            path_element = ElementTree.SubElement(mip, 'path')
+            path_element.text = rel_macro_path
+            hash_element = ElementTree.SubElement(mip, 'hash')
+            hash_element.text = md5_hash_file(macro_path)
+            update_time_element = ElementTree.SubElement(mip, 'update_time')
+            update_time_element.text = os.path.getmtime(macro_path)
 
 
 def ordered_load(stream):
