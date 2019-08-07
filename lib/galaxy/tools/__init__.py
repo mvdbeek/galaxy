@@ -101,6 +101,7 @@ from .execute import (
     execute as execute_job,
     MappingParameters,
 )
+import profilehooks
 
 log = logging.getLogger(__name__)
 
@@ -259,6 +260,7 @@ class ToolBox(BaseGalaxyToolBox):
         # Deprecated method, TODO - eliminate calls to this in test/.
         return self._tools_by_id
 
+    @profilehooks.profile
     def create_tool(self, config_file, **kwds):
         try:
             tool_source = get_tool_source(
