@@ -118,21 +118,31 @@ var JobStatesSummaryCollection = Backbone.Collection.extend({
         this.active = true;
     },
 
-    url: function() {
-        var nonTerminalModels = this.models.filter(model => {
+    fetch: function(options) {
+
+        //do specific pre-processing
+        let nonTerminalModels = this.models.filter(model => {
             return !model.terminal();
         });
-        var ids = nonTerminalModels
+        let ids = nonTerminalModels
             .map(summary => {
                 return summary.get("id");
             })
             .join(",");
-        var types = nonTerminalModels
+        let types = nonTerminalModels
             .map(summary => {
                 return summary.get("model");
             })
             .join(",");
-        return `${getAppRoot()}api/histories/${this.historyId}/jobs_summary?ids=${ids}&types=${types}`;
+
+        options['data'] = {'ids': ids, 'types': types};
+
+        //Call Backbone's fetch
+        return Backbone.Collection.prototype.fetch.call(this, options);
+    },
+
+    url: function() {
+        return `${getAppRoot()}api/histories/${this.historyId}/jobs_summary`;
     },
 
     monitor: function() {
