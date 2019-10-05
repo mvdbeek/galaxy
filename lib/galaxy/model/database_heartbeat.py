@@ -31,6 +31,7 @@ class DatabaseHeartbeat(object):
         return self.application_stack.app.config.server_name
 
     def start(self):
+        log.debug("Starting DatabaseHeartbeat thread on %s", self.server_name)
         if not self.active:
             self.thread = threading.Thread(target=self.send_database_heartbeat, name="database_heartbeart_%s.thread" % self.server_name)
             self.thread.daemon = True
@@ -85,13 +86,16 @@ class DatabaseHeartbeat(object):
         self.sa_session.flush()
         # We only want a single process watching the various config files on the file system.
         # We just pick the max server name for simplicity
-        is_config_watcher = self.server_name == max(
+        max_active_process = max(
             (p.server_name for p in self.get_active_processes(self.heartbeat_interval + 1)))
+        is_config_watcher = self.server_name == max_active_process
+        log.debug("%s is config watcher? %s", self.server_name, is_config_watcher)
         if is_config_watcher != self.is_config_watcher:
             self.is_config_watcher = is_config_watcher
 
     def send_database_heartbeat(self):
         if self.active:
+            log.debug("Sending database heartbeat")
             while not self.exit.isSet():
                 self.update_watcher_designation()
                 self.exit.wait(self.heartbeat_interval)
