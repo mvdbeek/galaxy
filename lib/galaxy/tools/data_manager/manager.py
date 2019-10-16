@@ -149,7 +149,7 @@ class DataManager(object):
             path = tool_elem.get("file", path)
             tool_guid = tool_elem.get("guid", None)
             # need to determine repository info so that dependencies will work correctly
-            tool_shed_repository = self.data_managers.app.toolbox.get_tool_repository_from_xml_item(tool_elem)
+            tool_shed_repository = self.data_managers.app.toolbox.get_tool_repository_from_xml_item(tool_elem, path)
             self.tool_shed_repository_info_dict = dict(tool_shed=tool_shed_repository.tool_shed,
                                                        name=tool_shed_repository.name,
                                                        owner=tool_shed_repository.owner,
