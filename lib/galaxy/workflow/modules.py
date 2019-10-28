@@ -703,21 +703,22 @@ class InputParameterModule(WorkflowModule):
 
         log.info("optional value is %s " % optional)
         for param_type in ["text", "integer"]:
+            tool_param_xml_string = '''
+                    <param name="default" label="Default Value" {value}>
+                    </param>
+                    '''
+            parameter_def_default_value = parameter_def.get("default")
+            param_xml_value = 'value="%s"' % parameter_def_default_value if parameter_def_default_value else ""
             if param_type == "text":
                 input_default_value = TextToolParameter(None, XML(
-                    '''
-                    <param name="default" label="Default Value" value="%s">
-                    </param>
-                    '''
-                    % (parameter_def.get("default", "") or "")))
+                    tool_param_xml_string.format(value=param_xml_value)
+                ))
             elif param_type == "integer":
-                log.info("parameter_def is %s" % parameter_def)
                 input_default_value = IntegerToolParameter(None, XML(
-                    '''
-                    <param name="default" label="Default Value" value="%s">
-                    </param>
-                    '''
-                    % (parameter_def.get("default", None) or '0')))
+                    tool_param_xml_string.format(value=param_xml_value),
+                    ),
+                    validate_default=False,
+                )
 
             optional_value = BooleanToolParameter(None, Element("param", name="optional", label="Optional", type="boolean", checked=optional))
             optional_cond = Conditional()
@@ -780,11 +781,11 @@ class InputParameterModule(WorkflowModule):
             parameter_kwds["value"] = default_value
 
         if "value" not in parameter_kwds and parameter_type in ["integer", "float"]:
-            parameter_kwds["value"] = str(0)
+            parameter_kwds["value"] = None
 
         # TODO: Use a dict-based description from YAML tool source
         element = Element("param", name="input", label=self.label, type=parameter_type, optional=optional, **parameter_kwds)
-        input = parameter_class(None, element)
+        input = parameter_class(None, element, validate_default=not self.trans.workflow_building_mode)
         return dict(input=input)
 
     def get_runtime_state(self):

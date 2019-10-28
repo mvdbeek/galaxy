@@ -14,6 +14,7 @@ from six import string_types
 from webob.compat import cgi_FieldStorage
 
 import galaxy.model
+from galaxy import exceptions
 from galaxy import util
 from galaxy.tool_util.parser import get_input_source as ensure_input_source
 from galaxy.util import (
@@ -319,15 +320,15 @@ class IntegerToolParameter(TextToolParameter):
 
     dict_collection_visible_keys = ToolParameter.dict_collection_visible_keys + ['min', 'max']
 
-    def __init__(self, tool, input_source):
+    def __init__(self, tool, input_source, validate_default=True):
         super(IntegerToolParameter, self).__init__(tool, input_source)
         if self.value:
             try:
                 int(self.value)
             except ValueError:
                 raise ValueError("parameter '%s': the attribute 'value' must be an integer" % self.name)
-        elif self.value is None and not self.optional:
-            raise ValueError("parameter '%s': the attribute 'value' must be set for non optional parameters" % self.name)
+        elif self.value is None and not self.optional and validate_default:
+            raise exceptions.RequestParameterInvalidException("parameter '%s': the attribute 'value' must be set for non optional parameters" % self.name)
         self.min = input_source.get('min')
         self.max = input_source.get('max')
         if self.min:
