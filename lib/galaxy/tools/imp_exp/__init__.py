@@ -1,11 +1,14 @@
 import logging
 import os
+import shlex
 import shutil
+import subprocess
 import tempfile
 
 from galaxy import model
 from galaxy.model import store
 from galaxy.version import VERSION_MAJOR
+from galaxy.util import unicodify
 
 log = logging.getLogger(__name__)
 
@@ -60,6 +63,18 @@ class JobImportHistoryArchiveWrapper:
 
         return new_history
 
+def _chown(path, jeha, app, user):
+    try:
+        # get username from email/username
+        pwent = jeha.job.user.system_user_pwent(user)
+        cmd = shlex.split(app.config.external_chown_script)
+        cmd.extend([path, pwent[0], str(pwent[3])])
+        log.debug('Changing ownership of %s with: %s' % (path, ' '.join(cmd)))
+        p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        assert p.returncode == 0, stderr
+    except Exception as e:
+        log.warning('Changing ownership of uploaded file %s failed: %s', path, unicodify(e))
 
 class JobExportHistoryArchiveWrapper:
     """
@@ -87,11 +102,6 @@ class JobExportHistoryArchiveWrapper:
         # Use abspath because mkdtemp() does not, contrary to the documentation,
         # always return an absolute path.
         temp_output_dir = os.path.abspath(tempfile.mkdtemp())
-        jeha = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job_id=self.job_id).first()
-	if jeha:
-            temp_output_dir = jeha.working_directory
-        else:
-            log.error("JobExportHistoryArchiveWrapper no such job")
 
         log.error("JobExportHistoryArchiveWrapper temp_output_dir %s"%temp_output_dir)
 
@@ -102,6 +112,8 @@ class JobExportHistoryArchiveWrapper:
         # symlink files on export, on worker files will tarred up in a dereferenced manner.
         with store.DirectoryModelExportStore(temp_output_dir, app=app, export_files="symlink") as export_store:
             export_store.export_history(history, include_hidden=include_hidden, include_deleted=include_deleted)
+        if app.config.external_chown_script is not None:
+            _chown(temp_output_dir, jeha, app, app.config.real_system_username)
 
         #
         # Create and return command line for running tool.
@@ -115,7 +127,8 @@ class JobExportHistoryArchiveWrapper:
         """ Remove temporary directory and attribute files generated during setup for this job. """
         # Get jeha for job.
         jeha = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job_id=self.job_id).first()
-        if jeha:
+	if jeha:
+            _chown(jeha.temp_directory, jeha, self.app, str(os.getuid()))
             temp_dir = jeha.temp_directory
             try:
                 shutil.rmtree(temp_dir)
