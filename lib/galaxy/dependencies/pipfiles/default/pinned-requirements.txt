@@ -2,6 +2,7 @@
 --extra-index-url https://pypi.python.org/simple
 adal==1.2.4
 amqp==2.6.0
+apispec==3.1.0
 appdirs==1.4.4
 attmap==0.12.11
 attrs==19.3.0

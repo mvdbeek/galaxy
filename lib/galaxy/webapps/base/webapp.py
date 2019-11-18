@@ -86,7 +86,6 @@ class WebApplication(base.WebApplication):
         # Security helper
         self.security = galaxy_app.security
 
-
     def build_apispec(self):
         """
         Traverse all route paths starting with "api" and create an APISpec instance.
@@ -114,25 +113,24 @@ class WebApplication(base.WebApplication):
             if rule.conditions:
                 m = rule.conditions.get('method', [])
                 methods = type(m) is str and [m] or m
-            print >>sys.stderr, ">>>", rule.routepath, swagger_path, "|".join(methods), action
             # Find the controller class
             if controller not in self.api_controllers:
                 log.warning("No controller class found for '%s' while building API spec", controller)
                 continue
             controller_class = self.api_controllers[controller]
             if not hasattr(controller_class, action):
-                log.warning("No action found for '%s' in class '%s' while building API spec", action, controller_class )
+                log.warning("No action found for '%s' in class '%s' while building API spec", action, controller_class)
                 continue
             action_method = getattr(controller_class, action)
             # First try to load method docs from docstring
             operations = yaml_utils.load_operations_from_docstring(action_method.__doc__)
             # Add methods that have routes but are not documents
             for method in methods:
-                if method not in operations:
+                if method.lower() not in operations:
                     operations[method.lower()] = {}
-            # Store the swagger path            
-            apispec.path(swagger_path, operations)
-        return apispec 
+            # Store the swagger path
+            apispec.path(path=swagger_path, operations=operations)
+        return apispec
 
     def create_mako_template_lookup(self, galaxy_app, name):
         paths = []
