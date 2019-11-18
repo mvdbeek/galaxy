@@ -4943,6 +4943,7 @@ class WorkflowStep(RepresentById):
         "data_collection_input": "dataset_collection",
         "parameter_input": "parameter",
     }
+    DEFAULT_POSITION = {"left": 0, "top": 0}
 
     def __init__(self):
         self.id = None
@@ -4951,7 +4952,7 @@ class WorkflowStep(RepresentById):
         self.tool_inputs = None
         self.tool_errors = None
         self.dynamic_tool = None
-        self.position = None
+        self.position = WorkflowStep.DEFAULT_POSITION
         self.inputs = []
         self.config = None
         self.label = None
