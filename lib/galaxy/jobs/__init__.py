@@ -1932,7 +1932,7 @@ class JobWrapper(HasResourceParameters):
             false_path = dataset_path_rewriter.rewrite_dataset_path(special.dataset, 'output')
             dsp = DatasetPath(special.dataset.id, special.dataset.file_name, false_path)
             self.output_paths.append(dsp)
-            self.output_hdas_and_paths[ "output_file" ] = [special.fda, dsp]
+            self.output_hdas_and_paths["output_file"] = [special.fda, dsp]
         return self.output_paths
 
     def get_output_file_id(self, file):

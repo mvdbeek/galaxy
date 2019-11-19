@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 
 ATTRS_FILENAME_HISTORY = 'history_attrs.txt'
 
+
 def _chown(path, jeha, app, user):
     try:
         # get username from email/username
@@ -66,7 +67,6 @@ class JobImportHistoryArchiveWrapper:
             archive_dir = jiha.archive_dir
             if self.app.config.external_chown_script is not None:
                 _chown(archive_dir, jiha, self.app, str(getpass.getuser()))
-                
 
             model_store = store.get_import_model_store_for_directory(archive_dir, app=self.app, user=user)
             job = jiha.job
@@ -136,10 +136,11 @@ class JobExportHistoryArchiveWrapper:
         """ Remove temporary directory and attribute files generated during setup for this job. """
         # Get jeha for job.
         jeha = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job_id=self.job_id).first()
-	if jeha:
-            _chown(jeha.temp_directory, jeha, self.app, str(getpass.getuser()))
-            temp_dir = jeha.temp_directory
-            try:
-                shutil.rmtree(temp_dir)
-            except Exception as e:
-                log.debug('Error deleting directory containing attribute files (%s): %s' % (temp_dir, e))
+        if not jeha:
+            return
+        _chown(jeha.temp_directory, jeha, self.app, str(getpass.getuser()))
+        temp_dir = jeha.temp_directory
+        try:
+            shutil.rmtree(temp_dir)
+        except Exception as e:
+            log.debug('Error deleting directory containing attribute files (%s): %s' % (temp_dir, e))
