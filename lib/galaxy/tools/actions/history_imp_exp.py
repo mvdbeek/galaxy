@@ -4,7 +4,10 @@ import tempfile
 from collections import OrderedDict
 
 from galaxy.tools.actions import ToolAction
-from galaxy.tools.imp_exp import JobExportHistoryArchiveWrapper
+from galaxy.tools.imp_exp import (
+    JobExportHistoryArchiveWrapper,
+    JobImportHistoryArchiveWrapper
+)
 
 log = logging.getLogger(__name__)
 
@@ -17,8 +20,10 @@ class ImportHistoryToolAction(ToolAction):
         #
         # Create job.
         #
+        log.error("JobImportHistoryArchive.execute incoming %s" %(incoming))
         trans.check_user_activation()
         job = trans.app.model.Job()
+        log.error("JobImportHistoryArchive.execute job %s" %(job))
         job.galaxy_version = trans.app.config.version_major
         session = trans.get_galaxy_session()
         job.session_id = session and session.id
@@ -45,8 +50,13 @@ class ImportHistoryToolAction(ToolAction):
         # Use abspath because mkdtemp() does not, contrary to the documentation,
         # always return an absolute path.
         archive_dir = os.path.abspath(tempfile.mkdtemp())
+        log.error("ImportHistoryToolAction.execute archive_dir %s"%archive_dir)
         jiha = trans.app.model.JobImportHistoryArchive(job=job, archive_dir=archive_dir)
         trans.sa_session.add(jiha)
+        log.error("JobImportHistoryArchive.execute %s created" %(jiha))
+
+        job_wrapper = JobImportHistoryArchiveWrapper(trans.app, job)
+        job_wrapper.setup_job(jiha, incoming['__ARCHIVE_SOURCE__'])
 
         #
         # Add parameters to job_parameter table.
@@ -121,7 +131,6 @@ class ExportHistoryToolAction(ToolAction):
         jeha = trans.app.model.JobExportHistoryArchive(job=job, history=history,
                                                        dataset=archive_dataset,
                                                        compressed=incoming['compress'])
-        log.error("JobExportHistoryArchive %s created with fda %s" %(jeha, jeha.fda))
         trans.sa_session.add(jeha)
 
         job_wrapper = JobExportHistoryArchiveWrapper(trans.app, job)

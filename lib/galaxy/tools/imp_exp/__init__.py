@@ -4,6 +4,7 @@ import shlex
 import shutil
 import subprocess
 import tempfile
+import getpass
 
 from galaxy import model
 from galaxy.model import store
@@ -13,6 +14,19 @@ from galaxy.util import unicodify
 log = logging.getLogger(__name__)
 
 ATTRS_FILENAME_HISTORY = 'history_attrs.txt'
+
+def _chown(path, jeha, app, user):
+    try:
+        # get username from email/username
+        pwent = jeha.job.user.system_user_pwent(user)
+        cmd = shlex.split(app.config.external_chown_script)
+        cmd.extend([path, pwent[0], str(pwent[3])])
+        log.debug('Changing ownership of %s with: %s' % (path, ' '.join(cmd)))
+        p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        assert p.returncode == 0, stderr
+    except Exception as e:
+        log.warning('Changing ownership of uploaded file %s failed: %s', path, unicodify(e))
 
 
 class JobImportHistoryArchiveWrapper:
@@ -25,6 +39,13 @@ class JobImportHistoryArchiveWrapper:
         self.app = app
         self.job_id = job_id
         self.sa_session = self.app.model.context
+
+    def setup_job(self, jiha, archive_source):
+        log.error("JobImportHistoryArchiveWrapper setup_job()")
+
+        if self.app.config.external_chown_script is not None:
+            _chown(archive_source, jiha, self.app, self.app.config.real_system_username)
+            _chown(jiha.archive_dir, jiha, self.app, self.app.config.real_system_username)
 
     def cleanup_after_job(self):
         """ Set history, datasets, collections and jobs' attributes
@@ -43,15 +64,17 @@ class JobImportHistoryArchiveWrapper:
         new_history = None
         try:
             archive_dir = jiha.archive_dir
+            if self.app.config.external_chown_script is not None:
+                _chown(archive_dir, jiha, self.app, str(getpass.getuser()))
+                
+
             model_store = store.get_import_model_store_for_directory(archive_dir, app=self.app, user=user)
             job = jiha.job
             with model_store.target_history(default_history=job.history) as new_history:
 
                 jiha.history = new_history
                 self.sa_session.flush()
-
                 model_store.perform_import(new_history, job=job, new_history=True)
-
                 # Cleanup.
                 if os.path.exists(archive_dir):
                     shutil.rmtree(archive_dir)
@@ -63,18 +86,6 @@ class JobImportHistoryArchiveWrapper:
 
         return new_history
 
-def _chown(path, jeha, app, user):
-    try:
-        # get username from email/username
-        pwent = jeha.job.user.system_user_pwent(user)
-        cmd = shlex.split(app.config.external_chown_script)
-        cmd.extend([path, pwent[0], str(pwent[3])])
-        log.debug('Changing ownership of %s with: %s' % (path, ' '.join(cmd)))
-        p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        stdout, stderr = p.communicate()
-        assert p.returncode == 0, stderr
-    except Exception as e:
-        log.warning('Changing ownership of uploaded file %s failed: %s', path, unicodify(e))
 
 class JobExportHistoryArchiveWrapper:
     """
@@ -103,8 +114,6 @@ class JobExportHistoryArchiveWrapper:
         # always return an absolute path.
         temp_output_dir = os.path.abspath(tempfile.mkdtemp())
 
-        log.error("JobExportHistoryArchiveWrapper temp_output_dir %s"%temp_output_dir)
-
         history = jeha.history
         history_attrs_filename = os.path.join(temp_output_dir, ATTRS_FILENAME_HISTORY)
         jeha.history_attrs_filename = history_attrs_filename
@@ -128,7 +137,7 @@ class JobExportHistoryArchiveWrapper:
         # Get jeha for job.
         jeha = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job_id=self.job_id).first()
 	if jeha:
-            _chown(jeha.temp_directory, jeha, self.app, str(os.getuid()))
+            _chown(jeha.temp_directory, jeha, self.app, str(getpass.getuser()))
             temp_dir = jeha.temp_directory
             try:
                 shutil.rmtree(temp_dir)
