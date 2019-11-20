@@ -268,7 +268,7 @@ def __handle_metadata(commands_builder, job_wrapper, runner, remote_command_para
             relocate_script_file = join(job_wrapper.working_directory, "relocate_dynamic_outputs.py")
             relocate_contents = 'from galaxy_ext.cwl.handle_outputs import relocate_dynamic_outputs; relocate_dynamic_outputs()'
             write_script(relocate_script_file, relocate_contents, bunch.Bunch(check_job_script_integrity=False))
-            command += "\ncd working; python %s; cd .." % relocate_script_file
+            command += f"\ncd working; python {relocate_script_file}; cd {job_wrapper.working_directory}"
 
         # Place Galaxy and its dependencies in environment for metadata regardless of tool.
         if metadata_command:
