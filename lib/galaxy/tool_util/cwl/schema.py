@@ -12,7 +12,7 @@ from .cwltool_deps import (
 
 RawProcessReference = namedtuple("RawProcessReference", ["loading_context", "process_object", "uri"])
 ResolvedProcessDefinition = namedtuple("ResolvedProcessDefinition", ["loading_context", "uri", "raw_process_reference"])
-REWRITE_EXPRESSIONS = False
+REWRITE_EXPRESSIONS = True
 
 
 class SchemaLoader:
@@ -41,7 +41,7 @@ class SchemaLoader:
         if REWRITE_EXPRESSIONS and not uri.endswith(".galaxy"):
             galaxy_path = os.path.abspath(path) + ".galaxy"
             from cwl_utils import etools_to_clt
-            etools_to_clt.main([path, galaxy_path])
+            etools_to_clt.main([path, galaxy_path, '--skip-some1', '--skip-some2'])
             galaxy_uri = "file://" + galaxy_path
             uri = galaxy_uri
         loading_context, process_object, uri = load_tool.fetch_document(uri, loadingContext=loading_context)
