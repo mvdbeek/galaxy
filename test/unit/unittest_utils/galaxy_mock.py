@@ -162,6 +162,7 @@ class MockAppConfig(Bunch):
 
         # set by MockDir
         self.root = root
+        self.external_chown_script = None
 
         self.config_file = None
 
