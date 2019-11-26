@@ -50,7 +50,7 @@ class JobImportHistoryArchiveWrapper:
         new_history = None
         try:
             archive_dir = jiha.archive_dir
-            external_chown(archive_dir, jiha.job.user.system_user_pwent(str(getpass.getuser())),
+            external_chown(archive_dir, jiha.job.user.system_user_pwent(getpass.getuser()),
                            self.app.config.external_chown_script, "history import archive directory")
             model_store = store.get_import_model_store_for_directory(archive_dir, app=self.app, user=user)
             job = jiha.job
@@ -122,7 +122,7 @@ class JobExportHistoryArchiveWrapper:
         jeha = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job_id=self.job_id).first()
         if not jeha:
             return
-        external_chown(jeha.temp_directory, jeha.job.user.system_user_pwent(str(getpass.getuser())),
+        external_chown(jeha.temp_directory, jeha.job.user.system_user_pwent(getpass.getuser()),
                        self.app.config.external_chown_script, "history export temporary directory")
         temp_dir = jeha.temp_directory
         try:
