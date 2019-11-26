@@ -7,6 +7,7 @@ import subprocess
 import tempfile
 
 from galaxy import model
+from galaxy.model import store
 from galaxy.util.path import external_chown
 from galaxy.version import VERSION_MAJOR
 
@@ -51,7 +52,7 @@ class JobImportHistoryArchiveWrapper:
             archive_dir = jiha.archive_dir
             external_chown(archive_dir, jiha.job.user.system_user_pwent(str(getpass.getuser())),
                            self.app.config.external_chown_script, "history import archive directory")
-            model_store = model.store.get_import_model_store_for_directory(archive_dir, app=self.app, user=user)
+            model_store = store.get_import_model_store_for_directory(archive_dir, app=self.app, user=user)
             job = jiha.job
             with model_store.target_history(default_history=job.history) as new_history:
 
@@ -102,7 +103,7 @@ class JobExportHistoryArchiveWrapper:
         jeha.history_attrs_filename = history_attrs_filename
 
         # symlink files on export, on worker files will tarred up in a dereferenced manner.
-        with model.store.DirectoryModelExportStore(temp_output_dir, app=app, export_files="symlink") as export_store:
+        with store.DirectoryModelExportStore(temp_output_dir, app=app, export_files="symlink") as export_store:
             export_store.export_history(history, include_hidden=include_hidden, include_deleted=include_deleted)
         external_chown(temp_output_dir, jeha.job.user.system_user_pwent(app.config.real_system_username),
                        app.config.external_chown_script, "history export temporary directory")
