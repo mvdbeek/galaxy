@@ -391,8 +391,10 @@ def create_paramfile(trans, uploaded_datasets):
             # TODO: This will have to change when we start bundling inputs.
             # Also, in_place above causes the file to be left behind since the
             # user cannot remove it unless the parent directory is writable.
-            if link_data_only == 'copy_files' and trans.app.config.external_chown_script:
-                _chown(uploaded_dataset.path)
+            if link_data_only == 'copy_files':
+                external_chown(uploaded_dataset.path,
+                               trans.user.system_user_pwent(trans.app.config.real_system_username),
+                               trans.app.config.external_chown_script, description="uploaded file")
         tool_params.append(params)
     with tempfile.NamedTemporaryFile(mode="w", prefix='upload_params_', delete=False) as fh:
         json_file_path = fh.name
