@@ -343,6 +343,26 @@ extensions = Extensions({
 })
 
 
+def external_chown(path, pwent, external_chown_script, description="file"):
+    """
+    call the external chown script (if not None) to change
+    the user and group of the given path, and additional description
+    of the file/path for the log message can be given
+    """
+    if external_chown_script is None:
+        return
+
+    try:
+        cmd = shlex.split(external_chown_script)
+        cmd.extend([path, pwent[0], str(pwent[3])])
+        log.debug('Changing ownership of %s with: %s' % (path, ' '.join(cmd)))
+        p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        stdout, stderr = p.communicate()
+        assert p.returncode == 0, stderr
+    except Exception as e:
+        log.warning('Changing ownership of %s %s failed: %s', description, path, unicodify(e))
+
+
 def __listify(item):
     """A non-splitting version of :func:`galaxy.util.listify`.
     """
