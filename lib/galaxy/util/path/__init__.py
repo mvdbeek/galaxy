@@ -37,8 +37,10 @@ try:
 except ImportError:
     getpwuid = None
 
+import shlex
 from six import iteritems, string_types
 from six.moves import filter, map, zip
+import subprocess
 
 import galaxy.util
 
@@ -360,7 +362,7 @@ def external_chown(path, pwent, external_chown_script, description="file"):
         stdout, stderr = p.communicate()
         assert p.returncode == 0, stderr
     except Exception as e:
-        log.warning('Changing ownership of %s %s failed: %s', description, path, unicodify(e))
+        log.warning('Changing ownership of %s %s failed: %s', description, path, galaxy.util.unicodify(e))
 
 
 def __listify(item):

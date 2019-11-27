@@ -8,10 +8,8 @@ import json
 import logging
 import os
 import pwd
-import shlex
 import shutil
 import string
-import subprocess
 import sys
 import time
 import traceback
@@ -46,6 +44,7 @@ from galaxy.tool_util.output_checker import check_output, DETECTED_JOB_STATE
 from galaxy.util import safe_makedirs, unicodify
 from galaxy.util.bunch import Bunch
 from galaxy.util.expressions import ExpressionContext
+from galaxy.util.path import external_chown
 from galaxy.util.xml_macros import load
 from galaxy.web_stack.handlers import ConfiguresHandlers
 

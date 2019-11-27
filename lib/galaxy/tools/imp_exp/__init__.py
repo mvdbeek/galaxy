@@ -1,9 +1,7 @@
 import getpass
 import logging
 import os
-import shlex
 import shutil
-import subprocess
 import tempfile
 
 from galaxy import model
