@@ -1038,7 +1038,12 @@ class JobWrapper(HasResourceParameters):
 
     # TODO: Remove in Galaxy 21.XX, for running jobs at GX upgrade
     def get_version_string_path_legacy(self):
-        return os.path.abspath(os.path.join(self.working_directory, COMMAND_VERSION_FILENAME))
+        # version path in 19.01
+        path = os.path.abspath(os.path.join(self.working_directory, COMMAND_VERSION_FILENAME))
+        if os.path.exists(path):
+            return path
+        # version path < 19.01
+        return os.path.abspath(os.path.join(self.app.config.new_file_path, "GALAXY_VERSION_STRING_%s" % self.job_id))
 
     def __prepare_upload_paramfile(self, tool_evaluator):
         """Special case paramfile handling for the upload tool. Moves the paramfile to the working directory
