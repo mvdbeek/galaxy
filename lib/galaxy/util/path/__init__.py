@@ -5,6 +5,8 @@ from __future__ import absolute_import
 import errno
 import imp
 import logging
+import shlex
+import subprocess
 from functools import partial
 try:
     from grp import getgrgid
@@ -37,10 +39,8 @@ try:
 except ImportError:
     getpwuid = None
 
-import shlex
 from six import iteritems, string_types
 from six.moves import filter, map, zip
-import subprocess
 
 import galaxy.util
 
