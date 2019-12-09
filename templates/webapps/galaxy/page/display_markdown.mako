@@ -26,4 +26,5 @@
 
 <%def name="render_item( page, page_data=None )">
     <div id="page-display-content" page_id="${page_data}">
+    </div>
 </%def>
