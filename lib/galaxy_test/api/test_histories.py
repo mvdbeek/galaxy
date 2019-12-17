@@ -13,12 +13,30 @@ from galaxy_test.base.populators import (
 from ._framework import ApiTestCase
 
 
-class HistoriesApiTestCase(ApiTestCase):
+class BaseHistories(object):
 
     def setUp(self):
         super(HistoriesApiTestCase, self).setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
         self.dataset_collection_populator = DatasetCollectionPopulator(self.galaxy_interactor)
+
+    def _show(self, history_id):
+        return self._get("histories/%s" % history_id).json()
+
+    def _update(self, history_id, data):
+        update_url = self._api_url("histories/%s" % history_id, use_key=True)
+        put_response = put(update_url, json=data)
+        return put_response
+
+    def _create_history(self, name):
+        post_data = dict(name=name)
+        create_response = self._post("histories", data=post_data).json()
+        self._assert_has_keys(create_response, "name", "id")
+        self.assertEqual(create_response["name"], name)
+        return create_response
+
+
+class HistoriesApiTestCase(BaseHistories, ApiTestCase):
 
     def test_create_history(self):
         # Create a history.
@@ -176,6 +194,19 @@ class HistoriesApiTestCase(ApiTestCase):
         histories_url = self._api_url("histories")
         create_response = post(url=histories_url, data=post_data)
         self._assert_status_code_is(create_response, 403)
+
+    def test_create_tag(self):
+        post_data = dict(name="TestHistoryForTag")
+        history_id = self._post("histories", data=post_data).json()["id"]
+        tag_data = dict(value="awesometagvalue")
+        tag_url = "histories/%s/tags/awesometagname" % history_id
+        tag_create_response = self._post(tag_url, data=tag_data)
+        self._assert_status_code_is(tag_create_response, 200)
+
+    # TODO: (CE) test_create_from_copy
+
+
+class ImportExportHistory(BaseHistories):
 
     def test_import_export(self):
         history_name = "for_export_default"
@@ -366,27 +397,6 @@ class HistoriesApiTestCase(ApiTestCase):
         if elements_checker is not None:
             elements_checker(imported_collection_metadata["elements"])
 
-    def test_create_tag(self):
-        post_data = dict(name="TestHistoryForTag")
-        history_id = self._post("histories", data=post_data).json()["id"]
-        tag_data = dict(value="awesometagvalue")
-        tag_url = "histories/%s/tags/awesometagname" % history_id
-        tag_create_response = self._post(tag_url, data=tag_data)
-        self._assert_status_code_is(tag_create_response, 200)
 
-    def _show(self, history_id):
-        return self._get("histories/%s" % history_id).json()
-
-    def _update(self, history_id, data):
-        update_url = self._api_url("histories/%s" % history_id, use_key=True)
-        put_response = put(update_url, json=data)
-        return put_response
-
-    def _create_history(self, name):
-        post_data = dict(name=name)
-        create_response = self._post("histories", data=post_data).json()
-        self._assert_has_keys(create_response, "name", "id")
-        self.assertEqual(create_response["name"], name)
-        return create_response
-
-    # TODO: (CE) test_create_from_copy
+class ImportExportHistoryTestCase(ImportExportHistory, ApiTestCase):
+    pass
