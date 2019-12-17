@@ -1,9 +1,7 @@
 import ipaddress
 import logging
 import os
-import shlex
 import socket
-import subprocess
 import tempfile
 from collections import OrderedDict
 from json import dump, dumps
@@ -318,19 +316,6 @@ def create_paramfile(trans, uploaded_datasets):
     """
     Create the upload tool's JSON "param" file.
     """
-    def _chown(path):
-        try:
-            # get username from email/username
-            pwent = trans.user.system_user_pwent(trans.app.config.real_system_username)
-            cmd = shlex.split(trans.app.config.external_chown_script)
-            cmd.extend([path, pwent[0], str(pwent[3])])
-            log.debug('Changing ownership of %s with: %s' % (path, ' '.join(cmd)))
-            p = subprocess.Popen(cmd, shell=False, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-            stdout, stderr = p.communicate()
-            assert p.returncode == 0, stderr
-        except Exception as e:
-            log.warning('Changing ownership of uploaded file %s failed: %s', path, unicodify(e))
-
     tool_params = []
     json_file_path = None
     for uploaded_dataset in uploaded_datasets:
