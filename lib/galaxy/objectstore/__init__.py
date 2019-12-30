@@ -384,15 +384,26 @@ class DiskObjectStore(ObjectStore):
             path = os.path.join(path, alt_name if alt_name else "dataset_%s.dat" % obj_id)
         return os.path.abspath(path)
 
-    def exists(self, obj, **kwargs):
+    def exists(self, obj, should_exist=False, **kwargs):
         """Override `ObjectStore`'s stub and check on disk."""
+        paths = [self._construct_path(obj, **kwargs)]
         if self.check_old_style:
-            path = self._construct_path(obj, old_style=True, **kwargs)
-            # For backward compatibility: check root path first; otherwise
-            # construct and check hashed path.
+            # for backwards compatibility
+            paths.append(self._construct_path(obj, old_style=True, **kwargs))
+        for path in paths:
             if os.path.exists(path):
                 return True
-        return os.path.exists(self._construct_path(obj, **kwargs))
+            elif should_exist:
+                slept = 0.0
+                for _ in range(100):
+                    slept += 0.1
+                    if slept.is_integer():
+                        log.debug("File '%s' doesn't exist, waiting", path)
+                    time.sleep(0.1)
+                    if os.path.exists(path):
+                        log.debug("file exists after sleeping %f seconds", slept)
+                        return True
+        return False
 
     def create(self, obj, **kwargs):
         """Override `ObjectStore`'s stub by creating any files and folders on disk."""
@@ -404,7 +415,18 @@ class DiskObjectStore(ObjectStore):
             safe_makedirs(dir)
             # Create the file if it does not exist
             if not dir_only:
-                open(path, 'w').close()  # Should be rb?
+                with open(path, 'wb', 0) as f:
+                    f.flush()
+                    os.fsync(f.fileno())
+                try:
+                    with os.open(dir, os.O_RDONLY) as fd:
+                        # calling fsync on the parent dir might be necessary for os.path.exists to find the file consistently,
+                        # xref http://blog.httrack.com/blog/2013/11/15/everything-you-always-wanted-to-know-about-fsync/
+                        # necessary for integration tests to pass on github workflow
+                        os.fsync(fd)
+                except Exception:
+                    # Doesn't work on OSX
+                    pass
                 umask_fix_perms(path, self.config.umask, 0o666)
 
     def empty(self, obj, **kwargs):
@@ -470,6 +492,14 @@ class DiskObjectStore(ObjectStore):
                 return path
         path = self._construct_path(obj, **kwargs)
         if not os.path.exists(path):
+            log.debug("File didn't exist, sleeping then trying again")
+            time.sleep(1)
+            if os.path.exists(path):
+                log.debug("file exists now")
+                return path
+            if os.path.isfile(path):
+                log.debug("file exists if checked abother whay")
+                return True
             raise ObjectNotFound
         return path
 

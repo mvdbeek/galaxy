@@ -339,6 +339,7 @@ class ToolEvaluator(object):
             # if desired.
             param_dict[name] = DatasetFilenameWrapper(hda, compute_environment=self.compute_environment, io_type="output")
             output_path = str(param_dict[name])
+            log.debug("Output path is '%s'", output_path)
             # Conditionally create empty output:
             # - may already exist (e.g. symlink output)
             # - parent directory might not exist (e.g. Pulsar)
