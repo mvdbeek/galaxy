@@ -77,7 +77,9 @@ class ParamikoShell(object):
                          username=self.username,
                          password=self.password,
                          key_filename=self.private_key,
-                         timeout=self.timeout)
+                         timeout=self.timeout,
+                         allow_agent=False,
+                         look_for_keys=False)
 
     def execute(self, cmd, timeout=60):
 
