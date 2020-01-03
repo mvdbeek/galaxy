@@ -111,7 +111,7 @@ class BaseCliIntegrationTestCase(BaseJobEnvironmentIntegrationTestCase):
 
 class TorqueSetup(object):
     job_plugin = 'Torque'
-    image = 'mvdbeek/galaxy-integration-docker-images:torque_latest'
+    image = 'mvdbeek/galaxy-integration-docker-images:torque_6_1_2'
 
 
 class SlurmSetup(object):
