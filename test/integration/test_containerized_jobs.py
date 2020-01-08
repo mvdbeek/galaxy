@@ -69,7 +69,6 @@ class DockerizedJobsIntegrationTestCase(integration_util.IntegrationTestCase, Ru
         cls.jobs_directory = cls._test_driver.mkdtemp()
         config["jobs_directory"] = cls.jobs_directory
         config["job_config_file"] = cls.job_config_file
-        config["involucro_auto_init"] = True
         disable_dependency_resolution(config)
 
     @classmethod
