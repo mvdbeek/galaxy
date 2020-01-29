@@ -7,6 +7,7 @@ import socket
 
 from markupsafe import escape
 
+from galaxy.managers.jobs import summarize_jobs_to_dict
 from galaxy.util import (
     send_mail,
     unicodify,
@@ -470,6 +471,8 @@ class ActionBox(object):
     # being scheduled and jobs created.
     immediate_actions = ['ChangeDatatypeAction', 'RenameDatasetAction',
                          'TagDatasetAction', 'RemoveTagDatasetAction']
+    # Actions that should happen only once per set of jobs
+    run_once = ['EmailAction']
     # Actions that will be applied to implicit mapped over collection outputs and not
     # just individual outputs when steps include mapped over tools and implicit collection outputs.
     mapped_over_output_actions = ['RenameDatasetAction', 'HideDatasetAction',
@@ -512,4 +515,13 @@ class ActionBox(object):
     @classmethod
     def execute(cls, app, sa_session, pja, job, replacement_dict=None):
         if pja.action_type in ActionBox.actions:
-            ActionBox.actions[pja.action_type].execute(app, sa_session, pja, job, replacement_dict)
+            if pja.action_type in ActionBox.run_once:
+                implicit_collection_jobs_association = job.implicit_collection_jobs_association
+                if implicit_collection_jobs_association:
+                    summary = summarize_jobs_to_dict(sa_session, implicit_collection_jobs_association.implicit_collection_jobs)
+                    if summary['states'].get('running', 1) == 1:
+                        # The PJA get's executed prior to changing the job state,
+                        # so the one running job should be this one.
+                        ActionBox.actions[pja.action_type].execute(app, sa_session, pja, job, replacement_dict)
+            else:
+                ActionBox.actions[pja.action_type].execute(app, sa_session, pja, job, replacement_dict)
