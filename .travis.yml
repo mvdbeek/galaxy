@@ -8,7 +8,8 @@ env:
 
 install:
   - set -e
-  - pip install tox
+  - pip install --upgrade pip
+  - pip install tox 
   - |
     if [ "$TOX_ENV" == "py35-first_startup" ]; then
         MINICONDA_URL="https://repo.anaconda.com/miniconda"
