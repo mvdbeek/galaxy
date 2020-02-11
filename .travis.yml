@@ -8,7 +8,6 @@ env:
 
 install:
   - set -e
-  - virtualenv --version
   - pip install tox
   - |
     if [ "$TOX_ENV" == "py35-first_startup" ]; then
