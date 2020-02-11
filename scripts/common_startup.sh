@@ -144,8 +144,9 @@ if [ $SET_VENV -eq 1 ] && [ $CREATE_VENV -eq 1 ]; then
             if command -v virtualenv >/dev/null; then
                 virtualenv -p "$GALAXY_PYTHON" "$GALAXY_VIRTUAL_ENV"
             else
-                vurl="https://bootstrap.pypa.io/virtualenv/2.7/virtualenv.pyz"
-                vsha=55d5866e867a065ed51dc0268c8a4f150aa5eb86b645f7b17c9a85b50871482f
+                vvers=16.7.9
+                vurl="https://files.pythonhosted.org/packages/source/v/virtualenv/virtualenv-${vvers}.tar.gz"
+                vsha=0d62c70883c0342d59c11d0ddac0d954d0431321a41ab20851facf2b222598f3
                 vtmp=$(mktemp -d -t galaxy-virtualenv-XXXXXX)
                 vsrc="$vtmp/$(basename $vurl)"
                 # SSL certificates are not checked to prevent problems with messed
@@ -166,7 +167,7 @@ urlretrieve('$vurl', '$vsrc')"
                 echo "Verifying $vsrc checksum is $vsha"
                 "$GALAXY_PYTHON" -c "import hashlib; assert hashlib.sha256(open('$vsrc', 'rb').read()).hexdigest() == '$vsha', '$vsrc: invalid checksum'"
                 tar zxf "$vsrc" -C "$vtmp"
-                "$GALAXY_PYTHON" "$vtmp/virtualenv.pyz" "$GALAXY_VIRTUAL_ENV"
+                "$GALAXY_PYTHON" "$vtmp/virtualenv-$vvers/virtualenv.py" "$GALAXY_VIRTUAL_ENV"
                 rm -rf "$vtmp"
             fi
         fi
