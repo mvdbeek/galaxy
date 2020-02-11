@@ -144,9 +144,9 @@ if [ $SET_VENV -eq 1 ] && [ $CREATE_VENV -eq 1 ]; then
             if command -v virtualenv >/dev/null; then
                 virtualenv -p "$GALAXY_PYTHON" "$GALAXY_VIRTUAL_ENV"
             else
-                vvers=16.7.9
+                vvers=20.0.1
                 vurl="https://files.pythonhosted.org/packages/source/v/virtualenv/virtualenv-${vvers}.tar.gz"
-                vsha=0d62c70883c0342d59c11d0ddac0d954d0431321a41ab20851facf2b222598f3
+                vsha=ef3fd938ef165956e51bba0d0623508de920ca9f3ccd30c6e9f74381677e0cbb
                 vtmp=$(mktemp -d -t galaxy-virtualenv-XXXXXX)
                 vsrc="$vtmp/$(basename $vurl)"
                 # SSL certificates are not checked to prevent problems with messed
