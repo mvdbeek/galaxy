@@ -8,14 +8,10 @@ env:
 
 install:
   - set -e
+  - virtualenv --version
   - pip install tox
   - |
-    if [ "$TOX_ENV" == "py27-first_startup" ]; then
-        sh scripts/common_startup.sh
-        wget -q https://github.com/jmchilton/galaxy-downloads/raw/master/db_gx_rev_0127.sqlite
-        mv db_gx_rev_0127.sqlite database/universe.sqlite
-        sh manage_db.sh upgrade
-    elif [ "$TOX_ENV" == "py35-first_startup" ]; then
+    if [ "$TOX_ENV" == "py35-first_startup" ]; then
         MINICONDA_URL="https://repo.anaconda.com/miniconda"
         MINICONDA_FILE="Miniconda3-latest-MacOSX-x86_64.sh"
         curl -L -O "${MINICONDA_URL}/${MINICONDA_FILE}"
