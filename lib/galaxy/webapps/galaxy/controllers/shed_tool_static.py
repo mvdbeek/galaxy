@@ -29,6 +29,8 @@ class ShedToolStatic(BaseUIController):
         repo_path = tool._repository_dir
         if 'static/images' not in image_file:
             path = join(repo_path, 'static', 'images', image_file)
+            if not os.path.exists(path):
+                path = join(repo_path, 'images', image_file)
         else:
             path = join(repo_path, image_file)
         if not safe_contains(os.path.abspath(repo_path), os.path.abspath(path)):
