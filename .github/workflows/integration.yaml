@@ -44,6 +44,8 @@ jobs:
       with:
         path: ~/.cache/pip
         key: pip-cache-${{ matrix.python-version }}-${{ hashFiles('galaxy root/requirements.txt') }}
+    - name: Setup tmate session
+      uses: mxschmitt/action-tmate@v1
     - name: Run tests
       run: './run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}"'
       working-directory: 'galaxy root'
