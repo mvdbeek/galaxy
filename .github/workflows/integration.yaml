@@ -22,6 +22,7 @@ jobs:
         ports:
           - 5432:5432
     steps:
+    - run: docker system prune -a -f
     - name: Setup Minikube
       if: matrix.subset == 'kubernetes'
       id: minikube
