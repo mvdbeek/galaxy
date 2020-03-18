@@ -10,7 +10,8 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7]
-        subset: ['upload_datatype', 'extended_metadata', 'kubernetes', 'not (upload_datatype or extended_metadata or kubernetes)']
+        # subset: ['upload_datatype', 'extended_metadata', 'kubernetes', 'not (upload_datatype or extended_metadata or kubernetes)']
+        subset: ['kubernetes']
     services:
       postgres:
         image: postgres:11
