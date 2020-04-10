@@ -10,8 +10,9 @@ from sqlalchemy import (
     TEXT
 )
 from sqlalchemy.orm import (
+    deferred,
     mapper,
-    relation
+    relation,
 )
 
 from galaxy.model import tool_shed_install as install_model
@@ -95,7 +96,8 @@ mapper(install_model.ToolShedRepository, install_model.ToolShedRepository.table,
                                                   order_by=install_model.ToolDependency.table.c.name,
                                                   backref='tool_shed_repository'),
                        required_repositories=relation(install_model.RepositoryRepositoryDependencyAssociation,
-                                                      primaryjoin=(install_model.ToolShedRepository.table.c.id == install_model.RepositoryRepositoryDependencyAssociation.table.c.tool_shed_repository_id))))
+                                                      primaryjoin=(install_model.ToolShedRepository.table.c.id == install_model.RepositoryRepositoryDependencyAssociation.table.c.tool_shed_repository_id)),
+                       metadata=deferred(install_model.ToolShedRepository.table.c.metadata)))
 
 mapper(install_model.RepositoryRepositoryDependencyAssociation, install_model.RepositoryRepositoryDependencyAssociation.table,
        properties=dict(repository=relation(install_model.ToolShedRepository,

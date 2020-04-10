@@ -5,7 +5,12 @@ are encapsulated here.
 import logging
 
 from sqlalchemy import Boolean, Column, DateTime, desc, false, ForeignKey, Integer, MetaData, not_, String, Table, TEXT, true, UniqueConstraint
-from sqlalchemy.orm import backref, mapper, relation
+from sqlalchemy.orm import (
+    backref,
+    deferred,
+    mapper,
+    relation,
+)
 
 import tool_shed.webapp.model
 import tool_shed.webapp.util.shed_statistics as shed_statistics
@@ -274,6 +279,7 @@ mapper(Repository, Repository.table,
 
 mapper(RepositoryMetadata, RepositoryMetadata.table,
        properties=dict(repository=relation(Repository),
+                       metadata=deferred(RepositoryMetadata.table.c.metadata),
                        reviews=relation(RepositoryReview,
                                         foreign_keys=[RepositoryMetadata.table.c.repository_id, RepositoryMetadata.table.c.changeset_revision],
                                         primaryjoin=((RepositoryMetadata.table.c.repository_id == RepositoryReview.table.c.repository_id) & (RepositoryMetadata.table.c.changeset_revision == RepositoryReview.table.c.changeset_revision)))))
