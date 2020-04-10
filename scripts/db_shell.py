@@ -34,6 +34,8 @@ from galaxy.datatypes.registry import Registry
 from galaxy.model import *  # noqa
 from galaxy.model import set_datatypes_registry  # More explicit than `*` import
 from galaxy.model.mapping import init
+import galaxy.model.tool_shed_install as install_model  # noqa
+import galaxy.model.tool_shed_install.mapping as install_mapping
 from galaxy.model.orm.scripts import get_config
 
 if sys.version_info > (3,):
@@ -43,7 +45,21 @@ registry = Registry()
 registry.load_datatypes()
 set_datatypes_registry(registry)
 db_url = get_config(sys.argv)['db_url']
-sa_session = init('/tmp/', db_url).context
+install_db_url = get_config(sys.argv + ['install'])['db_url']
+combined_install_database = not(install_db_url and install_db_url != db_url)
+install_db_url = install_db_url or db_url
+sa_session = init('/tmp/', db_url, map_install_models=combined_install_database).context
+
+
+def get_install_session(combined_install_database, install_db_url, sa_session):
+    if combined_install_database:
+        install_session = sa_session
+    else:
+        install_session = install_mapping.init(url=install_db_url)
+    return install_session
+
+
+install_session = get_install_session(combined_install_database, install_db_url, sa_session)
 
 
 # Helper function for debugging sqlalchemy queries...
