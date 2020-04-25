@@ -70,6 +70,7 @@ class DataManagers(object):
         except IOError as e:
             if e.errno == errno.ENOENT:
                 # File does not exist
+                log.warning("Error loading data_manager: %s" % util.unicodify(e))
                 return None
         except Exception:
             log.exception("Error loading data_manager")
