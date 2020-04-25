@@ -5,6 +5,8 @@ import requests
 from beaker.cache import CacheManager
 from beaker.util import parse_cache_config_options
 
+from galaxy.util import unicodify
+
 log = logging.getLogger(__name__)
 
 
@@ -141,7 +143,7 @@ class DoiCitation(BaseCitation):
     def to_bibtex(self):
         if self.raw_bibtex is DoiCitation.BIBTEX_UNSET:
             try:
-                self.raw_bibtex = self.doi_cache.get_bibtex(self.__doi)
+                self.raw_bibtex = unicodify(self.doi_cache.get_bibtex(self.__doi))
             except Exception:
                 log.exception("Failed to fetch bibtex for DOI %s", self.__doi)
 
