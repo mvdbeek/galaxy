@@ -11,11 +11,11 @@ jobs:
     strategy:
       matrix:
         python-version: [3.7]
-        schedule_only: false
+        schedule_only: [false]
         include:
           - python-version: 3.8
             schedule_only: true
-    if: github.event_name != 'schedule' || ! matrix.schedule_only
+    if: github.event_name != 'schedule' || matrix.schedule_only
     steps:
     - uses: actions/checkout@v2
       with:
