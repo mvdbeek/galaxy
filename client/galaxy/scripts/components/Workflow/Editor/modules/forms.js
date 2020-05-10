@@ -155,7 +155,7 @@ function _addLabelAnnotation(self, node) {
 }
 
 /** Visit input nodes and enrich by name/value pairs from server data */
-function _visit(head, head_list, output_id, node) {
+function _visit(head, head_list, output, node) {
     var postJobActions = node.postJobActions;
     head_list = head_list || [];
     head_list.push(head);
@@ -163,7 +163,7 @@ function _visit(head, head_list, output_id, node) {
         var input = head.inputs[i];
         var action = input.action;
         if (action) {
-            input.name = `pja__${output_id}__${input.action}`;
+            input.name = `pja__${output.name}__${input.action}`;
             if (input.pja_arg) {
                 input.name += `__${input.pja_arg}`;
             }
@@ -173,7 +173,7 @@ function _visit(head, head_list, output_id, node) {
                     delete input.payload[p_id];
                 }
             }
-            var d = postJobActions[input.action + output_id];
+            var d = postJobActions[input.action + output.name];
             if (d) {
                 for (var j in head_list) {
                     head_list[j].expanded = true;
@@ -186,7 +186,7 @@ function _visit(head, head_list, output_id, node) {
             }
         }
         if (input.inputs) {
-            _visit(input, head_list.slice(0), output_id, node);
+            _visit(input, head_list.slice(0), output.name, node);
         }
     }
 }
