@@ -2019,6 +2019,14 @@ mapping:
           One simple way to generate a value for this is with the shell command:
             python -c 'from __future__ import print_function; import time; print(time.time())' | md5sum | cut -f 1 -d ' '
 
+      json_web_key_path:
+        type: str
+        default: web_key.json
+        path_resolves_to: data_dir
+        desc: |
+          Galaxy can sign JSON web tokens using this key.
+          Keep it secret. If it does not exist it will be generated.
+
       use_remote_user:
         type: bool
         default: false

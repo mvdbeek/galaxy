@@ -10,9 +10,11 @@ Returns:
     "api_key": "baa4d6e3a156d3033f05736255f195f9"
 }
 """
+import json
 import logging
 from base64 import b64decode
 
+from jwcrypto.jwk import JWKSet
 from six.moves.urllib.parse import unquote
 
 from galaxy import exceptions
@@ -31,7 +33,16 @@ class AuthenticationController(BaseAPIController):
 
     def __init__(self, app):
         super(AuthenticationController, self).__init__(app)
+        self.jwks = JWKSet()
+        self.jwks.add(self.app.config.jwk)
         self.api_keys_manager = api_keys.ApiKeyManager(app)
+
+    @expose_api_anonymous_and_sessionless
+    def get_json_web_key(self, trans, **kwd):
+        """
+        * GET /api/authenticate/jwk
+        """
+        return json.loads(self.jwks.export(private_keys=False))
 
     @expose_api_anonymous_and_sessionless
     def get_api_key(self, trans, **kwd):

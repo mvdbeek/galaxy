@@ -614,6 +614,7 @@ def populate_api_routes(webapp, app):
     # ===== AUTHENTICATE API =====
     # ============================
 
+    webapp.mapper.connect('get_json_web_key', '/api/authenticate/jwk', controller='authenticate', action='get_json_web_key')
     webapp.mapper.connect('api_key_retrieval',
                           '/api/authenticate/baseauth/',
                           controller='authenticate',

@@ -26,6 +26,7 @@ from beaker.util import parse_cache_config_options
 from six import string_types
 from six.moves import configparser
 
+from galaxy.auth.jwk import get_or_create_jwk
 from galaxy.config.schema import AppSchema
 from galaxy.containers import parse_containers_config
 from galaxy.exceptions import ConfigurationError
@@ -397,6 +398,7 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
             self.tool_data_path = self._in_data_dir(self.schema.defaults['tool_data_path'])
         self.builds_file_path = os.path.join(self.tool_data_path, self.builds_file_path)
         self.len_file_path = os.path.join(self.tool_data_path, self.len_file_path)
+        self.jwk = get_or_create_jwk(self.json_web_key_path)
         # Galaxy OIDC settings.
         self.oidc_config = kwargs.get("oidc_config_file", self.oidc_config_file)
         self.oidc_backends_config = kwargs.get("oidc_backends_config_file", self.oidc_backends_config_file)
