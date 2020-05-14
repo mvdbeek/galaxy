@@ -9,6 +9,7 @@ from collections import (
 )
 from errno import ENOENT
 
+import profilehooks
 from markupsafe import escape
 from six.moves.urllib.parse import urlparse
 
@@ -125,6 +126,7 @@ class AbstractToolBox(Dictifiable, ManagesIntegratedToolPanelMixin):
     def can_load_config_file(self, config_filename):
         return True
 
+    @profilehooks.profile
     def _init_tools_from_configs(self, config_filenames):
         """ Read through all tool config files and initialize tools in each
         with init_tools_from_config below.
