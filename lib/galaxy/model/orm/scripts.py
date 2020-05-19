@@ -114,10 +114,9 @@ def get_config(argv, use_argparse=True, cwd=None):
     database_defaults = DATABASE[database]
     if config_file is None:
         config_names = database_defaults.get('config_names', DEFAULT_CONFIG_NAMES)
-        if cwd:
-            cwd = [cwd, os.path.join(cwd, 'config')]
-        else:
-            cwd = [DEFAULT_CONFIG_DIR]
+        if not cwd:
+            cwd = os.getcwd()
+        cwd = [cwd, os.path.join(cwd, 'config'), DEFAULT_CONFIG_DIR]
         config_file = find_config_file(config_names, dirs=cwd)
 
     repo = os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, database_defaults['repo'])
