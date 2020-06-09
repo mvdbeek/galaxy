@@ -29,7 +29,10 @@ import re
 from json import dumps
 
 import parsley
-from sqlalchemy import and_
+from sqlalchemy import (
+    and_,
+    or_,
+)
 from sqlalchemy.orm import aliased
 
 from galaxy.model import (
@@ -338,7 +341,13 @@ class HistoryDatasetView(ViewQueryBaseClass):
     }
 
     def search(self, trans):
-        self.query = trans.sa_session.query(HistoryDatasetAssociation)
+        self.query = trans.sa_session.query(HistoryDatasetAssociation).filter(
+            HistoryDatasetAssociation.history_id == History.id,
+            or_(
+                History.user_id == trans.user.id,
+                History.published == True,
+            )
+        )
 
 
 ##################
@@ -389,7 +398,12 @@ class HistoryView(ViewQueryBaseClass):
     }
 
     def search(self, trans):
-        self.query = trans.sa_session.query(History)
+        self.query = trans.sa_session.query(History).filter(
+            or_(
+                History.user_id == trans.user.id,
+                History.published == True,
+            )
+        )
 
 
 ##################
@@ -421,7 +435,12 @@ class WorkflowView(ViewQueryBaseClass):
     }
 
     def search(self, trans):
-        self.query = trans.sa_session.query(StoredWorkflow)
+        self.query = trans.sa_session.query(StoredWorkflow).filter(
+            or_(
+                StoredWorkflow.user_id == trans.user.id,
+                StoredWorkflow.published == True,
+            )
+        )
 
 
 ##################
@@ -493,7 +512,9 @@ class JobView(ViewQueryBaseClass):
     }
 
     def search(self, trans):
-        self.query = trans.sa_session.query(Job)
+        self.query = trans.sa_session.query(Job).filter(
+            Job.user_id == trans.user.id
+        )
 
 
 ##################
