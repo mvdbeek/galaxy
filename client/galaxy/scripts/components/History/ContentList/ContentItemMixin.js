@@ -14,6 +14,7 @@ import DatasetCollection from "./DatasetCollection";
 import Subcollection from "./Subcollection";
 
 export default {
+    inject: [ "listState", "isSelected", "isExpanded", "setSelected", "setExpanded" ],
 
     template: `
         <component :is="contentItemComponent"
@@ -37,8 +38,6 @@ export default {
         Subcollection,
     },
 
-    inject: [ "listState" ],
-
     props: {
         source: { type: Object, required: true },
         index: { type: Number, required: true },
@@ -51,7 +50,7 @@ export default {
     methods: {
         setFocus(index) {
             if (this.suppressFocus) return;
-            const ul = this.$el.closest("[role=group]");
+            const ul = this.$el.closest(".scroller");
             const el = ul.querySelector(`[tabindex="${index}"]`);
             if (el) el.focus();
         },
@@ -61,36 +60,26 @@ export default {
         loading() {
             return !this.source;
         },
-
         contentItemComponent() {
+            // Override me
             return "Placeholder";
         },
-
-        typeId() {
-            return this.source.type_id;
-        },
-
-        expanded: {
-            get() {
-                return this.listState.expanded.has(this.typeId);
-            },
-            set(val) {
-                const newList = new Set(this.listState.expanded);
-                val ? newList.add(this.typeId) : newList.delete(this.typeId);
-                this.listState.expanded = newList;
-            },
-        },
-
         selected: {
             get() {
-                return this.listState.selected.has(this.typeId);
+                return this.isSelected(this.source);
             },
             set(val) {
-                const newSet = new Set(this.listState.selected);
-                val ? newSet.add(this.typeId) : newSet.delete(this.typeId);
-                this.listState.selected = newSet;
-            },
+                this.setSelected(this.source, val);
+            }
         },
+        expanded: {
+            get() {
+                return this.isExpanded(this.source);
+            },
+            set(val) {
+                this.setExpanded(this.source, val);
+            }
+        }
     },
 
     created() {

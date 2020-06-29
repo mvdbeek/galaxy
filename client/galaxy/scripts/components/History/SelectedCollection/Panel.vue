@@ -27,7 +27,6 @@
                     <ContentList
                         :params="params"
                         :contents="contents"
-                        :expanded-content="expandedContentIds"
                         :loading="loading" />
                 </template>
             </Layout>
@@ -48,9 +47,10 @@ import { CollectionContentList as ContentList } from "../ContentList";
 import Layout from "../Layout";
 import TopNav from "./TopNav";
 import Details from "./Details";
-
+import ListMixin from "../ListMixin";
 
 export default {
+    mixins: [ ListMixin ],
     components: {
         DscProvider,
         CollectionContentProvider,
@@ -64,21 +64,9 @@ export default {
         selectedCollections: { type: Array, required: true },
     },
     data: () => ({
-        params: new SearchParams(),
-        expandedContentIds: new Set(),
         showTags: false,
         showFilter: false,
-        listState: {
-            showSelection: false,
-            selected: new Set(),
-            expanded: new Set()
-        }
     }),
-    provide() {
-        return {
-            listState: this.listState
-        }
-    },
     computed: {
         selectedCollection() {
             const arr = this.selectedCollections;
@@ -105,30 +93,6 @@ export default {
             }
         },
 
-        // expand/contract datasets
-        // the virtual scrollers work better if the value for a dataset's
-        // expanded status is known in the props going ito the array
-
-        expandContent({ type_id }) {
-            this.expandedContentIds = new Set(this.expandedContentIds.add(type_id));
-        },
-        collapseContent({ type_id }) {
-            this.expandedContentIds = new Set(this.expandedContentIds.delete(type_id));
-        },
-        toggleExpand({ type_id }) {
-            const newSet = new Set(this.expandedContentIds);
-            newSet.has(type_id) ? newSet.delete(type_id) : newSet.add(type_id);
-            this.expandedContentIds = newSet;
-        },
-        collapseAllContent() {
-            this.expandedContentIds = new Set();
-        },
-    },
-    created() {
-        this.eventHub.$on("expandContent", this.expandContent);
-        this.eventHub.$on("collapseContent", this.collapseContent);
-        this.eventHub.$on("toggleExpand", this.toggleExpand);
-        this.eventHub.$on("collapseAllContent", this.collapseAllContent);
     }
 };
 </script>

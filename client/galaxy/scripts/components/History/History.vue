@@ -59,9 +59,10 @@ import HistoryEmpty from "./HistoryEmpty";
 import { HistoryContentList } from "./ContentList";
 import ContentOperations from "./ContentOperations";
 import ToolHelpModal from "./ToolHelpModal";
-
+import ListMixin from "./ListMixin";
 
 export default {
+    mixins: [ ListMixin ],
     components: {
         ContentProvider,
         Layout,
@@ -75,47 +76,9 @@ export default {
     props: {
         history: { type: History, required: true },
     },
-    data: () => ({
-        contentParams: new SearchParams(),
-        listState: {
-
-            // some of the UI is not super-responsive
-            // while the virtual scroller is active so
-            // we flip those parts on and off
-            scrolling: false,
-
-            // shows the checkboxes on the content items
-            showSelection: false,
-
-            // current list of selected type_ids for bulk operations
-            selected: new Set(),
-
-            // list of expanded datasets
-            expanded: new Set()
-        }
-    }),
-    provide() {
-        return {
-            listState: this.listState
-        }
-    },
     computed: {
         historyId() {
             return this.history.id;
-        },
-        params: {
-            get() {
-                return this.contentParams;
-            },
-            set(newParams) {
-                if (SearchParams.equals(newParams, this.contentParams)) return;
-                // reset paginaton if filters are different
-                if (!SearchParams.filtersEqual(newParams, this.contentParams)) {
-                    this.contentParams = newParams.resetLimits();
-                    return;
-                }
-                this.contentParams = newParams.clone();
-            }
         },
     },
     watch: {
@@ -125,11 +88,6 @@ export default {
                 this.listState.expanded = new Set();
                 this.listState.showSelection = false;
                 this.params = new SearchParams();
-            }
-        },
-        "listState.selected": function(newSet) {
-            if (newSet.size > 0) {
-                this.showSelection = true;
             }
         },
     },

@@ -1,54 +1,16 @@
 /**
- * These scrolling lists are really similar. Have tried to implement them using
- * mixins. Each needs a listing component which handles the scrolling and a
- * separate Item component to determine whether a Dataset, Collection or other
- * node type gets displayed on the listing.
+ * Scrolling components for history contents and collection contents.
  */
 
-
+// "vue-virtual-scroll-list" Awkward api but pretty fast.
+import HistoryContentItem from "./HistoryContentItem";
+import CollectionContentItem from "./CollectionContentItem";
 import { ContentListFactory } from "./ContentListFactory";
-import ContentItem from "./ContentItem";
-
-
-const HistoryContentItem = {
-    mixins: [ ContentItem ],
-
-    computed: {
-        contentItemComponent() {
-            const { history_content_type } = this.source;
-            switch (history_content_type) {
-                case "dataset":
-                    return "Dataset";
-                case "dataset_collection":
-                    return "DatasetCollection";
-                default:
-                    return "Placeholder";
-            }
-        },
-    },
-};
-
-
-const CollectionContentItem = {
-    mixins: [ ContentItem ],
-
-    computed: {
-        contentItemComponent() {
-            const { history_content_type } = this.source;
-            switch (history_content_type) {
-                case "dataset":
-                    return "Dataset";
-                case "dataset_collection":
-                    return "Subcollection";
-                default:
-                    return "Placeholder";
-            }
-        },
-    },
-};
-
-
 export const HistoryContentList = ContentListFactory(HistoryContentItem);
 export const CollectionContentList = ContentListFactory(CollectionContentItem);
 
-import "./ContentList.scss";
+// "vue-virtual-scroller", Good API but buggy and kind of slow
+// export { default as HistoryContentList } from "./HistoryContentScroller";
+// export { default as CollectionContentList } from "./CollectionContentScroller";
+
+import "./styles.scss";

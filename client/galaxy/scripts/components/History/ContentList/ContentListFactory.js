@@ -4,16 +4,13 @@
  * but the component works well, so I'm putting up with it for now.
  */
 
-import { Subject } from "rxjs";
-import { activity } from "utils/observable";
-import { SearchParams } from "../model";
-import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import VirtualList from "vue-virtual-scroll-list";
+import ContentListMixin from "./ContentListMixin";
 
 export const ContentListFactory = (ItemComponent) => ({
-    mixins: [ vueRxShortcuts ],
+    mixins: [ ContentListMixin ],
     template: `
-        <VirtualList
+        <VirtualList class="vvsl"
             v-on="$listeners"
             v-bind="$attrs"
             :data-component="itemComponent"
@@ -23,37 +20,15 @@ export const ContentListFactory = (ItemComponent) => ({
             :estimate-size="36"
             wrap-tag="ul"
             item-tag="li"
-            @scroll="onScroll"
+            @scroll="(evt, { start, end }) => onScroll(start, end)"
         />
     `,
     components: {
         VirtualList,
     },
-    props: {
-        params: { type: SearchParams, required: true },
-        contents: { type: Array, required: true },
-        loading: { type: Boolean, required: false, default: false },
-        scrolling: { type: Boolean, required: false, default: false },
-    },
     computed: {
         itemComponent() {
             return ItemComponent;
         }
-    },
-    created() {
-        this.scrollPing$ = new Subject();
-        const scrolling$ = this.scrollPing$.pipe(activity());
-        this.$subscribeTo(scrolling$, val => {
-            this.$emit('update:scrolling', val);
-        })
-    },
-    methods: {
-        onScroll(evt, { start, end }) {
-            this.scrollPing$.next(true);
-            const newParams = this.params.setLimits(start, end);
-            if (!SearchParams.equals(this.params, newParams)) {
-                this.$emit("update:params", newParams);
-            }
-        },
     },
 });
