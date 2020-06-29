@@ -48,8 +48,7 @@ either through the props, and make updates through the events -->
                 <nametag v-for="tag in dataset.tags" :key="tag" :tag="tag" />
             </div> -->
 
-            <DatasetMenu v-if="showMenu"
-                class="content-item-menu"
+            <DatasetMenu class="content-item-menu"
                 :dataset="dataset"
                 :expanded="expanded"
                 v-on="$listeners"
@@ -147,9 +146,6 @@ export default {
         },
         showSelection() {
             return this.listState.showSelection;
-        },
-        showMenu() {
-            return !this.listState.scrolling;
         }
     },
     methods: {

@@ -25,6 +25,7 @@ export default {
             :item="source"
             :selected.sync="selected"
             :expanded.sync="expanded"
+            :scrolling="scrolling"
             @mouseover.native.self.stop="setFocus(index)"
             @keydown.native.arrow-up.self.stop="setFocus(index - 1)"
             @keydown.native.arrow-down.self.stop="setFocus(index + 1)"
@@ -79,6 +80,9 @@ export default {
             set(val) {
                 this.setExpanded(this.source, val);
             }
+        },
+        scrolling() {
+            return this.listState.scrolling;
         }
     },
 

@@ -48,9 +48,7 @@
                 </span>
             </h5>
 
-            <DscMenu v-if="showMenu"
-                class="content-item-menu"
-                v-on="$listeners" />
+            <DscMenu class="content-item-menu" v-on="$listeners" />
 
         </nav>
 
@@ -83,9 +81,6 @@ export default {
         },
         showSelection() {
             return this.listState.showSelection;
-        },
-        showMenu() {
-            return !(this.listState.scrolling);
         }
     },
     methods: {
