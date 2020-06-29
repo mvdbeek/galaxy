@@ -119,13 +119,12 @@ import { Dataset } from "../../model";
 import { PriorityMenu, PriorityMenuItem } from "components/PriorityMenu";
 
 export default {
+    inject: ['STATES'],
 
     components: {
         PriorityMenu,
         PriorityMenuItem
     },
-
-    inject: ['STATES'],
 
     props: {
         dataset: { type: Dataset, required: true },
@@ -255,14 +254,3 @@ export default {
     }
 };
 </script>
-
-
-<style>
-
-.content-menu button:hover,
-.content-menu .show > button.dropdown-toggle {
-    background-color: transparent;
-    border-color: transparent;
-}
-
-</style>

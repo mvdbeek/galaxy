@@ -149,7 +149,7 @@ export default {
             return this.listState.showSelection;
         },
         showMenu() {
-            return !(this.showSelection || this.listState.scrolling);
+            return !this.listState.scrolling;
         }
     },
     methods: {

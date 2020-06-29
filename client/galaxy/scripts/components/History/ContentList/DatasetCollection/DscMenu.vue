@@ -1,40 +1,22 @@
 <template>
-    <PriorityMenu :starting-height="27">
+    <b-dropdown no-caret right variant="link" size="sm" boundary="window" toggle-class="p-1">
 
-        <PriorityMenuItem
-            key="delete-collection"
-            title="Delete Collection Only"
-            icon="fas fa-trash"
-            @click.stop="$emit('deleteCollection')"
-        />
+        <template v-slot:button-content>
+            <i class="fas fa-trash" />
+            <span class="sr-only">Delete Collection</span>
+        </template>
 
-        <PriorityMenuItem
-            key="delete-with-datasets""
-            title="Delete Contained Datasets"
-            icon="fas fa-trash"
-            @click.stop="$emit('deleteCollection', { recursive: true, })"
-        />
+        <b-dropdown-item @click.stop="$emit('deleteCollection')">
+            Delete Collection Only
+        </b-dropdown-item>
 
-        <PriorityMenuItem
-            key="purge-datasets"
-            title="Purge Contained Datasets"
-            icon="fas fa-burn"
-            @click.stop="$emit('deleteCollection', { recursive: true, purge: true })"
-        />
+        <b-dropdown-item @click.stop="$emit('deleteCollection', { recursive: true })">
+            Delete Contained Datasets
+        </b-dropdown-item>
 
-    </PriorityMenu>
+        <b-dropdown-item @click.stop="$emit('deleteCollection', { recursive: true, purge: true })">
+            Purge Contained Datasets
+        </b-dropdown-item>
+
+    </b-dropdown>
 </template>
-
-<script>
-
-import { DatasetCollection, deleteCollection } from "../../model";
-import { PriorityMenu, PriorityMenuItem } from "components/PriorityMenu";
-
-export default {
-    components: {
-        PriorityMenu,
-        PriorityMenuItem
-    }
-};
-
-</script>

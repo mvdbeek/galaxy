@@ -33,8 +33,20 @@
         it relies on flexbox and overflow */
         min-height: 2em;
     }
+
+    .content-menu button:hover,
+    .content-menu .show > button.dropdown-toggle {
+        background-color: transparent;
+        border-color: transparent;
+    }
 }
 
-.collapsed .content-item-menu.priority-menu {
-    max-width: 33%;
+.collapsed .content-item-menu {
+    display: flex;
+    justify-content: flex-end;
+
+    .primary {
+        max-width: 33%;
+    }
 }
+
