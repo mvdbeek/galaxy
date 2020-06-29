@@ -53,7 +53,9 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
     } = config;
 
     // add context marker in url for debugging purposes
-    const baseUrl$ = url$.pipe(map((baseUrl) => (context ? `${baseUrl}&context=${context}` : baseUrl)));
+    const baseUrl$ = url$.pipe(
+        map((baseUrl) => (context ? `${baseUrl}&context=${context}` : baseUrl))
+    );
 
     // mark and flag this update-time, append to next request with same base
     return baseUrl$.pipe(

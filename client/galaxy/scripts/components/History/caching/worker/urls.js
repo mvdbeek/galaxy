@@ -1,4 +1,4 @@
-import { contentFields, historyFields } from "../../model/fields";
+// import { historyFields } from "../../model/fields";
 
 
 // generate a content update url for the indicated history id
@@ -29,7 +29,8 @@ export function buildHistoryContentsUrl(historyId, params) {
 
     const parts = [
         "v=dev",
-        `keys=${contentFields.join(",")}`,
+        "view=betawebclient",
+        // `keys=${contentFields.join(",")}`,
         "order=hid-dsc",
         deletedClause,
         visibleClause,
@@ -74,7 +75,11 @@ export const buildDscContentUrl = (source_url, params) => {
  * @returns {string} History update url without update_time
  */
 export function buildHistoryUpdateUrl(id) {
-    const parts = [`q=encoded_id-in&qv=${id}`, `keys=${historyFields.join(",")}`];
+    const parts = [
+        `q=encoded_id-in&qv=${id}`,
+        // `keys=${historyFields.join(",")}`,
+        "view=betawebclient",
+    ];
     const qs = parts.join("&");
     return `/api/histories?${qs}`;
 }

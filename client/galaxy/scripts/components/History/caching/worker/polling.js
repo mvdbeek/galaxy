@@ -1,11 +1,14 @@
 import moment from "moment";
-import { of, pipe } from "rxjs";
-import { tap, map, mapTo, filter, switchMap, repeat, finalize, delay } from "rxjs/operators";
+import { of, concat, pipe } from "rxjs";
+import { tap, map, mergeMap, switchMap, repeat, finalize, delay } from "rxjs/operators";
+import { ajax } from "rxjs/ajax";
 import { SearchParams } from "../../model/SearchParams";
 import { prependPath, requestWithUpdateTime } from "./util";
-import { bulkCacheContent } from "../galaxyDb";
+import { content$, bulkCacheContent } from "../galaxyDb";
 import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
+import { lastCachedContentRequest } from "../queries";
 // import { enqueue } from "./queue";
+
 
 /**
  * Generates an operator that takes inputs: [historyid, params] and generates
@@ -17,55 +20,68 @@ import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
 export const pollForHistoryUpdates = ({ pollInterval = 5000 } = {}) =>
     pipe(
         switchMap((inputs) => {
-            const requestTime = moment.utc();
+
+            // params got serialized during transfer to worker
+            const [ id, rawParams ] = inputs;
+            const params = new SearchParams(rawParams);
 
             // do history poll
             const historyPoll$ = of(inputs).pipe(
-                map(([id]) => buildHistoryUpdateUrl(id)),
+                map(() => buildHistoryUpdateUrl(id)),
                 map(prependPath),
                 requestWithUpdateTime({
                     context: "poll:history",
-                    requestTime,
                 }),
                 tap(results => {
                     if (results.length) {
-                        console.log("TODO: put these results into the store", results);
+                        console.log("TODO: send these history updates to the store", results);
                     }
                 }),
+                delay(pollInterval),
             );
 
             // do content poll
-            const contentPoll$ = historyPoll$.pipe(
-                filter((list) => list.length),
-                delay(pollInterval),
-                mapTo(inputs),
-                map(([id, rawParams]) => {
-                    const params = new SearchParams(rawParams);
-                    return buildHistoryContentsUrl(id, params);
+            const contentPoll$ = content$.pipe(
+
+                mergeMap(async (db) => {
+
+                    // look up the most recently cached item that matches search params
+                    const queryConfig = lastCachedContentRequest(id, params);
+                    const response = await db.find(queryConfig);
+
+                    let since = moment.utc();
+                    if (response.docs && response.docs.length == 1) {
+                        since = response.docs[0].update_time;
+                    }
+
+                    // buld content update url
+                    const baseUrl = buildHistoryContentsUrl(id, params);
+                    return prependPath(`${baseUrl}&update_time-gt=${since}`);
                 }),
-                map(prependPath),
-                requestWithUpdateTime({
-                    context: "poll:contents",
-                    requestTime,
-                }),
+
+                // request & cache
+                mergeMap(ajax.getJSON),
                 bulkCacheContent(),
+
+                // summarize what we cached
                 map(list => {
                     const updated = list.filter((result) => result.updated);
                     return {
                         updatedItems: updated.length,
                         totalReceived: list.length,
                     };
-                })
-            );
+                }),
 
-            const poll$ = contentPoll$.pipe(
                 delay(pollInterval),
-                repeat(),
-                finalize(() => console.log("poll subscription closed"))
             );
 
-            // return enqueue(poll$);
-
-            return poll$;
+            // both must finishf or concat to work
+            return concat(historyPoll$, contentPoll$).pipe(repeat());
         })
-    );
+    )
+
+
+// async function getLastCacheDate(findConfig) {
+//     const requestTime = moment.utc();
+//     return requestTime;
+// }

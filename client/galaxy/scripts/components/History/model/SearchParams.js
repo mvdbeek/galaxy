@@ -133,4 +133,4 @@ export class SearchParams {
 }
 
 // size of requests from server
-SearchParams.pageSize = 100;
+SearchParams.pageSize = 200;

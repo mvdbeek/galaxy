@@ -31,7 +31,7 @@ export default {
         results: [],
         isWatchingCache: true,
         isManualLoading: true,
-        isPolling: false,
+        isPolling: true,
     }),
     computed: {
         loading() {

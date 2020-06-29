@@ -17,7 +17,7 @@ export const ContentListFactory = (ItemComponent) => ({
             :data-sources="contents"
             data-key="_id"
             :keeps="40"
-            :estimate-size="36"
+            :estimate-size="36.2"
             wrap-tag="ul"
             item-tag="li"
             @scroll="(evt, { start, end }) => onScroll(start, end)"

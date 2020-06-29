@@ -4,6 +4,7 @@
 
 import config from "config";
 
+import deepEqual from "fast-deep-equal";
 import { of, pipe, from, Observable } from "rxjs";
 import {
     map,
@@ -16,7 +17,7 @@ import {
     debounceTime,
     share,
 } from "rxjs/operators";
-import deepEqual from "fast-deep-equal";
+
 
 import PouchDB from "pouchdb-browser";
 import PouchDebug from "pouchdb-debug";
@@ -33,6 +34,7 @@ PouchDB.plugin(PouchLiveFind);
 
 // PouchDB.debug.enable('pouchdb:find');
 
+
 /**
  * Generate an observable that initializes and shares a pouchdb instance.
  *
@@ -41,7 +43,10 @@ PouchDB.plugin(PouchLiveFind);
  */
 export const collection = (options) =>
     of(options).pipe(
-        map((opts) => new PouchDB({ ...config.caching, ...opts })),
+        map((opts) => {
+            console.warn("building new PouchDB instance", opts);
+            return new PouchDB({ ...config.caching, ...opts })
+        }),
         // scan((inst, name) => inst ? inst : createDb({ ...config.caching, name }), null),
         catchError((err) => console.warn("OOPS!", err)),
         share()

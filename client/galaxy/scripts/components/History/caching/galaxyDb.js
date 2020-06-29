@@ -2,10 +2,11 @@
  * Content pouchdb database (galaxy-content)
  */
 
+import moment from "moment";
 import { pipe } from "rxjs";
 import { tap, map, shareReplay } from "rxjs/operators";
 import { collection, cacheItem, bulkCache, installIndexes } from "./db";
-import { log } from "utils/observable/log";
+// import { log } from "utils/observable/log";
 
 
 // bulk inserts
@@ -38,15 +39,17 @@ const prepContent = (props) => {
     const type_id = origTypeId ? origTypeId : `${history_content_type}-${id}`;
     const _id = `${history_id}-${type_id}`;
 
-    return {
+    const newProps = {
         _id,
         history_id,
         history_content_type,
         id,
         type_id,
         isDeleted,
-        ...theRest
+        ...theRest,
+        cached_at: moment().valueOf(),
     };
+    return newProps;
 };
 
 export const contentIndexes = [
@@ -78,6 +81,13 @@ export const contentIndexes = [
         name: "by type_id",
         ddoc: "idx-content-history-typeid",
     },
+    {
+        index: {
+            fields: [{ cached_at: "desc" }],
+        },
+        name: "by cache time",
+        ddoc: "idx-content-history-cached_at",
+    },
 ];
 
 
@@ -105,9 +115,9 @@ const prepDscContent = extraFields => props => {
     const history_content_type = model_class == "HistoryDatasetAssociation" ? "dataset" : "dataset_collection";
     const type_id = `${history_content_type}-${id}`;
     const _id = `${contents_url}-${type_id}`;
+    // const cache_time = moment.utc();
 
     return {
-
         // id = content url + counter as that is the most likely query
         _id,
         contents_url,
@@ -122,7 +132,9 @@ const prepDscContent = extraFields => props => {
 
         // move stuff out of "object" and into root of cached packet
         ...otherObjectFields,
-        ...otherExtraFields
+        ...otherExtraFields,
+        // cache_time,
+        cached_at: moment().valueOf(),
     };
 };
 

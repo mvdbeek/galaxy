@@ -11,7 +11,7 @@
         @click.stop="eventHub.$emit('selectCollection', dsc)"
     >
         <nav class="d-flex content-top-menu align-items-center justify-content-between">
-            <!-- indicators, selection, status, hidden/visible toggles -->
+
             <div class="d-flex mr-1 align-items-center" @click.stop>
                 <b-check v-if="showSelection" :checked="selected" @change="$emit('update:selected', $event)" />
 

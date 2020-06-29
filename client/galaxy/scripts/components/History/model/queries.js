@@ -11,7 +11,7 @@
 import axios from "axios";
 import moment from "moment";
 import { prependPath } from "utils/redirect";
-import { historyFields, contentFields } from "./fields";
+// import { historyFields } from "./fields";
 
 // #region setup & utils
 
@@ -87,8 +87,8 @@ function formData(fields = {}) {
 // #region History Queries
 
 const stdHistoryParams = {
-    // view: "dev-detailed",
-    keys: historyFields.join(","),
+    view: "betawebclient",
+    // keys: historyFields.join(","),
 };
 
 /**
@@ -370,8 +370,8 @@ export async function createDatasetCollection(history, inputs = {}) {
 
     // this endpoint is so hosed, passing return keys in URL because
     // it doesn't look in the fields payload as described in the comments
-    const keys = contentFields.join(",");
-    const url = `/histories/${history.id}/contents?keys=${keys}`;
+    // const keys = contentFields.join(",");
+    const url = `/histories/${history.id}/contents?view=betawebclient`; // keys=${keys}`;
     const response = await api.post(url, payload);
     return doResponse(response);
 }
