@@ -9661,6 +9661,13 @@ pouchdb-debug@^7.2.1:
   dependencies:
     debug "3.1.0"
 
+pouchdb-erase@^1.0.2:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/pouchdb-erase/-/pouchdb-erase-1.0.2.tgz#cbdfdddf2dfcd814d0cad72221514237eeb2c151"
+  integrity sha1-y9/d3y382BTQytciIVFCN+6ywVE=
+  dependencies:
+    promise-nodify "^1.0.1"
+
 pouchdb-errors@6.4.3:
   version "6.4.3"
   resolved "https://registry.yarnpkg.com/pouchdb-errors/-/pouchdb-errors-6.4.3.tgz#9fa4a13f64ee50c8d593e3235b18b1458977f8d1"
@@ -9880,6 +9887,11 @@ promise-inflight@^1.0.1:
   version "1.0.1"
   resolved "https://registry.yarnpkg.com/promise-inflight/-/promise-inflight-1.0.1.tgz#98472870bf228132fcbdd868129bad12c3c029e3"
   integrity sha1-mEcocL8igTL8vdhoEputEsPAKeM=
+
+promise-nodify@^1.0.1:
+  version "1.0.2"
+  resolved "https://registry.yarnpkg.com/promise-nodify/-/promise-nodify-1.0.2.tgz#0d0fb143c33400b0061b47e581257557047d4c5a"
+  integrity sha1-DQ+xQ8M0ALAGG0flgSV1VwR9TFo=
 
 promise@^7.0.1:
   version "7.3.1"

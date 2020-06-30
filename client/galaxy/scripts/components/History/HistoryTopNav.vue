@@ -23,10 +23,10 @@
                 @click="backboneRoute('/histories/list')" />
 
             <PriorityMenuItem
-                key="reload-history"
-                title="Reload this history"
+                key="clear-history-cache"
+                title="Clear cache"
                 icon="fa fa-refresh"
-                @click.stop="reloadCurrentHistory" />
+                @click.stop="wipeDatabase" />
 
             <PriorityMenuItem
                 key="use-legacy-history"
@@ -43,6 +43,7 @@ import { mapActions } from "vuex";
 import { PriorityMenuItem, PriorityMenu } from "components/PriorityMenu";
 import HistorySelector from "./HistorySelector";
 import { createNewHistory } from "./model/queries";
+import { wipeDatabase } from "./caching/galaxyDb";
 
 export default {
     components: {
@@ -79,9 +80,7 @@ export default {
         },
 
         // temp function, will create something more targeted later
-        async reloadCurrentHistory() {
-            console.log("implementation flawed, come back to this...");
-        },
+        wipeDatabase
     },
 };
 </script>

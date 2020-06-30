@@ -4,8 +4,6 @@
             <b-form-input size="sm" :value="value" @input="input" :placeholder="'Search Filter' | localize" />
         </DebouncedInput>
 
-        <input v-model="skip" placeholder="Skip" />
-
         <b-input-group-append>
             <b-button
                 size="sm"
@@ -18,8 +16,7 @@
                 size="sm"
                 :pressed="showHidden"
                 :variant="showHidden ? 'info' : 'secondary'"
-                @click="showHidden = !showHidden"
-            >
+                @click="showHidden = !showHidden">
                 {{ "Hidden" | localize }}
             </b-button>
         </b-input-group-append>

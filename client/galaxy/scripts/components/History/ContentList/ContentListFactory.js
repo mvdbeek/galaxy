@@ -16,7 +16,7 @@ export const ContentListFactory = (ItemComponent) => ({
             :data-component="itemComponent"
             :data-sources="contents"
             :data-key="dataKey"
-            :keeps="30"
+            :keeps="50"
             :estimate-size="36.2"
             wrap-tag="ul"
             item-tag="li"

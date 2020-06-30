@@ -4,9 +4,8 @@
  * they don't want to.
  */
 
-import { combineLatest, NEVER } from "rxjs";
-import { tap, distinctUntilChanged, switchMap, debounceTime, share, mergeMap } from "rxjs/operators";
-import { log } from "utils/observable";
+import { combineLatest } from "rxjs";
+import { tap, distinctUntilChanged, switchMap, debounceTime, share } from "rxjs/operators";
 import { vueRxShortcuts } from "../../../plugins/vueRxShortcuts";
 import { SearchParams } from "../../model";
 import { pollHistory, monitorContentQuery } from "../../caching";
@@ -46,23 +45,6 @@ export default {
         },
     },
     created() {
-        const noop = () => null;
-
-        // #region debugging toggles, lets you flip the subscriptions on and off
-
-        const isWatchingCache$ = this.watch$("isWatchingCache");
-        const cacheFlagMessages$ = isWatchingCache$.pipe(log("cachewatch"));
-        this.$subscribeTo(cacheFlagMessages$, noop);
-
-        const isManualLoading$ = this.watch$("isManualLoading");
-        const loadingFlagMessage$ = isManualLoading$.pipe(log("loading"));
-        this.$subscribeTo(loadingFlagMessage$, noop);
-
-        const isPolling$ = this.watch$("isPolling");
-        const pollingFlagMessage$ = isPolling$.pipe(log("polling"));
-        this.$subscribeTo(pollingFlagMessage$, noop);
-
-        // #endregion
 
         // #region input observables
 
@@ -85,46 +67,41 @@ export default {
 
         // watches cache for changes, emits results. Returns all matches to the
         // passed parameters, emits on the results slotProp for the UI to render
-        this.watchCache(inputs$, isWatchingCache$);
+        if (this.isWatchingCache) {
+            this.watchCache(inputs$);
+        }
 
         // watches changes to history id and params, requests new data from api
         // when necessary. That data gets dumped directly into the cache and will
         // show up in .watchCache() above eventually
-        this.watchUserRequest(inputs$, isManualLoading$);
+        if (this.isManualLoading) {
+            this.watchUserRequest(inputs$);
+        }
 
         // subscribes to polling observable. We don't actually do anything with
         // the results other than hold the subscription to the observable until
         // the cmoponent closes. The worker does all the requests and caching
-        this.startPolling(inputs$, isPolling$);
+        if (this.isPolling) {
+            this.startPolling(inputs$);
+        }
     },
     methods: {
 
         // Subscribe to an observable that looks at the cache filtered by the params.
         // Updates when cache updated, pass values to results property.
 
-        watchCache(src$, toggle$) {
+        watchCache(src$) {
 
             const cacheMessages$ = src$.pipe(
                 switchMap(([ history_id, params ]) => {
-                    const pouchRequest = buildContentPouchRequest(history_id, params);
-                    return monitorContentQuery(pouchRequest);
+                    const request = buildContentPouchRequest(history_id, params);
+                    return monitorContentQuery(request);
                 }),
             );
 
-            const cacheWatch$ = toggle$.pipe(
-                switchMap((isOn) => (isOn ? cacheMessages$ : NEVER))
-            );
-
             this.$subscribeTo(
-                cacheWatch$,
-                (update) => {
-                    const { matches, totalMatches, request } = update;
-                    // const { skip, limit } = request;
-
-                    console.warn("EVENT in component, minimize these");
-
-                    this.results = matches;
-                },
+                cacheMessages$,
+                ({ matches }) => this.results = matches,
                 (err) => console.warn("[cachewatch] error", err),
                 () => console.log("[cachewatch] stream complete")
             );
@@ -135,18 +112,14 @@ export default {
         // the inputs to loadContents() which handles getting and caching
         // the new requested stuff
 
-        watchUserRequest(src$, toggle$) {
+        watchUserRequest(src$) {
 
             const loads$ = src$.pipe(
                 manualLoader()
             );
 
-            const toggledLoads$ = toggle$.pipe(
-                switchMap((isOn) => (isOn ? loads$ : NEVER))
-            );
-
             this.$subscribeTo(
-                toggledLoads$,
+                loads$,
                 (result) => console.log("[loader] next", result),
                 (err) => console.warn("[loader] error", err),
                 () => console.warn("[loader] complete: should only complete on unsub")
@@ -159,31 +132,20 @@ export default {
         // endpoint corresponding to the history + params and dumps the results
         // in the local cache, eventually it will show up in the cacheMessages$
 
-        startPolling(src$, toggle$) {
+        startPolling(src$) {
 
             const pollMessages$ = src$.pipe(
                 switchMap(pollHistory)
             );
 
-            const pollWatch$ = toggle$.pipe(
-                switchMap((isOn) => (isOn ? pollMessages$ : NEVER))
-            );
-
             this.$subscribeTo(
-                pollWatch$,
+                pollMessages$,
                 (results) => console.log("[poll] result", results),
                 (err) => console.warn("[poll] error", err),
                 () => console.warn("[poll] complete: should only complete on unsub")
             );
         },
 
-        updateManualLoading(val) {
-            this.isManualLoading = val;
-        },
-
-        updatePolling(val) {
-            this.isPolling = val;
-        },
     },
     render() {
         return this.$scopedSlots.default({
@@ -191,11 +153,6 @@ export default {
             results: this.results,
             totalMatches: this.totalMatches,
             loading: this.loading,
-            // debugging props
-            isPolling: this.isPolling,
-            isManualLoading: this.isManualLoading,
-            updatePolling: this.updatePolling,
-            updateManualLoading: this.updateManualLoading,
         });
     },
 };

@@ -4,20 +4,9 @@
 
 import config from "config";
 
+import { of, pipe, from } from "rxjs";
+import { map, mergeMap, withLatestFrom, catchError, reduce, share } from "rxjs/operators";
 import deepEqual from "fast-deep-equal";
-import { of, pipe, from, Observable } from "rxjs";
-import {
-    map,
-    mergeMap,
-    withLatestFrom,
-    catchError,
-    reduce,
-    switchMap,
-    distinctUntilChanged,
-    debounceTime,
-    share,
-} from "rxjs/operators";
-
 
 import PouchDB from "pouchdb-browser";
 import PouchDebug from "pouchdb-debug";
@@ -25,12 +14,14 @@ import PouchAdapterMemory from "pouchdb-adapter-memory";
 import PouchUpsert from "pouchdb-upsert";
 import PouchFind from "pouchdb-find";
 import PouchLiveFind from "pouchdb-live-find";
+import PouchErase from "pouchdb-erase";
 
 PouchDB.plugin(PouchDebug);
 PouchDB.plugin(PouchAdapterMemory);
 PouchDB.plugin(PouchUpsert);
 PouchDB.plugin(PouchFind);
 PouchDB.plugin(PouchLiveFind);
+PouchDB.plugin(PouchErase);
 
 // PouchDB.debug.enable('pouchdb:find');
 
