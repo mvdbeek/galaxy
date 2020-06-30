@@ -1,9 +1,11 @@
 """
 Object Store plugin for the Integrated Rule-Oriented Data Store (iRODS)
 """
+import collections
 import logging
 import os
 import shutil
+import time
 from datetime import datetime
 from functools import partial
 try:
@@ -30,6 +32,7 @@ from ..objectstore import DiskObjectStore
 IRODS_IMPORT_MESSAGE = ('The Python irods package is required to use this feature, please install it')
 # 1 MB
 CHUNK_SIZE = 2**20
+SESSION_STORE = collections.namedtuple("SessionStore", "create_time session")
 log = logging.getLogger(__name__)
 
 
@@ -148,6 +151,7 @@ class IRODSObjectStore(DiskObjectStore, CloudConfigMixin):
     def __init__(self, config, config_dict):
         reload_timer = ExecutionTimer()
         super(IRODSObjectStore, self).__init__(config, config_dict)
+        self._stored_session = SESSION_STORE(create_time=time.time(), session=None)
 
         auth_dict = config_dict.get('auth')
         if auth_dict is None:
@@ -209,44 +213,29 @@ class IRODSObjectStore(DiskObjectStore, CloudConfigMixin):
         log.debug("irods __init__ %s", reload_timer)
 
     def shutdown(self):
-        # This call will cleanup all the connections in the connection pool
-        log.debug("In __shutdown__ Number of active connections: %s, Number of idle connections: %s", len(self.session.pool.active), len(self.session.pool.idle))
         # OSError sometimes happens on GitHub Actions, after the test has successfully completed. Ignore it if it happens.
-        try:
-            self.session.cleanup()
-        except OSError:
-            pass
+        if self._session_store.session:
+            try:
+                self._session_store.cleanup()
+            except OSError:
+                pass
 
     def _initialize(self):
-        reload_timer = ExecutionTimer()
         if irods is None:
             raise Exception(IRODS_IMPORT_MESSAGE)
-
         self.home = "/" + self.zone + "/home/" + self.username
 
-        self.session = self._configure_connection(host=self.host, port=self.port, user=self.username, password=self.password, zone=self.zone)
-        log.debug("irods _initialize %s", reload_timer)
-
-    def _configure_connection(self, host='localhost', port='1247', user='rods', password='rods', zone='tempZone'):
-        self.connections = []
-        reload_timer_1 = ExecutionTimer()
-        reload_timer_2 = ExecutionTimer()
-        session = iRODSSession(host=host, port=port, user=user, password=password, zone=zone)
-        log.debug("irods _configure_connection, iRODSSession call %s", reload_timer_2)
-        # Set connection timeout
-        session.connection_timeout = self.timeout
-        # Throws NetworkException if connection fails
-        try:
-            # We will create as many conections as poolsize.
-            for idx in range(self.poolsize):
-                reload_timer_2 = ExecutionTimer()
-                self.connections.append(session.pool.get_connection())
-                log.debug("irods _configure_connection, session.pool.get_connection()  %s", reload_timer_2)
-        except NetworkException as e:
-            log.error('Could not create iRODS session: ' + str(e))
-            raise
-        log.debug("irods _configure_connection %s", reload_timer_1)
-        return session
+    @property
+    def session(self):
+        now = time.time()
+        if self._session_store is None or now - self._session_store.create_time > 10:
+            session_timer = ExecutionTimer()
+            session = iRODSSession(host=self.host, port=self.port, user=self.user, password=self.password, zone=self.zone)
+            self._session_store = SESSION_STORE(create_time=now, session=session)
+            log.debug("irods _configure_connection, iRODSSession call %s", session_timer)
+            # Set connection timeout
+            session.connection_timeout = self.timeout
+        return self._session_store.store
 
     @classmethod
     def parse_xml(cls, config_xml):
