@@ -155,57 +155,6 @@ export const unacheItem = (coll$) =>
         })
     );
 
-/**
- * Build an observable that monitors a pouchdb instance by taking
- * a pouchdb-find select config and returning matching results when
- * the cache changes.
- *
- * @source Observable stream yielding a pouchdb-find config
- * @param {Observable} db$ Observable of the pouchdb instance
- * @param {object} options Debouncing timeouts
- * @returns {Function} Observable operator
- */
-export const buildLiveQuery = (db$, options = {}) => (request$) => {
-    const { debounceInput = 500, debounceOutput = 250 } = options;
-
-    return request$.pipe(
-        debounceTime(debounceInput),
-        distinctUntilChanged(deepEqual),
-        withLatestFrom(db$),
-        switchMap(buildQueryEmitter),
-        debounceTime(debounceOutput)
-    );
-};
-
-const buildQueryEmitter = (inputs) =>
-    Observable.create((obs) => {
-        const [request, db, aggregate = true] = inputs;
-
-        // emit when the query registers any change, but don't bother with
-        // aggregate or actualy passing the result back...
-        let loading = true;
-        let hasEmitted = false;
-
-        const emit = (evt = {}) => {
-            hasEmitted = true;
-            const { update = null, matches = [] } = evt;
-            obs.next({ update, matches, loading, request });
-        };
-
-        // eslint-disable-next-line no-unused-vars
-        const { skip, limit, ...emissionRequest } = request;
-        const lifeFeedConfigs = { ...emissionRequest, aggregate };
-
-        const feed = db.liveFind(lifeFeedConfigs);
-        feed.on("ready", () => {
-            loading = false;
-            if (!hasEmitted) emit();
-        });
-        feed.on("update", (update, matches) => emit({ update, matches }));
-        feed.on("error", (err) => obs.error(err));
-
-        return () => feed.cancel();
-    });
 
 /**
  * Install indexes in pouchdb instance. These need to exist

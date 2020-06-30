@@ -5,13 +5,14 @@
  */
 
 import { combineLatest, NEVER } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, debounceTime } from "rxjs/operators";
-import { SearchParams } from "../../model";
-import { contentCacheWatcher } from "./contentCacheWatcher";
-import { manualLoader } from "./manualLoader";
-import { pollHistory } from "../../caching";
+import { tap, distinctUntilChanged, switchMap, debounceTime, share, mergeMap } from "rxjs/operators";
 import { log } from "utils/observable";
 import { vueRxShortcuts } from "../../../plugins/vueRxShortcuts";
+import { SearchParams } from "../../model";
+import { pollHistory, monitorContentQuery } from "../../caching";
+import { buildContentPouchRequest } from "../../caching/pouchQueries";
+import { manualLoader } from "./manualLoader";
+
 
 // equivalence comparator for historyId + params
 const inputsSame = (a, b) => {
@@ -19,6 +20,7 @@ const inputsSame = (a, b) => {
     const paramSame = SearchParams.equals(a[1], b[1]);
     return idSame && paramSame;
 };
+
 
 export default {
     mixins: [vueRxShortcuts],
@@ -31,7 +33,7 @@ export default {
         results: [],
         isWatchingCache: true,
         isManualLoading: true,
-        isPolling: true,
+        isPolling: false,
     }),
     computed: {
         loading() {
@@ -64,35 +66,26 @@ export default {
 
         // #region input observables
 
-        const historyId$ = this.watch$("historyId").pipe(distinctUntilChanged());
+        const historyId$ = this.watch$("historyId").pipe(
+            distinctUntilChanged()
+        );
 
-        const param$ = this.watch$("params").pipe(distinctUntilChanged(SearchParams.equals));
+        const param$ = this.watch$("params").pipe(
+            distinctUntilChanged(SearchParams.equals)
+        );
 
         const inputs$ = combineLatest(historyId$, param$).pipe(
             debounceTime(this.inputDebouncePeriod),
             distinctUntilChanged(inputsSame),
-            tap(inputs => {
-                console.log("inputs changed", inputs);
-            })
-        );
-
-        // polling and cache observation do not care about skip/limit,
-        // remove those properties to avoid unnecessary events
-        const paramWithoutLimits$ = param$.pipe(
-            map((p) => p.resetLimits()),
-            distinctUntilChanged(SearchParams.equals)
-        );
-
-        const inputsWithoutLimits$ = combineLatest(historyId$, paramWithoutLimits$).pipe(
-            debounceTime(this.inputDebouncePeriod),
-            distinctUntilChanged(inputsSame)
+            tap(([id, params]) => params.report(`INPUT ${id}`)),
+            share()
         );
 
         // #endregion
 
         // watches cache for changes, emits results. Returns all matches to the
         // passed parameters, emits on the results slotProp for the UI to render
-        this.watchCache(inputsWithoutLimits$, isWatchingCache$);
+        this.watchCache(inputs$, isWatchingCache$);
 
         // watches changes to history id and params, requests new data from api
         // when necessary. That data gets dumped directly into the cache and will
@@ -102,19 +95,22 @@ export default {
         // subscribes to polling observable. We don't actually do anything with
         // the results other than hold the subscription to the observable until
         // the cmoponent closes. The worker does all the requests and caching
-        this.startPolling(inputsWithoutLimits$, isPolling$);
+        this.startPolling(inputs$, isPolling$);
     },
     methods: {
 
         // Subscribe to an observable that looks at the cache filtered by the params.
-        // Updates when cache updated, pass values to results property. Ignore the limits
-        // on the search params. Just return everything in the db and the virtual scroller
-        // will deal with only showing part of it.
+        // Updates when cache updated, pass values to results property.
 
         watchCache(src$, toggle$) {
+
             const cacheMessages$ = src$.pipe(
-                contentCacheWatcher()
+                switchMap(([ history_id, params ]) => {
+                    const pouchRequest = buildContentPouchRequest(history_id, params);
+                    return monitorContentQuery(pouchRequest);
+                }),
             );
+
             const cacheWatch$ = toggle$.pipe(
                 switchMap((isOn) => (isOn ? cacheMessages$ : NEVER))
             );
@@ -122,12 +118,15 @@ export default {
             this.$subscribeTo(
                 cacheWatch$,
                 (update) => {
-                    const { matches, loading, request } = update;
-                    console.log("[cachewatch] result", matches.length, request, loading);
+                    const { matches, totalMatches, request } = update;
+                    // const { skip, limit } = request;
+
+                    console.warn("EVENT in component, minimize these");
+
                     this.results = matches;
                 },
                 (err) => console.warn("[cachewatch] error", err),
-                () => console.log("[cachewatch] stream completed")
+                () => console.log("[cachewatch] stream complete")
             );
         },
 
@@ -137,8 +136,14 @@ export default {
         // the new requested stuff
 
         watchUserRequest(src$, toggle$) {
-            const loads$ = src$.pipe(manualLoader());
-            const toggledLoads$ = toggle$.pipe(switchMap((isOn) => (isOn ? loads$ : NEVER)));
+
+            const loads$ = src$.pipe(
+                manualLoader()
+            );
+
+            const toggledLoads$ = toggle$.pipe(
+                switchMap((isOn) => (isOn ? loads$ : NEVER))
+            );
 
             this.$subscribeTo(
                 toggledLoads$,
@@ -155,8 +160,14 @@ export default {
         // in the local cache, eventually it will show up in the cacheMessages$
 
         startPolling(src$, toggle$) {
-            const pollMessages$ = src$.pipe(switchMap(pollHistory));
-            const pollWatch$ = toggle$.pipe(switchMap((isOn) => (isOn ? pollMessages$ : NEVER)));
+
+            const pollMessages$ = src$.pipe(
+                switchMap(pollHistory)
+            );
+
+            const pollWatch$ = toggle$.pipe(
+                switchMap((isOn) => (isOn ? pollMessages$ : NEVER))
+            );
 
             this.$subscribeTo(
                 pollWatch$,

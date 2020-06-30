@@ -1,4 +1,4 @@
-import equals from "fast-deep-equal";
+import deepEqual from "fast-deep-equal";
 
 const pairSplitRE = /(\w+=\w+)|(\w+="(\w|\s)+")/g;
 const scrubFieldRE = /[^\w]/g;
@@ -42,10 +42,10 @@ export class SearchParams {
         return newParams;
     }
 
-    setLimits(startIndex, endIndex = 0) {
+    setLimits(startIndex, endIndex) {
         const newParams = this.clone();
         newParams.skip = startIndex;
-        newParams.limit = Math.max(SearchParams.pageSize, endIndex - startIndex);
+        newParams.limit = endIndex - startIndex;
         return newParams;
     }
 
@@ -121,7 +121,7 @@ export class SearchParams {
     // I'm a little worried that Vue might add nonsense to the class
     // that affects the result when it adds its reactivity features.
     static equals(a, b) {
-        return equals(a, b);
+        return deepEqual(a, b);
     }
 
     // equivalence test ignoring skip/limit

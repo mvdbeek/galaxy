@@ -3,30 +3,57 @@
  * a time without spamming the server or the cache.
  */
 
-import { Subject, timer } from "rxjs";
-import { publish, ignoreElements, concatMap, startWith } from "rxjs/operators";
+import { timer, Subject } from "rxjs";
+import { tap, publish, ignoreElements, concatMap, startWith,
+    mergeMap, delay } from "rxjs/operators";
 
-// import { MaxPriorityQueue } from "@datastructures-js/priority-queue";
-// export const PRIORITY = { LOW: 10, BACKGROUND: 20, HIGH: 30 };
 
 const hopper = new Subject();
+
 const processQueue = hopper.pipe(
     concatMap((task) => {
-        return timer(500).pipe(ignoreElements(), startWith(task));
+        return timer(50).pipe(
+            ignoreElements(),
+            startWith(task),
+            mergeMap(task => {
+                task.connect();
+                return task;
+            })
+        );
     })
 );
 
-// Subscribe and never stop? maybe make a deferred that rebuilds itself
-// when it runs out of things to do?
-processQueue.subscribe((publishedTask$) => {
-    publishedTask$.connect();
-});
+processQueue.subscribe(
+    (result) => {
+        console.log("[queue] result", result);
+    },
+    err => console.warn("[queue] error", err),
+    () => console.log("why is queue complete")
+);
 
 
-// TODO: queue not executing in right order yet
-export function enqueue(obs$) {
-    // const taskObservable = obs$.pipe(publish());
-    // hopper.next(taskObservable);
-    // return taskObservable;
-    return obs$;
+// export function enqueue(obs$, label) {
+//     const task = obs$.pipe(
+//         delay(500),
+//         tap(() => console.log("[queue] starting", label)),
+//         publish()
+//     );
+//     hopper.next(task);
+//     return task;
+// }
+
+export const enqueue = (label, gap = 250) => obs$ => {
+    const task = obs$.pipe(
+        delay(gap),
+        tap(() => console.log("[queue] starting", label)),
+        publish()
+    );
+    hopper.next(task);
+    return task;
 }
+
+// export const enqueue = (label = "task") => obs$ => {
+//     const task$ = obs$.pipe(publish());
+//     hopper.next(task$);
+//     return task$;
+// }

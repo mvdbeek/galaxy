@@ -12,6 +12,7 @@ import Placeholder from "./Placeholder";
 import Dataset from "./Dataset";
 import DatasetCollection from "./DatasetCollection";
 import Subcollection from "./Subcollection";
+import Loading from "./Loading";
 
 export default {
     inject: [ "listState", "isSelected", "isExpanded", "setSelected", "setExpanded" ],
@@ -37,6 +38,7 @@ export default {
         Dataset,
         DatasetCollection,
         Subcollection,
+        Loading,
     },
 
     props: {
@@ -62,7 +64,9 @@ export default {
             return !this.source;
         },
         contentItemComponent() {
-            // Override me
+            if (this.source === null) {
+                return "Loading";
+            }
             return "Placeholder";
         },
         selected: {

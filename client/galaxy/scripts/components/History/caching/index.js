@@ -10,7 +10,7 @@ import config from "config";
  */
 const thread$ = of(config).pipe(
     mergeMap(async (mainConfigs) => {
-        const worker = new Worker("./worker/cacher");
+        const worker = new Worker("./worker");
         const newThread = await spawn(worker);
         const root = getRootFromIndexLink();
         const workerConfigs = { ...mainConfigs, root };

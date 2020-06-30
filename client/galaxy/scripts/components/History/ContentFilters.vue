@@ -4,6 +4,8 @@
             <b-form-input size="sm" :value="value" @input="input" :placeholder="'Search Filter' | localize" />
         </DebouncedInput>
 
+        <input v-model="skip" placeholder="Skip" />
+
         <b-input-group-append>
             <b-button
                 size="sm"
@@ -36,6 +38,16 @@ export default {
         params: { type: SearchParams, required: true },
     },
     computed: {
+        skip: {
+            get() {
+                return this.params.skip;
+            },
+            set(newSkip) {
+                const newParams = this.params.clone();
+                newParams.skip = newSkip
+                this.updateParams(newParams);
+            }
+        },
         filterText: {
             get() {
                 return this.params.filterText;

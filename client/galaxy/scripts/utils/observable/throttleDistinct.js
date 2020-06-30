@@ -7,9 +7,17 @@ import { groupBy, mergeMap, throttleTime } from "rxjs/operators";
  *
  * @param {integer} timeout throttle duration
  */
-export const throttleDistinct = (timeout = 1000) => pipe(
-    groupBy(value => value),
-    mergeMap(grouped => grouped.pipe(
-        throttleTime(timeout)
-    ))
-);
+export const throttleDistinct = (cfg = {}) => {
+
+    const {
+        timeout = 1000,
+        selector = value => value
+    } = cfg;
+
+    return pipe(
+        groupBy(selector),
+        mergeMap(grouped => grouped.pipe(
+            throttleTime(timeout)
+        ))
+    )
+}

@@ -1,6 +1,3 @@
-// import { historyFields } from "../../model/fields";
-
-
 // generate a content update url for the indicated history id
 export function buildHistoryContentsUrl(historyId, params) {
 
@@ -45,8 +42,6 @@ export function buildHistoryContentsUrl(historyId, params) {
 }
 
 
-
-
 // Collection + params -> request url w/o update_time
 export const buildDscContentUrl = (source_url, params) => {
     const { skip, limit } = params;
@@ -61,8 +56,6 @@ export const buildDscContentUrl = (source_url, params) => {
     const qs = [ skipClause, limitClause ].filter(o => o.length).join("&");
     return `${source_url}?${qs}`;
 }
-
-
 
 
 /**

@@ -5,6 +5,9 @@ export default {
 
     computed: {
         contentItemComponent() {
+            if (this.source === null) {
+                return "Loading";
+            }
             if (this.scrolling) {
                 return "Placeholder";
             }

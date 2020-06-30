@@ -5,13 +5,12 @@
  */
 
 import { combineLatest, NEVER } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, debounceTime, pluck } from "rxjs/operators";
+import { distinctUntilChanged, switchMap, debounceTime, pluck } from "rxjs/operators";
 import { SearchParams } from "../../model";
 import { log } from "utils/observable";
 import { vueRxShortcuts } from "../../../plugins/vueRxShortcuts";
-
-import { dscContentObservable } from "./dscContentObservable";
-import { loadDscContent } from "../../caching";
+import { loadDscContent, monitorDscQuery } from "../../caching";
+import { buildCollectionContentRequest } from "../../caching/pouchQueries";
 
 
 // equivalence comparator for historyId + params
@@ -20,6 +19,7 @@ const inputsSame = (a, b) => {
     const paramSame = SearchParams.equals(a[1], b[1]);
     return idSame && paramSame;
 };
+
 
 export default {
     mixins: [vueRxShortcuts],
@@ -89,9 +89,14 @@ export default {
         // will deal with only showing part of it.
 
         watchCache(src$, toggle$) {
+
             const cacheMessages$ = src$.pipe(
-                dscContentObservable()
+                switchMap(([ contents_url, params ]) => {
+                    const pouchRequest = buildCollectionContentRequest(contents_url, params);
+                    return monitorDscQuery(pouchRequest);
+                }),
             );
+
             const cacheWatch$ = toggle$.pipe(
                 switchMap((isOn) => (isOn ? cacheMessages$ : NEVER))
             );

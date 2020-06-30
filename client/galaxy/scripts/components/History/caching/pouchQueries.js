@@ -1,14 +1,11 @@
 /**
- * Return a pouchdb find config given a history id and search params
+ * Return all content matches for the search params
+ *
  * @param {string} history_id
  * @param {SearchParams} params
  */
 export function buildContentPouchRequest(history_id, params) {
-    // Omit skip/limit and return the all the cached matches.
-    // The new virtual scroller can handle the load since
-    // not all of that data is going to be rendered.
-    // const { skip, limit } = params;
-
+    const { skip, limit } = params;
     return {
         selector: {
             hid: { $gt: null }, // stupid but required syntax
@@ -16,12 +13,18 @@ export function buildContentPouchRequest(history_id, params) {
             ...buildContentSelectorFromParams(params),
         },
         sort: [{ hid: "desc" }, { history_id: "desc" }],
-        // skip,
-        // limit
+        skip,
+        limit
     };
 }
 
 
+/**
+ * Finds the most recently cached content row matching the search.
+ *
+ * @param {String} history_id
+ * @param {SearchParams} params
+ */
 export function lastCachedContentRequest(history_id, params) {
     return {
         selector: {
@@ -36,7 +39,9 @@ export function lastCachedContentRequest(history_id, params) {
 
 
 /**
- * Set fields related to the search params
+ * Build search selector for params filters:
+ * deleted, visible, text search
+ *
  * @param {SearchParams} params
  */
 function buildContentSelectorFromParams(params) {
@@ -67,3 +72,26 @@ function buildContentSelectorFromParams(params) {
 
     return selector;
 }
+
+
+
+
+/**
+ * Collection contents
+ *
+ * @param {*} contents_url
+ * @param {*} params
+ */
+export const buildCollectionContentRequest = (contents_url, params) => {
+    // const { skip, limit, filterText } = params;
+    return {
+        selector: {
+            // we put the contents_url in the id, should
+            // come back with auto ordered and sorted results
+            _id: { $regex: new RegExp(contents_url, "i")},
+            // ...buildSelectorFromParams(params),
+        },
+        // skip,
+        // limit
+    };
+};

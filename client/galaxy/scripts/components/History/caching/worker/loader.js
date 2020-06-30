@@ -3,15 +3,13 @@
  * Throw those at the worker and it'll figure out when to send them
  */
 
-import { from } from "rxjs";
-import { mergeMap, map, distinct } from "rxjs/operators";
-import { bulkCacheContent, bulkCacheDscContent} from "../galaxyDb";
+import { of, from, pipe } from "rxjs";
+import { tap, mergeMap, map, distinct } from "rxjs/operators";
+import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
 import { prependPath, requestWithUpdateTime } from "./util";
 import { SearchParams } from "../../model/SearchParams";
-import { buildDscContentUrl } from "./urls";
+// import { buildDscContentUrl } from "./urls";
 import { enqueue } from "./queue";
-
-
 
 
 /**
@@ -20,24 +18,18 @@ import { enqueue } from "./queue";
  * over the wire since we're monitoring the cache with
  * another observable.
  */
-export const loadContents = () => url$ => {
-
-    console.log("worker: loadContents");
-
-    return url$.pipe(
-        requestWithUpdateTime(),
-        bulkCacheContent(),
-        map((list) => {
-            const cached = list.filter((result) => result.ok);
-            return {
-                updatedItems: cached.length,
-                totalReceived: list.length,
-            };
-        })
-    );
-
-    // return enqueue(load$);
-};
+export const loadContents = () => pipe(
+    requestWithUpdateTime(),
+    bulkCacheContent(),
+    map((list) => {
+        const cached = list.filter((result) => result.ok);
+        return {
+            updatedItems: cached.length,
+            totalReceived: list.length,
+        };
+    }),
+    enqueue("loadContents")
+);
 
 
 
@@ -51,31 +43,32 @@ export const loadDscContent = () => input$ => {
         map(([ contents_url, rawParams ]) => {
             return [ contents_url, new SearchParams(rawParams) ];
         }),
-        mergeMap(([contents_url, params]) => {
+        // mergeMap(([contents_url, params]) => {
 
-            // break params into discrete chunks
-            const urls = params.chunkParams().map((p) => {
-                return buildDscContentUrl(contents_url, p);
-            });
+        //     // break params into discrete chunks
+        //     const urls = params.chunkParams().map((p) => {
+        //         return buildDscContentUrl(contents_url, p);
+        //     });
 
-            // request each chunk with update_time
-            return from(urls).pipe(
-                distinct(),
-                map(prependPath),
-                requestWithUpdateTime(),
-                // append the contents_url to the cached data like a primary key
-                bulkCacheDscContent({ contents_url }),
-            )
-        }),
-        map((list) => {
-            const cached = list.filter((result) => result.ok);
-            return {
-                cached,
-                updatedItems: cached.length,
-                totalReceived: list.length,
-            };
-        })
+        //     // request each chunk with update_time
+        //     return from(urls).pipe(
+        //         distinct(),
+        //         map(prependPath),
+        //         requestWithUpdateTime(),
+        //         // append the contents_url to the cached data like a primary key
+        //         bulkCacheDscContent({ contents_url }),
+        //     )
+        // }),
+        // map((list) => {
+        //     const cached = list.filter((result) => result.ok);
+        //     return {
+        //         cached,
+        //         updatedItems: cached.length,
+        //         totalReceived: list.length,
+        //     };
+        // })
     );
 
-    return enqueue(load$);
+    return load$;
+    // return enqueue(load$);
 }

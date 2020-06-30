@@ -8,7 +8,6 @@ import { of, pipe } from "rxjs";
 import { tap, map, mergeMap } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { createDateStore } from "../../model/DateStore";
-import { log } from "utils/observable/log";
 
 
 /**
@@ -66,7 +65,6 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
                     bufferSeconds,
                     dateFieldName,
                 }),
-                log("sending..."),
                 mergeMap(ajax.getJSON),
                 tap((results) => {
                     if (results.length) {

@@ -6,7 +6,7 @@ import { SearchParams } from "../../model/SearchParams";
 import { prependPath, requestWithUpdateTime } from "./util";
 import { content$, bulkCacheContent } from "../galaxyDb";
 import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
-import { lastCachedContentRequest } from "../queries";
+import { lastCachedContentRequest } from "../pouchQueries";
 // import { enqueue } from "./queue";
 
 
@@ -43,19 +43,11 @@ export const pollForHistoryUpdates = ({ pollInterval = 5000 } = {}) =>
             // do content poll
             const contentPoll$ = content$.pipe(
 
+                // buld content update url
                 mergeMap(async (db) => {
-
-                    // look up the most recently cached item that matches search params
-                    const queryConfig = lastCachedContentRequest(id, params);
-                    const response = await db.find(queryConfig);
-
-                    let since = moment.utc();
-                    if (response.docs && response.docs.length == 1) {
-                        since = response.docs[0].update_time;
-                    }
-
-                    // buld content update url
                     const baseUrl = buildHistoryContentsUrl(id, params);
+                    // latest cached content matching these params
+                    const since = await latestCachedContent(db, id, params);
                     return prependPath(`${baseUrl}&update_time-gt=${since}`);
                 }),
 
@@ -81,7 +73,16 @@ export const pollForHistoryUpdates = ({ pollInterval = 5000 } = {}) =>
     )
 
 
-// async function getLastCacheDate(findConfig) {
-//     const requestTime = moment.utc();
-//     return requestTime;
-// }
+async function latestCachedContent(db, id, params) {
+
+    // look up the most recently cached item that matches search params
+    const queryConfig = lastCachedContentRequest(id, params);
+    const response = await db.find(queryConfig);
+
+    let since = moment.utc();
+    if (response.docs && response.docs.length == 1) {
+        since = response.docs[0].update_time;
+    }
+
+    return since;
+}

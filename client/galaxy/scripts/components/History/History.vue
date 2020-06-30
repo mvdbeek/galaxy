@@ -33,6 +33,7 @@
 
             <template #listing :class="{ loadingBackground: loading }">
                 <HistoryContentList v-if="!history.empty"
+                    data-key="_id"
                     :params.sync="params"
                     :contents="contents"
                     :loading="loading"
@@ -47,6 +48,7 @@
         </Layout>
     </ContentProvider>
 </template>
+
 
 <script>
 
