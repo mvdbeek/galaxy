@@ -116,7 +116,5 @@ export const pollHistory = toObservable("pollHistory");
 export const monitorDscQuery = toObservable("monitorDscQuery");
 export const loadDscContent = toObservable("loadDscContent");
 
-
 // Debugging
-// export const wipeDatabase = toPromise("wipeDatabase", false);
-// export const loadNonsense = toPromise("loadNonsense", false);
+export const wipeDatabase = toPromise("wipeDatabase", false);

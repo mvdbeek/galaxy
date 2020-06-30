@@ -26,7 +26,7 @@
                 key="clear-history-cache"
                 title="Clear cache"
                 icon="fa fa-refresh"
-                @click.stop="wipeDatabase" />
+                @click.stop="clearCache" />
 
             <PriorityMenuItem
                 key="use-legacy-history"
@@ -43,7 +43,7 @@ import { mapActions } from "vuex";
 import { PriorityMenuItem, PriorityMenu } from "components/PriorityMenu";
 import HistorySelector from "./HistorySelector";
 import { createNewHistory } from "./model/queries";
-import { wipeDatabase } from "./caching/galaxyDb";
+import { wipeDatabase } from "./caching";
 
 export default {
     components: {
@@ -79,8 +79,9 @@ export default {
             this.historyId = newHistory.id;
         },
 
-        // temp function, will create something more targeted later
-        wipeDatabase
+        async clearCache() {
+            await wipeDatabase();
+        }
     },
 };
 </script>

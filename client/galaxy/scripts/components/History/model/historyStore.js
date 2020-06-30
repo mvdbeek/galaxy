@@ -2,7 +2,7 @@ import Vue from "vue";
 import VuexPersistence from "vuex-persist";
 import { History } from "./History";
 import { getHistoriesForCurrentUser, getCurrentHistoryFromServer, setCurrentHistoryOnServer } from "./queries";
-import { changeGalaxyHistory } from "../adapters/changeGalaxyHistory";
+// import { changeGalaxyHistory } from "../adapters/changeGalaxyHistory";
 
 const persist = new VuexPersistence();
 Vue.use(persist);

@@ -4,10 +4,8 @@
 
 import moment from "moment";
 import { pipe } from "rxjs";
-import { tap, map, shareReplay, mergeMap } from "rxjs/operators";
+import { tap, map, shareReplay } from "rxjs/operators";
 import { collection, cacheItem, bulkCache, installIndexes } from "./db";
-import { getToolboxDependencies } from "components/admin/AdminServices";
-import { getGalaxyInstance } from "app";
 
 
 // bulk inserts
@@ -150,14 +148,3 @@ export const dscContentIndexes = [
         ddoc: "idx-collection-contents-name",
     },
 ];
-
-
-export async function getDbInstance(db$) {
-    return await db$.toPromise();
-}
-
-export async function wipeDatabase() {
-    const db = await getDbInstance(content$);
-    const result = await db.erase();
-    debugger;
-}
