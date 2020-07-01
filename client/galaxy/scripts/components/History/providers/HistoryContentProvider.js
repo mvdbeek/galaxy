@@ -78,7 +78,10 @@ export default {
             const cache$ = inputs$.pipe(
                 tap(inputs => console.warn("[cachewatch] inputs changed", inputs)),
                 map(buildContentPouchRequest),
-                switchMap(selector => monitorContentQuery(selector)),
+                switchMap(selector => {
+                    console.log("SWITCHMAP", selector);
+                    return monitorContentQuery(selector)
+                }),
             );
             this.$subscribeTo(
                 cache$,
@@ -100,10 +103,10 @@ export default {
             // switchmap on id, mergemap on params
             const load$ = id$.pipe(
                 switchMap(id => {
-                    const channel = uuidv4();
+                    const channelKey = uuidv4();
                     return params$.pipe(
                         tap(params => console.warn("[loader] inputs changed", id, params)),
-                        mergeMap(params => loadHistoryContents(channel, [id, params]))
+                        mergeMap(params => loadHistoryContents(channelKey, [id, params]))
                     )
                 })
             );

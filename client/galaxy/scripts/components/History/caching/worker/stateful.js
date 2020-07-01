@@ -5,33 +5,35 @@
  * that he intended to do, or if the staelessness is a bug.
  */
 
-import { Subject } from "rxjs";
-import { share, finalize } from "rxjs/operators";
-
+import { BehaviorSubject } from "rxjs";
+import { share, filter, finalize } from "rxjs/operators";
 
 const channels = new Map();
 
 export const statefulObservableRoute = (preconfiguredOperator) => {
 
     const getObservableInstance = (channelKey) => {
-        const input = new Subject();
-        const newObs = input.pipe(
+        const input = new BehaviorSubject(null);
+        return input.pipe(
+            filter(input => input !== null),
             preconfiguredOperator,
             share(),
             finalize(() => {
                 channels.delete(channelKey);
             })
         );
-        return newObs;
     }
 
     return function (channelKey, request) {
-        if (!channels.has(channelKey)) {
-            const newInstance = getObservableInstance(channelKey);
-            channels.set(channelKey, newInstance);
+
+        let obs$ = channels.get(channelKey);
+        if (!obs$) {
+            obs$ = getObservableInstance(channelKey);
+            channels.set(channelKey, obs$);
         }
-        const obs$ = channels.get(channelKey);
+
         obs$.next(request);
-        return obs$.asObservable();
+
+        return obs$;
     }
 }

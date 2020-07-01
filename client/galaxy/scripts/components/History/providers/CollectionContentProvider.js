@@ -4,13 +4,13 @@
  * they don't want to.
  */
 
-import { combineLatest, NEVER } from "rxjs";
-import { distinctUntilChanged, switchMap, debounceTime, pluck, share } from "rxjs/operators";
+import { combineLatest } from "rxjs";
+import { tap, mergeMap, map, distinctUntilChanged, switchMap, debounceTime, pluck, share } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { loadDscContent, monitorDscQuery } from "../caching";
 import { buildCollectionContentRequest } from "../caching/pouchQueries";
-
+import { v4 as uuidv4 } from 'uuid';
 
 // equivalence comparator for historyId + params
 const inputsSame = (a, b) => {
@@ -25,7 +25,7 @@ export default {
     props: {
         collection: { type: Object, required: true },
         params: { type: SearchParams, required: true },
-        inputDebouncePeriod: { type: Number, required: false, default: 250 },
+        debounceDelay: { type: Number, required: false, default: 100 },
     },
     data: () => ({
         results: [],
@@ -41,98 +41,66 @@ export default {
         },
     },
     created() {
-        const noop = () => null;
 
-        // #region debugging toggles, lets you flip the subscriptions on and off
-
-        const isWatchingCache$ = this.watch$("isWatchingCache");
-        const cacheFlagMessages$ = isWatchingCache$;
-        this.$subscribeTo(cacheFlagMessages$, noop);
-
-        const isManualLoading$ = this.watch$("isManualLoading");
-        const loadingFlagMessage$ = isManualLoading$;
-        this.$subscribeTo(loadingFlagMessage$, noop);
-
-        // #endregion
-
-        // #region input observables
-
-        const url$ = this.watch$("collection", true).pipe(
-            distinctUntilChanged(),
-            pluck('contents_url'),
-        );
-
-        const param$ = this.watch$("params", true).pipe(
-            distinctUntilChanged(SearchParams.equals)
-        );
+        const url$ = this.watch$("collection").pipe(pluck('contents_url'));
+        const param$ = this.watch$("params");
 
         const inputs$ = combineLatest(url$, param$).pipe(
             debounceTime(0),
             distinctUntilChanged(inputsSame),
+            debounceTime(this.debounceDelay),
             share()
         );
 
-        // #endregion
+        if (this.isWatchingCache) {
+            this.watchCache(inputs$);
+        }
 
-        // watches cache for changes, emits results. Returns all matches to the
-        // passed parameters, emits on the results slotProp for the UI to render
-        this.watchCache(inputs$, isWatchingCache$);
+        if (this.isManualLoading) {
+            this.watchManualRequest(url$, param$);
+        }
 
-        // watches changes to history id and params, requests new data from api
-        // when necessary. That data gets dumped directly into the cache and will
-        // show up in .watchCache() above eventually
-        this.watchUserRequest(inputs$, isManualLoading$);
     },
     methods: {
-        // Subscribe to an observable that looks at the cache filtered by the params.
-        // Updates when cache updated, pass values to results property. Ignore the limits
-        // on the search params. Just return everything in the db and the virtual scroller
-        // will deal with only showing part of it.
 
-        watchCache(src$, toggle$) {
+        watchCache(src$) {
 
             const cacheMessages$ = src$.pipe(
-                switchMap((inputs) => {
-                    const pouchRequest = buildCollectionContentRequest(inputs);
+                map(buildCollectionContentRequest),
+                switchMap((pouchRequest) => {
                     return monitorDscQuery(pouchRequest);
                 }),
             );
 
-            const cacheWatch$ = toggle$.pipe(
-                switchMap((isOn) => (isOn ? cacheMessages$ : NEVER))
-            );
-
             this.$subscribeTo(
-                cacheWatch$,
-                (update) => {
-                    const { matches, loading, request } = update;
-                    console.log("[dscpanel cachewatch] result", matches.length, request, loading);
-                    this.results = Object.freeze(matches);
+                cacheMessages$,
+                (results) => {
+                    console.log("[dscpanel cachewatch] result", results);
+                    this.results = results
                 },
                 (err) => console.warn("[dscpanel cachewatch] error", err),
                 () => console.log("[dscpanel cachewatch] stream completed")
             );
         },
 
-        // Manual Loading: When user scrolls through the list, or changes
-        // the filters, we may have to make an ajax call, this dispatches
-        // the inputs to loadContents() which handles getting and caching
-        // the new requested stuff
+        watchManualRequest(url$, param$) {
 
-        watchUserRequest(src$, toggle$) {
-            const loadMessages$ = src$.pipe(switchMap(loadDscContent));
-            const loadWatch$ = toggle$.pipe(switchMap((isOn) => (isOn ? loadMessages$ : NEVER)));
+            const loadMessages$ = url$.pipe(
+                switchMap(url => {
+                    const channelKey = uuidv4();
+                    return param$.pipe(
+                        tap(params => console.warn("[dscpanel loader] params changed", url, params)),
+                        mergeMap(params => loadDscContent(channelKey, [url, params]))
+                    )
+                })
+            );
 
             this.$subscribeTo(
-                loadWatch$,
+                loadMessages$,
                 (result) => console.log("[dscpanel loader] next", result),
                 (err) => console.warn("[dscpanel loader] error", err),
                 () => console.warn("[dscpanel loader] complete: should only complete on unsub")
             );
-        },
-
-        updateManualLoading(val) {
-            this.isManualLoading = val;
         },
     },
     render() {
@@ -140,10 +108,7 @@ export default {
             params: this.params,
             results: this.results,
             totalMatches: this.totalMatches,
-            loading: this.loading,
-            // debugging props
-            isManualLoading: this.isManualLoading,
-            updateManualLoading: this.updateManualLoading,
+            loading: this.loading
         });
     },
 };

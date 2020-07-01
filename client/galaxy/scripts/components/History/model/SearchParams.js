@@ -54,7 +54,7 @@ export class SearchParams {
         if (val <= 0) {
             throw new Error("limit must be greater than 0");
         }
-        this._limit = Math.min(SearchParams.minPageSize, val);
+        this._limit = Math.min(SearchParams.chunkSize, val);
     }
 
     get end() {
@@ -111,7 +111,7 @@ export class SearchParams {
     // transforms param range (skip/limit) into discrete chunks that result in
     // request urls that are more likely to be cached
 
-    chunkParams(chunkSize = SearchParams.minPageSize) {
+    chunkParams(chunkSize = SearchParams.chunkSize) {
         const initialParams = this;
         const result = [];
         let currentParams = initialParams.chunk(chunkSize);
@@ -178,8 +178,8 @@ export class SearchParams {
 
 // Statics
 
-SearchParams.pageSize = 50;
-SearchParams.minPageSize = 5;
+SearchParams.pageSize = 100;
+SearchParams.chunkSize = 200;
 
 SearchParams.equals = function(a, b) {
     return deepEqual(a,b);

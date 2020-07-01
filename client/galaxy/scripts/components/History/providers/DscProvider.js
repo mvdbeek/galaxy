@@ -33,7 +33,6 @@ export default {
         const liveResults = combineLatest(request$, cacheWatcher$).pipe(
             debounceTime(0),
             switchMap(([request, cacheWatcher]) => cacheWatcher(request)),
-            pluck('matches'),
             filter(matches => matches.length > 0),
             map(matches => new DatasetCollection(matches[0]))
         );

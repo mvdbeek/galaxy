@@ -25,6 +25,7 @@
 
                 <template #listing>
                     <ContentList
+                        data-key="_id"
                         :params="params"
                         :contents="contents"
                         :loading="loading" />

@@ -6,7 +6,7 @@
  */
 
 import { of, pipe } from "rxjs";
-import { mergeMap, map } from "rxjs/operators";
+import { tap, mergeMap, map } from "rxjs/operators";
 import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
@@ -57,6 +57,7 @@ export const loadDscContent = (cfg = {}) => {
 
         mergeMap(([contents_url, params]) => {
             const url = buildDscContentUrl(contents_url, params);
+
             return of(url).pipe(
                 deSpamRequest({ context, onceEvery }),
                 // need to include the url in the cached results, it's used as
@@ -65,7 +66,7 @@ export const loadDscContent = (cfg = {}) => {
             )
         }),
 
-        cacheSummary()
+        cacheSummary(),
     )
 }
 
