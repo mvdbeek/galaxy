@@ -1,4 +1,4 @@
-import ContentItemMixin from "./ContentItemMixin";
+import ContentItemMixin from "./mixins/ContentItemMixin";
 
 export default {
     mixins: [ ContentItemMixin ],

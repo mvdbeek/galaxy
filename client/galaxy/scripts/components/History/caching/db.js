@@ -6,7 +6,7 @@ import config from "config";
 
 import { of, pipe, from } from "rxjs";
 import { map, mergeMap, withLatestFrom, catchError, reduce, share } from "rxjs/operators";
-import deepEqual from "fast-deep-equal";
+import deepEqual from "deep-equal";
 
 import PouchDB from "pouchdb-browser";
 import PouchDebug from "pouchdb-debug";

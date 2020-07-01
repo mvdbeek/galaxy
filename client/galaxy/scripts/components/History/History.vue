@@ -1,5 +1,5 @@
 <template>
-    <ContentProvider :history-id="historyId" :params="params"
+    <HistoryContentProvider :history-id="historyId" :params="params"
         v-slot="{ loading, results: contents, totalMatches }">
 
         <Layout>
@@ -46,14 +46,15 @@
             </template>
 
         </Layout>
-    </ContentProvider>
+    </HistoryContentProvider>
 </template>
 
 
 <script>
 
-import { History, SearchParams } from "./model";
-import ContentProvider from "./providers/HistoryContentProvider";
+import { History } from "./model";
+import { SearchParams } from "./model/SearchParams";
+import { HistoryContentProvider } from "./providers";
 import Layout from "./Layout";
 import HistoryMessages from "./HistoryMessages";
 import HistoryDetails from "./HistoryDetails";
@@ -66,7 +67,7 @@ import ListMixin from "./ListMixin";
 export default {
     mixins: [ ListMixin ],
     components: {
-        ContentProvider,
+        HistoryContentProvider,
         Layout,
         HistoryMessages,
         HistoryDetails,

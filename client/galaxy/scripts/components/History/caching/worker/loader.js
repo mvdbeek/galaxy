@@ -1,74 +1,98 @@
 /**
- * Rxjs operator that turns history + params into a series urls.
- * Throw those at the worker and it'll figure out when to send them
+ * Rxjs operator that turns history + params into a series of requests, and
+ * cache operations. Will avoid re-sending frequently requested urls (when a
+ * user is scrolling, for instance) and will track urls requested and send
+ * subsequent requests with an appended update_time
  */
 
-import { of, from, pipe } from "rxjs";
-import { tap, mergeMap, map, distinct } from "rxjs/operators";
+import { of, pipe } from "rxjs";
+import { mergeMap, map } from "rxjs/operators";
+import { throttleDistinct } from "utils/observable/throttleDistinct";
+import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
-import { prependPath, requestWithUpdateTime } from "./util";
-import { SearchParams } from "../../model/SearchParams";
-// import { buildDscContentUrl } from "./urls";
-import { enqueue } from "./queue";
+import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
+
+
+// TODO: Implement priority queue so we don't spam too much ajax at once
+// import { enqueue } from "./queue";
 
 
 /**
- * Load contents from passed url. Cache. Return summary
- * of cache results, but don't push all the results back
- * over the wire since we're monitoring the cache with
- * another observable.
+ * Turn historyId + params into content update urls. Send distinct requests
+ * within a 30 sec period. Polling will pick upany other server side variations
  */
-export const loadContents = () => pipe(
-    requestWithUpdateTime(),
-    bulkCacheContent(),
+
+export const loadHistoryContents = (cfg = {}) => {
+
+    const {
+        context = "load-contents",
+        onceEvery = 10 * 1000
+    } = cfg;
+
+    return pipe(
+        hydrateInputs(),
+        chunkInputs(),
+        map(([id, params]) => buildHistoryContentsUrl(id, params)),
+        deSpamRequest({ context, onceEvery }),
+        bulkCacheContent(),
+        cacheSummary(),
+    )
+}
+
+
+/**
+ * Load collection content (drill down)
+ * Params: contents_url + search params
+ */
+export const loadDscContent = (cfg = {}) => {
+
+    const {
+        context = "load-collection",
+        onceEvery = 10 * 1000
+    } = cfg;
+
+    return pipe(
+        hydrateInputs(),
+        chunkInputs(),
+
+        mergeMap(([contents_url, params]) => {
+            const url = buildDscContentUrl(contents_url, params);
+            return of(url).pipe(
+                deSpamRequest({ context, onceEvery }),
+                // need to include the url in the cached results, it's used as
+                // part of the cache key
+                bulkCacheDscContent({ contents_url }),
+            )
+        }),
+
+        cacheSummary()
+    )
+}
+
+
+
+// sends a url out if it hasn't been spammed.
+// keeps track of the last time we used that URL and sends
+// with an update_time > whatever when it does emit
+// Source: url$
+
+const deSpamRequest = ({ context, onceEvery = 30000 } = {}) => pipe(
+    throttleDistinct({ timeout: onceEvery }),
+    map(prependPath),
+    requestWithUpdateTime({ context }),
+)
+
+
+// Don't want to return the entire cache response to the client since
+// we've got another observable that is monitoring changes, but send back
+// a quick report of what we did.
+
+const cacheSummary = () => pipe(
     map((list) => {
         const cached = list.filter((result) => result.ok);
         return {
             updatedItems: cached.length,
             totalReceived: list.length,
-        };
-    }),
-    enqueue("loadContents")
-);
-
-
-
-/**
- * Load collection content (drill down)
- * Params: contents_url + SearchParams
- */
-export const loadDscContent = () => input$ => {
-
-    const load$ = input$.pipe(
-        map(([ contents_url, rawParams ]) => {
-            return [ contents_url, new SearchParams(rawParams) ];
-        }),
-        // mergeMap(([contents_url, params]) => {
-
-        //     // break params into discrete chunks
-        //     const urls = params.chunkParams().map((p) => {
-        //         return buildDscContentUrl(contents_url, p);
-        //     });
-
-        //     // request each chunk with update_time
-        //     return from(urls).pipe(
-        //         distinct(),
-        //         map(prependPath),
-        //         requestWithUpdateTime(),
-        //         // append the contents_url to the cached data like a primary key
-        //         bulkCacheDscContent({ contents_url }),
-        //     )
-        // }),
-        // map((list) => {
-        //     const cached = list.filter((result) => result.ok);
-        //     return {
-        //         cached,
-        //         updatedItems: cached.length,
-        //         totalReceived: list.length,
-        //     };
-        // })
-    );
-
-    return load$;
-    // return enqueue(load$);
-}
+        }
+    })
+)

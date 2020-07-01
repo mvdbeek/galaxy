@@ -4,7 +4,8 @@
  * @param {string} history_id
  * @param {SearchParams} params
  */
-export function buildContentPouchRequest(history_id, params) {
+export function buildContentPouchRequest(inputs) {
+    const [ history_id, params ] = inputs;
     const { skip, limit } = params;
     return {
         selector: {
@@ -25,7 +26,8 @@ export function buildContentPouchRequest(history_id, params) {
  * @param {String} history_id
  * @param {SearchParams} params
  */
-export function lastCachedContentRequest(history_id, params) {
+export function lastCachedContentRequest(inputs) {
+    const [ history_id, params ] = inputs;
     return {
         selector: {
             cached_at: { $gt: null }, // stupid but required syntax
@@ -82,7 +84,8 @@ function buildContentSelectorFromParams(params) {
  * @param {*} contents_url
  * @param {*} params
  */
-export const buildCollectionContentRequest = (contents_url, params) => {
+export const buildCollectionContentRequest = (inputs) => {
+    const [ contents_url, params ] = inputs;
     // const { skip, limit, filterText } = params;
     return {
         selector: {

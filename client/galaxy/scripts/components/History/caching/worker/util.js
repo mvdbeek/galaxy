@@ -4,10 +4,11 @@
  */
 
 import moment from "moment";
-import { of, pipe } from "rxjs";
+import { of, from, pipe } from "rxjs";
 import { tap, map, mergeMap } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { createDateStore } from "../../model/DateStore";
+import { SearchParams } from "../../model/SearchParams";
 
 
 /**
@@ -18,7 +19,7 @@ import { createDateStore } from "../../model/DateStore";
 export const workerConfig = { root: "/" };
 
 export const configure = (options = {}) => {
-    console.warn("configuring cache worker", options);
+    console.log("configuring cache worker", options);
     Object.assign(workerConfig, options);
 };
 
@@ -105,3 +106,27 @@ const fullUrl = (cfg = {}) => {
         })
     );
 };
+
+
+// passing SearchParams into the worker removes its class information
+
+export const hydrateInputs = () => pipe(
+    map(inputs => {
+        const [ id, rawParams ] = inputs;
+        return [ id, new SearchParams(rawParams) ];
+    })
+)
+
+
+// Breaks inputs into a set of discrete chunks so that the resulting URLs are
+// easier to cache
+// Source: [history_id, SearchParam] or [url, SeaarchParam]
+
+export const chunkInputs = () => pipe(
+    mergeMap(([idParameter, params]) => {
+        const chunks = params.chunkParams();
+        return from(chunks).pipe(
+            map(p => [idParameter, p])
+        )
+    })
+)

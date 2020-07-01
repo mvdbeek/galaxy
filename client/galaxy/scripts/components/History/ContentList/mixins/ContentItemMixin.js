@@ -8,11 +8,12 @@
  * derived from the current component state rather than the data itself.
  */
 
-import Placeholder from "./Placeholder";
-import Dataset from "./Dataset";
-import DatasetCollection from "./DatasetCollection";
-import Subcollection from "./Subcollection";
-import Loading from "./Loading";
+import Placeholder from "../Placeholder";
+import Dataset from "../Dataset";
+import DatasetCollection from "../DatasetCollection";
+import Subcollection from "../Subcollection";
+import Loading from "../Loading";
+
 
 export default {
     inject: [ "listState", "isSelected", "isExpanded", "setSelected", "setExpanded" ],

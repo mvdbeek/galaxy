@@ -1,5 +1,5 @@
 <template>
-    <div class="collapsed" :class="{ selected }" :data-state="item.state || 'waiting'">
+    <div class="collapsed" :class="{ selected }" data-state="waiting">
         <nav class="content-top-menu d-flex align-items-center justify-content-between p-1">
             <h5 class="flex-grow-1 overflow-hidden mr-auto text-nowrap text-truncate">
                 <span class="hid">{{ item.hid }}</span>

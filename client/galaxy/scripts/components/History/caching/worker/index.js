@@ -1,43 +1,62 @@
 /**
- * Makes interior worker methods available to the outside
+ * Makes interior worker methods available to the main thread
  */
 
 // TODO: isn't @babel/polyfill like bad now?
 import "@babel/polyfill";
 
-import { of } from "rxjs";
-import { log } from "utils/observable/log";
 import { expose } from "threads/worker";
+import { of } from "rxjs";
 import { getItemByKey, unacheItem } from "../db";
-import { content$, cacheContent, dscContent$ } from "../galaxyDb";
-import { pollForHistoryUpdates } from "./polling";
-import { loadContents, loadDscContent } from "./loader";
-import { configure } from "./util";
-import { wipeDatabase } from "./debugging";
+import { content$, dscContent$, cacheContent } from "../galaxyDb";
 
+import { pollForHistoryUpdates } from "./polling";
+import { loadHistoryContents, loadDscContent } from "./loader";
+import { configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
+import { wipeDatabase } from "./debugging";
+import { statefulObservableRoute } from "./stateful";
+
 
 expose({
 
+    // Debugging & utils
+
+    wipeDatabase,
     configure,
 
+
     // content
+
     monitorContentQuery: monitorQuery(content$),
 
-    cacheContentItem: (props) => of(props).pipe(cacheContent()),
-    uncacheContent: (props) => of(props).pipe(unacheItem(content$)),
-    getCachedContentByTypeId: (id) => of(id).pipe(getItemByKey(content$, "type_id")),
+    cacheContentItem: (props) =>
+        of(props).pipe(cacheContent()),
 
-    loadHistoryContents: (url) => of(url).pipe(loadContents()),
+    uncacheContent: (props) =>
+        of(props).pipe(unacheItem(content$)),
 
-    pollHistory: (inputs) => of(inputs).pipe(pollForHistoryUpdates()),
+    getCachedContentByTypeId: (id) =>
+        of(id).pipe(getItemByKey(content$, "type_id")),
+
+    loadHistoryContents: statefulObservableRoute(
+        loadHistoryContents({
+            onceEvery: 30 * 1000
+        })
+    ),
+
+    pollHistory: (inputs) =>
+        of(inputs).pipe(pollForHistoryUpdates()),
 
 
     // collection contents
-    monitorDscQuery: monitorQuery(dscContent$),
-    loadDscContent: (inputs) => of(inputs).pipe(loadDscContent()),
 
-    // Debugging & utils
-    wipeDatabase,
+    monitorDscQuery: monitorQuery(dscContent$),
+
+    loadDscContent: statefulObservableRoute(
+        loadDscContent({
+            onceEvery: 30 * 1000
+        })
+    ),
 
 });

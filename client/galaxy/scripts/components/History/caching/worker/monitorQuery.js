@@ -1,9 +1,8 @@
 import { of, Observable, combineLatest } from "rxjs";
-import { map, share, switchMap, shareReplay, scan, debounceTime } from "rxjs/operators";
-// import { SearchParams } from "../../model";
+import { map, share, switchMap, shareReplay, debounceTime } from "rxjs/operators";
 import hash from "object-hash";
-import { result } from "underscore";
-// import deepEqual from "fast-deep-equal";
+// import { SearchParams } from "../../model/SearchParams";
+// import deepEqual from "deep-equal";
 
 
 /**
@@ -13,8 +12,7 @@ import { result } from "underscore";
  * @param {object} request Pouchdb find configuration selector
  */
 export const monitorQuery = (db$, cfg = {}) => request => {
-
-    const { debouncePeriod = 250 } = cfg;
+    const { debouncePeriod = 100 } = cfg;
 
     // incoming request
     const request$ = of(request).pipe(share());
@@ -25,34 +23,20 @@ export const monitorQuery = (db$, cfg = {}) => request => {
     );
 
     // this is the actual emitter that watches the cache, it is customized
-    // to a specific db (content/collection content) and query
+    // to a specific db and query
     const watcher$ = combineLatest(filters$, db$).pipe(
+        debounceTime(0),
         switchMap(inputs => getWatcher(...inputs)),
+        debounceTime(debouncePeriod),
+        map(({ feed, matches }) => matches)
     );
 
-    // assemble a subset of the total matches around the region the user
-    // is currently staring at, by using pagination + the full result set
-    const summary$ = combineLatest(watcher$, request$).pipe(
-        debounceTime(100),
-        map(inputs => {
-            const [ { feed, matches }, request ] = inputs;
-            // const { skip, limit, sort } = request;
-
-            // // add an index for the virtual scroller
-            // for (let i = 0, len = allMatches.length; i < len; i++) {
-            //     allMatches[i]._scroll_index = i;
-            // }
-
-            // // sort & paginate
-            // const matches = feed.paginate({ skip, limit, sort });
-
-            return { request, matches, totalMatches: matches.length };
-        })
-    );
-
-    return summary$;
+    return watcher$;
 }
 
+// sort & paginate, guess not necessary?
+// const { skip, limit, sort } = request;
+// const matches = feed.paginate({ skip, limit, sort });
 
 
 /**
@@ -66,28 +50,13 @@ function getWatcherKey(selector, db) {
     return hash({ selector, databaseName: db.name });
 }
 
-function getWatcher(selector, db) {
-    const key = getWatcherKey(selector, db);
+function getWatcher(request, db) {
+    const key = getWatcherKey(request, db);
     if (!watchers.has(key)) {
-        watchers.set(key, createQueryWatcher(selector, db));
+        const newWatcher$ = pouchQueryEmitter(request, db).pipe(shareReplay(1))
+        watchers.set(key, newWatcher$);
     }
     return watchers.get(key);
-}
-
-
-/**
- * Live observer of cache, emits changes to the cache.
- *
- * @param {object} selector Pouch Db find selector
- * @param {PouchDB} db Pouch database instance
- */
-function createQueryWatcher(selector, db) {
-    return pouchQueryEmitter(selector, db, false).pipe(
-        scan((results, { feed, matches }) => {
-            return { feed, matches };
-        }, {}),
-        shareReplay(1),
-    );
 }
 
 
@@ -98,16 +67,13 @@ function createQueryWatcher(selector, db) {
  * @param {Object} request pouchdb find config
  * @param {PouchDB} db pouch database instance
  */
-export function pouchQueryEmitter(request, db) {
+function pouchQueryEmitter(request, db) {
 
     return Observable.create((obs) => {
 
         let lastMatches = [];
 
-        const feed = db.liveFind({
-            ...request,
-            aggregate: true
-        });
+        const feed = db.liveFind({ ...request, aggregate: true });
 
         feed.on("update", (update, matches) => {
             obs.next({ feed, matches });

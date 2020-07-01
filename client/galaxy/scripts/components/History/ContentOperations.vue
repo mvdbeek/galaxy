@@ -135,11 +135,9 @@
 
 <script>
 
-import ContentFilters from "./ContentFilters";
-
+import { SearchParams } from "./model/SearchParams";
+import { History } from "./model/History";
 import {
-    History,
-    SearchParams,
     hideSelectedContent,
     unhideSelectedContent,
     deleteSelectedContent,
@@ -149,14 +147,13 @@ import {
     deleteAllHiddenContent,
     purgeAllDeletedContent
 } from "./model";
-
 import { createDatasetCollection } from "./model/queries";
 import { cacheContent } from "./caching";
 
-// temporary adapters use old backbone modals we can rewrite them
+import ContentFilters from "./ContentFilters";
+import { PriorityMenu, PriorityMenuItem } from "components/PriorityMenu";
 import { buildCollectionModal } from "./adapters/buildCollectionModal";
 
-import { PriorityMenu, PriorityMenuItem } from "components/PriorityMenu";
 
 export default {
     components: {

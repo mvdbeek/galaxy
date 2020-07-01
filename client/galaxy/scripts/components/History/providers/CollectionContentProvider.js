@@ -5,12 +5,11 @@
  */
 
 import { combineLatest, NEVER } from "rxjs";
-import { distinctUntilChanged, switchMap, debounceTime, pluck } from "rxjs/operators";
-import { SearchParams } from "../../model";
-import { log } from "utils/observable";
-import { vueRxShortcuts } from "../../../plugins/vueRxShortcuts";
-import { loadDscContent, monitorDscQuery } from "../../caching";
-import { buildCollectionContentRequest } from "../../caching/pouchQueries";
+import { distinctUntilChanged, switchMap, debounceTime, pluck, share } from "rxjs/operators";
+import { SearchParams } from "../model/SearchParams";
+import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
+import { loadDscContent, monitorDscQuery } from "../caching";
+import { buildCollectionContentRequest } from "../caching/pouchQueries";
 
 
 // equivalence comparator for historyId + params
@@ -47,11 +46,11 @@ export default {
         // #region debugging toggles, lets you flip the subscriptions on and off
 
         const isWatchingCache$ = this.watch$("isWatchingCache");
-        const cacheFlagMessages$ = isWatchingCache$.pipe(log("cachewatch"));
+        const cacheFlagMessages$ = isWatchingCache$;
         this.$subscribeTo(cacheFlagMessages$, noop);
 
         const isManualLoading$ = this.watch$("isManualLoading");
-        const loadingFlagMessage$ = isManualLoading$.pipe(log("loading"));
+        const loadingFlagMessage$ = isManualLoading$;
         this.$subscribeTo(loadingFlagMessage$, noop);
 
         // #endregion
@@ -66,9 +65,11 @@ export default {
         const param$ = this.watch$("params", true).pipe(
             distinctUntilChanged(SearchParams.equals)
         );
+
         const inputs$ = combineLatest(url$, param$).pipe(
-            debounceTime(this.inputDebouncePeriod),
+            debounceTime(0),
             distinctUntilChanged(inputsSame),
+            share()
         );
 
         // #endregion
@@ -91,8 +92,8 @@ export default {
         watchCache(src$, toggle$) {
 
             const cacheMessages$ = src$.pipe(
-                switchMap(([ contents_url, params ]) => {
-                    const pouchRequest = buildCollectionContentRequest(contents_url, params);
+                switchMap((inputs) => {
+                    const pouchRequest = buildCollectionContentRequest(inputs);
                     return monitorDscQuery(pouchRequest);
                 }),
             );

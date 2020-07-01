@@ -34,12 +34,12 @@ const thread$ = of(config).pipe(
  * @param {Boolean} sendResponse Whether to return and serialize a response
  * @returns {Function} Function that returns an observable
  */
-export const toObservable = (method, sendResponse = true) => (...request) => {
+export const toObservable = (methodName, sendResponse = true) => (...request) => {
     return thread$.pipe(
         map((thread) => {
             if (!thread) throw new MissingWorkerError();
-            if (!(method in thread)) throw new MissingWorkerMethodError(method);
-            return thread[method];
+            if (!(methodName in thread)) throw new MissingWorkerMethodError(methodName);
+            return thread[methodName];
         }),
         mergeMap((method) => method(...request)),
         map((result) => (sendResponse ? result : true))

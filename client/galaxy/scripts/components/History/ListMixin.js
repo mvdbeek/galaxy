@@ -1,7 +1,7 @@
 /** common functionality between History contents List and Collection contents
  * List  */
 
-import { SearchParams } from "./model";
+import { SearchParams } from "./model/SearchParams";
 
 export default {
     data: () => ({
@@ -41,7 +41,7 @@ export default {
                 if (SearchParams.equals(newParams, this.contentParams)) return;
                 // reset paginaton if filters are different
                 if (!SearchParams.filtersEqual(newParams, this.contentParams)) {
-                    this.contentParams = newParams.resetLimits();
+                    this.contentParams = newParams.resetPagination();
                     return;
                 }
                 this.contentParams = newParams.clone();

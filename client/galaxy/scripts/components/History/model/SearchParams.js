@@ -1,10 +1,11 @@
-import deepEqual from "fast-deep-equal";
+import deepEqual from "deep-equal";
 
 const pairSplitRE = /(\w+=\w+)|(\w+="(\w|\s)+")/g;
 const scrubFieldRE = /[^\w]/g;
 const scrubQuotesRE = /'|"/g;
 const scrubSpaceRE = /\s+/g;
 
+// Fields thata can be used for text searches
 const validTextFields = new Set([
     "name",
     "history_content_type",
@@ -24,62 +25,113 @@ export class SearchParams {
         this.showHidden = false;
 
         // skip/limit
-        this.skip = 0;
-        this.limit = SearchParams.pageSize;
+        this._skip = 0;
+        this._limit = SearchParams.pageSize;
 
         Object.assign(this, props);
     }
+
+    // Prop Access
+
+    get skip() {
+        return this._skip;
+    }
+
+    set skip(val) {
+        val = Math.floor(val);
+        if (val < 0) {
+            throw new Error("skip must be positive");
+        }
+        this._skip = Math.max(val, 0);
+    }
+
+    get limit() {
+        return this._limit;
+    }
+
+    set limit(val) {
+        val = Math.floor(val);
+        if (val <= 0) {
+            throw new Error("limit must be greater than 0");
+        }
+        this._limit = Math.min(SearchParams.minPageSize, val);
+    }
+
+    get end() {
+        return this.skip + this.limit;
+    }
+
+    set end(val) {
+        val = Math.floor(val);
+        if (val <= this.skip) {
+            throw new Error("endpoint must be after start point");
+        }
+        this.limit = val - this.skip;
+    }
+
+
+    // Utils
 
     clone() {
         return new SearchParams(this);
     }
 
-    // reset to beginning of search results when filter parameters change
-    resetLimits() {
+
+    // Pagination
+
+    setPagination(skip, limit) {
         const newParams = this.clone();
-        newParams.skip = 0;
-        newParams.limit = SearchParams.pageSize;
+        newParams.skip = skip;
+        newParams.limit = limit;
         return newParams;
     }
 
-    setLimits(startIndex, endIndex) {
+    setRange(start, end) {
         const newParams = this.clone();
-        newParams.skip = startIndex;
-        newParams.limit = endIndex - startIndex;
+        newParams.skip = start;
+        newParams.end = end;
         return newParams;
     }
 
-    chunkParams(size = SearchParams.pageSize) {
-        const result = [];
+    resetPagination() {
+        return this.setPagination(0, SearchParams.pageSize);
+    }
+
+    nextPage() {
+        const newParams = this.clone();
+        newParams.skip += newParams.limit;
+        return newParams;
+    }
+
+    pad(amt) {
+        return this.setPagination(this.slip - amt, this.limit + amt);
+    }
+
+
+    // transforms param range (skip/limit) into discrete chunks that result in
+    // request urls that are more likely to be cached
+
+    chunkParams(chunkSize = SearchParams.minPageSize) {
         const initialParams = this;
-        let currentParams = initialParams.chunk(size);
+        const result = [];
+        let currentParams = initialParams.chunk(chunkSize);
         result.push(currentParams);
-        while (currentParams.skip + currentParams.limit < initialParams.skip + initialParams.limit) {
-            currentParams = currentParams.nextPage(size);
+        while (currentParams.end < initialParams.end) {
+            currentParams = currentParams.nextPage();
             result.push(currentParams);
         }
         return result;
     }
 
-    chunk(size = SearchParams.pageSize) {
-        const newParams = this.clone();
-        newParams.skip = size * Math.floor(newParams.skip / size);
-        newParams.limit = size;
-        return newParams;
+    chunk(size) {
+        const chunked = this.clone();
+        chunked.limit = size;
+        chunked.skip = chunked.limit * Math.floor(chunked.skip / chunked.limit);
+        return chunked;
     }
 
-    nextPage(size = SearchParams.pageSize) {
-        const newParams = this.clone();
-        newParams.skip = newParams.skip + size;
-        return newParams;
-    }
 
-    // extends limit on content query down for scrolling on UI
-    extendLimit(pages = 0.5) {
-        const newParams = this.clone();
-        newParams.limit = newParams.limit + Math.floor(pages * SearchParams.pageSize);
-        return newParams;
-    }
+    // Filtering, turns field=val into an object we can use to build selectors
 
     parseTextFilter() {
         const raw = this.filterText;
@@ -103,11 +155,14 @@ export class SearchParams {
         }, result);
     }
 
+
     // output current state to log
+
     report(label = "params") {
         const { skip, limit, showDeleted, showHidden, filterText } = this;
         const dString = showDeleted ? "showDeleted" : "";
         const hString = showHidden ? "showHidden" : "";
+
         console.groupCollapsed(label, `(skip: ${skip}, take: ${limit}), ${dString} ${hString}`);
         console.log("showDeleted", showDeleted);
         console.log("showHidden", showHidden);
@@ -117,20 +172,22 @@ export class SearchParams {
         console.groupEnd();
     }
 
-    // compare 2 param objects, trying fast-deep-equals but
-    // I'm a little worried that Vue might add nonsense to the class
-    // that affects the result when it adds its reactivity features.
-    static equals(a, b) {
-        return deepEqual(a, b);
-    }
-
-    // equivalence test ignoring skip/limit
-    static filtersEqual(a, b) {
-        const aa = a.resetLimits();
-        const bb = b.resetLimits();
-        return SearchParams.equals(aa, bb);
-    }
 }
 
-// size of requests from server
-SearchParams.pageSize = 200;
+
+
+// Statics
+
+SearchParams.pageSize = 50;
+SearchParams.minPageSize = 5;
+
+SearchParams.equals = function(a, b) {
+    return deepEqual(a,b);
+}
+
+// equivalence test ignoring skip/limit
+SearchParams.filtersEqual = function(a,b) {
+    const aa = a.resetPagination();
+    const bb = b.resetPagination();
+    return SearchParams.equals(aa, bb);
+}

@@ -17,7 +17,7 @@ export const throttleDistinct = (cfg = {}) => {
     return pipe(
         groupBy(selector),
         mergeMap(grouped => grouped.pipe(
-            throttleTime(timeout)
+            throttleTime(timeout),
         ))
     )
 }

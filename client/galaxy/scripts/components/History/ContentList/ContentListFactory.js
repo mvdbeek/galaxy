@@ -5,7 +5,7 @@
  */
 
 import VirtualList from "vue-virtual-scroll-list";
-import ContentListMixin from "./ContentListMixin";
+import ContentListMixin from "./mixins/ContentListMixin";
 
 export const ContentListFactory = (ItemComponent) => ({
     mixins: [ ContentListMixin ],
@@ -13,14 +13,18 @@ export const ContentListFactory = (ItemComponent) => ({
         <VirtualList class="vvsl"
             v-on="$listeners"
             v-bind="$attrs"
-            :data-component="itemComponent"
-            :data-sources="contents"
             :data-key="dataKey"
-            :keeps="50"
-            :estimate-size="36.2"
+            :data-sources="contents"
+            :data-component="itemComponent"
+            :keeps="40"
+            :estimate-size="38"
             wrap-tag="ul"
             item-tag="li"
             @scroll="(evt, { start, end }) => onScroll(start, end)"
+            @tottop="onToTop"
+            @tobottom="onToBottom"
+            :top-threshold="20"
+            :bottom-threshold="20"
         />
     `,
     components: {
@@ -31,4 +35,12 @@ export const ContentListFactory = (ItemComponent) => ({
             return ItemComponent;
         }
     },
+    methods: {
+        onToTop() {
+            console.log("onToTop", ...arguments);
+        },
+        onToBottom() {
+            console.log("onToBottom", ...arguments);
+        }
+    }
 });

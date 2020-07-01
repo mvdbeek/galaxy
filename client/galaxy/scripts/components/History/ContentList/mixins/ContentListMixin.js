@@ -1,7 +1,7 @@
 import { Subject } from "rxjs";
-import { activity } from "utils/observable";
-import { SearchParams } from "../model";
-import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
+import { activity } from "utils/observable/activity";
+import { SearchParams } from "../../model/SearchParams";
+import { vueRxShortcuts } from "../../../plugins/vueRxShortcuts";
 
 export default {
     mixins: [ vueRxShortcuts ],
@@ -21,9 +21,11 @@ export default {
     },
     methods: {
         onScroll(start, end) {
+            console.log("onScroll", start, end);
             this.scrollPing$.next(true);
-            const newParams = this.params.setLimits(start, end);
+            const newParams = this.params.setRange(start, end);
             if (!SearchParams.equals(this.params, newParams)) {
+                newParams.report("update:params");
                 this.$emit("update:params", newParams);
             }
         },

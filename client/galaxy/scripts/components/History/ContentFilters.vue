@@ -24,7 +24,7 @@
 </template>
 
 <script>
-import { SearchParams } from "./model";
+import { SearchParams } from "./model/SearchParams";
 import DebouncedInput from "components/Form/DebouncedInput";
 
 export default {
@@ -50,7 +50,7 @@ export default {
                 return this.params.filterText;
             },
             set(newVal) {
-                const newParams = this.params.resetLimits();
+                const newParams = this.params.resetPagination();
                 newParams.filterText = newVal;
                 this.updateParams(newParams);
             },
@@ -60,7 +60,7 @@ export default {
                 return this.params.showDeleted;
             },
             set(newFlag) {
-                const newParams = this.params.resetLimits();
+                const newParams = this.params.resetPagination();
                 newParams.showDeleted = newFlag;
                 this.updateParams(newParams);
             },
@@ -70,7 +70,7 @@ export default {
                 return this.params.showHidden;
             },
             set(newFlag) {
-                const newParams = this.params.resetLimits();
+                const newParams = this.params.resetPagination();
                 newParams.showHidden = newFlag;
                 this.updateParams(newParams);
             },

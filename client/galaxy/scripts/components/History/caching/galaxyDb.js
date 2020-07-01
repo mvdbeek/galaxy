@@ -51,20 +51,13 @@ const prepContent = (props) => {
 };
 
 export const contentIndexes = [
-    {
-        index: {
-            fields: ["hid"],
-        },
-        name: "by hid",
-        ddoc: "idx-content-hid",
-    },
-    {
-        index: {
-            fields: ["hid", "history_id"],
-        },
-        name: "by history and hid",
-        ddoc: "idx-content-history-id-hid",
-    },
+    // {
+    //     index: {
+    //         fields: ["hid", "history_id"],
+    //     },
+    //     name: "by history and hid",
+    //     ddoc: "idx-content-history-id-hid",
+    // },
     {
         index: {
             fields: [{ hid: "desc" }, { history_id: "desc" }],
@@ -72,20 +65,13 @@ export const contentIndexes = [
         name: "by history and hid descending",
         ddoc: "idx-content-history-id-hid-desc",
     },
-    {
-        index: {
-            fields: ["type_id"],
-        },
-        name: "by type_id",
-        ddoc: "idx-content-history-typeid",
-    },
-    {
-        index: {
-            fields: [{ cached_at: "desc" }],
-        },
-        name: "by cache time",
-        ddoc: "idx-content-history-cached_at",
-    },
+    // {
+    //     index: {
+    //         fields: [{ cached_at: "desc" }],
+    //     },
+    //     name: "by cache time",
+    //     ddoc: "idx-content-history-cached_at",
+    // },
 ];
 
 

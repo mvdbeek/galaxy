@@ -1,5 +1,5 @@
 import { combineLatest } from "rxjs";
-import { filter, map, pluck, switchMap, distinctUntilChanged } from "rxjs/operators";
+import { debounceTime, filter, map, pluck, switchMap, distinctUntilChanged } from "rxjs/operators";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { monitorContentQuery, monitorDscQuery } from "../caching";
 import { DatasetCollection } from "../model";
@@ -31,6 +31,7 @@ export default {
         );
 
         const liveResults = combineLatest(request$, cacheWatcher$).pipe(
+            debounceTime(0),
             switchMap(([request, cacheWatcher]) => cacheWatcher(request)),
             pluck('matches'),
             filter(matches => matches.length > 0),
