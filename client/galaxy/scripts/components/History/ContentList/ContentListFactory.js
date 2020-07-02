@@ -21,8 +21,8 @@ export const ContentListFactory = (ItemComponent) => ({
             wrap-tag="ul"
             item-tag="li"
             @scroll="(evt, { start, end }) => onScroll(start, end)"
-            @tottop="onToTop"
-            @tobottom="onToBottom"
+            @tottop="atTop"
+            @tobottom="atBottom"
             :top-threshold="20"
             :bottom-threshold="20"
         />
@@ -33,14 +33,6 @@ export const ContentListFactory = (ItemComponent) => ({
     computed: {
         itemComponent() {
             return ItemComponent;
-        }
-    },
-    methods: {
-        onToTop() {
-            console.log("onToTop", ...arguments);
-        },
-        onToBottom() {
-            console.log("onToBottom", ...arguments);
         }
     }
 });

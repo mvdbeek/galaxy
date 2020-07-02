@@ -4,6 +4,7 @@ import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { monitorContentQuery, monitorDscQuery } from "../caching";
 import { DatasetCollection } from "../model";
 
+
 export default {
     mixins:[ vueRxShortcuts ],
     props: {
@@ -32,9 +33,11 @@ export default {
 
         const liveResults = combineLatest(request$, cacheWatcher$).pipe(
             debounceTime(0),
-            switchMap(([request, cacheWatcher]) => cacheWatcher(request)),
-            filter(matches => matches.length > 0),
-            map(matches => new DatasetCollection(matches[0]))
+            switchMap(([request, cacheWatcher]) => {
+                return cacheWatcher(request)
+            }),
+            filter(({ matches }) => matches.length > 0),
+            map(({ matches }) => new DatasetCollection(matches[0]))
         );
 
         this.$subscribeTo(liveResults, dsc => this.dsc = dsc);

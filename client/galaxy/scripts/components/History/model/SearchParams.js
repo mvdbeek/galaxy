@@ -39,9 +39,6 @@ export class SearchParams {
 
     set skip(val) {
         val = Math.floor(val);
-        if (val < 0) {
-            throw new Error("skip must be positive");
-        }
         this._skip = Math.max(val, 0);
     }
 
@@ -54,7 +51,7 @@ export class SearchParams {
         if (val <= 0) {
             throw new Error("limit must be greater than 0");
         }
-        this._limit = Math.min(SearchParams.chunkSize, val);
+        this._limit = val;
     }
 
     get end() {
@@ -104,14 +101,9 @@ export class SearchParams {
         return this.setPagination(0, SearchParams.pageSize);
     }
 
-    nextPage() {
-        const newParams = this.clone();
-        newParams.skip += newParams.limit;
-        return newParams;
-    }
-
-    pad(amt) {
-        return this.setPagination(this.slip - amt, this.limit + amt);
+    pad(amt = SearchParams.chunkSize) {
+        const padded = this.setRange(this.skip - amt, this.end + amt);
+        return padded;
     }
 
 
@@ -121,19 +113,24 @@ export class SearchParams {
     chunkParams(chunkSize = SearchParams.chunkSize, debug = false) {
         const initialParams = this;
         const result = [];
+
         let currentParams = initialParams.chunk(chunkSize);
         result.push(currentParams);
+
         while (currentParams.end < initialParams.end) {
-            currentParams = currentParams.nextPage();
+            currentParams = currentParams.clone();
+            currentParams.skip += chunkSize;
             result.push(currentParams);
         }
+
         if (debug) {
             result.forEach(p => p.report(">>> chunk"));
         }
+
         return result;
     }
 
-    chunk(size) {
+    chunk(size = SearchParams.chunkSize) {
         const chunked = this.clone();
         chunked.limit = size;
         chunked.skip = chunked.limit * Math.floor(chunked.skip / chunked.limit);
@@ -173,7 +170,7 @@ export class SearchParams {
         const dString = showDeleted ? "showDeleted" : "";
         const hString = showHidden ? "showHidden" : "";
 
-        console.groupCollapsed(label, `(skip: ${skip}, take: ${limit}), ${dString} ${hString}`);
+        console.groupCollapsed(label, `(skip: ${skip}, limit: ${limit}), ${dString} ${hString}`);
         console.log("showDeleted", showDeleted);
         console.log("showHidden", showHidden);
         console.log("filterText", filterText);

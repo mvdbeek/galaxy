@@ -28,7 +28,9 @@ export const monitorQuery = (db$, cfg = {}) => request => {
         debounceTime(0),
         switchMap(inputs => getWatcher(...inputs)),
         debounceTime(debouncePeriod),
-        map(({ feed, matches }) => matches)
+        map(({ /* feed, */ matches, request }) => {
+            return { matches, request };
+        })
     );
 
     return watcher$;
@@ -76,12 +78,12 @@ function pouchQueryEmitter(request, db) {
         const feed = db.liveFind({ ...request, aggregate: true });
 
         feed.on("update", (update, matches) => {
-            obs.next({ feed, matches });
+            obs.next({ feed, matches, request });
             lastMatches = matches;
         });
 
         feed.on("ready", () => {
-            obs.next({ feed, matches: lastMatches })
+            obs.next({ feed, matches: lastMatches, request })
         });
 
         feed.on("error", (err) => obs.error(err));
