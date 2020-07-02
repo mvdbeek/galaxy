@@ -1,5 +1,5 @@
 // generate a content update url for the indicated history id
-export function buildHistoryContentsUrl(historyId, params) {
+export function buildHistoryContentsUrl([ historyId, params ]) {
 
     const { skip, limit, showDeleted, showHidden } = params;
     const skipClause = skip > 0 ? `offset=${skip}` : "";
@@ -43,7 +43,7 @@ export function buildHistoryContentsUrl(historyId, params) {
 
 
 // Collection + params -> request url w/o update_time
-export const buildDscContentUrl = (source_url, params) => {
+export const buildDscContentUrl = ([ source_url, params ]) => {
     const { skip, limit } = params;
 
     let skipClause = "";

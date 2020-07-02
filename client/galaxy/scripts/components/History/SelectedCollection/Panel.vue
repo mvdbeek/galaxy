@@ -4,8 +4,8 @@
     <DscProvider :is-root="isRoot" :collection="selectedCollection"
         v-slot="{ dsc }">
 
-        <CollectionContentProvider v-if="dsc" :collection="dsc" :params="params"
-            v-slot="{ loading, results: contents }">
+        <CollectionContentProvider v-if="dsc" :id="dsc.contents_url"
+            v-slot="{ params, updateParams, loading, results: contents }">
 
             <Layout>
                 <template #nav>

@@ -1,6 +1,6 @@
 <template>
-    <HistoryContentProvider :history-id="historyId" :params="params" :debounce-period="500"
-        v-slot="{ loading, results: contents, totalMatches }">
+    <HistoryContentProvider :id="historyId" :debounce-period="500"
+        v-slot="{ loading, params, results: contents, totalMatches, updateParams }">
 
         <Layout>
 
@@ -22,7 +22,8 @@
             <template #listcontrols>
                 <ContentOperations v-if="!history.empty"
                     :history="history"
-                    :params.sync="params"
+                    :params="params"
+                    @update:params="updateParams"
                     :total-matches="totalMatches"
                     :contents="contents"
                     :loading="loading"
@@ -34,7 +35,8 @@
             <template #listing :class="{ loadingBackground: loading }">
                 <HistoryContentList v-if="!history.empty"
                     data-key="_id"
-                    :params.sync="params"
+                    :params="params"
+                    @update:params="updateParams"
                     :contents="contents"
                     :loading="loading"
                     :scrolling.sync="listState.scrolling"

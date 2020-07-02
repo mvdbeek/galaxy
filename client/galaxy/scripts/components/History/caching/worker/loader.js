@@ -36,7 +36,7 @@ export const loadHistoryContents = (cfg = {}) => {
     return pipe(
         hydrateInputs(),
         chunkInputs(),
-        map(([id, params]) => buildHistoryContentsUrl(id, params)),
+        map(buildHistoryContentsUrl),
         deSpamRequest({ context, onceEvery }),
         bulkCacheContent(),
         cacheSummary(),
@@ -58,15 +58,13 @@ export const loadDscContent = (cfg = {}) => {
     return pipe(
         hydrateInputs(),
         chunkInputs(),
-
-        mergeMap(([contents_url, params]) => {
-            const url = buildDscContentUrl(contents_url, params);
-
-            return of(url).pipe(
+        mergeMap(inputs => {
+            return of(inputs).pipe(
+                map(buildDscContentUrl),
                 deSpamRequest({ context, onceEvery }),
                 // need to include the url in the cached results, it's used as
                 // part of the cache key
-                bulkCacheDscContent({ contents_url }),
+                bulkCacheDscContent({ contents_url: inputs[0] }),
             )
         }),
 

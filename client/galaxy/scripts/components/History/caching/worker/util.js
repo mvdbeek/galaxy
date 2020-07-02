@@ -154,7 +154,7 @@ export const hydrateInputs = () => pipe(
 
 export const chunkInputs = () => pipe(
     mergeMap(([idParameter, params]) => {
-        const chunks = params.chunkParams(SearchParams.chunkSize, true);
+        const chunks = params.chunkParams(SearchParams.chunkSize);
         return from(chunks).pipe(
             map(p => [idParameter, p])
         )

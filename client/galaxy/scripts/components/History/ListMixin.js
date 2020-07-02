@@ -1,11 +1,8 @@
 /** common functionality between History contents List and Collection contents
  * List  */
 
-import { SearchParams } from "./model/SearchParams";
-
 export default {
     data: () => ({
-        contentParams: new SearchParams(),
         listState: {
 
             // some of the UI is not super-responsive
@@ -31,22 +28,6 @@ export default {
             setExpanded: this.setExpanded,
             setSelected: this.setSelected,
         }
-    },
-    computed: {
-        params: {
-            get() {
-                return this.contentParams;
-            },
-            set(newParams) {
-                if (SearchParams.equals(newParams, this.contentParams)) return;
-                // reset paginaton if filters are different
-                if (!SearchParams.filtersEqual(newParams, this.contentParams)) {
-                    this.contentParams = newParams.resetPagination();
-                    return;
-                }
-                this.contentParams = newParams.clone();
-            }
-        },
     },
     methods: {
         isSelected({ type_id }) {

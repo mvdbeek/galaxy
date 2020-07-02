@@ -1,5 +1,4 @@
-import moment from "moment";
-import { of, concat, pipe, combineLatest } from "rxjs";
+import { zip, of, concat, pipe } from "rxjs";
 import { tap, map, mergeMap, switchMap, repeat, delay, withLatestFrom, debounceTime, share } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { prependPath, requestWithUpdateTime, hydrateInputs } from "./util";
@@ -59,21 +58,17 @@ const historyPoll = () => pipe(
 // Checks server for content updates
 const contentPoll = () => src$ => {
 
-    const input$ = src$.pipe(
-        share()
-    );
-
-    const since$ = input$.pipe(
-        lastCachedItemDate()
-    );
+    const input$ = src$.pipe(share());
+    const since$ = input$.pipe(lastCachedContentDate());
 
     const baseUrl$ = input$.pipe(
-        map(inputs => buildHistoryContentsUrl(...inputs))
+        map(buildHistoryContentsUrl)
     );
 
-    const url$ = combineLatest(baseUrl$, since$).pipe(
-        debounceTime(0),
-        map(([ baseUrl, since ]) => `${baseUrl}&update_time-gt=${since}`),
+    const url$ = zip(baseUrl$, since$).pipe(
+        map(([ baseUrl, since ]) => {
+            return since !== null ? `${baseUrl}&update_time-gt=${since}` : baseUrl;
+        }),
         map(prependPath)
     );
 
@@ -98,22 +93,24 @@ const contentPoll = () => src$ => {
 }
 
 
-// gets the latest update_time in the cache for content matching
-// the indicated search params
+// look up the most recently cached item that matches search params
+// source: pouchdb-find query config
 
-const lastCachedItemDate = () => pipe(
+const lastCachedContent = () => pipe(
     withLatestFrom(content$),
-    mergeMap(async ([inputs, db]) => {
-
-        // look up the most recently cached item that matches search params
-        const queryConfig = lastCachedContentRequest(inputs);
+    mergeMap(async ([queryConfig, db]) => {
         const response = await db.find(queryConfig);
-
-        let since = moment.utc();
         if (response.docs && response.docs.length == 1) {
-            since = response.docs[0].update_time;
+            return response.docs[0];
         }
-
-        return since;
+        return null;
     }),
+)
+
+const lastCachedContentDate = () => pipe(
+    map(lastCachedContentRequest),
+    lastCachedContent(),
+    map(lastCached => {
+        return lastCached ? lastCached.update_time : null;
+    })
 )
