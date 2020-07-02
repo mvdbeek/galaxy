@@ -10,7 +10,7 @@ import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { loadDscContent, monitorDscQuery } from "../caching";
 import { buildCollectionContentRequest } from "../caching/pouchQueries";
-import { v4 as uuidv4 } from 'uuid';
+
 
 // equivalence comparator for historyId + params
 const inputsSame = (a, b) => {
@@ -25,7 +25,7 @@ export default {
     props: {
         collection: { type: Object, required: true },
         params: { type: SearchParams, required: true },
-        debounceDelay: { type: Number, required: false, default: 100 },
+        debouncePeriod: { type: Number, required: false, default: 100 },
     },
     data: () => ({
         results: [],
@@ -48,7 +48,7 @@ export default {
         const inputs$ = combineLatest(url$, param$).pipe(
             debounceTime(0),
             distinctUntilChanged(inputsSame),
-            debounceTime(this.debounceDelay),
+            debounceTime(this.debouncePeriod),
             share()
         );
 
@@ -87,10 +87,10 @@ export default {
 
             const loadMessages$ = url$.pipe(
                 switchMap(url => {
-                    const channelKey = uuidv4();
                     return param$.pipe(
-                        tap(params => console.warn("[dscpanel loader] params changed", url, params)),
-                        mergeMap(params => loadDscContent(channelKey, [url, params]))
+                        debounceTime(this.debouncePeriod),
+                        tap(params => params.report("[dscpanel] SENDING...")),
+                        mergeMap(params => loadDscContent([url, params]))
                     )
                 })
             );

@@ -6,16 +6,20 @@
  */
 
 import { of, pipe } from "rxjs";
-import { tap, mergeMap, map } from "rxjs/operators";
-import { throttleDistinct } from "utils/observable/throttleDistinct";
+import { mergeMap, map } from "rxjs/operators";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
-import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
+import { prependPath, requestWithUpdateTime, hydrateInputs,
+    chunkInputs, throttleDistinct } from "./util";
+
+// need to use an altnernate version of throttledistinct because subscriptions
+// don't really persist on their own inside the worker. Extracting the state
+// like this will make the code simpler.
+// import { throttleDistinct } from "utils/observable/throttleDistinct";
 
 
 // TODO: Implement priority queue so we don't spam too much ajax at once
 // import { enqueue } from "./queue";
-
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
@@ -77,7 +81,7 @@ export const loadDscContent = (cfg = {}) => {
 // with an update_time > whatever when it does emit
 // Source: url$
 
-const deSpamRequest = ({ context, onceEvery = 30000 } = {}) => pipe(
+const deSpamRequest = ({ context, onceEvery = 10000 } = {}) => pipe(
     throttleDistinct({ timeout: onceEvery }),
     map(prependPath),
     requestWithUpdateTime({ context }),

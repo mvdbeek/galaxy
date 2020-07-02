@@ -15,7 +15,7 @@ import { loadHistoryContents, loadDscContent } from "./loader";
 import { configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
 import { wipeDatabase } from "./debugging";
-import { statefulObservableRoute } from "./stateful";
+// import { statefulObservableRoute } from "./stateful";
 
 
 expose({
@@ -39,11 +39,8 @@ expose({
     getCachedContentByTypeId: (id) =>
         of(id).pipe(getItemByKey(content$, "type_id")),
 
-    loadHistoryContents: statefulObservableRoute(
-        loadHistoryContents({
-            onceEvery: 30 * 1000
-        })
-    ),
+    loadHistoryContents: (request) =>
+        of(request).pipe(loadHistoryContents({ onceEvery: 30 * 1000 })),
 
     pollHistory: (inputs) =>
         of(inputs).pipe(pollForHistoryUpdates()),
@@ -53,10 +50,20 @@ expose({
 
     monitorDscQuery: monitorQuery(dscContent$),
 
-    loadDscContent: statefulObservableRoute(
-        loadDscContent({
-            onceEvery: 30 * 1000
-        })
-    ),
+    loadDscContent: (request) =>
+        of(request).pipe(loadDscContent({ onceEvery: 30 * 1000 })),
+
+
+    // Experimental
+
+    // statefulObservableRoute(
+    //     loadHistoryContents({ onceEvery: 30 * 1000 }),
+    //     "loadHistoryContents"
+    // ),
+
+    // loadDscContent: statefulObservableRoute(
+    //     loadDscContent({ onceEvery: 30 * 1000 }),
+    //     "loadDscContent"
+    // ),
 
 });

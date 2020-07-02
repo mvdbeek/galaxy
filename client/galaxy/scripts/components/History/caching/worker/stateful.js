@@ -10,7 +10,7 @@ import { share, filter, finalize } from "rxjs/operators";
 
 const channels = new Map();
 
-export const statefulObservableRoute = (preconfiguredOperator) => {
+export const statefulObservableRoute = (preconfiguredOperator, label = "stateful") => {
 
     const getObservableInstance = (channelKey) => {
         const input = new BehaviorSubject(null);
@@ -19,6 +19,7 @@ export const statefulObservableRoute = (preconfiguredOperator) => {
             preconfiguredOperator,
             share(),
             finalize(() => {
+                console.log("removing observable", label, channelKey, channels.size);
                 channels.delete(channelKey);
             })
         );
@@ -29,6 +30,7 @@ export const statefulObservableRoute = (preconfiguredOperator) => {
         let obs$ = channels.get(channelKey);
         if (!obs$) {
             obs$ = getObservableInstance(channelKey);
+            console.log("adding observable", label, channelKey, channels.size);
             channels.set(channelKey, obs$);
         }
 

@@ -77,6 +77,13 @@ export class SearchParams {
     }
 
 
+    // need this because of what Vue does to objects to make them reactive
+    export() {
+        const { filterText, showDeleted, showHidden, skip, limit } = this;
+        return { filterText, showDeleted, showHidden, skip, limit };
+    }
+
+
     // Pagination
 
     setPagination(skip, limit) {
@@ -111,7 +118,7 @@ export class SearchParams {
     // transforms param range (skip/limit) into discrete chunks that result in
     // request urls that are more likely to be cached
 
-    chunkParams(chunkSize = SearchParams.chunkSize) {
+    chunkParams(chunkSize = SearchParams.chunkSize, debug = false) {
         const initialParams = this;
         const result = [];
         let currentParams = initialParams.chunk(chunkSize);
@@ -119,6 +126,9 @@ export class SearchParams {
         while (currentParams.end < initialParams.end) {
             currentParams = currentParams.nextPage();
             result.push(currentParams);
+        }
+        if (debug) {
+            result.forEach(p => p.report(">>> chunk"));
         }
         return result;
     }
@@ -178,11 +188,11 @@ export class SearchParams {
 
 // Statics
 
-SearchParams.pageSize = 100;
+SearchParams.pageSize = 60;
 SearchParams.chunkSize = 200;
 
 SearchParams.equals = function(a, b) {
-    return deepEqual(a,b);
+    return deepEqual(a.export(), b.export());
 }
 
 // equivalence test ignoring skip/limit

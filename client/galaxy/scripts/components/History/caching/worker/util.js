@@ -5,7 +5,7 @@
 
 import moment from "moment";
 import { of, from, pipe } from "rxjs";
-import { tap, map, mergeMap } from "rxjs/operators";
+import { tap, map, mergeMap, filter } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { createDateStore } from "../../model/DateStore";
 import { SearchParams } from "../../model/SearchParams";
@@ -79,6 +79,7 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
 
 
 
+
 /**
  * Takes a base URL appends an update_time-gt restriction based on the lst
  * time this URL was requestd as indicated by the dateStore.
@@ -108,6 +109,35 @@ const fullUrl = (cfg = {}) => {
 };
 
 
+
+export const throttleDistinctDateStore = createDateStore("throttleDistinct default");
+
+export const throttleDistinct = (config = {}) => {
+
+    const {
+        timeout = 1000,
+        dateStore = throttleDistinctDateStore
+    } = config;
+
+    return pipe(
+        filter(val => {
+            const now = moment();
+            let ok = true;
+            if (dateStore.has(val)) {
+                const lastRequest = dateStore.getLastDate(val);
+                ok = (now - lastRequest) > timeout;
+            }
+            if (ok) {
+                dateStore.set(val, now);
+            }
+            return ok;
+        }),
+    )
+}
+
+
+
+
 // passing SearchParams into the worker removes its class information
 
 export const hydrateInputs = () => pipe(
@@ -124,7 +154,7 @@ export const hydrateInputs = () => pipe(
 
 export const chunkInputs = () => pipe(
     mergeMap(([idParameter, params]) => {
-        const chunks = params.chunkParams();
+        const chunks = params.chunkParams(SearchParams.chunkSize, true);
         return from(chunks).pipe(
             map(p => [idParameter, p])
         )

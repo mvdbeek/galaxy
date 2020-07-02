@@ -10,7 +10,7 @@ import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { SearchParams } from "../model/SearchParams";
 import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching/index";
 import { buildContentPouchRequest } from "../caching/pouchQueries";
-import { v4 as uuidv4 } from 'uuid';
+
 
 // equivalence comparator for id + params
 const inputsSame = (a, b) => {
@@ -25,7 +25,7 @@ export default {
     props: {
         historyId: { type: String, required: true },
         params: { type: SearchParams, required: true },
-        debounceDelay: { type: Number, required: false, default: 100 },
+        debouncePeriod: { type: Number, required: false, default: 250 },
     },
     data: () => ({
         results: [],
@@ -52,7 +52,7 @@ export default {
         const inputs$ = combineLatest(id$, params$).pipe(
             debounceTime(0),
             distinctUntilChanged(inputsSame),
-            debounceTime(this.debounceDelay),
+            debounceTime(this.debouncePeriod),
             share()
         );
 
@@ -76,10 +76,9 @@ export default {
 
         watchCache(inputs$) {
             const cache$ = inputs$.pipe(
-                tap(inputs => console.warn("[cachewatch] inputs changed", inputs)),
+                tap(inputs => console.log("[cachewatch] inputs changed", inputs)),
                 map(buildContentPouchRequest),
                 switchMap(selector => {
-                    console.log("SWITCHMAP", selector);
                     return monitorContentQuery(selector)
                 }),
             );
@@ -102,11 +101,13 @@ export default {
 
             // switchmap on id, mergemap on params
             const load$ = id$.pipe(
-                switchMap(id => {
-                    const channelKey = uuidv4();
+                switchMap(historyId => {
                     return params$.pipe(
-                        tap(params => console.warn("[loader] inputs changed", id, params)),
-                        mergeMap(params => loadHistoryContents(channelKey, [id, params]))
+                        debounceTime(this.debouncePeriod),
+                        tap(params => params.report("[loader] SENDING...")),
+                        mergeMap(params => {
+                            return loadHistoryContents([historyId, params])
+                        })
                     )
                 })
             );

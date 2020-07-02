@@ -1,5 +1,5 @@
 <template>
-    <HistoryContentProvider :history-id="historyId" :params="params"
+    <HistoryContentProvider :history-id="historyId" :params="params" :debounce-period="500"
         v-slot="{ loading, results: contents, totalMatches }">
 
         <Layout>
