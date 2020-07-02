@@ -60,18 +60,23 @@ export const contentIndexes = [
     // },
     {
         index: {
-            fields: [{ hid: "desc" }, { history_id: "desc" }],
+            fields: [
+                { hid: "desc" },
+                { history_id: "desc" }
+            ],
         },
         name: "by history and hid descending",
         ddoc: "idx-content-history-id-hid-desc",
     },
-    // {
-    //     index: {
-    //         fields: [{ cached_at: "desc" }],
-    //     },
-    //     name: "by cache time",
-    //     ddoc: "idx-content-history-cached_at",
-    // },
+    {
+        index: {
+            fields: [
+                { cached_at: "desc" }
+            ],
+        },
+        name: "by cache time",
+        ddoc: "idx-content-history-cached_at",
+    },
 ];
 
 

@@ -1,3 +1,20 @@
+/**
+ * Framework for a content list provider. A scroller like this has 3 observables
+ *
+ * Cache watcher. (this.cacheObservable)
+ * Watches cache for changes. Emits updates from the worker
+ *
+ * Loader
+ * This monitors user input and loads new content on demand. It monitors the
+ * pagination (skip/limit) and filter properties contained in SearchParams,
+ * then issues a request to the worker to load and cache matching data.
+ *
+ * Polling
+ * This subscribes to a long-running observable inside the worker that polls
+ * the history to get updates which may not have come from the user. Monitors
+ * parameter history to reduce the range of responses.
+ */
+
 import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 
@@ -20,16 +37,27 @@ export const contentListMixin = {
         totalMatches() {
             return this.results.length;
         },
+        id$() {
+            return this.watch$("id");
+        },
+        param$() {
+            return this.watch$("params");
+        },
+        cacheObservable() {
+            return null;
+        },
+        loadingObservable() {
+            return null;
+        },
+        pollingObservable() {
+            return null;
+        },
     },
     created() {
 
-        const id$ = this.watch$("id");
-        const param$ = this.watch$("params");
-
-        const cacheWatcher$ = this.cacheObservable(id$, param$);
-        if (cacheWatcher$) {
+        if (this.cacheObservable) {
             this.$subscribeTo(
-                cacheWatcher$,
+                this.cacheObservable,
                 ({ matches }) => {
                     console.log("[cache] results", matches.length);
                     this.results = matches
@@ -39,20 +67,18 @@ export const contentListMixin = {
             );
         }
 
-        const loading$ = this.loadingObservable(id$, param$)
-        if (loading$ ) {
+        if (this.loadingObservable) {
             this.$subscribeTo(
-                loading$,
+                this.loadingObservable,
                 (result) => console.log("[loader] result", result),
                 (err) => console.warn("[loader] error", err),
                 () => console.warn("[loader] complete: should only complete on unsub")
             );
         }
 
-        const polling$ = this.pollingObservable(id$, param$)
-        if (this.isPolling) {
+        if (this.pollingObservable) {
             this.$subscribeTo(
-                polling$,
+                this.pollingObservable,
                 (result) => console.log("[poll] result", result),
                 (err) => console.warn("[poll] error", err),
                 () => console.warn("[poll] complete: should only complete on unsub")
@@ -61,28 +87,14 @@ export const contentListMixin = {
     },
     methods: {
 
-        // override me
-
-        cacheObservable() {
-            return null;
-        },
-
-        loadingObservable() {
-            return null;
-        },
-
-        pollingObservable() {
-            return null;
-        },
-
         updateParams(newParams) {
-            if (SearchParams.equals(newParams, this.contentParams)) return;
+            if (SearchParams.equals(newParams, this.params)) return;
             // reset paginaton if filters are different
-            if (!SearchParams.filtersEqual(newParams, this.contentParams)) {
-                this.contentParams = newParams.resetPagination();
+            if (!SearchParams.filtersEqual(newParams, this.params)) {
+                this.params = newParams.resetPagination();
                 return;
             }
-            this.contentParams = newParams.clone();
+            this.params = newParams.clone();
         },
 
         // equality comparator for "inputs" which is [ id, SearchParams ]

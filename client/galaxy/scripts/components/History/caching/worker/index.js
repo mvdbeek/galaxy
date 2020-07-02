@@ -12,7 +12,7 @@ import { content$, dscContent$, cacheContent } from "../galaxyDb";
 
 import { pollForHistoryUpdates } from "./polling";
 import { loadHistoryContents, loadDscContent } from "./loader";
-import { configure } from "./util";
+import { init, configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
 import { wipeDatabase } from "./debugging";
 // import { statefulObservableRoute } from "./stateful";
@@ -20,10 +20,12 @@ import { wipeDatabase } from "./debugging";
 
 expose({
 
+
     // Debugging & utils
 
     wipeDatabase,
     configure,
+    init,
 
 
     // content
@@ -40,10 +42,10 @@ expose({
         of(id).pipe(getItemByKey(content$, "type_id")),
 
     loadHistoryContents: (request) =>
-        of(request).pipe(loadHistoryContents({ onceEvery: 30 * 1000 })),
+        of(request).pipe(loadHistoryContents({ onceEvery: 5 * 1000 })),
 
     pollHistory: (inputs) =>
-        of(inputs).pipe(pollForHistoryUpdates()),
+        of(inputs).pipe(pollForHistoryUpdates({ pollInterval: 10 * 1000 })),
 
 
     // collection contents
@@ -51,7 +53,7 @@ expose({
     monitorDscQuery: monitorQuery(dscContent$),
 
     loadDscContent: (request) =>
-        of(request).pipe(loadDscContent({ onceEvery: 30 * 1000 })),
+        of(request).pipe(loadDscContent({ onceEvery: 5 * 1000 })),
 
 
     // Experimental

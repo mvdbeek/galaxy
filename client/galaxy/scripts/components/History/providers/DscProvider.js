@@ -16,15 +16,18 @@ export default {
     }),
     created() {
 
-        // Watching either content or dscContent depending on whether this is the root
-        // Really the only thing this is changing is the collection the worker will monitor
-        // It will be either "galaxy-content" or "galaxy-collection-content" depending
-        // on how far in we've drilled down.
+        // Watching either content or dscContent depending on whether this is
+        // the root Really the only thing this is changing is the collection the
+        // worker will monitor It will be either "galaxy-content" or
+        // "galaxy-collection-content" depending on how far in we've drilled
+        // down. First layer takes content directly from galaxy-content, the
+        // normal history_contents list.
+
         const cacheWatcher$ = this.watch$('isRoot', true).pipe(
             map(val => val ? monitorContentQuery : monitorDscQuery)
         );
 
-        // assemble pouchdb.find config for just the one row
+        // assemble pouchdb-find config for just the one row
         const request$ = this.watch$('collection', true).pipe(
             pluck('_id'),
             distinctUntilChanged(),

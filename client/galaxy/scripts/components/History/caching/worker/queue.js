@@ -4,13 +4,12 @@
  */
 
 import { timer, Subject } from "rxjs";
-import { tap, publish, ignoreElements, concatMap, startWith,
-    mergeMap, delay } from "rxjs/operators";
+import { ignoreElements, concatMap, startWith, mergeMap } from "rxjs/operators";
 
 
 const hopper = new Subject();
 
-const processQueue = hopper.pipe(
+export const processQueue = hopper.pipe(
     concatMap((task) => {
         return timer(100).pipe(
             ignoreElements(),
@@ -24,33 +23,16 @@ const processQueue = hopper.pipe(
     })
 );
 
-processQueue.subscribe(
-    (result) => console.log("[queue] result", result),
-    err => console.warn("[queue] error", err),
-    () => console.log("why is queue complete")
-);
-
 export function enqueue(obs$, label) {
-    const task = obs$.pipe(
-        delay(500),
-        tap(() => console.log("[queue] task starting", label)),
-        publish()
-    );
-    hopper.next(task);
-    return task;
+    console.log(`[queue] enqueue: ${label}`);
+
+    // const task = obs$.pipe(
+    //     delay(500),
+    //     tap(() => console.log("[queue] task starting", label)),
+    //     publish()
+    // );
+    // hopper.next(task);
+    // return task;
+
+    return obs$;
 }
-
-// export const enqueue = (label, gap = 250) => obs$ => {
-//     const task = obs$.pipe(
-//         delay(gap),
-//         publish()
-//     );
-//     hopper.next(task);
-//     return task;
-// }
-
-// export const enqueue = (label = "task", obs$) => {
-//     const task$ = obs$.pipe(publish());
-//     hopper.next(task$);
-//     return task$;
-// }

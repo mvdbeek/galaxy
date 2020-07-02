@@ -19,21 +19,21 @@ import { prependPath, requestWithUpdateTime, hydrateInputs,
 
 
 // TODO: Implement priority queue so we don't spam too much ajax at once
-// import { enqueue } from "./queue";
+import { enqueue } from "./queue";
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
  * within a 30 sec period. Polling will pick upany other server side variations
  */
 
-export const loadHistoryContents = (cfg = {}) => {
+export const loadHistoryContents = (cfg = {}) => src$ => {
 
     const {
         context = "load-contents",
         onceEvery = 10 * 1000
     } = cfg;
 
-    return pipe(
+    const load$ = src$.pipe(
         hydrateInputs(),
         chunkInputs(),
         map(buildHistoryContentsUrl),
@@ -41,6 +41,8 @@ export const loadHistoryContents = (cfg = {}) => {
         bulkCacheContent(),
         cacheSummary(),
     )
+
+    return enqueue(load$, "load contents");
 }
 
 
@@ -48,14 +50,14 @@ export const loadHistoryContents = (cfg = {}) => {
  * Load collection content (drill down)
  * Params: contents_url + search params
  */
-export const loadDscContent = (cfg = {}) => {
+export const loadDscContent = (cfg = {}) => src$ => {
 
     const {
         context = "load-collection",
         onceEvery = 10 * 1000
     } = cfg;
 
-    return pipe(
+    const load$ = src$.pipe(
         hydrateInputs(),
         chunkInputs(),
         mergeMap(inputs => {
@@ -70,6 +72,8 @@ export const loadDscContent = (cfg = {}) => {
 
         cacheSummary(),
     )
+
+    return enqueue(load$, "load contents");
 }
 
 
@@ -79,7 +83,7 @@ export const loadDscContent = (cfg = {}) => {
 // with an update_time > whatever when it does emit
 // Source: url$
 
-const deSpamRequest = ({ context, onceEvery = 10000 } = {}) => pipe(
+export const deSpamRequest = ({ context, onceEvery = 10000 } = {}) => pipe(
     throttleDistinct({ timeout: onceEvery }),
     map(prependPath),
     requestWithUpdateTime({ context }),
@@ -90,7 +94,7 @@ const deSpamRequest = ({ context, onceEvery = 10000 } = {}) => pipe(
 // we've got another observable that is monitoring changes, but send back
 // a quick report of what we did.
 
-const cacheSummary = () => pipe(
+export const cacheSummary = () => pipe(
     map((list) => {
         const cached = list.filter((result) => result.ok);
         return {

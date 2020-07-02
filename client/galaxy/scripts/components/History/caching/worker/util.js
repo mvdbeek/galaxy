@@ -9,7 +9,7 @@ import { tap, map, mergeMap, filter } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { createDateStore } from "../../model/DateStore";
 import { SearchParams } from "../../model/SearchParams";
-
+import { processQueue } from "./queue";
 
 /**
  * Configuration var for inside the worker, must be set when worker
@@ -19,9 +19,24 @@ import { SearchParams } from "../../model/SearchParams";
 export const workerConfig = { root: "/" };
 
 export const configure = (options = {}) => {
-    console.log("configuring cache worker", options);
+    console.log("[worker] configuring cache worker", options);
     Object.assign(workerConfig, options);
 };
+
+
+/**
+ * Subscribe to globa subs
+ */
+
+export const init = () => {
+    console.log("[worker] Subscribing to internal priority queue");
+    processQueue.subscribe(
+        (result) => console.log("[queue] result", result),
+        err => console.warn("[queue] error", err),
+        () => console.log("[queue] complete, why is queue complete?")
+    );
+}
+
 
 /**
  * Prepend against this config. Can't access document so we can't use
@@ -109,7 +124,7 @@ const fullUrl = (cfg = {}) => {
 };
 
 
-
+// use same store as requestWithUpdateTime?
 export const throttleDistinctDateStore = createDateStore("throttleDistinct default");
 
 export const throttleDistinct = (config = {}) => {

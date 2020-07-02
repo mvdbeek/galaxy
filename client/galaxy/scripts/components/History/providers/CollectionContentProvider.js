@@ -4,7 +4,7 @@ props.id = contents_url
 */
 
 import { combineLatest } from "rxjs";
-import { mergeMap, map, distinctUntilChanged, switchMap, debounceTime, pluck } from "rxjs/operators";
+import { mergeMap, map, distinctUntilChanged, switchMap, debounceTime } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { loadDscContent, monitorDscQuery } from "../caching";
 import { buildCollectionContentRequest } from "../caching/pouchQueries";
@@ -12,19 +12,22 @@ import { contentListMixin } from "./mixins";
 
 export default {
     mixins: [contentListMixin],
-    methods: {
+    computed: {
 
-        cacheObservable(url$, param$) {
+        cacheObservable() {
+            const url$ = this.id$;
 
-            // cache watcher does not care about skip/limit
-            const limitlessParam$ = param$.pipe(
+            const limitlessParam$ = this.param$.pipe(
                 // tap(p => p.report("[dscpanel cachewatch] start")),
                 map(p => p.resetPagination()),
                 // tap(p => p.report("[dscpanel cachewatch] reset pagination")),
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(SearchParams.equals)
-            );
+            )
 
+            // We want to switchMap on url, mergeMap on params. This gives us
+            // the option of incrementally updating a result-set inside the
+            // provider as params change which may be necessary for big lists
             const cache$ = url$.pipe(
                 switchMap(url => {
                     return limitlessParam$.pipe(
@@ -37,8 +40,9 @@ export default {
             return cache$;
         },
 
-
-        loadingObservable(url$, param$) {
+        loadingObservable() {
+            const url$ = this.id$;
+            const param$ = this.param$;
 
             // need to pad the range before we give it to the loader so we
             // load a little more than we're looking at right now

@@ -1,11 +1,7 @@
 /**
  * Return all content matches for the search params
- *
- * @param {string} history_id
- * @param {SearchParams} params
  */
-export function buildContentPouchRequest(inputs) {
-    const [ history_id, params ] = inputs;
+export function buildContentPouchRequest([ history_id, params ]) {
     const { skip, limit } = params;
     return {
         selector: {
@@ -21,13 +17,9 @@ export function buildContentPouchRequest(inputs) {
 
 
 /**
- * Finds the most recently cached content row matching the search.
- *
- * @param {String} history_id
- * @param {SearchParams} params
+ * Finds the most recently cached row matching the search.
  */
-export function lastCachedContentRequest(inputs) {
-    const [ history_id, params ] = inputs;
+export function lastCachedContentRequest([ history_id, params ]) {
     return {
         selector: {
             cached_at: { $gt: null }, // stupid but required syntax
@@ -40,13 +32,14 @@ export function lastCachedContentRequest(inputs) {
 }
 
 
+
 /**
  * Build search selector for params filters:
  * deleted, visible, text search
  *
  * @param {SearchParams} params
  */
-function buildContentSelectorFromParams(params) {
+export function buildContentSelectorFromParams(params) {
     const selector = {
         visible: { $eq: true },
         isDeleted: { $eq: false },
@@ -79,13 +72,10 @@ function buildContentSelectorFromParams(params) {
 
 
 /**
- * Collection contents
- *
- * @param {*} contents_url
- * @param {*} params
+ * Collection contents, takes a contents_url representing the parent and
+ * search params for filters/pagination
  */
-export const buildCollectionContentRequest = (inputs) => {
-    const [ contents_url, params ] = inputs;
+export const buildCollectionContentRequest = ([ contents_url, params ]) => {
     // const { skip, limit, filterText } = params;
     return {
         selector: {
