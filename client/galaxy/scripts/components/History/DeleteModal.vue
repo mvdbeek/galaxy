@@ -1,6 +1,5 @@
 <template>
-    <b-modal ref="deleteModal" title="Delete History"
-        v-model="showModal" title-tag="h2">
+    <b-modal ref="deleteModal" title="Delete History" v-model="showModal" title-tag="h2">
         <p>Delete?</p>
     </b-modal>
 </template>
@@ -11,7 +10,7 @@ import { History } from "./model";
 export default {
     props: {
         history: { type: History, required: true },
-        value: { type: Boolean, required: false, default: false }
+        value: { type: Boolean, required: false, default: false },
     },
     computed: {
         showModal: {
@@ -22,8 +21,8 @@ export default {
                 if (newVal !== oldVal) {
                     this.$emit("input", newVal);
                 }
-            }
-        }
-    }
+            },
+        },
+    },
 };
 </script>

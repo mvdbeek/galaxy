@@ -25,7 +25,6 @@ PouchDB.plugin(PouchErase);
 
 // PouchDB.debug.enable('pouchdb:find');
 
-
 /**
  * Generate an observable that initializes and shares a pouchdb instance.
  *
@@ -36,7 +35,7 @@ export const collection = (options) =>
     of(options).pipe(
         map((opts) => {
             console.warn("building new PouchDB instance", opts);
-            return new PouchDB({ ...config.caching, ...opts })
+            return new PouchDB({ ...config.caching, ...opts });
         }),
         // scan((inst, name) => inst ? inst : createDb({ ...config.caching, name }), null),
         catchError((err) => console.warn("OOPS!", err)),
@@ -145,7 +144,6 @@ export const unacheItem = (coll$) =>
             return coll.remove(doomedDoc);
         })
     );
-
 
 /**
  * Install indexes in pouchdb instance. These need to exist

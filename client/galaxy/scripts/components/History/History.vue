@@ -1,9 +1,10 @@
 <template>
-    <HistoryContentProvider :id="historyId" :debounce-period="500"
-        v-slot="{ loading, params, results: contents, totalMatches, updateParams }">
-
+    <HistoryContentProvider
+        :id="historyId"
+        :debounce-period="500"
+        v-slot="{ loading, params, results: contents, totalMatches, updateParams }"
+    >
         <Layout>
-
             <!-- we're going to want to make this optional for when we put multiple
                 histories on the page, so pass the slot through from the parent -->
             <template v-slot:nav>
@@ -20,7 +21,8 @@
             </template>
 
             <template v-slot:listcontrols>
-                <ContentOperations v-if="!history.empty"
+                <ContentOperations
+                    v-if="!history.empty"
                     :history="history"
                     :params="params"
                     @update:params="updateParams"
@@ -33,7 +35,8 @@
             </template>
 
             <template v-slot:listing :class="{ loadingBackground: loading }">
-                <HistoryContentList v-if="!history.empty"
+                <HistoryContentList
+                    v-if="!history.empty"
                     data-key="_id"
                     :params="params"
                     @update:params="updateParams"
@@ -46,14 +49,11 @@
             <template v-slot:modals>
                 <ToolHelpModal />
             </template>
-
         </Layout>
     </HistoryContentProvider>
 </template>
 
-
 <script>
-
 import { History } from "./model";
 import { SearchParams } from "./model/SearchParams";
 import { HistoryContentProvider } from "./providers";
@@ -67,7 +67,7 @@ import ToolHelpModal from "./ToolHelpModal";
 import ListMixin from "./ListMixin";
 
 export default {
-    mixins: [ ListMixin ],
+    mixins: [ListMixin],
     components: {
         HistoryContentProvider,
         Layout,
@@ -96,6 +96,5 @@ export default {
             }
         },
     },
-}
-
+};
 </script>

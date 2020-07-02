@@ -22,9 +22,7 @@
                     </b-form-invalid-feedback>
                 </b-form-group>
 
-                <b-form-group
-                    label="Choose which datasets from the original history to include."
-                >
+                <b-form-group label="Choose which datasets from the original history to include.">
                     <b-form-radio v-model="copyAll" :value="false">
                         Copy only the active, non-deleted datasets.
                     </b-form-radio>
@@ -104,7 +102,7 @@ export default {
             this.loading = true;
             const { history, name, copyAll } = this;
             const newHistory = await cloneHistory(history, name, copyAll);
-            await this.storeHistory(newHistory)
+            await this.storeHistory(newHistory);
             await this.setCurrentHistoryId(newHistory.id);
             this.loading = false;
             close();

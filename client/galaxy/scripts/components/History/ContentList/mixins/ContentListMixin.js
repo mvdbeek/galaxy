@@ -4,7 +4,7 @@ import { SearchParams } from "../../model/SearchParams";
 import { vueRxShortcuts } from "../../../plugins/vueRxShortcuts";
 
 export default {
-    mixins: [ vueRxShortcuts ],
+    mixins: [vueRxShortcuts],
     props: {
         dataKey: { type: String, required: true },
         params: { type: SearchParams, required: true },
@@ -15,9 +15,9 @@ export default {
     created() {
         this.scrollPing$ = new Subject();
         const scrolling$ = this.scrollPing$.pipe(activity());
-        this.$subscribeTo(scrolling$, val => {
-            this.$emit('update:scrolling', val);
-        })
+        this.$subscribeTo(scrolling$, (val) => {
+            this.$emit("update:scrolling", val);
+        });
     },
     methods: {
         onScroll(start, end) {
@@ -42,6 +42,6 @@ export default {
             moreBottom.limit += SearchParams.chunkSize;
             moreBottom.report("Morebottom");
             this.$emit("update:params", moreBottom);
-        }
+        },
     },
-}
+};

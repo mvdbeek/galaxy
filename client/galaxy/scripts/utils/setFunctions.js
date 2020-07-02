@@ -6,5 +6,5 @@ export function setEquals(A, B) {
 }
 
 export function intersection(A, B) {
-    return new Set([...A].filter(x => B.has(x)));
+    return new Set([...A].filter((x) => B.has(x)));
 }

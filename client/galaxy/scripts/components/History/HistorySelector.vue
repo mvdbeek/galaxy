@@ -1,8 +1,11 @@
 <template>
     <b-dropdown text="Select history..." size="sm">
-        <b-dropdown-item v-for="h in availableHistories" :key="h.id"
+        <b-dropdown-item
+            v-for="h in availableHistories"
+            :key="h.id"
             :active="value == h.id"
-            @click="$emit('input', h.id)">
+            @click="$emit('input', h.id)"
+        >
             {{ h.name }}
         </b-dropdown-item>
     </b-dropdown>
@@ -13,7 +16,7 @@ import { mapGetters } from "vuex";
 
 export default {
     props: {
-        value: { type: String, required: true }
+        value: { type: String, required: true },
     },
     computed: {
         ...mapGetters("history", ["activeHistories"]),
@@ -24,7 +27,7 @@ export default {
                 const bb = b.name.toLowerCase();
                 return bb - aa;
             });
-        }
-    }
+        },
+    },
 };
 </script>

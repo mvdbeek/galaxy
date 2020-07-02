@@ -11,11 +11,11 @@ const eventHub = new Vue();
 export const eventHubMixin = {
     created() {
         this.eventHub = eventHub;
-    }
-}
+    },
+};
 
 export const eventHubPlugin = {
     install(Vue) {
         Vue.mixin(eventHubMixin);
-    }
+    },
 };

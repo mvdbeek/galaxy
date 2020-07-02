@@ -13,7 +13,6 @@ import { contentListMixin } from "./mixins";
 export default {
     mixins: [contentListMixin],
     computed: {
-
         // Cache Observer: Subscribe to an observable that looks at the cache
         // filtered by the params. Updates when cache updated, pass values to
         // results property.
@@ -24,19 +23,19 @@ export default {
             // cache watcher does not care about skip/limit
             const limitlessParam$ = this.param$.pipe(
                 // tap(p => p.report("[dscpanel cachewatch] start")),
-                map(p => p.resetPagination()),
+                map((p) => p.resetPagination()),
                 // tap(p => p.report("[dscpanel cachewatch] reset pagination")),
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(SearchParams.equals)
-            )
+            );
 
             // switchmap on id, mergemap on params
             const cache$ = historyId$.pipe(
-                switchMap(id => {
+                switchMap((id) => {
                     return limitlessParam$.pipe(
-                        map(params => buildContentPouchRequest([id, params])),
+                        map((params) => buildContentPouchRequest([id, params])),
                         mergeMap(monitorContentQuery)
-                    )
+                    );
                 })
             );
 
@@ -55,14 +54,14 @@ export default {
             // load a little more than we're looking at right now
             const paddedParams$ = param$.pipe(
                 // tap(p => p.report("[loader] start")),
-                map(p => p.pad()),
+                map((p) => p.pad())
                 // tap(p => p.report("[loader] padded pagination")),
             );
 
             const load$ = combineLatest(historyId$, paddedParams$).pipe(
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(this.inputsSame),
-                switchMap(loadHistoryContents),
+                switchMap(loadHistoryContents)
             );
 
             return load$;
@@ -79,16 +78,14 @@ export default {
             const poll$ = combineLatest(historyId$, this.cumulativeRange$).pipe(
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(this.inputsSame),
-                tap(inputs => console.log("[poll] inputs changed", inputs)),
+                tap((inputs) => console.log("[poll] inputs changed", inputs)),
                 switchMap(pollHistory)
             );
 
             return poll$;
         },
 
-
         cumulativeRange$() {
-
             // need to reset when history id changes
 
             const newRange$ = defer(() => {
@@ -98,7 +95,7 @@ export default {
                         range.end = Math.max(range.end, newParam.end);
                         return range;
                     }, new SearchParams())
-                )
+                );
             });
 
             const cumulativeRange$ = this.id$.pipe(
@@ -107,6 +104,6 @@ export default {
             );
 
             return cumulativeRange$;
-        }
-    }
+        },
+    },
 };

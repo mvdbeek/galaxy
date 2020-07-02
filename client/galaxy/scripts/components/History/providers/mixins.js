@@ -18,7 +18,6 @@
 import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 
-
 export const contentListMixin = {
     mixins: [vueRxShortcuts],
     props: {
@@ -27,7 +26,7 @@ export const contentListMixin = {
     },
     data: () => ({
         params: new SearchParams(),
-        results: []
+        results: [],
     }),
     computed: {
         loading() {
@@ -54,13 +53,12 @@ export const contentListMixin = {
         },
     },
     created() {
-
         if (this.cacheObservable) {
             this.$subscribeTo(
                 this.cacheObservable,
                 ({ matches }) => {
                     console.log("[cache] results", matches.length);
-                    this.results = matches
+                    this.results = matches;
                 },
                 (err) => console.warn("[cache] error", err),
                 () => console.log("[cache] stream complete")
@@ -86,7 +84,6 @@ export const contentListMixin = {
         }
     },
     methods: {
-
         updateParams(newParams) {
             if (SearchParams.equals(newParams, this.params)) return;
             // reset paginaton if filters are different
@@ -103,8 +100,7 @@ export const contentListMixin = {
             const idSame = a[0] == b[0];
             const paramSame = SearchParams.equals(a[1], b[1]);
             return idSame && paramSame;
-        }
-
+        },
     },
     render() {
         return this.$scopedSlots.default({
@@ -121,5 +117,5 @@ export const contentListMixin = {
                 this.params = new SearchParams();
             }
         },
-    }
-}
+    },
+};

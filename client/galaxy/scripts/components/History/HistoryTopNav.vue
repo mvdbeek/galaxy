@@ -2,38 +2,41 @@
     <div v-if="historyId">
         <HistorySelector v-model="historyId" />
 
-        <PriorityMenu style="max-width: 50%" :starting-height="27">
-
+        <PriorityMenu style="max-width: 50%;" :starting-height="27">
             <PriorityMenuItem
                 key="create-new-history"
                 title="Create New History"
                 icon="fa fa-plus"
-                @click="createHistory" />
+                @click="createHistory"
+            />
 
             <PriorityMenuItem
                 key="view-all-histories"
                 title="View All Histories"
                 icon="fa fa-columns"
-                @click="redirect('/history/view_multiple')" />
+                @click="redirect('/history/view_multiple')"
+            />
 
             <PriorityMenuItem
                 key="saved-histories"
                 title="Saved Histories"
                 icon="fas fa-save"
-                @click="backboneRoute('/histories/list')" />
+                @click="backboneRoute('/histories/list')"
+            />
 
             <PriorityMenuItem
                 key="clear-history-cache"
                 title="Clear cache"
                 icon="fa fa-refresh"
-                @click.stop="clearCache" />
+                @click.stop="clearCache"
+            />
 
             <PriorityMenuItem
                 key="use-legacy-history"
                 title="Return to legacy history panel"
                 icon="fas fa-exchange-alt"
-                @click="useLegacyHistoryPanel" />
-
+                @click="useLegacyHistoryPanel"
+            />
         </PriorityMenu>
     </div>
 </template>
@@ -81,7 +84,7 @@ export default {
 
         async clearCache() {
             await wipeDatabase();
-        }
+        },
     },
 };
 </script>

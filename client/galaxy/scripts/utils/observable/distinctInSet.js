@@ -7,7 +7,7 @@ import { filter, tap } from "rxjs/operators";
 
 export const distinctInSet = (previous = new Set(), debug = false) =>
     pipe(
-        filter(val => {
+        filter((val) => {
             const inSet = previous.has(val);
             if (debug) {
                 const label = inSet ? "in set" : "not in set";
@@ -16,5 +16,5 @@ export const distinctInSet = (previous = new Set(), debug = false) =>
             }
             return !inSet;
         }),
-        tap(val => previous.add(val))
+        tap((val) => previous.add(val))
     );

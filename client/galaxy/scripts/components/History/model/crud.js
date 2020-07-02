@@ -1,7 +1,6 @@
 import { cacheContent } from "../caching";
 import { bulkContentUpdate, getAllContentByFilter } from "./queries";
 
-
 /**
  * Content crud operations, usually an ajax call + a cache function
  */

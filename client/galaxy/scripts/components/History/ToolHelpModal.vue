@@ -8,12 +8,10 @@
 <script>
 import { loadToolFromJob } from "./model/queries";
 
-
 export default {
-
     data() {
         return {
-            tool: null
+            tool: null,
         };
     },
     computed: {
@@ -29,8 +27,8 @@ export default {
             },
             set(newVal) {
                 this.tool = null;
-            }
-        }
+            },
+        },
     },
     methods: {
         async toggleToolHelp(jobId) {
@@ -42,10 +40,10 @@ export default {
         },
         closePanel() {
             this.tool = null;
-        }
+        },
     },
     created() {
         this.eventHub.$on("toggleToolHelp", this.toggleToolHelp);
-    }
+    },
 };
 </script>

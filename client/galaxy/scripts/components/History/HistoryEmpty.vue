@@ -12,10 +12,7 @@
 </template>
 
 <script>
-
-
 export default {
-
     methods: {
         openUploader() {
             this.eventHub.$emit("openToolSection", "getext");
@@ -25,7 +22,7 @@ export default {
         },
         clickDataLink() {
             this.eventHub.$emit("openToolSection", "getext");
-        }
-    }
+        },
+    },
 };
 </script>

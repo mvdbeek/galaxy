@@ -154,16 +154,16 @@ var menu = [
     {
         html: _l("Beta Features"),
         anon: false,
-        header: true
+        header: true,
     },
     {
         html: _l("Use Beta History Panel"),
         anon: false,
-        func: function() {
+        func: function () {
             sessionStorage.setItem("useBetaHistory", 1);
             window.location.reload(false);
-        }
-    }
+        },
+    },
 ];
 
 // Webhooks

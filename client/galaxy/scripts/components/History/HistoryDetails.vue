@@ -5,88 +5,99 @@
                 <span class="size">{{ history.niceSize | localize }}</span>
             </h6>
 
-            <PriorityMenu style="max-width: 50%" :starting-height="27">
-
+            <PriorityMenu style="max-width: 50%;" :starting-height="27">
                 <PriorityMenuItem
                     key="edit-history-tags"
                     title="Edit History Tags"
                     icon="fas fa-tags"
                     :pressed="showTags"
-                    @click="showTags = !showTags" />
+                    @click="showTags = !showTags"
+                />
 
                 <PriorityMenuItem
                     key="edit-history-annotation"
                     title="Edit Annotation"
                     icon="fas fa-comment"
                     :pressed="showAnnotation"
-                    @click="showAnnotation = !showAnnotation" />
+                    @click="showAnnotation = !showAnnotation"
+                />
 
                 <PriorityMenuItem
                     key="copy-history"
                     title="Copy History"
                     icon="fas fa-copy"
-                    @click="showCopyModal = true" />
+                    @click="showCopyModal = true"
+                />
 
                 <PriorityMenuItem
                     key="share"
                     title="Share or Publish"
                     icon="fas fa-handshake"
-                    @click="backboneRoute('/histories/sharing', { id: history.id })" />
+                    @click="backboneRoute('/histories/sharing', { id: history.id })"
+                />
 
                 <PriorityMenuItem
                     key="delete-this-history"
                     title="UNUSED Delete this History"
                     icon="fas fa-trash"
-                    @click="$bvModal.show('delete-history-modal')" />
+                    @click="$bvModal.show('delete-history-modal')"
+                />
 
                 <PriorityMenuItem
                     key="purge-this-history"
                     title="UNUSED Purge this History"
                     icon="fas fa-burn"
-                    @click="$bvModal.show('purge-history-modal')" />
+                    @click="$bvModal.show('purge-history-modal')"
+                />
 
                 <PriorityMenuItem
                     key="structure"
                     title="Show Structure"
                     icon="fas fa-code-branch"
-                    @click="backboneRoute('/histories/show_structure')" />
+                    @click="backboneRoute('/histories/show_structure')"
+                />
 
                 <PriorityMenuItem
                     key="extract-workflow"
                     title="Extract Workflow"
                     icon="fas fa-file-export"
-                    @click="iframeRedirect('/workflow/build_from_current_history')" />
+                    @click="iframeRedirect('/workflow/build_from_current_history')"
+                />
 
                 <PriorityMenuItem
                     key="set-permissions"
                     title="Set Permissions"
                     icon="fas fa-user-lock"
-                    @click="backboneRoute('/histories/permissions', { id: history.id })" />
+                    @click="backboneRoute('/histories/permissions', { id: history.id })"
+                />
 
                 <PriorityMenuItem
                     key="make-private"
                     title="Make Private"
                     icon="fas fa-lock"
-                    @click="$bvModal.show('make-private-modal')" />
+                    @click="$bvModal.show('make-private-modal')"
+                />
 
                 <PriorityMenuItem
                     key="resume-paused-jobs"
                     title="Resume Paused Jobs"
                     icon="fas fa-play"
-                    @click="iframeRedirect('/history/resume_paused_jobs?current=True')" />
+                    @click="iframeRedirect('/history/resume_paused_jobs?current=True')"
+                />
 
                 <PriorityMenuItem
                     key="export-citations"
                     title="Export Tool Citations"
                     icon="fas fa-stream"
-                    @click="backboneRoute('/histories/citations', { id: history.id })" />
+                    @click="backboneRoute('/histories/citations', { id: history.id })"
+                />
 
                 <PriorityMenuItem
                     key="export-history-to-file"
                     title="Export History to File"
                     icon="fas fa-file-archive"
-                    @click="iframeRedirect('/history/export_archive?preview=True')" />
-
+                    @click="iframeRedirect('/history/export_archive?preview=True')"
+                />
             </PriorityMenu>
 
             <CopyModal v-model="showCopyModal" :history="history" />
@@ -103,7 +114,12 @@
                 <p v-localize>Really delete the current history?</p>
             </b-modal>
 
-            <b-modal id="purge-history-modal" title="Permanently Delete History?" title-tag="h2" @ok="purgeHistoryClick">
+            <b-modal
+                id="purge-history-modal"
+                title="Permanently Delete History?"
+                title-tag="h2"
+                @ok="purgeHistoryClick"
+            >
                 <p v-localize>Really delete the current history permanently? This cannot be undone.</p>
             </b-modal>
         </header>
@@ -123,7 +139,6 @@
         <transition name="shutterfade">
             <HistoryTags v-if="showTags" class="mt-2" :history="history" />
         </transition>
-
     </section>
 </template>
 
@@ -146,7 +161,7 @@ export default {
         Annotation,
         ClickToEdit,
         PriorityMenu,
-        PriorityMenuItem
+        PriorityMenuItem,
     },
     props: {
         history: { type: History, required: true },
@@ -156,7 +171,7 @@ export default {
             showTags: false,
             showAnnotation: false,
             showCopyModal: false,
-            editAnnotation: false
+            editAnnotation: false,
         };
     },
     computed: {
@@ -168,7 +183,7 @@ export default {
                 if (annotation.length && annotation !== this.history.annotation) {
                     this.updateFields({ annotation });
                 }
-            }
+            },
         },
 
         historyName: {
@@ -179,11 +194,10 @@ export default {
                 if (name.length && name !== this.history.name) {
                     this.updateFields({ name });
                 }
-            }
-        }
+            },
+        },
     },
     methods: {
-
         ...mapActions("history", ["storeHistory"]),
 
         async updateFields(fields = {}) {
@@ -209,9 +223,8 @@ export default {
             const updatedHistory = await secureHistory(this.history.id);
             await this.storeHistory(updatedHistory);
             evt.vueTarget.hide();
-        }
-
-    }
+        },
+    },
 };
 </script>
 

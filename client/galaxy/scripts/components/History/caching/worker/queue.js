@@ -6,7 +6,6 @@
 import { timer, Subject } from "rxjs";
 import { ignoreElements, concatMap, startWith, mergeMap } from "rxjs/operators";
 
-
 const hopper = new Subject();
 
 export const processQueue = hopper.pipe(
@@ -14,7 +13,7 @@ export const processQueue = hopper.pipe(
         return timer(100).pipe(
             ignoreElements(),
             startWith(task),
-            mergeMap(task => {
+            mergeMap((task) => {
                 console.log("[queue] connecting task");
                 task.connect();
                 return task;

@@ -30,6 +30,6 @@ export function genericProxy(label, target) {
         construct() {
             console.log(`${label} -> construct`, ...arguments);
             return Reflect.construct(...arguments);
-        }
+        },
     });
 }

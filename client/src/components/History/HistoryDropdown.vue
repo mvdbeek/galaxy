@@ -23,7 +23,7 @@ import { getGalaxyInstance } from "app";
 
 export default {
     props: {
-        history: { type: Object, required: true }
+        history: { type: Object, required: true },
     },
     created() {
         this.root = getAppRoot();

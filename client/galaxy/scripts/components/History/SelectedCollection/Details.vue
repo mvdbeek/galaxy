@@ -1,8 +1,9 @@
 <template>
     <section class="history-details">
-
-        <ClickToEdit :value="dsc.name" v-if="writable"
-            @input="name => $emit('update:dsc', { name })"
+        <ClickToEdit
+            :value="dsc.name"
+            v-if="writable"
+            @input="(name) => $emit('update:dsc', { name })"
             tag-name="h3"
             class="history-title mt-3"
             :tooltip-title="'Rename collection...' | localize"
@@ -20,13 +21,10 @@
         </transition>
 
         <!-- <pre style="height:100px;overflow: scroll;">{{ dsc }}</pre> -->
-
     </section>
 </template>
 
-
 <script>
-
 import { DatasetCollection } from "../model";
 import ClickToEdit from "components/Form/ClickToEdit";
 import ContentTags from "../ContentTags";
@@ -41,6 +39,5 @@ export default {
         writable: { type: Boolean, required: true },
         showTags: { type: Boolean, required: true },
     },
-}
-
+};
 </script>

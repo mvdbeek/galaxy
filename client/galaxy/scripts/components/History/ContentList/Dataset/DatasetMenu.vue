@@ -1,59 +1,76 @@
 <template>
     <PriorityMenu :starting-height="27">
-
-        <PriorityMenuItem v-if="notIn(STATES.NOT_VIEWABLE, STATES.DISCARDED)"
+        <PriorityMenuItem
+            v-if="notIn(STATES.NOT_VIEWABLE, STATES.DISCARDED)"
             key="view-dataset"
             :title="displayButtonTitle"
             :disabled="dataset.purged || isIn(STATES.UPLOAD, STATES.NEW)"
             @click.stop="viewData"
-            icon="fas fa-eye" />
+            icon="fas fa-eye"
+        />
 
-        <PriorityMenuItem v-if="notIn(STATES.DISCARDED)"
+        <PriorityMenuItem
+            v-if="notIn(STATES.DISCARDED)"
             key="edit-dataset"
             :title="editButtonTitle"
             :disabled="dataset.deleted || isIn(STATES.UPLOAD, STATES.NEW)"
-            @click.stop="backboneRoute('datasets/edit', {
-                dataset_id: dataset.id
-            })"
-            icon="fa fa-pencil" />
+            @click.stop="
+                backboneRoute('datasets/edit', {
+                    dataset_id: dataset.id,
+                })
+            "
+            icon="fa fa-pencil"
+        />
 
-        <PriorityMenuItem v-if="dataset.accessible"
+        <PriorityMenuItem
+            v-if="dataset.accessible"
             key="delete-dataset"
             :title="deleteButtonTitle"
             :disabled="dataset.purged"
             @click.stop="onDeleteClick"
-            :icon="dataset.deleted ? 'fas fa-trash-restore' : 'fas fa-trash'" />
+            :icon="dataset.deleted ? 'fas fa-trash-restore' : 'fas fa-trash'"
+        />
 
-        <PriorityMenuItem v-if="expanded"
+        <PriorityMenuItem
+            v-if="expanded"
             key="edit-tags"
             title="Edit History Tags"
             :pressed="showTags"
             @click.stop="$emit('update:showTags', !showTags)"
-            icon="fas fa-tags" />
+            icon="fas fa-tags"
+        />
 
-        <PriorityMenuItem v-if="isIn(STATES.ERROR)"
+        <PriorityMenuItem
+            v-if="isIn(STATES.ERROR)"
             key="show-error"
             title="Error"
-            @click.stop="backboneRoute('datasets/error', {
-                dataset_id: dataset.id
-            })"
-            icon="fa fa-bug" />
+            @click.stop="
+                backboneRoute('datasets/error', {
+                    dataset_id: dataset.id,
+                })
+            "
+            icon="fa fa-bug"
+        />
 
-        <PriorityMenuItem v-if="!(showDownloads && dataset.hasMetaData)"
+        <PriorityMenuItem
+            v-if="!(showDownloads && dataset.hasMetaData)"
             key="download"
             title="Download"
             :href="prependPath(dataset.getUrl('download'))"
             target="_blank"
             download
-            icon="fas fa-file-download" />
+            icon="fas fa-file-download"
+        />
 
-        <PriorityMenuItem v-if="showDownloads && dataset.hasMetaData"
+        <PriorityMenuItem
+            v-if="showDownloads && dataset.hasMetaData"
             key="download-metadata"
             title="Download"
             :href="prependPath(dataset.getUrl('download'))"
             target="_blank"
             download
-            icon="fas fa-file-download" />
+            icon="fas fa-file-download"
+        />
 
         <div v-if="showDownloads && dataset.hasMetaData">
             <PriorityMenuItem
@@ -63,39 +80,51 @@
                 :href="prependPath(dataset.getUrl('meta_download') + mf.file_type)"
                 target="_blank"
                 download
-                icon="fas fa-file-download" />
+                icon="fas fa-file-download"
+            />
         </div>
 
-        <PriorityMenuItem v-if="dataset.rerunnable && dataset.creating_job && notIn(STATES.UPLOAD,STATES.NOT_VIEWABLE)"
+        <PriorityMenuItem
+            v-if="dataset.rerunnable && dataset.creating_job && notIn(STATES.UPLOAD, STATES.NOT_VIEWABLE)"
             key="run-job"
             title="Run job again"
             :href="prependPath(dataset.getUrl('rerun'))"
-            @click.stop="backboneRoute('/', {
-                job_id: dataset.creating_job
-            })"
-            icon="fa fa-refresh" />
+            @click.stop="
+                backboneRoute('/', {
+                    job_id: dataset.creating_job,
+                })
+            "
+            icon="fa fa-refresh"
+        />
 
-        <PriorityMenuItem v-if="showViz && hasViz && isIn(STATES.OK, STATES.FAILED_METADATA)"
+        <PriorityMenuItem
+            v-if="showViz && hasViz && isIn(STATES.OK, STATES.FAILED_METADATA)"
             key="visualize"
             title="Visualize Data"
             @click.stop.prevent="visualize"
-            icon="fa-bar-chart" />
+            icon="fa-bar-chart"
+        />
 
-        <PriorityMenuItem v-if="currentUser && currentUser.id && dataset.creating_job"
+        <PriorityMenuItem
+            v-if="currentUser && currentUser.id && dataset.creating_job"
             key="tool-tip"
             title="Tool Help"
             @click.stop="showToolHelp(dataset.creating_job)"
-            icon="fa fa-question" />
+            icon="fa fa-question"
+        />
 
-        <PriorityMenuItem v-if="notIn(STATES.NOT_VIEWABLE)"
+        <PriorityMenuItem
+            v-if="notIn(STATES.NOT_VIEWABLE)"
             key="dataset-details"
             title="View Details"
-            @click.stop.prevent="iframeAdd({
-                path: dataset.getUrl('show_params'),
-                title: 'Dataset details'
-            })"
-            icon="fa fa-info-circle" />
-
+            @click.stop.prevent="
+                iframeAdd({
+                    path: dataset.getUrl('show_params'),
+                    title: 'Dataset details',
+                })
+            "
+            icon="fa fa-info-circle"
+        />
     </PriorityMenu>
 </template>
 
@@ -115,17 +144,16 @@
 -->
 
 <script>
-
 import { mapState, mapGetters } from "vuex";
 import { Dataset } from "../../model";
 import { PriorityMenu, PriorityMenuItem } from "components/PriorityMenu";
 
 export default {
-    inject: ['STATES'],
+    inject: ["STATES"],
 
     components: {
         PriorityMenu,
-        PriorityMenuItem
+        PriorityMenuItem,
     },
 
     props: {
@@ -142,11 +170,10 @@ export default {
     },
 
     computed: {
-
         ...mapGetters("user", ["currentUser"]),
 
         ...mapState("config", {
-            showViz: state => state.config.visualizations_visible
+            showViz: (state) => state.config.visualizations_visible,
         }),
 
         displayButtonTitle() {
@@ -178,10 +205,10 @@ export default {
 
         deleteButtonTitle() {
             return this.dataset.purged
-                ? 'Dataset has been permanently deleted'
+                ? "Dataset has been permanently deleted"
                 : this.dataset.deleted
-                    ? 'Undelete'
-                    : 'Delete'
+                ? "Undelete"
+                : "Delete";
         },
 
         showDownloads() {
@@ -198,12 +225,10 @@ export default {
         hasViz() {
             const viz_count = this.dataset.viz_count || 0;
             return viz_count && this.dataset.hasData && !this.dataset.deleted;
-        }
-
+        },
     },
 
     methods: {
-
         notIn(...states) {
             const badStates = new Set(states);
             return !badStates.has(this.dataset.state);
@@ -217,7 +242,7 @@ export default {
         viewData() {
             const id = this.dataset.id;
             if (!id) return;
-            this.useGalaxy(Galaxy => {
+            this.useGalaxy((Galaxy) => {
                 if (Galaxy.frame && Galaxy.frame.active) {
                     Galaxy.frame.addDataset(id);
                 } else {
@@ -234,11 +259,11 @@ export default {
             const redirectParams = {
                 path: this.dataset.getUrl("show_params"),
                 title: "Dataset details",
-                tryIframe: false
+                tryIframe: false,
             };
             if (!this.iframeAdd(redirectParams)) {
                 this.backboneRoute("visualizations", {
-                    dataset_id: this.dataset.id
+                    dataset_id: this.dataset.id,
                 });
             }
         },
@@ -248,11 +273,10 @@ export default {
         },
 
         onDeleteClick() {
-            const eventName = this.dataset.deleted ? 'undeleteDataset' : 'deleteDataset';
+            const eventName = this.dataset.deleted ? "undeleteDataset" : "deleteDataset";
             console.log("emitting", eventName, this.dataset);
             this.$emit(eventName, this.dataset);
-        }
-
-    }
+        },
+    },
 };
 </script>

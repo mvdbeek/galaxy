@@ -1,12 +1,8 @@
 <template>
-    <Tags :tags="history.tags"
-        :store-key="storeKey"
-        :tag-service="historyTagService" />
+    <Tags :tags="history.tags" :store-key="storeKey" :tag-service="historyTagService" />
 </template>
 
-
 <script>
-
 // TODO: Re-do tags as a provider instead of dependency injected service
 
 import { History } from "./model";
@@ -20,7 +16,7 @@ class HistoryTagService extends TagService {
         super({
             id: history.id,
             itemClass: "History",
-            context: "history-panel"
+            context: "history-panel",
         });
         this.history = history;
     }
@@ -51,7 +47,7 @@ class HistoryTagService extends TagService {
 export default {
     components: { Tags },
     props: {
-        history: { type: History, required: true }
+        history: { type: History, required: true },
     },
     computed: {
         storeKey() {
@@ -59,8 +55,7 @@ export default {
         },
         historyTagService() {
             return new HistoryTagService(this.history);
-        }
-    }
+        },
+    },
 };
-
 </script>

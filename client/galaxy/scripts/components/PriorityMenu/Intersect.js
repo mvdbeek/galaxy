@@ -3,22 +3,22 @@ export default {
         threshold: {
             type: [Array, Number],
             required: false,
-            default: () => [0.5]
+            default: () => [0.5],
         },
         root: {
             type: HTMLElement,
             required: false,
-            default: () => null
+            default: () => null,
         },
         rootMargin: {
             type: String,
             required: false,
-            default: () => "0px 0px 0px 0px"
-        }
+            default: () => "0px 0px 0px 0px",
+        },
     },
     methods: {
         handler(entries) {
-            entries.forEach(entry => {
+            entries.forEach((entry) => {
                 const { isIntersecting, target } = entry;
                 const key = this.elemToKey.get(target);
                 const evtName = isIntersecting ? "enter" : "leave";
@@ -29,8 +29,8 @@ export default {
             let vnodes = [];
             try {
                 const rawNodes = this.$slots.default[0].componentOptions.children;
-                vnodes = rawNodes.filter(node => node.tag);
-            } catch(err) {
+                vnodes = rawNodes.filter((node) => node.tag);
+            } catch (err) {
                 console.warn("Nothing in slots?", err);
                 throw err;
             }
@@ -55,7 +55,7 @@ export default {
                     this.elemToKey.delete(el);
                 }
             });
-        }
+        },
     },
     mounted() {
         this.elemToKey = new Map();
@@ -74,5 +74,5 @@ export default {
     },
     render() {
         return this.$slots.default;
-    }
+    },
 };

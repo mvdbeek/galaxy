@@ -1,6 +1,5 @@
 import { toPromise, toObservable } from "./client";
 
-
 /**
  * monitorContentCache
  * returns an event emitter that monitors the contents of the history content cache

@@ -1,7 +1,5 @@
 <template>
-    <component :is="summaryComponent"
-        :dataset="dataset"
-        class="summary" />
+    <component :is="summaryComponent" :dataset="dataset" class="summary" />
 </template>
 
 <script>
@@ -32,10 +30,10 @@ export default {
         Queued,
         Running,
         SettingMetadata,
-        Upload
+        Upload,
     },
     props: {
-        dataset: { type: Object, required: true }
+        dataset: { type: Object, required: true },
     },
     computed: {
         summaryComponent() {
@@ -44,7 +42,7 @@ export default {
                 state = STATES.OK;
             }
             return capitalize(camelize(state));
-        }
-    }
+        },
+    },
 };
 </script>

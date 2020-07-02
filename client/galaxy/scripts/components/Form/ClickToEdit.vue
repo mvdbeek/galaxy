@@ -15,7 +15,8 @@
             >
                 <debounced-input v-model="localValue" :delay="debounceDelay">
                     <template v-slot="{ value: debouncedValue, input }">
-                        <b-form-input ref="clickToEditInput"
+                        <b-form-input
+                            ref="clickToEditInput"
                             :value="debouncedValue"
                             @input="input"
                             @blur="toggleEdit(false)"
@@ -42,18 +43,18 @@ const defaultStateValidator = (val, origVal) => {
 
 export default {
     components: {
-        DebouncedInput
+        DebouncedInput,
     },
     props: {
         value: { type: String, required: true },
         tagName: { type: String, required: false, default: "h2" },
         placeholder: { type: String, required: false, default: "" },
         stateValidator: { type: Function, required: false, default: defaultStateValidator },
-        debounceDelay: { type: Number, required: false, default: 1000 }
+        debounceDelay: { type: Number, required: false, default: 1000 },
     },
     data() {
         return {
-            editing: false
+            editing: false,
         };
     },
     computed: {
@@ -68,16 +69,16 @@ export default {
                 if (newVal !== oldVal) {
                     this.$emit("input", newVal);
                     // closes click to edit if it didn't close on its own
-                    this.$refs['clickToEditInput'].blur();
+                    this.$refs["clickToEditInput"].blur();
                 }
-            }
-        }
+            },
+        },
     },
     methods: {
         toggleEdit(forceVal) {
             this.editing = forceVal !== undefined ? forceVal : !this.editing;
-        }
-    }
+        },
+    },
 };
 </script>
 

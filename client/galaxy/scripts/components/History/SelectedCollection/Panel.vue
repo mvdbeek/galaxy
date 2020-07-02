@@ -1,44 +1,42 @@
 <!-- When a collection is selected, the panel shows the contents of that selection -->
 
 <template>
-    <DscProvider :is-root="isRoot" :collection="selectedCollection"
-        v-slot="{ dsc }">
-
-        <CollectionContentProvider v-if="dsc" :id="dsc.contents_url"
-            v-slot="{ params, updateParams, loading, results: contents }">
-
+    <DscProvider :is-root="isRoot" :collection="selectedCollection" v-slot="{ dsc }">
+        <CollectionContentProvider
+            v-if="dsc"
+            :id="dsc.contents_url"
+            v-slot="{ params, updateParams, loading, results: contents }"
+        >
             <Layout>
                 <template v-slot:nav>
-                    <TopNav :history="history"
+                    <TopNav
+                        :history="history"
                         :selected-collections="selectedCollections"
                         :show-tags.sync="showTags"
                         :show-filter.sync="showFilter"
-                        v-on="$listeners" />
+                        v-on="$listeners"
+                    />
                 </template>
 
                 <template v-slot:details>
-                    <Details :dsc="dsc" :writable="writable"
+                    <Details
+                        :dsc="dsc"
+                        :writable="writable"
                         :show-tags.sync="showTags"
                         :show-filter.sync="showFilter"
-                        @update:dsc="updateDsc(dsc, $event)" />
+                        @update:dsc="updateDsc(dsc, $event)"
+                    />
                 </template>
 
                 <template v-slot:listing>
-                    <ContentList
-                        data-key="_id"
-                        :params="params"
-                        :contents="contents"
-                        :loading="loading" />
+                    <ContentList data-key="_id" :params="params" :contents="contents" :loading="loading" />
                 </template>
             </Layout>
-
         </CollectionContentProvider>
     </DscProvider>
 </template>
 
-
 <script>
-
 import { History } from "../model";
 import { updateContentFields } from "../model/queries";
 import { cacheContent } from "../caching";
@@ -51,7 +49,7 @@ import Details from "./Details";
 import ListMixin from "../ListMixin";
 
 export default {
-    mixins: [ ListMixin ],
+    mixins: [ListMixin],
     components: {
         DscProvider,
         CollectionContentProvider,
@@ -81,7 +79,6 @@ export default {
         },
     },
     methods: {
-
         // change the data of the root collection, anything past the root
         // collection is part of the dataset collection, which i believe is supposed to
         // be immutable, so only edit name, tags, blah of top-level selected collection,
@@ -93,7 +90,6 @@ export default {
                 await cacheContent({ ...collection, ...ajaxResult });
             }
         },
-
-    }
+    },
 };
 </script>

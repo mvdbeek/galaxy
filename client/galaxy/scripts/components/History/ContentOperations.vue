@@ -78,12 +78,7 @@
                     </b-button>
                 </b-button-group>
 
-                <b-dropdown
-                    class="ml-auto"
-                    size="sm"
-                    text="With Selected"
-                    :disabled="!hasSelection"
-                >
+                <b-dropdown class="ml-auto" size="sm" text="With Selected" :disabled="!hasSelection">
                     <b-dropdown-item @click="hideSelected">
                         {{ "Hide Datasets" | localize }}
                     </b-dropdown-item>
@@ -134,7 +129,6 @@
 </template>
 
 <script>
-
 import { SearchParams } from "./model/SearchParams";
 import { History } from "./model/History";
 import {
@@ -145,7 +139,7 @@ import {
     purgeSelectedContent,
     unhideAllHiddenContent,
     deleteAllHiddenContent,
-    purgeAllDeletedContent
+    purgeAllDeletedContent,
 } from "./model";
 import { createDatasetCollection } from "./model/queries";
 import { cacheContent } from "./caching";
@@ -153,7 +147,6 @@ import { cacheContent } from "./caching";
 import ContentFilters from "./ContentFilters";
 import { PriorityMenu, PriorityMenuItem } from "components/PriorityMenu";
 import { buildCollectionModal } from "./adapters/buildCollectionModal";
-
 
 export default {
     components: {
@@ -206,7 +199,6 @@ export default {
         },
     },
     methods: {
-
         // #region content selection management
 
         selectContent(ids) {

@@ -9,7 +9,6 @@
     </div>
 </template>
 
-
 <script>
 import { mapActions, mapGetters } from "vuex";
 import HistoryTopNav from "./HistoryTopNav";
@@ -18,22 +17,22 @@ import HistoryPanel from "./HistoryPanel";
 export default {
     components: {
         HistoryPanel,
-        HistoryTopNav
+        HistoryTopNav,
     },
     computed: {
         ...mapGetters("history", ["currentHistoryId"]),
 
         historyId: {
             get() {
-                return this.currentHistoryId
+                return this.currentHistoryId;
             },
             set(newId) {
-                this.storeCurrentHistoryId(newId)
-            }
-        }
+                this.storeCurrentHistoryId(newId);
+            },
+        },
     },
     methods: {
-        ...mapActions("history", ["storeCurrentHistoryId"])
-    }
-}
+        ...mapActions("history", ["storeCurrentHistoryId"]),
+    },
+};
 </script>

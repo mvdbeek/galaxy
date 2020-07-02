@@ -18,15 +18,14 @@ import CurrentHistoryView from "mvc/history/history-view-edit-current";
 import { History } from "mvc/history/history-model";
 import "./HistoryPanelProxy.scss";
 
-
 // bypass polling while using the beta panel, skips contents loading
 const FakeHistoryViewModel = CurrentHistoryView.CurrentHistoryView.extend({
-    loadHistory: function(historyId, options) {
+    loadHistory: function (historyId, options) {
         this.setModel(new History({ id: historyId }));
         this.trigger("loading");
         options.view = "dev-detailed";
         return this.model.fetch(options);
-    }
+    },
 });
 
 // extend existing current history panel
@@ -42,7 +41,7 @@ export const HistoryPanelProxy = Backbone.View.extend({
         this.historyView = new FakeHistoryViewModel({
             className: `fake ${CurrentHistoryView.CurrentHistoryView.prototype.className} middle`,
             purgeAllowed: this.allow_user_dataset_purge,
-            linkTarget: "galaxy_main"
+            linkTarget: "galaxy_main",
         });
 
         // add history panel to Galaxy object
@@ -59,7 +58,7 @@ export const HistoryPanelProxy = Backbone.View.extend({
         // fetch to update the quota meter adding 'current' for any anon-user's id
         Galaxy.listenTo(this.historyView, "history-size-change", () => {
             Galaxy.user.fetch({
-                url: `${Galaxy.user.urlRoot()}/${Galaxy.user.id || "current"}`
+                url: `${Galaxy.user.urlRoot()}/${Galaxy.user.id || "current"}`,
             });
         });
     },
@@ -81,7 +80,7 @@ export const HistoryPanelProxy = Backbone.View.extend({
         mountHistory({}, container);
 
         return this;
-    }
+    },
 });
 
 export default HistoryPanelProxy;

@@ -2,9 +2,7 @@ import { expect } from "chai";
 import { SearchParams } from "../../model/SearchParams";
 
 describe("SearchParams", () => {
-
     describe("chunk method", () => {
-
         it("chunk 5/- => 0/100", () => {
             const params = new SearchParams();
             params.skip = 5;
@@ -13,8 +11,6 @@ describe("SearchParams", () => {
             const chunk = chunks[0];
             expect(chunk.skip).to.equal(0);
             expect(chunk.limit).to.equal(SearchParams.pageSize);
-        })
-
-    })
-
-})
+        });
+    });
+});

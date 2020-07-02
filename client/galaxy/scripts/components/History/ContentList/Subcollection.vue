@@ -2,13 +2,17 @@
     inside of other collections -->
 
 <template>
-    <div v-bind="$attrs" v-on="$listeners"
-        class="collapsed" :data-state="dsc.state"
-        @keydown.arrow-right.self.stop.prevent="eventHub.$emit('selectCollection', dsc)">
-
-        <nav class="content-top-menu d-flex align-items-center justify-content-between p-1"
-            @click.stop="eventHub.$emit('selectCollection', dsc)">
-
+    <div
+        v-bind="$attrs"
+        v-on="$listeners"
+        class="collapsed"
+        :data-state="dsc.state"
+        @keydown.arrow-right.self.stop.prevent="eventHub.$emit('selectCollection', dsc)"
+    >
+        <nav
+            class="content-top-menu d-flex align-items-center justify-content-between p-1"
+            @click.stop="eventHub.$emit('selectCollection', dsc)"
+        >
             <h5 class="flex-grow-1 overflow-hidden mr-auto text-nowrap text-truncate">
                 <span class="name">{{ dsc.name }}</span>
                 <span class="description">
@@ -20,7 +24,6 @@
 </template>
 
 <script>
-
 import { DatasetCollection } from "../model/DatasetCollection";
 
 export default {
@@ -31,8 +34,7 @@ export default {
     computed: {
         dsc() {
             return new DatasetCollection(this.item);
-        }
+        },
     },
 };
-
 </script>

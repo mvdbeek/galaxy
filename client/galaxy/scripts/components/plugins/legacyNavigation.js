@@ -23,7 +23,7 @@ export const legacyNavigationMixin = {
             if (Galaxy.frame && Galaxy.frame.active) {
                 Galaxy.frame.add({
                     url: prependPath(path),
-                    title: _l(title)
+                    title: _l(title),
                 });
                 return true;
             } else if (tryIframe) {
@@ -63,12 +63,12 @@ export const legacyNavigationMixin = {
         },
 
         // prepend server prefix from configs to a url
-        prependPath
-    }
+        prependPath,
+    },
 };
 
 export const legacyNavigationPlugin = {
     install(Vue) {
         Vue.mixin(legacyNavigationMixin);
-    }
+    },
 };

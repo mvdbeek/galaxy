@@ -1,11 +1,8 @@
 <template>
-    <StatelessTags :value="tags"
-        @before-adding-tag="saveTag"
-        @before-deleting-tag="deleteTag" />
+    <StatelessTags :value="tags" @before-adding-tag="saveTag" @before-deleting-tag="deleteTag" />
 </template>
 
 <script>
-
 // TODO: rewrite tags with provider component instead of dependency injection
 
 import { Content } from "./model";
@@ -17,15 +14,15 @@ import { createTag } from "components/Tags/model";
 
 export default {
     components: {
-        StatelessTags
+        StatelessTags,
     },
     props: {
-        content: { type: Content, required: true }
+        content: { type: Content, required: true },
     },
     computed: {
         tags() {
             return this.content.tags;
-        }
+        },
     },
     methods: {
         async saveTag({ tag, addTag }) {
@@ -47,7 +44,7 @@ export default {
             const ajaxResult = await updateContentFields(this.content, { tags });
             await cacheContent(ajaxResult);
             deleteTag(tag);
-        }
-    }
+        },
+    },
 };
 </script>

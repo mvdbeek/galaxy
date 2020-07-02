@@ -1,7 +1,7 @@
 /**
  * Return all content matches for the search params
  */
-export function buildContentPouchRequest([ history_id, params ]) {
+export function buildContentPouchRequest([history_id, params]) {
     const { skip, limit } = params;
     return {
         selector: {
@@ -11,15 +11,14 @@ export function buildContentPouchRequest([ history_id, params ]) {
         },
         sort: [{ hid: "desc" }, { history_id: "desc" }],
         skip,
-        limit
+        limit,
     };
 }
-
 
 /**
  * Finds the most recently cached row matching the search.
  */
-export function lastCachedContentRequest([ history_id, params ]) {
+export function lastCachedContentRequest([history_id, params]) {
     return {
         selector: {
             cached_at: { $gt: null }, // stupid but required syntax
@@ -27,11 +26,9 @@ export function lastCachedContentRequest([ history_id, params ]) {
             ...buildContentSelectorFromParams(params),
         },
         sort: [{ cached_at: "desc" }],
-        limit: 1
+        limit: 1,
     };
 }
-
-
 
 /**
  * Build search selector for params filters:
@@ -68,20 +65,17 @@ export function buildContentSelectorFromParams(params) {
     return selector;
 }
 
-
-
-
 /**
  * Collection contents, takes a contents_url representing the parent and
  * search params for filters/pagination
  */
-export const buildCollectionContentRequest = ([ contents_url, params ]) => {
+export const buildCollectionContentRequest = ([contents_url, params]) => {
     // const { skip, limit, filterText } = params;
     return {
         selector: {
             // we put the contents_url in the id, should
             // come back with auto ordered and sorted results
-            _id: { $regex: new RegExp(contents_url, "i")},
+            _id: { $regex: new RegExp(contents_url, "i") },
             // ...buildSelectorFromParams(params),
         },
         // skip,

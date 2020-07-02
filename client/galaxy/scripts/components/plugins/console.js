@@ -16,12 +16,12 @@ export const consoleMixin = {
         },
         cGroupEnd() {
             console.groupEnd(...arguments);
-        }
-    }
+        },
+    },
 };
 
 export const consolePlugin = {
     install(Vue) {
         Vue.mixin(consoleMixin);
-    }
+    },
 };

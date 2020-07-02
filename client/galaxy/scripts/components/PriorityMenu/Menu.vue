@@ -1,6 +1,5 @@
 <template>
     <div class="priority-menu">
-
         <!-- primary menu, wraps each item in a LI for the flexbox and
         puts an intersect around the whole thing to monitor menu items coming
         and going -->
@@ -13,37 +12,28 @@
         <!-- overflow-->
         <slot name="overflow" :overflow="overflow">
             <div class="overflow" v-if="overflow.length">
-                <b-dropdown
-                    no-caret
-                    right
-                    variant="link"
-                    size="sm"
-                    boundary="window"
-                    toggle-class="p-1">
+                <b-dropdown no-caret right variant="link" size="sm" boundary="window" toggle-class="p-1">
                     <template v-slot:button-content>
                         <i class="fas fa-ellipsis-v" />
                         <span class="sr-only">...</span>
                     </template>
-                    <b-dropdown-item v-for="item in overflow" :key="item.key"
-                        v-bind="item.attrs" v-on="item.on">
+                    <b-dropdown-item v-for="item in overflow" :key="item.key" v-bind="item.attrs" v-on="item.on">
                         {{ item.attrs.title }}
                     </b-dropdown-item>
                 </b-dropdown>
             </div>
         </slot>
-
     </div>
 </template>
 
 <script>
-
 import WrapChildren from "./WrapChildren";
 import Intersect from "./Intersect";
 
 export default {
     components: {
         WrapChildren,
-        Intersect
+        Intersect,
     },
     props: {
         startingHeight: { type: Number, required: false, default: 50 },
@@ -52,18 +42,18 @@ export default {
         return {
             height: this.startingHeight,
             overflowKeys: new Set(),
-        }
+        };
     },
     computed: {
         overflow() {
             return this.getVnodes()
-                .filter(node => this.overflowKeys.has(node.key))
-                .map(node => this.getMenuDataFromNode(node));
+                .filter((node) => this.overflowKeys.has(node.key))
+                .map((node) => this.getMenuDataFromNode(node));
         },
         requiresFixedHeight() {
             return {
-                height: `${this.height}px`
-            }
+                height: `${this.height}px`,
+            };
         },
     },
     methods: {
@@ -80,7 +70,9 @@ export default {
 
         setHeight(entry) {
             if (!entry) return;
-            const { boundingClientRect: { height } } = entry;
+            const {
+                boundingClientRect: { height },
+            } = entry;
             this.height = Math.max(this.height, height);
         },
         addToOverflow(key) {
@@ -99,7 +91,7 @@ export default {
         },
         getVnodes() {
             const rawNodes = this.$slots.default || [];
-            return rawNodes.filter(node => node.tag);
+            return rawNodes.filter((node) => node.tag);
         },
         // merge weird vnode attributes to get enough to generate a dropdown
         getMenuDataFromNode(vnode) {
@@ -108,17 +100,15 @@ export default {
             const on = Object.assign({}, vnode.data.on || {}, componentOptions.listeners || {});
             return { attrs, on, key: vnode.key };
         },
-    }
+    },
 };
-
 </script>
 
-
 <style lang="scss">
-
 /* standard list reset, which we should already
 have but mysteriously dont */
-ul, li {
+ul,
+li {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -152,5 +142,4 @@ ul, li {
 .priority-menu {
     display: flex;
 }
-
 </style>

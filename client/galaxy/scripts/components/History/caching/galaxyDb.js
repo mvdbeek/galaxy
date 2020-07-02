@@ -7,30 +7,21 @@ import { pipe } from "rxjs";
 import { tap, map, shareReplay } from "rxjs/operators";
 import { collection, cacheItem, bulkCache, installIndexes } from "./db";
 
-
 // bulk inserts
 const prepList = (fn) => pipe(map((list) => list.map(fn)));
-
 
 /**
  * History Content
  */
 
-export const content$ =
-    collection({ name: "galaxy-content" }).pipe(
-        tap((db) => installIndexes(db, contentIndexes)),
-        shareReplay(1)
-    );
-
-export const cacheContent = () => pipe(
-    map(prepContent),
-    cacheItem(content$)
+export const content$ = collection({ name: "galaxy-content" }).pipe(
+    tap((db) => installIndexes(db, contentIndexes)),
+    shareReplay(1)
 );
 
-export const bulkCacheContent = () => pipe(
-    prepList(prepContent),
-    bulkCache(content$)
-);
+export const cacheContent = () => pipe(map(prepContent), cacheItem(content$));
+
+export const bulkCacheContent = () => pipe(prepList(prepContent), bulkCache(content$));
 
 const prepContent = (props) => {
     const { history_id, history_content_type, id, type_id: origTypeId, deleted: isDeleted, ...theRest } = props;
@@ -60,44 +51,34 @@ export const contentIndexes = [
     // },
     {
         index: {
-            fields: [
-                { hid: "desc" },
-                { history_id: "desc" }
-            ],
+            fields: [{ hid: "desc" }, { history_id: "desc" }],
         },
         name: "by history and hid descending",
         ddoc: "idx-content-history-id-hid-desc",
     },
     {
         index: {
-            fields: [
-                { cached_at: "desc" }
-            ],
+            fields: [{ cached_at: "desc" }],
         },
         name: "by cache time",
         ddoc: "idx-content-history-cached_at",
     },
 ];
 
-
-
 /**
  * Collection content (drill down into a collection)
  */
 
-export const dscContent$ =
-    collection({ name: "galaxy-collection-content" }).pipe(
-        tap(db => installIndexes(db, dscContentIndexes)),
-        shareReplay(1)
-    );
-
-export const bulkCacheDscContent = (extraFields = {}) => pipe(
-    prepList(prepDscContent(extraFields)),
-    bulkCache(dscContent$)
+export const dscContent$ = collection({ name: "galaxy-collection-content" }).pipe(
+    tap((db) => installIndexes(db, dscContentIndexes)),
+    shareReplay(1)
 );
 
+export const bulkCacheDscContent = (extraFields = {}) =>
+    pipe(prepList(prepDscContent(extraFields)), bulkCache(dscContent$));
+
 // unscrew the api result format
-const prepDscContent = extraFields => props => {
+const prepDscContent = (extraFields) => (props) => {
     const { contents_url, ...otherExtraFields } = extraFields;
     const { element_identifier: name, object } = props;
     const { id, model_class, ...otherObjectFields } = object;
@@ -130,10 +111,7 @@ const prepDscContent = extraFields => props => {
 export const dscContentIndexes = [
     {
         index: {
-            fields: [
-                "name",
-                { element_index: "asc" }
-            ],
+            fields: ["name", { element_index: "asc" }],
         },
         name: "by contents url",
         ddoc: "idx-collection-contents-name",

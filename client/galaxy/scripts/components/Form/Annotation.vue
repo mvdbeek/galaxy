@@ -32,11 +32,11 @@ import ClickToEdit from "./ClickToEdit";
 export default {
     components: {
         DebouncedInput,
-        ClickToEdit
+        ClickToEdit,
     },
     props: {
         value: { type: String, required: false, default: "" },
-        tooltipPlacement: { type: String, required: false, default: "left" }
+        tooltipPlacement: { type: String, required: false, default: "left" },
     },
     computed: {
         annotation: {
@@ -47,9 +47,9 @@ export default {
                 if (newVal !== oldVal) {
                     this.$emit("input", newVal);
                 }
-            }
-        }
-    }
+            },
+        },
+    },
 };
 </script>
 

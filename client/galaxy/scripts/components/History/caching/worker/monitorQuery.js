@@ -4,29 +4,26 @@ import hash from "object-hash";
 // import { SearchParams } from "../../model/SearchParams";
 // import deepEqual from "deep-equal";
 
-
 /**
  * Turns a selector into a live cache result emitter.
  *
  * @param {Observable} db$ PouchDB observable
  * @param {object} request Pouchdb find configuration selector
  */
-export const monitorQuery = (db$, cfg = {}) => request => {
+export const monitorQuery = (db$, cfg = {}) => (request) => {
     const { debouncePeriod = 100 } = cfg;
 
     // incoming request
     const request$ = of(request).pipe(share());
 
     // selector with just the filters, will return entire matching set
-    const filters$ = request$.pipe(
-        map(({ skip, limit, ...requestNoLimits }) => requestNoLimits)
-    );
+    const filters$ = request$.pipe(map(({ skip, limit, ...requestNoLimits }) => requestNoLimits));
 
     // this is the actual emitter that watches the cache, it is customized
     // to a specific db and query
     const watcher$ = combineLatest(filters$, db$).pipe(
         debounceTime(0),
-        switchMap(inputs => getWatcher(...inputs)),
+        switchMap((inputs) => getWatcher(...inputs)),
         debounceTime(debouncePeriod),
         map(({ /* feed, */ matches, request }) => {
             return { matches, request };
@@ -34,12 +31,11 @@ export const monitorQuery = (db$, cfg = {}) => request => {
     );
 
     return watcher$;
-}
+};
 
 // sort & paginate, guess not necessary?
 // const { skip, limit, sort } = request;
 // const matches = feed.paginate({ skip, limit, sort });
-
 
 /**
  * Pool of query emittters, keep these live inside the worker
@@ -55,12 +51,11 @@ function getWatcherKey(selector, db) {
 function getWatcher(request, db) {
     const key = getWatcherKey(request, db);
     if (!watchers.has(key)) {
-        const newWatcher$ = pouchQueryEmitter(request, db).pipe(shareReplay(1))
+        const newWatcher$ = pouchQueryEmitter(request, db).pipe(shareReplay(1));
         watchers.set(key, newWatcher$);
     }
     return watchers.get(key);
 }
-
 
 /**
  * Build an observable that monitors a pouchdb instance by taking a pouchdb-find
@@ -70,9 +65,7 @@ function getWatcher(request, db) {
  * @param {PouchDB} db pouch database instance
  */
 function pouchQueryEmitter(request, db) {
-
     return Observable.create((obs) => {
-
         let lastMatches = [];
 
         const feed = db.liveFind({ ...request, aggregate: true });
@@ -83,7 +76,7 @@ function pouchQueryEmitter(request, db) {
         });
 
         feed.on("ready", () => {
-            obs.next({ feed, matches: lastMatches, request })
+            obs.next({ feed, matches: lastMatches, request });
         });
 
         feed.on("error", (err) => obs.error(err));

@@ -14,9 +14,8 @@ import DatasetCollection from "../DatasetCollection";
 import Subcollection from "../Subcollection";
 import Loading from "../Loading";
 
-
 export default {
-    inject: [ "listState", "isSelected", "isExpanded", "setSelected", "setExpanded" ],
+    inject: ["listState", "isSelected", "isExpanded", "setSelected", "setExpanded"],
 
     template: `
         <component :is="contentItemComponent"
@@ -76,7 +75,7 @@ export default {
             },
             set(val) {
                 this.setSelected(this.source, val);
-            }
+            },
         },
         expanded: {
             get() {
@@ -84,11 +83,11 @@ export default {
             },
             set(val) {
                 this.setExpanded(this.source, val);
-            }
+            },
         },
         scrolling() {
             return this.listState.scrolling;
-        }
+        },
     },
 
     created() {

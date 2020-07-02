@@ -23,7 +23,6 @@ export const configure = (options = {}) => {
     Object.assign(workerConfig, options);
 };
 
-
 /**
  * Subscribe to globa subs
  */
@@ -32,11 +31,10 @@ export const init = () => {
     console.log("[worker] Subscribing to internal priority queue");
     processQueue.subscribe(
         (result) => console.log("[queue] result", result),
-        err => console.warn("[queue] error", err),
+        (err) => console.warn("[queue] error", err),
         () => console.log("[queue] complete, why is queue complete?")
     );
-}
-
+};
 
 /**
  * Prepend against this config. Can't access document so we can't use
@@ -68,9 +66,7 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
     } = config;
 
     // add context marker in url for debugging purposes
-    const baseUrl$ = url$.pipe(
-        map((baseUrl) => (context ? `${baseUrl}&context=${context}` : baseUrl))
-    );
+    const baseUrl$ = url$.pipe(map((baseUrl) => (context ? `${baseUrl}&context=${context}` : baseUrl)));
 
     // mark and flag this update-time, append to next request with same base
     return baseUrl$.pipe(
@@ -91,9 +87,6 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
         })
     );
 };
-
-
-
 
 /**
  * Takes a base URL appends an update_time-gt restriction based on the lst
@@ -123,55 +116,46 @@ const fullUrl = (cfg = {}) => {
     );
 };
 
-
 // use same store as requestWithUpdateTime?
 export const throttleDistinctDateStore = createDateStore("throttleDistinct default");
 
 export const throttleDistinct = (config = {}) => {
-
-    const {
-        timeout = 1000,
-        dateStore = throttleDistinctDateStore
-    } = config;
+    const { timeout = 1000, dateStore = throttleDistinctDateStore } = config;
 
     return pipe(
-        filter(val => {
+        filter((val) => {
             const now = moment();
             let ok = true;
             if (dateStore.has(val)) {
                 const lastRequest = dateStore.getLastDate(val);
-                ok = (now - lastRequest) > timeout;
+                ok = now - lastRequest > timeout;
             }
             if (ok) {
                 dateStore.set(val, now);
             }
             return ok;
-        }),
-    )
-}
-
-
-
+        })
+    );
+};
 
 // passing SearchParams into the worker removes its class information
 
-export const hydrateInputs = () => pipe(
-    map(inputs => {
-        const [ id, rawParams ] = inputs;
-        return [ id, new SearchParams(rawParams) ];
-    })
-)
-
+export const hydrateInputs = () =>
+    pipe(
+        map((inputs) => {
+            const [id, rawParams] = inputs;
+            return [id, new SearchParams(rawParams)];
+        })
+    );
 
 // Breaks inputs into a set of discrete chunks so that the resulting URLs are
 // easier to cache
 // Source: [history_id, SearchParam] or [url, SeaarchParam]
 
-export const chunkInputs = () => pipe(
-    mergeMap(([idParameter, params]) => {
-        const chunks = params.chunkParams(SearchParams.chunkSize);
-        return from(chunks).pipe(
-            map(p => [idParameter, p])
-        )
-    })
-)
+export const chunkInputs = () =>
+    pipe(
+        mergeMap(([idParameter, params]) => {
+            const chunks = params.chunkParams(SearchParams.chunkSize);
+            return from(chunks).pipe(map((p) => [idParameter, p]));
+        })
+    );

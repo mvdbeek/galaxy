@@ -14,14 +14,14 @@ export default {
         {
             id: "85b413e771c184a9",
             name: "UCSC Main on Human: wgEncodeGencodeBasicV24 (chr22:1-50,818,468)",
-            src: "hda"
+            src: "hda",
         },
         {
             id: "7519f658e61e26b6",
             name: "UCSC Main on Human: wgEncodeGencodeBasicV24 (chr22:1-50,818,468) (1)",
-            src: "hda"
-        }
+            src: "hda",
+        },
     ],
     type: "dataset_collection",
-    elements: []
+    elements: [],
 };

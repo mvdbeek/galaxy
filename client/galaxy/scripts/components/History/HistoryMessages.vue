@@ -17,19 +17,17 @@ import { History } from "./model";
 
 export default {
     props: {
-        history: { type: History, required: true }
+        history: { type: History, required: true },
     },
     computed: {
         hasMessages() {
             return this.userOverQuota || history.isDeleted;
-        }
+        },
     },
     data() {
         return {
-            userOverQuota: false
+            userOverQuota: false,
         };
-    }
-}
-
+    },
+};
 </script>
-

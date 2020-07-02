@@ -9,14 +9,16 @@
                 size="sm"
                 :pressed="showDeleted"
                 :variant="showDeleted ? 'info' : 'secondary'"
-                @click="showDeleted = !showDeleted">
+                @click="showDeleted = !showDeleted"
+            >
                 {{ "Deleted" | localize }}
             </b-button>
             <b-button
                 size="sm"
                 :pressed="showHidden"
                 :variant="showHidden ? 'info' : 'secondary'"
-                @click="showHidden = !showHidden">
+                @click="showHidden = !showHidden"
+            >
                 {{ "Hidden" | localize }}
             </b-button>
         </b-input-group-append>
@@ -41,9 +43,9 @@ export default {
             },
             set(newSkip) {
                 const newParams = this.params.clone();
-                newParams.skip = newSkip
+                newParams.skip = newSkip;
                 this.updateParams(newParams);
-            }
+            },
         },
         filterText: {
             get() {

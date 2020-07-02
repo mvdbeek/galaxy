@@ -10,7 +10,6 @@ import store from "../store";
 import _l from "utils/localization";
 import { legacyNavigationPlugin, eventHubPlugin } from "components/plugins";
 
-
 // Bootstrap components
 Vue.use(BootstrapVue);
 
@@ -26,12 +25,12 @@ const newlineMatch = /\r?\n|\r/g;
 const doublespaces = /\s\s+/g;
 Vue.directive("localize", {
     bind(el, binding, vnode) {
-        el.childNodes.forEach(node => {
+        el.childNodes.forEach((node) => {
             const oneline = node.textContent.replace(newlineMatch, " ");
             const singleSpaces = oneline.replace(doublespaces, " ");
             node.textContent = _l(singleSpaces);
         });
-    }
+    },
 });
 
 // Install horrible plugin for navigation with backbone client

@@ -1,10 +1,8 @@
 import { content$, dscContent$ } from "../galaxyDb";
 
-
 /**
  * Clear entire database
  */
-
 
 export async function getDbInstance(db$) {
     return await db$.toPromise();

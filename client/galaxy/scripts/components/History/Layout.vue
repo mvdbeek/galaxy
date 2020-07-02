@@ -5,7 +5,6 @@ to learn how CSS is supposed to work. -->
 
 <template>
     <section class="history d-flex flex-column">
-
         <header class="p-2">
             <!-- optional slot for injecting global navigation -->
             <nav v-if="$slots.nav" class="top-nav pb-2">
@@ -34,16 +33,13 @@ to learn how CSS is supposed to work. -->
         <section v-if="$slots.modals">
             <slot name="modals"></slot>
         </section>
-
     </section>
 </template>
 
 <style lang="scss">
-
 @import "scss/mixins.scss";
 @import "scss/transitions.scss";
 @import "scss/loadingBackground.scss";
-
 
 /*  Why do we not use a css reset? */
 
@@ -57,7 +53,6 @@ to learn how CSS is supposed to work. -->
         margin: 0;
     }
 }
-
 
 /*
 container css for first child of top-nav,
@@ -79,7 +74,6 @@ doesn't need to do it manually every time. */
     display: none;
 }
 
-
 /* make sure scroller actually scrolls */
 
 .history .scroller {
@@ -92,6 +86,4 @@ doesn't need to do it manually every time. */
     width: 100%;
     overflow: auto;
 }
-
-
 </style>

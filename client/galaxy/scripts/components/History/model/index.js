@@ -9,17 +9,14 @@ export { STATES } from "./states";
 
 // crud functions, ajax call + cache
 export {
-
     // operations on lists
     hideSelectedContent,
     unhideSelectedContent,
     deleteSelectedContent,
     undeleteSelectedContent,
     purgeSelectedContent,
-
     // operations on entire history
     unhideAllHiddenContent,
     deleteAllHiddenContent,
     purgeAllDeletedContent,
-
 } from "./crud";

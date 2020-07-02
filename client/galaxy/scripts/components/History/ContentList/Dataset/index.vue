@@ -1,5 +1,6 @@
 <template>
-    <DatasetUI v-if="dataset"
+    <DatasetUI
+        v-if="dataset"
         v-bind="$attrs"
         v-on="$listeners"
         :dataset="dataset"
@@ -10,9 +11,7 @@
     />
 </template>
 
-
 <script>
-
 import DatasetUI from "./DatasetUI";
 import { Dataset } from "../../model";
 import { deleteContent, updateContentFields } from "../../model/queries";
@@ -20,7 +19,7 @@ import { cacheContent } from "../../caching/";
 
 export default {
     components: {
-        DatasetUI
+        DatasetUI,
     },
     props: {
         item: { type: Object, required: true },
@@ -44,9 +43,7 @@ export default {
         async onUpdate(dataset, changes) {
             const newContent = await updateContentFields(dataset, changes);
             await cacheContent(newContent);
-        }
-    }
-}
-
+        },
+    },
+};
 </script>
-

@@ -7,10 +7,7 @@
 
 import { Content, STATES } from "./index";
 
-
-
 export class DatasetCollection extends Content {
-
     loadProps(raw = {}) {
         if (!raw.contents_url) {
             throw new Error("missing contents_url", raw);
@@ -72,7 +69,6 @@ export class DatasetCollection extends Content {
         return new Set(validStates);
     }
 }
-
 
 // This is handy outside of the model, export separately
 export function collectionTypeDescription(collectionType) {

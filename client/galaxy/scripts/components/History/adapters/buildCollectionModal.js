@@ -36,7 +36,7 @@ export async function buildCollectionModal(collectionType, history_id, type_ids,
     return await createFunc(fakeBackboneContent, hideSourceItems);
 }
 
-const createBackboneContent = selection => {
+const createBackboneContent = (selection) => {
     return {
         toJSON: () => selection,
 
@@ -50,13 +50,13 @@ const createBackboneContent = selection => {
                 copy_elements,
                 hide_source_items,
                 element_identifiers,
-                options
+                options,
             });
-        }
+        },
     };
 };
 
 async function loadSelectedContent(type_ids) {
-    const promises = type_ids.map(typeId => getCachedContentByTypeId(typeId));
+    const promises = type_ids.map((typeId) => getCachedContentByTypeId(typeId));
     return await Promise.all(promises);
 }

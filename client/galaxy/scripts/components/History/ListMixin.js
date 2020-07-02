@@ -4,7 +4,6 @@
 export default {
     data: () => ({
         listState: {
-
             // some of the UI is not super-responsive
             // while the virtual scroller is active so
             // we flip those parts on and off
@@ -17,8 +16,8 @@ export default {
             selected: new Set(),
 
             // list of expanded datasets
-            expanded: new Set()
-        }
+            expanded: new Set(),
+        },
     }),
     provide() {
         return {
@@ -27,7 +26,7 @@ export default {
             isSelected: this.isSelected,
             setExpanded: this.setExpanded,
             setSelected: this.setSelected,
-        }
+        };
     },
     methods: {
         isSelected({ type_id }) {
@@ -45,13 +44,13 @@ export default {
             const newSet = new Set(this.listState.expanded);
             val ? newSet.add(type_id) : newSet.delete(type_id);
             this.listState.expanded = newSet;
-        }
+        },
     },
     watch: {
-        "listState.selected": function(newSet) {
+        "listState.selected": function (newSet) {
             if (newSet.size > 0) {
                 this.showSelection = true;
             }
         },
     },
-}
+};

@@ -1,7 +1,7 @@
 import ContentItemMixin from "./mixins/ContentItemMixin";
 
 export default {
-    mixins: [ ContentItemMixin ],
+    mixins: [ContentItemMixin],
 
     computed: {
         contentItemComponent() {

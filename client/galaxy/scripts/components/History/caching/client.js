@@ -4,7 +4,6 @@ import { spawn, Worker } from "threads";
 import { getRootFromIndexLink } from "onload/getRootFromIndexLink";
 import config from "config";
 
-
 /**
  * @constant Observable yields the worker thread instance
  */
@@ -61,8 +60,6 @@ export const toPromise = (method, sendResponse) => async (...request) => {
     const justOne = wrappedObs(...request).pipe(take(1));
     return await justOne.toPromise();
 };
-
-
 
 /**
  * Custom Errors

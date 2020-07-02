@@ -11,7 +11,6 @@
         @click.stop="eventHub.$emit('selectCollection', dsc)"
     >
         <nav class="d-flex content-top-menu align-items-center justify-content-between">
-
             <div class="d-flex mr-1 align-items-center" @click.stop>
                 <b-check v-if="showSelection" :checked="selected" @change="$emit('update:selected', $event)" />
 
@@ -49,7 +48,6 @@
             </h5>
 
             <DscMenu class="content-item-menu" v-on="$listeners" />
-
         </nav>
 
         <JobStateProgress class="m-2" v-if="dsc.job_state_summary" :summary="dsc.job_state_summary" />
@@ -63,7 +61,7 @@ import JobStateProgress from "./JobStateProgress";
 import DscMenu from "./DscMenu";
 
 export default {
-    inject: ['listState', 'STATES'],
+    inject: ["listState", "STATES"],
     components: {
         StatusIcon,
         StateBtn,
@@ -81,7 +79,7 @@ export default {
         },
         showSelection() {
             return this.listState.showSelection;
-        }
+        },
     },
     methods: {
         onStatusClick() {

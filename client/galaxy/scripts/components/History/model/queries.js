@@ -356,7 +356,6 @@ export async function bulkContentUpdate(history, type_ids = [], fields = {}) {
 // TODO: Yet another api endpoint that needs fixing
 
 export async function createDatasetCollection(history, inputs = {}) {
-
     const defaults = {
         collection_type: "list",
         copy_elements: true,

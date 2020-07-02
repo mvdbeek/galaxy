@@ -17,44 +17,38 @@ import { monitorQuery } from "./monitorQuery";
 import { wipeDatabase } from "./debugging";
 // import { statefulObservableRoute } from "./stateful";
 
-
 expose({
-
-
-    // Debugging & utils
-
-    wipeDatabase,
     configure,
     init,
 
-
-    // content
-
     monitorContentQuery: monitorQuery(content$),
-
-    cacheContentItem: (props) =>
-        of(props).pipe(cacheContent()),
-
-    uncacheContent: (props) =>
-        of(props).pipe(unacheItem(content$)),
-
-    getCachedContentByTypeId: (id) =>
-        of(id).pipe(getItemByKey(content$, "type_id")),
-
-    loadHistoryContents: (request) =>
-        of(request).pipe(loadHistoryContents({ onceEvery: 5 * 1000 })),
-
-    pollHistory: (inputs) =>
-        of(inputs).pipe(pollForHistoryUpdates({ pollInterval: 10 * 1000 })),
-
-
-    // collection contents
-
     monitorDscQuery: monitorQuery(dscContent$),
 
-    loadDscContent: (request) =>
-        of(request).pipe(loadDscContent({ onceEvery: 5 * 1000 })),
+    cacheContentItem(props) {
+        return of(props).pipe(cacheContent());
+    },
 
+    uncacheContent(props) {
+        return of(props).pipe(unacheItem(content$));
+    },
+
+    getCachedContentByTypeId(id) {
+        return of(id).pipe(getItemByKey(content$, "type_id"));
+    },
+
+    loadHistoryContents(request) {
+        return of(request).pipe(loadHistoryContents({ onceEvery: 30 * 1000 }));
+    },
+
+    loadDscContent(request) {
+        return of(request).pipe(loadDscContent({ onceEvery: 30 * 1000 }));
+    },
+
+    pollHistory(inputs) {
+        return of(inputs).pipe(pollForHistoryUpdates({ pollInterval: 10 * 1000 }));
+    },
+
+    wipeDatabase,
 
     // Experimental
 
@@ -67,5 +61,4 @@ expose({
     //     loadDscContent({ onceEvery: 30 * 1000 }),
     //     "loadDscContent"
     // ),
-
 });

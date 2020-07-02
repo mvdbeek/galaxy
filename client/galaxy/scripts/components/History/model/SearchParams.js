@@ -66,20 +66,17 @@ export class SearchParams {
         this.limit = val - this.skip;
     }
 
-
     // Utils
 
     clone() {
         return new SearchParams(this);
     }
 
-
     // need this because of what Vue does to objects to make them reactive
     export() {
         const { filterText, showDeleted, showHidden, skip, limit } = this;
         return { filterText, showDeleted, showHidden, skip, limit };
     }
-
 
     // Pagination
 
@@ -106,7 +103,6 @@ export class SearchParams {
         return padded;
     }
 
-
     // transforms param range (skip/limit) into discrete chunks that result in
     // request urls that are more likely to be cached
 
@@ -124,7 +120,7 @@ export class SearchParams {
         }
 
         if (debug) {
-            result.forEach(p => p.report(">>> chunk"));
+            result.forEach((p) => p.report(">>> chunk"));
         }
 
         return result;
@@ -136,7 +132,6 @@ export class SearchParams {
         chunked.skip = chunked.limit * Math.floor(chunked.skip / chunked.limit);
         return chunked;
     }
-
 
     // Filtering, turns field=val into an object we can use to build selectors
 
@@ -162,7 +157,6 @@ export class SearchParams {
         }, result);
     }
 
-
     // output current state to log
 
     report(label = "params") {
@@ -178,23 +172,20 @@ export class SearchParams {
         console.log("limit", limit);
         console.groupEnd();
     }
-
 }
-
-
 
 // Statics
 
 SearchParams.pageSize = 60;
 SearchParams.chunkSize = 200;
 
-SearchParams.equals = function(a, b) {
+SearchParams.equals = function (a, b) {
     return deepEqual(a.export(), b.export());
-}
+};
 
 // equivalence test ignoring skip/limit
-SearchParams.filtersEqual = function(a,b) {
+SearchParams.filtersEqual = function (a, b) {
     const aa = a.resetPagination();
     const bb = b.resetPagination();
     return SearchParams.equals(aa, bb);
-}
+};

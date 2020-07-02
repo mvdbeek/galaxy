@@ -14,4 +14,3 @@ export function prependPath(path) {
     const root = getAppRoot();
     return `${root}/${path}`.replace(slashCleanup, "/");
 }
-
