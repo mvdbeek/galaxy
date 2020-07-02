@@ -21,7 +21,7 @@
 
 <script>
 
-import { DatasetCollection, collectionTypeDescription } from "../model/DatasetCollection";
+import { DatasetCollection } from "../model/DatasetCollection";
 
 export default {
     props: {

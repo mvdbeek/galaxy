@@ -1,6 +1,6 @@
 <template>
     <HistoryPanel v-if="historyId" :history-id="historyId">
-        <template #nav>
+        <template v-slot:nav>
             <HistoryTopNav :selected-history-id.sync="historyId" />
         </template>
     </HistoryPanel>

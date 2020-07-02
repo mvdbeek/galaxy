@@ -6,20 +6,20 @@
 
             <!-- we're going to want to make this optional for when we put multiple
                 histories on the page, so pass the slot through from the parent -->
-            <template #nav>
+            <template v-slot:nav>
                 <slot name="nav"></slot>
             </template>
 
-            <template #details>
+            <template v-slot:details>
                 <HistoryDetails class="history-details" :history="history" />
             </template>
 
-            <template #messages>
+            <template v-slot:messages>
                 <HistoryMessages class="history-messages m-2" :history="history" />
                 <HistoryEmpty v-if="history.empty" class="m-2" />
             </template>
 
-            <template #listcontrols>
+            <template v-slot:listcontrols>
                 <ContentOperations v-if="!history.empty"
                     :history="history"
                     :params="params"
@@ -27,12 +27,12 @@
                     :total-matches="totalMatches"
                     :contents="contents"
                     :loading="loading"
-                    :contentSelection.sync="listState.selected"
-                    :showSelection.sync="listState.showSelection"
+                    :content-selection.sync="listState.selected"
+                    :show-selection.sync="listState.showSelection"
                 />
             </template>
 
-            <template #listing :class="{ loadingBackground: loading }">
+            <template v-slot:listing :class="{ loadingBackground: loading }">
                 <HistoryContentList v-if="!history.empty"
                     data-key="_id"
                     :params="params"
@@ -43,7 +43,7 @@
                 />
             </template>
 
-            <template #modals>
+            <template v-slot:modals>
                 <ToolHelpModal />
             </template>
 

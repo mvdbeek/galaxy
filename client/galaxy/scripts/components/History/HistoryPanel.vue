@@ -11,7 +11,7 @@ selected datset collections -->
     <SelectedCollection
         v-else-if="selectedCollections.length"
         :history="history"
-        :selectedCollections.sync="selectedCollections"
+        :selected-collections.sync="selectedCollections"
     >
     </SelectedCollection>
 

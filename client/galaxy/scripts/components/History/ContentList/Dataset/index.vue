@@ -43,7 +43,7 @@ export default {
         },
         async onUpdate(dataset, changes) {
             const newContent = await updateContentFields(dataset, changes);
-            const cacheResult = await cacheContent(newContent);
+            await cacheContent(newContent);
         }
     }
 }

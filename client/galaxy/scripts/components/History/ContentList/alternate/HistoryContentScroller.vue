@@ -1,6 +1,6 @@
 <template>
     <Scroller :items="contents" :loading="loading" @update="onScroll"
-        v-slot="{ item, index, active }">
+        v-slot="{ item, index }">
         <HistoryContentItem :source="item" :index="index" />
     </Scroller>
 </template>

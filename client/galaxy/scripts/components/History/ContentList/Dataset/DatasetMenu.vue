@@ -55,14 +55,16 @@
             download
             icon="fas fa-file-download" />
 
-        <PriorityMenuItem v-if="showDownloads && dataset.hasMetaData"
-            v-for="mf in dataset.meta_files"
-            :key="'download-' + mf.download_url"
-            :title="'Download ' + mf.file_type"
-            :href="prependPath(dataset.getUrl('meta_download') + mf.file_type)"
-            target="_blank"
-            download
-            icon="fas fa-file-download" />
+        <div v-if="showDownloads && dataset.hasMetaData">
+            <PriorityMenuItem
+                v-for="mf in dataset.meta_files"
+                :key="'download-' + mf.download_url"
+                :title="'Download ' + mf.file_type"
+                :href="prependPath(dataset.getUrl('meta_download') + mf.file_type)"
+                target="_blank"
+                download
+                icon="fas fa-file-download" />
+        </div>
 
         <PriorityMenuItem v-if="dataset.rerunnable && dataset.creating_job && notIn(STATES.UPLOAD,STATES.NOT_VIEWABLE)"
             key="run-job"

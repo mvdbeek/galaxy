@@ -35,7 +35,7 @@ export default {
             tagSet.add(newTag.text);
             const tags = Array.from(tagSet);
             const ajaxResult = await updateContentFields(this.content, { tags });
-            const cacheResult = await cacheContent(ajaxResult);
+            await cacheContent(ajaxResult);
             addTag(newTag);
         },
         async deleteTag({ tag, deleteTag }) {
@@ -45,7 +45,7 @@ export default {
             tagSet.delete(doomedTag.text);
             const tags = Array.from(tagSet);
             const ajaxResult = await updateContentFields(this.content, { tags });
-            const cacheResult = await cacheContent(ajaxResult);
+            await cacheContent(ajaxResult);
             deleteTag(tag);
         }
     }

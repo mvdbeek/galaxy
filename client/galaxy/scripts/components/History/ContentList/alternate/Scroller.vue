@@ -10,7 +10,7 @@
             :emit-update="true"
             v-on="$listeners">
 
-            <template v-slot:default="{ item, index, active }">
+            <template v-slot="{ item, index, active }">
                 <DynamicScrollerItem
                     :item="item"
                     :active="active"

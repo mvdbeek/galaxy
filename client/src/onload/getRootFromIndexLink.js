@@ -11,6 +11,5 @@ export function getRootFromIndexLink(defaultRoot = "/") {
         return indexLink && indexLink.href ? serverPath(indexLink.href) : defaultRoot;
     } catch(err) {
         console.log("Couldn't find doc");
-        debugger;
     }
 }

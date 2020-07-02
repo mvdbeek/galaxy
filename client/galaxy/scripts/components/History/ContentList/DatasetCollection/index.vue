@@ -38,7 +38,7 @@ export default {
                 const newFields = Object.assign(collection, {
                     isDeleted: result.deleted,
                 });
-                const cacheResult = await cacheContent(newFields);
+                await cacheContent(newFields);
             }
         },
 

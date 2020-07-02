@@ -8,7 +8,7 @@
             v-slot="{ params, updateParams, loading, results: contents }">
 
             <Layout>
-                <template #nav>
+                <template v-slot:nav>
                     <TopNav :history="history"
                         :selected-collections="selectedCollections"
                         :show-tags.sync="showTags"
@@ -16,14 +16,14 @@
                         v-on="$listeners" />
                 </template>
 
-                <template #details>
+                <template v-slot:details>
                     <Details :dsc="dsc" :writable="writable"
                         :show-tags.sync="showTags"
                         :show-filter.sync="showFilter"
                         @update:dsc="updateDsc(dsc, $event)" />
                 </template>
 
-                <template #listing>
+                <template v-slot:listing>
                     <ContentList
                         data-key="_id"
                         :params="params"
@@ -39,7 +39,7 @@
 
 <script>
 
-import { SearchParams, History, DatasetCollection } from "../model";
+import { History } from "../model";
 import { updateContentFields } from "../model/queries";
 import { cacheContent } from "../caching";
 

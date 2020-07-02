@@ -100,6 +100,9 @@ either through the props, and make updates through the events -->
 
 <script>
 
+/* eslint-disable no-undef */
+// STATES is injected, eslint doesn't know that
+
 import { Dataset } from "../../model";
 import ClickToEdit from "components/Form/ClickToEdit";
 import Annotation from "components/Form/Annotation";
@@ -107,7 +110,6 @@ import { StatusIcon, StateBtn } from "../../StatusIcon";
 import DatasetMenu from "./DatasetMenu";
 import DatasetSummary from "./Summary";
 import ContentTags from "../../ContentTags";
-
 
 export default {
     inject: ['listState', 'STATES'],
