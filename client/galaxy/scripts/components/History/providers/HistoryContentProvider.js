@@ -10,6 +10,7 @@ import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { SearchParams } from "../model/SearchParams";
 import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching/index";
 import { buildContentPouchRequest } from "../caching/pouchQueries";
+import dist from "vue-virtual-scroll-list";
 
 
 // equivalence comparator for id + params
@@ -47,9 +48,9 @@ export default {
 
         const id$ = this.watch$("historyId");
 
-        const params$ = this.watch$("params");
+        const param$ = this.watch$("params");
 
-        const inputs$ = combineLatest(id$, params$).pipe(
+        const inputs$ = combineLatest(id$, param$).pipe(
             debounceTime(0),
             distinctUntilChanged(inputsSame),
             debounceTime(this.debouncePeriod),
@@ -57,11 +58,11 @@ export default {
         );
 
         if (this.isWatchingCache) {
-            this.watchCache(inputs$);
+            this.watchCache(id$, param$);
         }
 
         if (this.isManualLoading) {
-            this.watchManualRequest(id$, params$);
+            this.watchManualRequest(id$, param$);
         }
 
         if (this.isPolling) {
@@ -74,14 +75,26 @@ export default {
         // filtered by the params. Updates when cache updated, pass values to
         // results property.
 
-        watchCache(inputs$) {
-            const cache$ = inputs$.pipe(
-                tap(inputs => console.log("[cachewatch] inputs changed", inputs)),
-                map(buildContentPouchRequest),
-                switchMap(selector => {
-                    return monitorContentQuery(selector)
-                }),
+        watchCache(id$, param$) {
+
+            const cache$ = id$.pipe(
+                switchMap(id => {
+                    return param$.pipe(
+
+                        // cache watcher does not care about pagination, since
+                        // the results are for the entire cached set, but that
+                        // may change if the performance lags for big lists
+                        map(p => p.resetPagination()),
+
+                        distinctUntilChanged(SearchParams.equals),
+                        debounceTime(this.debouncePeriod),
+                        tap(params => params.report(`[cachewatch] inputs... history: ${id}`)),
+                        map(params => buildContentPouchRequest([id, params])),
+                        switchMap(monitorContentQuery)
+                    )
+                })
             );
+
             this.$subscribeTo(
                 cache$,
                 (results) => {
@@ -97,12 +110,12 @@ export default {
         // filters, we may have to make an ajax call, this dispatches the inputs
         // to loadContents() which handles getting and caching the new request
 
-        watchManualRequest(id$, params$) {
+        watchManualRequest(id$, param$) {
 
             // switchmap on id, mergemap on params
             const load$ = id$.pipe(
                 switchMap(historyId => {
-                    return params$.pipe(
+                    return param$.pipe(
                         debounceTime(this.debouncePeriod),
                         tap(params => params.report("[loader] SENDING...")),
                         mergeMap(params => {
