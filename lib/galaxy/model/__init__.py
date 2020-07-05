@@ -1796,7 +1796,7 @@ class History(HasTags, Dictifiable, UsesAnnotations, HasName, RepresentById):
         if optimize:
             self.__add_datasets_optimized(datasets, genome_build=genome_build)
             if quota and self.user:
-                disk_usage = sum([d.get_total_size() for d in datasets])
+                disk_usage = sum([d.set_total_size() for d in datasets])
                 self.user.adjust_total_disk_usage(disk_usage)
             sa_session.add_all(datasets)
             if flush:
