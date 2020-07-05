@@ -267,6 +267,9 @@ class ModelPersistenceContext(object):
             element_datasets['paths'].append(filename)
 
         add_datasets_timer = ExecutionTimer()
+        self.flush()
+        self.update_object_store_with_datasets(datasets=element_datasets['datasets'], paths=element_datasets['paths'])
+        self.set_datasets_metadata(datasets=element_datasets['datasets'])
         self.add_datasets_to_history(element_datasets['datasets'])
         self.add_tags_to_datasets(datasets=element_datasets['datasets'], tag_lists=element_datasets['tag_lists'])
         log.debug(
@@ -287,9 +290,6 @@ class ModelPersistenceContext(object):
             association_name = '__new_primary_file_%s|%s__' % (name, element_identifier_str)
             self.add_output_dataset_association(association_name, dataset)
 
-        self.flush()
-        self.update_object_store_with_datasets(datasets=element_datasets['datasets'], paths=element_datasets['paths'])
-        self.set_datasets_metadata(datasets=element_datasets['datasets'])
 
     def add_tags_to_datasets(self, datasets, tag_lists):
         if any(tag_lists):
