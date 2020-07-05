@@ -445,7 +445,6 @@ def collect_primary_datasets(job_context, output, input_ext):
             if sa_session:
                 sa_session.add(outdata)
 
-    job_context.flush()
     return primary_datasets
 
 
