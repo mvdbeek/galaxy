@@ -1794,11 +1794,10 @@ class History(HasTags, Dictifiable, UsesAnnotations, HasName, RepresentById):
         all_hdas = all(is_hda(_) for _ in datasets)
         optimize = len(datasets) > 1 and parent_id is None and all_hdas and set_hid
         if optimize:
-            self.__add_datasets_optimized(datasets, genome_build=genome_build)
             if quota and self.user:
                 disk_usage = sum([d.set_total_size() for d in datasets])
                 self.user.adjust_total_disk_usage(disk_usage)
-            sa_session.add_all(datasets)
+            self.__add_datasets_optimized(datasets, genome_build=genome_build)
             if flush:
                 sa_session.flush()
         else:

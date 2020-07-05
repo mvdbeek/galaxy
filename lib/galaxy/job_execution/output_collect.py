@@ -207,7 +207,8 @@ class JobContext(ModelPersistenceContext, BaseJobContext):
         return self.app.tag_handler
 
     def persist_object(self, obj):
-        self.sa_session.add(obj)
+        # this is currently no-op, datasets are added to session when datasets are associated with a history
+        pass
 
     def flush(self):
         self.sa_session.flush()
