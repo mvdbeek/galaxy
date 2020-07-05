@@ -267,6 +267,7 @@ class ModelPersistenceContext(object):
             element_datasets['paths'].append(filename)
 
         add_datasets_timer = ExecutionTimer()
+        # this flush is safe to eliminate if object store uses uuid
         self.flush()
         self.update_object_store_with_datasets(datasets=element_datasets['datasets'], paths=element_datasets['paths'])
         self.set_datasets_metadata(datasets=element_datasets['datasets'])
