@@ -1724,16 +1724,6 @@ class JobWrapper(HasResourceParameters):
         if job.user:
             job.user.adjust_total_disk_usage(collected_bytes)
 
-        # Empirically, we need to update job.user and
-        # job.workflow_invocation_step.workflow_invocation in separate
-        # transactions. Best guess as to why is that the workflow_invocation
-        # may or may not exist when the job is first loaded by the handler -
-        # and depending on whether it is or not sqlalchemy orders the updates
-        # differently and deadlocks can occur (one thread updates user and
-        # waits on invocation and the other updates invocation and waits on
-        # user).
-        self.sa_session.flush()
-
         self._fix_output_permissions()
 
         # Finally set the job state.  This should only happen *after* all
