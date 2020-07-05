@@ -64,6 +64,8 @@ from galaxy.util.hash_util import new_secure_hash
 from galaxy.util.json import safe_loads
 from galaxy.util.sanitize_html import sanitize_html
 
+import profilehooks
+
 log = logging.getLogger(__name__)
 
 _datatypes_registry = None

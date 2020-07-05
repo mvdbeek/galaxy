@@ -69,6 +69,8 @@ from galaxy.util.expressions import ExpressionContext
 from galaxy.util.xml_macros import load
 from galaxy.web_stack.handlers import ConfiguresHandlers
 
+import profilehooks
+
 log = logging.getLogger(__name__)
 
 # Legacy definition - this is read by certain misbehaving tool wrappers
@@ -1740,6 +1742,7 @@ class JobWrapper(HasResourceParameters):
         self.cleanup(delete_files=delete_files)
         log.debug(finish_timer.to_str(job_id=self.job_id, tool_id=job.tool_id))
 
+    @profilehooks.profile
     def discover_outputs(self, job, inp_data, out_data, out_collections, final_job_state):
         # Try to just recover input_ext and dbkey from job parameters (used and set in
         # galaxy.tools.actions). Old jobs may have not set these in the job parameters

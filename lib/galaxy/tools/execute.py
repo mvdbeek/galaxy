@@ -19,6 +19,8 @@ log = logging.getLogger(__name__)
 SINGLE_EXECUTION_SUCCESS_MESSAGE = "Tool ${tool_id} created job ${job_id}"
 BATCH_EXECUTION_MESSAGE = "Executed ${job_count} job(s) for tool ${tool_id} request"
 
+import profilehooks
+
 
 class PartialJobExecution(Exception):
 
@@ -29,6 +31,7 @@ class PartialJobExecution(Exception):
 MappingParameters = collections.namedtuple("MappingParameters", ["param_template", "param_combinations"])
 
 
+@profilehooks.profile
 def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, collection_info=None, workflow_invocation_uuid=None, invocation_step=None, max_num_jobs=None, job_callback=None, completed_jobs=None, workflow_resource_parameters=None, validate_outputs=False):
     """
     Execute a tool and return object containing summary (output data, number of
