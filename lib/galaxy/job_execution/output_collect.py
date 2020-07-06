@@ -211,7 +211,10 @@ class JobContext(ModelPersistenceContext, BaseJobContext):
         pass
 
     def flush(self):
+        # That looks not thread safe, but should be thread-safe because sa_session if a scoped session?
+        self.sa_session.expire_on_commit = False
         self.sa_session.flush()
+        self.sa_session.expire_on_commit = True
 
     def get_library_folder(self, destination):
         app = self.app

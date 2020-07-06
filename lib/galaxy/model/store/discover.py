@@ -12,6 +12,7 @@ from collections import (
     namedtuple,
     OrderedDict
 )
+from contextlib import contextmanager
 
 import six
 
@@ -29,6 +30,15 @@ from galaxy.util.hash_util import HASH_NAME_MAP
 log = logging.getLogger(__name__)
 
 UNSET = object()
+
+
+@contextmanager
+def no_expire(session):
+    session.expire_on_commit = False
+    try:
+        yield
+    finally:
+        session.expire_on_commit = True
 
 
 @six.add_metaclass(abc.ABCMeta)
@@ -267,10 +277,10 @@ class ModelPersistenceContext(object):
             element_datasets['paths'].append(filename)
 
         add_datasets_timer = ExecutionTimer()
-        # this flush is safe to eliminate if object store uses uuid
-        self.flush()
-        self.update_object_store_with_datasets(datasets=element_datasets['datasets'], paths=element_datasets['paths'])
-        self.set_datasets_metadata(datasets=element_datasets['datasets'])
+        # We're not discovering extra_files.
+        # Setting size like this is much faster.
+        for dataset in element_datasets['datasets']:
+            dataset.set_size(no_extra_files=True)
         self.add_datasets_to_history(element_datasets['datasets'])
         self.add_tags_to_datasets(datasets=element_datasets['datasets'], tag_lists=element_datasets['tag_lists'])
         log.debug(
@@ -291,6 +301,12 @@ class ModelPersistenceContext(object):
             association_name = '__new_primary_file_%s|%s__' % (name, element_identifier_str)
             self.add_output_dataset_association(association_name, dataset)
 
+        # this flush is safe to eliminate if (all) object stores use uuids
+        # but then one is better off with extended_metadata anyway
+        self.flush()
+        self.update_object_store_with_datasets(datasets=element_datasets['datasets'], paths=element_datasets['paths'])
+        self.set_datasets_metadata(datasets=element_datasets['datasets'])
+
 
     def add_tags_to_datasets(self, datasets, tag_lists):
         if any(tag_lists):
@@ -305,7 +321,6 @@ class ModelPersistenceContext(object):
     def update_object_store_with_datasets(self, datasets, paths):
         for dataset, path in zip(datasets, paths):
             self.object_store.update_from_file(dataset.dataset, file_name=path, create=True)
-            dataset.set_size(no_extra_files=True)
 
     @abc.abstractproperty
     def tag_handler(self):
