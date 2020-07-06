@@ -4,7 +4,7 @@ props.id = contents_url
 */
 
 import { combineLatest } from "rxjs";
-import { mergeMap, map, distinctUntilChanged, switchMap, debounceTime } from "rxjs/operators";
+import { tap, map, distinctUntilChanged, switchMap, debounceTime } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { loadDscContent, monitorDscQuery } from "../caching";
 import { buildCollectionContentRequest } from "../caching/pouchQueries";
@@ -31,7 +31,7 @@ export default {
                 switchMap((url) => {
                     return limitlessParam$.pipe(
                         map((params) => buildCollectionContentRequest([url, params])),
-                        mergeMap(monitorDscQuery)
+                        monitorDscQuery()
                     );
                 })
             );
@@ -54,7 +54,10 @@ export default {
             const load$ = combineLatest(url$, paddedParams$).pipe(
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(this.inputsSame),
-                switchMap(loadDscContent)
+                tap((things) => {
+                    debugger;
+                }),
+                loadDscContent()
             );
 
             return load$;

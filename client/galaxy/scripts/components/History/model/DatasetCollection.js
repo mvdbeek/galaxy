@@ -6,6 +6,7 @@
  */
 
 import { Content, STATES } from "./index";
+import { JobStateSummary } from "./JobStateSummary";
 
 export class DatasetCollection extends Content {
     loadProps(raw = {}) {
@@ -25,48 +26,45 @@ export class DatasetCollection extends Content {
         return collectionTypeDescription(this.collection_type);
     }
 
+    get hasDetails() {
+        return this.populated_state;
+    }
+
     // This only gets used for the color of the collection content box
     // It's an attempt to get an overall state for a collection, this
     // needs more UI to drill down because there's going to be several
     // states from the job summary
 
-    get state() {
-        // console.log("get state");
-        // {"running":0,"upload":0,"all_jobs":0,"deleted":0,"new":0,
-        // "queued":0,"waiting":0,"failed":0,"deleted_new":0,
-        // "paused":0,"error":0,"ok":0,"resubmitted":0}
-
-        const states = this.uniqueJobStates();
-
-        // no states? assume good.
-        if (states.size == 0) {
-            return STATES.OK;
-        }
-
-        // just one state, take that.
-        if (states.size == 1) {
-            return Array.from(states.values())[0];
-        }
-
-        // running?
-        if (states.has(STATES.RUNNING) || states.has(STATES.QUEUED) || states.has(STATES.NEW)) {
-            return STATES.RUNNING;
-        }
-
-        // error?
-        if (states.has(STATES.ERROR) || states.has(STATES.FAILED_METADATA)) {
-            return STATES.ERROR;
-        }
-
-        // Hard to say
-        return STATES.MIXED;
+    get jobStateSummary() {
+        return new JobStateSummary(this.job_state_summary);
     }
 
-    uniqueJobStates() {
-        const summary = this;
-        const stateVals = new Set(Object.values(STATES));
-        const validStates = Object.keys(this).filter((s) => stateVals.has(s) && summary[s] > 0);
-        return new Set(validStates);
+    get state() {
+        // stolen from existing model, must clean this crap up
+
+        let state;
+
+        const summary = this.jobStatesSummary;
+        if (summary) {
+            if (summary.new) {
+                state = "loading";
+            } else if (summary.errored) {
+                state = "error";
+            } else if (summary.terminal) {
+                state = "ok";
+            } else if (summary.running) {
+                state = "running";
+            } else {
+                state = "queued";
+            }
+        } else if (this.job_source_id) {
+            // Initial rendering - polling will fill in more details in a bit.
+            state = "loading";
+        } else {
+            state = this.populated_state ? STATES.OK : STATES.RUNNING;
+        }
+
+        return state;
     }
 }
 

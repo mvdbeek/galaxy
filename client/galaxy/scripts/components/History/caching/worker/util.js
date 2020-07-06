@@ -24,9 +24,8 @@ export const configure = (options = {}) => {
 };
 
 /**
- * Subscribe to globa subs
+ * Subscribe to global priority queue
  */
-
 export const init = () => {
     console.log("[worker] Subscribing to internal priority queue");
     processQueue.subscribe(
@@ -46,9 +45,11 @@ export function prependPath(path) {
     return `${root}/${path}`.replace(slashCleanup, "/");
 }
 
-// Global url date-store, keeps track of the last time a specific url was requested
-// Can reset the update_time tracking by passing in a new datestore to the operator configs
-
+/**
+ * Global url date-store, keeps track of the last time a specific url was
+ * requested Can reset the update_time tracking by passing in a new datestore to
+ * the operator configs
+ */
 export const requestDateStore = createDateStore("requestWithUpdateTime default");
 
 /***
@@ -72,7 +73,7 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
     return baseUrl$.pipe(
         mergeMap((baseUrl) => {
             return of(baseUrl).pipe(
-                fullUrl({
+                appendUpdateTime({
                     dateStore,
                     bufferSeconds,
                     dateFieldName,
@@ -93,69 +94,43 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
  * time this URL was requestd as indicated by the dateStore.
  * (Async in case we choose to store the date in indexDb instead of localStorage)
  */
-const fullUrl = (cfg = {}) => {
-    const { dateStore, bufferSeconds = 0, dateFieldName = "update_time" } = cfg;
+const appendUpdateTime = (cfg = {}) => {
+    const { dateStore = requestDateStore, bufferSeconds = 0, dateFieldName = "update_time" } = cfg;
 
     return pipe(
         mergeMap(async (baseUrl) => {
-            if (!dateStore.has(baseUrl)) {
-                return baseUrl;
-            }
+            if (!dateStore.has(baseUrl)) return baseUrl;
 
             let lastRequest = dateStore.getLastDate(baseUrl);
             lastRequest = lastRequest.subtract(bufferSeconds, "seconds");
 
-            const parts = [
-                baseUrl,
-                `q=${dateFieldName}-gt&qv=${lastRequest.toISOString()}`,
-                // `q=${dateFieldName}-lt&qv=${rightNow.toISOString()}`,
-            ];
-
+            const parts = [baseUrl, `q=${dateFieldName}-gt&qv=${lastRequest.toISOString()}`];
             return parts.join("&");
         })
     );
 };
 
-// use same store as requestWithUpdateTime?
-export const throttleDistinctDateStore = createDateStore("throttleDistinct default");
-
-export const throttleDistinct = (config = {}) => {
-    const { timeout = 1000, dateStore = throttleDistinctDateStore } = config;
-
+/**
+ * passing SearchParams into the worker removes its class information
+ */
+export const hydrateInputs = () => {
     return pipe(
-        filter((val) => {
-            const now = moment();
-            let ok = true;
-            if (dateStore.has(val)) {
-                const lastRequest = dateStore.getLastDate(val);
-                ok = now - lastRequest > timeout;
-            }
-            if (ok) {
-                dateStore.set(val, now);
-            }
-            return ok;
-        })
-    );
-};
-
-// passing SearchParams into the worker removes its class information
-
-export const hydrateInputs = () =>
-    pipe(
         map((inputs) => {
             const [id, rawParams] = inputs;
             return [id, new SearchParams(rawParams)];
         })
     );
+};
 
-// Breaks inputs into a set of discrete chunks so that the resulting URLs are
-// easier to cache
-// Source: [history_id, SearchParam] or [url, SeaarchParam]
-
-export const chunkInputs = () =>
-    pipe(
+/**
+ * Breaks inputs up into discrete chunks so the resulting URLs are esier to cache
+ * Source: [history_id, SearchParam] or [url, SeaarchParam]
+ */
+export const chunkInputs = () => {
+    return pipe(
         mergeMap(([idParameter, params]) => {
             const chunks = params.chunkParams(SearchParams.chunkSize);
             return from(chunks).pipe(map((p) => [idParameter, p]));
         })
     );
+};

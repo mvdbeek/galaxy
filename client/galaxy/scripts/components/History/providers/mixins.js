@@ -42,6 +42,8 @@ export const contentListMixin = {
         param$() {
             return this.watch$("params");
         },
+
+        // Override
         cacheObservable() {
             return null;
         },
@@ -57,29 +59,31 @@ export const contentListMixin = {
             this.$subscribeTo(
                 this.cacheObservable,
                 ({ matches }) => {
-                    console.log("[cache] results", matches.length);
+                    console.log("[provider.cache] results", matches.length);
                     this.results = matches;
                 },
-                (err) => console.warn("[cache] error", err),
-                () => console.log("[cache] stream complete")
+                (err) => console.warn("[provider.cache] error", err),
+                () => console.log("[provider.cache] stream complete")
             );
         }
 
         if (this.loadingObservable) {
             this.$subscribeTo(
                 this.loadingObservable,
-                (result) => console.log("[loader] result", result),
-                (err) => console.warn("[loader] error", err),
-                () => console.warn("[loader] complete: should only complete on unsub")
+                (result) => {
+                    console.log("[provider.loader] result", result);
+                },
+                (err) => console.warn("[provider.loader] error", err),
+                () => console.warn("[provider.loader] complete: should only complete on unsub")
             );
         }
 
         if (this.pollingObservable) {
             this.$subscribeTo(
                 this.pollingObservable,
-                (result) => console.log("[poll] result", result),
-                (err) => console.warn("[poll] error", err),
-                () => console.warn("[poll] complete: should only complete on unsub")
+                (result) => console.log("[provider.poll] result", result),
+                (err) => console.warn("[provider.poll] error", err),
+                () => console.warn("[provider.poll] complete: should only complete on unsub")
             );
         }
     },

@@ -15,14 +15,27 @@ import { loadHistoryContents, loadDscContent } from "./loader";
 import { init, configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
 import { wipeDatabase } from "./debugging";
-// import { statefulObservableRoute } from "./stateful";
+import { asObservable } from "./asObservable";
 
 expose({
     configure,
     init,
 
-    monitorContentQuery: monitorQuery(content$),
-    monitorDscQuery: monitorQuery(dscContent$),
+    monitorContentQuery: asObservable(
+        monitorQuery({
+            db$: content$,
+            inputDebounce: 250,
+            outputDebounce: 50,
+        })
+    ),
+
+    monitorDscQuery: asObservable(
+        monitorQuery({
+            db$: dscContent$,
+            inputDebounce: 250,
+            outputDebounce: 50,
+        })
+    ),
 
     cacheContentItem(props) {
         return of(props).pipe(cacheContent());
@@ -36,29 +49,13 @@ expose({
         return of(id).pipe(getItemByKey(content$, "type_id"));
     },
 
-    loadHistoryContents(request) {
-        return of(request).pipe(loadHistoryContents({ onceEvery: 30 * 1000 }));
-    },
+    loadHistoryContents: asObservable((req$) => req$.pipe(loadHistoryContents({ onceEvery: 30 * 1000 }))),
 
-    loadDscContent(request) {
-        return of(request).pipe(loadDscContent({ onceEvery: 30 * 1000 }));
-    },
+    loadDscContent: asObservable((req$) => req$.pipe(loadDscContent({ onceEvery: 30 * 1000 }))),
 
     pollHistory(inputs) {
         return of(inputs).pipe(pollForHistoryUpdates({ pollInterval: 10 * 1000 }));
     },
 
     wipeDatabase,
-
-    // Experimental
-
-    // statefulObservableRoute(
-    //     loadHistoryContents({ onceEvery: 30 * 1000 }),
-    //     "loadHistoryContents"
-    // ),
-
-    // loadDscContent: statefulObservableRoute(
-    //     loadDscContent({ onceEvery: 30 * 1000 }),
-    //     "loadDscContent"
-    // ),
 });

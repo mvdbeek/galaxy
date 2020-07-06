@@ -3,35 +3,27 @@
  * a time without spamming the server or the cache.
  */
 
-import { timer, Subject } from "rxjs";
-import { ignoreElements, concatMap, startWith, mergeMap } from "rxjs/operators";
+import { Subject } from "rxjs";
+import { concatMap, publish, finalize, delay } from "rxjs/operators";
 
 const hopper = new Subject();
 
 export const processQueue = hopper.pipe(
-    concatMap((task) => {
-        return timer(100).pipe(
-            ignoreElements(),
-            startWith(task),
-            mergeMap((task) => {
-                console.log("[queue] connecting task");
-                task.connect();
-                return task;
+    concatMap(({ task$, label }) => {
+        console.log("[queue] next task", label);
+        task$.connect();
+        return task$.pipe(
+            delay(5000),
+            finalize(() => {
+                console.log("[queue] task done", label);
             })
         );
     })
 );
 
 export function enqueue(obs$, label) {
-    console.log(`[queue] enqueue: ${label}`);
-
-    // const task = obs$.pipe(
-    //     delay(500),
-    //     tap(() => console.log("[queue] task starting", label)),
-    //     publish()
-    // );
-    // hopper.next(task);
-    // return task;
-
-    return obs$;
+    console.log("[queue] enqueue", label);
+    const task$ = obs$.pipe(publish());
+    hopper.next({ task$, label });
+    return task$;
 }

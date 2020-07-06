@@ -25,7 +25,7 @@ export default {
                 // tap(p => p.report("[dscpanel cachewatch] start")),
                 map((p) => p.resetPagination()),
                 // tap(p => p.report("[dscpanel cachewatch] reset pagination")),
-                debounceTime(this.debouncePeriod),
+                // debounceTime(this.debouncePeriod),
                 distinctUntilChanged(SearchParams.equals)
             );
 
@@ -34,7 +34,7 @@ export default {
                 switchMap((id) => {
                     return limitlessParam$.pipe(
                         map((params) => buildContentPouchRequest([id, params])),
-                        mergeMap(monitorContentQuery)
+                        monitorContentQuery()
                     );
                 })
             );
@@ -53,15 +53,15 @@ export default {
             // need to pad the range before we give it to the loader so we
             // load a little more than we're looking at right now
             const paddedParams$ = param$.pipe(
-                // tap(p => p.report("[loader] start")),
-                map((p) => p.pad())
-                // tap(p => p.report("[loader] padded pagination")),
+                tap((p) => p.report("[loader] start")),
+                map((p) => p.pad()),
+                tap((p) => p.report("[loader] padded pagination"))
             );
 
             const load$ = combineLatest(historyId$, paddedParams$).pipe(
-                debounceTime(this.debouncePeriod),
+                debounceTime(0),
                 distinctUntilChanged(this.inputsSame),
-                switchMap(loadHistoryContents)
+                loadHistoryContents()
             );
 
             return load$;
@@ -72,18 +72,18 @@ export default {
         // an endpoint corresponding to the history + params and dumps the
         // results in the local cache
 
-        pollingObservable() {
-            const historyId$ = this.id$;
+        // pollingObservable() {
+        //     const historyId$ = this.id$;
 
-            const poll$ = combineLatest(historyId$, this.cumulativeRange$).pipe(
-                debounceTime(this.debouncePeriod),
-                distinctUntilChanged(this.inputsSame),
-                tap((inputs) => console.log("[poll] inputs changed", inputs)),
-                switchMap(pollHistory)
-            );
+        //     const poll$ = combineLatest(historyId$, this.cumulativeRange$).pipe(
+        //         debounceTime(this.debouncePeriod),
+        //         distinctUntilChanged(this.inputsSame),
+        //         tap((inputs) => console.log("[poll] inputs changed", inputs)),
+        //         switchMap(pollHistory)
+        //     );
 
-            return poll$;
-        },
+        //     return poll$;
+        // },
 
         cumulativeRange$() {
             // need to reset when history id changes

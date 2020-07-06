@@ -1,7 +1,6 @@
-//==============================================================================
-/** Map of possible HDA/collection/job states to their string equivalents.
- *      A port of galaxy.model.Dataset.states.
- */
+// Stolen from existing model.
+// It is stupid.
+
 export const STATES = {
     // NOT ready states
     /** is uploading and not ready */
@@ -35,6 +34,13 @@ export const STATES = {
 
     // Adding a mixed state for use on the collection UI
     MIXED: "mixed",
+
+    // found in job-state summary model
+    DELETED: "deleted",
+    WAITING: "waiting",
+    FAILED: "failed",
+    DELETEDNEW: "deleted_new",
+    RESUBMITTED: "resubmitted",
 };
 
 STATES.READY_STATES = [
@@ -48,3 +54,12 @@ STATES.READY_STATES = [
 ];
 
 STATES.NOT_READY_STATES = [STATES.UPLOAD, STATES.QUEUED, STATES.RUNNING, STATES.SETTING_METADATA, STATES.NEW];
+
+// Job-state-summary lists
+
+STATES.NON_TERMINAL_STATES = [STATES.NEW, STATES.QUEUED, STATES.RUNNING];
+
+STATES.ERROR_STATES = [
+    STATES.ERROR,
+    STATES.DELETED, // does this exist?
+];

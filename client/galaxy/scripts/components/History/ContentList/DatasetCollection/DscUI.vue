@@ -50,6 +50,8 @@
             <DscMenu class="content-item-menu" v-on="$listeners" />
         </nav>
 
+        <pre style="height: 150px; overflow: scroll;">{{ dsc }}</pre>
+
         <JobStateProgress class="m-2" v-if="dsc.job_state_summary" :summary="dsc.job_state_summary" />
     </div>
 </template>

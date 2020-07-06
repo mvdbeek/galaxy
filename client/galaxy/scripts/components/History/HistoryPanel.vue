@@ -12,8 +12,7 @@ selected datset collections -->
         v-else-if="selectedCollections.length"
         :history="history"
         :selected-collections.sync="selectedCollections"
-    >
-    </SelectedCollection>
+    />
 
     <div v-else class="sr-ony">No History?</div>
 </template>

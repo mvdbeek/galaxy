@@ -1,13 +1,13 @@
-import { toPromise, toObservable } from "./client";
+import { toPromise, toObservable, toOperator } from "./client";
 
 /**
- * monitorContentCache
- * returns an event emitter that monitors the contents of the history content cache
+ * monitor cache for changes
  */
-export const monitorContentQuery = toObservable("monitorContentQuery");
+export const monitorContentQuery = toOperator("monitorContentQuery");
+export const monitorDscQuery = toOperator("monitorDscQuery");
 
 /**
- * Content cache functions
+ * Cache promise functions
  */
 export const cacheContent = toPromise("cacheContentItem");
 export const bulkCacheContent = toPromise("bulkCacheContent");
@@ -15,22 +15,16 @@ export const getCachedContentByTypeId = toPromise("getCachedContentByTypeId");
 export const uncacheContent = toPromise("uncacheContent", false);
 
 /**
- * Pass historyId + params and let worker load it, might be several requests
- * depending on param range and previous requests
+ * Loaders
  */
-export const loadHistoryContents = toObservable("loadHistoryContents");
+export const loadHistoryContents = toOperator("loadHistoryContents");
+export const loadDscContent = toOperator("loadDscContent");
 
 /**
  * Returns an observable that starts history content polling.
  * Polls until unsubscribed. Results are cached
  */
 export const pollHistory = toObservable("pollHistory");
-
-/**
- * Collection content
- */
-export const monitorDscQuery = toObservable("monitorDscQuery");
-export const loadDscContent = toObservable("loadDscContent");
 
 // Debugging
 export const wipeDatabase = toPromise("wipeDatabase", false);
