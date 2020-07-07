@@ -7,7 +7,7 @@ import { pipe } from "rxjs";
 import { tap, map, shareReplay } from "rxjs/operators";
 import { collection, cacheItem, bulkCache, installIndexes } from "./db";
 
-// bulk inserts
+// bulk insert helper, runs function on list
 const prepList = (fn) => pipe(map((list) => list.map(fn)));
 
 /**
@@ -19,9 +19,13 @@ export const content$ = collection({ name: "galaxy-content" }).pipe(
     shareReplay(1)
 );
 
-export const cacheContent = () => pipe(map(prepContent), cacheItem(content$));
+export const cacheContent = () => {
+    return pipe(map(prepContent), cacheItem(content$));
+};
 
-export const bulkCacheContent = () => pipe(prepList(prepContent), bulkCache(content$));
+export const bulkCacheContent = () => {
+    return pipe(prepList(prepContent), bulkCache(content$));
+};
 
 const prepContent = (props) => {
     const { history_id, history_content_type, id, type_id: origTypeId, deleted: isDeleted, ...theRest } = props;
@@ -74,13 +78,13 @@ export const dscContent$ = collection({ name: "galaxy-collection-content" }).pip
     shareReplay(1)
 );
 
-export const bulkCacheDscContent = (extraFields = {}) =>
-    pipe(prepList(prepDscContent(extraFields)), bulkCache(dscContent$));
+export const bulkCacheDscContent = () => {
+    return pipe(prepList(prepDscContent), bulkCache(dscContent$));
+};
 
 // unscrew the api result format
-const prepDscContent = (extraFields) => (props) => {
-    const { contents_url, ...otherExtraFields } = extraFields;
-    const { element_identifier: name, object } = props;
+const prepDscContent = (props) => {
+    const { contents_url, element_identifier: name, object } = props;
     const { id, model_class, ...otherObjectFields } = object;
     const history_content_type = model_class == "HistoryDatasetAssociation" ? "dataset" : "dataset_collection";
     const type_id = `${history_content_type}-${id}`;
@@ -102,7 +106,7 @@ const prepDscContent = (extraFields) => (props) => {
 
         // move stuff out of "object" and into root of cached packet
         ...otherObjectFields,
-        ...otherExtraFields,
+
         // cache_time,
         cached_at: moment().valueOf(),
     };

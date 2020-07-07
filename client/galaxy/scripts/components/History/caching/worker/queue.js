@@ -2,28 +2,41 @@
  * Lossless backpressure queue for processing observables one at
  * a time without spamming the server or the cache.
  */
-
 import { Subject } from "rxjs";
 import { concatMap, publish, finalize, delay } from "rxjs/operators";
 
-const hopper = new Subject();
+// put stuff on this Subject to process
+// format { task: observable to run, label: some identifier }
+const queue$ = new Subject();
 
-export const processQueue = hopper.pipe(
-    concatMap(({ task$, label }) => {
-        console.log("[queue] next task", label);
-        task$.connect();
-        return task$.pipe(
-            delay(5000),
-            finalize(() => {
-                console.log("[queue] task done", label);
-            })
+// process each item sequentially
+const process$ = queue$.pipe(
+    concatMap(({ task, label }) => {
+        console.log("[queue] next task, connecting", label);
+        task.connect();
+        return task.pipe(
+            delay(100),
+            finalize(() => console.log("[queue] task done", label))
         );
     })
 );
 
-export function enqueue(obs$, label) {
-    console.log("[queue] enqueue", label);
-    const task$ = obs$.pipe(publish());
-    hopper.next({ task$, label });
-    return task$;
+// just a counter to help debugging
+let taskCounter = 0;
+
+// publish passed observable. This won't emit until later
+// when connect() is called, throw the new task on the queue$;
+export function enqueue(obs$) {
+    const label = taskCounter++;
+    console.log("[queue] enqueue task", label);
+    const task = obs$.pipe(publish());
+    queue$.next({ task, label });
+    return task;
 }
+
+// subscribe to processor
+export const queueSubscription = process$.subscribe(
+    (result) => console.log("[queue] result", result),
+    (err) => console.warn("[queue] error", err),
+    () => console.warn("[queue] complete, why is queue complete?")
+);

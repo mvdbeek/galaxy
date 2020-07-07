@@ -4,13 +4,12 @@
  * one or more ajax calls against the api and cache ther results.
  */
 import { of, pipe, zip } from "rxjs";
-import { tap, share, mergeMap, map, finalize } from "rxjs/operators";
+import { tap, share, mergeMap, map, finalize, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
 import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
 import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
 import { enqueue } from "./queue";
-import { v4 as uuidv4 } from "uuid";
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
@@ -29,20 +28,17 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
 
     const load$ = url$.pipe(
         mergeMap((url) => {
-            const id = uuidv4();
-
             // loads and caches one url
             const task$ = of(url).pipe(
                 map(prependPath),
                 requestWithUpdateTime({ context }),
                 bulkCacheContent(),
-                cacheSummary(),
-                tap(() => console.log("[loadHistoryContents] load done", id))
+                cacheSummary()
             );
 
             // send back an observable that waits to emit until
             // the processing queue gets to it
-            return enqueue(task$, id);
+            return enqueue(task$);
         })
     );
 
@@ -60,60 +56,36 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
 export const loadDscContent = (cfg = {}) => (src$) => {
     const { context = "load-collection", onceEvery = 10 * 1000 } = cfg;
 
-    debugger;
-
     // clean and chunk inputs
-    const inputs$ = src$.pipe(
-        hydrateInputs(),
-        chunkInputs(),
-        tap((things) => {
-            debugger;
-        }),
-        share()
-    );
+    const inputs$ = src$.pipe(hydrateInputs(), chunkInputs());
 
-    // will need contents_url later
-    const contentsUrl$ = inputs$.pipe(
-        map((inputs) => inputs[0]),
-        tap((things) => {
-            debugger;
-        })
-    );
-
-    // send request
-    const response$ = inputs$.pipe(
+    // request, throttle frequently repeated requests
+    const ajaxResponse$ = inputs$.pipe(
         map(buildDscContentUrl),
-        tap((things) => {
-            debugger;
-        }),
-        deSpamRequest({ context, onceEvery }),
-        tap((things) => {
-            debugger;
+        throttleDistinct({ timeout: onceEvery }),
+        map(prependPath),
+        requestWithUpdateTime({ context })
+    );
+
+    // add contents_url to cache data, will use it as a key
+    const url$ = inputs$.pipe(map((inputs) => inputs[0]));
+
+    const response$ = ajaxResponse$.pipe(
+        withLatestFrom(url$),
+        map(([responses, contents_url]) => {
+            return responses.map((row) => ({ ...row, contents_url }));
         })
     );
 
-    const load$ = zip(response$, contentsUrl$).pipe(
-        map(([responses, contents_url]) => {
-            debugger;
-            return responses.map((row) => ({ ...row, contents_url }));
-        }),
-        tap((stuff) => {
-            debugger;
-        }),
+    const cached$ = response$.pipe(
         bulkCacheDscContent(),
-        tap((things) => {
-            debugger;
-        }),
         cacheSummary(),
-        tap((things) => {
-            debugger;
-        }),
         finalize(() => {
             console.warn("[loader] loadDscContent subscription end");
         })
     );
 
-    return load$; // enqueue(load$, "load contents");
+    return cached$; // enqueue(load$, "load contents");
 };
 
 /**
@@ -126,22 +98,22 @@ export const loadDscContent = (cfg = {}) => (src$) => {
  *
  * @param {object} cfg Operator configs
  */
-export const deSpamRequest = (cfg = {}) => (url$) => {
-    const { context, onceEvery = 10000 } = cfg;
+// export const deSpamRequest = (cfg = {}) => (url$) => {
+//     const { context, onceEvery = 10000 } = cfg;
 
-    return url$.pipe(
-        throttleDistinct({
-            timeout: onceEvery,
-        }),
-        tap((url) => {
-            console.log("[loader] sending", url);
-        }),
-        map(prependPath),
-        requestWithUpdateTime({
-            context,
-        })
-    );
-};
+//     return url$.pipe(
+//         throttleDistinct({
+//             timeout: onceEvery,
+//         }),
+//         tap((url) => {
+//             console.log("[loader] sending", url);
+//         }),
+//         map(prependPath),
+//         requestWithUpdateTime({
+//             context,
+//         })
+//     );
+// };
 
 /**
  * Once data was cached, there's no need to send everything back over into the

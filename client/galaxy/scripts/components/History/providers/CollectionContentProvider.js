@@ -54,9 +54,6 @@ export default {
             const load$ = combineLatest(url$, paddedParams$).pipe(
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(this.inputsSame),
-                tap((things) => {
-                    debugger;
-                }),
                 loadDscContent()
             );
 

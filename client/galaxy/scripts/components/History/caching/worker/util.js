@@ -1,15 +1,9 @@
-/**
- * Interior configuration for the worker. We can't access the document
- * from the outside so this needs to be set when the worker is launched
- */
-
 import moment from "moment";
 import { of, from, pipe } from "rxjs";
-import { tap, map, mergeMap, filter } from "rxjs/operators";
+import { tap, map, mergeMap } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { createDateStore } from "../../model/DateStore";
 import { SearchParams } from "../../model/SearchParams";
-import { processQueue } from "./queue";
 
 /**
  * Configuration var for inside the worker, must be set when worker
@@ -21,18 +15,6 @@ export const workerConfig = { root: "/" };
 export const configure = (options = {}) => {
     console.log("[worker] configuring cache worker", options);
     Object.assign(workerConfig, options);
-};
-
-/**
- * Subscribe to global priority queue
- */
-export const init = () => {
-    console.log("[worker] Subscribing to internal priority queue");
-    processQueue.subscribe(
-        (result) => console.log("[queue] result", result),
-        (err) => console.warn("[queue] error", err),
-        () => console.log("[queue] complete, why is queue complete?")
-    );
 };
 
 /**
@@ -67,7 +49,11 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
     } = config;
 
     // add context marker in url for debugging purposes
-    const baseUrl$ = url$.pipe(map((baseUrl) => (context ? `${baseUrl}&context=${context}` : baseUrl)));
+    const baseUrl$ = url$.pipe(
+        map((url) => {
+            return context ? `${url}&context=${context}` : url;
+        })
+    );
 
     // mark and flag this update-time, append to next request with same base
     return baseUrl$.pipe(
@@ -95,16 +81,21 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
  * (Async in case we choose to store the date in indexDb instead of localStorage)
  */
 const appendUpdateTime = (cfg = {}) => {
-    const { dateStore = requestDateStore, bufferSeconds = 0, dateFieldName = "update_time" } = cfg;
+    const {
+        dateStore = requestDateStore,
+        // bufferSeconds = 0,
+        dateFieldName = "update_time",
+    } = cfg;
 
     return pipe(
         mergeMap(async (baseUrl) => {
             if (!dateStore.has(baseUrl)) return baseUrl;
 
-            let lastRequest = dateStore.getLastDate(baseUrl);
-            lastRequest = lastRequest.subtract(bufferSeconds, "seconds");
+            const lastRequest = dateStore.getLastDate(baseUrl);
+            // lastRequest = lastRequest.subtract(bufferSeconds, "seconds");
 
             const parts = [baseUrl, `q=${dateFieldName}-gt&qv=${lastRequest.toISOString()}`];
+
             return parts.join("&");
         })
     );

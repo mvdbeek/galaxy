@@ -1,76 +1,104 @@
+/**
+ * Read-only class takes raw data and applies some poorly-defined degenerate nonsense rules
+ * to determine an amalgam state.
+ */
 import { STATES } from "./states";
-import somefuckingnonsnse from "mvc/history/job-states-model";
 
-// console.log("get state");
-// {"running":0,"upload":0,"all_jobs":0,"deleted":0,"new":0,
-// "queued":0,"waiting":0,"failed":0,"deleted_new":0,
-// "paused":0,"error":0,"ok":0,"resubmitted":0}
+// logic largely stolen from the butchered, degenerate mess at:
+// import nonsense from "mvc/history/job-states-model.js"
 
-export class JobStateSummary {
-    constructor(props = {}) {
-        this._states = new Map(Object.entries(props));
-        Object.assign(this, props);
+// Job-state-summary lists
+
+const NON_TERMINAL_STATES = [STATES.NEW, STATES.QUEUED, STATES.RUNNING];
+
+const ERROR_STATES = [
+    STATES.ERROR,
+    STATES.DELETED, // does this exist?
+];
+
+export class JobStateSummary extends Map {
+    constructor(dsc = {}) {
+        const { job_state_summary = {}, populated_state = null } = dsc;
+        super(Object.entries(job_state_summary));
+        this.populated_state = populated_state;
     }
 
-    // get uniqueJobStates() {
-    //     const summary = this;
-    //     const stateVals = new Set(Object.values(STATES));
-    //     const validStates = Object.keys(this).filter((s) => stateVals.has(s) && summary[s] > 0);
-    //     return new Set(validStates);
-    // }
-
-    // job states contain any of the args
-    has(...queryStates) {
-        return queryStates.any((s) => {
-            this._states.has(s);
-        });
+    // state element has value > 0
+    hasJobs(key) {
+        return this.has(key) ? this.get(key) > 0 : false;
     }
 
-    // num of jobs in indicated state
-    stateCount(queryState) {
-        return 0;
+    // any of the passed states has jobs > 0
+    anyHasJobs(...states) {
+        return states.some((s) => this.hasJobs(s));
     }
 
-    // count the jobs that are in error;
+    // amalgam state, basically just for display purposes
+    get state() {
+        // FROM mvc/history/hdca-li.js
+        //TODO: model currently has no state
+        // var state;
+        // var jobStatesSummary = this.model.jobStatesSummary;
+        // if (jobStatesSummary) {
+        //     if (jobStatesSummary.new()) {
+        //         state = "loading";
+        //     } else if (jobStatesSummary.errored()) {
+        //         state = "error";
+        //     } else if (jobStatesSummary.terminal()) {
+        //         state = "ok";
+        //     } else if (jobStatesSummary.running()) {
+        //         state = "running";
+        //     } else {
+        //         state = "queued";
+        //     }
+        // } else if (this.model.get("job_source_id")) {
+        //     // Initial rendering - polling will fill in more details in a bit.
+        //     state = "loading";
+        // } else {
+        //     state = this.model.get("populated_state") ? STATES.OK : STATES.RUNNING;
+        // }
+
+        if (this.jobCount) {
+            if (this.isNew) return STATES.LOADING;
+            if (this.isErrored) return STATES.ERROR;
+            if (this.isTerminal) return STATES.OK;
+            if (this.isRunning) return STATES.RUNNING;
+            return STATES.QUEUED;
+        }
+
+        return null;
+    }
+
+    // Flags
+
+    get isNew() {
+        return !this.populated_state || this.populated_state == STATES.NEW;
+    }
+
+    get isErrored() {
+        return this.anyHasJobs(...ERROR_STATES);
+    }
+
+    get isRunning() {
+        return this.hasJobs(STATES.RUNNING);
+    }
+
+    get isTerminal() {
+        if (this.isNew) return false;
+        return !this.anyHasJobs(...NON_TERMINAL_STATES);
+    }
+
+    // Counts
+
+    get jobCount() {
+        return this.get("all_jobs");
+    }
+
     get errorCount() {
-        // return this.numWithStates(ERROR_STATES);
-        return 0;
+        return this.get(STATES.ERROR);
     }
 
     get runningCount() {
-        return 0;
-    }
-
-    // collection is new?
-    get new() {
-        return false;
-    }
-
-    // collection has errors
-    get errored() {
-        // return this.get("populated_state") === "error" || this.anyWithStates(ERROR_STATES);
-        return false;
-    }
-
-    // colleciton is running
-    get running() {
-        // return this.anyWithState("running");
-        return false;
-    }
-
-    // huh?
-    get terminal() {
-        // if (this.new()) { //isNew
-        //     return false;
-        // } else {
-        //     var anyNonTerminal = this.anyWithStates(NON_TERMINAL_STATES);
-        //     return !anyNonTerminal;
-        // }
-        return false;
-    }
-
-    get isNew() {
-        // return !this.hasDetails() || this.get("populated_state") == "new";
-        return false;
+        return this.get(STATES.ERRUNNINGROR);
     }
 }

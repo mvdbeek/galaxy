@@ -34,13 +34,13 @@ export function buildHistoryContentsUrl([historyId, params]) {
         skipClause,
     ];
 
-    const base = `/api/histories/${historyId}/contents`;
+    const baseUrl = `/api/histories/${historyId}/contents`;
     const qs = parts.filter((o) => o.length).join("&");
-    return `${base}?${qs}`;
+    return `${baseUrl}?${qs}`;
 }
 
 // Collection + params -> request url w/o update_time
-export const buildDscContentUrl = ([source_url, params]) => {
+export const buildDscContentUrl = ([contents_url, params]) => {
     const { skip, limit } = params;
 
     let skipClause = "";
@@ -51,7 +51,7 @@ export const buildDscContentUrl = ([source_url, params]) => {
     }
 
     const qs = [skipClause, limitClause].filter((o) => o.length).join("&");
-    return `${source_url}?${qs}`;
+    return `${contents_url}?${qs}`;
 };
 
 /**

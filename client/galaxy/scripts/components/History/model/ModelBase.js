@@ -34,38 +34,3 @@ export const dateMixin = (superclass) =>
             return moment.utc(this.create_time);
         }
     };
-
-export const commonProps = (superclass) =>
-    class extends superclass {
-        // pouchdb has "deleted" as a reserved property
-        get deleted() {
-            return this.isDeleted;
-        }
-
-        set deleted(newVal) {
-            this.isDeleted = newVal;
-        }
-
-        get title() {
-            const { name, isDeleted, visible, purged } = this;
-
-            let result = name;
-
-            const itemStates = [];
-
-            if (isDeleted) {
-                itemStates.push("Deleted");
-            }
-            if (visible == false) {
-                itemStates.push("Hidden");
-            }
-            if (purged) {
-                itemStates.push("Purged");
-            }
-            if (itemStates.length) {
-                result += ` (${itemStates.join(", ")})`;
-            }
-
-            return result;
-        }
-    };

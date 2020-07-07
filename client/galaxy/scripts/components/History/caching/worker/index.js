@@ -12,14 +12,13 @@ import { content$, dscContent$, cacheContent } from "../galaxyDb";
 
 import { pollForHistoryUpdates } from "./polling";
 import { loadHistoryContents, loadDscContent } from "./loader";
-import { init, configure } from "./util";
+import { configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
 import { wipeDatabase } from "./debugging";
 import { asObservable } from "./asObservable";
 
 expose({
     configure,
-    init,
 
     monitorContentQuery: asObservable(
         monitorQuery({
@@ -49,13 +48,23 @@ expose({
         return of(id).pipe(getItemByKey(content$, "type_id"));
     },
 
-    loadHistoryContents: asObservable((req$) => req$.pipe(loadHistoryContents({ onceEvery: 30 * 1000 }))),
+    loadHistoryContents: asObservable(
+        loadHistoryContents({
+            onceEvery: 30 * 1000,
+        })
+    ),
 
-    loadDscContent: asObservable((req$) => req$.pipe(loadDscContent({ onceEvery: 30 * 1000 }))),
+    loadDscContent: asObservable(
+        loadDscContent({
+            onceEvery: 30 * 1000,
+        })
+    ),
 
-    pollHistory(inputs) {
-        return of(inputs).pipe(pollForHistoryUpdates({ pollInterval: 10 * 1000 }));
-    },
+    pollHistory: asObservable(
+        pollForHistoryUpdates({
+            pollInterval: 10 * 1000,
+        })
+    ),
 
     wipeDatabase,
 });

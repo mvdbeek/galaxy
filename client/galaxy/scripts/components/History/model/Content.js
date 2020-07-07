@@ -1,4 +1,4 @@
-import { dateMixin, commonProps, ModelBase } from "./ModelBase";
+import { dateMixin, ModelBase } from "./ModelBase";
 
 const defaults = {
     accessible: false,
@@ -10,7 +10,7 @@ const contentTypes = {
     COLLECTION: "dataset_collection",
 };
 
-export class Content extends dateMixin(commonProps(ModelBase)) {
+export class Content extends dateMixin(ModelBase) {
     loadProps(raw = {}) {
         const props = Object.assign({}, defaults, raw);
         super.loadProps(props);
@@ -33,6 +33,14 @@ export class Content extends dateMixin(commonProps(ModelBase)) {
             result += ` (${itemStates.join(", ")})`;
         }
         return result;
+    }
+
+    get deleted() {
+        return this.isDeleted;
+    }
+
+    set deleted(newVal) {
+        this.isDeleted = newVal;
     }
 
     get isDataset() {

@@ -1,14 +1,15 @@
 import { zip, concat, pipe } from "rxjs";
 import { tap, map, mergeMap, repeat, delay, share, take } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
+
 import { prependPath, requestWithUpdateTime, hydrateInputs } from "./util";
 import { content$, bulkCacheContent } from "../galaxyDb";
+
 import { lastCachedContentRequest } from "../pouchQueries";
 import { lastCachedDate } from "../pouchOperators";
 import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
 import { cacheSummary } from "./loader";
-
-// import { enqueue } from "./queue";
+import { enqueue } from "./queue";
 
 /**
  * Generates an operator that takes inputs: [historyid, params] and generates
@@ -21,8 +22,12 @@ export const pollForHistoryUpdates = (cfg = {}) => (src$) => {
     const { pollInterval = 5000 } = cfg;
 
     const inputs$ = src$.pipe(take(1), hydrateInputs(), share());
-    const historyPoll$ = inputs$.pipe(historyPoll());
-    const contentPoll$ = inputs$.pipe(contentPoll());
+
+    const historyRequest$ = inputs$.pipe(historyPoll());
+    const historyPoll$ = enqueue(historyRequest$);
+
+    const contentRequest$ = inputs$.pipe(contentPoll());
+    const contentPoll$ = enqueue(contentRequest$);
 
     // both must finish or concat to work
     const poll$ = concat(historyPoll$, contentPoll$).pipe(delay(pollInterval), repeat());
@@ -31,8 +36,8 @@ export const pollForHistoryUpdates = (cfg = {}) => (src$) => {
 };
 
 // Checks server for history updates
-const historyPoll = () =>
-    pipe(
+const historyPoll = () => {
+    return pipe(
         map(([id]) => buildHistoryUpdateUrl(id)),
         map(prependPath),
         requestWithUpdateTime({ context: "poll:history" }),
@@ -43,22 +48,22 @@ const historyPoll = () =>
             }
         })
     );
+};
 
 // Checks server for content updates
 const contentPoll = () => (input$) => {
     // latest update_time from the cache
     const since$ = input$.pipe(map(lastCachedContentRequest), lastCachedDate(content$));
 
-    // base query url
+    // url w/o update_time
     const baseUrl$ = input$.pipe(map(buildHistoryContentsUrl));
 
     // url w/ update_time
     const url$ = zip(baseUrl$, since$).pipe(
-        map(([baseUrl, since]) => {
-            return since !== null ? `${baseUrl}&update_time-gt=${since}` : baseUrl;
-        }),
-        map(prependPath)
+        map(([url, since]) => {
+            return since !== null ? `${url}&update_time-gt=${since}` : url;
+        })
     );
 
-    return url$.pipe(mergeMap(ajax.getJSON), bulkCacheContent(), cacheSummary());
+    return url$.pipe(map(prependPath), mergeMap(ajax.getJSON), bulkCacheContent(), cacheSummary());
 };

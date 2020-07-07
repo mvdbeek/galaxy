@@ -4,7 +4,6 @@
 
 <script>
 import { capitalize, camelize } from "underscore.string";
-import { STATES } from "../../../model";
 
 import Discarded from "./Discarded";
 import Empty from "./Empty";
@@ -19,6 +18,7 @@ import SettingMetadata from "./SettingMetadata";
 import Upload from "./Upload";
 
 export default {
+    inject: ["STATES"],
     components: {
         Discarded,
         Empty,
@@ -38,8 +38,8 @@ export default {
     computed: {
         summaryComponent() {
             let state = this.dataset.state;
-            if (state == STATES.FAILED_METADATA) {
-                state = STATES.OK;
+            if (state == this.STATES.FAILED_METADATA) {
+                state = this.STATES.OK;
             }
             return capitalize(camelize(state));
         },

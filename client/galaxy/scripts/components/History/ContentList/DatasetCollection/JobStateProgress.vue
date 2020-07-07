@@ -8,7 +8,7 @@ model is appropriately dead
 -->
 
 <template>
-    <b-progress v-if="summary && maxJobs && runningJobs" :max="maxJobs" height="1em">
+    <b-progress v-if="maxJobs && runningJobs" :max="maxJobs" height="1em">
         <b-progress-bar v-if="errorJobs" :value="errorJobs" variant="danger"></b-progress-bar>
         <b-progress-bar v-if="okJobs" :value="okJobs" variant="success"></b-progress-bar>
         <b-progress-bar v-if="runningJobs" :value="runningJobs" variant="info" animated></b-progress-bar>
@@ -17,6 +17,7 @@ model is appropriately dead
 </template>
 
 <script>
+import { JobStateSummary } from "../../model";
 // {"paused": 0, "failed": 0, "all_jobs": 8, "upload": 0,
 //     "resubmitted": 0, "deleted_new": 0, "waiting": 0,
 //     "running": 0, "error": 0, "new": 0,
@@ -24,7 +25,7 @@ model is appropriately dead
 
 export default {
     props: {
-        summary: { type: Object, required: true },
+        summary: { type: JobStateSummary, required: true },
     },
     computed: {
         hasRunningJobs() {

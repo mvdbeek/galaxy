@@ -1,12 +1,13 @@
-/*
-History contents provider
-props.id = history_id
-*/
-
+/**
+ * History contents provider. Keeps subscriptions to three streams:
+ *    cacheObservable: watches cache for changes that match current params
+ *    loadingObservable: loads new content into the cache from the server
+ *    pollingObservable: loads new content into the cache when the polling gets new data
+ */
 import { defer, combineLatest } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, mergeMap, debounceTime, scan } from "rxjs/operators";
+import { tap, map, distinctUntilChanged, switchMap, debounceTime, scan } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
-import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching/index";
+import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching";
 import { buildContentPouchRequest } from "../caching/pouchQueries";
 import { contentListMixin } from "./mixins";
 
@@ -18,8 +19,6 @@ export default {
         // results property.
 
         cacheObservable() {
-            const historyId$ = this.id$;
-
             // cache watcher does not care about skip/limit
             const limitlessParam$ = this.param$.pipe(
                 // tap(p => p.report("[dscpanel cachewatch] start")),
@@ -30,7 +29,7 @@ export default {
             );
 
             // switchmap on id, mergemap on params
-            const cache$ = historyId$.pipe(
+            const cache$ = this.id$.pipe(
                 switchMap((id) => {
                     return limitlessParam$.pipe(
                         map((params) => buildContentPouchRequest([id, params])),
@@ -47,18 +46,15 @@ export default {
         // to loadContents() which handles getting and caching the new request
 
         loadingObservable() {
-            const historyId$ = this.id$;
-            const param$ = this.param$;
-
             // need to pad the range before we give it to the loader so we
             // load a little more than we're looking at right now
-            const paddedParams$ = param$.pipe(
+            const paddedParams$ = this.param$.pipe(
                 tap((p) => p.report("[loader] start")),
                 map((p) => p.pad()),
-                tap((p) => p.report("[loader] padded pagination"))
+                tap((p) => p.report("[loader] padded"))
             );
 
-            const load$ = combineLatest(historyId$, paddedParams$).pipe(
+            const load$ = combineLatest(this.id$, paddedParams$).pipe(
                 debounceTime(0),
                 distinctUntilChanged(this.inputsSame),
                 loadHistoryContents()
@@ -67,26 +63,26 @@ export default {
             return load$;
         },
 
-        // Polling Subscription: The app polls for server-generated updates.
-        // This subscribes to a process in the worker that periodicially polls
-        // an endpoint corresponding to the history + params and dumps the
-        // results in the local cache
+        /**
+         * Polling Subscription: The app polls for server-generated updates.
+         * This subscribes to a process in the worker that periodicially polls
+         * an endpoint corresponding to the history + params and dumps the
+         * results in the local cache
+         */
+        pollingObservable() {
+            const poll$ = combineLatest(this.id$, this.cumulativeRange$).pipe(
+                debounceTime(this.debouncePeriod),
+                distinctUntilChanged(this.inputsSame),
+                tap((inputs) => console.log("[poll] inputs changed", inputs)),
+                pollHistory()
+            );
 
-        // pollingObservable() {
-        //     const historyId$ = this.id$;
+            return poll$;
+        },
 
-        //     const poll$ = combineLatest(historyId$, this.cumulativeRange$).pipe(
-        //         debounceTime(this.debouncePeriod),
-        //         distinctUntilChanged(this.inputsSame),
-        //         tap((inputs) => console.log("[poll] inputs changed", inputs)),
-        //         switchMap(pollHistory)
-        //     );
-
-        //     return poll$;
-        // },
-
+        // need to reset when history id changes
         cumulativeRange$() {
-            // need to reset when history id changes
+            const historyId$ = this.id$;
 
             const newRange$ = defer(() => {
                 return this.param$.pipe(
@@ -98,7 +94,7 @@ export default {
                 );
             });
 
-            const cumulativeRange$ = this.id$.pipe(
+            const cumulativeRange$ = historyId$.pipe(
                 distinctUntilChanged(),
                 switchMap(() => newRange$)
             );

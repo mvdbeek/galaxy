@@ -6,7 +6,7 @@
         v-bind="$attrs"
         v-on="$listeners"
         class="collapsed"
-        :data-state="dsc.state"
+        :data-state="state"
         @keydown.arrow-right.self.stop.prevent="eventHub.$emit('selectCollection', dsc)"
     >
         <nav
@@ -16,7 +16,7 @@
             <h5 class="flex-grow-1 overflow-hidden mr-auto text-nowrap text-truncate">
                 <span class="name">{{ dsc.name }}</span>
                 <span class="description">
-                    ({{ dsc.collectionType | localize }} {{ dsc.collectionCount | localize }})
+                    ({{ dsc.collectionType | localize }} {{ dsc.collectionCountDescription | localize }})
                 </span>
             </h5>
         </nav>
@@ -27,6 +27,7 @@
 import { DatasetCollection } from "../model/DatasetCollection";
 
 export default {
+    inject: ["STATES"],
     props: {
         item: { type: Object, required: true },
         index: { type: Number, required: true },
@@ -34,6 +35,12 @@ export default {
     computed: {
         dsc() {
             return new DatasetCollection(this.item);
+        },
+        state() {
+            // TODO: see if there are situations where this rule won't work
+            // subcollection doesn't have as much information as the collection
+            // did, but it's probably ok
+            return this.dsc.state || this.STATES.OK;
         },
     },
 };

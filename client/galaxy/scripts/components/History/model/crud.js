@@ -8,6 +8,7 @@ import { bulkContentUpdate, getAllContentByFilter } from "./queries";
 export const updateSelectedContent = (updates) => async (history, type_ids) => {
     // single ajax call with wierd syntax because.... reasons
     const changes = await bulkContentUpdate(history, type_ids, updates);
+    // TODO: add bulk cache option to worker?
     for (const change of changes) {
         await cacheContent(change);
     }

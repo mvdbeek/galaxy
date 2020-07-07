@@ -19,7 +19,10 @@ export const monitorQuery = (cfg = {}) => (request$) => {
     } = cfg;
 
     if (!isObservable(db$)) {
-        const msg = "Please pass a database observable to the configuration of monitorQuery";
+        const msg = `
+            Please pass a database observable to the
+            configuration of monitorQuery
+        `;
         console.error(msg);
         throw new Error(msg);
     }

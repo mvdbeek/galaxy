@@ -43,21 +43,20 @@
                 <span class="hid">{{ dsc.hid }}</span>
                 <span class="name">{{ dsc.name }}</span>
                 <span class="description">
-                    ({{ dsc.collectionType | localize }} {{ dsc.collectionCount | localize }})
+                    ({{ dsc.collectionType | localize }} {{ dsc.collectionCountDescription | localize }})
                 </span>
             </h5>
 
             <DscMenu class="content-item-menu" v-on="$listeners" />
         </nav>
 
-        <pre style="height: 150px; overflow: scroll;">{{ dsc }}</pre>
-
-        <JobStateProgress class="m-2" v-if="dsc.job_state_summary" :summary="dsc.job_state_summary" />
+        <!-- <pre style="height: 150px; overflow: scroll;">{{ dsc }}</pre> -->
+        <!-- <JobStateProgress class="m-2" :summary="dsc.jobStateSummary" /> -->
     </div>
 </template>
 
 <script>
-import { DatasetCollection } from "../../model";
+import { DatasetCollection } from "../../model/DatasetCollection";
 import { StatusIcon, StateBtn } from "../../StatusIcon";
 import JobStateProgress from "./JobStateProgress";
 import DscMenu from "./DscMenu";

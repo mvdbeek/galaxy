@@ -5,7 +5,7 @@
  * we can pass them to the same components.
  */
 
-import { Content, STATES } from "./index";
+import { Content } from "./Content";
 import { JobStateSummary } from "./JobStateSummary";
 
 export class DatasetCollection extends Content {
@@ -16,71 +16,40 @@ export class DatasetCollection extends Content {
         super.loadProps(raw);
     }
 
-    get collectionCount() {
-        const count = this.element_count;
-        if (count === undefined) return null;
-        return count == 1 ? "with 1 item" : `with ${count} items`;
+    // number of contained contents
+    get contentLength() {
+        return this.element_count || 0;
     }
 
+    // text for UI
+    get collectionCountDescription() {
+        const ct = this.contentLength;
+        return ct == 1 ? "with 1 item" : `with ${ct} items`;
+    }
+
+    // text for UI
     get collectionType() {
-        return collectionTypeDescription(this.collection_type);
-    }
-
-    get hasDetails() {
-        return this.populated_state;
-    }
-
-    // This only gets used for the color of the collection content box
-    // It's an attempt to get an overall state for a collection, this
-    // needs more UI to drill down because there's going to be several
-    // states from the job summary
-
-    get jobStateSummary() {
-        return new JobStateSummary(this.job_state_summary);
-    }
-
-    get state() {
-        // stolen from existing model, must clean this crap up
-
-        let state;
-
-        const summary = this.jobStatesSummary;
-        if (summary) {
-            if (summary.new) {
-                state = "loading";
-            } else if (summary.errored) {
-                state = "error";
-            } else if (summary.terminal) {
-                state = "ok";
-            } else if (summary.running) {
-                state = "running";
-            } else {
-                state = "queued";
+        if (this.collection_type) {
+            switch (this.collection_type) {
+                case "list":
+                    return "list";
+                case "paired":
+                    return "dataset pair";
+                case "list:paired":
+                    return "list of pairs";
+                default:
+                    return "nested list";
             }
-        } else if (this.job_source_id) {
-            // Initial rendering - polling will fill in more details in a bit.
-            state = "loading";
-        } else {
-            state = this.populated_state ? STATES.OK : STATES.RUNNING;
         }
-
-        return state;
-    }
-}
-
-// This is handy outside of the model, export separately
-export function collectionTypeDescription(collectionType) {
-    if (!collectionType) {
         return null;
     }
-    switch (collectionType) {
-        case "list":
-            return "list";
-        case "paired":
-            return "dataset pair";
-        case "list:paired":
-            return "list of pairs";
-        default:
-            return "nested list";
+
+    // amalgam state value
+    get state() {
+        return this.jobSummary.state || this.populated_state;
+    }
+
+    get jobSummary() {
+        return new JobStateSummary(this);
     }
 }

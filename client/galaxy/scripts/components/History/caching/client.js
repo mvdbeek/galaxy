@@ -1,69 +1,78 @@
-import { from, of } from "rxjs";
-import { filter, finalize, materialize, pluck, map, mergeMap, shareReplay, take } from "rxjs/operators";
-import { spawn } from "threads";
+import { from, of, pipe } from "rxjs";
+import { filter, finalize, materialize, map, mergeMap, shareReplay } from "rxjs/operators";
 import { v4 as uuidv4 } from "uuid";
+
+import { spawn } from "threads";
+import CacheWorker from "worker-loader!./worker";
 
 import config from "config";
 import { getRootFromIndexLink } from "onload/getRootFromIndexLink";
-
-// works but no sourcemaps, using threads-plugin for the moment
-import CacheWorker from "worker-loader!./worker";
 
 /**
  * @constant Observable yields the worker thread instance
  */
 const thread$ = of(config).pipe(
-    mergeMap(async (mainConfigs) => {
+    mergeMap(async (cfg) => {
         console.warn("Building new worker");
         const newThread = await spawn(new CacheWorker());
+        if (!newThread) throw new MissingWorkerError();
 
-        // configure the worker, send in some settings
+        // Configure the worker This is sending in setings that are derived from
+        // galaxy's absurd global application instance or written directly to
+        // the document, which will not be available in the worker.
         const root = getRootFromIndexLink();
-        const workerConfigs = { ...mainConfigs, root };
+        const workerConfigs = { ...cfg, root };
         await newThread.configure(workerConfigs);
-
-        // init, internal subscriptions
-        await newThread.init();
 
         return newThread;
     }),
     shareReplay(1)
 );
 
-// Give this a string of the function name on the worker thread instance
-// that you want to call (I'm assuming you're exporting a module and not
-// a function from your worker, otherwise you'll have to modify this)
+// glorified pluck operator
+const method = (fnName) =>
+    pipe(
+        map((thread) => {
+            if (!(fnName in thread)) throw new MissingWorkerMethodError(fnName);
+            return thread[fnName];
+        })
+    );
 
+/**
+ * Give this a string of the function name on the worker thread instance,
+ * returns an observable operator that transparently calls a matching oprator
+ * from inside the worker .
+ *
+ * @param {string} fnName Name of an exposed property on the thread object
+ */
 export const toOperator = (fnName) => {
-    // "ObservablePromise" makes it awkward to extract the actual
-    // observable back from the method call. Not a fan. Would prefer
-    // if the function just returned either an observable or a promise
-    // depending on how you explicitly decided to expose it.
+    const method$ = thread$.pipe(method(fnName));
 
-    const method$ = thread$.pipe(
-        pluck(fnName),
-        map((f) => (...args) => from(f(...args)))
+    // Result of the returned method call will be an "ObservablePromise", a
+    // custom object returned by thread library that the author probably thought
+    // was clever. We need to fix that by turning it back to a grown-ass
+    // observable. from() should do that.
+    const cleanMethod$ = method$.pipe(
+        map((f) => (...args) => from(f(...args))) // I'm a real boy now!
     );
 
     const operator = () => (src$) => {
-        // "Hat on a hat"
-        // This looks like something that probably already existed in the
-        // threads transfer layer, but I don't think I have access to the
-        // internals.
+        // identifies subscription so we can match external observable with
+        // itnernal observable
         const id = uuidv4();
 
-        return method$.pipe(
+        return cleanMethod$.pipe(
             mergeMap((method) =>
                 src$.pipe(
                     materialize(),
                     map((notification) => method({ id, ...notification })),
-                    // first emission will be the observable
-                    // we want, rest will be nulls,
+                    // first emission will be the observable created by threads
+                    // that's the only one we want, rest should be nulls
                     filter(Boolean),
+                    // subscribe to the observable threads made
                     mergeMap((val) => val),
-                    finalize(async () => {
-                        method({ id, kind: "C" });
-                    })
+                    // unsub when exterior observable completes
+                    finalize(() => method({ id, kind: "C" }))
                 )
             )
         );
@@ -73,43 +82,23 @@ export const toOperator = (fnName) => {
 };
 
 /**
- * A wrapper to build pass-through promise functions. Most of these
- * things look the same. An observable is returned from the worker,
- * and most of the time a promise function is what we want to expose.
+ * A wrapper to build pass-through promise functions. Most of these things look
+ * the same. An observable is returned from the worker, and most of the time a
+ * promise function is what we want to expose.
  *
  * @param {string} workerMethod Name of method inside the worker
- * @return {Function} Function that returns a promise with one result from workerMethod
+ * @return {Function} Function that returns a promise with one result from
+ * workerMethod
  */
-export const toPromise = (method, sendResponse) => async (...request) => {
-    const wrappedObs = toObservable(method, sendResponse);
-    const justOne = wrappedObs(...request).pipe(take(1));
-    return await justOne.toPromise();
-};
-
-/**
- * A wrapper to build pass-through observables. Hand it the name of
- * a method from inside the worker, yields a function that returns
- * an observable given its inputs.
- *
- * Define the function:
- *    const pollHistory = observableWrapp('pollHistory')
- * Use:
- *    const poll$ = pollHistory(inputs).subscribe(results => blah)
- *
- * @param {String} method Name of the method inside the worker
- * @param {Boolean} sendResponse Whether to return and serialize a response
- * @returns {Function} Function that returns an observable
- */
-export const toObservable = (methodName, sendResponse = true) => (...request) => {
-    return thread$.pipe(
-        map((thread) => {
-            if (!thread) throw new MissingWorkerError();
-            if (!(methodName in thread)) throw new MissingWorkerMethodError(methodName);
-            return thread[methodName];
-        }),
-        mergeMap((method) => method(...request)),
-        map((result) => (sendResponse ? result : true))
-    );
+export const toPromise = (fnName) => {
+    // return an async function. This is actually what is already on the thread
+    // object but we're using our observable to manage initialization of the thread
+    return thread$.pipe(method(fnName)).toPromise();
+    // async (...request) => {
+    //     const wrappedObs = toObservable(method, sendResponse);
+    //     const justOne = wrappedObs(...request).pipe(take(1));
+    //     return await justOne.toPromise();
+    // }
 };
 
 /**
