@@ -82,23 +82,20 @@ export const toOperator = (fnName) => {
 };
 
 /**
- * A wrapper to build pass-through promise functions. Most of these things look
- * the same. An observable is returned from the worker, and most of the time a
- * promise function is what we want to expose.
+ * Returns an async function from a property on the thread object. This is
+ * actually what was already there, but we're using thread$ to manage the
+ * lifetime of the worker instance, so we'll derive the function from the thread
+ * observable.
  *
  * @param {string} workerMethod Name of method inside the worker
- * @return {Function} Function that returns a promise with one result from
- * workerMethod
+ * @return {Function} Function that returns a promise
  */
 export const toPromise = (fnName) => {
-    // return an async function. This is actually what is already on the thread
-    // object but we're using our observable to manage initialization of the thread
-    return thread$.pipe(method(fnName)).toPromise();
-    // async (...request) => {
-    //     const wrappedObs = toObservable(method, sendResponse);
-    //     const justOne = wrappedObs(...request).pipe(take(1));
-    //     return await justOne.toPromise();
-    // }
+    const methodPromise = thread$.pipe(method(fnName)).toPromise();
+    return async (...request) => {
+        const fn = await methodPromise;
+        return await fn(...request);
+    }
 };
 
 /**
