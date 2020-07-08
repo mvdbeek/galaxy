@@ -9,7 +9,7 @@ import { lastCachedContentRequest } from "../pouchQueries";
 import { lastCachedDate } from "../pouchOperators";
 import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
 import { cacheSummary } from "./loader";
-import { enqueue } from "./queue";
+// import { enqueue } from "./queue";
 
 /**
  * Generates an operator that takes inputs: [historyid, params] and generates
@@ -23,11 +23,10 @@ export const pollForHistoryUpdates = (cfg = {}) => (src$) => {
 
     const inputs$ = src$.pipe(take(1), hydrateInputs(), share());
 
-    const historyRequest$ = inputs$.pipe(historyPoll());
-    const historyPoll$ = enqueue(historyRequest$);
-
-    const contentRequest$ = inputs$.pipe(contentPoll());
-    const contentPoll$ = enqueue(contentRequest$);
+    const historyPoll$ = inputs$.pipe(historyPoll());
+    const contentPoll$ = inputs$.pipe(contentPoll());
+    // const historyPoll$ = enqueue(historyRequest$);
+    // const contentPoll$ = enqueue(contentRequest$);
 
     // both must finish or concat to work
     const poll$ = concat(historyPoll$, contentPoll$).pipe(delay(pollInterval), repeat());

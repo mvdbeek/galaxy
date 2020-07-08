@@ -30,7 +30,7 @@ export const monitorQuery = (cfg = {}) => (request$) => {
     // selector with just the filters, will return entire matching set
     // trim off skip/limit, only emit when actual filters change
     const filters$ = request$.pipe(
-        map(({ skip, limit, ...requestNoLimits }) => requestNoLimits),
+        // map(({ skip, limit, ...requestNoLimits }) => requestNoLimits),
         distinctUntilChanged(deepEqual)
     );
 

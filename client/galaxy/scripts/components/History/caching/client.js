@@ -95,7 +95,7 @@ export const toPromise = (fnName) => {
     return async (...request) => {
         const fn = await methodPromise;
         return await fn(...request);
-    }
+    };
 };
 
 /**

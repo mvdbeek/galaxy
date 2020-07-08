@@ -23,8 +23,8 @@ export const ContentListFactory = (ItemComponent) => ({
             @scroll="(evt, { start, end }) => onScroll(start, end)"
             @tottop="atTop"
             @tobottom="atBottom"
-            :top-threshold="20"
-            :bottom-threshold="20"
+            :top-threshold="5"
+            :bottom-threshold="5"
         />
     `,
     components: {

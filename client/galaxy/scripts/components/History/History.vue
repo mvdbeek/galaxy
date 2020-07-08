@@ -2,6 +2,7 @@
     <HistoryContentProvider
         :id="historyId"
         :debounce-period="500"
+        :history-size="history.hid_counter"
         v-slot="{ loading, params, results: contents, totalMatches, updateParams }"
     >
         <Layout>
@@ -37,7 +38,7 @@
             <template v-slot:listing :class="{ loadingBackground: loading }">
                 <HistoryContentList
                     v-if="!history.empty"
-                    data-key="_id"
+                    data-key="_scroll_index"
                     :params="params"
                     @update:params="updateParams"
                     :contents="contents"

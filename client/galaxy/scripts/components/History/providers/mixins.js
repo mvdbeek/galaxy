@@ -58,26 +58,22 @@ export const contentListMixin = {
         if (this.cacheObservable) {
             this.$subscribeTo(
                 this.cacheObservable,
-                ({ matches }) => {
-                    console.log("[provider.cache] results", matches.length);
-                    this.results = matches;
+                (results) => {
+                    console.log("[provider.cache] next", results.length);
+                    this.results = results;
                 },
                 (err) => console.warn("[provider.cache] error", err),
                 () => console.log("[provider.cache] stream complete")
             );
         }
-
         if (this.loadingObservable) {
             this.$subscribeTo(
                 this.loadingObservable,
-                (result) => {
-                    console.log("[provider.loader] result", result);
-                },
+                (result) => console.log("[provider.loader] result", result),
                 (err) => console.warn("[provider.loader] error", err),
                 () => console.warn("[provider.loader] complete: should only complete on unsub")
             );
         }
-
         if (this.pollingObservable) {
             this.$subscribeTo(
                 this.pollingObservable,

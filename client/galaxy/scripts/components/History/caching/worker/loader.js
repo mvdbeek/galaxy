@@ -36,9 +36,11 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
                 cacheSummary()
             );
 
+
             // send back an observable that waits to emit until
             // the processing queue gets to it
-            return enqueue(task$);
+            // return enqueue(task$);
+            return task$;
         })
     );
 

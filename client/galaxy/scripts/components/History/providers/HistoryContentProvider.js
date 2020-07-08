@@ -4,8 +4,9 @@
  *    loadingObservable: loads new content into the cache from the server
  *    pollingObservable: loads new content into the cache when the polling gets new data
  */
-import { defer, combineLatest } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, debounceTime, scan } from "rxjs/operators";
+import { of, defer, combineLatest } from "rxjs";
+// eslint-disable-next-line no-unused-vars
+import { tap, map, distinctUntilChanged, switchMap, debounceTime, scan, startWith } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching";
 import { buildContentPouchRequest } from "../caching/pouchQueries";
@@ -13,32 +14,73 @@ import { contentListMixin } from "./mixins";
 
 export default {
     mixins: [contentListMixin],
+    props: {
+        historySize: { type: Number, required: true },
+    },
     computed: {
         // Cache Observer: Subscribe to an observable that looks at the cache
         // filtered by the params. Updates when cache updated, pass values to
         // results property.
 
         cacheObservable() {
-            // cache watcher does not care about skip/limit
-            const limitlessParam$ = this.param$.pipe(
-                // tap(p => p.report("[dscpanel cachewatch] start")),
-                map((p) => p.resetPagination()),
-                // tap(p => p.report("[dscpanel cachewatch] reset pagination")),
-                // debounceTime(this.debouncePeriod),
-                distinctUntilChanged(SearchParams.equals)
-            );
 
-            // switchmap on id, mergemap on params
-            const cache$ = this.id$.pipe(
-                switchMap((id) => {
-                    return limitlessParam$.pipe(
+            // need to reset when the filters change, but not just on pagination changes
+            // const filterParams$ = this.param$.pipe(
+            //     map((p) => p.resetPagination()),
+            //     // debounceTime(this.debouncePeriod),
+            //     distinctUntilChanged(SearchParams.filtersEqual)
+            // );
+
+            // make a big empty array
+            const makeSpot = (_,i) => ({ _scroll_index: i });
+            const makePlaceholders = () => {
+                // Note that historySize is always one too big, not sure why
+                return Array.from({ length: this.historySize - 1 }, makeSpot);
+            }
+
+            // reset if ID or filters change
+            const inputs$ = combineLatest(this.id$, this.param$).pipe(
+                debounceTime(0),
+                distinctUntilChanged((a,b) => {
+                    if (a[0] !== b[0]) return false;
+                    return SearchParams.filtersEqual(a[1], b[1]);
+                })
+            )
+
+            // reset if ID changes or filter, but not pagination
+            const cacheUpdates$ = inputs$.pipe(
+                switchMap(([id]) => {
+                    console.log("resetting list");
+
+                    // reset the tombstones when we switch
+                    const placeholders = makePlaceholders();
+
+                    return this.param$.pipe(
                         map((params) => buildContentPouchRequest([id, params])),
-                        monitorContentQuery()
-                    );
+                        monitorContentQuery(),
+                        startWith({}),
+                        scan((results, update) => {
+                            const { matches = [], request = {} } = update;
+                            const { skip = 0 } = request;
+
+                            // create a splice to the running list
+                            if (matches.length) {
+
+                                // add matching _scroll_index to the patch
+                                const patch = matches.map((row, i) => ({ ...row, _scroll_index: i + skip }));
+
+                                // replace elements with updates
+                                results.splice(skip, patch.length, ...patch);
+                            }
+
+                            return results;
+                        }, placeholders)
+                    )
+
                 })
             );
 
-            return cache$;
+            return cacheUpdates$;
         },
 
         // Manual Loading: When user scrolls through the list, or changes the
@@ -46,12 +88,13 @@ export default {
         // to loadContents() which handles getting and caching the new request
 
         loadingObservable() {
-            // need to pad the range before we give it to the loader so we
+
+            // pad the range before we give it to the loader so we
             // load a little more than we're looking at right now
             const paddedParams$ = this.param$.pipe(
                 tap((p) => p.report("[loader] start")),
-                map((p) => p.pad()),
-                tap((p) => p.report("[loader] padded"))
+                // map((p) => p.pad()),
+                // tap((p) => p.report("[loader] padded"))
             );
 
             const load$ = combineLatest(this.id$, paddedParams$).pipe(
@@ -73,10 +116,9 @@ export default {
             const poll$ = combineLatest(this.id$, this.cumulativeRange$).pipe(
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(this.inputsSame),
-                tap((inputs) => console.log("[poll] inputs changed", inputs)),
+                // tap((inputs) => console.log("[poll] inputs", inputs)),
                 pollHistory()
             );
-
             return poll$;
         },
 

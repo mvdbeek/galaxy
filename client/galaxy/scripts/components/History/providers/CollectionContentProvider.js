@@ -4,7 +4,7 @@ props.id = contents_url
 */
 
 import { combineLatest } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, debounceTime } from "rxjs/operators";
+import { tap, map, distinctUntilChanged, switchMap, debounceTime, startWith, scan } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { loadDscContent, monitorDscQuery } from "../caching";
 import { buildCollectionContentRequest } from "../caching/pouchQueries";
@@ -27,16 +27,24 @@ export default {
             // We want to switchMap on url, mergeMap on params. This gives us
             // the option of incrementally updating a result-set inside the
             // provider as params change which may be necessary for big lists
-            const cache$ = url$.pipe(
+            const cacheUpdates$ = url$.pipe(
                 switchMap((url) => {
                     return limitlessParam$.pipe(
                         map((params) => buildCollectionContentRequest([url, params])),
-                        monitorDscQuery()
+                        monitorDscQuery(),
+                        startWith({ matches: [] })
                     );
                 })
             );
 
-            return cache$;
+            const result$ = cacheUpdates$.pipe(
+                scan((results, response) => {
+                    if (response.matches) return response.matches;
+                    return results;
+                }, [])
+            );
+
+            return result$;
         },
 
         loadingObservable() {
