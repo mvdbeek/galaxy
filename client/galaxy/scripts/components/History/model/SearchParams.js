@@ -37,33 +37,33 @@ export class SearchParams {
         return this._skip;
     }
 
-    set skip(val) {
-        val = Math.floor(val);
-        this._skip = Math.max(val, 0);
+    set skip(newSkip) {
+        newSkip = Math.floor(newSkip);
+        this._skip = Math.max(newSkip, 0);
     }
 
     get limit() {
         return this._limit;
     }
 
-    set limit(val) {
-        val = Math.floor(val);
-        if (val <= 0) {
+    set limit(newLimit) {
+        newLimit = Math.floor(newLimit);
+        if (newLimit <= 0) {
             throw new Error("limit must be greater than 0");
         }
-        this._limit = val;
+        this._limit = newLimit;
     }
 
     get end() {
         return this.skip + this.limit;
     }
 
-    set end(val) {
-        val = Math.floor(val);
-        if (val <= this.skip) {
+    set end(newEnd) {
+        newEnd = Math.floor(newEnd);
+        if (newEnd <= this.skip) {
             throw new Error("endpoint must be after start point");
         }
-        this.limit = val - this.skip;
+        this.limit = newEnd - this.skip;
     }
 
     // Utils
@@ -98,7 +98,7 @@ export class SearchParams {
         return this.setPagination(0, SearchParams.pageSize);
     }
 
-    pad(amt = SearchParams.chunkSize) {
+    pad(amt = SearchParams.pageSize) {
         const padded = this.setRange(this.skip - amt, this.end + amt);
         return padded;
     }
@@ -106,7 +106,7 @@ export class SearchParams {
     // transforms param range (skip/limit) into discrete chunks that result in
     // request urls that are more likely to be cached
 
-    chunkParams(chunkSize = SearchParams.chunkSize, debug = false) {
+    chunkParams(chunkSize = SearchParams.pageSize, debug = false) {
         const initialParams = this;
         const result = [];
 
@@ -126,7 +126,7 @@ export class SearchParams {
         return result;
     }
 
-    chunk(size = SearchParams.chunkSize) {
+    chunk(size = SearchParams.pageSize) {
         const chunked = this.clone();
         chunked.limit = size;
         chunked.skip = chunked.limit * Math.floor(chunked.skip / chunked.limit);
@@ -176,8 +176,7 @@ export class SearchParams {
 
 // Statics
 
-SearchParams.pageSize = 60;
-SearchParams.chunkSize = 200;
+SearchParams.pageSize = 100;
 
 SearchParams.equals = function (a, b) {
     return deepEqual(a.export(), b.export());

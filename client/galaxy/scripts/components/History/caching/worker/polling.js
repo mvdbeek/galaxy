@@ -1,14 +1,11 @@
-import { zip, concat, pipe } from "rxjs";
-import { tap, map, mergeMap, repeat, delay, share, take } from "rxjs/operators";
+import { defer, of, concat, pipe, combineLatest } from "rxjs";
+import { tap, map, repeat, delay, mergeMap, share, debounceTime } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
-
 import { prependPath, requestWithUpdateTime, hydrateInputs } from "./util";
 import { content$, bulkCacheContent } from "../galaxyDb";
-
-import { lastCachedContentRequest } from "../pouchQueries";
-import { lastCachedDate } from "../pouchOperators";
+import { lastCachedDate, buildContentPouchRequest } from "../pouchUtils";
 import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
-import { cacheSummary } from "./loader";
+import { summarizeCacheOperation } from "./loader";
 // import { enqueue } from "./queue";
 
 /**
@@ -18,26 +15,38 @@ import { cacheSummary } from "./loader";
  * @param {object} cfg Config options for poll
  * @returns Observable operator
  */
-export const pollForHistoryUpdates = (cfg = {}) => (src$) => {
-    const { pollInterval = 5000 } = cfg;
+export const pollForHistoryUpdates = (cfg = {}) => (input$) => {
+    const {
+        pollInterval = 5000,
+        lambda = 0.15, // poll interval decay parameter
+    } = cfg;
 
-    const inputs$ = src$.pipe(take(1), hydrateInputs(), share());
+    // number of polls with the same inputs
+    let counter = 0;
+    const decayPeriod = () => Math.floor(pollInterval * Math.exp(lambda * counter++));
 
-    const historyPoll$ = inputs$.pipe(historyPoll());
-    const contentPoll$ = inputs$.pipe(contentPoll());
-    // const historyPoll$ = enqueue(historyRequest$);
-    // const contentPoll$ = enqueue(contentRequest$);
+    const poll$ = defer(() =>
+        input$.pipe(
+            delay(decayPeriod()),
+            mergeMap((inputs) => {
+                const [id] = inputs;
+                const historyUpdate$ = of(id).pipe(historyPoll());
+                const contentUpdate$ = of(inputs).pipe(contentPoll());
+                return concat(historyUpdate$, contentUpdate$);
+            })
+        )
+    );
 
-    // both must finish or concat to work
-    const poll$ = concat(historyPoll$, contentPoll$).pipe(delay(pollInterval), repeat());
-
-    return poll$; // enqueue(poll$, "history poll");
+    return poll$.pipe(
+        repeat()
+        // finalize(() => console.log("cancelling polling in worker", pollInterval))
+    );
 };
 
 // Checks server for history updates
 const historyPoll = () => {
     return pipe(
-        map(([id]) => buildHistoryUpdateUrl(id)),
+        map(buildHistoryUpdateUrl),
         map(prependPath),
         requestWithUpdateTime({ context: "poll:history" }),
         tap((results) => {
@@ -50,19 +59,37 @@ const historyPoll = () => {
 };
 
 // Checks server for content updates
-const contentPoll = () => (input$) => {
-    // latest update_time from the cache
-    const since$ = input$.pipe(map(lastCachedContentRequest), lastCachedDate(content$));
+const contentPoll = () => (src$) => {
+    const input$ = src$.pipe(
+        hydrateInputs(),
+        map(([id, p]) => [id, p.pad()]), // extend past the visible region
+        share()
+    );
 
-    // url w/o update_time
-    const baseUrl$ = input$.pipe(map(buildHistoryContentsUrl));
+    const baseUrl$ = input$.pipe(
+        map(buildHistoryContentsUrl) // same as regular loading query
+    );
 
-    // url w/ update_time
-    const url$ = zip(baseUrl$, since$).pipe(
+    const since$ = input$.pipe(
+        map(buildContentPouchRequest),
+        lastCachedDate(content$) // highest cached_at value
+    );
+
+    // build url from base request + cache-calculated last date
+    const url$ = combineLatest(baseUrl$, since$).pipe(
+        debounceTime(0),
         map(([url, since]) => {
-            return since !== null ? `${url}&update_time-gt=${since}` : url;
+            return since ? `${url}&q=update_time-gt&qv=${since}` : url;
         })
     );
 
-    return url$.pipe(map(prependPath), mergeMap(ajax.getJSON), bulkCacheContent(), cacheSummary());
+    // do request
+    const updates$ = url$.pipe(
+        map(prependPath),
+        mergeMap(ajax.getJSON),
+        bulkCacheContent(),
+        summarizeCacheOperation() // might be a big list
+    );
+
+    return updates$;
 };

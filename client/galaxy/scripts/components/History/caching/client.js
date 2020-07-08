@@ -30,13 +30,14 @@ const thread$ = of(config).pipe(
 );
 
 // glorified pluck operator
-const method = (fnName) =>
-    pipe(
+const method = (fnName) => {
+    return pipe(
         map((thread) => {
             if (!(fnName in thread)) throw new MissingWorkerMethodError(fnName);
             return thread[fnName];
         })
     );
+};
 
 /**
  * Give this a string of the function name on the worker thread instance,
@@ -50,8 +51,8 @@ export const toOperator = (fnName) => {
 
     // Result of the returned method call will be an "ObservablePromise", a
     // custom object returned by thread library that the author probably thought
-    // was clever. We need to fix that by turning it back to a grown-ass
-    // observable. from() should do that.
+    // was clever. We need to fix that by turning it back to a real observable
+
     const cleanMethod$ = method$.pipe(
         map((f) => (...args) => from(f(...args))) // I'm a real boy now!
     );

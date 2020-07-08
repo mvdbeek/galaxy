@@ -3,15 +3,14 @@ Collection contents provider
 props.id = contents_url
 */
 
-import { combineLatest } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, debounceTime, startWith, scan } from "rxjs/operators";
+import { map, distinctUntilChanged, switchMap, debounceTime, startWith, scan } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { loadDscContent, monitorDscQuery } from "../caching";
-import { buildCollectionContentRequest } from "../caching/pouchQueries";
-import { contentListMixin } from "./mixins";
+import { buildCollectionContentRequest } from "../caching/pouchUtils";
+import ContentProviderMixin from "./ContentProviderMixin";
 
 export default {
-    mixins: [contentListMixin],
+    mixins: [ContentProviderMixin],
     computed: {
         cacheObservable() {
             const url$ = this.id$;
@@ -48,24 +47,17 @@ export default {
         },
 
         loadingObservable() {
+            // contents_url is the "parent" id for collections
             const url$ = this.id$;
-            const param$ = this.param$;
 
-            // need to pad the range before we give it to the loader so we
-            // load a little more than we're looking at right now
-            const paddedParams$ = param$.pipe(
-                // tap(p => p.report("[dscpanel loader] start")),
-                map((p) => p.pad())
-                // tap(p => p.report("[dscpanel loader] padded pagination")),
+            const loader$ = url$.pipe(
+                switchMap(url => this.param$.pipe(
+                    map(p => [url, p]),
+                    loadDscContent()
+                ))
             );
 
-            const load$ = combineLatest(url$, paddedParams$).pipe(
-                debounceTime(this.debouncePeriod),
-                distinctUntilChanged(this.inputsSame),
-                loadDscContent()
-            );
-
-            return load$;
+            return loader$;
         },
     },
 };

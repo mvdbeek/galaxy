@@ -24,7 +24,10 @@ export const cacheContent = () => {
 };
 
 export const bulkCacheContent = () => {
-    return pipe(prepList(prepContent), bulkCache(content$));
+    return pipe(
+        prepList(prepContent), // clean inputs
+        bulkCache(content$)
+    );
 };
 
 const prepContent = (props) => {

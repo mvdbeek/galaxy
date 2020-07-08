@@ -15,10 +15,12 @@
  * parameter history to reduce the range of responses.
  */
 
+import { distinctUntilChanged } from "rxjs/operators";
+import { activity } from "utils/observable/activity";
 import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 
-export const contentListMixin = {
+export default {
     mixins: [vueRxShortcuts],
     props: {
         id: { type: String, required: true },
@@ -37,10 +39,19 @@ export const contentListMixin = {
             return this.results.length;
         },
         id$() {
-            return this.watch$("id");
+            return this.watch$("id").pipe(distinctUntilChanged());
         },
         param$() {
-            return this.watch$("params");
+            return this.watch$("params").pipe(distinctUntilChanged(SearchParams.equals));
+        },
+        scrolling$() {
+            // we are "scrolling" if the params keep changing
+            return this.param$.pipe(
+                activity({
+                    throttlePeriod: this.debouncePeriod,
+                    trailPeriod: 100,
+                })
+            );
         },
 
         // Override

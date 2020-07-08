@@ -1,5 +1,5 @@
 import { Observable, isObservable } from "rxjs";
-import { map, switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
+import { switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
 import deepEqual from "deep-equal";
 
 /**

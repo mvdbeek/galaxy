@@ -1,8 +1,9 @@
 <template>
     <HistoryContentProvider
         :id="historyId"
-        :debounce-period="500"
-        :history-size="history.hid_counter"
+        :debounce-period="200"
+        :scrolling="listState.scrolling"
+        :history-size="history.hid_counter - 1"
         v-slot="{ loading, params, results: contents, totalMatches, updateParams }"
     >
         <Layout>

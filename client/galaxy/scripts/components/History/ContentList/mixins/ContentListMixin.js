@@ -21,27 +21,17 @@ export default {
     },
     methods: {
         onScroll(start, end) {
-            // console.log("onScroll", start, end);
             this.scrollPing$.next(true);
-            const newParams = this.params.clone();
-            newParams.skip = start;
-            newParams.limit = end - start;
+            const newParams = this.params.setRange(start, end);
             if (!SearchParams.equals(this.params, newParams)) {
-                // newParams.report("update:params");
                 this.$emit("update:params", newParams);
             }
         },
         atTop() {
             console.log("atTop", ...arguments);
-            // const moreTop = this.params.clone();
-            // moreTop.limit += SearchParams.chunkSize;
         },
         atBottom() {
-            this.params.report("atBottom");
-            const moreBottom = this.params.clone();
-            moreBottom.limit += SearchParams.chunkSize;
-            moreBottom.report("Morebottom");
-            this.$emit("update:params", moreBottom);
+            console.log("atBottom", ...arguments);
         },
     },
 };

@@ -120,7 +120,7 @@ export const hydrateInputs = () => {
 export const chunkInputs = () => {
     return pipe(
         mergeMap(([idParameter, params]) => {
-            const chunks = params.chunkParams(SearchParams.chunkSize);
+            const chunks = params.chunkParams(SearchParams.pageSize);
             return from(chunks).pipe(map((p) => [idParameter, p]));
         })
     );

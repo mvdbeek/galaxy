@@ -10,7 +10,7 @@ export const HistoryContentList = ContentListFactory(HistoryContentItem);
 export const CollectionContentList = ContentListFactory(CollectionContentItem);
 
 // "vue-virtual-scroller", Good API but buggy and kind of slow
-// export { default as HistoryContentList } from "./HistoryContentScroller";
-// export { default as CollectionContentList } from "./CollectionContentScroller";
+// export { default as HistoryContentList } from "./alternate/HistoryContentScroller";
+// export { default as CollectionContentList } from "./alternate/CollectionContentScroller";
 
 import "./styles.scss";

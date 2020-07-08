@@ -3,26 +3,29 @@
  * or filters data in the listing for immediate lookups. All of them will run
  * one or more ajax calls against the api and cache ther results.
  */
-import { of, pipe, zip } from "rxjs";
-import { tap, share, mergeMap, map, finalize, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
+import { of, pipe } from "rxjs";
+import { mergeMap, map, finalize, withLatestFrom } from "rxjs/operators";
 import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
 import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
-import { enqueue } from "./queue";
+// import { enqueue } from "./queue";
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
  * within a 30 sec period. Polling will pick upany other server side variations
  */
 export const loadHistoryContents = (cfg = {}) => (src$) => {
-    const { context = "load-contents", onceEvery = 10 * 1000 } = cfg;
+    const { context = "load-contents", onceEvery = 30 * 1000 } = cfg;
 
     // construct url, throttle if repeated request
     const url$ = src$.pipe(
         hydrateInputs(),
+        // tap(([id, p]) => p.report("loadHistoryContents")),
         chunkInputs(),
+        // tap(([id, p]) => p.report("chunk")),
         map(buildHistoryContentsUrl),
+        // throttles by url. Only one request for same url within the period
         throttleDistinct({ timeout: onceEvery })
     );
 
@@ -33,22 +36,25 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
                 map(prependPath),
                 requestWithUpdateTime({ context }),
                 bulkCacheContent(),
-                cacheSummary()
+                summarizeCacheOperation()
             );
 
-
+            // TODO: implement backpressure queue
             // send back an observable that waits to emit until
             // the processing queue gets to it
             // return enqueue(task$);
+
             return task$;
+        }),
+        finalize(() => {
+            // we unsubscribe when the history changes, otherwise we keep this
+            // subscription so that throttleDistinct continues to filter out
+            // repeated requests.
+            console.warn("[loadHistoryContents] loadHistoryContents unsubscribed");
         })
     );
 
-    return load$.pipe(
-        finalize(() => {
-            console.warn("[loadHistoryContents] loadHistoryContents subscription end");
-        })
-    );
+    return load$;
 };
 
 /**
@@ -81,7 +87,7 @@ export const loadDscContent = (cfg = {}) => (src$) => {
 
     const cached$ = response$.pipe(
         bulkCacheDscContent(),
-        cacheSummary(),
+        summarizeCacheOperation(),
         finalize(() => {
             console.warn("[loader] loadDscContent subscription end");
         })
@@ -91,39 +97,12 @@ export const loadDscContent = (cfg = {}) => (src$) => {
 };
 
 /**
- * Utility operator that accepts a source url, throttles out subsequent idential
- * requests within the timeout period. When a request does make it through the
- * filter, appends an update_time so that the second request only gets new
- * updates since first time we asked.
- *
- * Source: Observable url string
- *
- * @param {object} cfg Operator configs
- */
-// export const deSpamRequest = (cfg = {}) => (url$) => {
-//     const { context, onceEvery = 10000 } = cfg;
-
-//     return url$.pipe(
-//         throttleDistinct({
-//             timeout: onceEvery,
-//         }),
-//         tap((url) => {
-//             console.log("[loader] sending", url);
-//         }),
-//         map(prependPath),
-//         requestWithUpdateTime({
-//             context,
-//         })
-//     );
-// };
-
-/**
  * Once data was cached, there's no need to send everything back over into the
  * main thread since the cache watcher will pick up those new values. This just
  * summarizes what pouchdb did during the bulk cache and sends back some stats.
  */
-export const cacheSummary = () =>
-    pipe(
+export const summarizeCacheOperation = () => {
+    return pipe(
         map((list) => {
             const cached = list.filter((result) => result.ok);
             return {
@@ -132,3 +111,4 @@ export const cacheSummary = () =>
             };
         })
     );
+};

@@ -45,6 +45,8 @@
 .collapsed .content-item-menu {
     display: flex;
     justify-content: flex-end;
-    max-width: 5.5rem;
+    .primary {
+        max-width: 0;
+    }
 }
 

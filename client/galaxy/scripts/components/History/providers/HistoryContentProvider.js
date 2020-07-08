@@ -4,79 +4,73 @@
  *    loadingObservable: loads new content into the cache from the server
  *    pollingObservable: loads new content into the cache when the polling gets new data
  */
-import { of, defer, combineLatest } from "rxjs";
-// eslint-disable-next-line no-unused-vars
-import { tap, map, distinctUntilChanged, switchMap, debounceTime, scan, startWith } from "rxjs/operators";
+import { of, combineLatest, NEVER } from "rxjs";
+import { tap, map, distinctUntilChanged, switchMap, debounceTime, scan, startWith, withLatestFrom } from "rxjs/operators";
 import { SearchParams } from "../model/SearchParams";
 import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching";
-import { buildContentPouchRequest } from "../caching/pouchQueries";
-import { contentListMixin } from "./mixins";
+import { buildContentPouchRequest } from "../caching/pouchUtils";
+import ContentProviderMixin from "./ContentProviderMixin";
 
 export default {
-    mixins: [contentListMixin],
+    mixins: [ContentProviderMixin],
     props: {
         historySize: { type: Number, required: true },
+        scrolling: { type: Boolean, required: true },
     },
     computed: {
+        // observable scroll value, true when scrolling
+        scrolling$() {
+            return this.watch$("scrolling");
+        },
+
         // Cache Observer: Subscribe to an observable that looks at the cache
         // filtered by the params. Updates when cache updated, pass values to
         // results property.
 
         cacheObservable() {
-
-            // need to reset when the filters change, but not just on pagination changes
-            // const filterParams$ = this.param$.pipe(
-            //     map((p) => p.resetPagination()),
-            //     // debounceTime(this.debouncePeriod),
-            //     distinctUntilChanged(SearchParams.filtersEqual)
-            // );
-
             // make a big empty array
-            const makeSpot = (_,i) => ({ _scroll_index: i });
+            const makeSpot = (_, i) => ({ _scroll_index: i });
             const makePlaceholders = () => {
-                // Note that historySize is always one too big, not sure why
-                return Array.from({ length: this.historySize - 1 }, makeSpot);
-            }
+                console.log(">> creating placeholders");
+                const result = Array.from({ length: this.historySize }, makeSpot);
+                console.log(">> done creating placeholders");
+                return result;
+            };
 
             // reset if ID or filters change
             const inputs$ = combineLatest(this.id$, this.param$).pipe(
                 debounceTime(0),
-                distinctUntilChanged((a,b) => {
+                distinctUntilChanged((a, b) => {
                     if (a[0] !== b[0]) return false;
                     return SearchParams.filtersEqual(a[1], b[1]);
                 })
-            )
+            );
 
-            // reset if ID changes or filter, but not pagination
+            // reset if ID or filters change, but not pagination, preserve a
+            // big-ass list and splice in updates from the cache watcher
             const cacheUpdates$ = inputs$.pipe(
                 switchMap(([id]) => {
-                    console.log("resetting list");
-
-                    // reset the tombstones when we switch
+                    // reset the placeholders when we switch histories
                     const placeholders = makePlaceholders();
 
                     return this.param$.pipe(
                         map((params) => buildContentPouchRequest([id, params])),
                         monitorContentQuery(),
                         startWith({}),
+
+                        // create a splice to the running list
+                        // add matching _scroll_index to the patch
                         scan((results, update) => {
                             const { matches = [], request = {} } = update;
                             const { skip = 0 } = request;
-
-                            // create a splice to the running list
                             if (matches.length) {
-
-                                // add matching _scroll_index to the patch
                                 const patch = matches.map((row, i) => ({ ...row, _scroll_index: i + skip }));
-
-                                // replace elements with updates
                                 results.splice(skip, patch.length, ...patch);
                             }
-
                             return results;
-                        }, placeholders)
-                    )
-
+                        }, placeholders),
+                        tap(() => console.log("giving placeholders to component")),
+                    );
                 })
             );
 
@@ -84,64 +78,50 @@ export default {
         },
 
         // Manual Loading: When user scrolls through the list, or changes the
-        // filters, we may have to make an ajax call, this dispatches the inputs
-        // to loadContents() which handles getting and caching the new request
+        // filters, we may have to make one or more ajax calls, this dispatches
+        // the inputs to loadContents() which handles getting and caching the
+        // new request
 
         loadingObservable() {
 
-            // pad the range before we give it to the loader so we
-            // load a little more than we're looking at right now
-            const paddedParams$ = this.param$.pipe(
-                tap((p) => p.report("[loader] start")),
-                // map((p) => p.pad()),
-                // tap((p) => p.report("[loader] padded"))
+            // switch when history changes, but keep subscription if just the
+            // params change so we can track and filter-out repeated requests
+            // within the same history
+            const loader$ = this.id$.pipe(
+                switchMap(id => this.param$.pipe(
+                    map(p => [id, p]),
+                    loadHistoryContents()
+                ))
             );
 
-            const load$ = combineLatest(this.id$, paddedParams$).pipe(
-                debounceTime(0),
-                distinctUntilChanged(this.inputsSame),
-                loadHistoryContents()
-            );
-
-            return load$;
+            return loader$;
         },
 
-        /**
-         * Polling Subscription: The app polls for server-generated updates.
-         * This subscribes to a process in the worker that periodicially polls
-         * an endpoint corresponding to the history + params and dumps the
-         * results in the local cache
-         */
-        pollingObservable() {
-            const poll$ = combineLatest(this.id$, this.cumulativeRange$).pipe(
-                debounceTime(this.debouncePeriod),
-                distinctUntilChanged(this.inputsSame),
-                // tap((inputs) => console.log("[poll] inputs", inputs)),
-                pollHistory()
-            );
-            return poll$;
-        },
+        // Polls the server for updates in the region we're viewing.
 
-        // need to reset when history id changes
-        cumulativeRange$() {
-            const historyId$ = this.id$;
+        // pollingObservable() {
 
-            const newRange$ = defer(() => {
-                return this.param$.pipe(
-                    scan((range, newParam) => {
-                        range.skip = Math.min(range.skip, newParam.skip);
-                        range.end = Math.max(range.end, newParam.end);
-                        return range;
-                    }, new SearchParams())
-                );
-            });
+        //     const input$ = combineLatest(this.id$, this.param$).pipe(
+        //         debounceTime(0), // simultaneous vals will trigger 2x
+        //         distinctUntilChanged(this.inputsSame)
+        //     );
 
-            const cumulativeRange$ = historyId$.pipe(
-                distinctUntilChanged(),
-                switchMap(() => newRange$)
-            );
+        //     // when inputs change, unsub and resub to pollHistory with new params
+        //     const poll$ = input$.pipe(
+        //         switchMap(inputs => of(inputs).pipe(
+        //             // tap((...args) => console.log("poll args", ...args)),
+        //             pollHistory()
+        //         ))
+        //     )
 
-            return cumulativeRange$;
-        },
+        //     const polling$ = this.scrolling$.pipe(
+        //         startWith(true),
+        //         distinctUntilChanged(),
+        //         switchMap(isScrolling => isScrolling ? NEVER : poll$)
+        //     )
+
+        //     return polling$;
+
+        // },
     },
 };

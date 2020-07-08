@@ -2,7 +2,8 @@
  * Makes interior worker methods available to the main thread
  */
 
-// TODO: isn't @babel/polyfill like bad now?
+// TODO: isn't @babel/polyfill bad now? I don't like having to put this
+// inside the worker.
 import "@babel/polyfill";
 
 import { expose } from "threads/worker";
@@ -23,16 +24,12 @@ expose({
     monitorContentQuery: asObservable(
         monitorQuery({
             db$: content$,
-            inputDebounce: 250,
-            outputDebounce: 50,
         })
     ),
 
     monitorDscQuery: asObservable(
         monitorQuery({
             db$: dscContent$,
-            inputDebounce: 250,
-            outputDebounce: 50,
         })
     ),
 
@@ -60,11 +57,7 @@ expose({
         })
     ),
 
-    pollHistory: asObservable(
-        pollForHistoryUpdates({
-            pollInterval: 10 * 1000,
-        })
-    ),
+    pollHistory: asObservable(pollForHistoryUpdates()),
 
     wipeDatabase,
 });

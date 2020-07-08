@@ -5,6 +5,7 @@
         <CollectionContentProvider
             v-if="dsc"
             :id="dsc.contents_url"
+            :scrolling="listState.scrolling"
             v-slot="{ params, updateParams, loading, results: contents }"
         >
             <Layout>
@@ -29,7 +30,13 @@
                 </template>
 
                 <template v-slot:listing>
-                    <ContentList data-key="_id" :params="params" :contents="contents" :loading="loading" />
+                    <ContentList
+                        data-key="_id"
+                        :params="params"
+                        :contents="contents"
+                        :loading="loading"
+                        :scrolling.sync="listState.scrolling"
+                    />
                 </template>
             </Layout>
         </CollectionContentProvider>
