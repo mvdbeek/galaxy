@@ -79,6 +79,7 @@ jmespath==0.9.5
 jsonpatch==1.25
 jsonpointer==2.0
 jsonschema==3.2.0
+jwcrypto==0.7.0
 keystoneauth1==4.0.0
 kombu==4.6.8
 lockfile==0.12.2
