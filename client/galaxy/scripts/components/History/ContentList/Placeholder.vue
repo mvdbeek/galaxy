@@ -1,9 +1,8 @@
 <template>
-    <div class="collapsed" :class="{ selected }" data-state="waiting">
+    <div class="collapsed" data-state="waiting">
         <nav class="content-top-menu d-flex align-items-center justify-content-between p-1">
             <h5 class="flex-grow-1 overflow-hidden mr-auto text-nowrap text-truncate">
-                <span class="hid">{{ item.hid }}</span>
-                <span class="name">{{ item.name }}</span>
+                <span class="name">Placholder: {{ item.hid }}</span>
             </h5>
         </nav>
     </div>
@@ -13,7 +12,7 @@
 export default {
     props: {
         item: { type: Object, required: true },
-        selected: { type: Boolean, required: false, default: false },
+        index: { type: Number, required: true }
     },
 };
 </script>

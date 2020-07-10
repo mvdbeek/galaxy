@@ -1,5 +1,5 @@
 import { defer, of, concat, pipe, combineLatest } from "rxjs";
-import { tap, map, repeat, delay, mergeMap, share, debounceTime } from "rxjs/operators";
+import { tap, map, repeat, delay, mergeMap, share, debounceTime, pluck } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
 import { prependPath, requestWithUpdateTime, hydrateInputs } from "./util";
 import { content$, bulkCacheContent } from "../galaxyDb";
@@ -48,11 +48,22 @@ const historyPoll = () => {
     return pipe(
         map(buildHistoryUpdateUrl),
         map(prependPath),
-        requestWithUpdateTime({ context: "poll:history" }),
-        tap((results) => {
-            if (results.length) {
-                console.log("TODO: send these history updates to the store where we keep the history data", results);
-                console.log("updated histories", results);
+        requestWithUpdateTime({
+            context: "poll:history"
+        }),
+        mergeMap(response => of(response).pipe(
+            pluck('result'),
+            bulkCacheContent(),
+            summarizeCacheOperation(),
+            map(summary => {
+                const { totalMatches } = response;
+                return { ...summary, totalMatches };
+            })
+        )),
+        tap((response) => {
+            if (response.result.length) {
+                console.log("TODO: send these history updates to the store where we keep the history data", response.result);
+                console.log("updated histories", response.result);
             }
         })
     );

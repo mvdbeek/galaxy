@@ -47,7 +47,7 @@
                 </span>
             </h5>
 
-            <DscMenu class="content-item-menu" v-on="$listeners" />
+            <!-- <DscMenu class="content-item-menu" v-on="$listeners" /> -->
         </nav>
 
         <!-- <pre style="height: 150px; overflow: scroll;">{{ dsc }}</pre> -->

@@ -50,13 +50,13 @@ either through the props, and make updates through the events -->
                 <nametag v-for="tag in dataset.tags" :key="tag" :tag="tag" />
             </div> -->
 
-            <DatasetMenu
+            <!-- <DatasetMenu
                 class="content-item-menu"
                 :dataset="dataset"
                 :expanded="expanded"
                 v-on="$listeners"
                 @toggle-tags="showTags = !showTags"
-            />
+            /> -->
         </nav>
 
         <header v-if="expanded" class="p-2">

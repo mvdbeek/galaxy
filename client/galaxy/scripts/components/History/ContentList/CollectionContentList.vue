@@ -19,10 +19,10 @@
 
 import CollectionContentItem from "./CollectionContentItem";
 import VirtualScroller from "./VirtualScroller";
-import ContentListMixin from "./mixins/ContentListMixin";
+import ContentList from "./ContentList";
 
 export default {
-    mixins: [ ContentListMixin ],
+    mixins: [ ContentList ],
     components: {
         VirtualScroller,
         CollectionContentItem

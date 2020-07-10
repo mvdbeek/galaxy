@@ -1,6 +1,6 @@
 import Vue from "vue";
 import VueRx from "vue-rx";
-import { pluck } from "rxjs/operators";
+import { pluck, distinctUntilChanged } from "rxjs/operators";
 
 Vue.use(VueRx);
 
@@ -14,8 +14,10 @@ export const vueRxShortcuts = {
          */
         watch$(propName, immediate = true) {
             const opts = { immediate };
-            const watchedProp = this.$watchAsObservable(propName, opts);
-            return watchedProp.pipe(pluck("newValue"));
+            return this.$watchAsObservable(propName, opts).pipe(
+                pluck("newValue"),
+                distinctUntilChanged()
+            );
         },
     },
 };

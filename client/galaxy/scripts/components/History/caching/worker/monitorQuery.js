@@ -1,5 +1,5 @@
 import { Observable, isObservable } from "rxjs";
-import { switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
+import { tap, switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
 import deepEqual from "deep-equal";
 
 /**
@@ -27,20 +27,14 @@ export const monitorQuery = (cfg = {}) => (request$) => {
         throw new Error(msg);
     }
 
-    // selector with just the filters, will return entire matching set
-    // trim off skip/limit, only emit when actual filters change
-    const filters$ = request$.pipe(
-        // map(({ skip, limit, ...requestNoLimits }) => requestNoLimits),
-        distinctUntilChanged(deepEqual)
-    );
-
     // this is the actual emitter that watches the cache, it is customized
     // to a specific db and query
-    return filters$.pipe(
+    return request$.pipe(
+        distinctUntilChanged(deepEqual),
         withLatestFrom(db$),
         debounceTime(inputDebounce),
         switchMap((inputs) => pouchQueryEmitter(...inputs)),
-        debounceTime(outputDebounce)
+        // debounceTime(outputDebounce)
     );
 };
 
@@ -52,23 +46,28 @@ export const monitorQuery = (cfg = {}) => (request$) => {
  * @param {PouchDB} db pouch database instance
  */
 function pouchQueryEmitter(request, db) {
-    return Observable.create((obs) => {
-        // console.warn("creating new pouchQueryEmitter");
 
-        let lastMatches = [];
+    console.warn("creating new pouchQueryEmitter", request);
+
+    return Observable.create((obs) => {
 
         const feed = db.liveFind({ ...request, aggregate: true });
 
-        feed.on("update", (update, matches) => {
-            obs.next({ matches, request });
-            lastMatches = matches;
-        });
+        // feed.on("update", (update) => {
+        //     const { action, doc, id } = update;
+        //     console.log("update", update);
+        // });
 
         feed.on("ready", () => {
-            obs.next({ matches: lastMatches, request });
+            console.warn("READY");
+            const result = feed.paginate(request);
+            obs.next({ matches: result, request });
         });
 
-        feed.on("error", (err) => obs.error(err));
+        feed.on("error", (err) => {
+            console.warn("liveFind error", err, request, db);
+            obs.error(err)
+        });
 
         return () => {
             // console.warn("destroying old pouchQueryEmitter");

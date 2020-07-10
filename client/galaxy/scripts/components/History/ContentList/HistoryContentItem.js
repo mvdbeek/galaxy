@@ -1,12 +1,13 @@
-import ContentItemMixin from "./mixins/ContentItemMixin";
+import ContentItem from "./ContentItem";
 
 export default {
-    mixins: [ContentItemMixin],
+    mixins: [ContentItem],
 
     computed: {
         contentItemComponent() {
             if (this.item._id === undefined) {
-                return "Loading";
+                return "Placeholder";
+                // return "Loading";
             }
             if (this.scrolling) {
                 return "Placeholder";

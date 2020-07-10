@@ -2,10 +2,9 @@
     <section>
         <header class="d-flex align-items-center justify-content-between">
             <h6 class="text-nowrap mr-3">
-                <span>Contents</span>
+                <span>Matches</span>
                 <a href="#" @click="showFilter = !showFilter">
-                    <!-- <span>{{ totalMatches }}</span> / -->
-                    <span>{{ Math.max(history.hid_counter - 1, 0) }}</span>
+                    <span>{{ totalMatches }}/{{ Math.max(history.hid_counter - 1, 0) }}</span>
                 </a>
             </h6>
 
@@ -160,7 +159,7 @@ export default {
         contents: { type: Array, required: true },
         contentSelection: { type: Set, required: true },
         showSelection: { type: Boolean, required: true },
-        totalMatches: { type: Number, required: false, default: 0 },
+        totalMatches: { type: Number, required: true },
     },
     data() {
         return {

@@ -7,12 +7,31 @@ import { of, merge } from "rxjs";
 import { throttleTime, mapTo, delay, switchMap, distinctUntilChanged } from "rxjs/operators";
 
 export const activity = (config = {}) => (source) => {
-    const { period = 500, trailPeriod = 100, activeVal = true, inactiveVal = false } = config;
 
-    const active = source.pipe(mapTo(activeVal), throttleTime(period));
+    const {
+        // throttle period
+        period = 500,
+        // inactivity period
+        trailPeriod = 100,
+        // active/inactive vals
+        activeVal = true,
+        inactiveVal = false
+    } = config;
+
+    const active = source.pipe(
+        mapTo(activeVal),
+        throttleTime(period)
+    );
 
     // each time one makes it past the goalie, start a timer for inactivity
-    const inactive = active.pipe(switchMap(() => of(inactiveVal).pipe(delay(period + trailPeriod))));
+    const inactive = active.pipe(
+        switchMap(() => of(inactiveVal).pipe(
+            delay(period + trailPeriod)
+        ))
+    );
 
-    return merge(active, inactive).pipe(distinctUntilChanged());
+    return merge(active, inactive).pipe(
+        distinctUntilChanged()
+    );
+
 };

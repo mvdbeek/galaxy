@@ -41,7 +41,7 @@ to learn how CSS is supposed to work. -->
 @import "scss/transitions.scss";
 @import "scss/loadingBackground.scss";
 
-/*  Why do we not use a css reset? */
+/* TODO: css reset? */
 
 .history {
     h1,
@@ -80,10 +80,10 @@ doesn't need to do it manually every time. */
     position: relative;
 }
 
-.history .scroller > * {
+/* .history .scroller > * {
     position: absolute;
     height: 100%;
     width: 100%;
     overflow: auto;
-}
+} */
 </style>

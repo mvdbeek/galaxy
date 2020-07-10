@@ -7,15 +7,16 @@ import { map, distinctUntilChanged, switchMap, debounceTime, startWith, scan } f
 import { SearchParams } from "../model/SearchParams";
 import { loadDscContent, monitorDscQuery } from "../caching";
 import { buildCollectionContentRequest } from "../caching/pouchUtils";
-import ContentProviderMixin from "./ContentProviderMixin";
+import ContentProvider from "./ContentProvider";
 
 export default {
-    mixins: [ContentProviderMixin],
+    mixins: [ContentProvider],
+
     computed: {
         cacheObservable() {
             const url$ = this.id$;
 
-            const limitlessParam$ = this.param$.pipe(
+            const limitlessParam$ = this.params$.pipe(
                 // tap(p => p.report("[dscpanel cachewatch] start")),
                 map((p) => p.resetPagination()),
                 // tap(p => p.report("[dscpanel cachewatch] reset pagination")),
@@ -46,17 +47,15 @@ export default {
             return result$;
         },
 
+        // contents_url is the "parent" id for collections
         loadingObservable() {
-            // contents_url is the "parent" id for collections
             const url$ = this.id$;
-
             const loader$ = url$.pipe(
-                switchMap(url => this.param$.pipe(
+                switchMap(url => this.params$.pipe(
                     map(p => [url, p]),
                     loadDscContent()
                 ))
             );
-
             return loader$;
         },
     },

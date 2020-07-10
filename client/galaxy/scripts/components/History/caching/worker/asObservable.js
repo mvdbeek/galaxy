@@ -15,35 +15,44 @@ import { startWith } from "rxjs/operators";
 
 // list of current subscriptions
 
-export const asObservable = (operation) => {
+export const asObservable = (operation, debuggingLabel) => {
     const currentSubs = new Map();
 
     return (payload) => {
-        // console.log("asObservable", payload, currentSubs.size);
+
         const { id, value, kind } = payload;
 
-        // initialization
-        if (!currentSubs.has(id)) {
-            const input$ = new Subject();
-            const output$ = input$.pipe(startWith(value), operation);
-            currentSubs.set(id, { input$, output$ });
-            return output$;
+        // debugging output
+        if (debuggingLabel) {
+            console.warn(debuggingLabel, payload, currentSubs.size);
         }
 
         // process notifications
-        const sub = currentSubs.get(id);
-
         // materialize exposed a "kind" variable for all observable messages,
         // it's either N,C,E for next, complete, error
 
-        if (kind == "C" || kind == "E") {
-            sub.input$.complete();
-            currentSubs.delete(id);
-        }
-
         if (kind == "N") {
+            if (!currentSubs.has(id)) {
+                if (debuggingLabel) {
+                    console.warn(debuggingLabel, "initialize sub", payload);
+                }
+                const input$ = new Subject();
+                const output$ = input$.pipe(startWith(value), operation);
+                currentSubs.set(id, { input$, output$ });
+                return output$;
+            }
+            const sub = currentSubs.get(id);
             sub.input$.next(value);
         }
+
+        if (kind == "C" || kind == "E") {
+            const sub = currentSubs.get(id);
+            if (sub) {
+                sub.input$.complete();
+                currentSubs.delete(id);
+            }
+        }
+
 
         // If we're just running against the existing stored observable do not
         // return a new one.

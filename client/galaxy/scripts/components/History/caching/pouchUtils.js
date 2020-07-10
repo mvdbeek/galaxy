@@ -2,20 +2,57 @@ import moment from "moment";
 import { map, mergeMap, withLatestFrom } from "rxjs/operators";
 
 /**
- * Return all content matches for the search params
+ * Generate a PouchDB selector for a specified history, filters, and a rough
+ * guess of where to start looking.
+ *
+ * Can't use skip because there might be big un-cached regions of the history
+ * and we need to be able to select without loading everything
  */
-export function buildContentPouchRequest([history_id, params]) {
-    const { skip, limit } = params;
-    return {
-        selector: {
-            hid: { $gt: null }, // stupid but required syntax
-            history_id: { $eq: history_id },
-            ...buildContentSelectorFromParams(params),
-        },
-        sort: [{ hid: "desc" }, { history_id: "desc" }],
-        skip,
-        limit,
-    };
+export const buildContentPouchRequest = (cfg = {}) => src$ => {
+    const {
+        limit = 200,
+        seek = "desc"
+    } = cfg;
+
+    return src$.pipe(
+        map(([history_id, params, targetHid]) => {
+
+            const request = {
+                selector: {
+                    history_id: { $eq: history_id },
+                    ...buildContentSelectorFromParams(params),
+                },
+                limit,
+            };
+
+            // looking down the list from the guess hid
+            if (seek == "desc") {
+                request.selector.hid = {
+                    $lte: targetHid
+                }
+                request.sort = [
+                    { hid: "desc" },
+                    { history_id: "desc" }
+                ]
+            }
+
+            // look up the list from the guess hid
+            else if (seek == "asc") {
+                request.selector.hid = {
+                    $gt: targetHid
+                }
+                request.sort = [
+                    { hid: "asc" },
+                ];
+            }
+
+            else {
+                throw new Error("Unhandled seek direction, are you from another dimension?", seek);
+            }
+
+            return request;
+        })
+    )
 }
 
 /**

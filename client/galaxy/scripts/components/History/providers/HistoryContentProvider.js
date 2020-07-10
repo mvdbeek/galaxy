@@ -4,124 +4,218 @@
  *    loadingObservable: loads new content into the cache from the server
  *    pollingObservable: loads new content into the cache when the polling gets new data
  */
-import { of, combineLatest, NEVER } from "rxjs";
-import { tap, map, distinctUntilChanged, switchMap, debounceTime, scan, startWith, withLatestFrom } from "rxjs/operators";
-import { SearchParams } from "../model/SearchParams";
+
+import { of, combineLatest, zip, defer, NEVER } from "rxjs";
+import { tap, map, distinctUntilChanged, startWith, debounceTime, switchMap, share, pluck, finalize } from "rxjs/operators";
 import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching";
 import { buildContentPouchRequest } from "../caching/pouchUtils";
-import ContentProviderMixin from "./ContentProviderMixin";
+import { SearchParams } from "../model/SearchParams";
+import ContentProvider from "./ContentProvider";
+
 
 export default {
-    mixins: [ContentProviderMixin],
-    props: {
-        historySize: { type: Number, required: true },
-        scrolling: { type: Boolean, required: true },
+    mixins: [ContentProvider],
+
+    data() {
+        return {
+            maxHid: 0,
+            topRows: 0,
+            bottomRows: 0
+        }
     },
-    computed: {
-        // observable scroll value, true when scrolling
-        scrolling$() {
-            return this.watch$("scrolling");
-        },
 
-        // Cache Observer: Subscribe to an observable that looks at the cache
-        // filtered by the params. Updates when cache updated, pass values to
-        // results property.
+    created() {
 
-        cacheObservable() {
-            // make a big empty array
-            const makeSpot = (_, i) => ({ _scroll_index: i });
-            const makePlaceholders = () => {
-                console.log(">> creating placeholders");
-                const result = Array.from({ length: this.historySize }, makeSpot);
-                console.log(">> done creating placeholders");
-                return result;
-            };
+        // This value is set by the returned load results and is the first hid
+        // returned for the filtered result set. used to help calculate the
+        // appearance of the scroll bar by giving it the right height
 
-            // reset if ID or filters change
-            const inputs$ = combineLatest(this.id$, this.param$).pipe(
-                debounceTime(0),
-                distinctUntilChanged((a, b) => {
-                    if (a[0] !== b[0]) return false;
-                    return SearchParams.filtersEqual(a[1], b[1]);
-                })
+        this.maxHid$ = this.watch$('maxHid');
+
+
+        // This HID is a best guess based on the scroller position, the known
+        // search matche count and the HID at the top of the list. We can't know
+        // a precise HID without having all the results from the list already,
+        // from filtered out results (hidden, deleted, etc.)
+
+        this.scrollHid$ = combineLatest(this.scrollFraction$, this.maxHid$).pipe(
+            debounceTime(0),
+            map(([scale, maxHid]) => Math.floor((1 - scale) * maxHid)),
+        );
+
+
+        // History + parameters, but does not vary with pagination
+
+        this.filterParams$ = this.params$.pipe(
+            distinctUntilChanged(SearchParams.filtersEqual)
+        );
+
+
+        this.$subscribeTo(
+            this.cacheObservable(),
+            (response) => {
+                console.log("[history.cache] next", response);
+                const { contents, topRows, bottomRows } = response;
+                this.results = contents;
+                this.topRows = topRows;
+                this.bottomRows = bottomRows;
+            },
+            (err) => console.warn(`[history.cache] error`, err),
+            () => console.log(`[history.cache] complete`)
+        );
+
+
+        this.$subscribeTo(
+            this.loader(),
+            (response) => {
+                console.log("[history.loader] next", response);
+                const { totalMatches, maxHid } = response;
+                this.maxHid = Math.max(this.maxHid, +maxHid);
+                this.totalMatches = +totalMatches;
+            },
+            (err) => console.warn(`[history.load] error`, err),
+            () => console.log(`[history.load] complete`)
+        );
+
+        // polling for server-initiated changes
+        // this.listenTo(this.pollingObservable(), 'history.poll');
+    },
+
+    methods: {
+
+
+        // Loads data from server. Most of the results are sent right to the
+        // cache but we need to get the totalMatches and the maximum HID value
+        // for the history back to make the cacheObservable work properly.
+
+        loader() {
+
+            const loaderInputs$ = combineLatest(this.id$, this.filterParams$).pipe(
+                debounceTime(this.debouncePeriod)
             );
 
-            // reset if ID or filters change, but not pagination, preserve a
-            // big-ass list and splice in updates from the cache watcher
-            const cacheUpdates$ = inputs$.pipe(
-                switchMap(([id]) => {
-                    // reset the placeholders when we switch histories
-                    const placeholders = makePlaceholders();
-
-                    return this.param$.pipe(
-                        map((params) => buildContentPouchRequest([id, params])),
-                        monitorContentQuery(),
-                        startWith({}),
-
-                        // create a splice to the running list
-                        // add matching _scroll_index to the patch
-                        scan((results, update) => {
-                            const { matches = [], request = {} } = update;
-                            const { skip = 0 } = request;
-                            if (matches.length) {
-                                const patch = matches.map((row, i) => ({ ...row, _scroll_index: i + skip }));
-                                results.splice(skip, patch.length, ...patch);
-                            }
-                            return results;
-                        }, placeholders),
-                        tap(() => console.log("giving placeholders to component")),
-                    );
-                })
-            );
-
-            return cacheUpdates$;
-        },
-
-        // Manual Loading: When user scrolls through the list, or changes the
-        // filters, we may have to make one or more ajax calls, this dispatches
-        // the inputs to loadContents() which handles getting and caching the
-        // new request
-
-        loadingObservable() {
-
-            // switch when history changes, but keep subscription if just the
-            // params change so we can track and filter-out repeated requests
-            // within the same history
-            const loader$ = this.id$.pipe(
-                switchMap(id => this.param$.pipe(
+            const loader$ = loaderInputs$.pipe(
+                switchMap(([id]) => this.params$.pipe(
                     map(p => [id, p]),
-                    loadHistoryContents()
+                    loadHistoryContents(),
+                    finalize(() => {
+                        this.maxHid = 0;
+                    })
                 ))
             );
 
             return loader$;
         },
 
+
+        // Cache Observer: Monitors cache results matching the current search
+        // parameters and scroller location
+
+        cacheObservable() {
+
+            // width of cache window to observe for the scroller
+            const windowSize = 200;
+
+            // Updates for one set of user parameters, returns a sparse array
+            // where the indices are the HIDs. Could have gone with a Map, but
+            // the sparse array preserves hid sort order
+
+            const update$ = defer(() => {
+
+                const inputs$ = combineLatest(this.id$, this.filterParams$, this.scrollHid$).pipe(
+                    debounceTime(this.debouncePeriod),
+                    tap(inputs => console.log("update inputs", inputs)),
+                    share(),
+                );
+
+                // Looks above our guess hid location for a few rows of buffer
+                // for quick scrollilng
+                const seekUp$ = inputs$.pipe(
+                    buildContentPouchRequest({
+                        seek: "asc",
+                        limit: windowSize
+                    }),
+                    monitorContentQuery(),
+                    map(({ matches, request }) => {
+                        console.log("seekUp results", request, matches);
+                        matches.reverse();
+                        return matches;
+                    })
+                );
+
+                // Get a bunch of rows so we can scroll a bit before seeing
+                // loading boxes
+                const seekDown$ = inputs$.pipe(
+                    buildContentPouchRequest({
+                        seek: "desc",
+                        limit: windowSize
+                    }),
+                    monitorContentQuery(),
+                    tap(({ matches, request }) => {
+                        console.log("seekDown results", request, matches);
+                    }),
+                    pluck('matches'),
+                );
+
+                return zip(seekUp$, seekDown$).pipe(
+                    finalize(() => {
+                        console.log("changing cache queries...");
+                    })
+                )
+            });
+
+            // when matches change, resubscribe to updates
+            const reset$ = combineLatest(this.totalMatches$, this.maxHid$).pipe(
+                debounceTime(0)
+            );
+
+            const cacheUpdate$ = reset$.pipe(
+                switchMap(([size, maxHid]) => update$.pipe(
+                    debounceTime(this.debouncePeriod),
+                    map(([bench, contents]) => {
+                        console.log("bench hids", bench.map(c => c.hid));
+                        console.log("hids", contents.map(c => c.hid));
+                        const firstHid = bench.length ? bench[0].hid : contents.length ? contents[0].hid : 0;
+                        const topRows = maxHid - firstHid;
+                        const bottomRows = size - bench.length - contents.length;
+                        return { topRows, bottomRows, bench, contents };
+                    })
+                ))
+            );
+
+            return cacheUpdate$;
+        },
+
+
+
         // Polls the server for updates in the region we're viewing.
 
-        // pollingObservable() {
+        pollingObservable() {
 
-        //     const input$ = combineLatest(this.id$, this.param$).pipe(
-        //         debounceTime(0), // simultaneous vals will trigger 2x
-        //         distinctUntilChanged(this.inputsSame)
-        //     );
+            const poll$ = combineLatest(this.id$, this.params$).pipe(
+                debounceTime(0),
+                switchMap(inputs => of(inputs).pipe(
+                    pollHistory()
+                ))
+            );
 
-        //     // when inputs change, unsub and resub to pollHistory with new params
-        //     const poll$ = input$.pipe(
-        //         switchMap(inputs => of(inputs).pipe(
-        //             // tap((...args) => console.log("poll args", ...args)),
-        //             pollHistory()
-        //         ))
-        //     )
+            // don't poll while scrolling
+            const polling$ = this.scrolling$.pipe(
+                startWith(true),
+                distinctUntilChanged(),
+                switchMap(isScrolling => isScrolling ? NEVER : poll$)
+            );
 
-        //     const polling$ = this.scrolling$.pipe(
-        //         startWith(true),
-        //         distinctUntilChanged(),
-        //         switchMap(isScrolling => isScrolling ? NEVER : poll$)
-        //     )
+            return polling$;
+        },
 
-        //     return polling$;
-
-        // },
     },
+
 };
+
+
+
+// makePlaceholders(startHid, endHid) {
+//     const ph = (_, i) => ({ hid: startHid - i });
+//     return Array.from({ length: startHid - endHid }, ph);
+// },

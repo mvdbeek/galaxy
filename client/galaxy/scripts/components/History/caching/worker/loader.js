@@ -4,11 +4,12 @@
  * one or more ajax calls against the api and cache ther results.
  */
 import { of, pipe } from "rxjs";
-import { mergeMap, map, finalize, withLatestFrom } from "rxjs/operators";
+import { mergeMap, map, finalize, withLatestFrom, pluck } from "rxjs/operators";
 import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
 import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
+
 // import { enqueue } from "./queue";
 
 /**
@@ -21,9 +22,7 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
     // construct url, throttle if repeated request
     const url$ = src$.pipe(
         hydrateInputs(),
-        // tap(([id, p]) => p.report("loadHistoryContents")),
         chunkInputs(),
-        // tap(([id, p]) => p.report("chunk")),
         map(buildHistoryContentsUrl),
         // throttles by url. Only one request for same url within the period
         throttleDistinct({ timeout: onceEvery })
@@ -31,19 +30,27 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
 
     const load$ = url$.pipe(
         mergeMap((url) => {
+
             // loads and caches one url
             const task$ = of(url).pipe(
                 map(prependPath),
                 requestWithUpdateTime({ context }),
-                bulkCacheContent(),
-                summarizeCacheOperation()
+                mergeMap(response => of(response).pipe(
+                    pluck('result'),
+                    bulkCacheContent(),
+                    summarizeCacheOperation(),
+                    map(summary => {
+                        const { totalMatches, result } = response;
+                        const { max: maxHid, min: minHid } = getPropRange(result, "hid");
+                        return { ...summary, totalMatches, minHid, maxHid };
+                    })
+                ))
             );
 
             // TODO: implement backpressure queue
             // send back an observable that waits to emit until
             // the processing queue gets to it
             // return enqueue(task$);
-
             return task$;
         }),
         finalize(() => {
@@ -80,8 +87,8 @@ export const loadDscContent = (cfg = {}) => (src$) => {
 
     const response$ = ajaxResponse$.pipe(
         withLatestFrom(url$),
-        map(([responses, contents_url]) => {
-            return responses.map((row) => ({ ...row, contents_url }));
+        map(([response, contents_url]) => {
+            return response.result.map((row) => ({ ...row, contents_url }));
         })
     );
 
@@ -112,3 +119,19 @@ export const summarizeCacheOperation = () => {
         })
     );
 };
+
+
+
+// Picks out min/max value from array of objects
+
+export const getPropRange = (list, propName) => {
+    return list.reduce((acc, row) => {
+        const val = parseInt(row[propName], 10);
+        acc.max = Math.max(acc.max, val);
+        acc.min = Math.min(acc.min, val);
+        return acc;
+    }, {
+        min: Infinity,
+        max: -Infinity
+    })
+}

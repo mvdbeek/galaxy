@@ -1,11 +1,9 @@
 <template>
-    <HistoryContentProvider
-        :id="historyId"
-        :debounce-period="200"
-        :scrolling="listState.scrolling"
-        :history-size="history.hid_counter - 1"
-        v-slot="{ loading, params, results: contents, totalMatches, updateParams }"
-    >
+    <HistoryContentProvider :id="historyId" :debounce-period="200"
+        v-slot="{ results: contents, topRows, bottomRows, totalMatches,
+            onListScroll, scrolling, loading,
+            params, updateParams }">
+
         <Layout>
             <!-- we're going to want to make this optional for when we put multiple
                 histories on the page, so pass the slot through from the parent -->
@@ -23,12 +21,11 @@
             </template>
 
             <template v-slot:listcontrols>
-                <ContentOperations
-                    v-if="!history.empty"
+                <ContentOperations v-if="contents.length"
                     :history="history"
                     :params="params"
                     @update:params="updateParams"
-                    :total-matches="totalMatches"
+                    :total-matches="totalMatches || history.hid_counter - 1"
                     :contents="contents"
                     :loading="loading"
                     :content-selection.sync="listState.selected"
@@ -37,14 +34,14 @@
             </template>
 
             <template v-slot:listing :class="{ loadingBackground: loading }">
-                <HistoryContentList
-                    v-if="!history.empty"
-                    data-key="_scroll_index"
+                <HistoryContentList v-if="contents.length"
+                    data-key="hid"
                     :params="params"
-                    @update:params="updateParams"
+                    @scroll="onListScroll"
                     :contents="contents"
-                    :loading="loading"
-                    :scrolling.sync="listState.scrolling"
+                    :top-buffer="topRows"
+                    :bottom-buffer="bottomRows"
+                    :scrolling="scrolling"
                 />
             </template>
 
@@ -52,10 +49,12 @@
                 <ToolHelpModal />
             </template>
         </Layout>
+
     </HistoryContentProvider>
 </template>
 
 <script>
+
 import { History } from "./model";
 import { SearchParams } from "./model/SearchParams";
 import { HistoryContentProvider } from "./providers";

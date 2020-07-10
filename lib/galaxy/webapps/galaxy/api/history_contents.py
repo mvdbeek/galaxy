@@ -909,6 +909,11 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
             order_by=order_by,
             serialization_params=serialization_params)
 
+        # Write total_matches as a custom http response header. This is metadata
+        # about the request, so headers are more approriate and convenient than
+        # reformatting the whole json response.
+        trans.response.headers['total_matches'] = self._contents_total_matches(history, filter_params)
+
         for content in contents:
 
             # TODO: remove split
@@ -927,6 +932,18 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
                 rval.append(collection)
 
         return rval
+
+    # Total Matches is a value required by client-side pagination and is the
+    # total number of records that match the filters independent of pagination
+    # TODO: Retrieving a count on a filtered results set by using 2 queries is a
+    # non-optimal strategy. There are others involving CTEs that are more
+    # performant but that will involve reworking the contents query ...which we
+    # absolutely should do.
+    def _contents_total_matches(self, history, filter_params):
+        # Need to omit update_time from filters for the count
+        without_update_time = [f for f in filter_params if f[0] != 'update_time']
+        filters = self.history_contents_filters.parse_filters(without_update_time)
+        return self.history_contents_manager.contents_count(history, filters)
 
     def encode_type_id(self, type_id):
         TYPE_ID_SEP = '-'

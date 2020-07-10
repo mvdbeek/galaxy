@@ -3,15 +3,19 @@
     <VirtualScroller
         v-on="$listeners"
         v-bind="$attrs"
-        :items="contents"
         :key-field="dataKey"
-        :min-item-height="36"
-        @scroll="onScroll"
+        :item-height="36"
+        :items="contents"
+        :bench="10"
+        :top-buffer="topRows"
+        :bottom-buffer="bottomRows"
         v-slot="{ item, index }">
 
         <HistoryContentItem :item="item" :index="index" />
 
     </VirtualScroller>
+
+</VirtualScroller>
 
 </template>
 
@@ -19,10 +23,10 @@
 
 import HistoryContentItem from "./HistoryContentItem";
 import VirtualScroller from "./VirtualScroller";
-import ContentListMixin from "./mixins/ContentListMixin";
+import ContentList from "./ContentList";
 
 export default {
-    mixins: [ ContentListMixin ],
+    mixins: [ ContentList ],
     components: {
         VirtualScroller,
         HistoryContentItem

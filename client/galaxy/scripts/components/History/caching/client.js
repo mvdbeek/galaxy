@@ -1,5 +1,5 @@
 import { from, of, pipe } from "rxjs";
-import { filter, finalize, materialize, map, mergeMap, shareReplay } from "rxjs/operators";
+import { tap, filter, finalize, materialize, map, mergeMap, shareReplay } from "rxjs/operators";
 import { v4 as uuidv4 } from "uuid";
 
 import { spawn } from "threads";
@@ -46,7 +46,7 @@ const method = (fnName) => {
  *
  * @param {string} fnName Name of an exposed property on the thread object
  */
-export const toOperator = (fnName) => {
+export const toOperator = (fnName, debug = false) => {
     const method$ = thread$.pipe(method(fnName));
 
     // Result of the returned method call will be an "ObservablePromise", a
@@ -66,7 +66,14 @@ export const toOperator = (fnName) => {
             mergeMap((method) =>
                 src$.pipe(
                     materialize(),
-                    map((notification) => method({ id, ...notification })),
+                    tap(notification => {
+                        if (debug) {
+                            console.log("notification", fnName, notification);
+                        }
+                    }),
+                    map((notification) => {
+                        return method({ id, ...notification })
+                    }),
                     // first emission will be the observable created by threads
                     // that's the only one we want, rest should be nulls
                     filter(Boolean),

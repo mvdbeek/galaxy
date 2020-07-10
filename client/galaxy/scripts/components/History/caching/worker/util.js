@@ -57,21 +57,26 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
 
     // mark and flag this update-time, append to next request with same base
     return baseUrl$.pipe(
-        mergeMap((baseUrl) => {
-            return of(baseUrl).pipe(
-                appendUpdateTime({
-                    dateStore,
-                    bufferSeconds,
-                    dateFieldName,
-                }),
-                mergeMap(ajax.getJSON),
-                tap((results) => {
-                    if (results.length) {
-                        dateStore.set(baseUrl, requestTime);
-                    }
-                })
-            );
-        })
+        mergeMap((baseUrl) => of(baseUrl).pipe(
+            appendUpdateTime({
+                dateStore,
+                bufferSeconds,
+                dateFieldName,
+            }),
+            mergeMap(ajax),
+            map(ajaxResponse => {
+                let totalMatches = ajaxResponse.xhr.getResponseHeader('total_matches');
+                if (totalMatches !== null) {
+                    totalMatches = parseInt(totalMatches, 10);
+                }
+                return { result: ajaxResponse.response, totalMatches }
+            }),
+            tap(({ totalMatches }) => {
+                if (totalMatches) {
+                    dateStore.set(baseUrl, requestTime);
+                }
+            })
+        ))
     );
 };
 

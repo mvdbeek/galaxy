@@ -22,15 +22,13 @@ expose({
     configure,
 
     monitorContentQuery: asObservable(
-        monitorQuery({
-            db$: content$,
-        })
+        monitorQuery({ db$: content$, }),
+        // "monitorContentQuery"
     ),
 
     monitorDscQuery: asObservable(
-        monitorQuery({
-            db$: dscContent$,
-        })
+        monitorQuery({ db$: dscContent$ }),
+        // "monitorDscQuery"
     ),
 
     cacheContentItem(props) {
