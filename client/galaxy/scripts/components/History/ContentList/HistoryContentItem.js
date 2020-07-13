@@ -5,13 +5,13 @@ export default {
 
     computed: {
         contentItemComponent() {
-            if (this.source._id === undefined) {
+            if (this.item._id === undefined) {
                 return "Loading";
             }
             if (this.scrolling) {
                 return "Placeholder";
             }
-            const { history_content_type } = this.source;
+            const { history_content_type } = this.item;
             switch (history_content_type) {
                 case "dataset":
                     return "Dataset";

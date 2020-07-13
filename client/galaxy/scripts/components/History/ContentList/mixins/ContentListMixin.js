@@ -20,18 +20,12 @@ export default {
         });
     },
     methods: {
-        onScroll(start, end) {
+        onScroll({ start, end }) {
             this.scrollPing$.next(true);
             const newParams = this.params.setRange(start, end);
             if (!SearchParams.equals(this.params, newParams)) {
                 this.$emit("update:params", newParams);
             }
-        },
-        atTop() {
-            console.log("atTop", ...arguments);
-        },
-        atBottom() {
-            console.log("atBottom", ...arguments);
-        },
+        }
     },
 };

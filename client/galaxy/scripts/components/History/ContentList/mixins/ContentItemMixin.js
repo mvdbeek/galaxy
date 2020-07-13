@@ -23,7 +23,7 @@ export default {
             :class="{ loading }"
             :index="index"
             :tabindex="index"
-            :item="source"
+            :item="item"
             :selected.sync="selected"
             :expanded.sync="expanded"
             :scrolling="scrolling"
@@ -42,7 +42,7 @@ export default {
     },
 
     props: {
-        source: { type: Object, required: true },
+        item: { type: Object, required: true },
         index: { type: Number, required: true },
     },
 
@@ -61,28 +61,28 @@ export default {
 
     computed: {
         loading() {
-            return !this.source;
+            return !this.item;
         },
         contentItemComponent() {
-            if (this.source === null) {
+            if (this.item === null) {
                 return "Loading";
             }
             return "Placeholder";
         },
         selected: {
             get() {
-                return this.isSelected(this.source);
+                return this.isSelected(this.item);
             },
             set(val) {
-                this.setSelected(this.source, val);
+                this.setSelected(this.item, val);
             },
         },
         expanded: {
             get() {
-                return this.isExpanded(this.source);
+                return this.isExpanded(this.item);
             },
             set(val) {
-                this.setExpanded(this.source, val);
+                this.setExpanded(this.item, val);
             },
         },
         scrolling() {
