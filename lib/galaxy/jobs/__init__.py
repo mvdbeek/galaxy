@@ -1120,7 +1120,7 @@ class JobWrapper(HasResourceParameters):
         if version_string_cmd_raw:
             version_command_template = string.Template(version_string_cmd_raw)
             version_string_cmd = version_command_template.safe_substitute({"__tool_directory__": compute_environment.tool_directory()})
-            self.write_version_cmd = "%s > %s 2>&1" % (version_string_cmd, compute_environment.version_path())
+            self.write_version_cmd = "%s > %s 2>&1 || true" % (version_string_cmd, compute_environment.version_path())
         else:
             self.write_version_cmd = None
         return self.extra_filenames
