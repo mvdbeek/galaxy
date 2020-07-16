@@ -111,7 +111,7 @@ class ExportHistoryToolAction(ToolAction):
         trans.sa_session.add(archive_dataset)
 
         trans.sa_session.flush()  # ensure job.id and archive_dataset.id are available
-        trans.app.object_store.create(archive_dataset)  # set the object store id, create dataset (if applicable)
+        trans.app.object_store.create(archive_dataset, flush=False)  # set the object store id, create dataset (if applicable)
 
         #
         # Setup job and job wrapper.

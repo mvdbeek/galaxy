@@ -567,7 +567,9 @@ class FileParameter(MetadataParameter):
                                                          file_name=file_name,
                                                          extra_dir='_metadata_files',
                                                          extra_dir_at_root=True,
-                                                         alt_name=os.path.basename(mf.file_name))
+                                                         alt_name=os.path.basename(mf.file_name),
+                                                         flush=False,
+                                                         )
             os.unlink(file_name)
             value = mf.id
         return value

@@ -829,7 +829,7 @@ class DistributedObjectStore(NestedObjectStore):
             self.weighted_backend_ids = new_weighted_backend_ids
             self.sleeper.sleep(120)  # Test free space every 2 minutes
 
-    def _create(self, obj, **kwargs):
+    def _create(self, obj, flush=True, **kwargs):
         """The only method in which obj.object_store_id may be None."""
         if obj.object_store_id is None or not self._exists(obj, **kwargs):
             if obj.object_store_id is None or obj.object_store_id not in self.backends:
@@ -839,7 +839,7 @@ class DistributedObjectStore(NestedObjectStore):
                     raise ObjectInvalid('objectstore.create, could not generate '
                                         'obj.object_store_id: %s, kwargs: %s'
                                         % (str(obj), str(kwargs)))
-                _create_object_in_session(obj)
+                _create_object_in_session(obj, flush=flush)
                 log.debug("Selected backend '%s' for creation of %s %s"
                           % (obj.object_store_id, obj.__class__.__name__, obj.id))
             else:
@@ -1071,11 +1071,12 @@ def config_to_dict(config):
     }
 
 
-def _create_object_in_session(obj):
+def _create_object_in_session(obj, flush=True):
     session = object_session(obj) if object_session is not None else None
     if session is not None:
         object_session(obj).add(obj)
-        object_session(obj).flush()
+        if flush:
+            object_session(obj).flush()
     else:
         raise Exception(NO_SESSION_ERROR_MESSAGE)
 
@@ -1095,7 +1096,7 @@ class ObjectStorePopulator(object):
         # the same store as the first.
         data.dataset.object_store_id = self.object_store_id
         try:
-            self.object_store.create(data.dataset)
+            self.object_store.create(data.dataset, flush=False)
         except ObjectInvalid:
             raise Exception('Unable to create output dataset: object store is full')
         self.object_store_id = data.dataset.object_store_id  # these will be the same thing after the first output

@@ -1178,7 +1178,7 @@ class JobWrapper(HasResourceParameters):
 
     def _create_working_directory(self, job):
         self.object_store.create(
-            job, base_dir='job_work', dir_only=True, obj_dir=True)
+            job, base_dir='job_work', dir_only=True, obj_dir=True, flush=False)
         working_directory = self.object_store.get_filename(
             job, base_dir='job_work', dir_only=True, obj_dir=True)
         return working_directory
@@ -1194,7 +1194,7 @@ class JobWrapper(HasResourceParameters):
 
         self.object_store.create(
             job, base_dir='job_work', dir_only=True, obj_dir=True,
-            extra_dir='_cleared_contents', extra_dir_at_root=True)
+            extra_dir='_cleared_contents', extra_dir_at_root=True, flush=False)
         base = self.object_store.get_filename(
             job, base_dir='job_work', dir_only=True, obj_dir=True,
             extra_dir='_cleared_contents', extra_dir_at_root=True)
@@ -1293,8 +1293,7 @@ class JobWrapper(HasResourceParameters):
                 # Pause any dependent jobs (and those jobs' outputs)
                 for dep_job_assoc in dataset.dependent_jobs:
                     self.pause(dep_job_assoc.job, "Execution of this dataset's job is paused because its input datasets are in an error state.")
-                self.sa_session.add(dataset)
-                self.sa_session.flush()
+            self.sa_session.flush()
             job.set_final_state(job.states.ERROR)
             job.command_line = unicodify(self.command_line)
             job.info = message
@@ -2175,7 +2174,7 @@ class JobWrapper(HasResourceParameters):
         if dataset not in job.output_library_datasets:
             purged = dataset.purged
             if not purged and not clean_only:
-                self.object_store.update_from_file(dataset, create=True)
+                self.object_store.update_from_file(dataset, create=True, flush=False)
             else:
                 # If the dataset is purged and Galaxy is configured to write directly
                 # to the object store from jobs - be sure that file is cleaned up. This

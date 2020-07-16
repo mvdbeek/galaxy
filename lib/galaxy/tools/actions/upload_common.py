@@ -452,7 +452,7 @@ def create_job(trans, params, tool, json_file_path, outputs, folder=None, histor
             if not dataset.dataset.external_filename and trans.app.config.legacy_eager_objectstore_initialization:
                 dataset.dataset.object_store_id = object_store_id
                 try:
-                    trans.app.object_store.create(dataset.dataset)
+                    trans.app.object_store.create(dataset.dataset, flush=False)
                 except ObjectInvalid:
                     raise Exception('Unable to create output dataset: object store is full')
                 object_store_id = dataset.dataset.object_store_id

@@ -843,7 +843,7 @@ class UserAPIController(BaseAPIController, UsesTagsMixin, CreatesApiKeysMixin, B
                 new_len.state = trans.app.model.Job.states.OK
                 new_len.info = 'custom build .len file'
                 try:
-                    trans.app.object_store.create(new_len.dataset)
+                    trans.app.object_store.create(new_len.dataset, flush=False)
                 except ObjectInvalid:
                     raise exceptions.InternalServerError('Unable to create output dataset: object store is full.')
                 trans.sa_session.flush()

@@ -326,7 +326,7 @@ class ModelImportStore(object):
                         dataset_instance.dataset.purged = True
                     else:
                         dataset_instance.state = dataset_attrs.get('state', dataset_instance.states.OK)
-                        self.object_store.update_from_file(dataset_instance.dataset, file_name=temp_dataset_file_name, create=True)
+                        self.object_store.update_from_file(dataset_instance.dataset, file_name=temp_dataset_file_name, create=True, flush=False)
 
                         # Import additional files if present. Histories exported previously might not have this attribute set.
                         dataset_extra_files_path = dataset_attrs.get('extra_files_path', None)
@@ -343,7 +343,7 @@ class ModelImportStore(object):
                                     self.object_store.update_from_file(
                                         dataset_instance.dataset, extra_dir=extra_dir,
                                         alt_name=extra_file, file_name=source,
-                                        create=True)
+                                        create=True, flush=False)
                         dataset_instance.dataset.set_total_size()  # update the filesize record in the database
 
                     if dataset_instance.deleted:

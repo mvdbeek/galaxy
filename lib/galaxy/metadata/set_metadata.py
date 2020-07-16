@@ -237,7 +237,7 @@ def set_metadata_portable():
                 dataset.set_size()
                 if 'uuid' in context:
                     dataset.dataset.uuid = context['uuid']
-                object_store.update_from_file(dataset.dataset, create=True)
+                object_store.update_from_file(dataset.dataset, create=True, flush=False)
                 from galaxy.job_execution.output_collect import collect_extra_files
                 collect_extra_files(object_store, dataset, ".")
                 if galaxy.model.Job.states.ERROR == final_job_state:

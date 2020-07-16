@@ -382,7 +382,7 @@ def collect_primary_datasets(job_context, output, input_ext):
                 new_outdata_name = fields_match.name or "%s (%s)" % (outdata.name, designation)
                 outdata.dataset.external_filename = None  # resets filename_override
                 # Move data from temp location to dataset location
-                job_context.object_store.update_from_file(outdata.dataset, file_name=filename, create=True)
+                job_context.object_store.update_from_file(outdata.dataset, file_name=filename, create=True, flush=False)
                 primary_output_assigned = True
                 continue
             if name not in primary_datasets:
@@ -431,6 +431,7 @@ def collect_primary_datasets(job_context, output, input_ext):
                                 alt_name=f,
                                 file_name=os.path.join(root, f),
                                 create=True,
+                                flush=False,
                                 preserve_symlinks=True
                             )
             job_context.add_datasets_to_history([primary_data], for_output_dataset=outdata)
@@ -613,6 +614,7 @@ def collect_extra_files(object_store, dataset, job_working_directory):
                     alt_name=f,
                     file_name=os.path.join(root, f),
                     create=True,
+                    flush=False,
                     preserve_symlinks=True
                 )
     except Exception as e:
@@ -624,7 +626,7 @@ def collect_extra_files(object_store, dataset, job_working_directory):
             with NamedTemporaryFile(mode='w') as temp_fh:
                 temp_fh.write(dataset.datatype.generate_primary_file(dataset))
                 temp_fh.flush()
-                object_store.update_from_file(dataset.dataset, file_name=temp_fh.name, create=True)
+                object_store.update_from_file(dataset.dataset, file_name=temp_fh.name, create=True, flush=False)
                 dataset.set_size()
         except Exception as e:
             log.warning('Unable to generate primary composite file automatically for %s: %s', dataset.dataset.id, unicodify(e))

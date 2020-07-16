@@ -2361,7 +2361,7 @@ class Dataset(StorableObject, RepresentById):
 
     def create_extra_files_path(self):
         if not self.extra_files_path_exists():
-            self.object_store.create(self, dir_only=True, extra_dir=self._extra_files_rel_path)
+            self.object_store.create(self, dir_only=True, extra_dir=self._extra_files_rel_path, flush=False)
 
     def set_extra_files_path(self, extra_files_path):
         if not extra_files_path:

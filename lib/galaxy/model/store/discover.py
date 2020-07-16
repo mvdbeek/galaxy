@@ -144,7 +144,7 @@ class ModelPersistenceContext(object):
                 self.flush()
                 has_flushed = True
             if not link_data:
-                self.object_store.update_from_file(primary_data.dataset, file_name=filename, create=True)
+                self.object_store.update_from_file(primary_data.dataset, file_name=filename, create=True, flush=False)
             else:
                 primary_data.link_to(filename)
             # We are sure there are no extra files, so optimize things that follow by settting total size also.
@@ -302,7 +302,7 @@ class ModelPersistenceContext(object):
 
     def update_object_store_with_datasets(self, datasets, paths):
         for dataset, path in zip(datasets, paths):
-            self.object_store.update_from_file(dataset.dataset, file_name=path, create=True)
+            self.object_store.update_from_file(dataset.dataset, file_name=path, create=True, flush=False)
             dataset.set_size(no_extra_files=True)
 
     @abc.abstractproperty
