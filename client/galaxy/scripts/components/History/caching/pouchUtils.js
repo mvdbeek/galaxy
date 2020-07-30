@@ -1,5 +1,6 @@
 import moment from "moment";
 import { map, mergeMap, withLatestFrom } from "rxjs/operators";
+import { SearchParams } from "../model/SearchParams";
 
 /**
  * Generate a PouchDB selector for a specified history, filters, and a rough
@@ -10,7 +11,7 @@ import { map, mergeMap, withLatestFrom } from "rxjs/operators";
  */
 export const buildContentPouchRequest = (cfg = {}) => src$ => {
     const {
-        limit = 200,
+        limit = SearchParams.pageSize,
         seek = "desc"
     } = cfg;
 

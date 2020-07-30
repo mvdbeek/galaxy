@@ -35,11 +35,14 @@ export default {
 
     data() {
         return {
-            results: [],
+            contents: [],
             params: new SearchParams(),
             loading: false,
             totalMatches: 0,
-            scrollFraction: 0,
+            scrollCursor: 0,
+            bench: 0,
+            topRows: 0,
+            bottomRows: 0,
         }
     },
 
@@ -56,17 +59,17 @@ export default {
         );
 
         // total number of search matches for filters, regardless of pagination
-        // Updated when load subscriptions return from server with new results
+        // Updated when load subscriptions return from server with new contents
         this.totalMatches$ = this.watch$("totalMatches");
 
         // 0-1 value from the scroller, represents how far down from the top
         // the scrollTop is. Used to calculate search criteria for the cache
         // and for server requests when it cannot be calculated from data
         // that already exists in the cache
-        this.scrollFraction$ = this.watch$("scrollFraction");
+        this.scrollCursor$ = this.watch$("scrollCursor");
 
         // true when moving/false otherwise
-        this.scrolling$ = this.scrollFraction$.pipe(
+        this.scrolling$ = this.scrollCursor$.pipe(
             activity()
         );
     },
@@ -94,14 +97,14 @@ export default {
 
         onListScroll(payload) {
             console.log("onListScroll", payload);
-            const { fraction, start, end } = payload;
+            const { cursor, start, end } = payload;
 
             // cache can't use a skip/limit because there's nothing in the cache
             // to skip if you scroll to the middle of the history, so we have to
             // approximate a HID.
-            this.scrollFraction = fraction;
+            this.scrollCursor = cursor;
 
-            // server uses skip/limit to determine query results
+            // server uses skip/limit to determine query contents
             if (end > start) {
                 this.updateParams(this.params.setPagination(start, end));
             }
@@ -119,13 +122,13 @@ export default {
 
 
         // Generic subscriber with debugging output. Assumes you don't need
-        // to do anything special with the results. May remove
+        // to do anything special with the contents. May remove
 
         listenTo(obs$, label) {
             if (!obs$) return;
             this.$subscribeTo(
                 obs$,
-                (results) => console.log(`[${label}] next`, typeof (results)),
+                (result) => console.log(`[${label}] next`, typeof (result)),
                 (err) => console.warn(`[${label}] error`, err),
                 () => console.log(`[${label}] complete`)
             );
@@ -135,7 +138,7 @@ export default {
 
     render() {
         return this.$scopedSlots.default({
-            results: this.results,
+            contents: this.contents,
             params: this.params,
             totalMatches: this.totalMatches,
             loading: this.loading,
@@ -143,6 +146,9 @@ export default {
             // update functions, usable as event handlers for child components
             updateParams: this.updateParams,
             onListScroll: this.onListScroll,
+            topRows: this.topRows,
+            bottomRows: this.bottomRows,
+            bench: this.bench,
         });
     },
 };

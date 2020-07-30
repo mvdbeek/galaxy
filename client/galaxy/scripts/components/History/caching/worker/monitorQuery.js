@@ -1,5 +1,5 @@
 import { Observable, isObservable } from "rxjs";
-import { tap, switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
+import { switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
 import deepEqual from "deep-equal";
 
 /**
@@ -14,8 +14,6 @@ export const monitorQuery = (cfg = {}) => (request$) => {
         db$ = null,
         // how often to create a new query monitor
         inputDebounce = 0,
-        // how often to emit query monitor results
-        outputDebounce = 0,
     } = cfg;
 
     if (!isObservable(db$)) {
@@ -33,8 +31,7 @@ export const monitorQuery = (cfg = {}) => (request$) => {
         distinctUntilChanged(deepEqual),
         withLatestFrom(db$),
         debounceTime(inputDebounce),
-        switchMap((inputs) => pouchQueryEmitter(...inputs)),
-        // debounceTime(outputDebounce)
+        switchMap((inputs) => pouchQueryEmitter(...inputs))
     );
 };
 
@@ -46,22 +43,23 @@ export const monitorQuery = (cfg = {}) => (request$) => {
  * @param {PouchDB} db pouch database instance
  */
 function pouchQueryEmitter(request, db) {
-
-    console.warn("creating new pouchQueryEmitter", request);
+    // console.warn("creating new pouchQueryEmitter", request);
 
     return Observable.create((obs) => {
 
+        let isReady = false;
         const feed = db.liveFind({ ...request, aggregate: true });
 
-        // feed.on("update", (update) => {
-        //     const { action, doc, id } = update;
-        //     console.log("update", update);
-        // });
+        feed.on("update", (update) => {
+            if (isReady) {
+                obs.next(update);
+            }
+        });
 
         feed.on("ready", () => {
-            console.warn("READY");
             const result = feed.paginate(request);
-            obs.next({ matches: result, request });
+            obs.next({ initialMatches: result, request });
+            isReady = true;
         });
 
         feed.on("error", (err) => {

@@ -107,13 +107,15 @@ const appendUpdateTime = (cfg = {}) => {
 };
 
 /**
- * passing SearchParams into the worker removes its class information
+ * passing SearchParams into the worker removes its class information, inputs is
+ * usually an array of [ id, params, ...otherstuff ], so the params are usually
+ * at index 1
  */
-export const hydrateInputs = () => {
+export const hydrateInputs = (position = 1) => {
     return pipe(
         map((inputs) => {
-            const [id, rawParams] = inputs;
-            return [id, new SearchParams(rawParams)];
+            inputs[position] = new SearchParams(inputs[position]);
+            return inputs;
         })
     );
 };

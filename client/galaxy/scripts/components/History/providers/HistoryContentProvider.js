@@ -5,58 +5,131 @@
  *    pollingObservable: loads new content into the cache when the polling gets new data
  */
 
-import { of, combineLatest, zip, defer, NEVER } from "rxjs";
-import { tap, map, distinctUntilChanged, startWith, debounceTime, switchMap, share, pluck, finalize } from "rxjs/operators";
-import { pollHistory, monitorContentQuery, loadHistoryContents } from "../caching";
-import { buildContentPouchRequest } from "../caching/pouchUtils";
+import { of, combineLatest, NEVER } from "rxjs";
+import { map, withLatestFrom, distinctUntilChanged, startWith, debounceTime, switchMap, finalize, scan } from "rxjs/operators";
+import { activity } from "utils/observable/activity";
+import { newHidMap, processContentUpdate, buildContentResult } from "./processing";
+import { pollHistory, monitorHistoryContent, loadHistoryContents } from "../caching";
 import { SearchParams } from "../model/SearchParams";
-import ContentProvider from "./ContentProvider";
+import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 
 
 export default {
-    mixins: [ContentProvider],
+    mixins: [vueRxShortcuts],
+
+    props: {
+        historyId: { type: String, required: true },
+        // maximum hid value for unfiltered history
+        maxHistoryHid: { type: Number, required: true },
+        debouncePeriod: { type: Number, default: 200 },
+    },
 
     data() {
         return {
-            maxHid: 0,
+            // search params
+            params: new SearchParams(),
+
+            // results
+            contents: [],
+            bench: 0,
             topRows: 0,
-            bottomRows: 0
+            bottomRows: 0,
+            totalMatches: null,
+
+            scrollCursor: 0,
+            hidCursor: this.maxHistoryHid,
+            maxFilteredHid: this.maxHistoryHid,
+            loading: false,
+            scrolling: false,
         }
+    },
+
+    computed: {
+        maxHid() {
+            return this.maxFilteredHid || this.maxHistoryHid;
+        }
+    },
+
+    watch: {
+        maxHistoryHid(val) {
+            console.warn("maxHistoryHid", val);
+        },
+        maxFilteredHid(val) {
+            console.warn("maxFilteredHid", val);
+        },
+        maxHid(val) {
+            console.warn("maxHid", val);
+        },
     },
 
     created() {
 
-        // This value is set by the returned load results and is the first hid
-        // returned for the filtered result set. used to help calculate the
-        // appearance of the scroll bar by giving it the right height
+        // #region Input Observables
 
-        this.maxHid$ = this.watch$('maxHid');
+        const id$ = this.watch$('historyId');
 
-
-        // This HID is a best guess based on the scroller position, the known
-        // search matche count and the HID at the top of the list. We can't know
-        // a precise HID without having all the results from the list already,
-        // from filtered out results (hidden, deleted, etc.)
-
-        this.scrollHid$ = combineLatest(this.scrollFraction$, this.maxHid$).pipe(
-            debounceTime(0),
-            map(([scale, maxHid]) => Math.floor((1 - scale) * maxHid)),
+        const params$ = this.watch$("params").pipe(
+            distinctUntilChanged(SearchParams.equals)
         );
 
-
-        // History + parameters, but does not vary with pagination
-
-        this.filterParams$ = this.params$.pipe(
+        const filter$ = params$.pipe(
             distinctUntilChanged(SearchParams.filtersEqual)
         );
 
+        const inputs$ = combineLatest(id$, params$).pipe(
+            debounceTime(0),
+            distinctUntilChanged(this.filteredInputsSame),
+        );
+
+        const maxHid$ = this.watch$('maxHid');
+        const hidCursor$ = this.watch$('hidCursor');
+        const totalMatches$ = this.watch$("totalMatches");
+
+        // #endregion
+
+        // #region Activity Flags
+        // 0-1 value from the scroller, represents how far down from the top
+        // the scrollTop is. Used to calculate search criteria for the cache
+        // and for server requests when it cannot be calculated from data
+        // that already exists in the cache
+        const scrollCursor$ = this.watch$("scrollCursor");
+
+        // flag that's true when scroll cursor is changing
+        const scrolling$ = scrollCursor$.pipe(activity());
+
+        this.$subscribeTo(scrolling$, val => this.scrolling = val);
+
+        // #endregion
+
+        // #region Cache Observer
+        // Monitors cache results matching the current search parameters and
+        // scroller location, resets when id or filters changes
+
+        const cacheUpdate$ = combineLatest(id$, filter$).pipe(
+            debounceTime(0),
+            switchMap(([id, params]) => {
+
+                const hidMap$ = hidCursor$.pipe(
+                    debounceTime(this.debouncePeriod),
+                    map(hid => [id, params, hid]),
+                    monitorHistoryContent(),
+                    scan(processContentUpdate, newHidMap()),
+                );
+
+                return hidMap$.pipe(
+                    withLatestFrom(hidCursor$, totalMatches$, maxHid$),
+                    debounceTime(this.debouncePeriod),
+                    map(buildContentResult)
+                );
+            })
+        );
 
         this.$subscribeTo(
-            this.cacheObservable(),
-            (response) => {
-                console.log("[history.cache] next", response);
-                const { contents, topRows, bottomRows } = response;
-                this.results = contents;
+            cacheUpdate$,
+            ({ contents, bench, topRows, bottomRows }) => {
+                // console.log("[history.cache] next", contents.length, bench, topRows, bottomRows);
+                this.contents = contents;
+                this.bench = bench;
                 this.topRows = topRows;
                 this.bottomRows = bottomRows;
             },
@@ -64,158 +137,133 @@ export default {
             () => console.log(`[history.cache] complete`)
         );
 
+        // #endregion
+
+        // #region Loader
+        // Loads data from server. Most of the results are sent right to the
+        // cache but we need to get the totalMatches and the maximum HID value
+        // for the history back to make the scroller work properly.
+
+        const loader$ = inputs$.pipe(
+            switchMap(([id, param]) => {
+                return combineLatest(of(id), of(param), hidCursor$).pipe(
+                    loadHistoryContents(),
+                    finalize(() => {
+                        this.maxFilteredHid = null;
+                    })
+                )
+            })
+        );
 
         this.$subscribeTo(
-            this.loader(),
-            (response) => {
-                console.log("[history.loader] next", response);
-                const { totalMatches, maxHid } = response;
-                this.maxHid = Math.max(this.maxHid, +maxHid);
+            loader$,
+            ({ totalMatches, maxHid }) => {
+                if (maxHid) {
+                    this.maxFilteredHid = Math.max(+maxHid, this.maxFilteredHid);
+                }
                 this.totalMatches = +totalMatches;
             },
             (err) => console.warn(`[history.load] error`, err),
             () => console.log(`[history.load] complete`)
         );
 
-        // polling for server-initiated changes
-        // this.listenTo(this.pollingObservable(), 'history.poll');
+        // #endregion
+
+        // #region Polling
+
+        const poll$ = combineLatest(id$, params$).pipe(
+            debounceTime(0),
+            switchMap(inputs => of(inputs).pipe(
+                pollHistory()
+            ))
+        );
+
+        const polling$ = scrolling$.pipe(
+            startWith(true),
+            distinctUntilChanged(),
+            switchMap(isScrolling => isScrolling ? NEVER : poll$)
+        );
+
+        // this.listenTo(polling$, 'history.poll');
+
+        // #endregion
+
     },
 
     methods: {
 
+        // reset pagination when filtering changes
 
-        // Loads data from server. Most of the results are sent right to the
-        // cache but we need to get the totalMatches and the maximum HID value
-        // for the history back to make the cacheObservable work properly.
-
-        loader() {
-
-            const loaderInputs$ = combineLatest(this.id$, this.filterParams$).pipe(
-                debounceTime(this.debouncePeriod)
-            );
-
-            const loader$ = loaderInputs$.pipe(
-                switchMap(([id]) => this.params$.pipe(
-                    map(p => [id, p]),
-                    loadHistoryContents(),
-                    finalize(() => {
-                        this.maxHid = 0;
-                    })
-                ))
-            );
-
-            return loader$;
+        updateParams(newParams) {
+            if (!SearchParams.filtersEqual(newParams, this.params)) {
+                this.params = newParams.resetPagination();
+            }
+            else if (!SearchParams.equals(newParams, this.params)) {
+                this.params = newParams.clone();
+            }
         },
 
 
-        // Cache Observer: Monitors cache results matching the current search
-        // parameters and scroller location
+        // If we have a startItem, use its hid as the cursor. This will
+        // happen when we scroll into a region that is already cached
+        // Otherwise estimate based on scroll position, this will happen
+        // when the scrollbar is dragged into an uncached region
 
-        cacheObservable() {
+        onListScroll(payload) {
+            console.log("onListScroll", payload);
+            const { cursor, startKey } = payload;
 
-            // width of cache window to observe for the scroller
-            const windowSize = 200;
+            let startHid;
+            if (startKey) {
+                startHid = startKey;
+            } else {
+                const scale = 1.0 - cursor;
+                startHid = Math.floor(scale * this.maxHid);
+                startHid = Math.max(this.maxHistoryHid, startHid);
+            }
 
-            // Updates for one set of user parameters, returns a sparse array
-            // where the indices are the HIDs. Could have gone with a Map, but
-            // the sparse array preserves hid sort order
-
-            const update$ = defer(() => {
-
-                const inputs$ = combineLatest(this.id$, this.filterParams$, this.scrollHid$).pipe(
-                    debounceTime(this.debouncePeriod),
-                    tap(inputs => console.log("update inputs", inputs)),
-                    share(),
-                );
-
-                // Looks above our guess hid location for a few rows of buffer
-                // for quick scrollilng
-                const seekUp$ = inputs$.pipe(
-                    buildContentPouchRequest({
-                        seek: "asc",
-                        limit: windowSize
-                    }),
-                    monitorContentQuery(),
-                    map(({ matches, request }) => {
-                        console.log("seekUp results", request, matches);
-                        matches.reverse();
-                        return matches;
-                    })
-                );
-
-                // Get a bunch of rows so we can scroll a bit before seeing
-                // loading boxes
-                const seekDown$ = inputs$.pipe(
-                    buildContentPouchRequest({
-                        seek: "desc",
-                        limit: windowSize
-                    }),
-                    monitorContentQuery(),
-                    tap(({ matches, request }) => {
-                        console.log("seekDown results", request, matches);
-                    }),
-                    pluck('matches'),
-                );
-
-                return zip(seekUp$, seekDown$).pipe(
-                    finalize(() => {
-                        console.log("changing cache queries...");
-                    })
-                )
-            });
-
-            // when matches change, resubscribe to updates
-            const reset$ = combineLatest(this.totalMatches$, this.maxHid$).pipe(
-                debounceTime(0)
-            );
-
-            const cacheUpdate$ = reset$.pipe(
-                switchMap(([size, maxHid]) => update$.pipe(
-                    debounceTime(this.debouncePeriod),
-                    map(([bench, contents]) => {
-                        console.log("bench hids", bench.map(c => c.hid));
-                        console.log("hids", contents.map(c => c.hid));
-                        const firstHid = bench.length ? bench[0].hid : contents.length ? contents[0].hid : 0;
-                        const topRows = maxHid - firstHid;
-                        const bottomRows = size - bench.length - contents.length;
-                        return { topRows, bottomRows, bench, contents };
-                    })
-                ))
-            );
-
-            return cacheUpdate$;
+            this.hidCursor = startHid;
+            this.scrollCursor = cursor;
         },
 
 
+        // Equality comparator for "inputs" which is [ id, SearchParams ]
+        // a combination that appears a lot
 
-        // Polls the server for updates in the region we're viewing.
+        inputsSame(a, b) {
+            const idSame = a[0] == b[0];
+            const paramSame = SearchParams.equals(a[1], b[1]);
+            return idSame && paramSame;
+        },
 
-        pollingObservable() {
+        filteredInputsSame(a, b) {
+            const idSame = a[0] == b[0];
+            const paramSame = SearchParams.filtersEqual(a[1], b[1]);
+            return idSame && paramSame;
+        },
 
-            const poll$ = combineLatest(this.id$, this.params$).pipe(
-                debounceTime(0),
-                switchMap(inputs => of(inputs).pipe(
-                    pollHistory()
-                ))
+
+        // Generic subscriber with debugging output. Assumes you don't need
+        // to do anything special with the result.
+
+        listenTo(obs$, label) {
+            if (!obs$) return;
+            this.$subscribeTo(
+                obs$,
+                (result) => console.log(`[${label}] next`, typeof (result)),
+                (err) => console.warn(`[${label}] error`, err),
+                () => console.log(`[${label}] complete`)
             );
-
-            // don't poll while scrolling
-            const polling$ = this.scrolling$.pipe(
-                startWith(true),
-                distinctUntilChanged(),
-                switchMap(isScrolling => isScrolling ? NEVER : poll$)
-            );
-
-            return polling$;
         },
 
     },
 
+    render() {
+        return this.$scopedSlots.default({
+            ...this.$data,
+            updateParams: this.updateParams,
+            onListScroll: this.onListScroll,
+        });
+    },
+
 };
-
-
-
-// makePlaceholders(startHid, endHid) {
-//     const ph = (_, i) => ({ hid: startHid - i });
-//     return Array.from({ length: startHid - endHid }, ph);
-// },

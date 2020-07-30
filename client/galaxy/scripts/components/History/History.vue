@@ -1,8 +1,8 @@
 <template>
-    <HistoryContentProvider :id="historyId" :debounce-period="200"
-        v-slot="{ results: contents, topRows, bottomRows, totalMatches,
-            onListScroll, scrolling, loading,
-            params, updateParams }">
+    <HistoryContentProvider :history-id="historyId"
+        :max-history-hid="history.hid_counter - 1"
+        v-slot="{ contents, bench, topRows, bottomRows, totalMatches,
+            onListScroll, scrolling, loading, params, updateParams }">
 
         <Layout>
             <!-- we're going to want to make this optional for when we put multiple
@@ -34,15 +34,17 @@
             </template>
 
             <template v-slot:listing :class="{ loadingBackground: loading }">
-                <HistoryContentList v-if="contents.length"
-                    data-key="hid"
-                    :params="params"
+                <VirtualScroller
+                    key-field="hid"
+                    :item-height="36"
+                    :items="contents"
+                    :bench="bench"
+                    :top-placeholders="topRows"
+                    :bottom-placeholders="bottomRows"
                     @scroll="onListScroll"
-                    :contents="contents"
-                    :top-buffer="topRows"
-                    :bottom-buffer="bottomRows"
-                    :scrolling="scrolling"
-                />
+                    v-slot="{ item, index }">
+                    <HistoryContentItem :item="item" :index="index" />
+                </VirtualScroller>
             </template>
 
             <template v-slot:modals>
@@ -62,10 +64,11 @@ import Layout from "./Layout";
 import HistoryMessages from "./HistoryMessages";
 import HistoryDetails from "./HistoryDetails";
 import HistoryEmpty from "./HistoryEmpty";
-import { HistoryContentList } from "./ContentList";
 import ContentOperations from "./ContentOperations";
 import ToolHelpModal from "./ToolHelpModal";
 import ListMixin from "./ListMixin";
+import VirtualScroller from "../VirtualScroller";
+import { HistoryContentItem } from "./ContentItem";
 
 export default {
     mixins: [ListMixin],
@@ -76,8 +79,9 @@ export default {
         HistoryDetails,
         HistoryEmpty,
         ContentOperations,
-        HistoryContentList,
         ToolHelpModal,
+        VirtualScroller,
+        HistoryContentItem,
     },
     props: {
         history: { type: History, required: true },

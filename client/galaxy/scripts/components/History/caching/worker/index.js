@@ -17,45 +17,55 @@ import { configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
 import { wipeDatabase } from "./debugging";
 import { asObservable } from "./asObservable";
+import { monitorHistoryContent } from "./monitorHistoryContent";
 
 expose({
     configure,
 
+    // generic content query monitor
     monitorContentQuery: asObservable(
-        monitorQuery({ db$: content$, }),
-        // "monitorContentQuery"
+        monitorQuery({ db$: content$ })
     ),
 
+    // generic collection content monitor
     monitorDscQuery: asObservable(
-        monitorQuery({ db$: dscContent$ }),
-        // "monitorDscQuery"
+        monitorQuery({ db$: dscContent$ })
+    ),
+
+    // 2-way seeking monitor for history cursor search
+    monitorHistoryContent: asObservable(
+        monitorHistoryContent()
     ),
 
     cacheContentItem(props) {
-        return of(props).pipe(cacheContent());
+        return of(props).pipe(
+            cacheContent()
+        );
     },
 
     uncacheContent(props) {
-        return of(props).pipe(unacheItem(content$));
+        return of(props).pipe(
+            unacheItem(content$)
+        );
     },
 
     getCachedContentByTypeId(id) {
-        return of(id).pipe(getItemByKey(content$, "type_id"));
+        return of(id).pipe(
+            getItemByKey(content$, "type_id")
+        );
     },
 
     loadHistoryContents: asObservable(
-        loadHistoryContents({
-            onceEvery: 30 * 1000,
-        })
+        loadHistoryContents({ onceEvery: 30 * 1000 })
     ),
 
     loadDscContent: asObservable(
-        loadDscContent({
-            onceEvery: 30 * 1000,
-        })
+        loadDscContent({ onceEvery: 30 * 1000 })
     ),
 
-    pollHistory: asObservable(pollForHistoryUpdates()),
+    pollHistory: asObservable(
+        pollForHistoryUpdates()
+    ),
 
     wipeDatabase,
 });

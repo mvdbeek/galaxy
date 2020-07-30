@@ -80,10 +80,4 @@ doesn't need to do it manually every time. */
     position: relative;
 }
 
-/* .history .scroller > * {
-    position: absolute;
-    height: 100%;
-    width: 100%;
-    overflow: auto;
-} */
 </style>

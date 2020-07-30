@@ -4,15 +4,15 @@ import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 
 export default {
     mixins: [vueRxShortcuts],
-    props: {
-        dataKey: { type: String, required: true },
-        params: { type: SearchParams, required: true },
-        contents: { type: Array, required: true },
-        loading: { type: Boolean, required: false, default: false },
-        topRows: { type: Number, required: false, default: 0 },
-        bottomRows: { type: Number, required: false, default: 0 },
-        scrolling: { type: Boolean, required: false, default: false },
-    },
+    // props: {
+    //     dataKey: { type: String, required: true },
+    //     params: { type: SearchParams, required: true },
+    //     contents: { type: Array, required: true },
+    //     loading: { type: Boolean, required: false, default: false },
+    //     topRows: { type: Number, required: false, default: 0 },
+    //     bottomRows: { type: Number, required: false, default: 0 },
+    //     scrolling: { type: Boolean, required: false, default: false },
+    // },
     // created() {
     //     this.scrollPing$ = new Subject();
     //     const scrolling$ = this.scrollPing$.pipe(activity());

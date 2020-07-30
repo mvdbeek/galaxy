@@ -9,12 +9,11 @@ import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
 import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
-
 // import { enqueue } from "./queue";
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
- * within a 30 sec period. Polling will pick upany other server side variations
+ * within a 30 sec period. Polling will pick up any other server side variations
  */
 export const loadHistoryContents = (cfg = {}) => (src$) => {
     const { context = "load-contents", onceEvery = 30 * 1000 } = cfg;

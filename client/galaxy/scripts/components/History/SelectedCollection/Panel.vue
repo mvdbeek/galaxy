@@ -6,8 +6,12 @@
             v-if="dsc"
             :id="dsc.contents_url"
             :scrolling="listState.scrolling"
-            v-slot="{ params, updateParams, loading, results: contents }"
-        >
+            v-slot="{
+                contents, bench, topRows, bottomRows, totalMatches,
+                onListScroll, scrolling, loading,
+                params, updateParams
+            }">
+
             <Layout>
                 <template v-slot:nav>
                     <TopNav
@@ -30,14 +34,19 @@
                 </template>
 
                 <template v-slot:listing>
-                    <ContentList
-                        data-key="_id"
-                        :params="params"
-                        :contents="contents"
-                        :loading="loading"
-                        :scrolling.sync="listState.scrolling"
-                    />
+                    <VirtualScroller
+                        key-field="_id"
+                        :item-height="36"
+                        :items="contents"
+                        :bench="bench"
+                        :top-buffer="topRows"
+                        :bottom-buffer="bottomRows"
+                        @scroll="onListScroll"
+                        v-slot="{ item, index }">
+                        <CollectionContentItem :item="item" :index="index" />
+                    </VirtualScroller>
                 </template>
+
             </Layout>
         </CollectionContentProvider>
     </DscProvider>
@@ -49,11 +58,12 @@ import { updateContentFields } from "../model/queries";
 import { cacheContent } from "../caching";
 
 import { DscProvider, CollectionContentProvider } from "../providers";
-import { CollectionContentList as ContentList } from "../ContentList";
 import Layout from "../Layout";
 import TopNav from "./TopNav";
 import Details from "./Details";
 import ListMixin from "../ListMixin";
+import VirtualScroller from "../../VirtualScroller";
+import { CollectionContentItem } from "../ContentItem";
 
 export default {
     mixins: [ListMixin],
@@ -63,7 +73,8 @@ export default {
         Layout,
         TopNav,
         Details,
-        ContentList,
+        VirtualScroller,
+        CollectionContentItem,
     },
     props: {
         history: { type: History, required: true },
