@@ -3,13 +3,17 @@
  * or filters data in the listing for immediate lookups. All of them will run
  * one or more ajax calls against the api and cache ther results.
  */
-import { of, pipe } from "rxjs";
-import { mergeMap, map, finalize, withLatestFrom, pluck } from "rxjs/operators";
+import { of, pipe, merge } from "rxjs";
+import { tap, mergeMap, map, finalize, withLatestFrom, pluck, share } from "rxjs/operators";
 import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
-import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "./util";
+import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs, chunkParam } from "./util";
 // import { enqueue } from "./queue";
+import { SearchParams } from "../../model/SearchParams";
+
+
+
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
@@ -18,12 +22,31 @@ import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs } from "
 export const loadHistoryContents = (cfg = {}) => (src$) => {
     const { context = "load-contents", onceEvery = 30 * 1000 } = cfg;
 
-    // construct url, throttle if repeated request
-    const url$ = src$.pipe(
-        hydrateInputs(),
-        chunkInputs(),
-        map(buildHistoryContentsUrl),
-        // throttles by url. Only one request for same url within the period
+    // [history id, params, hid]
+    const inputs$ = src$.pipe(
+        hydrateInputs(1),
+        // chunk the HID so we don't end up with a zillion uncacheable urls
+        chunkParam(2, SearchParams.pageSize),
+        tap(inputs => console.warn("history request inputs, sending", inputs)),
+        share(),
+    );
+
+    const up$ = inputs$.pipe(
+        map(buildHistoryContentsUrl({
+            dir: "asc",
+            pageSize: SearchParams.pageSize
+        }))
+    );
+
+    const down$ = inputs$.pipe(
+        map(buildHistoryContentsUrl({
+            dir: "dsc",
+            pageSize: 2 * SearchParams.pageSize
+        }))
+    );
+
+    const url$ = merge(up$, down$).pipe(
+        tap(url => console.log("loadHistoryContents", url)),
         throttleDistinct({ timeout: onceEvery })
     );
 

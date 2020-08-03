@@ -78,7 +78,7 @@ const contentPoll = () => (src$) => {
     );
 
     const baseUrl$ = input$.pipe(
-        map(buildHistoryContentsUrl) // same as regular loading query
+        map(buildHistoryContentsUrl()) // same as regular loading query
     );
 
     const since$ = input$.pipe(

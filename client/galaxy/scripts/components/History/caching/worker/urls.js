@@ -1,9 +1,21 @@
-// generate a content update url for the indicated history id
-export function buildHistoryContentsUrl([historyId, params]) {
-    const { skip, limit, showDeleted, showHidden } = params;
-    const skipClause = skip > 0 ? `offset=${skip}` : "";
-    const limitClause = limit < Number.POSITIVE_INFINITY ? `limit=${limit}` : "";
+import { SearchParams } from "../../model/SearchParams";
 
+// generate a content update url for the indicated history id, searches up or
+// down from passed hid threshold
+export const buildHistoryContentsUrl = (cfg = {}) => ([ historyId, filters, hid ]) => {
+    const { dir = "dsc", pageSize = SearchParams.pageSize } = cfg;
+
+    console.log("buildHistoryContentsUrl", hid, dir);
+
+    // limits, searching against a hid limit like this allows us to query
+    // regions where we're not sure whther or not the HID even exists
+    // TODO: lte & gte not available filters
+    const hidClause = dir == "asc" ? `q=hid-ge&qv=${hid}` : `q=hid-le&qv=${hid}`;
+    const orderClause = `order=hid-${dir}`;
+    const limitClause = `limit=${pageSize}`;
+
+    // Filtering
+    const { showDeleted, showHidden } = filters;
     let deletedClause = "q=deleted&qv=False";
     let visibleClause = "q=visible&qv=True";
     if (showDeleted) {
@@ -19,19 +31,25 @@ export function buildHistoryContentsUrl([historyId, params]) {
         visibleClause = "q=visible&qv=False";
     }
 
-    const filterMap = params.parseTextFilter();
+    const filterMap = filters.parseTextFilter();
     const textfilters = Array.from(filterMap.entries()).map(([field, val]) => `q=${field}-contains&qv=${val}`);
 
     const parts = [
         "v=dev",
         "view=betawebclient",
         // `keys=${contentFields.join(",")}`,
-        "order=hid-dsc",
+
+        // filters
         deletedClause,
         visibleClause,
         ...textfilters,
-        limitClause,
-        skipClause,
+
+        // hid
+        hidClause,
+        orderClause,
+
+        // same num results every time
+        limitClause
     ];
 
     const baseUrl = `/api/histories/${historyId}/contents`;

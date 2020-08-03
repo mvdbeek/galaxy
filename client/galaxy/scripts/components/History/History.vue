@@ -1,6 +1,5 @@
 <template>
-    <HistoryContentProvider :history-id="historyId"
-        :max-history-hid="history.hid_counter - 1"
+    <HistoryContentProvider :history="history"
         v-slot="{ contents, bench, topRows, bottomRows, totalMatches,
             onListScroll, scrolling, loading, params, updateParams }">
 

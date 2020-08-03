@@ -66,6 +66,10 @@ export class SearchParams {
         this.limit = newEnd - this.skip;
     }
 
+    get pageSize() {
+        return SearchParams.pageSize;
+    }
+
     // Utils
 
     clone() {

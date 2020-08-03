@@ -43,7 +43,7 @@ export default {
     data() {
         return {
             scrollTop: 0,
-            contentHeight: 0, // dom height of scroller
+            contentHeight: 0, // dom height of scroller contents
             scrollerHeight: null, // dom height of container
         }
     },
@@ -61,10 +61,7 @@ export default {
     },
 
     updated() {
-        if (this.scrollShiftKey) {
-            this.scrollToKey(this.scrollShiftKey);
-        }
-        this.scrollShiftKey = null;
+        this.checkScrollShift();
     },
 
     watch: {
@@ -98,7 +95,8 @@ export default {
                 if (deepEqual(newRange, oldRange)) return;
 
                 const { start, end } = this.range;
-                const { scrollTop, contentHeight, scrollerHeight, cursor } = this;
+                // const { scrollTop, contentHeight, scrollerHeight, cursor } = this;
+                const { cursor } = this;
 
                 // if scroller is outside items window, these might be null
                 const startItem = start >= 0 ? this.items[start] : null;
@@ -128,16 +126,16 @@ export default {
                     endKey,
 
                     // dom props
-                    scrollTop,
-                    contentHeight,
-                    scrollerHeight,
+                    // scrollTop,
+                    // contentHeight,
+                    // scrollerHeight,
 
                     // 0-1 value, how far down are we
                     cursor,
 
                     // items corresponding to start/end, if within the window
-                    startItem,
-                    endItem,
+                    // startItem,
+                    // endItem,
                 }
 
                 this.$emit("scroll", payload);
@@ -314,19 +312,30 @@ export default {
             }
         },
 
-        scheduleScrollShift(label = "") {
-            console.log("scheduleScrollShift?", label, this.scrollShiftKey, this.lastState);
-            if (this.scrollShiftKey === null && this.lastState && this.lastState.startKey) {
-                console.log(`<< scrollShiftKey (${label})`, this.lastState.startKey);
-                this.scrollShiftKey = this.lastState.startKey;
-            }
-        },
+
+        // When items or top padding changes, we may need to sync up the last
+        // results with the new one so the list doesn't jump around.
 
         setLastState(label = "") {
             const { startKey, scrollTop, topPlaceholders, bench } = this;
             const lastState = { startKey, scrollTop, topPlaceholders, bench };
             // console.log(`<< setLastState (${label})`, lastState)
             this.lastState = lastState;
+        },
+
+        scheduleScrollShift(label = "") {
+            // console.log("scheduleScrollShift?", label, this.scrollShiftKey, this.lastState);
+            if (this.scrollShiftKey === null && this.lastState && this.lastState.startKey) {
+                // console.log(`<< scrollShiftKey (${label})`, this.lastState.startKey);
+                this.scrollShiftKey = this.lastState.startKey;
+            }
+        },
+
+        checkScrollShift() {
+            if (this.scrollShiftKey === null) {
+                this.scrollToKey(this.scrollShiftKey);
+            }
+            this.scrollShiftKey = null;
         },
 
 
@@ -339,7 +348,7 @@ export default {
 
         renderItem(item, sliceIndex) {
             const key = item[this.keyField];
-            const index = sliceIndex + this.benchStart; // data index
+            const index = sliceIndex + this.benchStart; // item index
 
             const h = this.$createElement;
             const slotChild = this.renderSlot('default', { key, index, item });
@@ -353,7 +362,7 @@ export default {
                 key,
                 ref,
                 class: {
-                    // first: isFirst,
+                    first: isFirst,
                     bench: isBench,
                     // benchStart: isBenchStart,
                 },

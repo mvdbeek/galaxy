@@ -83,7 +83,7 @@ export function buildContentResult(inputs) {
     const firstRow = contents.length ? contents[0] : { hid: hidCursor };
     const firstHid = firstRow.hid;
     const topRows = Math.max(0, maxHid - firstHid);
-    const bottomRows = totalMatches ? Math.max(0, totalMatches - contents.length - topRows) : 0;
+    const bottomRows = totalMatches !== null ? Math.max(0, totalMatches - contents.length - topRows) : 0;
 
 
     console.groupCollapsed("buildContentResult");

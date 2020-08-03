@@ -940,9 +940,9 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
     # performant but that will involve reworking the contents query ...which we
     # absolutely should do.
     def _contents_total_matches(self, history, filter_params):
-        # Need to omit update_time from filters for the count
-        without_update_time = [f for f in filter_params if f[0] != 'update_time']
-        filters = self.history_contents_filters.parse_filters(without_update_time)
+        # Need to omit update_time and hid from filters for the count
+        only_the_filters = [f for f in filter_params if f[0] != 'update_time' and f[0] != 'hid']
+        filters = self.history_contents_filters.parse_filters(only_the_filters)
         return self.history_contents_manager.contents_count(history, filters)
 
     def encode_type_id(self, type_id):

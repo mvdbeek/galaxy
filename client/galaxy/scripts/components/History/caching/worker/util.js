@@ -132,3 +132,27 @@ export const chunkInputs = () => {
         })
     );
 };
+
+
+/**
+ * Change one parameter to be an multiple of indicated block size. Used to
+ * regulate the URLs we send to the server so that some will be cached. Pos is
+ * the position in the combined inputs array, and the chunkSize is the size of
+ * the block to break the value into.
+ *
+ * Ex: Source Inputs [ x, y, z, 750 ],
+ *     chunkParam(3, 200)
+ *     Results in [ x, y, z, 600]
+ *
+ * @param {integer} pos Input array parameter number to chunk
+ * @param {integer} chunkSize Size of chunks
+ */
+export const chunkParam = (pos, chunkSize) => pipe(
+    map(inputs => {
+        const chunkMe = inputs[pos];
+        const chunkedVal = chunkSize * Math.floor(chunkMe / chunkSize);
+        const newInputs = inputs.slice()
+        newInputs[pos] = chunkedVal;
+        return newInputs;
+    })
+)
