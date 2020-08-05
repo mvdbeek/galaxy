@@ -1,11 +1,9 @@
 export default {
-    name: "unit testing configs",
+    name: "testing",
     testBuild: true,
     debug: false,
     caching: {
-        adapter: "idb",
-        revs_limit: 5,
-        deterministic_revs: false,
-        auto_compaction: false
+        adapter: "memory",
+        revs_limit: 1,
     }
 }

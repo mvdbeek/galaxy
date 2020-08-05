@@ -1,11 +1,22 @@
 <template>
-    <HistoryContentProvider :history="history"
-        v-slot="{ contents, bench, topRows, bottomRows, totalMatches,
-            onListScroll, scrolling, loading, params, updateParams }">
-
+    <HistoryContentProvider
+        :history="history"
+        v-slot="{
+            contents,
+            bench,
+            topRows,
+            bottomRows,
+            scrollStartKey,
+            totalMatches,
+            onListScroll,
+            scrolling,
+            loading,
+            params,
+            updateParams,
+        }"
+    >
         <Layout>
-            <!-- we're going to want to make this optional for when we put multiple
-                histories on the page, so pass the slot through from the parent -->
+            <!-- optional top-nav slot, for right-side history panel -->
             <template v-slot:nav>
                 <slot name="nav"></slot>
             </template>
@@ -20,7 +31,8 @@
             </template>
 
             <template v-slot:listcontrols>
-                <ContentOperations v-if="contents.length"
+                <ContentOperations
+                    v-if="contents.length"
                     :history="history"
                     :params="params"
                     @update:params="updateParams"
@@ -32,32 +44,34 @@
                 />
             </template>
 
-            <template v-slot:listing :class="{ loadingBackground: loading }">
-                <VirtualScroller
-                    key-field="hid"
-                    :item-height="36"
-                    :items="contents"
-                    :bench="bench"
-                    :top-placeholders="topRows"
-                    :bottom-placeholders="bottomRows"
-                    @scroll="onListScroll"
-                    v-slot="{ item, index }">
-                    <HistoryContentItem :item="item" :index="index" />
-                </VirtualScroller>
+            <template v-slot:listing>
+                <div :class="{ loadingBackground: loading }">
+                    <VirtualScroller
+                        key-field="hid"
+                        :item-height="36"
+                        :items="contents"
+                        :bench="bench"
+                        :top-placeholders="topRows"
+                        :bottom-placeholders="bottomRows"
+                        :scroll-start-key="scrollStartKey"
+                        @scroll="onListScroll"
+                        v-slot="{ item, index }"
+                    >
+                        <HistoryContentItem :item="item" :index="index" />
+                    </VirtualScroller>
+                </div>
             </template>
 
             <template v-slot:modals>
                 <ToolHelpModal />
             </template>
         </Layout>
-
     </HistoryContentProvider>
 </template>
 
 <script>
-
 import { History } from "./model";
-import { SearchParams } from "./model/SearchParams";
+// import { SearchParams } from "./model/SearchParams";
 import { HistoryContentProvider } from "./providers";
 import Layout from "./Layout";
 import HistoryMessages from "./HistoryMessages";
@@ -96,7 +110,6 @@ export default {
                 this.listState.selected = new Set();
                 this.listState.expanded = new Set();
                 this.listState.showSelection = false;
-                this.params = new SearchParams();
             }
         },
     },

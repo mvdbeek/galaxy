@@ -7,11 +7,18 @@
             :id="dsc.contents_url"
             :scrolling="listState.scrolling"
             v-slot="{
-                contents, bench, topRows, bottomRows, totalMatches,
-                onListScroll, scrolling, loading,
-                params, updateParams
-            }">
-
+                contents,
+                bench,
+                topRows,
+                bottomRows,
+                totalMatches,
+                onListScroll,
+                scrolling,
+                loading,
+                params,
+                updateParams,
+            }"
+        >
             <Layout>
                 <template v-slot:nav>
                     <TopNav
@@ -42,11 +49,11 @@
                         :top-buffer="topRows"
                         :bottom-buffer="bottomRows"
                         @scroll="onListScroll"
-                        v-slot="{ item, index }">
+                        v-slot="{ item, index }"
+                    >
                         <CollectionContentItem :item="item" :index="index" />
                     </VirtualScroller>
                 </template>
-
             </Layout>
         </CollectionContentProvider>
     </DscProvider>

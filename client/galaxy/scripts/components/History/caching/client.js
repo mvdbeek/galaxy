@@ -1,5 +1,6 @@
 import { from, of, pipe } from "rxjs";
-import { tap, filter, finalize, materialize, map, mergeMap, shareReplay } from "rxjs/operators";
+import { filter, finalize, materialize, map, mergeMap, shareReplay } from "rxjs/operators";
+// import { tag } from "rxjs-spy/operators/tag";
 import { v4 as uuidv4 } from "uuid";
 
 import { spawn } from "threads";
@@ -13,7 +14,6 @@ import { getRootFromIndexLink } from "onload/getRootFromIndexLink";
  */
 const thread$ = of(config).pipe(
     mergeMap(async (cfg) => {
-        console.warn("Building new worker");
         const newThread = await spawn(new CacheWorker());
         if (!newThread) throw new MissingWorkerError();
 
@@ -46,7 +46,7 @@ const method = (fnName) => {
  *
  * @param {string} fnName Name of an exposed property on the thread object
  */
-export const toOperator = (fnName, debug = false) => {
+export const toOperator = (fnName) => {
     const method$ = thread$.pipe(method(fnName));
 
     // Result of the returned method call will be an "ObservablePromise", a
@@ -66,13 +66,8 @@ export const toOperator = (fnName, debug = false) => {
             mergeMap((method) =>
                 src$.pipe(
                     materialize(),
-                    tap(notification => {
-                        if (debug) {
-                            console.log("notification", fnName, notification);
-                        }
-                    }),
                     map((notification) => {
-                        return method({ id, ...notification })
+                        return method({ id, ...notification });
                     }),
                     // first emission will be the observable created by threads
                     // that's the only one we want, rest should be nulls

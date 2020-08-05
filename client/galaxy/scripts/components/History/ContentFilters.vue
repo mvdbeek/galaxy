@@ -52,7 +52,7 @@ export default {
                 return this.params.filterText;
             },
             set(newVal) {
-                const newParams = this.params.resetPagination();
+                const newParams = this.params.clone();
                 newParams.filterText = newVal;
                 this.updateParams(newParams);
             },
@@ -62,7 +62,7 @@ export default {
                 return this.params.showDeleted;
             },
             set(newFlag) {
-                const newParams = this.params.resetPagination();
+                const newParams = this.params.clone();
                 newParams.showDeleted = newFlag;
                 this.updateParams(newParams);
             },
@@ -72,7 +72,7 @@ export default {
                 return this.params.showHidden;
             },
             set(newFlag) {
-                const newParams = this.params.resetPagination();
+                const newParams = this.params.clone();
                 newParams.showHidden = newFlag;
                 this.updateParams(newParams);
             },

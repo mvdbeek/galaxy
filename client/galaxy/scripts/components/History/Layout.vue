@@ -79,5 +79,4 @@ doesn't need to do it manually every time. */
 .history .scroller {
     position: relative;
 }
-
 </style>

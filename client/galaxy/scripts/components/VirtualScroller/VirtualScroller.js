@@ -5,39 +5,47 @@ import { cssLength } from "./util";
 import "./scroller.scss";
 // import debugUpdate from "./debugUpdate";
 
-
+const positiveNumber = (rawVal) => {
+    const val = Number(rawVal);
+    if (isNaN(val)) return false;
+    if (val < 0) return false;
+    return true;
+};
 
 export default {
     // mixins: [ debugUpdate ],
 
     directives: {
         Scroll,
-        Resize
+        Resize,
     },
 
     props: {
+        // list of data objects
+        items: { type: Array, required: true },
+
         // field from the objects in items to use as a key for the v-for loop
         keyField: { type: String, required: true },
 
         // used to determine the number of rows to render, doesn't need to be
         // perfect, should be a rough estimate, but this is the size rows will
         // be smashed into when they are in the bench region
-        itemHeight: { type: Number, required: true },
-
-        // list of data objects
-        items: { type: Array, required: true },
+        itemHeight: { required: true, validator: positiveNumber },
 
         // number of items from the top of the list to keep in reserve in case
         // the user scrolls upward, changes the starting render index
-        bench: { type: Number, default: 0 },
+        bench: { required: false, default: 0, validator: positiveNumber },
 
         // since we are rendering very large lists and a lot of the data may not
         // yet be available in the cache, the items array represents a local
         // window in the complete set. These two numbers are used to approximate
         // the number of rows above and below that window in order to make the
         // scrollbar proportionately sized.
-        topPlaceholders: { type: Number, default: 0 },
-        bottomPlaceholders: { type: Number, default: 0 },
+        topPlaceholders: { default: 0, validator: positiveNumber },
+        bottomPlaceholders: { default: 0, validator: positiveNumber },
+
+        // set this if we need to shift
+        scrollStartKey: { required: false, default: null },
     },
 
     data() {
@@ -45,15 +53,8 @@ export default {
             scrollTop: 0,
             contentHeight: 0, // dom height of scroller contents
             scrollerHeight: null, // dom height of container
-        }
-    },
-
-    beforeCreate() {
-        // non-dynamic variables, necessary for updating the scrollTop after the
-        // data array has changed, since we're manipulating what happens during
-        // an update, do not make them data or computed
-        this.lastState = {};
-        this.scrollShiftKey = null;
+            scrollToKeyOnNextUpdate: null,
+        };
     },
 
     mounted() {
@@ -61,33 +62,23 @@ export default {
     },
 
     updated() {
-        this.checkScrollShift();
+        if (this.scrollToKeyOnNextUpdate) {
+            this.scrollToKey(this.scrollToKeyOnNextUpdate);
+            this.scrollToKeyOnNextUpdate = null;
+        }
     },
 
     watch: {
+        // When contents are updated, we'll often need to shift the list to
+        // match a known starting position, we want to do this without firing a
+        // bunch of events and property updates because that'll start an endless
+        // update loop, so we watch an explicit property on the component
 
-        // If the items or top placeholder count updates, we want the scroller
-        // to shift so that the same items remain visible. This should stop the
-        // scroller from jerking around as the provider feeds it data.
-
-        items() {
-            this.scheduleScrollShift("items");
-        },
-
-        topPlaceholders() {
-            this.scheduleScrollShift("topPlaceholders");
-        },
-
-
-        // store last state for scroll shift
-
-        startKey: {
-            immediate: true,
-            handler() {
-                this.setLastState("watch startKey");
+        scrollStartKey(key, oldKey) {
+            if (key !== oldKey) {
+                this.scrollToKeyOnNextUpdate = key;
             }
         },
-
 
         range: {
             // deep: true, // doesn't work
@@ -107,11 +98,13 @@ export default {
                 const endKey = endItem ? endItem[this.keyField] : null;
 
                 const payload = {
-
                     // index of first visible, last visible relative to the
                     // items array
                     start,
                     end,
+
+                    // send back what we calculated for page size
+                    pageSize: this.visibleRowEstimate,
 
                     // index of first visible, last visible relative to the
                     // complete represented data set, including the placeholders
@@ -136,23 +129,19 @@ export default {
                     // items corresponding to start/end, if within the window
                     // startItem,
                     // endItem,
-                }
+                };
 
                 this.$emit("scroll", payload);
-            }
+            },
         },
-
     },
 
     computed: {
-
         // first & last visible item index
 
         start() {
             const height = this.scrollTop - this.topPlaceholderHeight;
-            const idx = Math.floor(height / this.itemHeight);
-            // console.log(">> compute: start", idx);
-            return idx;
+            return Math.floor(height / this.itemHeight);
         },
 
         end() {
@@ -163,20 +152,12 @@ export default {
             return { start: this.start, end: this.end };
         },
 
-
         // key corresponding to the item associated with the start index
 
         startKey() {
-            // console.log(">> compute startKey from start", this.start);
             const item = this.items[this.start];
-            if (item) {
-                const key = item[this.keyField];
-                // console.log(">>>> startKey", key);
-                return key;
-            }
-            return null;
+            return item ? item[this.keyField] : null;
         },
-
 
         // first & last rendered item index
 
@@ -188,32 +169,23 @@ export default {
             return this.benchStart + this.sliceSize;
         },
 
-
         // number of rows to render starting at benchStart
 
         sliceSize() {
-            const len = Math.max(0, this.start - this.benchStart) + this.visibleRowEstimate + this.bench;
-            // console.log(">> compute: sliceSize", len);
-            return len;
+            return Math.max(0, this.start - this.benchStart) + this.visibleRowEstimate + this.bench;
         },
+
+        // eyeball a reasonable number
 
         visibleRowEstimate() {
-            // eyeball a reasonable number
-            if (!this.itemHeight) return 50;
-            const rows = Math.ceil(this.scrollerHeight / this.itemHeight);
-            // console.log(">> compute: visibleRowEstimate", rows);
-            return rows;
+            return Math.ceil(this.scrollerHeight / this.itemHeight);
         },
-
 
         // 0-1 value representing how far down we are on the scroller
 
         cursor() {
-            const val = (this.contentHeight > 0) ? this.scrollTop / this.contentHeight : 0;
-            // console.log(">> compute: cursor", val);
-            return val;
+            return this.contentHeight > 0 ? this.scrollTop / this.contentHeight : 0;
         },
-
 
         // padding representing non-rendered rows from the items array, these
         // items have scrolled off the top of the display but are no longer
@@ -245,11 +217,9 @@ export default {
         bottomPlaceholderHeight() {
             return this.bottomPlaceholders * this.itemHeight;
         },
-
     },
 
     methods: {
-
         // Event handlers
 
         onScroll() {
@@ -268,12 +238,11 @@ export default {
             this.contentHeight = height;
         },
 
-
         // Scrolling: these methods do not trigger the normal scroll event
 
         scrollToKey(key) {
             // console.log("scrollToKey", key);
-            const idx = this.items.findIndex(x => x[this.keyField] == key);
+            const idx = this.items.findIndex((x) => x[this.keyField] == key);
             if (idx > -1) {
                 this.scrollToItemIndex(idx);
             }
@@ -285,59 +254,27 @@ export default {
             // perfect scrolltop for this idx
             const scrollTop = idx * this.itemHeight + this.topPlaceholderHeight;
 
-            // gets the little offset so it's not so jerky when this updats
+            // gets the little offset so it's not so jerky when this updates
             const realScrollTop = this.$refs.scroller.scrollTop;
             const startScrollTop = this.start * this.itemHeight + this.topPlaceholderHeight;
             const offset = realScrollTop - startScrollTop;
-
-            // console.log("? targetScrollTop", scrollTop);
-            // console.log("? realScrollTop", realScrollTop);
-            // console.log("? startScrollTop", startScrollTop);
-            // console.log("? offset", offset);
 
             this.scrollTo(scrollTop + offset);
         },
 
         scrollTo(height) {
+            // console.log("scrollTo", height);
             if (height !== this.$refs.scroller.scrollTop) {
                 this.suppressScrollEvent = true;
-                // console.log("MANUALLY SETTING SCROLLTOP", height);
                 this.$refs.scroller.scrollTo({
                     top: height,
-                    behavior: 'auto'
+                    behavior: "auto",
                 });
                 setTimeout(() => {
                     this.suppressScrollEvent = false;
                 }, 0);
             }
         },
-
-
-        // When items or top padding changes, we may need to sync up the last
-        // results with the new one so the list doesn't jump around.
-
-        setLastState(label = "") {
-            const { startKey, scrollTop, topPlaceholders, bench } = this;
-            const lastState = { startKey, scrollTop, topPlaceholders, bench };
-            // console.log(`<< setLastState (${label})`, lastState)
-            this.lastState = lastState;
-        },
-
-        scheduleScrollShift(label = "") {
-            // console.log("scheduleScrollShift?", label, this.scrollShiftKey, this.lastState);
-            if (this.scrollShiftKey === null && this.lastState && this.lastState.startKey) {
-                // console.log(`<< scrollShiftKey (${label})`, this.lastState.startKey);
-                this.scrollShiftKey = this.lastState.startKey;
-            }
-        },
-
-        checkScrollShift() {
-            if (this.scrollShiftKey === null) {
-                this.scrollToKey(this.scrollShiftKey);
-            }
-            this.scrollShiftKey = null;
-        },
-
 
         // Rendering
 
@@ -351,66 +288,70 @@ export default {
             const index = sliceIndex + this.benchStart; // item index
 
             const h = this.$createElement;
-            const slotChild = this.renderSlot('default', { key, index, item });
+            const slotChild = this.renderSlot("default", { key, index, item });
 
             const isFirst = index == this.start;
             const isBench = index < this.start;
             const isBenchStart = this.bench > 0 && index == this.benchStart;
-            const ref = isFirst ? 'first' : isBenchStart ? 'benchStart' : null;
+            const ref = isFirst ? "first" : isBenchStart ? "benchStart" : null;
 
-            return h('li', {
-                key,
-                ref,
-                class: {
-                    first: isFirst,
-                    bench: isBench,
-                    // benchStart: isBenchStart,
+            return h(
+                "li",
+                {
+                    key,
+                    ref,
+                    class: {
+                        first: isFirst,
+                        bench: isBench,
+                        // benchStart: isBenchStart,
+                    },
+                    // force bench items to be itemHeight tall regardless of
+                    // whatever's going on with their normal rendering, this makes
+                    // all the rendering math a lot faster
+                    style: {
+                        height: isBench ? `${cssLength(this.itemHeight)} !important` : "",
+                    },
+                    attrs: {
+                        // index considering the missing data rows reprsented by topPlaceholders
+                        "data-index": index + this.topPlaceholders,
+                        // index with respect to the passed items array
+                        "item-index": index,
+                        "data-key": key,
+                    },
                 },
-                // force bench items to be itemHeight tall regardless of
-                // whatever's going on with their normal rendering, this makes
-                // all the rendering math a lot faster
-                style: {
-                    height: isBench ? `${cssLength(this.itemHeight)} !important` : ''
-                },
-                attrs: {
-                    // index considering the missing data rows reprsented by topPlaceholders
-                    "data-index": index + this.topPlaceholders,
-                    // index with respect to the passed items array
-                    "item-index": index,
-                    "data-key": key
-                },
-            }, slotChild);
+                slotChild
+            );
         },
 
-        renderSlot(name = 'default', data, optional = false) {
+        renderSlot(name = "default", data, optional = false) {
             if (this.$scopedSlots[name]) {
-                return this.$scopedSlots[name](data instanceof Function ? data() : data)
+                return this.$scopedSlots[name](data instanceof Function ? data() : data);
             } else if (this.$slots[name] && (!data || optional)) {
-                return this.$slots[name]
+                return this.$slots[name];
             }
             return undefined;
         },
-
     },
 
     render(h) {
-
         // simple ul, each item is a slot inside a LI
 
-        const list = h('ul', {}, this.renderList());
-
+        const list = h("ul", {}, this.renderList());
 
         // wrapper around content, houses topPadding + bottomPadding + ul
         // this wrapper handles the normal paddingTop/paddingBottom which
         // represent non-rendered rows in the dataset
 
-        const wrapper = h('div', {
-            style: {
-                paddingTop: cssLength(this.paddingTop),
-                paddingBottom: cssLength(this.paddingBottom),
+        const wrapper = h(
+            "div",
+            {
+                style: {
+                    paddingTop: cssLength(this.paddingTop),
+                    paddingBottom: cssLength(this.paddingBottom),
+                },
             },
-        }, [list]);
-
+            [list]
+        );
 
         // This div handles the topPlaceholders and bottomPlaceholders values
         // which is extra spacing meant to represent rows which were not
@@ -418,28 +359,33 @@ export default {
         // of a very very large dataset. Essentially this is to keep the
         // scrollbars looking roughly right
 
-        const contentWrapper = h('div', {
-            ref: 'content',
-            staticClass: 'scrollContent',
-            style: {
-                paddingTop: cssLength(this.topPlaceholderHeight),
-                paddingBottom: cssLength(this.bottomPlaceholderHeight),
+        const contentWrapper = h(
+            "div",
+            {
+                ref: "content",
+                staticClass: "scrollContent",
+                style: {
+                    paddingTop: cssLength(this.topPlaceholderHeight),
+                    paddingBottom: cssLength(this.bottomPlaceholderHeight),
+                },
+                directives: [{ name: "resize", value: this.onContentResize }],
             },
-            directives: [
-                { name: 'resize', value: this.onContentResize }
-            ]
-        }, [ wrapper ]);
-
+            [wrapper]
+        );
 
         // container, fixed height, wrapper is longer and scrolls within this
 
-        return h('div', {
-            staticClass: 'virtualScroller',
-            ref: 'scroller',
-            directives: [
-                { name: 'scroll', modifiers: { self: true }, value: this.onScroll },
-                { name: 'resize', value: this.onContainerResize }
-            ],
-        }, [ contentWrapper ]);
+        return h(
+            "div",
+            {
+                staticClass: "virtualScroller",
+                ref: "scroller",
+                directives: [
+                    { name: "scroll", modifiers: { self: true }, value: this.onScroll },
+                    { name: "resize", value: this.onContainerResize },
+                ],
+            },
+            [contentWrapper]
+        );
     },
-}
+};

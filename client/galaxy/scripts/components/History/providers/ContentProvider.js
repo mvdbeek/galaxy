@@ -20,7 +20,6 @@ import { activity } from "utils/observable/activity";
 import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 
-
 // Computed properties ending in $ are observables and are used inside the
 // provider itself. Data properties are exposed as slot props for child
 // components in the rest of the Vue app. (see render function)
@@ -43,20 +42,18 @@ export default {
             bench: 0,
             topRows: 0,
             bottomRows: 0,
-        }
+        };
     },
 
     created() {
         // History ID or content_url, the parent id,
         // May merge this into params as a criteria hash object.
         // params.criteria.history_id = "xyz", etc.
-        this.id$ = this.watch$('id');
+        this.id$ = this.watch$("id");
 
         // search params, deleted/visible, text filter, pagination
         // Updated by other elements of the UI through an exposed update function
-        this.params$ = this.watch$("params").pipe(
-            distinctUntilChanged(SearchParams.equals)
-        );
+        this.params$ = this.watch$("params").pipe(distinctUntilChanged(SearchParams.equals));
 
         // total number of search matches for filters, regardless of pagination
         // Updated when load subscriptions return from server with new contents
@@ -69,26 +66,18 @@ export default {
         this.scrollCursor$ = this.watch$("scrollCursor");
 
         // true when moving/false otherwise
-        this.scrolling$ = this.scrollCursor$.pipe(
-            activity()
-        );
+        this.scrolling$ = this.scrollCursor$.pipe(activity());
     },
 
     methods: {
-
-
         // Allows child components to update params through events reset
         // pagination fields if filters are different
 
         updateParams(newParams) {
-            if (!SearchParams.filtersEqual(newParams, this.params)) {
-                this.params = newParams.resetPagination();
-            }
-            else if (!SearchParams.equals(newParams, this.params)) {
+            if (!SearchParams.equals(newParams, this.params)) {
                 this.params = newParams.clone();
             }
         },
-
 
         // When scroller updates, calculate a 0-1 value representing how far
         // down the scroller the user currently is. This is necessary to
@@ -97,19 +86,9 @@ export default {
 
         onListScroll(payload) {
             console.log("onListScroll", payload);
-            const { cursor, start, end } = payload;
-
-            // cache can't use a skip/limit because there's nothing in the cache
-            // to skip if you scroll to the middle of the history, so we have to
-            // approximate a HID.
+            const { cursor } = payload;
             this.scrollCursor = cursor;
-
-            // server uses skip/limit to determine query contents
-            if (end > start) {
-                this.updateParams(this.params.setPagination(start, end));
-            }
         },
-
 
         // Equality comparator for "inputs" which is [ id, SearchParams ]
         // a combination that appears a lot in our processing streams
@@ -120,7 +99,6 @@ export default {
             return idSame && paramSame;
         },
 
-
         // Generic subscriber with debugging output. Assumes you don't need
         // to do anything special with the contents. May remove
 
@@ -128,12 +106,11 @@ export default {
             if (!obs$) return;
             this.$subscribeTo(
                 obs$,
-                (result) => console.log(`[${label}] next`, typeof (result)),
+                (result) => console.log(`[${label}] next`, typeof result),
                 (err) => console.warn(`[${label}] error`, err),
                 () => console.log(`[${label}] complete`)
             );
         },
-
     },
 
     render() {

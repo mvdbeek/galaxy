@@ -3,7 +3,6 @@
  */
 
 export default {
-
     mounted() {
         this.storeUpdateProps();
     },
@@ -22,7 +21,6 @@ export default {
     },
 
     methods: {
-
         // get data and computed fields
         getUpdateProps() {
             const computed = this.collectProps(Object.keys(this._computedWatchers));
@@ -44,7 +42,7 @@ export default {
             const lastProps = this.lastProps || {};
             const nowProps = this.getUpdateProps();
             console.groupCollapsed(label);
-            for(const [key, val] of Object.entries(nowProps)) {
+            for (const [key, val] of Object.entries(nowProps)) {
                 if (val !== lastProps[key]) {
                     if (!ignore.includes(key)) {
                         hasChanges = true;
@@ -55,6 +53,5 @@ export default {
             console.groupEnd();
             return hasChanges;
         },
-
-    }
-}
+    },
+};

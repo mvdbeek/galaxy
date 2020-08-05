@@ -14,7 +14,9 @@ selected datset collections -->
         :selected-collections.sync="selectedCollections"
     />
 
-    <div v-else class="sr-ony">No History?</div>
+    <div v-else>
+        <span class="sr-only">Loading...</span>
+    </div>
 </template>
 
 <script>

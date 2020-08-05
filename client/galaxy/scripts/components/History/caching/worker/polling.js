@@ -1,7 +1,7 @@
 import { defer, of, concat, pipe, combineLatest } from "rxjs";
-import { tap, map, repeat, delay, mergeMap, share, debounceTime, pluck } from "rxjs/operators";
+import { map, repeat, delay, mergeMap, share, debounceTime, pluck } from "rxjs/operators";
 import { ajax } from "rxjs/ajax";
-import { prependPath, requestWithUpdateTime, hydrateInputs } from "./util";
+import { prependPath, requestWithUpdateTime, hydrateParams } from "./util";
 import { content$, bulkCacheContent } from "../galaxyDb";
 import { lastCachedDate, buildContentPouchRequest } from "../pouchUtils";
 import { buildHistoryUpdateUrl, buildHistoryContentsUrl } from "./urls";
@@ -37,10 +37,7 @@ export const pollForHistoryUpdates = (cfg = {}) => (input$) => {
         )
     );
 
-    return poll$.pipe(
-        repeat()
-        // finalize(() => console.log("cancelling polling in worker", pollInterval))
-    );
+    return poll$.pipe(repeat());
 };
 
 // Checks server for history updates
@@ -49,30 +46,26 @@ const historyPoll = () => {
         map(buildHistoryUpdateUrl),
         map(prependPath),
         requestWithUpdateTime({
-            context: "poll:history"
+            context: "poll:history",
         }),
-        mergeMap(response => of(response).pipe(
-            pluck('result'),
-            bulkCacheContent(),
-            summarizeCacheOperation(),
-            map(summary => {
-                const { totalMatches } = response;
-                return { ...summary, totalMatches };
-            })
-        )),
-        tap((response) => {
-            if (response.result.length) {
-                console.log("TODO: send these history updates to the store where we keep the history data", response.result);
-                console.log("updated histories", response.result);
-            }
-        })
+        mergeMap((response) =>
+            of(response).pipe(
+                pluck("result"),
+                bulkCacheContent(),
+                summarizeCacheOperation(),
+                map((summary) => {
+                    const { totalMatches } = response;
+                    return { ...summary, totalMatches };
+                })
+            )
+        )
     );
 };
 
 // Checks server for content updates
 const contentPoll = () => (src$) => {
     const input$ = src$.pipe(
-        hydrateInputs(),
+        hydrateParams(),
         map(([id, p]) => [id, p.pad()]), // extend past the visible region
         share()
     );

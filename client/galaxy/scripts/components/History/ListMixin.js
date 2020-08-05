@@ -1,13 +1,12 @@
 export default {
-
     data() {
         return {
             listState: {
                 showSelection: false,
                 selected: new Set(),
                 expanded: new Set(),
-            }
-        }
+            },
+        };
     },
 
     methods: {

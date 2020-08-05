@@ -13,29 +13,16 @@
 import { Subject, of } from "rxjs";
 import { startWith } from "rxjs/operators";
 
-// list of current subscriptions
-
-export const asObservable = (operation, debuggingLabel) => {
+export const asObservable = (operation) => {
     const currentSubs = new Map();
 
-    return (payload) => {
-
-        const { id, value, kind } = payload;
-
-        // debugging output
-        if (debuggingLabel) {
-            console.warn(debuggingLabel, payload, currentSubs.size);
-        }
-
+    return ({ id, value, kind }) => {
         // process notifications
         // materialize exposed a "kind" variable for all observable messages,
         // it's either N,C,E for next, complete, error
 
         if (kind == "N") {
             if (!currentSubs.has(id)) {
-                if (debuggingLabel) {
-                    console.warn(debuggingLabel, "initialize sub", payload);
-                }
                 const input$ = new Subject();
                 const output$ = input$.pipe(startWith(value), operation);
                 currentSubs.set(id, { input$, output$ });
@@ -53,9 +40,6 @@ export const asObservable = (operation, debuggingLabel) => {
             }
         }
 
-
-        // If we're just running against the existing stored observable do not
-        // return a new one.
         return of(null);
     };
 };

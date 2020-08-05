@@ -13,7 +13,6 @@ import { SearchParams } from "../../model/SearchParams";
 export const workerConfig = { root: "/" };
 
 export const configure = (options = {}) => {
-    console.log("[worker] configuring cache worker", options);
     Object.assign(workerConfig, options);
 };
 
@@ -57,26 +56,28 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
 
     // mark and flag this update-time, append to next request with same base
     return baseUrl$.pipe(
-        mergeMap((baseUrl) => of(baseUrl).pipe(
-            appendUpdateTime({
-                dateStore,
-                bufferSeconds,
-                dateFieldName,
-            }),
-            mergeMap(ajax),
-            map(ajaxResponse => {
-                let totalMatches = ajaxResponse.xhr.getResponseHeader('total_matches');
-                if (totalMatches !== null) {
-                    totalMatches = parseInt(totalMatches, 10);
-                }
-                return { result: ajaxResponse.response, totalMatches }
-            }),
-            tap(({ totalMatches }) => {
-                if (totalMatches) {
-                    dateStore.set(baseUrl, requestTime);
-                }
-            })
-        ))
+        mergeMap((baseUrl) =>
+            of(baseUrl).pipe(
+                appendUpdateTime({
+                    dateStore,
+                    bufferSeconds,
+                    dateFieldName,
+                }),
+                mergeMap(ajax),
+                map((ajaxResponse) => {
+                    let totalMatches = ajaxResponse.xhr.getResponseHeader("total_matches");
+                    if (totalMatches !== null) {
+                        totalMatches = parseInt(totalMatches, 10);
+                    }
+                    return { result: ajaxResponse.response, totalMatches };
+                }),
+                tap(({ totalMatches }) => {
+                    if (totalMatches) {
+                        dateStore.set(baseUrl, requestTime);
+                    }
+                })
+            )
+        )
     );
 };
 
@@ -111,7 +112,7 @@ const appendUpdateTime = (cfg = {}) => {
  * usually an array of [ id, params, ...otherstuff ], so the params are usually
  * at index 1
  */
-export const hydrateInputs = (position = 1) => {
+export const hydrateParams = (position = 1) => {
     return pipe(
         map((inputs) => {
             inputs[position] = new SearchParams(inputs[position]);
@@ -133,7 +134,6 @@ export const chunkInputs = () => {
     );
 };
 
-
 /**
  * Change one parameter to be an multiple of indicated block size. Used to
  * regulate the URLs we send to the server so that some will be cached. Pos is
@@ -147,12 +147,13 @@ export const chunkInputs = () => {
  * @param {integer} pos Input array parameter number to chunk
  * @param {integer} chunkSize Size of chunks
  */
-export const chunkParam = (pos, chunkSize) => pipe(
-    map(inputs => {
-        const chunkMe = inputs[pos];
-        const chunkedVal = chunkSize * Math.floor(chunkMe / chunkSize);
-        const newInputs = inputs.slice()
-        newInputs[pos] = chunkedVal;
-        return newInputs;
-    })
-)
+export const chunkParam = (pos, chunkSize) =>
+    pipe(
+        map((inputs) => {
+            const chunkMe = inputs[pos];
+            const chunkedVal = chunkSize * Math.floor(chunkMe / chunkSize);
+            const newInputs = inputs.slice();
+            newInputs[pos] = chunkedVal;
+            return newInputs;
+        })
+    );

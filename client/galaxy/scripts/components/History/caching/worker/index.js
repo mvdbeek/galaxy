@@ -9,63 +9,48 @@ import "@babel/polyfill";
 import { expose } from "threads/worker";
 import { of } from "rxjs";
 import { getItemByKey, unacheItem } from "../db";
-import { content$, dscContent$, cacheContent } from "../galaxyDb";
+import { content$, dscContent$, cacheContent, wipeDatabase } from "../galaxyDb";
 
 import { pollForHistoryUpdates } from "./polling";
 import { loadHistoryContents, loadDscContent } from "./loader";
 import { configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
-import { wipeDatabase } from "./debugging";
 import { asObservable } from "./asObservable";
-import { monitorHistoryContent } from "./monitorHistoryContent";
+import { monitorHistoryContent, monitorHistoryContentSingle } from "./monitorHistoryContent";
 
 expose({
     configure,
 
     // generic content query monitor
-    monitorContentQuery: asObservable(
-        monitorQuery({ db$: content$ })
-    ),
+    monitorContentQuery: asObservable(monitorQuery({ db$: content$ })),
 
     // generic collection content monitor
-    monitorDscQuery: asObservable(
-        monitorQuery({ db$: dscContent$ })
-    ),
+    monitorDscQuery: asObservable(monitorQuery({ db$: dscContent$ })),
 
     // 2-way seeking monitor for history cursor search
-    monitorHistoryContent: asObservable(
-        monitorHistoryContent()
-    ),
+    monitorHistoryContent: asObservable(monitorHistoryContent()),
+
+    // test to see if single monitor is more efficient, might monitor a
+    // tremendous number of rows with a big history though
+    monitorHistoryContentSingle: asObservable(monitorHistoryContentSingle()),
 
     cacheContentItem(props) {
-        return of(props).pipe(
-            cacheContent()
-        );
+        return of(props).pipe(cacheContent());
     },
 
     uncacheContent(props) {
-        return of(props).pipe(
-            unacheItem(content$)
-        );
+        return of(props).pipe(unacheItem(content$));
     },
 
     getCachedContentByTypeId(id) {
-        return of(id).pipe(
-            getItemByKey(content$, "type_id")
-        );
+        return of(id).pipe(getItemByKey(content$, "type_id"));
     },
 
-    loadHistoryContents: asObservable(
-        loadHistoryContents({ onceEvery: 30 * 1000 })
-    ),
+    loadHistoryContents: asObservable(loadHistoryContents({ onceEvery: 30 * 1000 })),
 
-    loadDscContent: asObservable(
-        loadDscContent({ onceEvery: 30 * 1000 })
-    ),
+    loadDscContent: asObservable(loadDscContent({ onceEvery: 30 * 1000 })),
 
-    pollHistory: asObservable(
-        pollForHistoryUpdates()
-    ),
+    pollHistory: asObservable(pollForHistoryUpdates()),
 
     wipeDatabase,
 });

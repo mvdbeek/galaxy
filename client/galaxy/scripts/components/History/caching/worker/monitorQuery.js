@@ -1,5 +1,5 @@
-import { Observable, isObservable } from "rxjs";
-import { switchMap, debounceTime, withLatestFrom, distinctUntilChanged } from "rxjs/operators";
+import { Observable, isObservable, combineLatest } from "rxjs";
+import { switchMap, debounceTime, distinctUntilChanged } from "rxjs/operators";
 import deepEqual from "deep-equal";
 
 /**
@@ -13,25 +13,25 @@ export const monitorQuery = (cfg = {}) => (request$) => {
         // pouch database to monitor
         db$ = null,
         // how often to create a new query monitor
-        inputDebounce = 0,
+        inputDebounce = 250,
     } = cfg;
 
     if (!isObservable(db$)) {
-        const msg = `
-            Please pass a database observable to the
-            configuration of monitorQuery
-        `;
-        console.error(msg);
-        throw new Error(msg);
+        throw new Error("Please pass a database observable to the configuration of monitorQuery");
     }
 
+    const req$ = request$.pipe(debounceTime(inputDebounce), distinctUntilChanged(deepEqual));
+
     // this is the actual emitter that watches the cache, it is customized
-    // to a specific db and query
-    return request$.pipe(
-        distinctUntilChanged(deepEqual),
-        withLatestFrom(db$),
-        debounceTime(inputDebounce),
-        switchMap((inputs) => pouchQueryEmitter(...inputs))
+    // to a specific db and query\
+    return combineLatest(db$, req$).pipe(
+        debounceTime(0),
+        switchMap(([db, req]) => {
+            return pouchQueryEmitter(db, {
+                ...req,
+                aggregate: false,
+            });
+        })
     );
 };
 
@@ -39,37 +39,14 @@ export const monitorQuery = (cfg = {}) => (request$) => {
  * Build an observable that monitors a pouchdb instance by taking a pouchdb-find
  * select config and returning matching results when the cache changes.
  *
+ * @param {PouchDB} db PouchDB instance
  * @param {Object} request pouchdb find config
- * @param {PouchDB} db pouch database instance
  */
-function pouchQueryEmitter(request, db) {
-    // console.warn("creating new pouchQueryEmitter", request);
-
+function pouchQueryEmitter(db, request) {
     return Observable.create((obs) => {
-
-        let isReady = false;
-        const feed = db.liveFind({ ...request, aggregate: true });
-
-        feed.on("update", (update) => {
-            if (isReady) {
-                obs.next(update);
-            }
-        });
-
-        feed.on("ready", () => {
-            const result = feed.paginate(request);
-            obs.next({ initialMatches: result, request });
-            isReady = true;
-        });
-
-        feed.on("error", (err) => {
-            console.warn("liveFind error", err, request, db);
-            obs.error(err)
-        });
-
-        return () => {
-            // console.warn("destroying old pouchQueryEmitter");
-            feed.cancel();
-        };
+        const feed = db.liveFind(request);
+        feed.on("update", (update) => obs.next(update));
+        feed.on("error", (err) => obs.error(err));
+        return () => feed.cancel();
     });
 }

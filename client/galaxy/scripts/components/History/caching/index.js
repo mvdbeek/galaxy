@@ -6,6 +6,8 @@ import { toPromise, toOperator } from "./client";
 export const monitorContentQuery = toOperator("monitorContentQuery");
 export const monitorDscQuery = toOperator("monitorDscQuery");
 export const monitorHistoryContent = toOperator("monitorHistoryContent");
+// test
+export const monitorHistoryContentSingle = toOperator("monitorHistoryContentSingle");
 
 /**
  * Cache promise functions

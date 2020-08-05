@@ -4,14 +4,16 @@
  */
 
 import SkipList from "proper-skip-list";
-import { toArray, compose, slice, map } from "iter-tools/es2018";
+import { toArray, compose, slice, map } from "iter-tools";
 import { SearchParams } from "../model/SearchParams";
-
 
 // sorted map, keys are hids
 
-export const newHidMap = () => new SkipList();
-
+export const newHidMap = () => {
+    console.warn("new hid map");
+    return new SkipList();
+    // return new Map();
+};
 
 // scan function for consuming updates from the pouchdb-live-find. Update
 // variable will either be a big initial chunk of results matching the query or
@@ -23,20 +25,22 @@ export function processContentUpdate(hidMap, update) {
 
     // initial load
     if (initialMatches.length) {
-        initialMatches.forEach(match => {
-            hidMap.upsert(+match.hid, match);
+        initialMatches.forEach((match) => {
+            const key = +match.hid;
+            hidMap.upsert(key, match);
         });
     }
 
     // incremental updates
     if (action && doc) {
+        const key = +doc.hid;
         switch (action) {
             case "ADD":
             case "UPDATE":
-                hidMap.upsert(+doc.hid, doc);
+                hidMap.upsert(key, doc);
                 break;
             case "DELETE":
-                hidMap.delete(+doc.hid, doc);
+                hidMap.delete(key);
                 break;
         }
     }
@@ -44,69 +48,90 @@ export function processContentUpdate(hidMap, update) {
     return hidMap;
 }
 
-
-// create iterator transformer to nab values from skip list, this is better
-// than just converting it to an array because the map might be huge and getting
+// create iterator transformer to nab values from skip list, this is better than
+// just converting it to an array because the skiplist might be huge and getting
 // just the window we want is going to be faster for large-N.
-// skiplist iterators return [key, val, index], map to val
+// skiplist iterators return [key, val, index], so map to 2nd position
 
-const grab = n => compose(toArray, map(entry => entry[1]), slice(n));
-
+const grab = (n) =>
+    compose(
+        toArray,
+        map((entry) => entry[1]),
+        slice(n)
+    );
 
 // A Skiplist provides iterators for finding keys searching forward or backward
 // which is good because the map might get very large for some histories. We use
 // iterator operations to find the window of stuff we care about without looping
-// over the whole thing.
+// over the entire store.
 
 export function buildContentResult(inputs) {
-    const [ hidMap, hidCursor, totalMatches, maxHid ] = inputs;
+    const [hidMap, hidCursor, maxHid, minHid] = inputs;
 
-    // grab a few items above the line for the bench, and a full page below
-    const bench = Math.floor(SearchParams.pageSize / 2);
-    const grabBench = grab(bench);
-    const grabPage = grab(SearchParams.pageSize);
+    // number of rows to send above the hidCursor
+    const bench = SearchParams.pageSize;
+    const getContent = grab(SearchParams.pageSize);
 
-    // bench (list of content above hid cursor)
-    // ascending iterator
+    // bench items (above the cursor) uses the skiplist ascending iterator
+    // page content (below the cursor) uses the skiplist descending iterator
     const { asc } = hidMap.findEntries(hidCursor + 1);
-    const benchContent = grabBench(asc).reverse();
+    const { matchingValue, desc } = hidMap.findEntries(hidCursor);
 
-    // page (list of content below hid cursor)
-    // descending iterator
-    const { desc } = hidMap.findEntries(hidCursor);
-    const pageContent = grabPage(desc);
+    const benchContent = getContent(asc).reverse();
+    const pageContent = getContent(desc);
 
-    // jam them together
+    // combine, this is the result
     const contents = benchContent.concat(pageContent);
 
-    // stats for padding on the scrollbar
-    const firstRow = contents.length ? contents[0] : { hid: hidCursor };
-    const firstHid = firstRow.hid;
+    // stats for padding on the scrollbar. The slice of data may not represent
+    // the entire history, and definitely won't for very large ones. So we
+    // represent content items not currently present in the hidMap by integer
+    // row counts above and below the rendered list, the scroller will apply css
+    // padding to make it look roughly correct.
+
+    const firstHid = contents.length ? contents[0].hid : hidCursor;
     const topRows = Math.max(0, maxHid - firstHid);
-    const bottomRows = totalMatches !== null ? Math.max(0, totalMatches - contents.length - topRows) : 0;
 
+    const lastHid = contents.length ? contents[contents.length - 1].hid : hidCursor;
+    const bottomRows = Math.max(0, lastHid - minHid);
 
-    console.groupCollapsed("buildContentResult");
-    console.log("input: hidMap (skiplist)", hidMap.length);
-    console.log("input: hidCursor", hidCursor);
-    console.log("input: totalMatches", totalMatches);
-    console.log("input: maxHid", maxHid);
-    console.log("input: firstHid", firstHid);
+    // The HID cursor may not actually represent a row from the result set, so
+    // figure out which returned row is closest and return that as the startKey
+    // for the scroller
 
-    console.log("output: bench", bench);
-    // console.log("output: firstRow", firstRow);
-    console.log("output: firstHid", firstHid);
-    console.log("output: topRows", topRows);
-    console.log("output: bottomRows", bottomRows);
+    let scrollStartKey = hidCursor;
 
-    console.groupCollapsed("output: contents");
-        console.log("> contents", contents.map(x => x.hid));
-        console.log("> benchContent", benchContent.map(x => x.hid));
-        console.log("> pageContent", pageContent.map(x => x.hid));
-    console.groupEnd();
+    if (!matchingValue) {
+        const closestPageHid = pageContent.length ? pageContent[0].hid : Infinity;
+        const closestBenchHid = benchContent.length ? benchContent[benchContent.length - 1].hid : Infinity;
+        const pageDist = Math.abs(hidCursor - closestPageHid);
+        const benchDist = Math.abs(hidCursor - closestBenchHid);
 
-    console.groupEnd();
+        if (isFinite(pageDist) && pageDist <= benchDist) {
+            scrollStartKey = closestPageHid;
+        } else if (isFinite(benchDist) && benchDist < pageDist) {
+            scrollStartKey = closestPageHid;
+        }
+    }
 
+    // console.group("buildCotentResult");
+    // console.log("input: hidMap (skiplist)", hidMap.length);
+    // console.log("input: hidCursor", hidCursor);
+    // console.log("input: maxHid", maxHid);
+    // console.log("input: minHid", minHid);
+    // console.log("input: totalMatches", totalMatches);
 
-    return { contents, bench, topRows, bottomRows };
+    // console.group("output: contents");
+    //     console.log("> matchingValue", matchingValue);
+    //     console.log("> benchContent", benchContent.map(x => x.hid));
+    //     console.log("> pageContent", pageContent.map(x => x.hid));
+    // console.groupEnd();
+
+    // console.log("output: bench", bench);
+    // console.log("output: topRows", topRows);
+    // console.log("output: bottomRows", bottomRows);
+    // console.log("output: scrollStartKey", scrollStartKey);
+    // console.groupEnd();
+
+    return { contents, bench, topRows, bottomRows, scrollStartKey };
 }

@@ -1,29 +1,45 @@
 /**
- * Generic pouch db operators
+ * Generic pouch db operators, These are low-level pouchdb access operators
+ * intended to be used to create more specific operators. For examples see
+ * galaxyDb.
  */
 
 import config from "config";
 
-import { of, pipe, from } from "rxjs";
-import { map, mergeMap, withLatestFrom, catchError, reduce, share } from "rxjs/operators";
+import moment from "moment";
 import deepEqual from "deep-equal";
 
+import { of, pipe, from } from "rxjs";
+import { map, mergeMap, withLatestFrom, reduce, shareReplay } from "rxjs/operators";
+import { tag } from "rxjs-spy/operators/tag";
+
 import PouchDB from "pouchdb-browser";
-import PouchDebug from "pouchdb-debug";
 import PouchAdapterMemory from "pouchdb-adapter-memory";
 import PouchUpsert from "pouchdb-upsert";
 import PouchFind from "pouchdb-find";
 import PouchLiveFind from "pouchdb-live-find";
 import PouchErase from "pouchdb-erase";
+// import PouchDebug from "pouchdb-debug";
 
-PouchDB.plugin(PouchDebug);
 PouchDB.plugin(PouchAdapterMemory);
 PouchDB.plugin(PouchUpsert);
 PouchDB.plugin(PouchFind);
 PouchDB.plugin(PouchLiveFind);
 PouchDB.plugin(PouchErase);
+// PouchDB.plugin(PouchDebug);
 
+// debugging stuff
 // PouchDB.debug.enable('pouchdb:find');
+
+// const show = (obj) => console.log(JSON.stringify(obj, null, 4));
+
+const instanceCounters = {};
+function increment(name) {
+    if (!(name in instanceCounters)) {
+        instanceCounters[name] = 0;
+    }
+    return instanceCounters[name]++;
+}
 
 /**
  * Generate an observable that initializes and shares a pouchdb instance.
@@ -33,134 +49,124 @@ PouchDB.plugin(PouchErase);
  */
 export const collection = (options) =>
     of(options).pipe(
-        map((opts) => {
-            console.warn("building new PouchDB instance", opts);
-            return new PouchDB({ ...config.caching, ...opts });
+        mergeMap(async (opts) => {
+            const { name: dbName, indexes, ...otherOpts } = opts;
+            const { name: envName } = config;
+            const name = `${dbName}-${envName}`;
+            const dbConfig = { ...config.caching, ...otherOpts, name };
+
+            // make instance
+            const db = new PouchDB(dbConfig);
+            db.instanceNumber = increment(name);
+
+            // indexing
+            await Promise.all(indexes.map((idx) => db.createIndex(idx)));
+
+            return db;
         }),
-        // scan((inst, name) => inst ? inst : createDb({ ...config.caching, name }), null),
-        catchError((err) => console.warn("OOPS!", err)),
-        share()
+        shareReplay(1)
     );
 
 /**
  * Retrieves an object from the cache
  *
- * @param {Observable} coll$ Observable of a pouchdb instance
+ * @param {Observable} db$ Observable of a pouchdb instance
  * @param {string} keyName Field to lookup object by
  * @returns {Function} Observable operator
  */
-export const getItemByKey = (coll$, keyName = "_id") =>
+export const getItemByKey = (db$, keyName = "_id") =>
     pipe(
-        withLatestFrom(coll$),
-        mergeMap(async ([keyValue, coll]) => {
+        withLatestFrom(db$),
+        mergeMap(async ([keyValue, db]) => {
             const searchConfig = {
                 selector: { [keyName]: keyValue },
                 limit: 1,
             };
-            const response = await coll.find(searchConfig);
+            const response = await db.find(searchConfig);
             if (response.warning) {
                 console.warn(response.warning, searchConfig);
             }
             if (response.docs.length > 1) {
-                console.warn("Too many documents found", response);
+                throw new Error(`Too many documents found for getItemByKey: ${keyValue} in db: ${db.name}`);
             }
             return response.docs[0];
         })
     );
 
 /**
- * Operator that caches all source documents in the indicated collection
+ * Operator that caches all source documents in the indicated collection.
+ * Upserts new fields into the old document, so the props need not be complete,
+ * just needs to have the _id.
+ *
+ * Adds a cached_at timestamp and fixes pouchdb
+ * specific field names like "deleted"
  *
  * @source Observable stream of docs to cache
- * @param {Observable} coll$ Observable pouchdb instance
+ * @param {Observable} db$ Observable pouchdb instance
  * @returns {Function} Observable operator
  */
-export const cacheItem = (coll$) =>
+export const cacheItem = (db$) =>
     pipe(
-        withLatestFrom(coll$),
-        mergeMap(([content, coll]) => {
-            return coll.upsert(content._id, (existing) => {
+        map(fixDeleted),
+        withLatestFrom(db$),
+        mergeMap(([content, db]) => {
+            return db.upsert(content._id, (existing) => {
                 // if what we're caching is the same as what's in there, don't bother
                 // eslint-disable-next-line no-unused-vars
-                const { _rev, ...existingFields } = existing;
+                const { _rev, cached_at, ...existingFields } = existing;
                 if (deepEqual(content, existingFields)) {
                     return false;
                 }
-                return { ...existing, ...content };
+
+                return {
+                    ...existing,
+                    ...content,
+                    cached_at: moment().valueOf(),
+                };
             });
         })
     );
 
 /**
- * Rxjs operator that bulk caches a list of documents. Attempts a bulk transfer
- * first. If any of those fail due to conflicts, the conflicts run individually
- * through cacheItm()
+ * Doing it the dumb way for now, will try a true bulkDocs call later.
  *
  * @source Observable of docs to cache
- * @param {Observable} coll$ Observable of a PouchDB instance
+ * @param {Observable} db$ Observable of a PouchDB instance
  * @returns {Function} Observable operator
  */
-export const bulkCache = (coll$) =>
+export const bulkCache = (db$) =>
     pipe(
-        withLatestFrom(coll$),
-
-        // first try a bulk insert
-        mergeMap(async ([content, coll]) => {
-            const bulkResult = await coll.bulkDocs(content);
-            return { content, bulkResult };
-        }),
-
-        // assemble the stuff we need to retry
-        map(({ content, bulkResult }) => {
-            const contentMap = content.reduce((result, c) => result.set(c._id, c), new Map());
-            const okResults = bulkResult.filter((row) => !row.error);
-            const conflictResults = bulkResult.filter((row) => row.error && row.status == 409);
-            const conflicts = conflictResults.map((err) => contentMap.get(err.id));
-            return { okResults, conflicts };
-        }),
-
-        // retry the conflicts one at a time using the single operator
-        mergeMap(({ okResults, conflicts }) => {
-            return from(conflicts).pipe(
-                cacheItem(coll$),
-                reduce((finalResults, retryResult) => {
-                    return [...finalResults, retryResult];
-                }, okResults)
+        mergeMap((list) => {
+            return from(list).pipe(
+                cacheItem(db$),
+                tag("bulk cache result"),
+                reduce((result, item) => {
+                    result.push(item);
+                    return result;
+                }, [])
             );
         })
     );
 
 /**
- * Deletes item from cache. In pouchdb, deleting just means setting _deleted to true.
+ * Creates an operator that will delete the source document from the configured
+ * database observable. In pouchdb, deleting just means
+ * setting _deleted to true.
  *
  * @source Observable stream of documents to uncache
- * @param {Observable} coll$ Observable of the pouchdb instance
+ * @param {Observable} db$ Observable of the pouchdb instance
  * @returns {Function} Observable operator
  */
-export const unacheItem = (coll$) =>
+export const unacheItem = (db$) =>
     pipe(
-        withLatestFrom(coll$),
-        mergeMap(([doomedDoc, coll]) => {
-            return coll.remove(doomedDoc);
+        withLatestFrom(db$),
+        mergeMap(([doomedDoc, db]) => {
+            return db.remove(doomedDoc);
         })
     );
 
 /**
- * Install indexes in pouchdb instance. These need to exist
- * for the .find(selector) functionality to work.
- *
- * @param {PouchDB} db pouch db instance
- * @param {Array} indexes array of index configs
- * @returns {Promise}
- */
-export async function installIndexes(db, indexes) {
-    for (const idx of indexes) {
-        await db.createIndex(idx);
-    }
-}
-
-/**
- * Delete existing indices in a pouchdb database.
+ * Delete existing indexes in a pouchdb database.
  *
  * @param {PouchDB} db pouch db instance
  * @returns {Promise}
@@ -172,3 +178,16 @@ export async function deleteIndexes(db) {
         await db.deleteIndex(idx);
     }
 }
+
+/**
+ * We need to rename the deleted property because pouchDB uses that field,
+ * which is unfortunate
+ * @param {Object} props Raw document props
+ */
+const fixDeleted = (props) => {
+    if (Object.prototype.hasOwnProperty.call(props, "deleted")) {
+        const { deleted: isDeleted, ...theRest } = props;
+        return { isDeleted, ...theRest };
+    }
+    return props;
+};

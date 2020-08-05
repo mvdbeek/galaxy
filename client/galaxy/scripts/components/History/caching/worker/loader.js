@@ -3,83 +3,96 @@
  * or filters data in the listing for immediate lookups. All of them will run
  * one or more ajax calls against the api and cache ther results.
  */
-import { of, pipe, merge } from "rxjs";
-import { tap, mergeMap, map, finalize, withLatestFrom, pluck, share } from "rxjs/operators";
+import { pipe, merge } from "rxjs";
+import { map, finalize, withLatestFrom, pluck, share, filter } from "rxjs/operators";
+import { tag } from "rxjs-spy/operators/tag";
+
 import { throttleDistinct } from "utils/observable/throttleDistinct";
 import { buildHistoryContentsUrl, buildDscContentUrl } from "./urls";
 import { bulkCacheContent, bulkCacheDscContent } from "../galaxyDb";
-import { prependPath, requestWithUpdateTime, hydrateInputs, chunkInputs, chunkParam } from "./util";
+import { prependPath, requestWithUpdateTime, hydrateParams, chunkInputs, chunkParam } from "./util";
 // import { enqueue } from "./queue";
 import { SearchParams } from "../../model/SearchParams";
-
-
-
 
 /**
  * Turn historyId + params into content update urls. Send distinct requests
  * within a 30 sec period. Polling will pick up any other server side variations
  */
 export const loadHistoryContents = (cfg = {}) => (src$) => {
-    const { context = "load-contents", onceEvery = 30 * 1000 } = cfg;
+    const {
+        // This is how often you can request the same content url
+        onceEvery = 60 * 1000,
 
-    // [history id, params, hid]
+        // Search a few pages up and down to get a little overlap in the cache for
+        // when the user scrolls a little
+        windowSize = 2 * SearchParams.pageSize,
+
+        // will turn the hid input HID into a multiple of pageSize so we don't
+        // get so many unique urls, this must be smaller than the pageSize
+        chunkSize = SearchParams.pageSize,
+    } = cfg;
+
+    // [historyId, filters, hid]
     const inputs$ = src$.pipe(
-        hydrateInputs(1),
+        hydrateParams(1),
         // chunk the HID so we don't end up with a zillion uncacheable urls
-        chunkParam(2, SearchParams.pageSize),
-        tap(inputs => console.warn("history request inputs, sending", inputs)),
-        share(),
+        chunkParam(2, chunkSize),
+        tag("loadHistoryContents inputs"),
+        share()
     );
 
-    const up$ = inputs$.pipe(
-        map(buildHistoryContentsUrl({
-            dir: "asc",
-            pageSize: SearchParams.pageSize
-        }))
+    const upUrl$ = inputs$.pipe(
+        map(
+            buildHistoryContentsUrl({
+                dir: "asc",
+                pageSize: windowSize,
+            })
+        )
     );
 
-    const down$ = inputs$.pipe(
-        map(buildHistoryContentsUrl({
-            dir: "dsc",
-            pageSize: 2 * SearchParams.pageSize
-        }))
+    const downUrl$ = inputs$.pipe(
+        // don't bother with a downURL if we're at the bottom of the list
+        filter((inputs) => inputs[2] > 0),
+        map(
+            buildHistoryContentsUrl({
+                pageSize: windowSize,
+            })
+        )
     );
 
-    const url$ = merge(up$, down$).pipe(
-        tap(url => console.log("loadHistoryContents", url)),
-        throttleDistinct({ timeout: onceEvery })
+    const url$ = merge(upUrl$, downUrl$).pipe(
+        map(prependPath),
+        // if we're spamming the loader, ignore repeated identical requests
+        // if they are too close together
+        throttleDistinct({ timeout: onceEvery }),
+        tag("loadHistoryContents url")
     );
 
-    const load$ = url$.pipe(
-        mergeMap((url) => {
+    const response$ = url$.pipe(
+        // repeated requests to the same url get an update_time > whatever
+        // appenedd to the end so the result is only the new changes
+        requestWithUpdateTime(),
+        share()
+    );
 
-            // loads and caches one url
-            const task$ = of(url).pipe(
-                map(prependPath),
-                requestWithUpdateTime({ context }),
-                mergeMap(response => of(response).pipe(
-                    pluck('result'),
-                    bulkCacheContent(),
-                    summarizeCacheOperation(),
-                    map(summary => {
-                        const { totalMatches, result } = response;
-                        const { max: maxHid, min: minHid } = getPropRange(result, "hid");
-                        return { ...summary, totalMatches, minHid, maxHid };
-                    })
-                ))
-            );
+    const cacheSummary$ = response$.pipe(
+        pluck("result"),
+        bulkCacheContent(),
+        summarizeCacheOperation() // don't need all the details
+    );
 
-            // TODO: implement backpressure queue
-            // send back an observable that waits to emit until
-            // the processing queue gets to it
-            // return enqueue(task$);
-            return task$;
+    const load$ = cacheSummary$.pipe(
+        withLatestFrom(response$),
+        map(([summary, response]) => {
+            const { totalMatches, result } = response;
+            const { max: maxHid, min: minHid } = getPropRange(result, "hid");
+            return { ...summary, totalMatches, minHid, maxHid };
         }),
         finalize(() => {
             // we unsubscribe when the history changes, otherwise we keep this
             // subscription so that throttleDistinct continues to filter out
             // repeated requests.
-            console.warn("[loadHistoryContents] loadHistoryContents unsubscribed");
+            console.log("[loadHistoryContents] loadHistoryContents unsubscribed");
         })
     );
 
@@ -91,17 +104,17 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
  * Params: contents_url + search params
  */
 export const loadDscContent = (cfg = {}) => (src$) => {
-    const { context = "load-collection", onceEvery = 10 * 1000 } = cfg;
+    const { onceEvery = 10 * 1000 } = cfg;
 
     // clean and chunk inputs
-    const inputs$ = src$.pipe(hydrateInputs(), chunkInputs());
+    const inputs$ = src$.pipe(hydrateParams(), chunkInputs());
 
     // request, throttle frequently repeated requests
     const ajaxResponse$ = inputs$.pipe(
         map(buildDscContentUrl),
         throttleDistinct({ timeout: onceEvery }),
         map(prependPath),
-        requestWithUpdateTime({ context })
+        requestWithUpdateTime()
     );
 
     // add contents_url to cache data, will use it as a key
@@ -118,7 +131,7 @@ export const loadDscContent = (cfg = {}) => (src$) => {
         bulkCacheDscContent(),
         summarizeCacheOperation(),
         finalize(() => {
-            console.warn("[loader] loadDscContent subscription end");
+            console.log("[loader] loadDscContent subscription end");
         })
     );
 
@@ -133,7 +146,7 @@ export const loadDscContent = (cfg = {}) => (src$) => {
 export const summarizeCacheOperation = () => {
     return pipe(
         map((list) => {
-            const cached = list.filter((result) => result.ok);
+            const cached = list.filter((result) => result.updated || result.ok);
             return {
                 updatedItems: cached.length,
                 totalReceived: list.length,
@@ -142,18 +155,19 @@ export const summarizeCacheOperation = () => {
     );
 };
 
-
-
 // Picks out min/max value from array of objects
 
 export const getPropRange = (list, propName) => {
-    return list.reduce((acc, row) => {
-        const val = parseInt(row[propName], 10);
-        acc.max = Math.max(acc.max, val);
-        acc.min = Math.min(acc.min, val);
-        return acc;
-    }, {
-        min: Infinity,
-        max: -Infinity
-    })
-}
+    return list.reduce(
+        (acc, row) => {
+            const val = parseInt(row[propName], 10);
+            acc.max = Math.max(acc.max, val);
+            acc.min = Math.min(acc.min, val);
+            return acc;
+        },
+        {
+            min: Infinity,
+            max: -Infinity,
+        }
+    );
+};

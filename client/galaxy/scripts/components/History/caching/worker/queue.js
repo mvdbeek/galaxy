@@ -12,7 +12,6 @@ const queue$ = new Subject();
 // process each item sequentially
 const process$ = queue$.pipe(
     concatMap(({ task, label }) => {
-        console.log("[queue] next task, connecting", label);
         task.connect();
         return task.pipe(
             delay(100),
@@ -28,7 +27,6 @@ let taskCounter = 0;
 // when connect() is called, throw the new task on the queue$;
 export function enqueue(obs$) {
     const label = taskCounter++;
-    console.log("[queue] enqueue task", label);
     const task = obs$.pipe(publish());
     queue$.next({ task, label });
     return task;

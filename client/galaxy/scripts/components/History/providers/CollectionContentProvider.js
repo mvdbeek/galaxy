@@ -18,7 +18,7 @@ export default {
 
             const limitlessParam$ = this.params$.pipe(
                 // tap(p => p.report("[dscpanel cachewatch] start")),
-                map((p) => p.resetPagination()),
+                // map((p) => p.resetPagination()),
                 // tap(p => p.report("[dscpanel cachewatch] reset pagination")),
                 debounceTime(this.debouncePeriod),
                 distinctUntilChanged(SearchParams.equals)
@@ -51,10 +51,12 @@ export default {
         loadingObservable() {
             const url$ = this.id$;
             const loader$ = url$.pipe(
-                switchMap(url => this.params$.pipe(
-                    map(p => [url, p]),
-                    loadDscContent()
-                ))
+                switchMap((url) =>
+                    this.params$.pipe(
+                        map((p) => [url, p]),
+                        loadDscContent()
+                    )
+                )
             );
             return loader$;
         },

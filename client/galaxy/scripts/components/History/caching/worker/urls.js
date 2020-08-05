@@ -2,10 +2,9 @@ import { SearchParams } from "../../model/SearchParams";
 
 // generate a content update url for the indicated history id, searches up or
 // down from passed hid threshold
-export const buildHistoryContentsUrl = (cfg = {}) => ([ historyId, filters, hid ]) => {
+export const buildHistoryContentsUrl = (cfg = {}) => ([historyId, filters, hid]) => {
     const { dir = "dsc", pageSize = SearchParams.pageSize } = cfg;
-
-    console.log("buildHistoryContentsUrl", hid, dir);
+    // console.log("buildHistoryContentsUrl", hid, dir);
 
     // limits, searching against a hid limit like this allows us to query
     // regions where we're not sure whther or not the HID even exists
@@ -49,13 +48,13 @@ export const buildHistoryContentsUrl = (cfg = {}) => ([ historyId, filters, hid 
         orderClause,
 
         // same num results every time
-        limitClause
+        limitClause,
     ];
 
     const baseUrl = `/api/histories/${historyId}/contents`;
     const qs = parts.filter((o) => o.length).join("&");
     return `${baseUrl}?${qs}`;
-}
+};
 
 // Collection + params -> request url w/o update_time
 export const buildDscContentUrl = ([contents_url, params]) => {

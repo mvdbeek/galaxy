@@ -4,141 +4,229 @@
  *    loadingObservable: loads new content into the cache from the server
  *    pollingObservable: loads new content into the cache when the polling gets new data
  */
-
+1;
 import { of, combineLatest, NEVER } from "rxjs";
-import { tap, map, withLatestFrom, distinctUntilChanged, startWith, debounceTime, switchMap, finalize, scan } from "rxjs/operators";
+import { map, distinctUntilChanged, startWith, debounceTime, switchMap, scan } from "rxjs/operators";
+import { tag } from "rxjs-spy/operators/tag";
 import { activity } from "utils/observable/activity";
+import { pollHistory, loadHistoryContents, monitorHistoryContentSingle } from "../caching";
 import { newHidMap, processContentUpdate, buildContentResult } from "./processing";
-import { pollHistory, monitorHistoryContent, loadHistoryContents } from "../caching";
-import { SearchParams } from "../model/SearchParams";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { History } from "../model";
+import { SearchParams } from "../model/SearchParams";
 
 export default {
     mixins: [vueRxShortcuts],
 
     props: {
         history: { type: History, required: true },
-        // historyId: { type: String, required: true },
-        // maximum hid value for unfiltered history
-        // maxHistoryHid: { type: Number, required: true },
-        debouncePeriod: { type: Number, default: 200 },
+        debouncePeriod: { type: Number, default: 250 },
     },
 
     data() {
+        const startData = this.freshData();
         return {
-            // search params
             params: new SearchParams(),
+            ...startData,
+        };
+    },
 
-            // results
-            contents: [],
-            bench: 0,
-            topRows: 0,
-            bottomRows: 0,
-            totalMatches: null,
-
-            scrollCursor: 0,
-            hidCursor: this.maxHistoryHid,
-            maxFilteredHid: null,
-            loading: false,
-            scrolling: false,
-        }
+    watch: {
+        historyId(newId, oldId) {
+            if (newId !== oldId) {
+                this.reset();
+                this.params = new SearchParams();
+            }
+        },
+        params(newParams, oldParams) {
+            if (!SearchParams.equals(newParams, oldParams)) {
+                this.reset();
+            }
+        },
     },
 
     computed: {
         historyId() {
             return this.history.id;
         },
+
         maxHistoryHid() {
             return this.history.hidItems;
         },
+
+        // either a known maximum resulting from a filtering server request, or
+        // just he maximum hid reported by the history object
+
         maxHid() {
-            return this.maxFilteredHid || this.maxHistoryHid;
-        }
+            if (this.maxFilteredHid !== null) {
+                return this.maxFilteredHid;
+            }
+            return this.maxHistoryHid;
+        },
+
+        minHid() {
+            if (this.minFilteredHid !== null) {
+                return this.minFilteredHid;
+            }
+            return 0;
+        },
+
+        // a HID representing where we think the scroller is. This can be
+        // exactly known in the case when we're scrolling within an already
+        // loaded content range. In that event, we just read the value off the
+        // scroll handler. Or it can be estimated when the user drags the
+        // scrollbar into an unloaded region of the history, in which case we do
+        // some math to try and guess what hid it might be near
+
+        hidCursor() {
+            // reported by scroller
+            if (this.knownStartingHid !== null) {
+                return this.knownStartingHid;
+            }
+
+            // estimate from scrollCursor and hid extrema reported by loader
+            if (this.scrollCursor !== null) {
+                const scale = 1.0 - this.scrollCursor;
+                const height = scale * Math.abs(this.maxHid - this.minHid);
+                return Math.floor(scale * height + this.minHid);
+            }
+
+            // starting position
+            return this.maxHistoryHid;
+        },
+
+        // When we load data, we'll get an accurate totalMatches result
+
+        totalMatches() {
+            if (this.totalFilteredMatches !== null) {
+                return this.totalFilteredMatches;
+            }
+            return this.maxHid - this.minHid;
+        },
     },
 
-    watch: {
-        maxHistoryHid(val) {
-            console.warn("maxHistoryHid", val);
+    methods: {
+        freshData() {
+            return {
+                // output
+                contents: [],
+                bench: 0,
+                topRows: 0,
+                bottomRows: 0,
+                loading: true,
+                scrolling: false,
+                scrollStartKey: null,
+
+                // returned from scroller
+                scrollCursor: null,
+                knownStartingHid: null,
+
+                // returned from loader
+                totalFilteredMatches: null,
+                maxFilteredHid: null,
+                minFilteredHid: null,
+            };
         },
-        maxFilteredHid(val) {
-            console.warn("maxFilteredHid", val);
+
+        reset() {
+            // resets everything except params
+            const fresh = this.freshData();
+            for (const [key, value] of Object.entries(fresh)) {
+                this[key] = value;
+            }
         },
-        maxHid(val) {
-            console.warn("maxHid", val);
+
+        updateParams(newParams) {
+            if (!SearchParams.equals(newParams, this.params)) {
+                this.params = newParams.clone();
+            }
+        },
+
+        onListScroll(payload) {
+            const { cursor, startKey } = payload;
+            this.knownStartingHid = startKey ? startKey : null;
+            this.scrollCursor = cursor;
         },
     },
 
     created() {
+        // #region Base Observables
 
-        // #region Input Observables
+        // base props
+        const id$ = this.watch$("historyId", true);
+        const filter$ = this.watch$("params", true);
 
-        const id$ = this.watch$('historyId');
+        // supplied by loader
+        // const totalMatches$ = this.watch$("totalMatches", true);
+        const maxHid$ = this.watch$("maxHid", true);
+        const minHid$ = this.watch$("minHid", true);
 
-        const params$ = this.watch$("params").pipe(
-            distinctUntilChanged(SearchParams.equals)
-        );
+        // 0-1 value from scroller
+        const scrollCursor$ = this.watch$("scrollCursor", true);
 
-        const filter$ = params$.pipe(
-            distinctUntilChanged(SearchParams.filtersEqual)
-        );
+        // known HID target or estimate based on scrollCursor
+        const hidCursor$ = this.watch$("hidCursor", true);
 
+        const throttledHidCursor$ = hidCursor$.pipe(debounceTime(this.debouncePeriod), distinctUntilChanged());
+
+        // needs a better name, combo of history id + Searchparams
         const inputs$ = combineLatest(id$, filter$).pipe(
             debounceTime(0),
-            distinctUntilChanged(this.filteredInputsSame),
+            distinctUntilChanged((a, b) => {
+                const idSame = a[0] == b[0];
+                const paramSame = SearchParams.equals(a[1], b[1]);
+                return idSame && paramSame;
+            }),
+            tag("inputs changed")
         );
-
-        const maxHid$ = this.watch$("maxHid");
-        const hidCursor$ = this.watch$("hidCursor");
-        const totalMatches$ = this.watch$("totalMatches");
 
         // #endregion
 
         // #region Activity Flags
-        // 0-1 value from the scroller, represents how far down from the top
-        // the scrollTop is. Used to calculate search criteria for the cache
-        // and for server requests when it cannot be calculated from data
-        // that already exists in the cache
-        const scrollCursor$ = this.watch$("scrollCursor");
 
-        // flag that's true when scroll cursor is changing
         const scrolling$ = scrollCursor$.pipe(activity());
 
-        this.$subscribeTo(scrolling$, val => this.scrolling = val);
+        this.$subscribeTo(scrolling$, (val) => (this.scrolling = val));
 
         // #endregion
 
         // #region Cache Observer
+
         // Monitors cache results matching the current search parameters and
         // scroller location, resets when id or filters changes
 
         const cacheUpdate$ = inputs$.pipe(
-            switchMap(([id, params]) => {
-
-                const hidMap$ = hidCursor$.pipe(
-                    tap(cursor => console.log("hidCursor", cursor)),
-                    debounceTime(this.debouncePeriod),
-                    map(hid => [id, params, hid]),
-                    monitorHistoryContent(),
+            tag("cache monitor reset"),
+            switchMap((inputs) => {
+                // aggregate cache monitor emissions into a searchable in-memory
+                // hidMap that represents all results of the query
+                const hidMap$ = of(inputs).pipe(
+                    monitorHistoryContentSingle(),
                     scan(processContentUpdate, newHidMap()),
+                    debounceTime(50)
+                    // throttleTime(this.debouncePeriod, undefined, { leading: true, trailing: true }),
                 );
 
-                return hidMap$.pipe(
-                    withLatestFrom(hidCursor$, totalMatches$, maxHid$),
-                    debounceTime(this.debouncePeriod),
+                // slice out a section of the hidMap to display
+                const cacheResult$ = combineLatest(hidMap$, throttledHidCursor$, maxHid$, minHid$).pipe(
+                    debounceTime(0), // 0 consolidates simultaneous events
                     map(buildContentResult)
                 );
-            })
+
+                return cacheResult$;
+            }),
+            tag("cache response")
         );
 
         this.$subscribeTo(
             cacheUpdate$,
-            ({ contents, bench, topRows, bottomRows }) => {
-                // console.log("[history.cache] next", contents.length, bench, topRows, bottomRows);
+            (result) => {
+                const { contents, bench, topRows, bottomRows, scrollStartKey } = result;
                 this.contents = contents;
                 this.bench = bench;
                 this.topRows = topRows;
                 this.bottomRows = bottomRows;
+                this.scrollStartKey = scrollStartKey;
             },
             (err) => console.warn(`[history.cache] error`, err),
             () => console.log(`[history.cache] complete`)
@@ -147,35 +235,32 @@ export default {
         // #endregion
 
         // #region Loader
-        // Loads data from server. Most of the results are sent right to the
-        // cache but we need to get the totalMatches and the maximum HID value
-        // for the history back to make the scroller work properly.
-        // resets when
 
-        const loader$ = inputs$.pipe(
-            // open new subscription to worker with each id/filters
-            // combination, then feed in new hid values as the user scrolls
-            switchMap(([id, param]) => hidCursor$.pipe(
-                map(hid => [id, param, hid]),
-                debounceTime(this.debouncePeriod),
-                tap(inputs => console.log("loader inputs", inputs)),
-                loadHistoryContents(),
-                finalize(() => {
-                    console.log("unsub loader");
-                    this.maxFilteredHid = null;
-                })
-            ))
+        // when inputs change, resubscribe to a loader in the worker. Want to
+        // keep this subscription open as cursor changes so we can track which
+        // urls have already been requested internally
+
+        const load$ = inputs$.pipe(
+            switchMap((inputs) =>
+                throttledHidCursor$.pipe(
+                    map((hid) => [...inputs, hid]),
+                    loadHistoryContents()
+                )
+            )
         );
 
         this.$subscribeTo(
-            loader$,
+            load$,
             (result) => {
-                const { totalMatches, maxHid } = result;
-                if (maxHid !== undefined) {
+                const { totalMatches, maxHid, minHid } = result;
+                if (isFinite(maxHid)) {
                     this.maxFilteredHid = Math.max(+maxHid, this.maxFilteredHid);
                 }
-                if (totalMatches !== undefined) {
-                    this.totalMatches = +totalMatches;
+                if (isFinite(minHid)) {
+                    this.minFilteredHid = Math.min(+minHid, this.minFilteredHid);
+                }
+                if (isFinite(totalMatches)) {
+                    this.totalFilteredMatches = totalMatches;
                 }
             },
             (err) => console.warn(`[history.load] error`, err),
@@ -186,99 +271,31 @@ export default {
 
         // #region Polling
 
-        const poll$ = combineLatest(id$, params$).pipe(
-            debounceTime(0),
-            switchMap(inputs => of(inputs).pipe(
-                pollHistory()
-            ))
-        );
+        const poll$ = inputs$.pipe(switchMap((inputs) => of(inputs).pipe(pollHistory())));
 
         const polling$ = scrolling$.pipe(
             startWith(true),
             distinctUntilChanged(),
-            switchMap(isScrolling => isScrolling ? NEVER : poll$)
+            switchMap((isScrolling) => (isScrolling ? NEVER : poll$))
         );
 
         // this.listenTo(polling$, 'history.poll');
 
         // #endregion
-
-    },
-
-    methods: {
-
-        // reset pagination when filtering changes
-
-        updateParams(newParams) {
-            if (!SearchParams.filtersEqual(newParams, this.params)) {
-                this.params = newParams.resetPagination();
-            }
-            else if (!SearchParams.equals(newParams, this.params)) {
-                this.params = newParams.clone();
-            }
-        },
-
-
-        // If we have a startItem, use its hid as the cursor. This will
-        // happen when we scroll into a region that is already cached
-        // Otherwise estimate based on scroll position, this will happen
-        // when the scrollbar is dragged into an uncached region
-
-        onListScroll(payload) {
-            // console.log("onListScroll", payload);
-            const { cursor, startKey } = payload;
-
-            let startHid;
-            if (startKey) {
-                startHid = startKey;
-            } else {
-                const scale = 1.0 - cursor;
-                startHid = Math.floor(scale * this.maxHid);
-                // console.log("startHid from scale", startHid);
-            }
-
-            this.hidCursor = startHid;
-            this.scrollCursor = cursor;
-        },
-
-
-        // Equality comparator for "inputs" which is [ id, SearchParams ]
-        // a combination that appears a lot
-
-        inputsSame(a, b) {
-            const idSame = a[0] == b[0];
-            const paramSame = SearchParams.equals(a[1], b[1]);
-            return idSame && paramSame;
-        },
-
-        filteredInputsSame(a, b) {
-            const idSame = a[0] == b[0];
-            const paramSame = SearchParams.filtersEqual(a[1], b[1]);
-            return idSame && paramSame;
-        },
-
-
-        // Generic subscriber with debugging output. Assumes you don't need
-        // to do anything special with the result.
-
-        listenTo(obs$, label) {
-            if (!obs$) return;
-            this.$subscribeTo(
-                obs$,
-                (result) => console.log(`[${label}] next`, typeof (result)),
-                (err) => console.warn(`[${label}] error`, err),
-                () => console.log(`[${label}] complete`)
-            );
-        },
-
     },
 
     render() {
         return this.$scopedSlots.default({
             ...this.$data,
+
+            // relevant computed values
+            totalMatches: this.totalMatches,
+            maxHid: this.maxHid,
+            minHid: this.minHid,
+
+            // update methods
             updateParams: this.updateParams,
             onListScroll: this.onListScroll,
         });
     },
-
 };

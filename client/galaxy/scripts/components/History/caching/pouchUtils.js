@@ -9,15 +9,11 @@ import { SearchParams } from "../model/SearchParams";
  * Can't use skip because there might be big un-cached regions of the history
  * and we need to be able to select without loading everything
  */
-export const buildContentPouchRequest = (cfg = {}) => src$ => {
-    const {
-        limit = SearchParams.pageSize,
-        seek = "desc"
-    } = cfg;
+export const buildContentPouchRequest = (cfg = {}) => (src$) => {
+    const { limit = SearchParams.pageSize, seek = "desc" } = cfg;
 
     return src$.pipe(
         map(([history_id, params, targetHid]) => {
-
             const request = {
                 selector: {
                     history_id: { $eq: history_id },
@@ -29,32 +25,25 @@ export const buildContentPouchRequest = (cfg = {}) => src$ => {
             // looking down the list from the guess hid
             if (seek == "desc") {
                 request.selector.hid = {
-                    $lte: targetHid
-                }
-                request.sort = [
-                    { hid: "desc" },
-                    { history_id: "desc" }
-                ]
+                    $lte: targetHid,
+                };
+                request.sort = [{ hid: "desc" }, { history_id: "desc" }];
             }
 
             // look up the list from the guess hid
             else if (seek == "asc") {
                 request.selector.hid = {
-                    $gt: targetHid
-                }
-                request.sort = [
-                    { hid: "asc" },
-                ];
-            }
-
-            else {
+                    $gt: targetHid,
+                };
+                request.sort = [{ hid: "asc" }];
+            } else {
                 throw new Error("Unhandled seek direction, are you from another dimension?", seek);
             }
 
             return request;
         })
-    )
-}
+    );
+};
 
 /**
  * Build search selector for params filters:

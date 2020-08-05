@@ -6,29 +6,56 @@
  */
 
 import { merge } from "rxjs";
+import { map } from "rxjs/operators";
 import { content$ } from "../galaxyDb";
 import { monitorQuery } from "./monitorQuery";
-import { buildContentPouchRequest } from "../pouchUtils";
-import { hydrateInputs } from "./util";
+import { buildContentPouchRequest, buildContentSelectorFromParams } from "../pouchUtils";
+import { hydrateParams } from "./util";
+import { SearchParams } from "../../model/SearchParams";
 
+export const monitorHistoryContent = (cfg = {}) => (src$) => {
+    // maximum number of rows above and below the hid cursor
+    const { benchSize = SearchParams.pageSize, pageSize = SearchParams.pageSize } = cfg;
 
-export const monitorHistoryContent = () => src$ => {
-
-    const inputs$ = src$.pipe(
-        hydrateInputs(1)
+    const input$ = src$.pipe(
+        hydrateParams(1) // fix params
     );
 
-    // look up from hid cursor
-    const seekUp$ = inputs$.pipe(
-        buildContentPouchRequest({ seek: "asc" }),
-        monitorQuery({ db$: content$ }),
+    const seekUp$ = input$.pipe(
+        buildContentPouchRequest({ seek: "asc", limit: benchSize }), // look up from hid cursor
+        monitorQuery({ db$: content$ })
     );
 
-    // look down from hid cursor
-    const seekDown$ = inputs$.pipe(
-        buildContentPouchRequest({ seek: "desc" }),
-        monitorQuery({ db$: content$ }),
+    const seekDown$ = input$.pipe(
+        buildContentPouchRequest({ seek: "desc", limit: pageSize }), // down from hid cursor,
+        monitorQuery({ db$: content$ })
     );
 
     return merge(seekUp$, seekDown$);
-}
+};
+
+// Tryiung single load, see if it's faster, using skiplist for aggregation in
+// provider component, so might be ok
+
+export const monitorHistoryContentSingle = () => (src$) => {
+    const input$ = src$.pipe(
+        hydrateParams(1) // fix params
+    );
+
+    const singleSeek$ = input$.pipe(
+        map((inputs) => {
+            const [id, params] = inputs;
+
+            return {
+                selector: {
+                    history_id: { $eq: id },
+                    hid: {},
+                    ...buildContentSelectorFromParams(params),
+                },
+                sort: [{ hid: "desc" }, { history_id: "desc" }],
+            };
+        })
+    );
+
+    return singleSeek$.pipe(monitorQuery({ db$: content$ }));
+};
