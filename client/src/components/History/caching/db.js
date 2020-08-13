@@ -17,29 +17,18 @@ import PouchDB from "pouchdb-browser";
 import PouchAdapterMemory from "pouchdb-adapter-memory";
 import PouchUpsert from "pouchdb-upsert";
 import PouchFind from "pouchdb-find";
-import PouchLiveFind from "pouchdb-live-find";
 import PouchErase from "pouchdb-erase";
 // import PouchDebug from "pouchdb-debug";
 
 PouchDB.plugin(PouchAdapterMemory);
 PouchDB.plugin(PouchUpsert);
 PouchDB.plugin(PouchFind);
-PouchDB.plugin(PouchLiveFind);
 PouchDB.plugin(PouchErase);
 // PouchDB.plugin(PouchDebug);
 
 // debugging stuff
 // PouchDB.debug.enable('pouchdb:find');
-
 // const show = (obj) => console.log(JSON.stringify(obj, null, 4));
-
-const instanceCounters = {};
-function increment(name) {
-    if (!(name in instanceCounters)) {
-        instanceCounters[name] = 0;
-    }
-    return instanceCounters[name]++;
-}
 
 /**
  * Generate an observable that initializes and shares a pouchdb instance.
@@ -57,7 +46,6 @@ export const collection = (options) =>
 
             // make instance
             const db = new PouchDB(dbConfig);
-            db.instanceNumber = increment(name);
 
             // indexing
             await Promise.all(indexes.map((idx) => db.createIndex(idx)));
@@ -173,10 +161,9 @@ export const unacheItem = (db$) =>
  */
 export async function deleteIndexes(db) {
     const response = await db.getIndexes();
-    const doomedIndex = response.indexes.filter((idx) => idx.ddoc !== null);
-    for (const idx of doomedIndex) {
-        await db.deleteIndex(idx);
-    }
+    const doomedIndexes = response.indexes.filter((idx) => idx.ddoc !== null);
+    const promises = doomedIndexes.map(idx => db.deleteIndex(idx));
+    return await Promise.all(promises);
 }
 
 /**
@@ -191,3 +178,4 @@ const fixDeleted = (props) => {
     }
     return props;
 };
+

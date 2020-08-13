@@ -14,11 +14,17 @@ export const buildContentPouchRequest = (cfg = {}) => (src$) => {
 
     return src$.pipe(
         map(([history_id, params, targetHid]) => {
+
             const request = {
                 selector: {
                     history_id: { $eq: history_id },
+                    hid: {},
                     ...buildContentSelectorFromParams(params),
                 },
+                sort: [
+                    { history_id: "desc" },
+                    { hid: "desc" },
+                ],
                 limit,
             };
 
@@ -27,7 +33,6 @@ export const buildContentPouchRequest = (cfg = {}) => (src$) => {
                 request.selector.hid = {
                     $lte: targetHid,
                 };
-                request.sort = [{ hid: "desc" }, { history_id: "desc" }];
             }
 
             // look up the list from the guess hid
@@ -35,7 +40,10 @@ export const buildContentPouchRequest = (cfg = {}) => (src$) => {
                 request.selector.hid = {
                     $gt: targetHid,
                 };
-                request.sort = [{ hid: "asc" }];
+                request.sort = [
+                    { history_id: "asc" },
+                    { hid: "asc" },
+                ];
             } else {
                 throw new Error("Unhandled seek direction, are you from another dimension?", seek);
             }
@@ -58,12 +66,12 @@ export function buildContentSelectorFromParams(params) {
     };
 
     if (params.showDeleted) {
-        delete selector.visible;
+        selector.visible = {};
         selector.isDeleted = { $eq: true };
     }
 
     if (params.showHidden) {
-        delete selector.isDeleted;
+        selector.isDeleted = {};
         selector.visible = { $eq: false };
     }
 

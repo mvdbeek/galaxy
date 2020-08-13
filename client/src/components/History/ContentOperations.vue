@@ -156,7 +156,7 @@ export default {
     props: {
         history: { type: History, required: true },
         params: { type: SearchParams, required: true },
-        contents: { type: Array, required: true },
+        // contents: { type: Array, required: true },
         contentSelection: { type: Set, required: true },
         showSelection: { type: Boolean, required: true },
         totalMatches: { type: Number, required: true },
@@ -173,9 +173,9 @@ export default {
             return this.showFilter || showHidden || showDeleted || filterText;
         },
 
-        contentIds() {
-            return this.contents.map((result) => result.type_id);
-        },
+        // contentIds() {
+        //     return this.contents.map((result) => result.type_id);
+        // },
 
         // pass-through
         localParams: {
@@ -191,7 +191,8 @@ export default {
             return this.contentSelection.size > 0;
         },
         selectedContent() {
-            return this.contentIds.filter((type_id) => this.contentSelection.has(type_id));
+            return Array.from(this.contentSelection);
+            // return this.contentIds.filter((type_id) => this.contentSelection.has(type_id));
         },
         countHidden() {
             return this.history.contents_active.hidden;
@@ -207,7 +208,9 @@ export default {
             this.selectContent([]);
         },
         selectAllVisibleContent() {
-            this.selectContent(this.contentIds);
+            // try to do this without all contentIDs
+            console.log("selectAllVisibleContent");
+            // this.selectContent(this.contentIds);
         },
 
         // #endregion

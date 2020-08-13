@@ -32,12 +32,10 @@
 
             <template v-slot:listcontrols>
                 <ContentOperations
-                    v-if="contents.length"
                     :history="history"
                     :params="params"
                     @update:params="updateParams"
                     :total-matches="totalMatches || history.hid_counter - 1"
-                    :contents="contents"
                     :loading="loading"
                     :content-selection.sync="listState.selected"
                     :show-selection.sync="listState.showSelection"

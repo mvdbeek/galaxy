@@ -10,9 +10,8 @@ import { SearchParams } from "../model/SearchParams";
 // sorted map, keys are hids
 
 export const newHidMap = () => {
-    console.warn("new hid map");
+    // console.warn("new hid map");
     return new SkipList();
-    // return new Map();
 };
 
 // scan function for consuming updates from the pouchdb-live-find. Update
@@ -20,11 +19,16 @@ export const newHidMap = () => {
 // a follow-up incremental change (if some other process modifies the cache).
 // End result is a SkipList keyed by HID
 
+const CHANGEACTION = {
+    UPDATE: "UPDATE",
+    DELETE: "DELETE"
+};
+
 export function processContentUpdate(hidMap, update) {
-    const { initialMatches = [], action, doc } = update;
+    const { initialMatches, action, doc } = update;
 
     // initial load
-    if (initialMatches.length) {
+    if (initialMatches && initialMatches.length) {
         initialMatches.forEach((match) => {
             const key = +match.hid;
             hidMap.upsert(key, match);
@@ -35,11 +39,10 @@ export function processContentUpdate(hidMap, update) {
     if (action && doc) {
         const key = +doc.hid;
         switch (action) {
-            case "ADD":
-            case "UPDATE":
+            case CHANGEACTION.UPDATE:
                 hidMap.upsert(key, doc);
                 break;
-            case "DELETE":
+            case CHANGEACTION.DELETE:
                 hidMap.delete(key);
                 break;
         }
@@ -114,24 +117,24 @@ export function buildContentResult(inputs) {
         }
     }
 
-    // console.group("buildCotentResult");
-    // console.log("input: hidMap (skiplist)", hidMap.length);
-    // console.log("input: hidCursor", hidCursor);
-    // console.log("input: maxHid", maxHid);
-    // console.log("input: minHid", minHid);
+    console.group("buildCotentResult");
+    console.log("input: hidMap (skiplist)", hidMap.length);
+    console.log("input: hidCursor", hidCursor);
+    console.log("input: maxHid", maxHid);
+    console.log("input: minHid", minHid);
     // console.log("input: totalMatches", totalMatches);
 
-    // console.group("output: contents");
-    //     console.log("> matchingValue", matchingValue);
-    //     console.log("> benchContent", benchContent.map(x => x.hid));
-    //     console.log("> pageContent", pageContent.map(x => x.hid));
-    // console.groupEnd();
+    console.group("output: contents");
+        console.log("> matchingValue", matchingValue);
+        console.log("> benchContent", benchContent.map(x => x.hid));
+        console.log("> pageContent", pageContent.map(x => x.hid));
+    console.groupEnd();
 
-    // console.log("output: bench", bench);
-    // console.log("output: topRows", topRows);
-    // console.log("output: bottomRows", bottomRows);
-    // console.log("output: scrollStartKey", scrollStartKey);
-    // console.groupEnd();
+    console.log("output: bench", bench);
+    console.log("output: topRows", topRows);
+    console.log("output: bottomRows", bottomRows);
+    console.log("output: scrollStartKey", scrollStartKey);
+    console.groupEnd();
 
     return { contents, bench, topRows, bottomRows, scrollStartKey };
 }

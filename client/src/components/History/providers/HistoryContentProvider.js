@@ -6,10 +6,10 @@
  */
 1;
 import { of, combineLatest, NEVER } from "rxjs";
-import { map, distinctUntilChanged, startWith, debounceTime, switchMap, scan } from "rxjs/operators";
+import { map, distinctUntilChanged, startWith, debounceTime, switchMap, scan, shareReplay } from "rxjs/operators";
 import { tag } from "rxjs-spy/operators/tag";
 import { activity } from "utils/observable/activity";
-import { pollHistory, loadHistoryContents, monitorHistoryContentSingle } from "../caching";
+import { pollHistory, loadHistoryContents, monitorHistoryContent } from "../caching";
 import { newHidMap, processContentUpdate, buildContentResult } from "./processing";
 import { vueRxShortcuts } from "../../plugins/vueRxShortcuts";
 import { History } from "../model";
@@ -167,7 +167,11 @@ export default {
         // known HID target or estimate based on scrollCursor
         const hidCursor$ = this.watch$("hidCursor", true);
 
-        const throttledHidCursor$ = hidCursor$.pipe(debounceTime(this.debouncePeriod), distinctUntilChanged());
+        const throttledHidCursor$ = hidCursor$.pipe(
+            debounceTime(this.debouncePeriod), // user can change this quickly
+            distinctUntilChanged(),
+            shareReplay(1),
+        );
 
         // needs a better name, combo of history id + Searchparams
         const inputs$ = combineLatest(id$, filter$).pipe(
@@ -198,16 +202,14 @@ export default {
         const cacheUpdate$ = inputs$.pipe(
             tag("cache monitor reset"),
             switchMap((inputs) => {
-                // aggregate cache monitor emissions into a searchable in-memory
-                // hidMap that represents all results of the query
-                const hidMap$ = of(inputs).pipe(
-                    monitorHistoryContentSingle(),
+
+                // Dual monitor, seeks up & down from hidCursor
+                const hidMap$ = hidCursor$.pipe(
+                    map(hid => [ ...inputs, hid ]),
+                    monitorHistoryContent(),
                     scan(processContentUpdate, newHidMap()),
-                    debounceTime(50)
-                    // throttleTime(this.debouncePeriod, undefined, { leading: true, trailing: true }),
                 );
 
-                // slice out a section of the hidMap to display
                 const cacheResult$ = combineLatest(hidMap$, throttledHidCursor$, maxHid$, minHid$).pipe(
                     debounceTime(0), // 0 consolidates simultaneous events
                     map(buildContentResult)
@@ -271,13 +273,13 @@ export default {
 
         // #region Polling
 
-        const poll$ = inputs$.pipe(switchMap((inputs) => of(inputs).pipe(pollHistory())));
+        // const poll$ = inputs$.pipe(switchMap((inputs) => of(inputs).pipe(pollHistory())));
 
-        const polling$ = scrolling$.pipe(
-            startWith(true),
-            distinctUntilChanged(),
-            switchMap((isScrolling) => (isScrolling ? NEVER : poll$))
-        );
+        // const polling$ = scrolling$.pipe(
+        //     startWith(true),
+        //     distinctUntilChanged(),
+        //     switchMap((isScrolling) => (isScrolling ? NEVER : poll$))
+        // );
 
         // this.listenTo(polling$, 'history.poll');
 

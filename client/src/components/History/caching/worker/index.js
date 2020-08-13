@@ -16,7 +16,7 @@ import { loadHistoryContents, loadDscContent } from "./loader";
 import { configure } from "./util";
 import { monitorQuery } from "./monitorQuery";
 import { asObservable } from "./asObservable";
-import { monitorHistoryContent, monitorHistoryContentSingle } from "./monitorHistoryContent";
+import { monitorHistoryContent } from "./monitorHistoryContent";
 
 expose({
     configure,
@@ -29,10 +29,6 @@ expose({
 
     // 2-way seeking monitor for history cursor search
     monitorHistoryContent: asObservable(monitorHistoryContent()),
-
-    // test to see if single monitor is more efficient, might monitor a
-    // tremendous number of rows with a big history though
-    monitorHistoryContentSingle: asObservable(monitorHistoryContentSingle()),
 
     cacheContentItem(props) {
         return of(props).pipe(cacheContent());
