@@ -69,7 +69,7 @@ import Layout from "../Layout";
 import TopNav from "./TopNav";
 import Details from "./Details";
 import ListMixin from "../ListMixin";
-import VirtualScroller from "../../VirtualScroller";
+import VirtualScroller from "components/VirtualScroller";
 import { CollectionContentItem } from "../ContentItem";
 
 export default {
