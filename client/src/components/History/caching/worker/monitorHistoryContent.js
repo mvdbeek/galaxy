@@ -13,11 +13,9 @@ import { SearchParams } from "../../model/SearchParams";
  * contents if the user is rapidly dragging the scrollbar to different regions
  */
 export const monitorHistoryContent = (cfg = {}) => (src$) => {
-    console.log("monitorHistoryContent", cfg);
-
     const {
-        benchSize = SearchParams.pageSize, // rows above cursor
-        pageSize = SearchParams.pageSize  // rows below cursor
+        benchSize = 3 * SearchParams.pageSize, // rows above cursor
+        pageSize = 3 * SearchParams.pageSize  // rows below cursor
     } = cfg;
 
     const input$ = src$.pipe(
@@ -25,24 +23,26 @@ export const monitorHistoryContent = (cfg = {}) => (src$) => {
     );
 
     const seekUp$ = input$.pipe(
-        buildContentPouchRequest({ seek: "asc", limit: benchSize }), // look up from hid cursor
-        map(request => {
-            return {
-                ...request,
-                use_index: 'idx-content-history-id-hid-asc'
-            }
-        }),
+        buildContentPouchRequest({
+            seek: "asc",
+            limit: benchSize
+        }), // look up from hid cursor
+        map(request => ({
+            ...request,
+            use_index: 'idx-content-history-id-hid-asc'
+        })),
         monitorQuery({ db$: content$ })
     );
 
     const seekDown$ = input$.pipe(
-        buildContentPouchRequest({ seek: "desc", limit: pageSize }), // down from hid cursor,
-        map(request => {
-            return {
-                ...request,
-                use_index: 'idx-content-history-id-hid-desc'
-            }
-        }),
+        buildContentPouchRequest({
+            seek: "desc",
+            limit: pageSize
+        }), // down from hid cursor,
+        map(request => ({
+            ...request,
+            use_index: 'idx-content-history-id-hid-desc'
+        })),
         monitorQuery({ db$: content$ })
     );
 

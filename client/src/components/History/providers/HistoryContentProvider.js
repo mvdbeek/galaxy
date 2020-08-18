@@ -21,6 +21,7 @@ export default {
     props: {
         history: { type: History, required: true },
         debouncePeriod: { type: Number, default: 250 },
+        bench: { type: Number, default: SearchParams.pageSize },
     },
 
     data() {
@@ -110,9 +111,6 @@ export default {
             return {
                 // output
                 contents: [],
-                bench: 0,
-                topRows: 0,
-                bottomRows: 0,
                 loading: true,
                 scrolling: false,
                 scrollStartKey: null,
@@ -125,6 +123,10 @@ export default {
                 totalFilteredMatches: null,
                 maxFilteredHid: null,
                 minFilteredHid: null,
+
+                // spacing for a specific HID returned from server
+                // serverTopRows: null,
+                // serverBottomRows: null,
             };
         },
 
@@ -195,12 +197,10 @@ export default {
         // #endregion
 
         // #region Cache Observer
-
         // Monitors cache results matching the current search parameters and
         // scroller location, resets when id or filters changes
 
         const cacheUpdate$ = inputs$.pipe(
-            tag("cache monitor reset"),
             switchMap((inputs) => {
 
                 // Dual monitor, seeks up & down from hidCursor
@@ -212,7 +212,7 @@ export default {
 
                 const cacheResult$ = combineLatest(hidMap$, throttledHidCursor$, maxHid$, minHid$).pipe(
                     debounceTime(0), // 0 consolidates simultaneous events
-                    map(buildContentResult)
+                    map(buildContentResult(this.bench))
                 );
 
                 return cacheResult$;
@@ -223,12 +223,21 @@ export default {
         this.$subscribeTo(
             cacheUpdate$,
             (result) => {
-                const { contents, bench, topRows, bottomRows, scrollStartKey } = result;
+                // console.log("[history.cache] result", result);
+                const { contents, topRows, bottomRows, scrollStartKey } = result;
+
+                console.group("cacheUpdate");
+                console.warn("[history.cache] scrollStartKey", scrollStartKey);
+                console.warn("[history.cache] topRows", topRows);
+                console.warn("[history.cache] bottomRows", bottomRows);
+                console.groupEnd();
+
                 this.contents = contents;
-                this.bench = bench;
-                this.topRows = topRows;
-                this.bottomRows = bottomRows;
                 this.scrollStartKey = scrollStartKey;
+
+                // do I set these?
+                this.serverTopRows = topRows;
+                this.serverBottomRows = bottomRows;
             },
             (err) => console.warn(`[history.cache] error`, err),
             () => console.log(`[history.cache] complete`)
@@ -237,24 +246,25 @@ export default {
         // #endregion
 
         // #region Loader
-
-        // when inputs change, resubscribe to a loader in the worker. Want to
-        // keep this subscription open as cursor changes so we can track which
-        // urls have already been requested internally
+        // when inputs change, resubscribe to a loader in the worker. We want
+        // keep this subscription open as the hid cursor changes so we can track
+        // which urls have been requested recently, don't just combine the
+        // inputs and the hidcursor
 
         const load$ = inputs$.pipe(
-            switchMap((inputs) =>
-                throttledHidCursor$.pipe(
-                    map((hid) => [...inputs, hid]),
-                    loadHistoryContents()
-                )
-            )
+            switchMap((inputs) => throttledHidCursor$.pipe(
+                map((hid) => [...inputs, hid]),
+                loadHistoryContents()
+            ))
         );
 
         this.$subscribeTo(
             load$,
             (result) => {
-                const { totalMatches, maxHid, minHid } = result;
+                // console.log("[history.load] result", result);
+                const { totalMatches, totalMatchesUp, totalMatchesDown,
+                    matchesUp, matchesDown, maxHid, minHid } = result;
+
                 if (isFinite(maxHid)) {
                     this.maxFilteredHid = Math.max(+maxHid, this.maxFilteredHid);
                 }
@@ -264,6 +274,11 @@ export default {
                 if (isFinite(totalMatches)) {
                     this.totalFilteredMatches = totalMatches;
                 }
+
+                // un-rendered rows above and below the returned window
+                // not sure I should be setting these
+                // this.topRows = totalMatchesUp - matchesUp;
+                // this.bottomRows = totalMatchesDown - matchesDown;
             },
             (err) => console.warn(`[history.load] error`, err),
             () => console.log(`[history.load] complete`)
@@ -288,6 +303,10 @@ export default {
 
     render() {
         return this.$scopedSlots.default({
+            // settings/props passthrough
+            bench: this.bench,
+
+            // data fields
             ...this.$data,
 
             // relevant computed values

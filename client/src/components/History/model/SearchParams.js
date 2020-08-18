@@ -1,3 +1,4 @@
+import config from "config";
 import deepEqual from "deep-equal";
 
 const pairSplitRE = /(\w+=\w+)|(\w+="(\w|\s)+")/g;
@@ -78,7 +79,7 @@ export class SearchParams {
 
 // Statics
 
-SearchParams.pageSize = 100;
+SearchParams.pageSize = config.caching.pageSize;
 
 SearchParams.equals = function (a, b) {
     return deepEqual(a.export(), b.export());

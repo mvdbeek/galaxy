@@ -8,7 +8,7 @@ export const contentIndices = [
         index: {
             fields: [
                 { history_id: "desc" },
-                { hid: "desc" },
+                { hid: "desc" }
             ],
         },
         name: "by history and hid descending",
@@ -18,7 +18,7 @@ export const contentIndices = [
         index: {
             fields: [
                 { history_id: "asc" },
-                { hid: "asc" },
+                { hid: "asc" }
             ],
         },
         name: "by history and hid ascending",

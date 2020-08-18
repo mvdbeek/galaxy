@@ -20,16 +20,17 @@ import { SearchParams } from "../../model/SearchParams";
  */
 export const loadHistoryContents = (cfg = {}) => (src$) => {
     const {
-        // This is how often you can request the same content url
+        // This is how often you can request the exact same content url
+        // We have a separate polling operation so this isn't urgent
         onceEvery = 60 * 1000,
 
         // Search a few pages up and down to get a little overlap in the cache for
         // when the user scrolls a little
-        windowSize = 2 * SearchParams.pageSize,
+        pageSize = SearchParams.pageSize,
 
         // will turn the hid input HID into a multiple of pageSize so we don't
         // get so many unique urls, this must be smaller than the pageSize
-        chunkSize = SearchParams.pageSize,
+        chunkSize = Math.floor(SearchParams.pageSize / 2),
     } = cfg;
 
     // [historyId, filters, hid]
@@ -37,56 +38,56 @@ export const loadHistoryContents = (cfg = {}) => (src$) => {
         hydrateParams(1),
         // chunk the HID so we don't end up with a zillion uncacheable urls
         chunkParam(2, chunkSize),
-        tag("loadHistoryContents inputs"),
-        share()
+        tag("loadHistoryContents inputs")
     );
 
-    const upUrl$ = inputs$.pipe(
-        map(
-            buildHistoryContentsUrl({
-                dir: "asc",
-                pageSize: windowSize,
-            })
-        )
-    );
-
-    const downUrl$ = inputs$.pipe(
-        // don't bother with a downURL if we're at the bottom of the list
-        filter((inputs) => inputs[2] > 0),
-        map(
-            buildHistoryContentsUrl({
-                pageSize: windowSize,
-            })
-        )
-    );
-
-    const url$ = merge(upUrl$, downUrl$).pipe(
-        map(prependPath),
-        // if we're spamming the loader, ignore repeated identical requests
-        // if they are too close together
+    const url$ = inputs$.pipe(
+        map(buildHistoryContentsUrl({ pageSize })),
+        // ignore repeated identical requests
         throttleDistinct({ timeout: onceEvery }),
+        map(prependPath),
         tag("loadHistoryContents url")
     );
 
-    const response$ = url$.pipe(
+    const ajaxResponse$ = url$.pipe(
         // repeated requests to the same url get an update_time > whatever
-        // appenedd to the end so the result is only the new changes
         requestWithUpdateTime(),
         share()
     );
 
-    const cacheSummary$ = response$.pipe(
-        pluck("result"),
+    const cacheSummary$ = ajaxResponse$.pipe(
+        pluck("response"),
         bulkCacheContent(),
         summarizeCacheOperation() // don't need all the details
     );
 
     const load$ = cacheSummary$.pipe(
-        withLatestFrom(response$),
-        map(([summary, response]) => {
-            const { totalMatches, result } = response;
-            const { max: maxHid, min: minHid } = getPropRange(result, "hid");
-            return { ...summary, totalMatches, minHid, maxHid };
+        withLatestFrom(ajaxResponse$),
+        map(([summary, ajaxResponse]) => {
+
+            // actual list
+            const { xhr, response = [] } = ajaxResponse;
+            const { max: maxHid, min: minHid } = getPropRange(response, "hid");
+
+            // header counts
+            const matchesUp = +xhr.getResponseHeader('matches_up');
+            const matchesDown = +xhr.getResponseHeader('matches_down');
+            const totalMatchesUp = +xhr.getResponseHeader('total_matches_up');
+            const totalMatchesDown = +xhr.getResponseHeader('total_matches_down');
+
+            const result = {
+                ...summary,
+                minHid,
+                maxHid,
+                matchesUp,
+                matchesDown,
+                matches: response.length,
+                totalMatchesUp,
+                totalMatchesDown,
+                totalMatches: totalMatchesUp + totalMatchesDown
+            }
+
+            return result;
         }),
         finalize(() => {
             // we unsubscribe when the history changes, otherwise we keep this

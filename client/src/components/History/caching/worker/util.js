@@ -40,44 +40,19 @@ export const requestDateStore = createDateStore("requestWithUpdateTime default")
  */
 export const requestWithUpdateTime = (config = {}) => (url$) => {
     const {
-        context = null,
         dateStore = requestDateStore,
         bufferSeconds = 0,
         dateFieldName = "update_time",
         requestTime = moment.utc(),
     } = config;
 
-    // add context marker in url for debugging purposes
-    const baseUrl$ = url$.pipe(
-        map((url) => {
-            return context ? `${url}&context=${context}` : url;
-        })
-    );
-
     // mark and flag this update-time, append to next request with same base
-    return baseUrl$.pipe(
-        mergeMap((baseUrl) =>
-            of(baseUrl).pipe(
-                appendUpdateTime({
-                    dateStore,
-                    bufferSeconds,
-                    dateFieldName,
-                }),
-                mergeMap(ajax),
-                map((ajaxResponse) => {
-                    let totalMatches = ajaxResponse.xhr.getResponseHeader("total_matches");
-                    if (totalMatches !== null) {
-                        totalMatches = parseInt(totalMatches, 10);
-                    }
-                    return { result: ajaxResponse.response, totalMatches };
-                }),
-                tap(({ totalMatches }) => {
-                    if (totalMatches) {
-                        dateStore.set(baseUrl, requestTime);
-                    }
-                })
-            )
-        )
+    return url$.pipe(
+        mergeMap((baseUrl) => of(baseUrl).pipe(
+            appendUpdateTime({ dateStore, bufferSeconds, dateFieldName }),
+            mergeMap(ajax),
+            tap(() => dateStore.set(baseUrl, requestTime))
+        ))
     );
 };
 
@@ -89,20 +64,16 @@ export const requestWithUpdateTime = (config = {}) => (url$) => {
 const appendUpdateTime = (cfg = {}) => {
     const {
         dateStore = requestDateStore,
-        // bufferSeconds = 0,
         dateFieldName = "update_time",
     } = cfg;
 
     return pipe(
-        mergeMap(async (baseUrl) => {
+        map((baseUrl) => {
             if (!dateStore.has(baseUrl)) return baseUrl;
-
             const lastRequest = dateStore.getLastDate(baseUrl);
-            // lastRequest = lastRequest.subtract(bufferSeconds, "seconds");
-
-            const parts = [baseUrl, `q=${dateFieldName}-gt&qv=${lastRequest.toISOString()}`];
-
-            return parts.join("&");
+            const parts = [baseUrl, `${dateFieldName}-gt=${lastRequest.toISOString()}`];
+            const separator = baseUrl.includes("?") ? "&" : "?";
+            return parts.join(separator);
         })
     );
 };
@@ -147,8 +118,8 @@ export const chunkInputs = () => {
  * @param {integer} pos Input array parameter number to chunk
  * @param {integer} chunkSize Size of chunks
  */
-export const chunkParam = (pos, chunkSize) =>
-    pipe(
+export const chunkParam = (pos, chunkSize) => {
+    return pipe(
         map((inputs) => {
             const chunkMe = inputs[pos];
             const chunkedVal = chunkSize * Math.floor(chunkMe / chunkSize);
@@ -157,3 +128,4 @@ export const chunkParam = (pos, chunkSize) =>
             return newInputs;
         })
     );
+}
