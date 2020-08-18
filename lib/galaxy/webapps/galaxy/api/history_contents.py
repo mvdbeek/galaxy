@@ -933,6 +933,88 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
 
         return rval
 
+    @expose_api_anonymous
+    def contents_near(self, trans, history_id, hid, limit, **kwd):
+        """
+        Limit is window size above and below hid
+        * GET /api/histories/{history_id}/contents/near/{hid}/{limit}
+        """
+        history = self.history_manager.get_accessible(self.decode_id(history_id), trans.user, current_history=trans.history)
+        filter_params = self._correctly_parse_filters(kwd)
+        serialization_params = self._parse_serialization_params(kwd, 'betawebclient')
+        view = serialization_params.pop('view')
+
+        # SEEK UP, query searching up, i.e. HID > hid, limit by window size
+        up_params = filter_params + self._correctly_parse_filters({'hid-gt': hid})
+        up_order = 'hid-asc'
+        contents_up, up_count = self._seek(history, up_params, up_order, limit, serialization_params)
+        trans.response.headers['total_matches_up'] = up_count
+
+        # SEEK DOWN, query searching down, HID <= hid, limited by window size
+        down_params = filter_params + self._correctly_parse_filters({'hid-le': hid})
+        down_order = 'hid-dsc'
+        contents_down, down_count = self._seek(history, down_params, down_order, limit, serialization_params)
+        trans.response.headers['total_matches_down'] = down_count
+
+        # results
+        up = self._expand_contents(trans, contents_up, serialization_params, view)
+        up.reverse()
+        down = self._expand_contents(trans, contents_down, serialization_params, view)
+        return up + down
+
+    def _seek(self, history, filter_params, order_by_string, limit, serialization_params):
+        filters = self.history_contents_filters.parse_filters(filter_params)
+        order_by = self._parse_order_by(manager=self.history_contents_manager, order_by_string=order_by_string)
+
+        # actual contents
+        contents = self.history_contents_manager.contents(history,
+            filters=filters,
+            limit=limit,
+            offset=0,
+            order_by=order_by,
+            serialization_params=serialization_params)
+
+        # count of same query
+        count_filter_params = [f for f in filter_params if f[0] != 'update_time']
+        count_filters = self.history_contents_filters.parse_filters(count_filter_params)
+        contents_count = self.history_contents_manager.contents_count(history, count_filters)
+
+        return contents, contents_count
+
+    def _expand_contents(self, trans, contents, serialization_params, view):
+        rval = []
+
+        for content in contents:
+            if isinstance(content, trans.app.model.HistoryDatasetAssociation):
+                dataset = self.hda_serializer.serialize_to_view(content,
+                    user=trans.user, trans=trans, view=view, **serialization_params)
+                rval.append(dataset)
+            elif isinstance(content, trans.app.model.HistoryDatasetCollectionAssociation):
+                collection = self.hdca_serializer.serialize_to_view(content,
+                    user=trans.user, trans=trans, view=view, **serialization_params)
+                rval.append(collection)
+
+        return rval
+
+    # ...because the person who wrote the original parser should be fired
+    # Even this is stupid because of the required output format, and the
+    # subsequent travesty that will turn these into sql filters, but at least
+    # this way we can use grown-up standard query strings
+    def _correctly_parse_filters(self, qdict):
+        DEFAULT_OP = 'eq'
+        splitchar = '-'
+
+        result = []
+        for key, val in qdict.items():
+            attr = key
+            op = DEFAULT_OP
+            if splitchar in key:
+                attr, op = key.rsplit(splitchar, 1)
+            result.append([attr, op, val])
+
+        return result
+
+
     # Total Matches is a value required by client-side pagination and is the
     # total number of records that match the filters independent of pagination
     # TODO: Retrieving a count on a filtered results set by using 2 queries is a
