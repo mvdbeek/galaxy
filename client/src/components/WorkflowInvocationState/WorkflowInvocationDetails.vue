@@ -1,6 +1,5 @@
 <template>
     <div v-if="invocation" class="mb-3">
-        <!--
         <div v-if="Object.keys(invocation.input_step_parameters).length > 0">
             <details><summary><b>Invocation Parameters</b></summary>
                 <div v-for="parameter in invocation.input_step_parameters" v-bind:key="parameter.id">
@@ -8,18 +7,17 @@
                 </div>
             </details>
         </div>
-        -->
-        <div v-if="Object.keys(invocation.outputs).length > 0 && history">
+        <div v-if="Object.keys(invocation.outputs).length > 0">
             <details><summary><b>Invocation Outputs</b></summary>
                 <div v-for="output in invocation.outputs" v-bind:key="output.id">
-                    <WorkflowInvocationOutputs v-bind:dataset_id="output.id" :history="history"/>
+                    <WorkflowInvocationOutputs v-bind:dataset_id="output.id"/>
                 </div>
             </details>
         </div>
-        <div v-if="Object.keys(invocation.output_collections).length > 0 && history">
+        <div v-if="Object.keys(invocation.output_collections).length > 0">
             <details><summary><b>Invocation Output Collections</b></summary>
                 <div v-for="output in invocation.output_collections" v-bind:key="output.id">
-                    <WorkflowInvocationOutputs v-bind:dataset_collection_id="output.id" :history="history"/>
+                    <WorkflowInvocationOutputs v-bind:dataset_collection_id="output.id"/>
                 </div>
             </details>
         </div>
@@ -37,7 +35,6 @@ import BootstrapVue from "bootstrap-vue";
 import Vue from "vue";
 
 import {Dataset} from "components/History/ContentItem/Dataset";
-import {History} from "components/History/model"
 import WorkflowInvocationOutputs from "./WorkflowInvocationOutputs";
 import ListMixin from "components/History/ListMixin";
 
@@ -60,21 +57,6 @@ export default {
         invocation: {
             required: true,
         }
-    },
-    data: function () {
-        return {
-            history: null,
-        }
-
-    },
-    mounted () {
-        axios.get(
-           `${getAppRoot()}api/histories/${this.invocation.history_id}?view=betawebclient`
-           ).then(response => (
-               // console.log(new History(response.data))
-               this.history = new History(response.data)
-           )
-       );       
     },
 }
 </script>
