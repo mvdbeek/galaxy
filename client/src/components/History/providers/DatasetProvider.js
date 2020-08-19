@@ -2,9 +2,11 @@
 import axios from "axios";
 import { prependPath } from "utils/redirect"
 
+
+
 export default {
     props: {
-        typeId: { type: String, required: true }
+        id: { type: String, required: true }
     },
     data() {
         return {
@@ -12,9 +14,17 @@ export default {
             dataset: null
         }
     },
+    computed: {
+        // Without knowing how this fits into yoru requirements, I'm not sure
+        // exactly what IDs you have access to , but all you'd really need to
+        // change is the input props (above) and this url generation
+        url() {
+            return prependPath(`/api/dataset/${this.id}`);
+        }
+    },
     watch: {
         watch: {
-            typeId: {
+            id: {
                 immediate: true,
                 handler(newVal, oldVal) {
                     if (newVal !== oldVal) {
@@ -27,15 +37,13 @@ export default {
     methods: {
         async load() {
             this.loading = true;
-            const url = prependPath(`/api/dataset/${this.typeId}`);
-            const result = await axios.get(url);
+            const result = await axios.get(this.url);
             this.dataset = result;
             this.loading = false;
         },
         async save(newProps) {
             this.loading = true;
-            const url = prependPath(`/api/dataset/${this.typeId}`);
-            const result = await axios.put(url, newProps);
+            const result = await axios.put(this.url, newProps);
             this.dataset = result;
             this.loading = false;
         },
