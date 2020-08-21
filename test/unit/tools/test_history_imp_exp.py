@@ -9,8 +9,8 @@ from galaxy import model
 from galaxy.exceptions import MalformedContents
 from galaxy.tools.imp_exp import JobExportHistoryArchiveWrapper, JobImportHistoryArchiveWrapper, unpack_tar_gz_archive
 from galaxy.tools.imp_exp.export_history import create_archive
-from ..test_objectstore import TestConfig
 from ..unittest_utils.galaxy_mock import MockApp
+from ..unittest_utils.objectstore_helpers import TestConfig
 
 
 # good enough for the very specific tests we're writing as of now...
@@ -115,10 +115,12 @@ def test_export_dataset():
     app, sa_session, h = _setup_history_for_export("Datasets History")
 
     d1, d2 = _create_datasets(sa_session, h, 2)
+    d1.state = d2.state = 'ok'
 
     j = model.Job()
     j.user = h.user
     j.tool_id = "cat1"
+    j.state = 'ok'
 
     j.add_input_dataset("input1", d1)
     j.add_output_dataset("out_file1", d2)

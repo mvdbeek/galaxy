@@ -2,7 +2,6 @@ import json
 import logging
 
 from boltons.iterutils import remap
-from six import string_types
 from sqlalchemy import and_, false, func, or_
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import select
@@ -39,13 +38,13 @@ def get_path_key(path_tuple):
             # we remove the last 2 items of the path tuple (values and list index)
             return path_key
         if path_key:
-            path_key = "%s%s%s" % (path_key, sep, p)
+            path_key = "{}{}{}".format(path_key, sep, p)
         else:
             path_key = p
     return path_key
 
 
-class JobManager(object):
+class JobManager:
 
     def __init__(self, app):
         self.app = app
@@ -76,7 +75,7 @@ class JobManager(object):
             return False
 
 
-class JobSearch(object):
+class JobSearch:
     """Search for jobs using tool inputs or other jobs"""
     def __init__(self, app):
         self.app = app
@@ -151,7 +150,7 @@ class JobSearch(object):
                                      model.Job.states.OK])
             )
         else:
-            if isinstance(job_state, string_types):
+            if isinstance(job_state, str):
                 conditions.append(model.Job.state == job_state)
             elif isinstance(job_state, list):
                 o = []
@@ -496,6 +495,20 @@ def summarize_job_metrics(trans, job):
 
     metrics = [m for m in job.metrics if m.plugin != 'env' or trans.user_is_admin]
     return list(map(metric_to_dict, metrics))
+
+
+def summarize_destination_params(trans, job):
+    """Produce a dict-ified version of job destination parameters ready for tabular rendering.
+
+    Precondition: the caller has verified the job is accessible to the user
+    represented by the trans parameter.
+    """
+
+    destination_params = {'Runner': job.job_runner_name,
+                          'Runner Job ID': job.job_runner_external_id,
+                          'Handler': job.handler}
+    destination_params.update(job.destination_params)
+    return destination_params
 
 
 def summarize_job_parameters(trans, job):

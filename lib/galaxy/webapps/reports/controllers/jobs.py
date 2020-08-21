@@ -1,5 +1,3 @@
-from __future__ import print_function
-
 import calendar
 import logging
 import re
@@ -23,7 +21,7 @@ from galaxy.webapps.reports.framework import grids
 log = logging.getLogger(__name__)
 
 
-class Timer(object):
+class Timer:
     def __init__(self):
         self.start()
         self.stop()
@@ -116,7 +114,7 @@ class SpecifiedDateListGrid(grids.Grid):
     class StateColumn(grids.TextColumn):
 
         def get_value(self, trans, grid, job):
-            return '<div class="count-box state-color-%s">%s</div>' % (job.state, job.state)
+            return '<div class="count-box state-color-{}">{}</div>'.format(job.state, job.state)
 
         def filter(self, trans, user, query, column_filter):
             if column_filter == 'Unfinished':
@@ -164,11 +162,11 @@ class SpecifiedDateListGrid(grids.Grid):
             # We are either filtering on a date like YYYY-MM-DD or on a month like YYYY-MM,
             # so we need to figure out which type of date we have
             if column_filter.count('-') == 2:  # We are filtering on a date like YYYY-MM-DD
-                year, month, day = list(map(int, column_filter.split("-")))
+                year, month, day = map(int, column_filter.split("-"))
                 start_date = date(year, month, day)
                 end_date = start_date + timedelta(days=1)
             if column_filter.count('-') == 1:  # We are filtering on a month like YYYY-MM
-                year, month = list(map(int, column_filter.split("-")))
+                year, month = map(int, column_filter.split("-"))
                 start_date = date(year, month, 1)
                 end_date = start_date + timedelta(days=calendar.monthrange(year, month)[1])
 
@@ -371,7 +369,7 @@ class Jobs(BaseUIController, ReportQueryBuilder):
         specified_date = kwd.get('specified_date', datetime.utcnow().strftime("%Y-%m-%d"))
         specified_month = specified_date[:7]
 
-        year, month = list(map(int, specified_month.split("-")))
+        year, month = map(int, specified_month.split("-"))
         start_date = date(year, month, 1)
         end_date = start_date + timedelta(days=calendar.monthrange(year, month)[1])
         month_label = start_date.strftime("%B")
@@ -472,7 +470,7 @@ class Jobs(BaseUIController, ReportQueryBuilder):
         # If specified_date is not received, we'll default to the current month
         specified_date = kwd.get('specified_date', datetime.utcnow().strftime("%Y-%m-%d"))
         specified_month = specified_date[:7]
-        year, month = list(map(int, specified_month.split("-")))
+        year, month = map(int, specified_month.split("-"))
         start_date = date(year, month, 1)
         end_date = start_date + timedelta(days=calendar.monthrange(year, month)[1])
         month_label = start_date.strftime("%B")
