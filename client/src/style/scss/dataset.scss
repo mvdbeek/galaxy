@@ -190,6 +190,8 @@
 }
 
 // ---------------------------------------------------------------------------- datasets as list-items
+.peekContainer { overflow: scroll }
+
 .dataset {
     @extend .has-job-state-mixin;
 
