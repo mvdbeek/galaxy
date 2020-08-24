@@ -15,6 +15,7 @@ import { historyStore } from "./historyStore";
 import { userStore } from "./userStore";
 import { configStore } from "./configStore";
 import { workflowStore } from "./workflowStore";
+import { toolStore } from "./toolStore";
 import { datasetPathDestinationStore } from "./datasetPathDestinationStore";
 import { datasetExtFilesStore } from "./datasetExtFilesStore";
 
@@ -44,6 +45,7 @@ export function createStore() {
             user: userStore,
             config: configStore,
             workflows: workflowStore,
+            tools: toolStore,
         },
     };
 
