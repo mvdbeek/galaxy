@@ -16,6 +16,7 @@ import { historyStore } from "./historyStore";
 import { userStore, syncUserToGalaxy } from "./userStore";
 import { configStore } from "./configStore";
 import { workflowStore } from "./workflowStore";
+import { toolStore } from "./toolStore";
 import { datasetPathDestinationStore } from "./datasetPathDestinationStore";
 import { datasetExtFilesStore } from "./datasetExtFilesStore";
 import { datasetsStore } from "./datasetsStore";
@@ -46,6 +47,7 @@ export function createStore() {
             datasets: datasetsStore,
             informationStore: jobStore,
             betaHistory: betaHistoryStore,
+            tools: toolStore,
         },
     };
 
