@@ -41,7 +41,7 @@
             :error-count="errorCount"
         />
         <progress-bar v-else note="Loading job summary..." :loading="true" />
-        <workflow-invocation-details v-if="invocation" v-bind:invocation="invocation" />
+        <workflow-invocation-details v-if="invocation" :invocation="invocation" />
     </div>
 </template>
 <script>
