@@ -1327,6 +1327,7 @@ When this attribute is true and ``compare`` is set to ``diff``, try to decompres
     <xs:choice>
       <xs:element name="element" type="TestOutput"/>
       <!-- TODO: This would be more percise if this was only allowed at the top-level. -->
+      <xs:element name="composite_data" type="TestCompositeData" minOccurs="0" maxOccurs="unbounded" />
       <xs:element name="discovered_dataset" type="TestDiscoveredDataset"/>
       <!-- TODO: To be more percise only one assert_contents is allowed - this should not be in here. -->
       <xs:element name="assert_contents" type="TestAssertions">
