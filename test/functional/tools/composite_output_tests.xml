@@ -15,7 +15,7 @@
   </outputs>
   <tests>
     <test>
-      <param name="input" value="velveth_test1/output.html" ftype="velvet" >
+      <param name="input" value="" ftype="velvet" >
         <composite_data value="velveth_test1/Sequences" />
         <composite_data value="velveth_test1/Roadmaps" />
         <composite_data value="velveth_test1/Log"/>
