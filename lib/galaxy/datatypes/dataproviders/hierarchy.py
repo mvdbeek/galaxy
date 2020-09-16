@@ -2,8 +2,11 @@
 Dataproviders that iterate over lines from their sources.
 """
 import logging
+from xml.etree.ElementTree import (
+    Element,
+    iterparse
+)
 
-from galaxy.util import etree
 from . import line
 
 _TODO = """
@@ -23,7 +26,7 @@ class HierarchalDataProvider(line.BlockDataProvider):
 
     def __init__(self, source, **kwargs):
         # TODO: (and defer to better (than I can write) parsers for each subtype)
-        super().__init__(source, **kwargs)
+        super(HierarchalDataProvider, self).__init__(source, **kwargs)
 
 
 # ----------------------------------------------------------------------------- xml
@@ -31,7 +34,7 @@ class XMLDataProvider(HierarchalDataProvider):
     """
     Data provider that converts selected XML elements to dictionaries.
     """
-    # using lxml.etree's iterparse method to keep mem down
+    # using xml.etree's iterparse method to keep mem down
     # TODO:   this, however (AFAIK), prevents the use of xpath
     settings = {
         'selector'  : 'str',  # urlencoded
@@ -49,7 +52,7 @@ class XMLDataProvider(HierarchalDataProvider):
         self.max_depth = max_depth
         self.namespaces = {}
 
-        super().__init__(source, **kwargs)
+        super(XMLDataProvider, self).__init__(source, **kwargs)
 
     def matches_selector(self, element, selector=None):
         """
@@ -64,7 +67,6 @@ class XMLDataProvider(HierarchalDataProvider):
         # TODO: add more flexibility here w/o re-implementing xpath
         # TODO: fails with '#' - browser thinks it's an anchor - use urlencode
         # TODO: need removal/replacement of etree namespacing here - then move to string match
-        Element = getattr(etree, '_Element', etree.Element)
         return bool((selector is None) or
                     (isinstance(element, Element) and selector in element.tag))
 
@@ -101,7 +103,7 @@ class XMLDataProvider(HierarchalDataProvider):
                 yield child_data
 
     def __iter__(self):
-        context = etree.iterparse(self.source, events=self.ITERPARSE_ALL_EVENTS)
+        context = iterparse(self.source, events=self.ITERPARSE_ALL_EVENTS)
         context = iter(context)
 
         selected_element = None

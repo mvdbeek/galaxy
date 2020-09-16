@@ -21,7 +21,7 @@ except ImportError:
     parse = None
 
 
-class _Memoized:
+class _Memoized(object):
 
     def __init__(self, func):
         self.func = func
@@ -86,7 +86,7 @@ def raw_metadata(recipe_dir):
     return meta
 
 
-class _MetaData:
+class _MetaData(object):
 
     def __init__(self, input_dir):
         self.meta = raw_metadata(input_dir)

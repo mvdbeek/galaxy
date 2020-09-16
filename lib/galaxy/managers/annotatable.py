@@ -18,7 +18,7 @@ def _match_by_user(item, user):
     return None
 
 
-class AnnotatableManagerMixin:
+class AnnotatableManagerMixin(object):
     #: class of AnnotationAssociation (e.g. HistoryAnnotationAssociation)
     annotation_assoc = None
 
@@ -57,7 +57,7 @@ class AnnotatableManagerMixin:
         return returned
 
 
-class AnnotatableSerializerMixin:
+class AnnotatableSerializerMixin(object):
 
     def add_serializers(self):
         self.serializers['annotation'] = self.serialize_annotation
@@ -70,7 +70,7 @@ class AnnotatableSerializerMixin:
         return annotation.strip() if annotation else None
 
 
-class AnnotatableDeserializerMixin:
+class AnnotatableDeserializerMixin(object):
 
     def add_deserializers(self):
         self.deserializers['annotation'] = self.deserialize_annotation
@@ -85,7 +85,7 @@ class AnnotatableDeserializerMixin:
 
 
 # TODO: I'm not entirely convinced this (or tags) are a good idea for filters since they involve a/the user
-class AnnotatableFilterMixin:
+class AnnotatableFilterMixin(object):
 
     def _owner_annotation(self, item):
         """

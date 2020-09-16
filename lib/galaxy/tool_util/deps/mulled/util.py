@@ -1,4 +1,5 @@
 """Utilities for working with mulled abstractions outside the mulled package."""
+from __future__ import print_function
 
 import collections
 import hashlib
@@ -17,7 +18,6 @@ log = logging.getLogger(__name__)
 QUAY_REPOSITORY_API_ENDPOINT = 'https://quay.io/api/v1/repository'
 BUILD_NUMBER_REGEX = re.compile(r'\d+$')
 PARSED_TAG = collections.namedtuple('ParsedTag', 'tag version build_string build_number')
-QUAY_IO_TIMEOUT = 10
 
 
 def create_repository(namespace, repo_name, oauth_token):
@@ -29,7 +29,7 @@ def create_repository(namespace, repo_name, oauth_token):
         "description": "",
         "visibility": "public",
     }
-    requests.post("https://quay.io/api/v1/repository", json=data, headers=headers, timeout=QUAY_IO_TIMEOUT)
+    requests.post("https://quay.io/api/v1/repository", json=data, headers=headers)
 
 
 def quay_versions(namespace, pkg_name):
@@ -48,8 +48,8 @@ def quay_versions(namespace, pkg_name):
 def quay_repository(namespace, pkg_name):
     assert namespace is not None
     assert pkg_name is not None
-    url = 'https://quay.io/api/v1/repository/{}/{}'.format(namespace, pkg_name)
-    response = requests.get(url, timeout=QUAY_IO_TIMEOUT)
+    url = 'https://quay.io/api/v1/repository/%s/%s' % (namespace, pkg_name)
+    response = requests.get(url, timeout=None)
     data = response.json()
     return data
 
@@ -65,7 +65,7 @@ def _namespace_has_repo_name(namespace, repo_name, resolution_cache):
         repos_parameters = {'public': 'true', 'namespace': namespace}
         repos_headers = {'Accept-encoding': 'gzip', 'Accept': 'application/json'}
         repos_response = requests.get(
-            QUAY_REPOSITORY_API_ENDPOINT, headers=repos_headers, params=repos_parameters, timeout=QUAY_IO_TIMEOUT)
+            QUAY_REPOSITORY_API_ENDPOINT, headers=repos_headers, params=repos_parameters, timeout=None)
 
         repos = repos_response.json()['repositories']
         repo_names = [r["name"] for r in repos]
@@ -176,7 +176,7 @@ def _simple_image_name(targets, image_build=None):
         suffix += ":%s" % target.version
         if build is not None:
             suffix += "--%s" % build
-    return "{}{}".format(target.package_name, suffix)
+    return "%s%s" % (target.package_name, suffix)
 
 
 def v1_image_name(targets, image_build=None, name_override=None):
@@ -213,7 +213,7 @@ def v1_image_name(targets, image_build=None, name_override=None):
         m = hashlib.sha1()
         m.update(requirements_buffer.encode())
         suffix = "" if not image_build else ":%s" % image_build
-        return "mulled-v1-{}{}".format(m.hexdigest(), suffix)
+        return "mulled-v1-%s%s" % (m.hexdigest(), suffix)
 
 
 def v2_image_name(targets, image_build=None, name_override=None):
@@ -279,8 +279,8 @@ def v2_image_name(targets, image_build=None, name_override=None):
             build_suffix = image_build
         suffix = ""
         if version_hash_str or build_suffix:
-            suffix = ":{}{}".format(version_hash_str, build_suffix)
-        return "mulled-v2-{}{}".format(package_hash.hexdigest(), suffix)
+            suffix = ":%s%s" % (version_hash_str, build_suffix)
+        return "mulled-v2-%s%s" % (package_hash.hexdigest(), suffix)
 
 
 def get_file_from_recipe_url(url):
@@ -298,7 +298,7 @@ def split_container_name(name):
     return name.replace('--', ':').split(':')
 
 
-class PrintProgress:
+class PrintProgress(object):
     def __init__(self):
         self.thread = threading.Thread(target=self.progress)
         self.stop = threading.Event()

@@ -1,6 +1,7 @@
 """
 Migration script to add 'ldda_id' column to the implicitly_converted_dataset_association table.
 """
+from __future__ import print_function
 
 import logging
 

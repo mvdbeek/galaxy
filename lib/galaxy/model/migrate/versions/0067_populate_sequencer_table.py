@@ -4,6 +4,7 @@ entries in the 'datatx_info' column in the 'request_type' table. It also deletes
 column in the 'request_type' table and adds a foreign key to the 'sequencer' table. The
 actual contents of the datatx_info column are stored as form_values.
 """
+from __future__ import print_function
 
 import logging
 from json import dumps, loads
@@ -45,7 +46,7 @@ def create_sequencer_form_definition(migrate_engine):
     dict in the request_type table
     '''
     # create new form_definition_current in the db
-    cmd = "INSERT INTO form_definition_current VALUES ( {}, {}, {}, {}, {} )".format(
+    cmd = "INSERT INTO form_definition_current VALUES ( %s, %s, %s, %s, %s )" % (
         nextval(migrate_engine, 'form_definition_current'),
         localtimestamp(migrate_engine),
         localtimestamp(migrate_engine),
@@ -136,7 +137,7 @@ def add_sequencer(migrate_engine, sequencer_index, sequencer_form_definition_id,
                     'field_2': sequencer_info.get('password', ''),
                     'field_3': sequencer_info.get('data_dir', ''),
                     'field_4': sequencer_info.get('rename_dataset', '')})
-    cmd = "INSERT INTO form_values VALUES ( {}, {}, {}, {}, '{}' )".format(nextval(migrate_engine, 'form_values'),
+    cmd = "INSERT INTO form_values VALUES ( %s, %s, %s, %s, '%s' )" % (nextval(migrate_engine, 'form_values'),
                                                                        localtimestamp(migrate_engine),
                                                                        localtimestamp(migrate_engine),
                                                                        sequencer_form_definition_id,
@@ -148,7 +149,7 @@ def add_sequencer(migrate_engine, sequencer_index, sequencer_form_definition_id,
     desc = ''
     version = ''
     sequencer_type_id = 'simple_unknown_sequencer'
-    cmd = "INSERT INTO sequencer VALUES ( {}, {}, {}, '{}', '{}', '{}', '{}', {}, {}, {} )".format(
+    cmd = "INSERT INTO sequencer VALUES ( %s, %s, %s, '%s', '%s', '%s', '%s', %s, %s, %s )" % (
         nextval(migrate_engine, 'sequencer'),
         localtimestamp(migrate_engine),
         localtimestamp(migrate_engine),

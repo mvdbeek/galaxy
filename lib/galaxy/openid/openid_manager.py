@@ -14,7 +14,7 @@ try:
 except ImportError:
     oidutil = None
 
-    class FakeConsumer:
+    class FakeConsumer(object):
         def __getattr__(x, y):
             return None
     consumer = FakeConsumer()
@@ -34,7 +34,7 @@ if oidutil is not None:
     oidutil.log = oidlog
 
 
-class OpenIDManager:
+class OpenIDManager(object):
     def __init__(self, cache_path):
         assert oidutil is not None, OPENID_IMPORT_MESSAGE
         self.session_path = os.path.join(cache_path, 'session')

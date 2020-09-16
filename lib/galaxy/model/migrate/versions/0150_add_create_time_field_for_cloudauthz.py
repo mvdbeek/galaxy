@@ -2,6 +2,7 @@
 Adds `create_time` columns to cloudauthz table.
 """
 
+from __future__ import print_function
 
 import logging
 

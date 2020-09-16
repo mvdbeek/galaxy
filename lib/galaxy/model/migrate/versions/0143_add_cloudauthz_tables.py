@@ -1,6 +1,7 @@
 """
 Migration script to add a new tables for CloudAuthz (tokens required to access cloud-based resources).
 """
+from __future__ import print_function
 
 import logging
 

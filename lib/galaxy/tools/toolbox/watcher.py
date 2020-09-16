@@ -67,7 +67,7 @@ class ToolFileEventHandler(FileSystemEventHandler):
                     self.tool_watcher.tool_file_ids[tool_file] = tool_id
 
 
-class ToolConfWatcher:
+class ToolConfWatcher(object):
 
     def __init__(self, reload_callback, tool_cache=None):
         self.paths = {}
@@ -99,12 +99,8 @@ class ToolConfWatcher:
     def check(self):
         """Check for changes in self.paths or self.cache and call the event handler."""
         hashes = {}
-        if self.cache:
-            self.cache.assert_hashes_initialized()
         while self._active and not self.exit.isSet():
             do_reload = False
-            drop_on_next_loop = set()
-            drop_now = set()
             with self._lock:
                 paths = list(self.paths.keys())
             for path in paths:
@@ -131,18 +127,15 @@ class ToolConfWatcher:
                             hashes[path] = new_hash
                             log.debug("The file '%s' has changes.", path)
                             do_reload = True
-                except OSError:
+                except IOError:
                     # in rare cases `path` may be deleted between `os.path.exists` calls
                     # and reading the file from the filesystem. We do not want the watcher
                     # thread to die in these cases.
-                    if path in drop_now:
-                        log.warning("'%s' could not be read, removing from watched files", path)
+                    try:
+                        del hashes[path]
                         del paths[path]
-                        if path in hashes:
-                            del hashes[path]
-                    else:
-                        log.debug("'%s could not be read", path)
-                        drop_on_next_loop.add(path)
+                    except KeyError:
+                        pass
                     if self.cache:
                         self.cache.cleanup()
                     do_reload = True
@@ -152,8 +145,6 @@ class ToolConfWatcher:
                     do_reload = True
             if do_reload:
                 self.reload_callback()
-            drop_now = drop_on_next_loop
-            drop_on_next_loop = set()
             self.exit.wait(1)
 
     def monitor(self, path):
@@ -170,7 +161,7 @@ class ToolConfWatcher:
 class ToolWatcher(BaseWatcher):
 
     def __init__(self, observer_class, even_handler_class, toolbox):
-        super().__init__(observer_class, even_handler_class)
+        super(ToolWatcher, self).__init__(observer_class, even_handler_class)
         self.toolbox = toolbox
         self.tool_file_ids = {}
         self.tool_dir_callbacks = {}

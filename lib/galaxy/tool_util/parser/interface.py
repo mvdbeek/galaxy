@@ -1,16 +1,18 @@
-import os
 from abc import (
     ABCMeta,
     abstractmethod
 )
 
+import six
 
 from .util import _parse_name
 
 NOT_IMPLEMENTED_MESSAGE = "Galaxy tool format does not yet support this tool feature."
 
 
-class ToolSource(metaclass=ABCMeta):
+@six.python_2_unicode_compatible
+@six.add_metaclass(ABCMeta)
+class ToolSource(object):
     """ This interface represents an abstract source to parse tool
     information from.
     """
@@ -227,33 +229,22 @@ class ToolSource(metaclass=ABCMeta):
         Return minimum python version that the tool template has been developed against.
         """
 
-    @property
     def macro_paths(self):
         return []
-
-    @property
-    def source_path(self):
-        return None
-
-    def paths_and_modtimes(self):
-        paths_and_modtimes = {p: os.path.getmtime(p) for p in self.macro_paths}
-        if self.source_path:
-            paths_and_modtimes[self.source_path] = os.path.getmtime(self.source_path)
-        return paths_and_modtimes
 
     def parse_tests_to_dict(self):
         return {'tests': []}
 
     def __str__(self):
-        source_path = self.source_path
+        source_path = getattr(self, "_soure_path", None)
         if source_path:
-            as_str = '{}[{}]'.format(self.__class__.__name__, source_path)
+            as_str = u'%s[%s]' % (self.__class__.__name__, source_path)
         else:
-            as_str = '%s[In-memory]' % (self.__class__.__name__)
+            as_str = u'%s[In-memory]' % (self.__class__.__name__)
         return as_str
 
 
-class PagesSource:
+class PagesSource(object):
     """ Contains a list of Pages - each a list of InputSources -
     each item in the outer list representing a page of inputs.
     Pages are deprecated so ideally this outer list will always
@@ -268,7 +259,8 @@ class PagesSource:
         return True
 
 
-class PageSource(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class PageSource(object):
 
     def parse_display(self):
         return None
@@ -278,7 +270,8 @@ class PageSource(metaclass=ABCMeta):
         """ Return a list of InputSource objects. """
 
 
-class InputSource(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class InputSource(object):
     default_optional = False
 
     def elem(self):
@@ -361,7 +354,7 @@ class InputSource(metaclass=ABCMeta):
         raise NotImplementedError(NOT_IMPLEMENTED_MESSAGE)
 
 
-class TestCollectionDef:
+class TestCollectionDef(object):
 
     def __init__(self, attrib, name, collection_type, elements):
         self.attrib = attrib
@@ -440,7 +433,7 @@ class TestCollectionDef:
         return inputs
 
 
-class TestCollectionOutputDef:
+class TestCollectionOutputDef(object):
 
     def __init__(self, name, attrib, element_tests):
         self.name = name

@@ -1,6 +1,7 @@
 """
 Add table for worker processes
 """
+from __future__ import print_function
 
 import logging
 

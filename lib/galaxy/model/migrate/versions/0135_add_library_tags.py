@@ -1,6 +1,7 @@
 """
 This migration script adds support for storing tags in the context of a dataset in a library
 """
+from __future__ import print_function
 
 import logging
 

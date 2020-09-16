@@ -2,6 +2,7 @@
 """
 Convert from VCF file to interval index file.
 """
+from __future__ import division
 
 import optparse
 

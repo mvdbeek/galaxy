@@ -6,7 +6,7 @@ Fencepost-simple graph structure implementation.
 from collections import OrderedDict
 
 
-class SimpleGraphNode:
+class SimpleGraphNode(object):
     """
     Node representation.
     """
@@ -23,7 +23,7 @@ class SimpleGraphNode:
         self.data = data
 
 
-class SimpleGraphEdge:
+class SimpleGraphEdge(object):
     """
     Edge representation.
     """
@@ -42,7 +42,7 @@ class SimpleGraphEdge:
         self.data = data
 
 
-class SimpleGraph:
+class SimpleGraph(object):
     """
     Each node is unique (by id) and stores its own index in the node list/odict.
     Each edge is represented as two indeces into the node list/odict.

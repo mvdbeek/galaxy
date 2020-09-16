@@ -1,6 +1,7 @@
 """
 Model objects for docker objects
 """
+from __future__ import absolute_import
 
 import logging
 
@@ -30,7 +31,7 @@ IMAGE_CONSTRAINT = 'node.labels.' + IMAGE_LABEL
 log = logging.getLogger(__name__)
 
 
-class DockerAttributeContainer:
+class DockerAttributeContainer(object):
 
     def __init__(self, members=None):
         if members is None:
@@ -120,7 +121,7 @@ class DockerVolume(ContainerVolume):
 class DockerContainer(Container):
 
     def __init__(self, interface, id, name=None, inspect=None):
-        super().__init__(interface, id, name=name)
+        super(DockerContainer, self).__init__(interface, id, name=name)
         self._inspect = inspect
 
     @classmethod
@@ -185,7 +186,7 @@ class DockerContainer(Container):
 class DockerService(Container):
 
     def __init__(self, interface, id, name=None, image=None, inspect=None):
-        super().__init__(interface, id, name=name)
+        super(DockerService, self).__init__(interface, id, name=name)
         self._image = image
         self._inspect = inspect
         self._env = {}
@@ -374,7 +375,7 @@ class DockerService(Container):
         self.constraint_add(IMAGE_LABEL, '==', self.image)
 
 
-class DockerServiceConstraint:
+class DockerServiceConstraint(object):
 
     def __init__(self, name=None, op=None, value=None):
         self._name = name
@@ -393,10 +394,10 @@ class DockerServiceConstraint:
         return hash((self._name, self._op, self._value))
 
     def __repr__(self):
-        return '{}({}{}{})'.format(self.__class__.__name__, self._name, self._op, self._value)
+        return '%s(%s%s%s)' % (self.__class__.__name__, self._name, self._op, self._value)
 
     def __str__(self):
-        return '{}{}{}'.format(self._name, self._op, self._value)
+        return '%s%s%s' % (self._name, self._op, self._value)
 
     @staticmethod
     def split_constraint_string(constraint_str):
@@ -450,7 +451,7 @@ class DockerServiceConstraints(DockerAttributeContainer):
         return DockerNodeLabels(members=[x.label for x in self.members])
 
 
-class DockerNode:
+class DockerNode(object):
 
     def __init__(self, interface, id=None, name=None, status=None,
                  availability=None, manager=False, inspect=None):
@@ -508,7 +509,7 @@ class DockerNode:
 
     @property
     def state(self):
-        return ('{}-{}'.format(self._status, self._availability)).lower()
+        return ('%s-%s' % (self._status, self._availability)).lower()
 
     @property
     def cpus(self):
@@ -580,7 +581,7 @@ class DockerNode:
         self._interface.node_update(self.id, availability='drain')
 
 
-class DockerNodeLabel:
+class DockerNodeLabel(object):
 
     def __init__(self, name=None, value=None):
         self._name = name
@@ -597,10 +598,10 @@ class DockerNodeLabel:
         return hash((self._name, self._value))
 
     def __repr__(self):
-        return '{}({}: {})'.format(self.__class__.__name__, self._name, self._value)
+        return '%s(%s: %s)' % (self.__class__.__name__, self._name, self._value)
 
     def __str__(self):
-        return '{}: {}'.format(self._name, self._value)
+        return '%s: %s' % (self._name, self._value)
 
     @property
     def name(self):
@@ -639,7 +640,7 @@ class DockerNodeLabels(DockerAttributeContainer):
         return DockerServiceConstraints(members=[x.constraint for x in self.members])
 
 
-class DockerTask:
+class DockerTask(object):
 
     # these are the possible *current* state terminal states
     terminal_states = (
@@ -744,7 +745,7 @@ class DockerTask:
 
     @property
     def state(self):
-        return ('{}-{}'.format(self._desired_state, self._state)).lower()
+        return ('%s-%s' % (self._desired_state, self._state)).lower()
 
     @property
     def current_state(self):

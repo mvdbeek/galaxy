@@ -6,7 +6,7 @@ from .framework import selenium_test, SeleniumTestCase
 class ToolDescribingToursTestCase(SeleniumTestCase):
 
     def setUp(self):
-        super().setUp()
+        super(ToolDescribingToursTestCase, self).setUp()
         self.home()
 
     @selenium_test

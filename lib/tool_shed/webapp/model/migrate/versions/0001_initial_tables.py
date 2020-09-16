@@ -1,6 +1,7 @@
 """
 Migration script to create initial tables.
 """
+from __future__ import print_function
 
 import datetime
 import logging

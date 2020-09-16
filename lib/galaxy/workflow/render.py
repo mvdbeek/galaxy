@@ -8,7 +8,7 @@ STANDALONE_SVG_TEMPLATE = """<?xml version="1.0" standalone="no"?>
 %s"""
 
 
-class WorkflowCanvas:
+class WorkflowCanvas(object):
 
     def __init__(self):
         self.canvas = svgwrite.Drawing(profile='full')

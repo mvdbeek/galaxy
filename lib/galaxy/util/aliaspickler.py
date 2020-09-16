@@ -13,7 +13,7 @@ class AliasUnpickler(pickle.Unpickler):
         return pickle.Unpickler.find_class(self, module, name)
 
 
-class AliasPickleModule:
+class AliasPickleModule(object):
     def __init__(self, aliases):
         self.aliases = aliases
 

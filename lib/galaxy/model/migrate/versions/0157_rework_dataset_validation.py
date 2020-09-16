@@ -1,6 +1,7 @@
 """
 Rework dataset validation in database.
 """
+from __future__ import print_function
 
 import logging
 

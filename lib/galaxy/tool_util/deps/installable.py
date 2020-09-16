@@ -8,6 +8,7 @@ from abc import (
     abstractproperty,
 )
 
+import six
 
 from galaxy.util.filelock import (
     FileLock,
@@ -17,7 +18,8 @@ from galaxy.util.filelock import (
 log = logging.getLogger(__name__)
 
 
-class InstallableContext(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class InstallableContext(object):
     """Represent a directory/configuration of something that can be installed."""
 
     @abstractmethod

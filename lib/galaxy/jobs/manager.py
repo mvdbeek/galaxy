@@ -14,7 +14,7 @@ from galaxy.web_stack.message import JobHandlerMessage
 log = logging.getLogger(__name__)
 
 
-class JobManager:
+class JobManager(object):
     """
     Highest level interface to job management.
     """
@@ -49,7 +49,7 @@ class JobManager:
     def _message_callback(self, job):
         return JobHandlerMessage(task='setup', job_id=job.id)
 
-    def enqueue(self, job, tool=None, flush=True):
+    def enqueue(self, job, tool=None):
         """Queue a job for execution.
 
         Due to the nature of some handler assignment methods which are wholly DB-based, the enqueue method will flush
@@ -76,7 +76,7 @@ class JobManager:
         message_callback = partial(self._message_callback, job)
         try:
             return self.app.job_config.assign_handler(
-                job, configured=configured_handler, queue_callback=queue_callback, message_callback=message_callback, flush=flush)
+                job, configured=configured_handler, queue_callback=queue_callback, message_callback=message_callback)
         except HandlerAssignmentError as exc:
             raise ToolExecutionError(exc.args[0], job=exc.obj)
 
@@ -96,7 +96,7 @@ class JobManager:
         self.job_handler.shutdown()
 
 
-class NoopManager:
+class NoopManager(object):
     """
     Implements the JobManager interface but does nothing
     """
@@ -110,7 +110,7 @@ class NoopManager:
         pass
 
 
-class NoopHandler:
+class NoopHandler(object):
     """
     Implements the JobHandler interface but does nothing
     """

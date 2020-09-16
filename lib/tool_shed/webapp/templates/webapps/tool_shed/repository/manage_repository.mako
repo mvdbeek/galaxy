@@ -16,14 +16,14 @@
         has_metadata = False
 
     is_admin = trans.user_is_admin
-    is_new = repository.is_new()
+    is_new = repository.is_new( trans.app )
 
     if repository.deprecated:
         is_deprecated = True
     else:
         is_deprecated = False
 
-    if is_malicious( trans.app, trans.security.encode_id( repository.id ), repository.tip() ):
+    if is_malicious( trans.app, trans.security.encode_id( repository.id ), repository.tip( trans.app ) ):
         changeset_is_malicious = True
     else:
         changeset_is_malicious = False
@@ -48,7 +48,7 @@
     else:
         can_set_metadata = False
 
-    if changeset_revision == repository.tip():
+    if changeset_revision == repository.tip( trans.app ):
         changeset_revision_is_repository_tip = True
     else:
         changeset_revision_is_repository_tip = False

@@ -1,6 +1,7 @@
 """
 A simple wrapper for writing tarballs as a stream.
 """
+from __future__ import absolute_import
 
 import logging
 import os
@@ -12,7 +13,7 @@ from .path import safe_walk
 log = logging.getLogger(__name__)
 
 
-class StreamBall:
+class StreamBall(object):
     def __init__(self, mode, members=None):
         self.members = members
         if members is None:
@@ -33,7 +34,7 @@ class StreamBall:
     def stream(self, environ, start_response):
         response_write = start_response(self.wsgi_status, self.wsgi_headeritems)
 
-        class tarfileobj:
+        class tarfileobj(object):
             def write(self, *args, **kwargs):
                 response_write(*args, **kwargs)
         tf = tarfile.open(mode=self.mode, fileobj=tarfileobj())
@@ -43,17 +44,16 @@ class StreamBall:
         return []
 
 
-class ZipBall:
+class ZipBall(object):
     def __init__(self, tmpf, tmpd):
         self._tmpf = tmpf
         self._tmpd = tmpd
-        self.wsgi_status = None
-        self.wsgi_headeritems = None
 
     def stream(self, environ, start_response):
         response_write = start_response(self.wsgi_status, self.wsgi_headeritems)
-        with open(self._tmpf, 'rb') as tmpfh:
-            response_write(tmpfh.read())
+        tmpfh = open(self._tmpf)
+        response_write(tmpfh.read())
+        tmpfh.close()
         try:
             os.unlink(self._tmpf)
             os.rmdir(self._tmpd)
@@ -74,7 +74,7 @@ def stream_archive(trans, path, upstream_gzip=False):
             p = os.path.join(root, filename)
             relpath = os.path.relpath(p, os.path.join(path, os.pardir))
             archive.add(file=os.path.join(path, p), relpath=relpath)
-    archive_name = "{}.{}".format(os.path.basename(path), archive_ext)
+    archive_name = "%s.%s" % (os.path.basename(path), archive_ext)
     trans.response.set_content_type("application/x-tar")
     trans.response.headers["Content-Disposition"] = 'attachment; filename="{}"'.format(archive_name)
     archive.wsgi_status = trans.response.wsgi_status()

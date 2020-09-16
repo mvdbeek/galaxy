@@ -4,13 +4,15 @@ from abc import (
     abstractmethod
 )
 
+import six
 
 from galaxy import exceptions
 
 log = logging.getLogger(__name__)
 
 
-class DatasetCollectionType(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class DatasetCollectionType(object):
 
     @abstractmethod
     def generate_elements(self, dataset_instances):

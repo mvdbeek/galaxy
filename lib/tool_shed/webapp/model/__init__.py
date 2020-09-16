@@ -1,6 +1,5 @@
 import logging
 import os
-import weakref
 from datetime import (
     datetime,
     timedelta
@@ -9,7 +8,6 @@ from datetime import (
 import tool_shed.repository_types.util as rt_util
 from galaxy import util
 from galaxy.model.orm.now import now
-from galaxy.security.validate_user_input import validate_password_str
 from galaxy.util import unique_id
 from galaxy.util.bunch import Bunch
 from galaxy.util.dictifiable import Dictifiable
@@ -19,14 +17,11 @@ from tool_shed.util import (
     hg_util,
     metadata_util
 )
-from tool_shed.util.hgweb_config import hgweb_config_manager
 
 log = logging.getLogger(__name__)
 
-WEAK_HG_REPO_CACHE = weakref.WeakKeyDictionary()
 
-
-class APIKeys:
+class APIKeys(object):
     pass
 
 
@@ -68,14 +63,11 @@ class User(Dictifiable):
     total_disk_usage = property(get_disk_usage, set_disk_usage)
 
     def set_password_cleartext(self, cleartext):
-        message = validate_password_str(cleartext)
-        if message:
-            raise Exception("Invalid password: %s" % message)
         """Set 'self.password' to the digest of 'cleartext'."""
         self.password = new_secure_hash(text_type=cleartext)
 
 
-class PasswordResetToken:
+class PasswordResetToken(object):
     def __init__(self, user, token=None):
         if token:
             self.token = token
@@ -120,31 +112,31 @@ class Role(Dictifiable):
         return False
 
 
-class UserGroupAssociation:
+class UserGroupAssociation(object):
     def __init__(self, user, group):
         self.user = user
         self.group = group
 
 
-class UserRoleAssociation:
+class UserRoleAssociation(object):
     def __init__(self, user, role):
         self.user = user
         self.role = role
 
 
-class GroupRoleAssociation:
+class GroupRoleAssociation(object):
     def __init__(self, group, role):
         self.group = group
         self.role = role
 
 
-class RepositoryRoleAssociation:
+class RepositoryRoleAssociation(object):
     def __init__(self, repository, role):
         self.repository = repository
         self.role = role
 
 
-class GalaxySession:
+class GalaxySession(object):
 
     def __init__(self,
                  id=None,
@@ -200,18 +192,8 @@ class Repository(Dictifiable):
         self.create_time = create_time
 
     @property
-    def hg_repo(self):
-        from mercurial import (
-            hg,
-            ui
-        )
-        if not WEAK_HG_REPO_CACHE.get(self):
-            WEAK_HG_REPO_CACHE[self] = hg.cachedlocalrepo(hg.repository(ui.ui(), self.repo_path().encode('utf-8')))
-        return WEAK_HG_REPO_CACHE[self].fetch()[0]
-
-    @property
     def admin_role(self):
-        admin_role_name = '{}_{}_admin'.format(str(self.name), str(self.user.username))
+        admin_role_name = '%s_%s_admin' % (str(self.name), str(self.user.username))
         for rra in self.roles:
             role = rra.role
             if str(role.name) == admin_role_name:
@@ -219,18 +201,14 @@ class Repository(Dictifiable):
         raise Exception('Repository %s owned by %s is not associated with a required administrative role.' %
                         (str(self.name), str(self.user.username)))
 
-    def allow_push(self):
-        hgrc_file = hg_util.get_hgrc_path(self.repo_path())
-        with open(hgrc_file) as fh:
-            for line in fh.read().splitlines():
-                if line.startswith('allow_push = '):
-                    return line[len('allow_push = '):]
-        return ''
+    def allow_push(self, app):
+        repo = hg_util.get_repo_for_repository(app, repository=self)
+        return repo.ui.config('web', 'allow_push')
 
-    def can_change_type(self):
+    def can_change_type(self, app):
         # Allow changing the type only if the repository has no contents, has never been installed, or has
         # never been changed from the default type.
-        if self.is_new():
+        if self.is_new(app):
             return True
         if self.times_downloaded == 0:
             return True
@@ -241,9 +219,9 @@ class Repository(Dictifiable):
     def can_change_type_to(self, app, new_type_label):
         if self.type == new_type_label:
             return False
-        if self.can_change_type():
+        if self.can_change_type(app):
             new_type = app.repository_types_registry.get_class_by_label(new_type_label)
-            if new_type.is_valid_for_type(self):
+            if new_type.is_valid_for_type(app, self):
                 return True
         return False
 
@@ -282,21 +260,21 @@ class Repository(Dictifiable):
     def installable_revisions(self, app, sort_revisions=True):
         return metadata_util.get_metadata_revisions(app, self, sort_revisions=sort_revisions)
 
-    def is_new(self):
-        tip_rev = self.hg_repo.changelog.tiprev()
+    def is_new(self, app):
+        repo = hg_util.get_repo_for_repository(app, repository=self)
+        tip_rev = repo.changelog.tiprev()
         return tip_rev < 0
 
-    def repo_path(self, app=None):
-        # Keep app argument for compatibility with tool_shed_install Repository model
-        return hgweb_config_manager.get_entry(os.path.join("repos", self.user.username, self.name))
+    def repo_path(self, app):
+        return app.hgweb_config_manager.get_entry(os.path.join("repos", self.user.username, self.name))
 
-    def revision(self):
-        repo = self.hg_repo
+    def revision(self, app):
+        repo = hg_util.get_repo_for_repository(app, repository=self)
         tip_ctx = repo[repo.changelog.tip()]
-        return "{}:{}".format(str(tip_ctx.rev()), str(tip_ctx))
+        return "%s:%s" % (str(tip_ctx.rev()), str(tip_ctx))
 
-    def set_allow_push(self, usernames, remove_auth=''):
-        allow_push = util.listify(self.allow_push())
+    def set_allow_push(self, app, usernames, remove_auth=''):
+        allow_push = util.listify(self.allow_push(app))
         if remove_auth:
             allow_push.remove(remove_auth)
         else:
@@ -306,23 +284,23 @@ class Repository(Dictifiable):
         allow_push = '%s\n' % ','.join(allow_push)
         # Why doesn't the following work?
         # repo.ui.setconfig('web', 'allow_push', allow_push)
-        repo_dir = self.repo_path()
+        repo_dir = self.repo_path(app)
         hgrc_file = hg_util.get_hgrc_path(repo_dir)
-        with open(hgrc_file) as fh:
+        with open(hgrc_file, 'rb') as fh:
             lines = fh.readlines()
-        with open(hgrc_file, 'w') as fh:
+        with open(hgrc_file, 'wb') as fh:
             for line in lines:
                 if line.startswith('allow_push'):
                     fh.write('allow_push = %s' % allow_push)
                 else:
                     fh.write(line)
 
-    def tip(self):
-        repo = self.hg_repo
+    def tip(self, app):
+        repo = hg_util.get_repo_for_repository(app, repository=self)
         return str(repo[repo.changelog.tip()])
 
     def to_dict(self, view='collection', value_mapper=None):
-        rval = super().to_dict(view=view, value_mapper=value_mapper)
+        rval = super(Repository, self).to_dict(view=view, value_mapper=value_mapper)
         if 'user_id' in rval:
             rval['owner'] = self.user.username
         return rval
@@ -400,14 +378,14 @@ class ComponentReview(Dictifiable):
         self.deleted = deleted
 
 
-class Component:
+class Component(object):
 
     def __init__(self, name=None, description=None):
         self.name = name
         self.description = description
 
 
-class ItemRatingAssociation:
+class ItemRatingAssociation(object):
 
     def __init__(self, id=None, user=None, item=None, rating=0, comment=''):
         self.id = id
@@ -418,6 +396,7 @@ class ItemRatingAssociation:
 
     def set_item(self, item):
         """ Set association's item. """
+        pass
 
 
 class RepositoryRatingAssociation(ItemRatingAssociation):
@@ -436,14 +415,14 @@ class Category(Dictifiable):
         self.deleted = deleted
 
 
-class RepositoryCategoryAssociation:
+class RepositoryCategoryAssociation(object):
 
     def __init__(self, repository=None, category=None):
         self.repository = repository
         self.category = category
 
 
-class Tag:
+class Tag(object):
 
     def __init__(self, id=None, type=None, parent_id=None, name=None):
         self.id = id
@@ -455,7 +434,7 @@ class Tag:
         return "Tag(id=%s, type=%i, parent_id=%s, name=%s)" % (self.id, self.type, self.parent_id, self.name)
 
 
-class ItemTagAssociation:
+class ItemTagAssociation(object):
 
     def __init__(self, id=None, user=None, item_id=None, tag_id=None, user_tname=None, value=None):
         self.id = id
@@ -467,7 +446,7 @@ class ItemTagAssociation:
         self.user_value = None
 
 
-class PostJobAction:
+class PostJobAction(object):
 
     def __init__(self, action_type, workflow_step, output_name=None, action_arguments=None):
         self.action_type = action_type
@@ -476,15 +455,15 @@ class PostJobAction:
         self.workflow_step = workflow_step
 
 
-class StoredWorkflowAnnotationAssociation:
+class StoredWorkflowAnnotationAssociation(object):
     pass
 
 
-class WorkflowStepAnnotationAssociation:
+class WorkflowStepAnnotationAssociation(object):
     pass
 
 
-class Workflow:
+class Workflow(object):
 
     def __init__(self):
         self.user = None
@@ -494,7 +473,7 @@ class Workflow:
         self.steps = []
 
 
-class WorkflowStep:
+class WorkflowStep(object):
 
     def __init__(self):
         self.id = None
@@ -525,7 +504,7 @@ class WorkflowStep:
         return connections
 
 
-class WorkflowStepInput:
+class WorkflowStepInput(object):
 
     def __init__(self):
         self.id = None
@@ -533,7 +512,7 @@ class WorkflowStepInput:
         self.connections = []
 
 
-class WorkflowStepConnection:
+class WorkflowStepConnection(object):
 
     def __init__(self):
         self.output_step = None

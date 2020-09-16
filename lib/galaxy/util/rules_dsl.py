@@ -2,6 +2,8 @@ import abc
 import itertools
 import re
 
+import six
+from six.moves import map
 
 from galaxy.util import strip_control_characters_nested
 
@@ -9,16 +11,16 @@ from galaxy.util import strip_control_characters_nested
 def _ensure_rule_contains_keys(rule, keys):
     for key, instance_class in keys.items():
         if key not in rule:
-            raise ValueError("Rule of type [{}] does not contain key [{}].".format(rule["type"], key))
+            raise ValueError("Rule of type [%s] does not contain key [%s]." % (rule["type"], key))
         value = rule[key]
         if not isinstance(value, instance_class):
-            raise ValueError("Rule of type [{}] does not contain correct value type for key [{}].".format(rule["type"], key))
+            raise ValueError("Rule of type [%s] does not contain correct value type for key [%s]." % (rule["type"], key))
 
 
 def _ensure_key_value_in(rule, key, values):
     value = rule[key]
     if value not in values:
-        raise ValueError("Invalid value [{}] for [{}] encountered.".format(value, key))
+        raise ValueError("Invalid value [%s] for [%s] encountered." % (value, key))
 
 
 def _ensure_valid_pattern(expression):
@@ -33,7 +35,7 @@ def apply_regex(regex, target, data, replacement=None, group_count=None):
         if replacement is None:
             match = pattern.search(source)
             if not match:
-                raise Exception("Problem applying regular expression [{}] to [{}].".format(regex, source))
+                raise Exception("Problem applying regular expression [%s] to [%s]." % (regex, source))
 
             if group_count:
                 if len(match.groups()) != group_count:
@@ -51,7 +53,8 @@ def apply_regex(regex, target, data, replacement=None, group_count=None):
     return new_data
 
 
-class BaseRuleDefinition(metaclass=abc.ABCMeta):
+@six.add_metaclass(abc.ABCMeta)
+class BaseRuleDefinition(object):
 
     @abc.abstractproperty
     def rule_type(self):
@@ -70,7 +73,7 @@ class AddColumnMetadataRuleDefinition(BaseRuleDefinition):
     rule_type = "add_column_metadata"
 
     def validate_rule(self, rule):
-        _ensure_rule_contains_keys(rule, {"value": str})
+        _ensure_rule_contains_keys(rule, {"value": six.string_types})
 
     def apply(self, rule, data, sources):
         rule_value = rule["value"]
@@ -98,7 +101,7 @@ class AddColumnGroupTagValueRuleDefinition(BaseRuleDefinition):
     rule_type = "add_column_group_tag_value"
 
     def validate_rule(self, rule):
-        _ensure_rule_contains_keys(rule, {"value": str})
+        _ensure_rule_contains_keys(rule, {"value": six.string_types})
 
     def apply(self, rule, data, sources):
         rule_value = rule["value"]
@@ -155,7 +158,7 @@ class AddColumnRegexRuleDefinition(BaseRuleDefinition):
     rule_type = "add_column_regex"
 
     def validate_rule(self, rule):
-        _ensure_rule_contains_keys(rule, {"target_column": int, "expression": str})
+        _ensure_rule_contains_keys(rule, {"target_column": int, "expression": six.string_types})
         _ensure_valid_pattern(rule["expression"])
 
     def apply(self, rule, data, sources):
@@ -187,7 +190,7 @@ class AddColumnValueRuleDefinition(BaseRuleDefinition):
     rule_type = "add_column_value"
 
     def validate_rule(self, rule):
-        _ensure_rule_contains_keys(rule, {"value": str})
+        _ensure_rule_contains_keys(rule, {"value": six.string_types})
 
     def apply(self, rule, data, sources):
         value = rule["value"]
@@ -206,7 +209,7 @@ class AddColumnSubstrRuleDefinition(BaseRuleDefinition):
         _ensure_rule_contains_keys(rule, {
             "target_column": int,
             "length": int,
-            "substr_type": str,
+            "substr_type": six.string_types,
         })
         _ensure_key_value_in(rule, "substr_type", ["keep_prefix", "drop_prefix", "keep_suffix", "drop_suffix"])
 
@@ -275,7 +278,7 @@ class AddFilterRegexRuleDefinition(BaseRuleDefinition):
         _ensure_rule_contains_keys(rule, {
             "target_column": int,
             "invert": bool,
-            "expression": str,
+            "expression": six.string_types,
         })
         _ensure_valid_pattern(rule["expression"])
 
@@ -300,7 +303,7 @@ class AddFilterCountRuleDefinition(BaseRuleDefinition):
         _ensure_rule_contains_keys(rule, {
             "count": int,
             "invert": bool,
-            "which": str,
+            "which": six.string_types,
         })
         _ensure_key_value_in(rule, "which", ["first", "last"])
 
@@ -347,7 +350,7 @@ class AddFilterMatchesRuleDefinition(BaseRuleDefinition):
         _ensure_rule_contains_keys(rule, {
             "target_column": int,
             "invert": bool,
-            "value": str,
+            "value": six.string_types,
         })
 
     def apply(self, rule, data, sources):
@@ -370,7 +373,7 @@ class AddFilterCompareRuleDefinition(BaseRuleDefinition):
         _ensure_rule_contains_keys(rule, {
             "target_column": int,
             "value": int,
-            "compare_type": str,
+            "compare_type": six.string_types,
         })
         _ensure_key_value_in(rule, "compare_type", ["less_than", "less_than_equal", "greater_than", "greater_than_equal"])
 
@@ -488,7 +491,7 @@ def flat_map(f, items):
     return list(itertools.chain.from_iterable(map(f, items)))
 
 
-class RuleSet:
+class RuleSet(object):
 
     def __init__(self, rule_set_as_dict):
         self.raw_rules = strip_control_characters_nested(rule_set_as_dict["rules"])

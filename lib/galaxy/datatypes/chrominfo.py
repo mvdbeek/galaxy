@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import galaxy.datatypes.metadata
 import galaxy.datatypes.tabular
 from galaxy.datatypes.metadata import MetadataElement

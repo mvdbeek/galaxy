@@ -13,6 +13,7 @@ import weakref
 from collections import OrderedDict
 from os.path import abspath
 
+from six import string_types
 from sqlalchemy.orm import object_session
 
 import galaxy.model
@@ -31,7 +32,7 @@ log = logging.getLogger(__name__)
 STATEMENTS = "__galaxy_statements__"  # this is the name of the property in a Datatype class where new metadata spec element Statements are stored
 
 
-class Statement:
+class Statement(object):
     """
     This class inserts its target into a list in the surrounding
     class.  the data.Data class has a metaclass which executes these
@@ -45,7 +46,7 @@ class Statement:
     def __call__(self, *args, **kwargs):
         # get the locals dictionary of the frame object one down in the call stack (i.e. the Datatype class calling MetadataElement)
         class_locals = sys._getframe(1).f_locals
-        # get and set '__galaxy_statements__' to an empty list if not in locals dict
+        # get and set '__galaxy_statments__' to an empty list if not in locals dict
         statements = class_locals.setdefault(STATEMENTS, [])
         # add Statement containing info to populate a MetadataElementSpec
         statements.append((self, args, kwargs))
@@ -56,7 +57,7 @@ class Statement:
             statement.target(element, *args, **kwargs)  # statement.target is MetadataElementSpec, element is a Datatype class
 
 
-class MetadataCollection:
+class MetadataCollection(object):
     """
     MetadataCollection is not a collection at all, but rather a proxy
     to the real metadata which is stored as a Dictionary. This class
@@ -156,12 +157,11 @@ class MetadataCollection:
     def from_JSON_dict(self, filename=None, path_rewriter=None, json_dict=None):
         dataset = self.parent
         if filename is not None:
-            log.debug('loading metadata from file for: {} {}'.format(dataset.__class__.__name__, dataset.id))
-            with open(filename) as fh:
-                JSONified_dict = json.load(fh)
+            log.debug('loading metadata from file for: %s %s' % (dataset.__class__.__name__, dataset.id))
+            JSONified_dict = json.load(open(filename))
         elif json_dict is not None:
-            log.debug('loading metadata from dict for: {} {}'.format(dataset.__class__.__name__, dataset.id))
-            if isinstance(json_dict, str):
+            log.debug('loading metadata from dict for: %s %s' % (dataset.__class__.__name__, dataset.id))
+            if isinstance(json_dict, string_types):
                 JSONified_dict = json.loads(json_dict)
             elif isinstance(json_dict, dict):
                 JSONified_dict = json_dict
@@ -213,8 +213,7 @@ class MetadataCollection:
             meta_dict['__validated_state_message__'] = dataset_meta_dict['__validated_state_message__']
         if filename is None:
             return json.dumps(meta_dict)
-        with open(filename, 'wt+') as fh:
-            json.dump(meta_dict, fh)
+        json.dump(meta_dict, open(filename, 'wt+'))
 
     def __getstate__(self):
         # cannot pickle a weakref item (self._parent), when
@@ -231,7 +230,7 @@ class MetadataSpecCollection(OrderedDict):
     """
 
     def __init__(self, *args, **kwds):
-        super().__init__(*args, **kwds)
+        super(MetadataSpecCollection, self).__init__(*args, **kwds)
 
     def append(self, item):
         self[item.name] = item
@@ -246,7 +245,7 @@ class MetadataSpecCollection(OrderedDict):
         return ', '.join(item.__str__() for item in self.values())
 
 
-class MetadataParameter:
+class MetadataParameter(object):
     def __init__(self, spec):
         self.spec = spec
 
@@ -276,6 +275,7 @@ class MetadataParameter:
         """
         Throw an exception if the value is invalid.
         """
+        pass
 
     def unwrap(self, form_value):
         """
@@ -304,7 +304,7 @@ class MetadataParameter:
         return value
 
 
-class MetadataElementSpec:
+class MetadataElementSpec(object):
     """
     Defines a metadata element and adds it to the metadata_spec (which
     is a MetadataSpecCollection) of datatype.
@@ -425,7 +425,7 @@ class DBKeyParameter(SelectParameter):
             values = kwd['trans'].app.genome_builds.get_genome_build_names(kwd['trans'])
         except KeyError:
             pass
-        return super().get_field(value, context, other_values, values, **kwd)
+        return super(DBKeyParameter, self).get_field(value, context, other_values, values, **kwd)
 
 
 class RangeParameter(SelectParameter):
@@ -524,15 +524,12 @@ class FileParameter(MetadataParameter):
             return None
         if isinstance(value, galaxy.model.MetadataFile) or isinstance(value, MetadataTempFile):
             return value
-        return session.query(galaxy.model.MetadataFile).get(value)
+        mf = session.query(galaxy.model.MetadataFile).get(value)
+        return mf
 
     def make_copy(self, value, target_context, source_context):
         value = self.wrap(value, object_session(target_context.parent))
-        target_dataset = target_context.parent.dataset
-        if value and target_dataset.object_store.exists(target_dataset):
-            # Only copy MetadataFile if the target dataset has been created in an object store.
-            # All current datatypes re-generate MetadataFile objects when setting metadata,
-            # so this would ultimately get overwritten anyway.
+        if value:
             new_value = galaxy.model.MetadataFile(dataset=target_context.parent, name=self.spec.name)
             object_session(target_context.parent).add(new_value)
             object_session(target_context.parent).flush()
@@ -543,10 +540,7 @@ class FileParameter(MetadataParameter):
     @classmethod
     def marshal(cls, value):
         if isinstance(value, galaxy.model.MetadataFile):
-            # We want to push value.id to the database, but need to skip this when no session is available,
-            # as in extended_metadata mode, so there we just accept MetadataFile.
-            # We will only serialize MetadataFile in this mode and not push to the database, so this is OK.
-            value = value.id or value
+            value = value.id
         return value
 
     def from_external_value(self, value, parent, path_rewriter=None):
@@ -603,7 +597,7 @@ class FileParameter(MetadataParameter):
 
 
 # This class is used when a database file connection is not available
-class MetadataTempFile:
+class MetadataTempFile(object):
     tmp_dir = 'database/tmp'  # this should be overwritten as necessary in calling scripts
 
     def __init__(self, **kwds):
@@ -637,13 +631,12 @@ class MetadataTempFile:
     @classmethod
     def cleanup_from_JSON_dict_filename(cls, filename):
         try:
-            with open(filename) as fh:
-                for value in json.load(fh).values():
-                    if cls.is_JSONified_value(value):
-                        value = cls.from_JSON(value)
-                    if isinstance(value, cls) and os.path.exists(value.file_name):
-                        log.debug('Cleaning up abandoned MetadataTempFile file: %s', value.file_name)
-                        os.unlink(value.file_name)
+            for key, value in json.load(open(filename)).items():
+                if cls.is_JSONified_value(value):
+                    value = cls.from_JSON(value)
+                if isinstance(value, cls) and os.path.exists(value.file_name):
+                    log.debug('Cleaning up abandoned MetadataTempFile file: %s', value.file_name)
+                    os.unlink(value.file_name)
         except Exception as e:
             log.debug('Failed to cleanup MetadataTempFile temp files from %s: %s', filename, unicodify(e))
 

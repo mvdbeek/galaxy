@@ -1,11 +1,13 @@
 """
 Classes for wrapping Objects and Sanitizing string output.
 """
+from __future__ import absolute_import
 
 import collections
 import inspect
 import logging
 import string
+import sys
 from numbers import Number
 from types import (
     BuiltinFunctionType,
@@ -106,10 +108,10 @@ CHARACTER_MAP = {'>': '__gt__',
 
 INVALID_CHARACTER = "X"
 
-
-def coerce(x, y):
+if sys.version_info > (3, 0):
     # __coerce__ doesn't do anything under Python anyway.
-    return x
+    def coerce(x, y):
+        return x
 
 
 def cmp(x, y):
@@ -157,8 +159,8 @@ def wrap_with_safe_string(value, no_wrap_classes=None):
             wrapped_class = value.__class__
         value_mod = inspect.getmodule(value)
         if value_mod:
-            wrapped_class_name = "{}.{}".format(value_mod.__name__, wrapped_class_name)
-        wrapped_class_name = "SafeStringWrapper({}:{})".format(wrapped_class_name, ",".join(sorted(map(str, no_wrap_classes))))
+            wrapped_class_name = "%s.%s" % (value_mod.__name__, wrapped_class_name)
+        wrapped_class_name = "SafeStringWrapper(%s:%s)" % (wrapped_class_name, ",".join(sorted(map(str, no_wrap_classes))))
         do_wrap_func_name = "__do_wrap_%s" % (wrapped_class_name)
         do_wrap_func = __do_wrap
         global_dict = globals()
@@ -199,7 +201,7 @@ def wrap_with_safe_string(value, no_wrap_classes=None):
 # N.B. refer to e.g. https://docs.python.org/2/reference/datamodel.html for information on Python's Data Model.
 
 
-class SafeStringWrapper:
+class SafeStringWrapper(object):
     """
     Class that wraps and sanitizes any provided value's attributes
     that will attempt to be cast into a string.
@@ -222,11 +224,11 @@ class SafeStringWrapper:
         # that will be used when other + this (this + other is handled by __add__)
         try:
             sanitized_value = sanitize_lists_to_string(arg[0], valid_characters=VALID_CHARACTERS, character_map=CHARACTER_MAP)
-            return super().__new__(cls, sanitized_value)
+            return super(SafeStringWrapper, cls).__new__(cls, sanitized_value)
         except TypeError:
             # Class to be wrapped takes no parameters.
             # This is pefectly normal for mutable types.
-            return super().__new__(cls)
+            return super(SafeStringWrapper, cls).__new__(cls)
 
     def __init__(self, value, safe_string_wrapper_function=wrap_with_safe_string):
         self.unsanitized = value
@@ -236,7 +238,7 @@ class SafeStringWrapper:
         return sanitize_lists_to_string(self.unsanitized, valid_characters=VALID_CHARACTERS, character_map=CHARACTER_MAP)
 
     def __repr__(self):
-        return "{} object at {:x} on: {}".format(sanitize_lists_to_string(self.__class__.__name__, valid_characters=VALID_CHARACTERS, character_map=CHARACTER_MAP), id(self), sanitize_lists_to_string(repr(self.unsanitized), valid_characters=VALID_CHARACTERS, character_map=CHARACTER_MAP))
+        return "%s object at %x on: %s" % (sanitize_lists_to_string(self.__class__.__name__, valid_characters=VALID_CHARACTERS, character_map=CHARACTER_MAP), id(self), sanitize_lists_to_string(repr(self.unsanitized), valid_characters=VALID_CHARACTERS, character_map=CHARACTER_MAP))
 
     def __lt__(self, other):
         while isinstance(other, SafeStringWrapper):

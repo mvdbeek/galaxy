@@ -10,7 +10,7 @@ from . import (
 log = logging.getLogger(__name__)
 
 
-class Registry:
+class Registry(object):
 
     def __init__(self):
         self.repository_types_by_label = OrderedDict()

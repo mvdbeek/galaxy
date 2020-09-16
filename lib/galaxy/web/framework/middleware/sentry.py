@@ -20,7 +20,7 @@ RAVEN_IMPORT_MESSAGE = ('The Python raven package is required to use this '
                         'feature, please install it')
 
 
-class Sentry:
+class Sentry(object):
     """
     A WSGI middleware which will attempt to capture any
     uncaught exceptions and send them to Sentry.
@@ -49,7 +49,8 @@ class Sentry:
             raise
 
         try:
-            yield from iterable
+            for event in iterable:
+                yield event
         except Exception:
             self.handle_exception(environ)
             raise

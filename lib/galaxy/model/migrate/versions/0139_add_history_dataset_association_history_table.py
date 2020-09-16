@@ -1,6 +1,7 @@
 """
 Migration script to add the history_dataset_association_history table.
 """
+from __future__ import print_function
 
 import datetime
 import logging

@@ -3,7 +3,6 @@
 Used to share code between the Galaxy test framework
 and other Galaxy CWL clients (e.g. Planemo)."""
 import hashlib
-import io
 import json
 import os
 import tarfile
@@ -11,6 +10,11 @@ import tempfile
 from collections import namedtuple
 
 import yaml
+from six import (
+    BytesIO,
+    iteritems,
+    python_2_unicode_compatible
+)
 
 from galaxy.util import unicodify
 
@@ -34,7 +38,7 @@ def output_properties(path=None, content=None, basename=None, pseduo_location=Fa
         properties["path"] = path
         f = open(path, "rb")
     else:
-        f = io.BytesIO(content)
+        f = BytesIO(content)
 
     try:
         contents = f.read(1024 * 1024)
@@ -113,8 +117,8 @@ def galactic_job_json(
         upload_response = upload_func(target)
         return response_to_hda(target, upload_response)
 
-    def upload_file_literal(contents, **kwd):
-        target = FileLiteralTarget(contents, **kwd)
+    def upload_file_literal(contents):
+        target = FileLiteralTarget(contents)
         upload_response = upload_func(target)
         return response_to_hda(target, upload_response)
 
@@ -175,9 +179,6 @@ def galactic_job_json(
         # format to match output definitions in tool, where did filetype come from?
         filetype = value.get("filetype", None) or value.get("format", None)
         composite_data_raw = value.get("composite_data", None)
-        kwd = {}
-        if "tags" in value:
-            kwd["tags"] = value.get("tags")
         if composite_data_raw:
             composite_data = []
             for entry in composite_data_raw:
@@ -187,13 +188,13 @@ def galactic_job_json(
                 else:
                     path = entry
                 composite_data.append(path)
-            rval_c = upload_file_with_composite_data(None, composite_data, filetype=filetype, **kwd)
+            rval_c = upload_file_with_composite_data(None, composite_data, filetype=filetype)
             return rval_c
 
         if file_path is None:
             contents = value.get("contents", None)
             if contents is not None:
-                return upload_file_literal(contents, **kwd)
+                return upload_file_literal(contents)
 
             return value
 
@@ -220,7 +221,7 @@ def galactic_job_json(
             tf.close()
             secondary_files_tar_path = tmp.name
 
-        return upload_file(file_path, secondary_files_tar_path, filetype=filetype, **kwd)
+        return upload_file(file_path, secondary_files_tar_path, filetype=filetype)
 
     def replacement_directory(value):
         file_path = value.get("location", None) or value.get("path", None)
@@ -251,38 +252,22 @@ def galactic_job_json(
         hdca_id = collection["id"]
         return {"src": "hdca", "id": hdca_id}
 
-    def to_elements(value, rank_collection_type):
+    def replacement_collection(value):
         collection_element_identifiers = []
+        assert "collection_type" in value
         assert "elements" in value
+
+        collection_type = value["collection_type"]
         elements = value["elements"]
 
-        is_nested_collection = ":" in rank_collection_type
         for element in elements:
-            if not is_nested_collection:
-                # flat collection
-                dataset = replacement_item(element, force_to_file=True)
-                collection_element = dataset.copy()
-                collection_element["name"] = element["identifier"]
-                collection_element_identifiers.append(collection_element)
-            else:
-                # nested collection
-                sub_collection_type = rank_collection_type[rank_collection_type.find(":") + 1:]
-                collection_element = {
-                    "name": element["identifier"],
-                    "src": "new_collection",
-                    "collection_type": sub_collection_type,
-                    "element_identifiers": to_elements(element, sub_collection_type)
-                }
-                collection_element_identifiers.append(collection_element)
+            dataset = replacement_item(element, force_to_file=True)
+            collection_element = dataset.copy()
+            collection_element["name"] = element["identifier"]
+            collection_element_identifiers.append(collection_element)
 
-        return collection_element_identifiers
-
-    def replacement_collection(value):
-        assert "collection_type" in value
-        collection_type = value["collection_type"]
-        elements = to_elements(value, collection_type)
-
-        collection = collection_create_func(elements, collection_type)
+        # TODO: handle nested lists/arrays
+        collection = collection_create_func(collection_element_identifiers, collection_type)
         dataset_collections.append(collection)
         hdca_id = collection["id"]
         return {"src": "hdca", "id": hdca_id}
@@ -306,7 +291,7 @@ def galactic_job_json(
         return {"src": "hdca", "id": hdca_id}
 
     replace_keys = {}
-    for key, value in job.items():
+    for key, value in iteritems(job):
         replace_keys[key] = replacement_item(value)
 
     job.update(replace_keys)
@@ -326,17 +311,18 @@ def _ensure_file_exists(file_path):
         raise Exception(message)
 
 
-class FileLiteralTarget:
+@python_2_unicode_compatible
+class FileLiteralTarget(object):
 
     def __init__(self, contents, **kwargs):
         self.contents = contents
-        self.properties = kwargs
 
     def __str__(self):
-        return "FileLiteralTarget[path={}] with {}".format(self.path, self.properties)
+        return "FileLiteralTarget[path=%s] with %s" % (self.path, self.properties)
 
 
-class FileUploadTarget:
+@python_2_unicode_compatible
+class FileUploadTarget(object):
 
     def __init__(self, path, secondary_files=None, **kwargs):
         self.path = path
@@ -345,10 +331,11 @@ class FileUploadTarget:
         self.properties = kwargs
 
     def __str__(self):
-        return "FileUploadTarget[path={}] with {}".format(self.path, self.properties)
+        return "FileUploadTarget[path=%s] with %s" % (self.path, self.properties)
 
 
-class ObjectUploadTarget:
+@python_2_unicode_compatible
+class ObjectUploadTarget(object):
 
     def __init__(self, the_object):
         self.object = the_object
@@ -357,7 +344,8 @@ class ObjectUploadTarget:
         return "ObjectUploadTarget[object=%s]" % self.object
 
 
-class DirectoryUploadTarget:
+@python_2_unicode_compatible
+class DirectoryUploadTarget(object):
 
     def __init__(self, tar_path):
         self.tar_path = tar_path
@@ -366,17 +354,17 @@ class DirectoryUploadTarget:
         return "DirectoryUploadTarget[tar_path=%s]" % self.tar_path
 
 
-GalaxyOutput = namedtuple("GalaxyOutput", ["history_id", "history_content_type", "history_content_id", "metadata"])
+GalaxyOutput = namedtuple("GalaxyOutput", ["history_id", "history_content_type", "history_content_id"])
 
 
 def tool_response_to_output(tool_response, history_id, output_id):
     for output in tool_response["outputs"]:
         if output["output_name"] == output_id:
-            return GalaxyOutput(history_id, "dataset", output["id"], None)
+            return GalaxyOutput(history_id, "dataset", output["id"])
 
     for output_collection in tool_response["output_collections"]:
         if output_collection["output_name"] == output_id:
-            return GalaxyOutput(history_id, "dataset_collection", output_collection["id"], None)
+            return GalaxyOutput(history_id, "dataset_collection", output_collection["id"])
 
     raise Exception("Failed to find output with label [%s]" % output_id)
 
@@ -384,12 +372,12 @@ def tool_response_to_output(tool_response, history_id, output_id):
 def invocation_to_output(invocation, history_id, output_id):
     if output_id in invocation["outputs"]:
         dataset = invocation["outputs"][output_id]
-        galaxy_output = GalaxyOutput(history_id, "dataset", dataset["id"], None)
+        galaxy_output = GalaxyOutput(history_id, "dataset", dataset["id"])
     elif output_id in invocation["output_collections"]:
         collection = invocation["output_collections"][output_id]
-        galaxy_output = GalaxyOutput(history_id, "dataset_collection", collection["id"], None)
+        galaxy_output = GalaxyOutput(history_id, "dataset_collection", collection["id"])
     else:
-        raise Exception("Failed to find output with label [{}] in [{}]".format(output_id, invocation))
+        raise Exception("Failed to find output with label [%s] in [%s]" % (output_id, invocation))
 
     return galaxy_output
 
@@ -403,24 +391,14 @@ def output_to_cwl_json(
     interface via Galaxy.
     """
     def element_to_cwl_json(element):
-        object = element["object"]
-        content_type = object.get("history_content_type")
-        metadata = None
-        if content_type is None:
-            content_type = "dataset_collection"
-            metadata = element["object"]
-            metadata["history_content_type"] = content_type
         element_output = GalaxyOutput(
             galaxy_output.history_id,
-            content_type,
-            object["id"],
-            metadata,
+            element["object"]["history_content_type"],
+            element["object"]["id"],
         )
         return output_to_cwl_json(element_output, get_metadata, get_dataset, get_extra_files, pseduo_location=pseduo_location)
 
-    output_metadata = galaxy_output.metadata
-    if output_metadata is None:
-        output_metadata = get_metadata(galaxy_output.history_content_type, galaxy_output.history_content_id)
+    output_metadata = get_metadata(galaxy_output.history_content_type, galaxy_output.history_content_id)
 
     def dataset_dict_to_json_content(dataset_dict):
         if "content" in dataset_dict:
@@ -557,7 +535,7 @@ def guess_artifact_type(path):
     # TODO: Handle IDs within files.
     tool_or_workflow = "workflow"
     try:
-        with open(path) as f:
+        with open(path, "r") as f:
             artifact = yaml.safe_load(f)
 
         tool_or_workflow = "tool" if artifact["class"] != "Workflow" else "workflow"

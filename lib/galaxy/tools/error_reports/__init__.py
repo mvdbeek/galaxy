@@ -22,7 +22,7 @@ DEFAULT_CONFIG = [
 DEFAULT_PLUGINS_SOURCE = plugin_config.PluginConfigSource('dict', DEFAULT_CONFIG)
 
 
-class ErrorReports:
+class ErrorReports(object):
     """Load and store a collection of :class:`ErrorPlugin` objects."""
 
     def __init__(self, conf_file=None, **kwargs):
@@ -36,7 +36,7 @@ class ErrorReports:
         return plugin_config.plugins_dict(galaxy.tools.error_reports.plugins, 'plugin_type')
 
 
-class NullErrorPlugin:
+class NullErrorPlugin(object):
 
     def submit_report(self, dataset, job, tool, **kwargs):
         log.warning("Bug report for dataset %s, job %s submitted to NullErrorPlugin", dataset, job)
@@ -46,7 +46,7 @@ class NullErrorPlugin:
 NULL_ERROR_PLUGIN = NullErrorPlugin()
 
 
-class ErrorPlugin:
+class ErrorPlugin(object):
 
     def __init__(self, plugin_classes, plugins_source, **kwargs):
         self.extra_kwargs = kwargs

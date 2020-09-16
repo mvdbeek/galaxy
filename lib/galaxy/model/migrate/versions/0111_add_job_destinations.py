@@ -1,6 +1,7 @@
 """
 Add support for job destinations to the job table
 """
+from __future__ import print_function
 
 import logging
 

@@ -2,7 +2,7 @@ const path = require("path");
 const fs = require("fs");
 const del = require("del");
 const { src, dest, series, parallel } = require("gulp");
-const child_process = require("child_process");
+const spawn = require("child_process").spawnSync;
 const glob = require("glob");
 
 /*
@@ -16,7 +16,7 @@ const paths = {
     node_modules: "./node_modules",
     plugin_dirs: [
         "../config/plugins/{visualizations,interactive_environments}/*/static/**/*",
-        "../config/plugins/{visualizations,interactive_environments}/*/*/static/**/*",
+        "../config/plugins/{visualizations,interactive_environments}/*/*/static/**/*"
     ],
     plugin_build_dirs: [`../config/plugins/visualizations/{${PLUGIN_BUILD_DIRS.join(",")}}/package.json`],
     lib_locs: {
@@ -25,21 +25,23 @@ const paths = {
         // not be necessary.
         backbone: ["backbone.js", "backbone.js"],
         "bootstrap-tour": ["build/js/bootstrap-tour.js", "bootstrap-tour.js"],
+        "bibtex-parse-js": ["bibtexParse.js", "bibtexParse.js"],
         jquery: ["dist/jquery.js", "jquery/jquery.js"],
         "jquery.complexify": ["jquery.complexify.js", "jquery/jquery.complexify.js"],
         "jquery.cookie": ["jquery.cookie.js", "jquery/jquery.cookie.js"],
         "jquery-migrate": ["dist/jquery-migrate.js", "jquery/jquery.migrate.js"],
         "jquery-mousewheel": ["jquery.mousewheel.js", "jquery/jquery.mousewheel.js"],
+        "raven-js": ["dist/raven.js", "raven.js"],
         requirejs: ["require.js", "require.js"],
-        underscore: ["underscore.js", "underscore.js"],
+        underscore: ["underscore.js", "underscore.js"]
     },
-    libs: ["src/libs/**/*.js"],
+    libs: ["galaxy/scripts/libs/**/*.js"]
 };
 
 function stageLibs(callback) {
-    Object.keys(paths.lib_locs).forEach((lib) => {
+    Object.keys(paths.lib_locs).forEach(lib => {
         var p1 = path.resolve(path.join(paths.node_modules, lib, paths.lib_locs[lib][0]));
-        var p2 = path.resolve(path.join("src", "libs", paths.lib_locs[lib][1]));
+        var p2 = path.resolve(path.join("galaxy", "scripts", "libs", paths.lib_locs[lib][1]));
         if (fs.existsSync(p1)) {
             del.sync(p2);
             fs.createReadStream(p1).pipe(fs.createWriteStream(p2));
@@ -63,45 +65,18 @@ function stagePlugins() {
     return src(paths.plugin_dirs).pipe(dest("../static/plugins/"));
 }
 
-function buildPlugins(callback) {
+function buildPlugins(callback){
     /*
-     * Walk plugin_build_dirs glob and attempt to build modules.
+     * Walk plugin build glob and attempt to build anything with a package.json 
      * */
-    paths.plugin_build_dirs.map((build_dir) => {
+    paths.plugin_build_dirs.map( build_dir => {
         glob(build_dir, {}, (er, files) => {
-            files.map((file) => {
-                let skip_build = false;
+            files.map( file => {
                 const f = path.join(process.cwd(), file).slice(0, -12);
-                const plugin_name = path.dirname(file).split(path.sep).pop();
-                const hash_file_path = path.join(f, "static", "plugin_build_hash.txt");
-
-                if (fs.existsSync(hash_file_path)) {
-                    skip_build =
-                        child_process.spawnSync("git", ["diff", "--quiet", `$(cat ${hash_file_path})`, "--", f], {
-                            stdio: "inherit",
-                            shell: true,
-                        }).status === 0;
-                } else {
-                    console.log(`No build hashfile detected for ${plugin_name}, generating now.`);
-                }
-
-                if (skip_build) {
-                    console.log(`No changes detected for ${plugin_name}`);
-                } else {
-                    console.log(`Installing Dependencies for ${plugin_name}`);
-                    child_process.spawnSync(
-                        "yarn",
-                        ["install", "--production=false", "--network-timeout=300000", "--check-files"],
-                        {
-                            cwd: f,
-                            stdio: "inherit",
-                            shell: true,
-                        }
-                    );
-                    console.log(`Building ${plugin_name}`);
-                    child_process.spawnSync("yarn", ["build"], { cwd: f, stdio: "inherit", shell: true });
-                    child_process.exec(`(git rev-parse HEAD 2>/dev/null || echo \`\`) > ${hash_file_path}`);
-                }
+                console.log("Installing Dependencies for", f);
+                spawn('yarn', ['install', '--production=false', '--network-timeout=300000', '--check-files'], { cwd: f, stdio: 'inherit', shell: true });
+                console.log("Building ", f);
+                spawn('yarn', ['build'], { cwd: f, stdio: 'inherit', shell: true });
             });
         });
     });
@@ -113,7 +88,7 @@ function cleanPlugins() {
 }
 
 client = parallel(fonts, stageLibs);
-plugins = series(buildPlugins, cleanPlugins, stagePlugins);
+plugins = series(cleanPlugins, buildPlugins, stagePlugins);
 
 module.exports.client = client;
 module.exports.plugins = plugins;

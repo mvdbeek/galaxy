@@ -2,7 +2,7 @@ import logging
 log = logging.getLogger(__name__)
 
 
-class HistoryQuery:
+class HistoryQuery(object):
     """ An object for describing the collections to pull out of a history,
     used by DataCollectionToolParameter.
     """

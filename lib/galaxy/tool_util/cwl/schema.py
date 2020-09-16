@@ -15,7 +15,7 @@ ResolvedProcessDefinition = namedtuple("ResolvedProcessDefinition", ["loading_co
 REWRITE_EXPRESSIONS = False
 
 
-class SchemaLoader:
+class SchemaLoader(object):
 
     def __init__(self, strict=True, validate=True):
         self._strict = strict

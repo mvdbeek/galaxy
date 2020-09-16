@@ -2,6 +2,7 @@
 Utility functions for bi-directional Python version compatibility.  Python 2.5
 introduced hashlib which replaced sha in Python 2.4 and previous versions.
 """
+from __future__ import absolute_import
 
 import hashlib
 import hmac
@@ -59,7 +60,7 @@ def md5_hash_file(path):
             buf = afile.read()
             hasher.update(buf)
             return hasher.hexdigest()
-    except OSError:
+    except IOError:
         # This may happen if path has been deleted
         return None
 
@@ -73,7 +74,7 @@ def new_secure_hash(text_type):
 
 
 def hmac_new(key, value):
-    return hmac.new(smart_str(key), smart_str(value), sha).hexdigest()
+    return hmac.new(key, value, sha).hexdigest()
 
 
 def is_hashable(value):

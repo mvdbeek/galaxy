@@ -1,6 +1,7 @@
 """
 Migration script to add the uninstalled and dist_to_shed columns to the tool_shed_repository table.
 """
+from __future__ import print_function
 
 import logging
 

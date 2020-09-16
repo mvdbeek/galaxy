@@ -5,6 +5,7 @@ had to be manually created.
 
 This is now fixed in SQLAlchemy Migrate.
 """
+from __future__ import print_function
 
 import logging
 

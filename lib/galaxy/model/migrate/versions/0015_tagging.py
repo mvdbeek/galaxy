@@ -2,6 +2,7 @@
 This migration script adds the tables necessary to support tagging of histories,
 datasets, and history-dataset associations (user views of datasets).
 """
+from __future__ import print_function
 
 import logging
 

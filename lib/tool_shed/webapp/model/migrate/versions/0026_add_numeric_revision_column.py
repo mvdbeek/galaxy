@@ -1,4 +1,5 @@
 """Migration script to add the numeric_revision column to the repository metadata table."""
+from __future__ import print_function
 
 import logging
 import sys

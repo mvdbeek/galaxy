@@ -1,5 +1,6 @@
 """ Tests for the tool data API.
 """
+from __future__ import print_function
 
 import operator
 

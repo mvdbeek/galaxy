@@ -89,7 +89,8 @@ class odict(UserDict):
             yield key, self.get(key)
 
     def __iter__(self):
-        yield from self._keys
+        for key in self._keys:
+            yield key
 
     def reverse(self):
         self._keys.reverse()

@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 # =============================================================================
-class FolderManager:
+class FolderManager(object):
     """
     Interface/service object for interacting with folders.
     """

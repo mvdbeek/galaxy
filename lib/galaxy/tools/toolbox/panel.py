@@ -1,5 +1,6 @@
 from abc import abstractmethod
 
+from six import iteritems
 
 from galaxy.util import bunch
 from galaxy.util.dictifiable import Dictifiable
@@ -15,7 +16,7 @@ panel_item_types = bunch.Bunch(
 )
 
 
-class HasPanelItems:
+class HasPanelItems(object):
     """
     """
 
@@ -29,7 +30,7 @@ class HasPanelItems:
         """ Iterate through panel items each represented as a tuple of
         (panel_key, panel_type, panel_content).
         """
-        for panel_key, panel_value in self.panel_items().items():
+        for panel_key, panel_value in iteritems(self.panel_items()):
             if panel_value is None:
                 continue
             panel_type = panel_item_types.SECTION
@@ -68,19 +69,18 @@ class ToolSection(Dictifiable, HasPanelItems):
         copy.elems = self.elems.copy()
         return copy
 
-    def to_dict(self, trans, link_details=False, tool_help=False, toolbox=None):
+    def to_dict(self, trans, link_details=False, toolbox=None):
         """ Return a dict that includes section's attributes. """
 
-        section_dict = super().to_dict()
+        section_dict = super(ToolSection, self).to_dict()
         section_elts = []
         kwargs = dict(
             trans=trans,
-            link_details=link_details,
-            tool_help=tool_help
+            link_details=link_details
         )
         for elt in self.elems.values():
             if hasattr(elt, "tool_type") and toolbox:
-                section_elts.append(toolbox.get_tool_to_dict(trans, elt, tool_help=tool_help))
+                section_elts.append(toolbox.get_tool_to_dict(trans, elt))
             else:
                 section_elts.append(elt.to_dict(**kwargs))
         section_dict['elems'] = section_elts
@@ -108,7 +108,7 @@ class ToolSectionLabel(Dictifiable):
         self.version = item.get("version") or ''
 
     def to_dict(self, **kwds):
-        return super().to_dict()
+        return super(ToolSectionLabel, self).to_dict()
 
 
 class ToolPanelElements(odict, HasPanelItems):

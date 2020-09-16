@@ -1,6 +1,7 @@
 """
 Migration script to change the 'value' column of 'user_preference' table from numeric(22, 7) to numeric(26, 7)
 """
+from __future__ import print_function
 
 import logging
 

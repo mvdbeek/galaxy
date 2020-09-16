@@ -1,6 +1,7 @@
 """
 Migration script to drop the update_available Boolean column and replace it with the tool_shed_status JSONType column in the tool_shed_repository table.
 """
+from __future__ import print_function
 
 import logging
 

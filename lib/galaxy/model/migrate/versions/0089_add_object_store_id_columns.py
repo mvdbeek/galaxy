@@ -1,6 +1,7 @@
 """
 Migration script to add 'object_store_id' column to various tables
 """
+from __future__ import print_function
 
 import logging
 

@@ -2,6 +2,7 @@
 This migration script adds the request_event table and
 removes the state field in the request table
 """
+from __future__ import print_function
 
 import datetime
 import logging

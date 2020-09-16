@@ -658,7 +658,8 @@ class GalaxyRBACAgent(RBACAgent):
 
     def create_user_role(self, user, app):
         # Create private user role if necessary
-        self.get_private_user_role(user, auto_create=True)
+        if not self.get_private_user_role(user):
+            self.create_private_user_role(user)
         # Create default user permissions if necessary
         if not user.default_permissions:
             if hasattr(app.config, "new_user_dataset_access_role_default_private"):
@@ -1445,7 +1446,7 @@ class HostAgent(RBACAgent):
                 try:
                     if socket.gethostbyname(server) == addr:
                         break  # remote host is in the server list
-                except (OSError, socket.gaierror):
+                except (socket.error, socket.gaierror):
                     pass  # can't resolve, try next
             else:
                 log.debug('Denying access to private dataset with hda: %i.  Remote addr is not a valid server for site: %s.' % (hda.id, hdadaa.site))

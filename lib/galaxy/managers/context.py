@@ -4,12 +4,13 @@ Mixins for transaction-like objects.
 import string
 from json import dumps
 
+from six import text_type
 
 from galaxy.exceptions import UserActivationRequiredException
 from galaxy.util import bunch
 
 
-class ProvidesAppContext:
+class ProvidesAppContext(object):
     """ For transaction-like objects to provide Galaxy convience layer for
     database and event handling.
 
@@ -21,7 +22,7 @@ class ProvidesAppContext:
         Application-level logging of user actions.
         """
         if self.app.config.log_actions:
-            action = self.app.model.UserAction(action=action, context=context, params=str(dumps(params)))
+            action = self.app.model.UserAction(action=action, context=context, params=text_type(dumps(params)))
             try:
                 if user:
                     action.user = user
@@ -99,7 +100,7 @@ class ProvidesAppContext:
         return self.app.install_model
 
 
-class ProvidesUserContext:
+class ProvidesUserContext(object):
     """ For transaction-like objects to provide Galaxy convience layer for
     reasoning about users.
 
@@ -159,7 +160,7 @@ class ProvidesUserContext:
             return path
 
 
-class ProvidesHistoryContext:
+class ProvidesHistoryContext(object):
     """ For transaction-like objects to provide Galaxy convience layer for
     reasoning about histories.
 

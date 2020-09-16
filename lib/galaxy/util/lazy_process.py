@@ -3,7 +3,7 @@ import threading
 import time
 
 
-class LazyProcess:
+class LazyProcess(object):
     """ Abstraction describing a command line launching a service - probably
     as needed as functionality is accessed in Galaxy.
     """
@@ -40,7 +40,7 @@ class LazyProcess:
         return self.process and not self.process.poll()
 
 
-class NoOpLazyProcess:
+class NoOpLazyProcess(object):
     """ LazyProcess abstraction meant to describe potentially optional
     services, in those cases where one is not configured or valid, this
     class can be used in place of LazyProcess.

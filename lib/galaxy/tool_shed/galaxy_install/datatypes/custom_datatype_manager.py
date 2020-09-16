@@ -9,7 +9,7 @@ from galaxy.util.tool_shed.xml_util import parse_xml
 log = logging.getLogger(__name__)
 
 
-class CustomDatatypeLoader:
+class CustomDatatypeLoader(object):
 
     def __init__(self, app):
         self.app = app

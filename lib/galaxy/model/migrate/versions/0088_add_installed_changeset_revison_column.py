@@ -1,6 +1,7 @@
 """
 Migration script to add the installed_changeset_revision column to the tool_shed_repository table.
 """
+from __future__ import print_function
 
 import logging
 

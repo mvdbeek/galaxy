@@ -1,6 +1,7 @@
 """
 Migration script to (a) create tables for annotating pages.
 """
+from __future__ import print_function
 
 import logging
 

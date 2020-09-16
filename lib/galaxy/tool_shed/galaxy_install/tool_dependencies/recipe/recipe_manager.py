@@ -6,7 +6,7 @@ from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe import tag_handler
 log = logging.getLogger(__name__)
 
 
-class StepManager:
+class StepManager(object):
 
     def __init__(self, app):
         self.app = app
@@ -75,7 +75,7 @@ class StepManager:
         return action_dict
 
 
-class TagManager:
+class TagManager(object):
 
     def __init__(self, app):
         self.app = app

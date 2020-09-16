@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 
 # ====
-class ContainerManagerMixin:
+class ContainerManagerMixin(object):
     """
     A class that tracks/contains two types of items:
         1) some non-container object (such as datasets)

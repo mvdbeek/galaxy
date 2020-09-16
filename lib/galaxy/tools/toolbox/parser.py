@@ -5,6 +5,7 @@ Galaxy tool panel.
 """
 from abc import ABCMeta, abstractmethod
 
+import six
 import yaml
 
 from galaxy.util import parse_xml, string_as_bool
@@ -12,7 +13,8 @@ from galaxy.util import parse_xml, string_as_bool
 DEFAULT_MONITOR = False
 
 
-class ToolConfSource(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class ToolConfSource(object):
     """Interface represents a container of tool references."""
 
     @abstractmethod
@@ -41,9 +43,6 @@ class XmlToolConfSource(ToolConfSource):
     def parse_tool_path(self):
         return self.root.get('tool_path')
 
-    def parse_tool_cache_data_dir(self):
-        return self.root.get('tool_cache_data_dir')
-
     def parse_items(self):
         return [ensure_tool_conf_item(_) for _ in self.root]
 
@@ -59,15 +58,12 @@ class XmlToolConfSource(ToolConfSource):
 class YamlToolConfSource(ToolConfSource):
 
     def __init__(self, config_filename):
-        with open(config_filename) as f:
+        with open(config_filename, "r") as f:
             as_dict = yaml.safe_load(f)
         self.as_dict = as_dict
 
     def parse_tool_path(self):
         return self.as_dict.get('tool_path')
-
-    def parse_tool_cache_data_dir(self):
-        return self.as_dict.get('tool_cache_data_dir')
 
     def parse_items(self):
         return [ToolConfItem.from_dict(_) for _ in self.as_dict.get('items')]
@@ -79,7 +75,7 @@ class YamlToolConfSource(ToolConfSource):
         return False
 
 
-class ToolConfItem:
+class ToolConfItem(object):
     """Abstract description of a tool conf item.
 
     These may include tools, labels, sections, and workflows.
@@ -128,7 +124,7 @@ class ToolConfItem:
 class ToolConfSection(ToolConfItem):
 
     def __init__(self, attributes, items, elem=None):
-        super().__init__('section', attributes, elem)
+        super(ToolConfSection, self).__init__('section', attributes, elem)
         self.items = items
 
 

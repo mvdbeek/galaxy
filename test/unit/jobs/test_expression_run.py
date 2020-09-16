@@ -32,14 +32,15 @@ def test_run_simple():
         if "PYTHONPATH" in new_env:
             new_env['PYTHONPATH'] = "%s:%s" % (LIB_DIRECTORY, new_env["PYTHONPATH"])
         else:
-            new_env['PYTHONPATH'] = LIB_DIRECTORY
+            new_env['PYTHONPATH'] = "%s" % (LIB_DIRECTORY)
         new_env['GALAXY_EXPRESSION_INPUTS'] = environment_path
-        subprocess.check_call(
+        p = subprocess.Popen(
             args=expressions.EXPRESSION_SCRIPT_CALL,
             shell=True,
             cwd=test_directory,
             env=new_env,
         )
+        assert p.wait() == 0
         with open(os.path.join(test_directory, 'moo')) as f:
             out_content = f.read()
         assert out_content == '7', out_content

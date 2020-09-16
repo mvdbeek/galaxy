@@ -1,6 +1,7 @@
 """
 Migration for adding custos_authnz_token table.
 """
+from __future__ import print_function
 
 import logging
 

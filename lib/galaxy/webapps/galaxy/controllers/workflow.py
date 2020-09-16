@@ -1,3 +1,5 @@
+from __future__ import absolute_import
+
 import base64
 import json
 import logging
@@ -309,7 +311,7 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
                 session = trans.sa_session
                 session.add(share)
                 session.flush()
-                trans.set_message("Workflow '{}' shared with user '{}'".format(escape(stored.name), escape(other.email)))
+                trans.set_message("Workflow '%s' shared with user '%s'" % (escape(stored.name), escape(other.email)))
                 return trans.response.send_redirect(url_for(controller='workflow', action='sharing', id=id))
         return trans.fill_template("/ind_share_base.mako",
                                    message=msg,
@@ -705,8 +707,8 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
             'version'                 : version,
             'annotation'              : self.get_item_annotation_str(trans.sa_session, trans.user, stored),
             'toolbox'                 : trans.app.toolbox.to_dict(trans),
-            'moduleSections'          : module_sections,
-            'dataManagers'            : data_managers,
+            'module_sections'         : module_sections,
+            'data_managers'           : data_managers,
             'workflows'               : workflows
         }
 
@@ -756,7 +758,7 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
         request = unicodify(request_raw.strip(), 'utf-8')
 
         # Do request and get result.
-        auth_header = base64.b64encode('{}:{}'.format(myexp_username, myexp_password))
+        auth_header = base64.b64encode('%s:%s' % (myexp_username, myexp_password))
         headers = {"Content-type": "text/xml", "Accept": "text/xml", "Authorization": "Basic %s" % auth_header}
         myexp_url = trans.app.config.myexperiment_target_url
         conn = HTTPConnection(myexp_url)
@@ -773,9 +775,9 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
         workflow_list_str = " <br>Return to <a href='%s'>workflow list." % url_for(controller='workflows', action='list')
         if myexp_workflow_id:
             return trans.show_message(
-                """Workflow '{}' successfully exported to myExperiment. <br/>
-                <a href="http://{}/workflows/{}">Click here to view the workflow on myExperiment</a> {}
-                """.format(stored.name, myexp_url, myexp_workflow_id, workflow_list_str),
+                """Workflow '%s' successfully exported to myExperiment. <br/>
+                <a href="http://%s/workflows/%s">Click here to view the workflow on myExperiment</a> %s
+                """ % (stored.name, myexp_url, myexp_workflow_id, workflow_list_str),
                 use_panels=True)
         else:
             return trans.show_error_message(
@@ -951,7 +953,7 @@ def _build_workflow_on_str(instance_ds_names):
     elif num_multi_inputs == 1:
         return " on %s" % instance_ds_names[0]
     else:
-        return " on {} and {}".format(", ".join(instance_ds_names[0:-1]), instance_ds_names[-1])
+        return " on %s and %s" % (", ".join(instance_ds_names[0:-1]), instance_ds_names[-1])
 
 
 def _expand_multiple_inputs(kwargs):

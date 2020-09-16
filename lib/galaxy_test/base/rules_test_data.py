@@ -67,13 +67,11 @@ EXAMPLE_1 = {
         "elements": [
             {
                 "identifier": "i1",
-                "contents": "0",
-                "class": "File",
+                "content": "0"
             },
             {
                 "identifier": "i2",
-                "contents": "1",
-                "class": "File",
+                "content": "1"
             },
         ]
     },
@@ -106,13 +104,11 @@ EXAMPLE_2 = {
         "elements": [
             {
                 "identifier": "i1",
-                "contents": "0",
-                "class": "File",
+                "content": "0"
             },
             {
                 "identifier": "i2",
-                "contents": "1",
-                "class": "File",
+                "content": "1"
             },
         ]
     },
@@ -147,23 +143,6 @@ EXAMPLE_3 = {
     },
     "test_data": {
         "type": "list:paired",
-        "elements": [
-            {
-                "identifier": "test0",
-                "elements": [
-                    {
-                        "identifier": "forward",
-                        "class": "File",
-                        "contents": "TestData123"
-                    },
-                    {
-                        "identifier": "reverse",
-                        "class": "File",
-                        "contents": "TestData123"
-                    },
-                ]
-            }
-        ]
     },
     "check": check_example_3,
     "output_hid": 6,
@@ -195,20 +174,17 @@ EXAMPLE_4 = {
         "elements": [
             {
                 "identifier": "i1",
-                "contents": "0",
-                "class": "File",
+                "content": "0",
                 "tags": ["random", "group:type:single"]
             },
             {
                 "identifier": "i2",
-                "contents": "1",
-                "class": "File",
+                "content": "1",
                 "tags": ["random", "group:type:paired"]
             },
             {
                 "identifier": "i3",
-                "contents": "2",
-                "class": "File",
+                "content": "2",
                 "tags": ["random", "group:type:paired"]
             },
         ]

@@ -1,4 +1,5 @@
 """The module describes the ``email`` error plugin."""
+from __future__ import absolute_import
 
 import logging
 

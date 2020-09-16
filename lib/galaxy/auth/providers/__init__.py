@@ -5,8 +5,11 @@ Created on 15/07/2014
 """
 import abc
 
+import six
 
-class AuthProvider(metaclass=abc.ABCMeta):
+
+@six.add_metaclass(abc.ABCMeta)
+class AuthProvider(object):
     """A base class for all Auth Providers."""
 
     @abc.abstractproperty

@@ -1,6 +1,7 @@
 """
 Migration script for the password reset table
 """
+from __future__ import print_function
 
 import logging
 

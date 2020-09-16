@@ -1,4 +1,5 @@
 """The module describes the ``json`` error plugin."""
+from __future__ import absolute_import
 
 import json
 import logging

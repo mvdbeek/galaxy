@@ -1,6 +1,7 @@
 """
 Migration script to add slug column for stored workflow.
 """
+from __future__ import print_function
 
 import logging
 

@@ -6,10 +6,11 @@ Middleware for logging requests, using Apache combined log format
 import logging
 import time
 
+from six import string_types
 from six.moves.urllib.parse import quote
 
 
-class TransLogger:
+class TransLogger(object):
     """
     This logging middleware will log all requests as they go through.
     They are, by default, sent to a logger named ``'wsgi'`` at the
@@ -104,9 +105,9 @@ def make_filter(
         setup_console_handler=True,
         set_logger_level=logging.DEBUG):
     from paste.util.converters import asbool
-    if isinstance(logging_level, str):
+    if isinstance(logging_level, string_types):
         logging_level = logging._levelNames[logging_level]
-    if isinstance(set_logger_level, str):
+    if isinstance(set_logger_level, string_types):
         set_logger_level = logging._levelNames[set_logger_level]
     return TransLogger(
         app,

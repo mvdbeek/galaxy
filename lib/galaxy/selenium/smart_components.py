@@ -4,7 +4,7 @@ from .components import (
 )
 
 
-class SmartComponent:
+class SmartComponent(object):
     """Wrap a Component with driver aware methods.
 
     Allows smarter selectors that know how to wait for themselves, test themselves,
@@ -30,7 +30,7 @@ class SmartComponent:
             return simple_object
 
 
-class SmartTarget:
+class SmartTarget(object):
     """Wrap a Target with driver aware methods.
     """
 

@@ -5,12 +5,14 @@ from abc import (
     abstractproperty,
 )
 
+import six
 from selenium.webdriver.common.by import By
 
 from galaxy.util.bunch import Bunch
 
 
-class Target(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class Target(object):
 
     @abstractproperty
     def description(self):
@@ -96,7 +98,7 @@ class SelectorTemplate(Target):
         if name in self._children:
             return self._children[name](**{"_": self.selector})
         else:
-            raise AttributeError("Could not find child [{}] in {}".format(name, self._children))
+            raise AttributeError("Could not find child [%s] in %s" % (name, self._children))
 
     __getitem__ = __getattr__
 
@@ -129,7 +131,7 @@ class Text(Target):
         return (By.PARTIAL_LINK_TEXT, self.text)
 
 
-class Component:
+class Component(object):
 
     def __init__(self, name, sub_components, selectors, labels, text):
         self._name = name

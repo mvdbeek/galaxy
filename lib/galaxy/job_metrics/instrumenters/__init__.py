@@ -8,13 +8,15 @@ from abc import (
     abstractmethod
 )
 
+import six
 
 from .. import formatting
 
 INSTRUMENT_FILE_PREFIX = "__instrument"
 
 
-class InstrumentPlugin(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class InstrumentPlugin(object):
     """Describes how to instrument job scripts and retrieve collected metrics."""
     formatter = formatting.JobMetricFormatter()
 
@@ -49,7 +51,7 @@ class InstrumentPlugin(metaclass=ABCMeta):
         """ Provide a common pattern for naming files used by instrumentation
         plugins - to ease their staging out of remote job directories.
         """
-        return "{}_{}_{}".format(INSTRUMENT_FILE_PREFIX, self.plugin_type, name)
+        return "%s_%s_%s" % (INSTRUMENT_FILE_PREFIX, self.plugin_type, name)
 
     def _instrument_file_path(self, job_directory, name):
         return os.path.join(job_directory, self._instrument_file_name(name))

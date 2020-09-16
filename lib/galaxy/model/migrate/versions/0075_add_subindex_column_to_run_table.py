@@ -1,6 +1,7 @@
 """
 Migration script to add a 'subindex' column to the run table.
 """
+from __future__ import print_function
 
 import logging
 

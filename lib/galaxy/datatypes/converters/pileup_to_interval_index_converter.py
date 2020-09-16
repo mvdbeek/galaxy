@@ -5,6 +5,7 @@ Convert from pileup file to interval index file.
 
 usage: %prog <options> in_file out_file
 """
+from __future__ import division
 
 import optparse
 

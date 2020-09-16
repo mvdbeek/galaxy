@@ -1,4 +1,5 @@
 """Entry point for the usage of Cheetah templating within Galaxy."""
+from __future__ import absolute_import
 
 import sys
 import traceback

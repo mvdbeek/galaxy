@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """ Clearing house for generic text datatypes that are not XML or tabular.
 """
 
@@ -54,7 +55,7 @@ class Html(Text):
         True
         """
         headers = iter_headers(file_prefix, None)
-        for hdr in headers:
+        for i, hdr in enumerate(headers):
             if hdr and hdr[0].lower().find('<html>') >= 0:
                 return True
         return False
@@ -166,7 +167,7 @@ class Ipynb(Json):
         if trust:
             return self._display_data_trusted(trans, dataset, preview=preview, filename=filename, to_ext=to_ext, **kwd)
         else:
-            return super().display_data(trans, dataset, preview=preview, filename=filename, to_ext=to_ext, **kwd)
+            return super(Ipynb, self).display_data(trans, dataset, preview=preview, filename=filename, to_ext=to_ext, **kwd)
 
     def _display_data_trusted(self, trans, dataset, preview=False, filename=None, to_ext=None, **kwd):
         preview = string_as_bool(preview)
@@ -188,6 +189,7 @@ class Ipynb(Json):
         """
         Set the number of models in dataset.
         """
+        pass
 
 
 @build_sniff_from_prefix
@@ -213,7 +215,7 @@ class Biom1(Json):
     MetadataElement(name="table_column_metadata_headers", default=[], desc="table_column_metadata_headers", param=MetadataParameter, readonly=True, visible=True, optional=True, no_value=[])
 
     def set_peek(self, dataset, is_multi_byte=False):
-        super().set_peek(dataset)
+        super(Biom1, self).set_peek(dataset)
         if not dataset.dataset.purged:
             dataset.blurb = "Biological Observation Matrix v1"
 
@@ -232,7 +234,7 @@ class Biom1(Json):
         is_biom = False
         segment_size = int(load_size / 2)
         try:
-            with open(file_prefix.filename) as fh:
+            with open(file_prefix.filename, "r") as fh:
                 prev_str = ""
                 segment_str = fh.read(segment_size)
                 if segment_str.strip().startswith('{'):
@@ -293,6 +295,7 @@ class Biom1(Json):
                         setattr(dataset.metadata, m_name, metadata_value)
                     except Exception:
                         log.exception("Something in the metadata detection for biom1 went wrong.")
+                        pass
 
 
 @build_sniff_from_prefix
@@ -308,7 +311,7 @@ class ImgtJson(Json):
     """
 
     def set_peek(self, dataset, is_multi_byte=False):
-        super().set_peek(dataset)
+        super(ImgtJson, self).set_peek(dataset)
         if not dataset.dataset.purged:
             dataset.blurb = "IMGT Library"
 
@@ -337,7 +340,7 @@ class ImgtJson(Json):
         """
         is_imgt = False
         try:
-            with open(file_prefix.filename) as fh:
+            with open(file_prefix.filename, "r") as fh:
                 segment_str = fh.read(load_size)
                 if segment_str.strip().startswith('['):
                     if '"taxonId"' in segment_str and '"anchorPoints"' in segment_str:
@@ -355,7 +358,7 @@ class ImgtJson(Json):
                 try:
                     json_dict = json.load(fh)
                     tax_names = []
-                    for entry in json_dict:
+                    for i, entry in enumerate(json_dict):
                         if 'taxonId' in entry:
                             names = "%d: %s" % (entry['taxonId'], ','.join(entry['speciesNames']))
                             tax_names.append(names)
@@ -373,7 +376,7 @@ class GeoJson(Json):
     file_ext = "geojson"
 
     def set_peek(self, dataset, is_multi_byte=False):
-        super().set_peek(dataset)
+        super(GeoJson, self).set_peek(dataset)
         if not dataset.dataset.purged:
             dataset.blurb = "GeoJSON"
 
@@ -401,7 +404,7 @@ class GeoJson(Json):
         """
         is_geojson = False
         try:
-            with open(file_prefix.filename) as fh:
+            with open(file_prefix.filename, "r") as fh:
                 segment_str = fh.read(load_size)
                 if any(x in segment_str for x in ["Point", "MultiPoint", "LineString", "MultiLineString", "Polygon", "MultiPolygon", "GeometryCollection"]):
                     if all(x in segment_str for x in ["type", "geometry", "coordinates"]):
@@ -465,7 +468,7 @@ class Arff(Text):
         if not dataset.dataset.purged:
             dataset.peek = get_file_peek(dataset.file_name)
             dataset.blurb = "Attribute-Relation File Format (ARFF)"
-            dataset.blurb += ", {} comments, {} attributes".format(dataset.metadata.comment_lines, dataset.metadata.columns)
+            dataset.blurb += ", %s comments, %s attributes" % (dataset.metadata.comment_lines, dataset.metadata.columns)
         else:
             dataset.peek = 'file does not exist'
             dataset.blurb = 'file purged from disc'
@@ -589,7 +592,7 @@ class SnpEffDb(Text):
         genome_version = None
         snpeff_version = None
         if data_dir and os.path.isdir(data_dir):
-            for root, _, files in os.walk(data_dir):
+            for root, dirs, files in os.walk(data_dir):
                 for fname in files:
                     if fname.startswith('snpEffectPredictor'):
                         # if snpEffectPredictor.bin download succeeded
@@ -675,7 +678,7 @@ class SnpSiftDbNSFP(Text):
             efp = dataset.extra_files_path
             if os.path.exists(efp):
                 flist = os.listdir(efp)
-                for fname in flist:
+                for i, fname in enumerate(flist):
                     if fname.endswith('.gz'):
                         dataset.metadata.bgzip = fname
                         try:
@@ -694,7 +697,7 @@ class SnpSiftDbNSFP(Text):
 
         def set_peek(self, dataset, is_multi_byte=False):
             if not dataset.dataset.purged:
-                dataset.peek = '{} :  {}'.format(dataset.metadata.reference_name, ','.join(dataset.metadata.annotation))
+                dataset.peek = '%s :  %s' % (dataset.metadata.reference_name, ','.join(dataset.metadata.annotation))
                 dataset.blurb = '%s' % dataset.metadata.reference_name
             else:
                 dataset.peek = 'file does not exist'
@@ -727,84 +730,3 @@ class IQTree(Text):
         False
         """
         return file_prefix.startswith("IQ-TREE")
-
-
-@build_sniff_from_prefix
-class Paf(Text):
-    """
-    PAF: a Pairwise mApping Format
-
-    https://github.com/lh3/miniasm/blob/master/PAF.md
-    """
-    file_ext = "paf"
-
-    def sniff_prefix(self, file_prefix):
-        """
-        >>> from galaxy.datatypes.sniff import get_test_fname
-        >>> fname = get_test_fname('A-3105.paf')
-        >>> Paf().sniff(fname)
-        True
-        """
-        found_valid_lines = False
-        for line in iter_headers(file_prefix, "\t"):
-            if len(line) < 12:
-                return False
-            for i in (1, 2, 3, 6, 7, 8, 9, 10, 11):
-                int(line[i])
-            if line[4] not in ('+', '-'):
-                return False
-            if not (0 <= int(line[11]) <= 255):
-                return False
-            # Check that the optional columns after the 12th contain SAM-like typed key-value pairs
-            for i in range(12, len(line)):
-                if len(line[i].split(':')) != 3:
-                    return False
-            found_valid_lines = True
-        return found_valid_lines
-
-
-@build_sniff_from_prefix
-class Gfa1(Text):
-    """
-    Graphical Fragment Assembly (GFA) 1.0
-
-    http://gfa-spec.github.io/GFA-spec/GFA1.html
-    """
-    file_ext = "gfa1"
-
-    def sniff_prefix(self, file_prefix):
-        """
-        >>> from galaxy.datatypes.sniff import get_test_fname
-        >>> fname = get_test_fname('big.gfa1')
-        >>> Gfa1().sniff(fname)
-        True
-        """
-        found_valid_lines = False
-        for line in iter_headers(file_prefix, "\t"):
-            if line[0].startswith('#'):
-                continue
-            if line[0] == 'H':
-                return len(line) == 2 and line[1] == 'VN:Z:1.0'
-            elif line[0] == 'S':
-                if len(line) < 3:
-                    return False
-            elif line[0] == 'L':
-                if len(line) < 6:
-                    return False
-                for i in (2, 4):
-                    if line[i] not in ('+', '-'):
-                        return False
-            elif line[0] == 'C':
-                if len(line) < 7:
-                    return False
-                for i in (2, 4):
-                    if line[i] not in ('+', '-'):
-                        return False
-                int(line[5])
-            elif line[0] == 'P':
-                if len(line) < 4:
-                    return False
-            else:
-                return False
-            found_valid_lines = True
-        return found_valid_lines

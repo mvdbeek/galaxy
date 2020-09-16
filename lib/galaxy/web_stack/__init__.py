@@ -1,5 +1,6 @@
 """Web application stack operations
 """
+from __future__ import absolute_import
 
 import inspect
 import json
@@ -14,6 +15,7 @@ except ImportError:
     uwsgi = None
 
 import yaml
+from six import string_types
 
 from galaxy.util import unicodify
 from galaxy.util.facts import get_facts
@@ -41,7 +43,7 @@ class UWSGILogFilter(logging.Filter):
         return True
 
 
-class ApplicationStack:
+class ApplicationStack(object):
     name = None
     prohibited_middleware = frozenset()
     transport_class = ApplicationStackTransport
@@ -75,6 +77,7 @@ class ApplicationStack:
 
         Called once per job_config.
         """
+        pass
 
     def _init_job_handler_assignment_methods(self, job_config, base_pool):
         if not job_config.handler_assignment_methods_configured:
@@ -179,7 +182,7 @@ class ApplicationStack:
 
 class MessageApplicationStack(ApplicationStack):
     def __init__(self, app=None, config=None):
-        super().__init__(app=app, config=config)
+        super(MessageApplicationStack, self).__init__(app=app, config=config)
         self.use_messaging = False
         self.dispatcher = ApplicationStackMessageDispatcher()
         self.transport = self.transport_class(app, stack=self, dispatcher=self.dispatcher)
@@ -188,7 +191,7 @@ class MessageApplicationStack(ApplicationStack):
         self.transport.init_late_prefork()
 
     def start(self):
-        super().start()
+        super(MessageApplicationStack, self).start()
         if self.use_messaging and not self.running:
             self.transport.start()
             self.running = True
@@ -276,7 +279,7 @@ class UWSGIApplicationStack(MessageApplicationStack):
                 host = UWSGIApplicationStack.localhost_addrs[0]
             return proto + host + port
         except (IndexError, AttributeError):
-            return '{} {}'.format(opt, val)
+            return '%s %s' % (opt, val)
 
     @staticmethod
     def _socket_opts():
@@ -343,7 +346,7 @@ class UWSGIApplicationStack(MessageApplicationStack):
         # be configured by the admin. This allows us to keep track of how many such farms are configured.
         self._lock_farms = set()
 
-        super().__init__(app=app, config=config)
+        super(UWSGIApplicationStack, self).__init__(app=app, config=config)
 
     def _set_default_job_handler_assignment_methods(self, job_config, base_pool):
         # Disable DB_SELF if a valid farm (pool) is configured. Use mule messaging unless the job_config doesn't allow
@@ -372,13 +375,13 @@ class UWSGIApplicationStack(MessageApplicationStack):
                   ', '.join(job_config.handler_assignment_methods))
 
     def _init_job_handler_assignment_methods(self, job_config, base_pool):
-        super()._init_job_handler_assignment_methods(job_config, base_pool)
+        super(UWSGIApplicationStack, self)._init_job_handler_assignment_methods(job_config, base_pool)
         # Determine if stack messaging should be enabled
         if HANDLER_ASSIGNMENT_METHODS.UWSGI_MULE_MESSAGE in job_config.handler_assignment_methods:
             self.use_messaging = True
 
     def _init_job_handler_subpools(self, job_config, base_pool):
-        super()._init_job_handler_subpools(job_config, base_pool)
+        super(UWSGIApplicationStack, self)._init_job_handler_subpools(job_config, base_pool)
         # Count the required number of uWSGI locks
         if job_config.use_messaging:
             for pool_name in self.configured_pools:
@@ -481,7 +484,7 @@ class UWSGIApplicationStack(MessageApplicationStack):
         if self._is_mule and self._farm_name:
             # used by main.py to send a shutdown message on termination
             os.environ['_GALAXY_UWSGI_FARM_NAMES'] = ','.join(self._farms)
-        super().start()
+        super(UWSGIApplicationStack, self).start()
 
     def in_pool(self, pool_name):
         if not self._is_mule:
@@ -497,7 +500,7 @@ class UWSGIApplicationStack(MessageApplicationStack):
 
     @property
     def facts(self):
-        facts = super().facts
+        facts = super(UWSGIApplicationStack, self).facts
         if not self._is_mule:
             facts.update({
                 'pool_name': 'web',
@@ -512,7 +515,7 @@ class UWSGIApplicationStack(MessageApplicationStack):
         return facts
 
     def shutdown(self):
-        super().shutdown()
+        super(UWSGIApplicationStack, self).shutdown()
 
 
 class PasteApplicationStack(ApplicationStack):
@@ -535,7 +538,7 @@ class WeblessApplicationStack(ApplicationStack):
                 or (dialect.name == 'mysql' and dialect.server_version_info >= (8, 0, 1))):
             add_method = HANDLER_ASSIGNMENT_METHODS.DB_SKIP_LOCKED
         else:
-            add_method = HANDLER_ASSIGNMENT_METHODS.DB_TRANSACTION_ISOLATION
+            HANDLER_ASSIGNMENT_METHODS.DB_TRANSACTION_ISOLATION
         if add_method in job_config.UNSUPPORTED_HANDLER_ASSIGNMENT_METHODS:
             remove_methods.append(add_method)
             add_method = HANDLER_ASSIGNMENT_METHODS.DB_PREASSIGN
@@ -553,7 +556,7 @@ class WeblessApplicationStack(ApplicationStack):
                   ', '.join(job_config.handler_assignment_methods))
 
     def __init__(self, app=None, config=None):
-        super().__init__(app=app, config=config)
+        super(WeblessApplicationStack, self).__init__(app=app, config=config)
         if self.app and self.config and self.config.attach_to_pools:
             log.debug("Will attach to pool(s): %s", ', '.join(self.config.attach_to_pools))
 
@@ -609,7 +612,7 @@ def get_stack_facts(config=None):
 
 def _uwsgi_configured_mules():
     mules = uwsgi.opt.get('mule', [])
-    return [mules] if isinstance(mules, str) or mules is True else mules
+    return [mules] if isinstance(mules, string_types) or mules is True else mules
 
 
 def _do_uwsgi_postfork():

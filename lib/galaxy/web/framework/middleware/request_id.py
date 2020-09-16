@@ -1,7 +1,7 @@
 import uuid
 
 
-class RequestIDMiddleware:
+class RequestIDMiddleware(object):
     """
     A WSGI middleware that creates a unique ID for the request and
     puts it in the environment

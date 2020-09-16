@@ -3,6 +3,7 @@ import tempfile
 from collections import OrderedDict
 from functools import total_ordering
 
+from six import string_types, text_type
 from six.moves import shlex_quote
 
 from galaxy import exceptions
@@ -18,7 +19,7 @@ log = logging.getLogger(__name__)
 PATH_ATTRIBUTES = ["path"]
 
 
-class ToolParameterValueWrapper:
+class ToolParameterValueWrapper(object):
     """
     Base class for object that Wraps a Tool Parameter and Value.
     """
@@ -52,7 +53,7 @@ class RawObjectWrapper(ToolParameterValueWrapper):
 
     def __str__(self):
         try:
-            return "{}:{}".format(self.obj.__module__, self.obj.__class__.__name__)
+            return "%s:%s" % (self.obj.__module__, self.obj.__class__.__name__)
         except Exception:
             # Most likely None, which lacks __module__.
             return str(self.obj)
@@ -73,11 +74,11 @@ class InputValueWrapper(ToolParameterValueWrapper):
         self._other_values = other_values
 
     def _get_cast_value(self, other):
-        if self.input.type == 'boolean' and isinstance(other, str):
+        if self.input.type == 'boolean' and isinstance(other, string_types):
             return str(self)
         # For backward compatibility, allow `$wrapper != ""` for optional non-text param
         if self.input.optional and self.value is None:
-            if isinstance(other, str):
+            if isinstance(other, string_types):
                 return str(self)
             else:
                 return None
@@ -128,7 +129,7 @@ class SelectToolParameterWrapper(ToolParameterValueWrapper):
     attributes are accessible.
     """
 
-    class SelectToolParameterFieldWrapper:
+    class SelectToolParameterFieldWrapper(object):
         """
         Provide access to any field by name or index for this particular value.
         Only applicable for dynamic_options selects, which have more than simple 'options' defined (name, value, selected).
@@ -168,13 +169,13 @@ class SelectToolParameterWrapper(ToolParameterValueWrapper):
         self.fields = self.SelectToolParameterFieldWrapper(input, value, other_values, self.compute_environment)
 
     def __eq__(self, other):
-        if isinstance(other, str):
+        if isinstance(other, string_types):
             if other == '' and self.value in (None, []):
                 # Allow $wrapper == '' for select (self.value is None) and multiple select (self.value is []) params
                 return True
             return str(self) == other
         else:
-            return super() == other
+            return super(SelectToolParameterWrapper, self) == other
 
     def __ne__(self, other):
         return not self == other
@@ -185,7 +186,7 @@ class SelectToolParameterWrapper(ToolParameterValueWrapper):
         return self.input.to_param_dict_string(self.value, other_values=self._other_values)
 
     def __add__(self, x):
-        return '{}{}'.format(self, x)
+        return '%s%s' % (self, x)
 
     def __getattr__(self, key):
         return getattr(self.input, key)
@@ -202,7 +203,7 @@ class DatasetFilenameWrapper(ToolParameterValueWrapper):
     attributes are accessible.
     """
 
-    class MetadataWrapper:
+    class MetadataWrapper(object):
         """
         Wraps a Metadata Collection to return MetadataParameters wrapped
         according to the metadata spec. Methods implemented to match behavior
@@ -356,7 +357,7 @@ class DatasetFilenameWrapper(ToolParameterValueWrapper):
     __nonzero__ = __bool__
 
 
-class HasDatasets:
+class HasDatasets(object):
 
     def _dataset_wrapper(self, dataset, **kwargs):
         return DatasetFilenameWrapper(dataset, **kwargs)
@@ -405,7 +406,7 @@ class DatasetListWrapper(list, ToolParameterValueWrapper, HasDatasets):
         return dataset_instances
 
     def get_datasets_for_group(self, group):
-        group = str(group).lower()
+        group = text_type(group).lower()
         if not self._dataset_elements_cache.get(group):
             wrappers = []
             for element in self:
@@ -426,7 +427,7 @@ class DatasetListWrapper(list, ToolParameterValueWrapper, HasDatasets):
 class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
 
     def __init__(self, job_working_directory, has_collection, **kwargs):
-        super().__init__()
+        super(DatasetCollectionWrapper, self).__init__()
         self.job_working_directory = job_working_directory
         self._dataset_elements_cache = {}
         self.kwargs = kwargs
@@ -470,7 +471,7 @@ class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
         self.__element_instance_list = element_instance_list
 
     def get_datasets_for_group(self, group):
-        group = str(group).lower()
+        group = text_type(group).lower()
         if not self._dataset_elements_cache.get(group):
             wrappers = []
             for element in self.collection.dataset_elements:
@@ -524,12 +525,12 @@ class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
     __nonzero__ = __bool__
 
 
-class ElementIdentifierMapper:
+class ElementIdentifierMapper(object):
     """Track mapping of dataset collection elements datasets to element identifiers."""
 
     def __init__(self, input_datasets=None):
         if input_datasets is not None:
-            self.identifier_key_dict = {v: "%s|__identifier__" % k for k, v in input_datasets.items()}
+            self.identifier_key_dict = dict((v, "%s|__identifier__" % k) for k, v in input_datasets.items())
         else:
             self.identifier_key_dict = {}
 

@@ -1,6 +1,7 @@
 """
 Add version column to  history_dataset_association table
 """
+from __future__ import print_function
 
 import logging
 

@@ -6,6 +6,7 @@ from abc import (
     abstractproperty,
 )
 
+import six
 import yaml
 
 from galaxy.util import listify
@@ -13,7 +14,8 @@ from galaxy.util.dictifiable import Dictifiable
 from ..requirements import ToolRequirement
 
 
-class DependencyResolver(Dictifiable, metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class DependencyResolver(Dictifiable):
     """Abstract description of a technique for resolving container images for tool execution."""
 
     # Keys for dictification.
@@ -42,7 +44,7 @@ class DependencyResolver(Dictifiable, metaclass=ABCMeta):
         """
 
 
-class MultipleDependencyResolver:
+class MultipleDependencyResolver(object):
     """Variant of DependencyResolver that can optionally resolve multiple dependencies together."""
 
     @abstractmethod
@@ -60,7 +62,8 @@ class MultipleDependencyResolver:
         """
 
 
-class ListableDependencyResolver(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class ListableDependencyResolver(object):
     """ Mix this into a ``DependencyResolver`` and implement to indicate
     the dependency resolver can iterate over its dependencies and generate
     requirements.
@@ -76,7 +79,7 @@ class ListableDependencyResolver(metaclass=ABCMeta):
         return ToolRequirement(name=name, type="package", version=version)
 
 
-class MappableDependencyResolver:
+class MappableDependencyResolver(object):
     """Mix this into a ``DependencyResolver`` to allow mapping files.
 
     Mapping files allow adapting generic requirements to specific local implementations.
@@ -95,9 +98,9 @@ class MappableDependencyResolver:
     def _mapping_file_to_list(mapping_file):
         raw_mapping = []
         try:
-            with open(mapping_file) as f:
+            with open(mapping_file, "r") as f:
                 raw_mapping = yaml.safe_load(f)
-        except OSError as exc:
+        except (OSError, IOError) as exc:
             if exc.errno != errno.ENOENT:
                 raise
         return list(map(RequirementMapping.from_dict, raw_mapping))
@@ -114,7 +117,7 @@ class MappableDependencyResolver:
 FROM_UNVERSIONED = object()
 
 
-class RequirementMapping:
+class RequirementMapping(object):
 
     def __init__(self, from_name, from_version, to_name, to_version):
         self.from_name = from_name
@@ -178,7 +181,8 @@ class RequirementMapping:
         return RequirementMapping(from_name, from_version, to_name, to_version)
 
 
-class SpecificationAwareDependencyResolver(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class SpecificationAwareDependencyResolver(object):
     """Mix this into a :class:`DependencyResolver` to implement URI specification matching.
 
     Allows adapting generic requirements to more specific URIs - to tailor name
@@ -221,7 +225,8 @@ class SpecificationPatternDependencyResolver(SpecificationAwareDependencyResolve
         return requirement
 
 
-class InstallableDependencyResolver(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class InstallableDependencyResolver(object):
     """ Mix this into a ``DependencyResolver`` and implement to indicate
     the dependency resolver can attempt to install new dependencies.
     """
@@ -233,7 +238,8 @@ class InstallableDependencyResolver(metaclass=ABCMeta):
         """
 
 
-class Dependency(Dictifiable, metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class Dependency(Dictifiable):
     dict_collection_visible_keys = ['dependency_type', 'exact', 'name', 'version', 'cacheable']
     cacheable = False
 
@@ -254,7 +260,7 @@ class Dependency(Dictifiable, metaclass=ABCMeta):
         """
         Return a message describing this dependency
         """
-        return "Using dependency {} version {} of type {}".format(self.name, self.version, self.dependency_type)
+        return "Using dependency %s version %s of type %s" % (self.name, self.version, self.dependency_type)
 
 
 class ContainerDependency(Dependency):

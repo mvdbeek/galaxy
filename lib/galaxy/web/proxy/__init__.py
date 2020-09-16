@@ -23,7 +23,7 @@ SECURE_COOKIE = "galaxysession"
 # Randomly generate a password every launch
 
 
-class ProxyManager:
+class ProxyManager(object):
 
     valid_update_keys = (
         'host',
@@ -83,7 +83,7 @@ class ProxyManager:
         if not self.dynamic_proxy_external_proxy:
             proxy_url = '%s://%s:%d' % (scheme, host, self.dynamic_proxy_bind_port)
         else:
-            proxy_url = '{}://{}{}'.format(scheme, host, proxy_prefix)
+            proxy_url = '%s://%s%s' % (scheme, host, proxy_prefix)
         return {
             'proxy_url': proxy_url,
             'proxied_port': proxy_requests.port,
@@ -115,13 +115,13 @@ class ProxyManager:
             raise Exception("Unknown proxy type")
 
 
-class ProxyLauncher:
+class ProxyLauncher(object):
 
     def launch_proxy_command(self, config):
         raise NotImplementedError()
 
 
-class NodeProxyLauncher:
+class NodeProxyLauncher(object):
 
     def launch_proxy_command(self, config):
         args = [
@@ -139,7 +139,7 @@ class NodeProxyLauncher:
         return command
 
 
-class GolangProxyLauncher:
+class GolangProxyLauncher(object):
 
     def launch_proxy_command(self, config):
         args = [
@@ -164,14 +164,14 @@ class GolangProxyLauncher:
         return args
 
 
-class AuthenticationToken:
+class AuthenticationToken(object):
 
     def __init__(self, trans):
         self.cookie_name = SECURE_COOKIE
         self.cookie_value = trans.get_cookie(self.cookie_name)
 
 
-class ProxyRequests:
+class ProxyRequests(object):
 
     def __init__(self, host=None, port=None):
         if host is None:
@@ -194,7 +194,7 @@ def proxy_ipc(config):
         return RestGolangProxyIpc(config)
 
 
-class ProxyIpc:
+class ProxyIpc(object):
 
     def handle_requests(self, authentication, proxy_requests, route_name, container_ids, container_interface):
         raise NotImplementedError()
@@ -203,7 +203,7 @@ class ProxyIpc:
         raise NotImplementedError()
 
 
-class JsonFileProxyIpc:
+class JsonFileProxyIpc(object):
 
     def __init__(self, proxy_session_map):
         self.proxy_session_map = proxy_session_map
@@ -213,7 +213,7 @@ class JsonFileProxyIpc:
         with FileLock(self.proxy_session_map):
             if not os.path.exists(self.proxy_session_map):
                 open(self.proxy_session_map, "w").write("{}")
-            json_data = open(self.proxy_session_map).read()
+            json_data = open(self.proxy_session_map, "r").read()
             session_map = json.loads(json_data)
             session_map[key] = {
                 'host': proxy_requests.host,
@@ -250,7 +250,7 @@ class JsonFileProxyIpc:
             return None
 
 
-class SqliteProxyIpc:
+class SqliteProxyIpc(object):
 
     def __init__(self, proxy_session_map):
         self.proxy_session_map = proxy_session_map
@@ -324,18 +324,18 @@ class SqliteProxyIpc:
                 conn.close()
 
 
-class RestGolangProxyIpc:
+class RestGolangProxyIpc(object):
 
     def __init__(self, config):
         self.config = config
-        self.api_url = 'http://127.0.0.1:{}/api?api_key={}'.format(self.config.dynamic_proxy_bind_port, self.config.dynamic_proxy_golang_api_key)
+        self.api_url = 'http://127.0.0.1:%s/api?api_key=%s' % (self.config.dynamic_proxy_bind_port, self.config.dynamic_proxy_golang_api_key)
 
     def handle_requests(self, authentication, proxy_requests, route_name, container_ids, container_interface, sleep=1):
         """Make a POST request to the GO proxy to register a route
         """
         values = {
             'FrontendPath': route_name,
-            'BackendAddr': "{}:{}".format(proxy_requests.host, proxy_requests.port),
+            'BackendAddr': "%s:%s" % (proxy_requests.host, proxy_requests.port),
             'AuthorizedCookie': authentication.cookie_value,
             'ContainerIds': container_ids,
         }

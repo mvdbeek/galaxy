@@ -1,6 +1,7 @@
 """
 Migration script to add the ctx_rev column to the tool_shed_repository table.
 """
+from __future__ import print_function
 
 import logging
 

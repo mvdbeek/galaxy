@@ -6,6 +6,7 @@ from abc import (
     abstractmethod
 )
 
+import six
 
 log = logging.getLogger(__name__)
 
@@ -20,7 +21,8 @@ def tool_tag_manager(app):
         return NullToolTagManager()
 
 
-class AbstractToolTagManager(metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class AbstractToolTagManager(object):
 
     @abstractmethod
     def reset_tags(self):

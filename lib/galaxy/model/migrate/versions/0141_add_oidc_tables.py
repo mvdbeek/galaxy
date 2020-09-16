@@ -1,6 +1,7 @@
 """
 Migration script to add a new tables for an OpenID Connect authentication and authorization.
 """
+from __future__ import print_function
 
 import logging
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # Dan Blankenberg
+from __future__ import print_function
 
 import sys
 
@@ -19,7 +20,7 @@ def __main__():
         # write interval header line
         out.write("#chrom\tstart\tend\tstrand\n")
         try:
-            with open(input_name) as fh:
+            with open(input_name, 'r') as fh:
                 for block in bx.align.maf.Reader(fh):
                     for c in maf_utilities.iter_components_by_src_start(block, species):
                         if c is not None:

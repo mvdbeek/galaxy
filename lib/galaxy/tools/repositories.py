@@ -9,7 +9,7 @@ from galaxy.util.bunch import Bunch
 from galaxy.util.dbkeys import GenomeBuilds
 
 
-class ValidationContext:
+class ValidationContext(object):
     """Minimal App object for tool validation."""
 
     def __init__(self, app_name,

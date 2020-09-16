@@ -1,6 +1,7 @@
 """
 Migration script to add the tool_shed_repository table.
 """
+from __future__ import print_function
 
 import datetime
 import logging

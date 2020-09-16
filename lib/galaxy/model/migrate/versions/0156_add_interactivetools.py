@@ -1,6 +1,7 @@
 """
 Migration script to add new tables for InteractiveTools.
 """
+from __future__ import print_function
 
 import logging
 

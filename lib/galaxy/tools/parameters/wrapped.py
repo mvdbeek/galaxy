@@ -28,7 +28,7 @@ def copy_identifiers(source, destination):
                     destination[k] = v
 
 
-class WrappedParameters:
+class WrappedParameters(object):
 
     def __init__(self, trans, tool, incoming, input_datasets=None):
         self.trans = trans

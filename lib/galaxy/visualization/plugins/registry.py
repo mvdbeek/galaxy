@@ -22,7 +22,7 @@ from galaxy.visualization.plugins import (
 log = logging.getLogger(__name__)
 
 
-class VisualizationsRegistry:
+class VisualizationsRegistry(object):
     """
     Main responsibilities are:
         - discovering visualization plugins in the filesystem

@@ -1,14 +1,12 @@
 import os
 from functools import partial
+from xml.etree import ElementTree
 
 import galaxy.workflow.schedulers
 from galaxy import model
 from galaxy.exceptions import HandlerAssignmentError
-from galaxy.util import (
-    parse_xml,
-    plugin_config,
-)
-from galaxy.util.custom_logging import get_logger
+from galaxy.util import plugin_config
+from galaxy.util.logging import get_logger
 from galaxy.util.monitors import Monitors
 from galaxy.web_stack.handlers import ConfiguresHandlers, HANDLER_ASSIGNMENT_METHODS
 from galaxy.web_stack.message import WorkflowSchedulingMessage
@@ -118,7 +116,7 @@ class WorkflowSchedulingManager(ConfiguresHandlers):
     def _message_callback(self, workflow_invocation):
         return WorkflowSchedulingMessage(task='setup', workflow_invocation_id=workflow_invocation.id)
 
-    def _assign_handler(self, workflow_invocation, flush=True):
+    def _assign_handler(self, workflow_invocation):
         # Use random-ish integer history_id to produce a consistent index to pick
         # job handler with.
         random_index = workflow_invocation.history.id
@@ -128,7 +126,7 @@ class WorkflowSchedulingManager(ConfiguresHandlers):
             random_index = None
         return self.__handlers_config.assign_handler(
             workflow_invocation, configured=None, index=random_index, queue_callback=queue_callback,
-            message_callback=message_callback, flush=flush)
+            message_callback=message_callback)
 
     def shutdown(self):
         exception = None
@@ -148,15 +146,15 @@ class WorkflowSchedulingManager(ConfiguresHandlers):
         if exception:
             raise exception
 
-    def queue(self, workflow_invocation, request_params, flush=True):
+    def queue(self, workflow_invocation, request_params):
         workflow_invocation.state = model.WorkflowInvocation.states.NEW
         workflow_invocation.scheduler = request_params.get("scheduler", None) or self.default_scheduler_id
         sa_session = self.app.model.context
         sa_session.add(workflow_invocation)
 
-        # Assign handler
+        # Assign handler (also performs the flush)
         try:
-            self._assign_handler(workflow_invocation, flush=flush)
+            self._assign_handler(workflow_invocation)
         except HandlerAssignmentError:
             raise RuntimeError("Unable to set a handler for workflow invocation '%s'" % workflow_invocation.id)
 
@@ -188,7 +186,7 @@ class WorkflowSchedulingManager(ConfiguresHandlers):
         if use_default_scheduler:
             self.__init_default_scheduler()
         else:
-            plugins_element = parse_xml(config_file).getroot()
+            plugins_element = ElementTree.parse(config_file).getroot()
             self.__init_schedulers_for_element(plugins_element)
 
         if not self.__handlers_configured and self.__stack_has_pool:

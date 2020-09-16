@@ -1,4 +1,4 @@
-class StdioErrorLevel:
+class StdioErrorLevel(object):
     """
     These determine stdio-based error levels from matching on regular expressions
     and exit codes. They are meant to be used comparatively, such as showing
@@ -28,7 +28,7 @@ class StdioErrorLevel:
         return err_msg
 
 
-class ToolStdioExitCode:
+class ToolStdioExitCode(object):
     """
     This is a container for the <stdio> element's <exit_code> subelement.
     The exit_code element has a range of exit codes and the error level.
@@ -51,7 +51,7 @@ class ToolStdioExitCode:
         }
 
 
-class ToolStdioRegex:
+class ToolStdioRegex(object):
     """
     This is a container for the <stdio> element's regex subelement.
     The regex subelement has a "match" attribute, a "sources"

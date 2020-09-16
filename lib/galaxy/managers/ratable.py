@@ -10,7 +10,7 @@ from . import base
 log = logging.getLogger(__name__)
 
 
-class RatableManagerMixin:
+class RatableManagerMixin(object):
 
     #: class of RatingAssociation (e.g. HistoryRatingAssociation)
     rating_assoc = None
@@ -60,7 +60,7 @@ class RatableManagerMixin:
     # TODO?: all ratings for a user
 
 
-class RatableSerializerMixin:
+class RatableSerializerMixin(object):
 
     def add_serializers(self):
         self.serializers['user_rating'] = self.serialize_user_rating
@@ -88,7 +88,7 @@ class RatableSerializerMixin:
         }
 
 
-class RatableDeserializerMixin:
+class RatableDeserializerMixin(object):
 
     def add_deserializers(self):
         self.deserializers['user_rating'] = self.deserialize_rating
@@ -101,7 +101,7 @@ class RatableDeserializerMixin:
         return self.manager.rate(item, user, val, flush=False)
 
 
-class RatableFilterMixin:
+class RatableFilterMixin(object):
 
     def _ratings_avg_accessor(self, item):
         return self.manager.ratings_avg(item)

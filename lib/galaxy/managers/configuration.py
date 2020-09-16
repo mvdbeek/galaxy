@@ -20,7 +20,7 @@ class ConfigSerializer(base.ModelSerializer):
     """Configuration (galaxy.ini) settings viewable by all users"""
 
     def __init__(self, app):
-        super().__init__(app)
+        super(ConfigSerializer, self).__init__(app)
 
         self.default_view = 'all'
         self.add_view('all', list(self.serializers.keys()))
@@ -62,11 +62,6 @@ class ConfigSerializer(base.ModelSerializer):
             'communication_server_port'         : _use_config,
             'communication_server_host'         : _use_config,
             'persistent_communication_rooms'    : _use_config,
-            'enable_tool_recommendations'       : _use_config,
-            'tool_recommendation_model_path'    : _use_config,
-            'admin_tool_recommendations_path'   : _use_config,
-            'overwrite_model_recommendations'   : _use_config,
-            'topk_recommendations'              : _use_config,
             'allow_user_impersonation'          : _use_config,
             'allow_user_creation'               : _defaults_to(False),  # schema default is True
             'use_remote_user'                   : _defaults_to(None),  # schema default is False; or config.single_user
@@ -79,9 +74,6 @@ class ConfigSerializer(base.ModelSerializer):
             'ga_code'                           : _use_config,
             'enable_unique_workflow_defaults'   : _use_config,
             'enable_beta_markdown_export'       : _use_config,
-            'simplified_workflow_run_ui'        : _use_config,
-            'simplified_workflow_run_ui_target_history': _use_config,
-            'simplified_workflow_run_ui_job_cache': _use_config,
             'has_user_tool_filters'             : _defaults_to(False),
             # TODO: is there no 'correct' way to get an api url? controller='api', action='tools' is a hack
             # at any rate: the following works with path_prefix but is still brittle
@@ -94,7 +86,6 @@ class ConfigSerializer(base.ModelSerializer):
             'inactivity_box_content'            : _use_config,
             'visualizations_visible'            : _use_config,
             'interactivetools_enable'           : _use_config,
-            'aws_estimate'                      : _use_config,
             'message_box_content'               : _use_config,
             'message_box_visible'               : _use_config,
             'message_box_class'                 : _use_config,
@@ -107,8 +98,6 @@ class ConfigSerializer(base.ModelSerializer):
             'cookie_domain'                     : _use_config,
             'python'                            : _defaults_to((sys.version_info.major, sys.version_info.minor)),
             'select_type_workflow_threshold'    : _use_config,
-            'file_sources_configured'           : lambda config, key, **context: self.app.file_sources.custom_sources_configured,
-            'upload_from_form_button'           : _use_config,
         }
 
 
@@ -116,7 +105,7 @@ class AdminConfigSerializer(ConfigSerializer):
     """Configuration attributes viewable only by admin users"""
 
     def add_serializers(self):
-        super().add_serializers()
+        super(AdminConfigSerializer, self).add_serializers()
 
         def _defaults_to(default):
             return lambda config, key, **context: getattr(config, key, default)

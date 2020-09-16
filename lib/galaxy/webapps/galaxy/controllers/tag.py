@@ -4,6 +4,7 @@ and provides autocomplete support.
 """
 import logging
 
+from six import text_type
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import and_, func
 
@@ -23,7 +24,7 @@ class TagsController(BaseUIController, UsesTagsMixin):
         """
         item = self._get_item(trans, item_class, trans.security.decode_id(item_id))
         if not item:
-            return trans.show_error_message("No item of class {} with id {} ".format(item_class, item_id))
+            return trans.show_error_message("No item of class %s with id %s " % (item_class, item_id))
         return trans.fill_template("/tagging_common.mako",
                                    tag_type="individual",
                                    user=trans.user,
@@ -45,7 +46,7 @@ class TagsController(BaseUIController, UsesTagsMixin):
         trans.sa_session.flush()
         # Log.
         params = dict(item_id=item.id, item_class=item_class, tag=new_tag)
-        trans.log_action(user, "tag", context, params)
+        trans.log_action(user, text_type("tag"), context, params)
 
     @web.expose
     @web.require_login("remove tag from an item")
@@ -60,7 +61,7 @@ class TagsController(BaseUIController, UsesTagsMixin):
         trans.sa_session.flush()
         # Log.
         params = dict(item_id=item.id, item_class=item_class, tag=tag_name)
-        trans.log_action(user, "untag", context, params)
+        trans.log_action(user, text_type("untag"), context, params)
 
     # Retag an item. All previous tags are deleted and new tags are applied.
     @web.expose

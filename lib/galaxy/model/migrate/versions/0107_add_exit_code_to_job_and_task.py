@@ -1,6 +1,7 @@
 """
 Add the exit_code column to the Job and Task tables.
 """
+from __future__ import print_function
 
 import logging
 

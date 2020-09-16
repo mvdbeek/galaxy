@@ -50,7 +50,9 @@ else:
     requirements = []
 
 
-test_requirements = open("test-requirements.txt").read().split("\n")
+test_requirements = [
+    # TODO: put package test requirements here
+]
 
 
 # TODO:

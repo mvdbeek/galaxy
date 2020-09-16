@@ -7,7 +7,7 @@ from .resolvers import (
 )
 
 
-class DependencyResolversView:
+class DependencyResolversView(object):
     """ Provide a RESTfulish/JSONy interface to a galaxy.tool_util.deps.DependencyResolver
     object. This can be adapted by the Galaxy web framework or other web apps.
     """
@@ -315,7 +315,7 @@ class DependencyResolversView:
             return "OK"
 
 
-class ContainerResolutionView:
+class ContainerResolutionView(object):
     """
     """
 

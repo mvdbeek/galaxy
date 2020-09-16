@@ -6,7 +6,6 @@ from __future__ import print_function
 import calendar
 import datetime
 import json
-import logging
 import os
 import re
 import string
@@ -19,13 +18,11 @@ try:
 except ImportError:
     requests = None
 try:
-    from github import Github
+    from pygithub3 import Github
 except ImportError:
     Github = None
 from six import string_types
 from six.moves.urllib.parse import urljoin
-
-log = logging.getLogger(__name__)
 
 PROJECT_DIRECTORY = os.path.join(os.path.dirname(__file__), os.pardir)
 GALAXY_VERSION_FILE = os.path.join(PROJECT_DIRECTORY, "lib", "galaxy", "version.py")
@@ -43,7 +40,7 @@ DEVTEAM = [
     "tnabtaf", "natefoo", "jgoecks",
     "guerler", "jennaj", "nekrut", "jxtx",
     "VJalili", "WilliamHolden", "Nerdinacan",
-    "ic4f", "mvdbeek"
+    "ic4f",
 ]
 
 TEMPLATE = """
@@ -99,8 +96,6 @@ Highlights
 
 **Feature3**
   Feature description.
-
-Also check out the `${release} user release notes <${release}_announce_user.html>`__
 
 Get Galaxy
 ==========
@@ -212,6 +207,7 @@ RELEASE_ISSUE_TEMPLATE = string.Template("""
 
     - [ ] Open PRs from your fork of branch ``version-${version}`` to upstream ``release_${version}`` and of ``version-${next_version}.dev`` to ``dev``.
     - [ ] Update ``next_milestone`` in [P4's configuration](https://github.com/galaxyproject/p4) to `${next_version}` so it properly tags new PRs.
+    - [ ] Set the ``release_${version}`` branch in GitHub [settings](https://github.com/galaxyproject/galaxy/settings/branches) as protected.
 
 - [ ] **Issue Review Timeline Notes**
     - [ ] Ensure any security fixes will be ready prior to ${freeze_date} + 1 week, to allow time for notification prior to release.
@@ -224,9 +220,6 @@ RELEASE_ISSUE_TEMPLATE = string.Template("""
     - [ ] Deploy to usegalaxy.org (${freeze_date} + 1 week).
     - [ ] Deploy to toolshed.g2.bx.psu.edu (${freeze_date} + 1 week).
     - [ ] [Update BioBlend CI testing](https://github.com/galaxyproject/bioblend/commit/b74b1c302a1b8fed86786b40d7ecc3520cbadcd3) to include a ``release_${version}`` target: add ``- TOX_ENV=py27 GALAXY_VERSION=release_${version}`` to the ``env`` list in ``.travis.yml`` .
-    - [ ] Update GALAXY_RELEASE in IUC and devteam github workflows
-        - [ ] https://github.com/galaxyproject/tools-iuc/blob/master/.github/workflows/
-        - [ ] https://github.com/galaxyproject/tools-devteam/blob/master/.github/workflows/
 
 - [ ] **Create Release Notes**
 
@@ -268,6 +261,11 @@ RELEASE_ISSUE_TEMPLATE = string.Template("""
 
     - [ ] Change the [dev branch](https://github.com/bgruening/docker-galaxy-stable/tree/dev) of the Galaxy Docker container to ${next_version}
     - [ ] Merge dev into master
+
+- [ ] **Ensure Tool Tests use Latest Release**
+
+    - [ ]  Update GALAXY_RELEASE in https://github.com/galaxyproject/tools-iuc/blob/master/.travis.yml#L6
+    - [ ]  Update GALAXY_RELEASE in https://github.com/galaxyproject/tools-devteam/blob/master/.travis.yml#L6
 
 - [ ] **Announce Release**
 
@@ -332,10 +330,13 @@ def release_issue(argv):
     )
     release_issue_contents = RELEASE_ISSUE_TEMPLATE.safe_substitute(**release_issue_template_params)
     github = _github_client()
-    repo = github.get_repo("%s/%s" % (PROJECT_OWNER, PROJECT_NAME))
-    repo.create_issue(
-        title="Publication of Galaxy Release v %s" % release_name,
-        body=release_issue_contents,
+    github.issues.create(
+        data=dict(
+            title="Publication of Galaxy Release v %s" % release_name,
+            body=release_issue_contents,
+        ),
+        user=PROJECT_OWNER,
+        repo=PROJECT_NAME,
     )
     return release_issue
 
@@ -349,7 +350,7 @@ def do_release(argv):
     template = template.replace(".. enhancement", "%s\n\n.. enhancement" % enhancement_targets)
     template = template.replace(".. bug", "%s\n\n.. bug" % bug_targets)
     release_info = string.Template(template).safe_substitute(release=release_name)
-    open(release_file, "w").write(release_info)
+    open(release_file, "w").write(release_info.encode("utf-8"))
     month = int(release_name.split(".")[1])
     month_name = calendar.month_name[month]
     year = release_name.split(".")[0]
@@ -378,7 +379,7 @@ def do_release(argv):
     next_release_file = _release_file(next_version + "_announce.rst")
 
     next_announce = NEXT_TEMPLATE.substitute(**next_version_params)
-    open(next_release_file, "w").write(next_announce)
+    open(next_release_file, "w").write(next_announce.encode("utf-8"))
     releases_index = _release_file("index.rst")
     releases_index_contents = _read_file(releases_index)
     releases_index_contents = releases_index_contents.replace(".. announcements\n", ".. announcements\n   " + next_version + "_announce\n")
@@ -396,9 +397,10 @@ def do_release(argv):
 
 
 def check_release(argv):
+    github = _github_client()
     release_name = argv[2]
     for pr in _get_prs(release_name):
-        _text_target(pr, labels=_pr_to_labels(pr))
+        _text_target(github, pr, labels=_pr_to_labels(pr))
 
 
 def check_blocking_prs(argv):
@@ -469,33 +471,35 @@ def _release_dates(version):
     return freeze_date, release_date
 
 
-def _get_prs(release_name, state="closed", pr_cache=[]):
+def _get_prs(release_name, state="closed"):
     github = _github_client()
-    repo = github.get_repo("%s/%s" % (PROJECT_OWNER, PROJECT_NAME))
-    add_to_cache = not pr_cache
-    pull_requests = pr_cache or repo.get_pulls(
+    pull_requests = github.pull_requests.list(
         state=state,
+        user=PROJECT_OWNER,
+        repo=PROJECT_NAME,
     )
     reached_old_prs = False
 
-    for pr in pull_requests:
+    for page in pull_requests:
         if reached_old_prs:
             break
 
-        if pr.created_at < datetime.datetime(2018, 11, 1, 0, 0):
-            reached_old_prs = True
-            pass
-        merged_at = pr.merged_at
-        milestone = pr.milestone
-        proper_state = state != "closed" or merged_at
-        if not proper_state or not milestone or milestone.title != release_name:
-            continue
-        if add_to_cache:
-            pr_cache.append(pr)
-        yield pr
+        for pr in page:
+            if pr.created_at < datetime.datetime(2016, 11, 1, 0, 0):
+                reached_old_prs = True
+                pass
+            merged_at = pr.merged_at
+            milestone = pr.milestone
+            proper_state = state != "closed" or merged_at
+            if not proper_state or not milestone or milestone['title'] != release_name:
+                continue
+            yield pr
 
 
 def main(argv):
+    if requests is None:
+        raise Exception("Requests library not found, please pip install requests")
+    github = _github_client()
     newest_release = None
 
     if argv[1] == "--print-next-minor-version":
@@ -550,8 +554,6 @@ def main(argv):
 
     ident = argv[1]
 
-    if requests is None:
-        raise Exception("Requests library not found, please pip install requests")
     message = ""
     if len(argv) > 2:
         message = argv[2]
@@ -562,13 +564,13 @@ def main(argv):
         commit = req["commit"]
         message = commit["message"]
         message = get_first_sentence(message)
-    elif ident.startswith("pr"):
+    elif requests is not None and ident.startswith("pr"):
         pull_request = ident[len("pr"):]
         api_url = urljoin(PROJECT_API, "pulls/%s" % pull_request)
         if req is None:
             req = requests.get(api_url).json()
         message = req["title"]
-    elif ident.startswith("issue"):
+    elif requests is not None and ident.startswith("issue"):
         issue = ident[len("issue"):]
         api_url = urljoin(PROJECT_API, "issues/%s" % issue)
         if req is None:
@@ -583,8 +585,8 @@ def main(argv):
     owner = None
     if ident.startswith("pr"):
         pull_request = ident[len("pr"):]
-        user = req["head"].user
-        owner = user.login
+        user = req["head"]["user"]
+        owner = user["login"]
         if owner in DEVTEAM:
             owner = None
         text = ".. _Pull Request {0}: {1}/pull/{0}".format(pull_request, PROJECT_URL)
@@ -594,10 +596,11 @@ def main(argv):
                 owner, owner,
             )
         to_doc += "\n`Pull Request {0}`_".format(pull_request)
-        labels = None
-        if req and 'labels' in req:
-            labels = req['labels']
-        text_target = _text_target(pull_request, labels=labels)
+        if github:
+            labels = None
+            if req and 'labels' in req:
+                labels = req['labels']
+            text_target = _text_target(github, pull_request, labels=labels)
     elif ident.startswith("issue"):
         issue = ident[len("issue"):]
         text = ".. _Issue {0}: {1}/issues/{0}".format(issue, PROJECT_URL)
@@ -612,7 +615,7 @@ def main(argv):
     to_doc = wrap(to_doc)
     if text_target is not None:
         history = extend_target(text_target, to_doc, history)
-    if req and req['labels']:
+    if req and 'labels' in req:
         labels = req['labels']
         if 'area/datatypes' in labels:
             user_announce = extend_target("datatypes", to_doc, user_announce)
@@ -627,15 +630,15 @@ def main(argv):
 
 def _read_file(path):
     with open(path, "r") as f:
-        return f.read()
+        return f.read().decode("utf-8")
 
 
 def _write_file(path, contents):
     with open(path, "w") as f:
-        f.write(contents)
+        f.write(contents.encode("utf-8"))
 
 
-def _text_target(pull_request, labels=None):
+def _text_target(github, pull_request, labels=None):
     pr_number = None
     if isinstance(pull_request, string_types):
         pr_number = pull_request
@@ -645,7 +648,6 @@ def _text_target(pull_request, labels=None):
     if labels is None:
         labels = []
         try:
-            github = _github_client()
             labels = github.issues.labels.list_by_issue(int(pr_number), user=PROJECT_OWNER, repo=PROJECT_NAME)
             labels = [l.name.lower() for l in labels]
         except Exception as e:
@@ -707,13 +709,11 @@ def _text_target(pull_request, labels=None):
     else:
         print("Logic problem, cannot determine section for %s" % _pr_to_str(pull_request))
         text_target = None
-    if text_target:
-        text_target += "\n"
     return text_target
 
 
 def _pr_to_labels(pr):
-    labels = [l.name.lower() for l in pr.labels]
+    labels = [l["name"].lower() for l in pr.labels]
     return labels
 
 
@@ -737,12 +737,9 @@ def _releases():
 
 def _github_client():
     try:
-        github_json_path = os.path.expanduser("~/.github.json")
-        with open(github_json_path, "r") as fh:
-            github_json_dict = json.load(fh)
-        github = Github(**github_json_dict)
+        github_json = os.path.expanduser("~/.github.json")
+        github = Github(**json.load(open(github_json, "r")))
     except Exception:
-        log.exception()
         github = None
     return github
 
@@ -773,7 +770,7 @@ def wrap(message):
     message = process_sentence(message)
     wrapper = textwrap.TextWrapper(initial_indent="* ")
     wrapper.subsequent_indent = '  '
-    wrapper.width = 160
+    wrapper.width = 78
     message_lines = message.splitlines()
     first_lines = "\n".join(wrapper.wrap(message_lines[0]))
     wrapper.initial_indent = "  "

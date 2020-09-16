@@ -1,6 +1,7 @@
 """
 Migration script to add the cleanup_event_user_association table.
 """
+from __future__ import print_function
 
 import datetime
 import logging

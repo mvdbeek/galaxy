@@ -6,8 +6,11 @@ from abc import (
     abstractproperty,
 )
 
+import six
 
-class ToolLocationResolver(metaclass=ABCMeta):
+
+@six.add_metaclass(ABCMeta)
+class ToolLocationResolver(object):
     """Parse a URI-like string and return a ToolSource object."""
 
     @abstractproperty

@@ -42,7 +42,7 @@ DEFAULT_CONDARC_OVERRIDE = "_condarc"
 # https://github.com/bioconda/bioconda-recipes/blob/master/config.yml , but
 # adding `iuc` as first channel (for Galaxy-specific packages)
 DEFAULT_ENSURE_CHANNELS = "iuc,conda-forge,bioconda,defaults"
-CONDA_SOURCE_CMD = """[ "$(basename "$CONDA_DEFAULT_ENV")" = "$(basename '{environment_path}')" ] || {{
+CONDA_SOURCE_CMD = """[ "$(basename "$CONDA_DEFAULT_ENV")" = "$(basename '{environment_path}')" ] ||
 MAX_TRIES=3
 COUNT=0
 while [ $COUNT -lt $MAX_TRIES ]; do
@@ -58,8 +58,7 @@ while [ $COUNT -lt $MAX_TRIES ]; do
         fi
         sleep 10s
     fi
-done
-}} """
+done """
 
 
 log = logging.getLogger(__name__)
@@ -405,7 +404,7 @@ class MergedCondaDependency(Dependency):
             # On explicit testing the only such requirement I am aware of is samtools - and it seems to work
             # fine with just appending the PATH as done below. Other tools may require additional
             # variables in the future.
-            return """export PATH=$PATH:'{}/bin' """.format(
+            return """export PATH=$PATH:'%s/bin' """ % (
                 self.environment_path,
             )
         else:
@@ -474,7 +473,7 @@ class CondaDependency(Dependency):
             # On explicit testing the only such requirement I am aware of is samtools - and it seems to work
             # fine with just appending the PATH as done below. Other tools may require additional
             # variables in the future.
-            return """export PATH=$PATH:'{}/bin' """.format(
+            return """export PATH=$PATH:'%s/bin' """ % (
                 self.environment_path,
             )
         else:

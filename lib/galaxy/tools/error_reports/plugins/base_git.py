@@ -1,6 +1,7 @@
 """This module defines the common functions for error reporting for Galaxy jobs towards Git applications (e.g. Github/GitLab).
 """
 
+from __future__ import absolute_import
 
 import logging
 import sys
@@ -10,6 +11,7 @@ from abc import (
 )
 
 import requests
+import six
 if sys.version_info[0] < 3:
     import urllib as urllib
     import urlparse as urlparse
@@ -24,7 +26,8 @@ from . import ErrorPlugin
 log = logging.getLogger(__name__)
 
 
-class BaseGitPlugin(ErrorPlugin, metaclass=ABCMeta):
+@six.add_metaclass(ABCMeta)
+class BaseGitPlugin(ErrorPlugin):
     """Base definition to send error reports to a Git repository provider
     """
     issue_cache = {}
@@ -78,7 +81,7 @@ class BaseGitPlugin(ErrorPlugin, metaclass=ABCMeta):
 
     def _generate_error_title(self, job):
         tool_kw = {'tool_id': unicodify(job.tool_id), 'tool_version': unicodify(job.tool_version)}
-        return """Galaxy Job Error: {tool_id} v{tool_version}""".format(**tool_kw)
+        return u"""Galaxy Job Error: {tool_id} v{tool_version}""".format(**tool_kw)
 
     @abstractmethod
     def _create_issue(self, issue_cache_key, error_title, error_mesage, project, **kwargs):

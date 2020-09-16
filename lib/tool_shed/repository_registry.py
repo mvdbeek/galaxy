@@ -10,7 +10,7 @@ from tool_shed.webapp import model
 log = logging.getLogger(__name__)
 
 
-class Registry:
+class Registry(object):
 
     def __init__(self, app):
         log.debug("Loading the repository registry...")
@@ -196,7 +196,7 @@ class Registry:
         # The received repository has been determined to be level one certified.
         name = str(repository.name)
         owner = str(repository.user.username)
-        tip_changeset_hash = repository.tip()
+        tip_changeset_hash = repository.tip(self.app)
         if tip_changeset_hash != hg_util.INITIAL_CHANGELOG_HASH:
             certified_level_one_tuple = (name, owner, tip_changeset_hash)
             if repository.type == rt_util.REPOSITORY_SUITE_DEFINITION:
@@ -261,7 +261,7 @@ class Registry:
                 if not repository.deleted and not repository.deprecated:
                     is_valid = self.is_valid(repository)
                     encoded_repository_id = self.app.security.encode_id(repository.id)
-                    tip_changeset_hash = repository.tip()
+                    tip_changeset_hash = repository.tip(self.app)
                     repository_metadata = metadata_util.get_repository_metadata_by_changeset_revision(self.app,
                                                                                                       encoded_repository_id,
                                                                                                       tip_changeset_hash)
@@ -353,7 +353,7 @@ class Registry:
         # The received repository has been determined to be level one certified.
         name = str(repository.name)
         owner = str(repository.user.username)
-        tip_changeset_hash = repository.tip()
+        tip_changeset_hash = repository.tip(self.app)
         if tip_changeset_hash != hg_util.INITIAL_CHANGELOG_HASH:
             certified_level_one_tuple = (name, owner, tip_changeset_hash)
             if repository.type == rt_util.REPOSITORY_SUITE_DEFINITION:

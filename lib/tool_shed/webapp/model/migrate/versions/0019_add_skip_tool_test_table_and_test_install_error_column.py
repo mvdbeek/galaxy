@@ -1,6 +1,7 @@
 """
 Migration script to add the skip_tool_test table and add the test_install_error column to the repository_metadata table.
 """
+from __future__ import print_function
 
 import datetime
 import logging

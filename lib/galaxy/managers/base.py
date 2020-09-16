@@ -31,6 +31,7 @@ import re
 
 import routes
 import sqlalchemy
+from six import string_types
 
 from galaxy import exceptions
 from galaxy import model
@@ -114,8 +115,8 @@ def get_object(trans, id, class_name, check_ownership=False, check_accessible=Fa
         item = trans.sa_session.query(item_class).get(decoded_id)
         assert item is not None
     except Exception:
-        log.exception("Invalid {} id ( {} ) specified.".format(class_name, id))
-        raise exceptions.MessageException("Invalid {} id ( {} ) specified".format(class_name, id), type="error")
+        log.exception("Invalid %s id ( %s ) specified." % (class_name, id))
+        raise exceptions.MessageException("Invalid %s id ( %s ) specified" % (class_name, id), type="error")
 
     if check_ownership or check_accessible:
         security_check(trans, item, check_ownership, check_accessible)
@@ -148,7 +149,7 @@ def munge_lists(listA, listB):
 
 
 # -----------------------------------------------------------------------------
-class ModelManager:
+class ModelManager(object):
     """
     Base class for all model/resource managers.
 
@@ -472,7 +473,7 @@ class ModelManager:
 
 # ---- code for classes that use one *main* model manager
 # TODO: this may become unecessary if we can access managers some other way (class var, app, etc.)
-class HasAModelManager:
+class HasAModelManager(object):
     """
     Mixin used where serializers, deserializers, filter parsers, etc.
     need some functionality around the model they're mainly concerned with
@@ -501,12 +502,14 @@ class HasAModelManager:
 # ==== SERIALIZERS/to_dict,from_dict
 class ModelSerializingError(exceptions.InternalServerError):
     """Thrown when request model values can't be serialized"""
+    pass
 
 
 class ModelDeserializingError(exceptions.ObjectAttributeInvalidException):
     """Thrown when an incoming value isn't usable by the model
     (bad type, out of range, etc.)
     """
+    pass
 
 
 class SkipAttribute(Exception):
@@ -514,6 +517,7 @@ class SkipAttribute(Exception):
     Raise this inside a serializer to prevent the returned dictionary from having
     a the associated key or value for this attribute.
     """
+    pass
 
 
 class ModelSerializer(HasAModelManager):
@@ -540,7 +544,7 @@ class ModelSerializer(HasAModelManager):
         """
         Set up serializer map, any additional serializable keys, and views here.
         """
-        super().__init__(app, **kwargs)
+        super(ModelSerializer, self).__init__(app, **kwargs)
         self.app = app
 
         # a list of valid serializable keys that can use the default (string) serializer
@@ -711,7 +715,7 @@ class ModelDeserializer(HasAModelManager):
         """
         Set up deserializers and validator.
         """
-        super().__init__(app, **kwargs)
+        super(ModelDeserializer, self).__init__(app, **kwargs)
         self.app = app
 
         self.deserializers = {}
@@ -726,6 +730,7 @@ class ModelDeserializer(HasAModelManager):
         into attributes to be assigned to the item.
         """
         # to be overridden in subclasses
+        pass
 
     def deserialize(self, item, data, flush=True, **context):
         """
@@ -792,7 +797,7 @@ class ModelValidator(HasAModelManager):
     """
 
     def __init__(self, app, *args, **kwargs):
-        super().__init__(app, **kwargs)
+        super(ModelValidator, self).__init__(app, **kwargs)
         self.app = app
 
     def type(self, key, val, types):
@@ -808,7 +813,7 @@ class ModelValidator(HasAModelManager):
 
     # validators for primitives and compounds of primitives
     def basestring(self, key, val):
-        return self.type(key, val, (str,))
+        return self.type(key, val, string_types)
 
     def bool(self, key, val):
         return self.type(key, val, bool)
@@ -820,7 +825,7 @@ class ModelValidator(HasAModelManager):
         """
         Must be a basestring or None.
         """
-        return self.type(key, val, ((str,), type(None)))
+        return self.type(key, val, (string_types, type(None)))
 
     def int_range(self, key, val, min=None, max=None):
         """
@@ -902,14 +907,14 @@ class ModelFilterParser(HasAModelManager):
         """
         Set up serializer map, any additional serializable keys, and views here.
         """
-        super().__init__(app, **kwargs)
+        super(ModelFilterParser, self).__init__(app, **kwargs)
         self.app = app
 
         #: regex for testing/dicing iso8601 date strings, with optional time and ms, but allowing only UTC timezone
         self.date_string_re = re.compile(r'^(\d{4}\-\d{2}\-\d{2})[T| ]{0,1}(\d{2}:\d{2}:\d{2}(?:\.\d{1,6}){0,1}){0,1}Z{0,1}$')
 
         # dictionary containing parsing data for ORM/SQLAlchemy-based filters
-        # ..note: although kind of a pain in the ass and verbose, opt-in/allowlisting allows more control
+        # ..note: although kind of a pain in the ass and verbose, opt-in/whitelisting allows more control
         #   over potentially expensive queries
         self.orm_filter_parsers = {}
 
@@ -930,8 +935,8 @@ class ModelFilterParser(HasAModelManager):
             'encoded_id'    : {'column' : 'id', 'op': ('in'), 'val': self.parse_id_list},
             # dates can be directly passed through the orm into a filter (no need to parse into datetime object)
             'extension'     : {'op': ('eq', 'like', 'in')},
-            'create_time'   : {'op': ('le', 'ge', 'lt', 'gt'), 'val': self.parse_date},
-            'update_time'   : {'op': ('le', 'ge', 'lt', 'gt'), 'val': self.parse_date},
+            'create_time'   : {'op': ('le', 'ge'), 'val': self.parse_date},
+            'update_time'   : {'op': ('le', 'ge'), 'val': self.parse_date},
         })
 
     def parse_filters(self, filter_tuple_list):
@@ -1008,11 +1013,11 @@ class ModelFilterParser(HasAModelManager):
         # orm_filter_list is a dict: orm_filter_list[ attr ] = <list of allowed ops>
         column_map = self.orm_filter_parsers.get(attr, None)
         if not column_map:
-            # no column mapping (not allowlisted)
+            # no column mapping (not whitelisted)
             return None
         if callable(column_map):
             return self.parsed_filter(filter_type="orm_function", filter=column_map(attr, op, val))
-        # attr must be an allowlisted column by attr name or by key passed in column_map
+        # attr must be a whitelisted column by attr name or by key passed in column_map
         # note: column_map[ 'column' ] takes precedence
         if 'column' in column_map:
             attr = column_map['column']
@@ -1024,7 +1029,7 @@ class ModelFilterParser(HasAModelManager):
             # no orm column
             return None
 
-        # op must be allowlisted: contained in the list orm_filter_list[ attr ][ 'op' ]
+        # op must be whitelisted: contained in the list orm_filter_list[ attr ][ 'op' ]
         allowed_ops = column_map.get('op')
         if op not in allowed_ops:
             return None

@@ -21,7 +21,7 @@ __all__ = ('RemoteShell', 'SecureShell', 'GlobusSecureShell', 'ParamikoShell')
 class RemoteShell(LocalShell):
 
     def __init__(self, rsh='rsh', rcp='rcp', hostname='localhost', username=None, options=None, **kwargs):
-        super().__init__(**kwargs)
+        super(RemoteShell, self).__init__(**kwargs)
         self.rsh = rsh
         self.rcp = rcp
         self.hostname = hostname
@@ -37,7 +37,7 @@ class RemoteShell(LocalShell):
         if self.username:
             fullcmd.extend(["-l", self.username])
         fullcmd.extend([self.hostname, cmd])
-        return super().execute(fullcmd, persist, timeout)
+        return super(RemoteShell, self).execute(fullcmd, persist, timeout)
 
 
 class SecureShell(RemoteShell):
@@ -51,10 +51,10 @@ class SecureShell(RemoteShell):
             options.extend(['-i', private_key])
         if port:
             options.extend(['-p', str(port)])
-        super().__init__(rsh=rsh, rcp=rcp, options=options, **kwargs)
+        super(SecureShell, self).__init__(rsh=rsh, rcp=rcp, options=options, **kwargs)
 
 
-class ParamikoShell:
+class ParamikoShell(object):
 
     def __init__(self, username, hostname, password=None, private_key=None, port=22, timeout=60, strict_host_key_checking=True, **kwargs):
         self.username = username
@@ -72,7 +72,6 @@ class ParamikoShell:
         log.info("Attempting establishment of new paramiko SSH channel")
         self.ssh = paramiko.SSHClient()
         self.ssh.set_missing_host_key_policy(paramiko.RejectPolicy() if self.strict_host_key_checking else paramiko.WarningPolicy())
-        self.ssh.load_system_host_keys()
         self.ssh.connect(hostname=self.hostname,
                          port=self.port,
                          username=self.username,
@@ -103,4 +102,4 @@ class ParamikoShell:
 class GlobusSecureShell(SecureShell):
 
     def __init__(self, rsh='gsissh', rcp='gsiscp', **kwargs):
-        super().__init__(rsh=rsh, rcp=rcp, **kwargs)
+        super(GlobusSecureShell, self).__init__(rsh=rsh, rcp=rcp, **kwargs)

@@ -1,2 +1,1 @@
 galaxy-util
-pyyaml

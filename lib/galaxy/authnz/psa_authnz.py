@@ -1,6 +1,7 @@
 import json
 
 import requests
+import six
 from social_core.actions import do_auth, do_complete, do_disconnect
 from social_core.backends.utils import get_backend
 from social_core.strategy import BaseStrategy
@@ -21,16 +22,14 @@ DEFAULTS = {
 
 BACKENDS = {
     'google': 'social_core.backends.google_openidconnect.GoogleOpenIdConnect',
-    'globus': 'social_core.backends.globus.GlobusOpenIdConnect',
-    'elixir': 'social_core.backends.elixir.ElixirOpenIdConnect',
-    'okta': 'social_core.backends.okta_openidconnect.OktaOpenIdConnect'
+    "globus": "social_core.backends.globus.GlobusOpenIdConnect",
+    'elixir': 'social_core.backends.elixir.ElixirOpenIdConnect'
 }
 
 BACKENDS_NAME = {
     'google': 'google-openidconnect',
-    'globus': 'globus',
-    'elixir': 'elixir',
-    'okta': 'okta-openidconnect'
+    "globus": "globus",
+    'elixir': 'elixir'
 }
 
 AUTH_PIPELINE = (
@@ -45,7 +44,7 @@ AUTH_PIPELINE = (
     'social_core.pipeline.social_auth.social_uid',
 
     # Verifies that the current auth process is valid within the current
-    # project, this is where emails and domains allowlists are applied (if
+    # project, this is where emails and domains whitelists are applied (if
     # defined).
     'social_core.pipeline.social_auth.auth_allowed',
 
@@ -115,10 +114,8 @@ class PSAAuthnz(IdentityProvider):
 
         # Secondary AuthZ with Google identities is currently supported
         if provider != "google":
-            if 'SOCIAL_AUTH_SECONDARY_AUTH_PROVIDER' in self.config:
-                del self.config["SOCIAL_AUTH_SECONDARY_AUTH_PROVIDER"]
-            if 'SOCIAL_AUTH_SECONDARY_AUTH_ENDPOINT' in self.config:
-                del self.config["SOCIAL_AUTH_SECONDARY_AUTH_ENDPOINT"]
+            del self.config["SOCIAL_AUTH_SECONDARY_AUTH_PROVIDER"]
+            del self.config["SOCIAL_AUTH_SECONDARY_AUTH_ENDPOINT"]
 
     def _setup_idp(self, oidc_backend_config):
         self.config[setting_name('AUTH_EXTRA_ARGUMENTS')] = {'access_type': 'offline'}
@@ -127,10 +124,6 @@ class PSAAuthnz(IdentityProvider):
         self.config['redirect_uri'] = oidc_backend_config.get('redirect_uri')
         if oidc_backend_config.get('prompt') is not None:
             self.config[setting_name('AUTH_EXTRA_ARGUMENTS')]['prompt'] = oidc_backend_config.get('prompt')
-        if oidc_backend_config.get('api_url') is not None:
-            self.config[setting_name('API_URL')] = oidc_backend_config.get('api_url')
-        if oidc_backend_config.get('url') is not None:
-            self.config[setting_name('URL')] = oidc_backend_config.get('url')
 
     def _get_helper(self, name, do_import=False):
         this_config = self.config.get(setting_name(name), DEFAULTS.get(name, None))
@@ -174,7 +167,7 @@ class PSAAuthnz(IdentityProvider):
         strategy = Strategy(trans.request, trans.session, Storage, self.config)
         backend = self._load_backend(strategy, self.config['redirect_uri'])
         response = do_disconnect(backend, trans.user, association_id)
-        if isinstance(response, str):
+        if isinstance(response, six.string_types):
             return True, "", response
         return response.get('success', False), response.get('message', ""), ""
 
@@ -187,7 +180,7 @@ class Strategy(BaseStrategy):
         self.config = config
         self.config['SOCIAL_AUTH_REDIRECT_IS_HTTPS'] = True if self.request and self.request.host.startswith('https:') else False
         self.config['SOCIAL_AUTH_GOOGLE_OPENIDCONNECT_EXTRA_DATA'] = ['id_token']
-        super().__init__(storage, tpl)
+        super(Strategy, self).__init__(storage, tpl)
 
     def get_setting(self, name):
         return self.config[name]
@@ -250,7 +243,7 @@ class Strategy(BaseStrategy):
         return self.backend.continue_pipeline(*args, **kwargs)
 
 
-class Storage:
+class Storage(object):
     user = UserAuthnzToken
     nonce = PSANonce
     association = PSAAssociation
@@ -387,6 +380,7 @@ def allowed_to_disconnect(name=None, user=None, user_storage=None, strategy=None
     :type details: dict
     :return: empty dict
     """
+    pass
 
 
 def disconnect(name=None, user=None, user_storage=None, strategy=None,
@@ -407,10 +401,8 @@ def disconnect(name=None, user=None, user_storage=None, strategy=None,
     Additionally, returning any value except for a(n) (empty) dictionary, will break the
     disconnect pipeline, and that value will be returned as a result of calling the `do_disconnect` function.
     """
-
-    sa_session = user_storage.sa_session
-    user_authnz = sa_session.query(user_storage).filter(user_storage.table.c.user_id == user.id,
-                                                        user_storage.table.c.provider == name).first()
+    user_authnz = strategy.trans.sa_session.query(user_storage).filter(user_storage.table.c.user_id == user.id,
+                                                                       user_storage.table.c.provider == name).first()
     if user_authnz is None:
         return {'success': False, 'message': 'Not authenticated by any identity providers.'}
     # option A

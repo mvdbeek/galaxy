@@ -1,6 +1,7 @@
 """
 Docker Swarm mode interface
 """
+from __future__ import absolute_import
 
 import logging
 import os.path
@@ -63,7 +64,7 @@ class DockerSwarmInterface(DockerInterface):
     supports_volumes = False
 
     def validate_config(self):
-        super().validate_config()
+        super(DockerSwarmInterface, self).validate_config()
         self._node_prefix = self._conf.node_prefix
 
     def run_in_container(self, command, image=None, **kwopts):
@@ -425,10 +426,10 @@ class DockerSwarmAPIInterface(DockerSwarmInterface, DockerAPIInterface):
         # service constraints
         kwopts['constraint'] = kwopts.get('constraint', [])
         if self._conf.service_create_image_constraint:
-            kwopts['constraint'].append(IMAGE_CONSTRAINT + '==' + image)
+            kwopts['constraint'].append((IMAGE_CONSTRAINT + '==' + image))
         if self._conf.service_create_cpus_constraint:
             cpus = kwopts.get('reserve_cpus', kwopts.get('limit_cpus', '1'))
-            kwopts['constraint'].append(CPUS_CONSTRAINT + '==' + cpus)
+            kwopts['constraint'].append((CPUS_CONSTRAINT + '==' + cpus))
         # ports
         if 'publish_port_random' in kwopts:
             kwopts['ports'] = [DockerSwarmAPIInterface.create_random_port_spec(kwopts.pop('publish_port_random'))]

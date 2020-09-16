@@ -9,7 +9,7 @@ from galaxy.util.bunch import Bunch
 log = logging.getLogger(__name__)
 
 
-class Action:
+class Action(object):
 
     def __init__(self, action, description, model):
         self.action = action
@@ -17,7 +17,7 @@ class Action:
         self.model = model
 
 
-class RBACAgent:
+class RBACAgent(object):
     """Handle Galaxy Tool Shed security"""
     permitted_actions = Bunch()
 
@@ -52,7 +52,7 @@ class RBACAgent:
         return list(self.permitted_actions.__dict__.values())
 
     def get_item_actions(self, action, item):
-        raise Exception('No valid method of retrieving action ({}) for item {}.'.format(action, item))
+        raise Exception('No valid method of retrieving action (%s) for item %s.' % (action, item))
 
     def get_private_user_role(self, user):
         raise Exception("Unimplemented Method")
@@ -214,7 +214,7 @@ class CommunityRBACAgent(RBACAgent):
 
     def can_push(self, app, user, repository):
         if user:
-            return user.username in listify(repository.allow_push())
+            return user.username in listify(repository.allow_push(app))
         return False
 
     def user_can_administer_repository(self, user, repository):

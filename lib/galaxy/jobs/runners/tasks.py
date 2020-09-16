@@ -20,7 +20,7 @@ class TaskedJobRunner(BaseJobRunner):
 
     def __init__(self, app, nworkers):
         """Start the job runner with 'nworkers' worker threads"""
-        super().__init__(app, nworkers)
+        super(TaskedJobRunner, self).__init__(app, nworkers)
         self._init_worker_threads()
 
     def queue_job(self, job_wrapper):

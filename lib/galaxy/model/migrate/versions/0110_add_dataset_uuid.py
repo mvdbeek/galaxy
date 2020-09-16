@@ -1,6 +1,7 @@
 """
 Add UUID column to dataset table
 """
+from __future__ import print_function
 
 import logging
 

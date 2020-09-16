@@ -8,7 +8,7 @@ from beaker.util import parse_cache_config_options
 log = logging.getLogger(__name__)
 
 
-class CitationsManager:
+class CitationsManager(object):
 
     def __init__(self, app):
         self.app = app
@@ -33,7 +33,7 @@ class CitationsManager:
         return tool
 
 
-class DoiCache:
+class DoiCache(object):
 
     def __init__(self, config):
         cache_opts = {
@@ -67,11 +67,11 @@ def parse_citation(elem, citation_manager):
     try:
         citation = citation_class(elem, citation_manager)
     except Exception as e:
-        raise Exception("Invalid citation of type '{}' with content '{}': {}".format(citation_type, elem.text, e))
+        raise Exception("Invalid citation of type '%s' with content '%s': %s" % (citation_type, elem.text, e))
     return citation
 
 
-class CitationCollection:
+class CitationCollection(object):
 
     def __init__(self):
         self.citations = []
@@ -93,7 +93,7 @@ class CitationCollection:
         return True
 
 
-class BaseCitation:
+class BaseCitation(object):
 
     def to_dict(self, citation_format):
         if citation_format == "bibtex":
@@ -146,10 +146,10 @@ class DoiCitation(BaseCitation):
                 log.exception("Failed to fetch bibtex for DOI %s", self.__doi)
 
         if self.raw_bibtex is DoiCitation.BIBTEX_UNSET:
-            return """@MISC{{{doi},
-                DOI = {{{doi}}},
-                note = {{Failed to fetch BibTeX for DOI.}}
-            }}""".format(doi=self.__doi)
+            return """@MISC{%s,
+                DOI = {%s},
+                note = {Failed to fetch BibTeX for DOI.}
+            }""" % (self.__doi, self.__doi)
         else:
             return self.raw_bibtex
 

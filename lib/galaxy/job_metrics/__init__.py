@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 DEFAULT_FORMATTER = formatting.JobMetricFormatter()
 
 
-class JobMetrics:
+class JobMetrics(object):
     """Load and store a collection of :class:`JobInstrumenter` objects."""
 
     def __init__(self, conf_file=None, **kwargs):
@@ -69,7 +69,7 @@ class JobMetrics:
         return plugin_config.plugins_dict(galaxy.job_metrics.instrumenters, 'plugin_type')
 
 
-class NullJobInstrumenter:
+class NullJobInstrumenter(object):
 
     def pre_execute_commands(self, job_directory):
         return None
@@ -84,7 +84,7 @@ class NullJobInstrumenter:
 NULL_JOB_INSTRUMENTER = NullJobInstrumenter()
 
 
-class JobInstrumenter:
+class JobInstrumenter(object):
 
     def __init__(self, plugin_classes, plugins_source, **kwargs):
         self.extra_kwargs = kwargs

@@ -6,8 +6,11 @@ from abc import (
     abstractmethod
 )
 
+import six
 
-class BaseShellExec(metaclass=ABCMeta):
+
+@six.add_metaclass(ABCMeta)
+class BaseShellExec(object):
 
     @abstractmethod
     def __init__(self, *args, **kwargs):

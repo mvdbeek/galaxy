@@ -3,6 +3,7 @@ Code derived from WebHelpers: https://bitbucket.org/bbangert/webhelpers
 
 Licensed under the MIT license: https://bitbucket.org/bbangert/webhelpers/src/tip/LICENSE
 """
+from __future__ import print_function
 
 from markupsafe import escape_silent
 
@@ -22,10 +23,10 @@ def format_attrs(**attrs):
     >>> format_attrs(p=None) == u''
     True
     """
-    strings = [' {}="{}"'.format(attr, escape_silent(value))
+    strings = [u' %s="%s"' % (attr, escape_silent(value))
         for attr, value in sorted(attrs.items())
         if value is not None]
-    return ''.join(strings)
+    return u''.join(strings)
 
 
 def javascript_link(*urls, **attrs):
@@ -53,13 +54,13 @@ def javascript_link(*urls, **attrs):
         else:
             del attrs['defer']
     attrs['type'] = 'text/javascript'
-    tag_template = '<script%s></script>'
+    tag_template = u'<script%s></script>'
     tags = []
     for url in urls:
         attrs['src'] = url
         tag = tag_template % format_attrs(**attrs)
         tags.append(tag)
-    return "\n".join(tags)
+    return u"\n".join(tags)
 
 
 def stylesheet_link(*urls, **attrs):
@@ -81,10 +82,10 @@ def stylesheet_link(*urls, **attrs):
     attrs.setdefault("rel", "stylesheet")
     attrs.setdefault("type", "text/css")
     attrs.setdefault("media", "screen")
-    tag_template = '<link%s />'
+    tag_template = u'<link%s />'
     tags = []
     for url in urls:
         attrs['href'] = url
         tag = tag_template % format_attrs(**attrs)
         tags.append(tag)
-    return "\n".join(tags)
+    return u"\n".join(tags)

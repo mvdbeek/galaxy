@@ -4,17 +4,18 @@ Tool Parameter specific sanitizing.
 import logging
 import string
 
+from six import string_types
 
 import galaxy.util
 
 log = logging.getLogger(__name__)
 
 
-class ToolParameterSanitizer:
+class ToolParameterSanitizer(object):
     """
     Handles tool parameter specific sanitizing.
 
-    >>> from galaxy.util import XML
+    >>> from xml.etree.ElementTree import XML
     >>> sanitizer = ToolParameterSanitizer.from_element(XML(
     ... '''
     ... <sanitizer invalid_char="">
@@ -156,9 +157,9 @@ class ToolParameterSanitizer:
         """Clean incoming parameters (strings or lists)"""
         if not self.sanitize:
             return value
-        if isinstance(value, str):
+        if isinstance(value, string_types):
             return self.sanitize_text(value)
         elif isinstance(value, list):
             return list(map(self.sanitize_text, value))
         else:
-            raise Exception('Unknown parameter type ({}:{})'.format(type(value), value))
+            raise Exception('Unknown parameter type (%s:%s)' % (type(value), value))

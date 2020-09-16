@@ -8,7 +8,7 @@ from .structure import (
 CANNOT_MATCH_ERROR_MESSAGE = "Cannot match collection types."
 
 
-class CollectionsToMatch:
+class CollectionsToMatch(object):
     """ Structure representing a set of collections that need to be matched up
     when running tools (possibly workflows in the future as well).
     """
@@ -30,7 +30,7 @@ class CollectionsToMatch:
         return self.collections.items()
 
 
-class MatchingCollections:
+class MatchingCollections(object):
     """ Structure holding the result of matching a list of collections
     together. This class being different than the class above and being
     created in the dataset_collections_service layer may seem like

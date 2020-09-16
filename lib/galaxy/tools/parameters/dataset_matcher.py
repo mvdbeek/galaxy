@@ -18,7 +18,7 @@ def get_dataset_matcher_factory(trans):
     return dataset_matcher_factory or DatasetMatcherFactory(trans)
 
 
-class DatasetMatcherFactory:
+class DatasetMatcherFactory(object):
     """"""
 
     def __init__(self, trans, tool=None):
@@ -85,7 +85,7 @@ class DatasetMatcherFactory:
             return DatasetCollectionMatcher(self._trans, dataset_matcher)
 
 
-class DatasetMatcher:
+class DatasetMatcher(object):
     """ Utility class to aid DataToolParameter and similar classes in reasoning
     about what HDAs could match or are selected for a parameter and value.
 
@@ -156,7 +156,7 @@ class DatasetMatcher:
         return param.options and param.get_options_filter_attribute(hda) not in self.filter_values
 
 
-class HdaDirectMatch:
+class HdaDirectMatch(object):
     """ Supplied HDA was a valid option directly (did not need to find implicit
     conversion).
     """
@@ -169,7 +169,7 @@ class HdaDirectMatch:
         return False
 
 
-class HdaImplicitMatch:
+class HdaImplicitMatch(object):
     """ Supplied HDA was a valid option directly (did not need to find implicit
     conversion).
     """
@@ -184,21 +184,21 @@ class HdaImplicitMatch:
         return True
 
 
-class HdcaDirectMatch:
+class HdcaDirectMatch(object):
     implicit_conversion = False
 
     def __init__(self):
         pass
 
 
-class HdcaImplicitMatch:
+class HdcaImplicitMatch(object):
     implicit_conversion = True
 
     def __init__(self):
         pass
 
 
-class SummaryDatasetCollectionMatcher:
+class SummaryDatasetCollectionMatcher(object):
 
     def __init__(self, dataset_matcher_factory, trans, dataset_matcher):
         self.dataset_matcher_factory = dataset_matcher_factory
@@ -232,7 +232,7 @@ class SummaryDatasetCollectionMatcher:
         return HdcaImplicitMatch() if uses_implicit_conversion else HdcaDirectMatch()
 
 
-class DatasetCollectionMatcher:
+class DatasetCollectionMatcher(object):
 
     def __init__(self, trans, dataset_matcher):
         self.dataset_matcher = dataset_matcher

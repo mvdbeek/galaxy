@@ -18,7 +18,7 @@ class DynamicToolManager(ModelManager):
     model_class = model.DynamicTool
 
     def __init__(self, app):
-        super().__init__(app)
+        super(DynamicToolManager, self).__init__(app)
 
     def get_tool_by_uuid(self, uuid):
         dynamic_tool = self._one_or_none(
@@ -105,7 +105,7 @@ class DynamicToolManager(ModelManager):
         return dynamic_tool
 
 
-class ToolFilterMixin:
+class ToolFilterMixin(object):
 
     def create_tool_filter(self, attr, op, val):
 

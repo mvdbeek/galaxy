@@ -1,3 +1,4 @@
+
 RAW_VALUE_BY_DEFAULT = False
 
 
@@ -29,7 +30,7 @@ def env_to_statement(env):
         return execute
     name = env['name']
     value = __escape(env['value'], env)
-    return '{}={}; export {}'.format(name, value, name)
+    return '%s=%s; export %s' % (name, value, name)
 
 
 def __escape(value, env):

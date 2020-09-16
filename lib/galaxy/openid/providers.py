@@ -5,6 +5,7 @@ import logging
 import os
 from collections import OrderedDict
 
+import six
 
 from galaxy.util import parse_xml, string_as_bool
 
@@ -15,7 +16,7 @@ NO_PROVIDER_ID = 'None'
 RESERVED_PROVIDER_IDS = [NO_PROVIDER_ID]
 
 
-class OpenIDProvider:
+class OpenIDProvider(object):
     '''An OpenID Provider object.'''
     @classmethod
     def from_file(cls, filename):
@@ -100,7 +101,7 @@ class OpenIDProvider:
         return bool(self.store_user_preference)
 
 
-class OpenIDProviders:
+class OpenIDProviders(object):
     '''Collection of OpenID Providers'''
     NO_PROVIDER_ID = NO_PROVIDER_ID
 
@@ -120,7 +121,7 @@ class OpenIDProviders:
             try:
                 provider = OpenIDProvider.from_file(os.path.join('lib/galaxy/openid', elem.get('file')))
                 providers[provider.id] = provider
-                log.debug('Loaded OpenID provider: {} ({})'.format(provider.name, provider.id))
+                log.debug('Loaded OpenID provider: %s (%s)' % (provider.name, provider.id))
             except Exception as e:
                 log.error('Failed to add OpenID provider: %s' % (e))
         return cls(providers)
@@ -133,7 +134,8 @@ class OpenIDProviders:
         self._banned_identifiers = [provider.op_endpoint_url for provider in self.providers.values() if provider.never_associate_with_user]
 
     def __iter__(self):
-        yield from self.providers.values()
+        for provider in six.itervalues(self.providers):
+            yield provider
 
     def get(self, name, default=None):
         if name in self.providers:

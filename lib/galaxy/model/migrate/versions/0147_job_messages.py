@@ -1,6 +1,7 @@
 """
 Add structured failure reason column to jobs table
 """
+from __future__ import print_function
 
 import logging
 

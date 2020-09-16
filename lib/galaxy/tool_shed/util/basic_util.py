@@ -5,6 +5,7 @@ import sys
 from string import Template
 
 import markupsafe
+from six import text_type
 
 from galaxy.util import nice_size, unicodify
 
@@ -114,7 +115,7 @@ def size_string(raw_text, size=MAX_DISPLAY_SIZE):
     """Return a subset of a string (up to MAX_DISPLAY_SIZE) translated to a safe string for display in a browser."""
     if raw_text and len(raw_text) >= size:
         large_str = '\nFile contents truncated because file size is larger than maximum viewing size of %s\n' % nice_size(size)
-        raw_text = '{}{}'.format(raw_text[0:size], large_str)
+        raw_text = '%s%s' % (raw_text[0:size], large_str)
     return raw_text or ''
 
 
@@ -142,7 +143,7 @@ def to_html_string(text):
             text = unicodify(text)
         except UnicodeDecodeError as e:
             return "Error decoding string: %s" % str(e)
-        text = str(markupsafe.escape(text))
+        text = text_type(markupsafe.escape(text))
         text = text.replace('\n', '<br/>')
         text = text.replace('    ', '&nbsp;&nbsp;&nbsp;&nbsp;')
         text = text.replace(' ', '&nbsp;')

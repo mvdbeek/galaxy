@@ -13,7 +13,7 @@ from ._framework import ApiTestCase
 class RolesApiTestCase(ApiTestCase):
 
     def setUp(self):
-        super().setUp()
+        super(RolesApiTestCase, self).setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
 
     def test_list_and_show(self):

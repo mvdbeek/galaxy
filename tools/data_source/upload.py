@@ -11,6 +11,8 @@ import shutil
 import sys
 from json import dump, load, loads
 
+from six.moves.urllib.request import urlopen
+
 from galaxy.datatypes import sniff
 from galaxy.datatypes.registry import Registry
 from galaxy.datatypes.upload_util import handle_upload, UploadProblemException
@@ -22,26 +24,6 @@ from galaxy.util import (
 from galaxy.util.compression_utils import CompressedFile
 
 assert sys.version_info[:2] >= (2, 7)
-
-
-_file_sources = None
-
-
-def get_file_sources():
-    global _file_sources
-    if _file_sources is None:
-        from galaxy.files import ConfiguredFileSources
-        file_sources = None
-        if os.path.exists("file_sources.json"):
-            file_sources_as_dict = None
-            with open("file_sources.json", "r") as f:
-                file_sources_as_dict = load(f)
-            if file_sources_as_dict is not None:
-                file_sources = ConfiguredFileSources.from_dict(file_sources_as_dict)
-        if file_sources is None:
-            ConfiguredFileSources.from_dict([])
-        _file_sources = file_sources
-    return _file_sources
 
 
 def file_err(msg, dataset):
@@ -120,7 +102,7 @@ def add_file(dataset, registry, output_path):
 
     if dataset.type == 'url':
         try:
-            dataset.path = sniff.stream_url_to_file(dataset.path, file_sources=get_file_sources())
+            dataset.path = sniff.stream_url_to_file(dataset.path)
         except Exception as e:
             raise UploadProblemException('Unable to fetch %s\n%s' % (dataset.path, unicodify(e)))
 
@@ -202,7 +184,7 @@ def add_composite_file(dataset, registry, output_path, files_path):
         is_url = path_or_url.find('://') != -1  # todo fixme
         if is_url:
             try:
-                temp_name = sniff.stream_url_to_file(path_or_url, file_sources=get_file_sources())
+                temp_name = sniff.stream_to_file(urlopen(path_or_url), prefix='url_paste')
             except Exception as e:
                 raise UploadProblemException('Unable to fetch %s\n%s' % (path_or_url, unicodify(e)))
 
@@ -222,25 +204,27 @@ def add_composite_file(dataset, registry, output_path, files_path):
 
         auto_decompress = composite_file_path.get('auto_decompress', True)
         if auto_decompress and not datatype.composite_type and CompressedFile.can_decompress(dp):
-            # It isn't an explicitly composite datatype, so these are just extra files to attach
+            # It isn't an explictly composite datatype, so these are just extra files to attach
             # as composite data. It'd be better if Galaxy was communicating this to the tool
             # a little more explicitly so we didn't need to dispatch on the datatype and so we
             # could attach arbitrary extra composite data to an existing composite datatype if
             # if need be? Perhaps that would be a mistake though.
             CompressedFile(dp).extract(files_path)
         else:
-            tmpdir = output_adjacent_tmpdir(output_path)
-            tmp_prefix = 'data_id_%s_convert_' % dataset.dataset_id
-            sniff.handle_composite_file(
-                datatype,
-                dp,
-                files_path,
-                name,
-                is_binary,
-                tmpdir,
-                tmp_prefix,
-                composite_file_path,
-            )
+            if not is_binary:
+                tmpdir = output_adjacent_tmpdir(output_path)
+                tmp_prefix = 'data_id_%s_convert_' % dataset.dataset_id
+                if composite_file_path.get('space_to_tab'):
+                    sniff.convert_newlines_sep2tabs(dp, tmp_dir=tmpdir, tmp_prefix=tmp_prefix)
+                else:
+                    sniff.convert_newlines(dp, tmp_dir=tmpdir, tmp_prefix=tmp_prefix)
+
+            file_output_path = os.path.join(files_path, name)
+            shutil.move(dp, file_output_path)
+
+            # groom the dataset file content if required by the corresponding datatype definition
+            if datatype.dataset_content_needs_grooming(file_output_path):
+                datatype.groom_dataset_content(file_output_path)
 
     # Do we have pre-defined composite files from the datatype definition.
     if dataset.composite_files:
@@ -298,7 +282,7 @@ def __write_job_metadata(metadata):
 def output_adjacent_tmpdir(output_path):
     """ For temp files that will ultimately be moved to output_path anyway
     just create the file directly in output_path's directory so shutil.move
-    will work optimally.
+    will work optimially.
     """
     return os.path.dirname(output_path)
 

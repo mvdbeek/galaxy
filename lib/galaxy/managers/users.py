@@ -55,7 +55,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
     # TODO: incorporate UsesFormDefinitionsMixin?
     def __init__(self, app):
         self.model_class = app.model.User
-        super().__init__(app)
+        super(UserManager, self).__init__(app)
 
     def register(self, trans, email=None, username=None, password=None, confirm=None, subscribe=False):
         """
@@ -93,10 +93,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         """
         self._error_on_duplicate_email(email)
         user = self.model_class(email=email)
-        if password:
-            user.set_password_cleartext(password)
-        else:
-            user.set_random_password()
+        user.set_password_cleartext(password)
         user.username = username
         if self.app.config.user_activation_on:
             user.active = False
@@ -116,7 +113,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         """Mark the given user deleted."""
         if not self.app.config.allow_user_deletion:
             raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow admins to delete users.')
-        super().delete(user, flush=flush)
+        super(UserManager, self).delete(user, flush=flush)
 
     def undelete(self, user, flush=True):
         """Remove the deleted flag for the given user."""
@@ -124,7 +121,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
             raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow admins to undelete users.')
         if user.purged:
             raise exceptions.ItemDeletionException('Purged user cannot be undeleted.')
-        super().undelete(user, flush=flush)
+        super(UserManager, self).undelete(user, flush=flush)
 
     def purge(self, user, flush=True):
         """Purge the given user. They must have the deleted flag already."""
@@ -197,7 +194,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
                 addr.phone = new_secure_hash(addr.phone + pseudorandom_value)
                 self.session().add(addr)
         # Purge the user
-        super().purge(user, flush=flush)
+        super(UserManager, self).purge(user, flush=flush)
 
     def _error_on_duplicate_email(self, email):
         """
@@ -217,7 +214,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         filters = self._munge_filters(self.model_class.email == email, filters)
         try:
             # TODO: use one_or_none
-            return super().one(filters=filters, **kwargs)
+            return super(UserManager, self).one(filters=filters, **kwargs)
         except exceptions.ObjectNotFound:
             return None
 
@@ -227,7 +224,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         """
         filters = self._munge_filters(self.model_class.email.like(email_with_wildcards), filters)
         order_by = order_by or (model.User.email, )
-        return super().list(filters=filters, order_by=order_by, **kwargs)
+        return super(UserManager, self).list(filters=filters, order_by=order_by, **kwargs)
 
     # ---- admin
     def is_admin(self, user, trans=None):
@@ -248,7 +245,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         """
         admin_emails = self.app.config.admin_users_list
         filters = self._munge_filters(self.model_class.email.in_(admin_emails), filters)
-        return super().list(filters=filters, **kwargs)
+        return super(UserManager, self).list(filters=filters, **kwargs)
 
     def error_unless_admin(self, user, msg="Administrators only", **kwargs):
         """
@@ -318,7 +315,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
 
     # ---- preferences
     def preferences(self, user):
-        return {key: value for key, value in user.preferences.items()}
+        return dict((key, value) for key, value in user.preferences.items())
 
     # ---- roles and permissions
     def private_role(self, user):
@@ -461,7 +458,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
             trans.sa_session.flush()
         return activation_token
 
-    def send_reset_email(self, trans, payload, **kwd):
+    def send_reset_email(self, trans, payload={}, **kwd):
         """Reset the user's password. Send an email with token that allows a password change."""
         if self.app.config.smtp_server is None:
             return "Mail is not configured for this Galaxy instance and password reset information cannot be sent. Please contact your local Galaxy administrator."
@@ -492,9 +489,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
                 return "Failed to produce password reset token. User not found."
 
     def get_reset_token(self, trans, email):
-        reset_user = trans.sa_session.query(self.app.model.User).filter(self.app.model.User.table.c.email == email).first()
-        if not reset_user and email != email.lower():
-            reset_user = trans.sa_session.query(self.app.model.User).filter(func.lower(self.app.model.User.table.c.email) == email.lower()).first()
+        reset_user = trans.sa_session.query(self.app.model.User).filter(func.lower(self.app.model.User.table.c.email) == email.lower()).first()
         if reset_user:
             prt = self.app.model.PasswordResetToken(reset_user)
             trans.sa_session.add(prt)
@@ -535,7 +530,7 @@ class UserSerializer(base.ModelSerializer, deletable.PurgableSerializerMixin):
         """
         Convert a User and associated data to a dictionary representation.
         """
-        super().__init__(app)
+        super(UserSerializer, self).__init__(app)
         self.user_manager = self.manager
 
         self.default_view = 'summary'
@@ -562,7 +557,7 @@ class UserSerializer(base.ModelSerializer, deletable.PurgableSerializerMixin):
         ], include_keys_from='summary')
 
     def add_serializers(self):
-        super().add_serializers()
+        super(UserSerializer, self).add_serializers()
         deletable.PurgableSerializerMixin.add_serializers(self)
 
         self.serializers.update({
@@ -589,13 +584,13 @@ class UserDeserializer(base.ModelDeserializer):
     model_manager_class = UserManager
 
     def add_deserializers(self):
-        super().add_deserializers()
+        super(UserDeserializer, self).add_deserializers()
         self.deserializers.update({
             'username'  : self.deserialize_username,
         })
 
     def deserialize_username(self, item, key, username, trans=None, **context):
-        # TODO: validate_publicname requires trans and should(?) raise exceptions
+        # TODO: validate_user_input requires trans and should(?) raise exceptions
         # move validation to UserValidator and use self.app, exceptions instead
         validation_error = validate_publicname(trans, username, user=item)
         if validation_error:
@@ -645,7 +640,7 @@ class AdminUserFilterParser(base.ModelFilterParser, deletable.PurgableFiltersMix
     model_class = model.User
 
     def _add_parsers(self):
-        super()._add_parsers()
+        super(AdminUserFilterParser, self)._add_parsers()
         deletable.PurgableFiltersMixin._add_parsers(self)
 
         # PRECONDITION: user making the query has been verified as an admin

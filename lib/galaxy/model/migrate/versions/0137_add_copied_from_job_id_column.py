@@ -1,6 +1,7 @@
 """
 Add copied_from_job_id column to jobs table
 """
+from __future__ import print_function
 
 import logging
 

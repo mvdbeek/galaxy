@@ -4,6 +4,7 @@ from collections import OrderedDict
 from json import dumps, loads
 
 from markupsafe import escape
+from six import string_types, text_type
 from sqlalchemy.sql.expression import and_, false, func, null, or_, true
 
 from galaxy.model.item_attrs import get_foreign_key, UsesAnnotations, UsesItemRatings
@@ -14,7 +15,7 @@ from galaxy.web.framework import decorators, url_for
 log = logging.getLogger(__name__)
 
 
-class Grid:
+class Grid(object):
     """
     Specifies the content and format of a grid (data table).
     """
@@ -97,16 +98,16 @@ class Grid:
                 # Method (1) combines a mix of strings and lists of strings into a single string and (2) attempts to de-jsonify all strings.
                 def loads_recurse(item):
                     decoded_list = []
-                    if isinstance(item, str):
+                    if isinstance(item, string_types):
                         try:
                             # Not clear what we're decoding, so recurse to ensure that we catch everything.
                             decoded_item = loads(item)
                             if isinstance(decoded_item, list):
                                 decoded_list = loads_recurse(decoded_item)
                             else:
-                                decoded_list = [str(decoded_item)]
+                                decoded_list = [text_type(decoded_item)]
                         except ValueError:
-                            decoded_list = [str(item)]
+                            decoded_list = [text_type(item)]
                     elif isinstance(item, list):
                         for element in item:
                             a_list = loads_recurse(element)
@@ -120,7 +121,7 @@ class Grid:
                         if len(column_filter) == 1:
                             column_filter = column_filter[0]
                     # Interpret ',' as a separator for multiple terms.
-                    if isinstance(column_filter, str) and column_filter.find(',') != -1:
+                    if isinstance(column_filter, string_types) and column_filter.find(',') != -1:
                         column_filter = column_filter.split(',')
 
                     # Check if filter is empty
@@ -129,7 +130,7 @@ class Grid:
                         column_filter = [x for x in column_filter if x != '']
                         if len(column_filter) == 0:
                             continue
-                    elif isinstance(column_filter, str):
+                    elif isinstance(column_filter, string_types):
                         # If filter criterion is empty, do nothing.
                         if column_filter == '':
                             continue
@@ -205,7 +206,7 @@ class Grid:
         self.cur_filter_dict = cur_filter_dict
 
         # Log grid view.
-        context = str(self.__class__.__name__)
+        context = text_type(self.__class__.__name__)
         params = cur_filter_dict.copy()
         params['sort'] = sort_key
 
@@ -320,7 +321,7 @@ class Grid:
             grid_config['async_ops'].append(operation.label.lower())
         for column in self.columns:
             if column.filterable is not None and not isinstance(column, TextColumn):
-                grid_config['categorical_filters'][column.key] = {filter.label: filter.args for filter in column.get_accepted_filters()}
+                grid_config['categorical_filters'][column.key] = dict([(filter.label, filter.args) for filter in column.get_accepted_filters()])
         for i, item in enumerate(query):
             item_dict = {
                 'id'                    : item.id,
@@ -361,7 +362,7 @@ class Grid:
 
         grid_config["num_pages"] = num_pages
 
-        trans.log_action(trans.get_user(), "grid.view", context, params)
+        trans.log_action(trans.get_user(), text_type("grid.view"), context, params)
         return grid_config
 
     def get_ids(self, **kwargs):
@@ -395,7 +396,7 @@ class Grid:
         return query
 
 
-class GridColumn:
+class GridColumn(object):
     def __init__(self, label, key=None, model_class=None, method=None, format=None,
                  link=None, attach_popup=False, visible=True, nowrap=False,
                  # Valid values for filterable are ['standard', 'advanced', None]
@@ -484,7 +485,7 @@ class TextColumn(GridColumn):
 
     def get_filter(self, trans, user, column_filter):
         """ Returns a SQLAlchemy criterion derived from column_filter. """
-        if isinstance(column_filter, str):
+        if isinstance(column_filter, string_types):
             return self.get_single_filter(user, column_filter)
         elif isinstance(column_filter, list):
             clause_list = []
@@ -831,7 +832,7 @@ class SharingStatusColumn(GridColumn):
 
     def __init__(self, *args, **kwargs):
         self.use_shared_with_count = kwargs.pop("use_shared_with_count", False)
-        super().__init__(*args, **kwargs)
+        super(SharingStatusColumn, self).__init__(*args, **kwargs)
 
     def get_value(self, trans, grid, item):
         # Delete items cannot be shared.
@@ -885,7 +886,7 @@ class SharingStatusColumn(GridColumn):
         return accepted_filters
 
 
-class GridOperation:
+class GridOperation(object):
     def __init__(self, label, key=None, condition=None, allow_multiple=True, allow_popup=True,
                  target=None, url_args=None, async_compatible=False, confirm=None,
                  global_operation=None):
@@ -930,14 +931,14 @@ class DisplayByUsernameAndSlugGridOperation(GridOperation):
         return {'action' : 'display_by_username_and_slug', 'username' : item.user.username, 'slug' : item.slug}
 
 
-class GridAction:
+class GridAction(object):
     def __init__(self, label=None, url_args=None, target=None):
         self.label = label
         self.url_args = url_args
         self.target = target
 
 
-class GridColumnFilter:
+class GridColumnFilter(object):
     def __init__(self, label, args=None):
         self.label = label
         self.args = args

@@ -1,10 +1,12 @@
 import logging
 import os
+from collections import OrderedDict
 from json import dumps, loads
 
 from galaxy import exceptions, managers, util, web
 from galaxy.managers.collections_util import dictify_dataset_collection_instance
 from galaxy.tools import global_tool_errors
+from galaxy.util.json import safe_dumps
 from galaxy.web import (
     expose_api,
     expose_api_anonymous,
@@ -30,7 +32,7 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
     """
 
     def __init__(self, app):
-        super().__init__(app)
+        super(ToolsController, self).__init__(app)
         self.history_manager = managers.histories.HistoryManager(app)
         self.hda_manager = managers.hdas.HDAManager(app)
 
@@ -55,7 +57,6 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
         trackster = util.string_as_bool(kwds.get('trackster', 'False'))
         q = kwds.get('q', '')
         tool_id = kwds.get('tool_id', '')
-        tool_help = util.string_as_bool(kwds.get('tool_help', 'False'))
 
         # Find whether to search.
         if q:
@@ -87,7 +88,7 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
 
         # Return everything.
         try:
-            return self.app.toolbox.to_dict(trans, in_panel=in_panel, trackster=trackster, tool_help=tool_help)
+            return self.app.toolbox.to_dict(trans, in_panel=in_panel, trackster=trackster)
         except Exception:
             raise exceptions.InternalServerError("Error: Could not convert toolbox to dictionary")
 
@@ -183,7 +184,7 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
                     }
         return test_counts_by_tool
 
-    @expose_api_anonymous_and_sessionless
+    @expose_api_raw_anonymous_and_sessionless
     def test_data(self, trans, id, **kwd):
         """
         GET /api/tools/{tool_id}/test_data?tool_version={tool_version}
@@ -199,7 +200,18 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
             kwd = kwd.get('payload')
         tool_version = kwd.get('tool_version', None)
         tool = self._get_tool(id, tool_version=tool_version, user=trans.user)
-        return [t.to_dict() for t in tool.tests]
+
+        # Encode in this method to handle OrderedDict objects in tool representation.
+        def json_encodeify(obj):
+            if isinstance(obj, OrderedDict):
+                return dict(obj)
+            elif isinstance(obj, map):
+                return list(obj)
+            else:
+                return obj
+
+        result = [t.to_dict() for t in tool.tests]
+        return safe_dumps(result, default=json_encodeify)
 
     @web.require_admin
     @expose_api
@@ -410,8 +422,6 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
         """Adapt clean API to tool-constrained API.
         """
         request_version = '1'
-        if "history_id" not in payload:
-            raise exceptions.RequestParameterMissingException("history_id must be specified")
         history_id = payload.pop("history_id")
         clean_payload = {}
         files_payload = {}
@@ -498,8 +508,6 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
 
         # Set up inputs.
         inputs = payload.get('inputs', {})
-        if not isinstance(inputs, dict):
-            raise exceptions.RequestParameterInvalidException("inputs invalid %s" % inputs)
 
         # Find files coming in as multipart file data and add to inputs.
         for k, v in payload.items():

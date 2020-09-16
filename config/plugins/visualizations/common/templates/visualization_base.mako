@@ -44,6 +44,10 @@ ${h.css('base')}
 
 ## Default javascripts
 <%def name="javascripts()">
+${h.js(
+    "libs/jquery/jquery",
+    "libs/jquery/jquery.migrate"
+)}
 ## connect to Galaxy here
 
 <script type="text/javascript">
@@ -66,4 +70,8 @@ ${h.css('base')}
 
 ## Default javascripts
 <%def name="late_javascripts()">
+${h.js(
+    "libs/jquery/jquery",
+    "libs/jquery/jquery.migrate"
+)}
 </%def>

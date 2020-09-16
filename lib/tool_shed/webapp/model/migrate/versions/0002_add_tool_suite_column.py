@@ -1,6 +1,7 @@
 """
 Migration script to add the suite column to the tool table.
 """
+from __future__ import print_function
 
 import logging
 import sys

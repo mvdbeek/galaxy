@@ -11,7 +11,7 @@ from . import config
 log = logging.getLogger(__name__)
 
 
-class UniverseApplication:
+class UniverseApplication(object):
     """Encapsulates the state of a Universe application"""
 
     def __init__(self, **kwargs):

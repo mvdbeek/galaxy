@@ -1,3 +1,4 @@
+
 """ Data providers code for PhyloViz """
 
 from galaxy.visualization.data_providers.basic import BaseDataProvider
@@ -11,7 +12,7 @@ class PhylovizDataProvider(BaseDataProvider):
     dataset_type = "phylo"
 
     def __init__(self, original_dataset=None):
-        super().__init__(original_dataset=original_dataset)
+        super(PhylovizDataProvider, self).__init__(original_dataset=original_dataset)
 
     def get_data(self, tree_index=0):
         """

@@ -9,7 +9,7 @@ from galaxy import (
 log = logging.getLogger(__name__)
 
 
-class JobPortsView:
+class JobPortsView(object):
 
     def __init__(self, app):
         self._app = app

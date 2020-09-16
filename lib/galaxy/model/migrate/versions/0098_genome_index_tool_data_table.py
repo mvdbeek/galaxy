@@ -1,6 +1,7 @@
 """
 Migration script to create the genome_index_tool_data table.
 """
+from __future__ import print_function
 
 import datetime
 import logging

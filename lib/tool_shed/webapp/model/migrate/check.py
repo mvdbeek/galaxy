@@ -5,10 +5,6 @@ import sys
 from migrate.versioning import repository, schema
 from sqlalchemy import create_engine, MetaData, Table
 from sqlalchemy.exc import NoSuchTableError
-from sqlalchemy_utils import (
-    create_database,
-    database_exists,
-)
 
 log = logging.getLogger(__name__)
 
@@ -30,11 +26,6 @@ def create_or_verify_database(url, engine_options={}):
 
     """
     # Create engine and metadata
-    if not database_exists(url):
-        message = "Creating database for URI [%s]" % url
-        log.info(message)
-        create_database(url)
-
     engine = create_engine(url, **engine_options)
     meta = MetaData(bind=engine)
     # Try to load dataset table
@@ -80,10 +71,10 @@ def migrate_to_current_version(engine, schema):
     changeset = schema.changeset(None)
     for ver, change in changeset:
         nextver = ver + changeset.step
-        log.info('Migrating {} -> {}... '.format(ver, nextver))
+        log.info('Migrating %s -> %s... ' % (ver, nextver))
         old_stdout = sys.stdout
 
-        class FakeStdout:
+        class FakeStdout(object):
             def __init__(self):
                 self.buffer = []
 
