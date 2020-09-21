@@ -2875,7 +2875,6 @@ def init(file_path, url, engine_options=None, create_tables=False, map_install_m
     # Create tables if needed
     if create_tables:
         metadata.create_all()
-        install_timestamp_triggers(engine)
         # metadata.engine.commit()
 
     result.create_tables = create_tables
