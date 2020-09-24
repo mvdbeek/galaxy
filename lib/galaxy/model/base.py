@@ -2,6 +2,7 @@
 Shared model and mapping code between Galaxy and Tool Shed, trying to
 generalize to generic database connections.
 """
+import logging
 from inspect import (
     getmembers,
     isclass
@@ -12,8 +13,13 @@ from sqlalchemy.orm import (
     scoped_session,
     sessionmaker
 )
+import sys
+import threading
+import traceback
 
 from galaxy.util.bunch import Bunch
+
+log = logging.getLogger(__name__)
 
 
 # TODO: Refactor this to be a proper class, not a bunch.
@@ -58,6 +64,8 @@ def versioned_objects(iter):
 def versioned_session(session):
     @event.listens_for(session, 'before_flush')
     def before_flush(session, flush_context, instances):
+        log.debug("Dirty objects: %s", session.dirty)
+        traceback.print_stack(sys._current_frames()[threading.get_ident()])
         for obj in versioned_objects(session.dirty):
             obj.__create_version__(session)
         for obj in versioned_objects(session.deleted):
