@@ -14,7 +14,10 @@ import os
 import pwd
 import random
 import string
+import sys
 import time
+import threading
+import traceback
 from datetime import datetime, timedelta
 from itertools import chain
 from string import Template
@@ -6189,6 +6192,8 @@ def objects_requiring_history_updates(iter):
 def listen_for_history_update_time(session):
     @event.listens_for(session, 'before_flush')
     def before_flush(session, flush_context, instances):
+        log.debug("Dirty objects: %s", session.dirty)
+        traceback.print_stack(sys._current_frames()[threading.get_ident()])
         histories = set()
         for hda, hdca in objects_requiring_history_updates(chain(session.dirty, session.deleted)):
             if hda:
