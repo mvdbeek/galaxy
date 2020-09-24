@@ -135,7 +135,7 @@ def check_output(stdio_regexes, stdio_exit_codes, stdout, stderr, tool_exit_code
                 reason = ''
                 if job_messages:
                     reason = " Reasons are {}".format(job_messages)
-                log.debug("Job error detected, failing job.{}".format(reason))
+                log.info("Job error detected, failing job.{}".format(reason))
                 state = DETECTED_JOB_STATE.GENERIC_ERROR
 
         # When there are no regular expressions and no exit codes to check,
@@ -148,7 +148,7 @@ def check_output(stdio_regexes, stdio_exit_codes, stdout, stderr, tool_exit_code
             if stderr:
                 state = DETECTED_JOB_STATE.GENERIC_ERROR
                 peak = stderr[0:ERROR_PEAK] if stderr else ""
-                log.debug("Job failed because of contents in the standard error stream: [{}]".format(peak))
+                log.info("Job failed because of contents in the standard error stream: [{}]".format(peak))
     except Exception:
         log.exception("Job state check encountered unexpected exception; assuming execution successful")
 
