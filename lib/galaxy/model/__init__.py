@@ -6192,8 +6192,10 @@ def objects_requiring_history_updates(iter):
 def listen_for_history_update_time(session):
     @event.listens_for(session, 'before_flush')
     def before_flush(session, flush_context, instances):
-        log.debug("Dirty objects: %s", session.dirty)
-        traceback.print_stack(sys._current_frames()[threading.get_ident()])
+        event_id = "%s: " % uuid4()
+        stack = traceback.format_list(traceback.extract_stack(sys._current_frames()[threading.get_ident()]))
+        prefixed_stack = event_id.join(stack)
+        log.debug("%sDirty objects: %s, stack: %s", event_id, session.dirty, prefixed_stack)
         histories = set()
         for hda, hdca in objects_requiring_history_updates(chain(session.dirty, session.deleted)):
             if hda:
