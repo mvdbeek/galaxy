@@ -4531,11 +4531,11 @@ class DatasetCollectionElement(Dictifiable, RepresentById):
 
     @property
     def element_type(self):
-        if self.hda_id:
+        if self.hda:
             return "hda"
-        elif self.ldda_id:
+        elif self.ldda:
             return "ldda"
-        elif self.child_collection_id:
+        elif self.child_collection:
             # TOOD: Rename element_type to element_type.
             return "dataset_collection"
         else:
