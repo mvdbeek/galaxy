@@ -3186,15 +3186,16 @@ class TagFromFileTool(DatabaseOperationTool):
         how = incoming['how']
         new_tags_dataset_assoc = incoming["tags"]
         new_elements = OrderedDict()
-        tags_manager = GalaxyTagHandler(trans.app.model.context)
-        new_datasets = []
+        tags_manager = trans.app.tag_handler.create_tag_handler_session()
+        datasets_to_persist = []
 
         def add_copied_value_to_new_elements(new_tags_dict, dce):
             if getattr(dce.element_object, "history_content_type", None) == "dataset":
                 copied_value = dce.element_object.copy(flush=False)
+                copied_value.history_id = history.id
                 # copy should never be visible, since part of a collection
                 copied_value.visble = False
-                new_datasets.append(copied_value)
+                datasets_to_persist.append(copied_value)
                 new_tags = new_tags_dict.get(dce.element_identifier)
                 if new_tags:
                     if how in ('add', 'remove') and dce.element_object.tags:
@@ -3205,7 +3206,7 @@ class TagFromFileTool(DatabaseOperationTool):
                         elif how == 'remove':
                             old_tags = old_tags - set(new_tags)
                         new_tags = old_tags
-                    tags_manager.add_tags_from_list(user=history.user, item=copied_value, new_tags_list=new_tags)
+                    tags_manager.add_tags_from_list(user=history.user, item=copied_value, new_tags_list=new_tags, flush=False)
             else:
                 # We have a collection, and we copy the elements so that we don't manipulate the original tags
                 copied_value = dce.element_object.copy(element_destination=history)
@@ -3222,7 +3223,7 @@ class TagFromFileTool(DatabaseOperationTool):
                             elif how == 'remove':
                                 old_tags = old_tags - set(new_tags)
                         new_tags = old_tags
-                    tags_manager.add_tags_from_list(user=history.user, item=new_element.element_object, new_tags_list=new_tags)
+                    tags_manager.add_tags_from_list(user=history.user, item=new_element.element_object, new_tags_list=new_tags, flush=False)
             new_elements[dce.element_identifier] = copied_value
 
         new_tags_path = new_tags_dataset_assoc.file_name
@@ -3234,10 +3235,12 @@ class TagFromFileTool(DatabaseOperationTool):
         new_tags_dict = {item[0]: item[1:] for item in source_new_tags}
         for dce in hdca.collection.elements:
             add_copied_value_to_new_elements(new_tags_dict, dce)
-        self._add_datasets_to_history(history, new_datasets)
-        output_collections.create_collection(
-            next(iter(self.outputs.values())), "output", elements=new_elements
+        hdca = output_collections.create_collection(
+            next(iter(self.outputs.values())), "output", elements=new_elements, set_hid=False, flush=False,
         )
+        if hdca:
+            datasets_to_persist.append(hdca)
+        return datasets_to_persist
 
 
 class FilterFromFileTool(DatabaseOperationTool):
@@ -3263,6 +3266,7 @@ class FilterFromFileTool(DatabaseOperationTool):
 
             if getattr(dce_object, "history_content_type", None) == "dataset":
                 copied_value = dce_object.copy(flush=False)
+                copied_value.history_id = history.id
             else:
                 copied_value = dce_object.copy()
 
@@ -3271,14 +3275,19 @@ class FilterFromFileTool(DatabaseOperationTool):
             else:
                 discarded_elements[element_identifier] = copied_value
 
-        self._add_datasets_to_history(history, filtered_elements.values())
-        self._add_datasets_to_history(history, discarded_elements.values())
-        output_collections.create_collection(
-            self.outputs["output_filtered"], "output_filtered", elements=filtered_elements
+        datasets_to_persist = list(filtered_elements.values())
+        filtered_hdca = output_collections.create_collection(
+            self.outputs["output_filtered"], "output_filtered", elements=filtered_elements, set_hid=False, flush=False,
         )
-        output_collections.create_collection(
+        if filtered_hdca:
+            datasets_to_persist.append(filtered_hdca)
+        datasets_to_persist.extend(discarded_elements.values())
+        discarded_hdca = output_collections.create_collection(
             self.outputs["output_discarded"], "output_discarded", elements=discarded_elements
         )
+        if discarded_hdca:
+            datasets_to_persist.append(discarded_hdca)
+        return datasets_to_persist
 
 
 # Populate tool_type to ToolClass mappings
