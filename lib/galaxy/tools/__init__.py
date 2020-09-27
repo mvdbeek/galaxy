@@ -2787,7 +2787,7 @@ class DatabaseOperationTool(Tool):
         if datasets:
             history.add_datasets(self.sa_session, datasets, set_hid=True)
 
-    def produce_outputs(self, trans, out_data, output_collections, incoming, history):
+    def produce_outputs(self, trans, out_data, output_collections, incoming, history, **kwds):
         return self._outputs_dict()
 
     def _outputs_dict(self):
@@ -2797,7 +2797,7 @@ class DatabaseOperationTool(Tool):
 class UnzipCollectionTool(DatabaseOperationTool):
     tool_type = 'unzip_collection'
 
-    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tags=None):
+    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tags=None, **kwds):
         has_collection = incoming["input"]
         if hasattr(has_collection, "element_type"):
             # It is a DCE
@@ -2835,7 +2835,7 @@ class ZipCollectionTool(DatabaseOperationTool):
 class BuildListCollectionTool(DatabaseOperationTool):
     tool_type = 'build_list'
 
-    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tags=None):
+    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tags=None, **kwds):
         new_elements = OrderedDict()
 
         for i, incoming_repeat in enumerate(incoming["datasets"]):
@@ -2851,7 +2851,7 @@ class BuildListCollectionTool(DatabaseOperationTool):
 class ExtractDatasetCollectionTool(DatabaseOperationTool):
     tool_type = 'extract_dataset'
 
-    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tags=None):
+    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tags=None, **kwds):
         has_collection = incoming["input"]
         if hasattr(has_collection, "element_type"):
             # It is a DCE
@@ -3154,25 +3154,28 @@ class RelabelFromFileTool(DatabaseOperationTool):
 class ApplyRulesTool(DatabaseOperationTool):
     tool_type = 'apply_rules'
 
-    def produce_outputs(self, trans, out_data, output_collections, incoming, history, **kwds):
+    def produce_outputs(self, trans, out_data, output_collections, incoming, history, tag_handler, **kwds):
         hdca = incoming["input"]
         rule_set = RuleSet(incoming["rules"])
-        copied_datasets = []
+        datasets_to_persist = []
 
         def copy_dataset(dataset, tags):
             copied_dataset = dataset.copy(flush=False)
-            copied_datasets.append(copied_dataset)
             if tags is not None:
-                self.app.tag_handler.set_tags_from_list(trans.get_user(), copied_dataset, tags)
+                tag_handler.set_tags_from_list(trans.get_user(), copied_dataset, tags)
+            copied_dataset.history_id = history.id
+            datasets_to_persist.append(copied_dataset)
             return copied_dataset
 
         new_elements = self.app.dataset_collections_service.apply_rules(
             hdca, rule_set, copy_dataset
         )
-        self._add_datasets_to_history(history, copied_datasets)
-        output_collections.create_collection(
-            next(iter(self.outputs.values())), "output", collection_type=rule_set.collection_type, elements=new_elements
+        hdca = output_collections.create_collection(
+            next(iter(self.outputs.values())), "output", collection_type=rule_set.collection_type, elements=new_elements, flush=False, set_hid=False,
         )
+        if hdca:
+            datasets_to_persist.append(hdca)
+        return datasets_to_persist
 
 
 class TagFromFileTool(DatabaseOperationTool):
