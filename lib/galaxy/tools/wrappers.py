@@ -662,6 +662,9 @@ class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
             return []
         return self.__element_instances.keys()
 
+    def items(self):
+        return self.__element_instances.items()
+
     @property
     def is_collection(self) -> bool:
         return True
