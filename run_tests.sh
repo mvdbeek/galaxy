@@ -328,6 +328,7 @@ do
           marker="not cwl_conformance"
           test_script="pytest"
           report_file="./run_api_tests.html"
+          generate_cwl_conformance_tests=1
           if [ $# -gt 1 ]; then
               api_script=$2
               shift 2
@@ -404,6 +405,8 @@ do
           test_script="pytest"
           report_file="run_framework_tests.html"
           framework_test=1;
+          # CWL tools don't have embedded tests, so no need to set
+          # generate_cwl_conformance_tests=1
           shift 1
           ;;
       -main|-main_tools|--main_tools)
@@ -504,6 +507,7 @@ do
           report_file="run_unit_tests.html"
           test_script="pytest"
           unit_extra='--doctest-modules --ignore lib/galaxy/web/proxy/js/node_modules/ --ignore lib/tool_shed/webapp/controllers --ignore lib/galaxy/jobs/runners/chronos.py --ignore lib/tool_shed/webapp/model/migrate --ignore lib/galaxy/tools/bundled --ignore lib/galaxy_test --ignore lib/tool_shed/test'
+          generate_cwl_conformance_tests=1
           if [ $# -gt 1 ]; then
               unit_extra="$unit_extra $2"
               shift 2

@@ -284,7 +284,10 @@ def build_workflow_run_configs(trans, workflow, payload):
                 if step.type == "parameter_input":
                     if normalized_key in param_map:
                         value = param_map.pop(normalized_key)
-                        normalized_inputs[normalized_key] = value["input"]
+                        input_value = value["input"]
+                        if isinstance(input_value, dict) and input_value.get("src") == "json":
+                            input_value = input_value.get("value")
+                        normalized_inputs[normalized_key] = input_value
 
         steps_by_id = workflow.steps_by_id
         # Set workflow inputs.
@@ -292,7 +295,7 @@ def build_workflow_run_configs(trans, workflow, payload):
             if input_dict is None:
                 continue
             step = steps_by_id[key]
-            if step.type == 'parameter_input':
+            if step.type == 'parameter_input' and (step.tool_inputs["parameter_type"] != "field" or not isinstance(input_dict, dict)):
                 continue
             if 'src' not in input_dict:
                 raise exceptions.RequestParameterInvalidException(f"Not input source type defined for input '{input_dict}'.")

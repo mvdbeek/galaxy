@@ -129,6 +129,7 @@ class StagingInterace(metaclass=abc.ABCMeta):
                 })
                 tags = upload_target.properties.get("tags")
                 fetch_payload["targets"][0]["elements"][0]["tags"] = tags
+            print("\n\n\n\n\n\nFETCH_PAYLOAD IS %s\n\n\n\n\n" % fetch_payload)
             return self._fetch_post(fetch_payload, files_attached=files_attached[0])
 
         # Save legacy upload_func to target older Galaxy servers

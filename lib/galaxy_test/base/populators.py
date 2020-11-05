@@ -73,7 +73,14 @@ from pkg_resources import resource_string
 from requests.models import Response
 
 from galaxy.tool_util.client.staging import InteractorStaging
-from galaxy.tool_util.cwl.util import guess_artifact_type
+from galaxy.tool_util.cwl.util import (
+    download_output,
+    GalaxyOutput,
+    guess_artifact_type,
+    invocation_to_output,
+    output_to_cwl_json,
+    tool_response_to_output,
+)
 from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.tool_util.verify.wait import (
     timeout_type,
@@ -96,7 +103,6 @@ workflow_str = unicodify(resource_string(__name__, "data/test_workflow_1.ga"))
 # Simple workflow that takes an input and filters with random lines twice in a
 # row - first grabbing 8 lines at random and then 6.
 workflow_random_x2_str = unicodify(resource_string(__name__, "data/test_workflow_2.ga"))
-
 
 DEFAULT_TIMEOUT = 60  # Secs to wait for state to turn ok
 
@@ -247,6 +253,53 @@ class CwlRun:
         self.dataset_populator = dataset_populator
         self.history_id = history_id
 
+    @abstractmethod
+    def _output_name_to_object(self, output_name) -> GalaxyOutput:
+        """
+        Convert the name of a run output to a GalaxyOutput object.
+        """
+
+    def get_output_as_object(self, output_name, download_folder=None):
+        galaxy_output = self._output_name_to_object(output_name)
+
+        def get_metadata(history_content_type, content_id):
+            if history_content_type == "raw_value":
+                return {}
+            elif history_content_type == "dataset":
+                return self.dataset_populator.get_history_dataset_details(self.history_id, dataset_id=content_id)
+            else:
+                assert history_content_type == "dataset_collection"
+                # Don't wait - we've already done that, history might be "new"
+                return self.dataset_populator.get_history_collection_details(self.history_id, content_id=content_id, wait=False)
+
+        def get_dataset(dataset_details, filename=None):
+            content = self.dataset_populator.get_history_dataset_content(self.history_id, dataset_id=dataset_details["id"], type='content', filename=filename)
+            if filename is None:
+                basename = dataset_details.get("created_from_basename")
+                if not basename:
+                    basename = dataset_details.get("name")
+            else:
+                basename = os.path.basename(filename)
+            return {"content": content, "basename": basename}
+
+        def get_extra_files(dataset_details):
+            return self.dataset_populator.get_history_dataset_extra_files(self.history_id, dataset_id=dataset_details["id"])
+
+        output = output_to_cwl_json(
+            galaxy_output,
+            get_metadata,
+            get_dataset,
+            get_extra_files,
+            pseduo_location=True,
+        )
+        if download_folder:
+            if isinstance(output, dict) and "basename" in output:
+                download_path = os.path.join(download_folder, output["basename"])
+                download_output(galaxy_output, get_metadata, get_dataset, get_extra_files, download_path)
+                output["path"] = download_path
+                output["location"] = f"file://{download_path}"
+        return output
+
 
 class CwlToolRun(CwlRun):
 
@@ -257,6 +310,15 @@ class CwlToolRun(CwlRun):
     @property
     def job_id(self):
         return self.run_response.json()["jobs"][0]["id"]
+
+    def output(self, output_index):
+        return self.run_response.json()["outputs"][output_index]
+
+    def output_collection(self, output_index):
+        return self.run_response.json()["output_collections"][output_index]
+
+    def _output_name_to_object(self, output_name):
+        return tool_response_to_output(self.run_response.json(), self.history_id, output_name)
 
     def wait(self):
         self.dataset_populator.wait_for_job(self.job_id, assert_ok=True)
@@ -269,6 +331,12 @@ class CwlWorkflowRun(CwlRun):
         self.workflow_populator = workflow_populator
         self.workflow_id = workflow_id
         self.invocation_id = invocation_id
+
+    def _output_name_to_object(self, output_name):
+        invocation_response = self.dataset_populator._get(f"invocations/{self.invocation_id}")
+        api_asserts.assert_status_code_is(invocation_response, 200)
+        invocation = invocation_response.json()
+        return invocation_to_output(invocation, self.history_id, output_name)
 
     def wait(self):
         self.workflow_populator.wait_for_invocation_and_jobs(
@@ -696,6 +764,10 @@ class BaseDatasetPopulator(BasePopulator):
                     kwds["__files"] = {}
                 kwds["__files"][key] = value
                 del inputs[key]
+
+        ir = kwds.get("inputs_representation")
+        if ir is None and "inputs_representation" in kwds:
+            del kwds["inputs_representation"]
 
         return dict(
             tool_id=tool_id,

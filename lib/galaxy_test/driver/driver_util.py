@@ -264,6 +264,7 @@ def setup_galaxy_config(
         monitor_thread_join_timeout=5,
         object_store_store_by="uuid",
         simplified_workflow_run_ui="off",
+        strict_cwl_validation=False,
     )
     if default_shed_tool_data_table_config:
         config["shed_tool_data_table_config"] = default_shed_tool_data_table_config
