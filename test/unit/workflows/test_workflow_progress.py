@@ -1,4 +1,7 @@
-from typing import cast
+from typing import (
+    Any,
+    cast,
+)
 
 from galaxy import model
 from galaxy.model.base import transaction
@@ -230,6 +233,8 @@ class TestWorkflowProgress(TestCase):
 
 
 class MockModuleInjector:
+    trans: Any
+
     def __init__(self, progress):
         self.progress = progress
 
