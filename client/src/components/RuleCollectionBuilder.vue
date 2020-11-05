@@ -1003,6 +1003,10 @@ export default {
             const requiresName =
                 buildingCollection && this.elementsType != "collection_contents" && !mappingAsDict.collection_name;
 
+            if (this.displayRuleType) {
+                return false
+            }
+
             let valid = true;
             if (requiresName) {
                 valid = this.collectionName.length > 0;
