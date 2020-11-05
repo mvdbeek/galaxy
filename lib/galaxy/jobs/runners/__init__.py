@@ -475,7 +475,13 @@ class BaseJobRunner:
         return job_script(**options)
 
     def write_executable_script(self, path: str, contents: str, job_io: JobIO):
-        write_script(path, contents, job_io)
+        write_script(
+            path,
+            contents,
+            check_job_script_integrity=job_io.check_job_script_integrity,
+            check_job_script_integrity_count=job_io.check_job_script_integrity_count,
+            check_job_script_integrity_sleep=job_io.check_job_script_integrity_sleep,
+        )
 
     def _find_container(
         self,

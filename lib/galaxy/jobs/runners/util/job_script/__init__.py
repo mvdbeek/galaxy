@@ -6,9 +6,9 @@ from string import Template
 from typing import (
     Any,
     Dict,
+    Optional,
 )
 
-from galaxy.job_execution.setup import JobIO
 from galaxy.util import (
     RWXR_XR_X,
     unicodify,
@@ -103,7 +103,14 @@ def job_script(template=DEFAULT_JOB_FILE_TEMPLATE, **kwds):
     return template.safe_substitute(template_params)
 
 
-def write_script(path, contents, job_io: JobIO, mode=RWXR_XR_X):
+def write_script(
+    path,
+    contents,
+    check_job_script_integrity: bool,
+    check_job_script_integrity_count: Optional[int] = None,
+    check_job_script_integrity_sleep: Optional[float] = None,
+    mode=RWXR_XR_X,
+):
     dir = os.path.dirname(path)
     if not os.path.exists(dir):
         os.makedirs(dir)
@@ -111,8 +118,8 @@ def write_script(path, contents, job_io: JobIO, mode=RWXR_XR_X):
     with open(path, "w", encoding="utf-8") as f:
         f.write(unicodify(contents))
     os.chmod(path, mode)
-    if job_io.check_job_script_integrity:
-        _handle_script_integrity(path, job_io.check_job_script_integrity_count, job_io.check_job_script_integrity_sleep)
+    if check_job_script_integrity:
+        _handle_script_integrity(path, check_job_script_integrity_count, check_job_script_integrity_sleep)
 
 
 def _handle_script_integrity(path, check_job_script_integrity_count, check_job_script_integrity_sleep):

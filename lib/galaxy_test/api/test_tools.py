@@ -1,4 +1,3 @@
-# Test tools API.
 import contextlib
 import json
 import os
@@ -95,6 +94,7 @@ class TestsTools:
         use_cached_job=False,
         wait_for_job=False,
         input_format="legacy",
+        inputs_representation=None,
     ):
         if inputs is None:
             inputs = {}
@@ -105,6 +105,7 @@ class TestsTools:
             inputs=inputs,
             history_id=history_id,
             input_format=input_format,
+            inputs_representation=inputs_representation,
         )
         if tool_uuid:
             payload["tool_uuid"] = tool_uuid
@@ -125,6 +126,8 @@ class TestsTools:
 
 
 class ToolsTestCase(ApiTestCase, TestsTools):
+    """Test the Galaxy Tool API."""
+
     def setUp(self):
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)

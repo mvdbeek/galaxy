@@ -87,19 +87,26 @@ def build_command(
             external_command_shell = container.shell
         else:
             external_command_shell = shell
-        externalized_commands = __externalize_commands(
-            job_wrapper, external_command_shell, commands_builder, remote_command_params, container=container
-        )
         if container and modify_command_for_container:
-            # Stop now and build command before handling metadata and copying
-            # working directory files back. These should always happen outside
-            # of docker container - no security implications when generating
-            # metadata and means no need for Galaxy to be available to container
-            # and not copying workdir outputs back means on can be more restrictive
-            # of where container can write to in some circumstances.
-            run_in_container_command = container.containerize_command(externalized_commands)
+            if not job_wrapper.tool.may_use_container_entry_point:
+                externalized_commands = __externalize_commands(
+                    job_wrapper, external_command_shell, commands_builder, remote_command_params, container=container
+                )
+                # Stop now and build command before handling metadata and copying
+                # working directory files back. These should always happen outside
+                # of docker container - no security implications when generating
+                # metadata and means no need for Galaxy to be available to container
+                # and not copying workdir outputs back means on can be more restrictive
+                # of where container can write to in some circumstances.
+                run_in_container_command = container.containerize_command(externalized_commands)
+            else:
+                tool_commands = commands_builder.build()
+                run_in_container_command = container.containerize_command(tool_commands)
             commands_builder = CommandsBuilder(run_in_container_command)
         else:
+            externalized_commands = __externalize_commands(
+                job_wrapper, external_command_shell, commands_builder, remote_command_params, container=container
+            )
             commands_builder = CommandsBuilder(externalized_commands)
 
     for_pulsar = "script_directory" in remote_command_params
@@ -116,7 +123,13 @@ def build_command(
 
         # Copy working and outputs before job submission so that these can be restored on resubmission
         # xref https://github.com/galaxyproject/galaxy/issues/3289
-        commands_builder.prepend_command(PREPARE_DIRS)
+        if not job_wrapper.is_cwl_job:
+            commands_builder.prepend_command(PREPARE_DIRS)
+        else:
+            # Can't do the rm -rf working for CWL jobs since we may have staged outputs
+            # into that directory. This does mean CWL is incompatible with job manager triggered
+            # retries - what can we do with that information?
+            commands_builder.prepend_command("mkdir -p outputs; cd working")
 
     __handle_remote_command_line_building(commands_builder, job_wrapper, for_pulsar=for_pulsar)
 
@@ -141,7 +154,7 @@ def build_command(
         relocate_contents = (
             "from galaxy_ext.cwl.handle_outputs import relocate_dynamic_outputs; relocate_dynamic_outputs()"
         )
-        write_script(relocate_script_file, relocate_contents, job_wrapper.job_io)
+        write_script(relocate_script_file, relocate_contents, check_job_script_integrity=False)
         commands_builder.append_command(SETUP_GALAXY_FOR_METADATA)
         commands_builder.append_command(f"python '{relocate_script_file}'")
 
@@ -189,7 +202,9 @@ def __externalize_commands(
     write_script(
         local_container_script,
         script_contents,
-        job_io=job_wrapper.job_io,
+        check_job_script_integrity=job_wrapper.job_io.check_job_script_integrity,
+        check_job_script_integrity_count=job_wrapper.job_io.check_job_script_integrity_count,
+        check_job_script_integrity_sleep=job_wrapper.job_io.check_job_script_integrity_sleep,
     )
     commands = f"{shell} {local_container_script}"
     # TODO: Cleanup for_pulsar hack.
