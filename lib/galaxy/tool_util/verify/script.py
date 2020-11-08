@@ -213,7 +213,6 @@ def _test_tool(
         def register(job_data_):
             nonlocal job_data
             job_data = job_data_
-            job_data['id'] = test_id
 
         try:
             while run_retries >= 0:
