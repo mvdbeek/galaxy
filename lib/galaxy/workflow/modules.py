@@ -1686,7 +1686,7 @@ class ToolModule(WorkflowModule):
             raise ToolMissingException("Tool %s missing. Cannot recover runtime state." % self.tool_id,
                                        tool_id=self.tool_id)
 
-    def evaluate_value_from_expressions(self, progress, step, execution_state):
+    def evaluate_value_from_expressions(self, progress, step, execution_state, extra_step_state):
         value_from_expressions = {}
         replacements = {}
 
@@ -1714,7 +1714,9 @@ class ToolModule(WorkflowModule):
                 hda_references.append(value)
                 if value.ext == "expression.json":
                     with open(value.file_name, "r") as f:
-                        return safe_loads(f.read())
+                        import json
+                        # OUR safe_loads won't work, will not load numbers, etc...
+                        return json.load(f)
                 else:
                     properties = {
                         "class": "File",
@@ -1754,6 +1756,8 @@ class ToolModule(WorkflowModule):
                 return value
 
         step_state = {}
+        for key, value in extra_step_state.items():
+            step_state[key] = to_cwl(value)
         for key, value in execution_state.inputs.items():
             step_state[key] = to_cwl(value)
 
@@ -1871,18 +1875,26 @@ class ToolModule(WorkflowModule):
             extra_step_state = {}
             for step_input in step.inputs:
                 step_input_name = step_input.name
-                if step_input_name not in execution_state.inputs and step_input_name in all_inputs_by_name:
-                    value = progress.replacement_for_input(step, all_inputs_by_name[step_input_name])
-                    # TODO: only do this for values... is everything with a default
-                    # this way a field parameter? I guess not?
-                    extra_step_state[step_input.name] = value
+                input_in_execution_state = step_input_name not in execution_state.inputs
+                if input_in_execution_state:
+                    if step_input_name in all_inputs_by_name:
+                        value = progress.replacement_for_input(step, all_inputs_by_name[step_input_name])
+                        # TODO: only do this for values... is everything with a default
+                        # this way a field parameter? I guess not?
+                        extra_step_state[step_input_name] = value
+                    # Might be needed someday...
+                    # elif step_input.default_value_set:
+                    #    extra_step_state[step_input_name] = step_input.default_value
+                    else:
+                        value = progress.replacement_for_connection(step_input.connections[0], is_data=True)
+                        extra_step_state[step_input_name] = value
 
             unmatched_input_connections = expected_replacement_keys - found_replacement_keys
             if unmatched_input_connections:
                 log.warning("Failed to use input connections for inputs [%s]" % unmatched_input_connections)
 
             expression_replacements = self.evaluate_value_from_expressions(
-                progress, step, execution_state
+                progress, step, execution_state, extra_step_state
             )
 
             def expression_callback(input, prefixed_name, **kwargs):
