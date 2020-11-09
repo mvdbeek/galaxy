@@ -571,7 +571,7 @@ class CwlToolObjectTestCase(TestCase, tools_support.UsesApp, tools_support.UsesT
         populate_state(self.trans, self.tool.inputs, inputs, populated_state, errors)
         print("populated state is %s" % inputs)
         from galaxy.tools.parameters.wrapped import WrappedParameters
-        wrapped_params = WrappedParameters(galaxy_mock.MockTrans(), self.tool, populated_state)
+        wrapped_params = WrappedParameters(self.trans, self.tool, populated_state)
         input_json = to_cwl_job(self.tool, wrapped_params.params, self.test_directory)
         print(inputs)
         print("to_cwl_job is %s" % input_json)
@@ -581,8 +581,8 @@ class CwlToolObjectTestCase(TestCase, tools_support.UsesApp, tools_support.UsesT
         hda = galaxy.model.HistoryDatasetAssociation(history=self.history)
         hda.visible = True
         hda.dataset = galaxy.model.Dataset()
-        self.app.model.context.add(hda)
-        self.app.model.context.flush()
+        self.trans.model.context.add(hda)
+        self.trans.model.context.flush()
         return hda
 
 
