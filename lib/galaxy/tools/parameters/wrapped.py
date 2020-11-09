@@ -112,14 +112,14 @@ class WrappedParameters:
                 assert "src" in value
                 src = value["src"]
                 if src == "json":
-                    return InputValueWrapper(input, value, incoming)
+                    input_values[input.name] = InputValueWrapper(input, value, incoming)
                 elif src == "hda":
-                    return DatasetFilenameWrapper(value["value"],
+                    input_values[input.name] = DatasetFilenameWrapper(value["value"],
                                                   datatypes_registry=trans.app.datatypes_registry,
                                                   tool=tool,
                                                   name=input.name)
                 elif src == "hdca":
-                    return DatasetCollectionWrapper(None,
+                    input_values[input.name] = DatasetCollectionWrapper(None,
                                                     value["value"],
                                                     datatypes_registry=trans.app.datatypes_registry,
                                                     tool=tool,
