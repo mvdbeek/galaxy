@@ -161,7 +161,7 @@ ruamel.yaml.clib==0.2.0 ; platform_python_implementation == 'CPython' and python
 ruamel.yaml==0.16.0
 s3transfer==0.2.1
 scandir==1.10.0
-schema-salad==5.0.20200416112825
+schema-salad==7.0.20200811075006
 setuptools-scm==4.1.2
 shellescape==3.4.1
 simplejson==3.17.0
