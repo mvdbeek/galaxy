@@ -155,7 +155,6 @@ class PortableDirectoryMetadataGenerator(MetadataCollectionStrategy):
             "datatypes_config": datatypes_config,
             "max_metadata_value_size": max_metadata_value_size,
             "outputs": outputs,
-            "object_store_store_by": galaxy.model.Dataset.object_store.store_by,
             "job_id_tag": job.get_id_tag(),
         }
 

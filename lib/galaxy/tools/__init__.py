@@ -2722,9 +2722,9 @@ class CwlCommandBindingTool(Tool):
 
         output_dict = {}
         for name, dataset in out_data.items():
-            object_store = dataset.dataset.object_store
             output_dict[name] = {
-                "id": str(getattr(dataset.dataset, object_store.store_by)),
+
+                "id": str(getattr(dataset.dataset, dataset.dataset.store_by)),
                 "path": dataset.file_name,
             }
 
