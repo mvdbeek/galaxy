@@ -215,10 +215,14 @@ class CwlRun:
         galaxy_output = self._output_name_to_object(output_name)
 
         def get_metadata(history_content_type, content_id):
-            if history_content_type == "dataset":
+            if history_content_type == "raw_value":
+                return {}
+            elif history_content_type == "dataset":
                 return self.dataset_populator.get_history_dataset_details(self.history_id, dataset_id=content_id)
             else:
-                return self.dataset_populator.get_history_collection_details(self.history_id, content_id=content_id)
+                assert history_content_type == "dataset_collection"
+                # Don't wait - we've already done that, history might be "new"
+                return self.dataset_populator.get_history_collection_details(self.history_id, content_id=content_id, wait=False)
 
         def get_dataset(dataset_details, filename=None):
             content = self.dataset_populator.get_history_dataset_content(self.history_id, dataset_id=dataset_details["id"], type='content', filename=filename)
