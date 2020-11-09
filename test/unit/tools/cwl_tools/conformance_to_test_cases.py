@@ -10,6 +10,7 @@ CWL_TESTS_DIRECTORY = os.path.join(API_TEST_DIRECTORY, "cwl")
 
 TEST_FILE_TEMPLATE = string.Template('''"""Test CWL conformance for version ${version}."""
 
+import pytest
 from ..test_workflows_cwl import BaseCwlWorklfowTestCase
 
 
@@ -18,7 +19,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
 $tests''')
 
 TEST_TEMPLATE = string.Template('''
-    def test_conformance_${version_simple}_${label}(self):
+${marks}    def test_conformance_${version_simple}_${label}(self):
         """${doc}
 
         Generated from::
@@ -428,21 +429,30 @@ def main():
         cwl_test_def = "\n".join(["            %s" % l for l in cwl_test_def.splitlines()])
         label = conformance_test.get("label", str(i))
         tags = conformance_test.get("tags", [])
+        is_required = "required" in tags
+        is_green = label in green_tests_list
+        is_regression = label in REGRESSIONS
 
+        marks = ""
+        for tag in tags:
+            marks += f"    @pytest.mark.{tag}\n"
+        if is_green:
+            marks += "    @pytest.mark.green\n"
+        else:
+            marks += "    @pytest.mark.red\n"
+        if is_regression:
+            marks += "    @pytest.mark.regression\n"
         template_kwargs = {
             'version_simple': version_simple,
             'version': version,
             'doc': conformance_test['doc'],
             'cwl_test_def': cwl_test_def,
             'label': label.replace("-", "_"),
+            'marks': marks,
         }
         test_body = TEST_TEMPLATE.safe_substitute(template_kwargs)
 
         tests += test_body
-        is_required = "required" in tags
-        is_green = label in green_tests_list
-        is_regression = label in REGRESSIONS
-
         if is_green:
             green_tests += test_body
         else:
