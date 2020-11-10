@@ -1714,7 +1714,6 @@ class ToolModule(WorkflowModule):
                 hda_references.append(value)
                 if value.ext == "expression.json":
                     with open(value.file_name, "r") as f:
-                        import json
                         # OUR safe_loads won't work, will not load numbers, etc...
                         return json.load(f)
                 else:
