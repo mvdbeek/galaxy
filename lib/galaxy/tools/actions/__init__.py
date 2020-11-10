@@ -234,7 +234,7 @@ class DefaultToolAction:
                         # collection with individual datasets. Database will still
                         # record collection which should be enought for workflow
                         # extraction and tool rerun.
-                        if hasattr(value, 'child_collection'):
+                        if hasattr(value, 'child_collection') and value.child_collection:
                             # if we are mapping a collection over a tool, we only require the child_collection
                             dataset_instances = value.child_collection.dataset_instances
                         else:
