@@ -10,6 +10,7 @@ CWL_TESTS_DIRECTORY = os.path.join(API_TEST_DIRECTORY, "cwl")
 
 TEST_FILE_TEMPLATE = string.Template('''"""Test CWL conformance for version ${version}."""
 
+import pytest
 from ..test_workflows_cwl import BaseCwlWorklfowTestCase
 
 
@@ -18,7 +19,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
 $tests''')
 
 TEST_TEMPLATE = string.Template('''
-    def test_conformance_${version_simple}_${label}(self):
+${marks}    def test_conformance_${version_simple}_${label}(self):
         """${doc}
 
         Generated from::
@@ -410,6 +411,8 @@ def main():
     conformance_tests = load_conformance_tests(os.path.join(THIS_DIRECTORY, version))
 
     green_tests_list = GREEN_TESTS[version]
+    green_tests_found = set()
+    all_tests_found = set()
 
     tests = ""
     green_tests = ""
@@ -428,6 +431,22 @@ def main():
         cwl_test_def = "\n".join(["            %s" % l for l in cwl_test_def.splitlines()])
         label = conformance_test.get("label", str(i))
         tags = conformance_test.get("tags", [])
+        is_required = "required" in tags
+        is_green = label in green_tests_list
+        is_regression = label in REGRESSIONS
+
+        marks = ""
+        for tag in tags:
+            marks += f"    @pytest.mark.{tag}\n"
+        if is_green:
+            marks += "    @pytest.mark.green\n"
+        else:
+            marks += "    @pytest.mark.red\n"
+        if is_regression:
+            marks += "    @pytest.mark.regression\n"
+
+        if "command_line_tool" not in tags and "workflow" not in tags and "expression_tool" not in tags:
+            print("PROBLEM - test tagged with neither command_line_tool, expression_tool, nor workflow [%s]" % label)
 
         template_kwargs = {
             'version_simple': version_simple,
@@ -435,14 +454,11 @@ def main():
             'doc': conformance_test['doc'],
             'cwl_test_def': cwl_test_def,
             'label': label.replace("-", "_"),
+            'marks': marks,
         }
         test_body = TEST_TEMPLATE.safe_substitute(template_kwargs)
 
         tests += test_body
-        is_required = "required" in tags
-        is_green = label in green_tests_list
-        is_regression = label in REGRESSIONS
-
         if is_green:
             green_tests += test_body
         else:
@@ -455,6 +471,12 @@ def main():
                 red_required_tests += test_body
         if is_regression:
             regression_tests += test_body
+
+        if label in all_tests_found:
+            print("PROBLEM - Duplicate label found [%s]" % label)
+        all_tests_found.add(label)
+        if is_green:
+            green_tests_found.add(label)
 
     def generate_test_file(tests):
         return TEST_FILE_TEMPLATE.safe_substitute({
@@ -492,6 +514,9 @@ def main():
     write_test_cases(required_red_test_file_contents, "required_red")
     write_test_cases(required_green_test_file_contents, "required_green")
 
+    for green_test in green_tests_list:
+        if green_test not in green_tests_found:
+            print("PROBLEM - Failed to find annotated green test [%s]" % green_test)
 
 if __name__ == "__main__":
     main()

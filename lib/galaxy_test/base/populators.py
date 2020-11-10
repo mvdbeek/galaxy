@@ -215,9 +215,12 @@ class CwlRun:
         galaxy_output = self._output_name_to_object(output_name)
 
         def get_metadata(history_content_type, content_id):
-            if history_content_type == "dataset":
+            if history_content_type == "raw_value":
+                return {}
+            elif history_content_type == "dataset":
                 return self.dataset_populator.get_history_dataset_details(self.history_id, dataset_id=content_id)
             else:
+                assert history_content_type == "dataset_collection"
                 # Don't wait - we've already done that, history might be "new"
                 return self.dataset_populator.get_history_collection_details(self.history_id, content_id=content_id, wait=False)
 
@@ -293,6 +296,25 @@ class CwlWorkflowRun(CwlRun):
         self.workflow_populator.wait_for_invocation_and_jobs(
             self.history_id, self.workflow_id, self.invocation_id
         )
+
+
+def load_conformance_tests(directory, path="conformance_tests.yaml"):
+    conformance_tests_path = os.path.join(directory, path)
+    with open(conformance_tests_path, "r") as f:
+        conformance_tests = yaml.load(f)
+
+    expanded_conformance_tests = []
+    for i, conformance_test in enumerate(conformance_tests):
+        if "$import" in conformance_test:
+            import_path = conformance_test["$import"]
+            expanded_conformance_tests.extend(load_conformance_tests(directory, import_path))
+        else:
+            subdirectory, _ = os.path.split(path)
+            if subdirectory:
+                conformance_test["relative_path"] = os.path.join(directory, subdirectory)
+            expanded_conformance_tests.append(conformance_test)
+
+    return expanded_conformance_tests
 
 
 class CwlPopulator(object):
@@ -400,7 +422,7 @@ class CwlPopulator(object):
             return CwlWorkflowRun(self.dataset_populator, self.workflow_populator, history_id, workflow_id, invocation_id)
 
     def get_conformance_test(self, version, doc):
-        conformance_tests = yaml.load(open(os.path.join(CWL_TOOL_DIRECTORY, str(version), "conformance_tests.yaml"), "r"))
+        conformance_tests = load_conformance_tests(os.path.join(CWL_TOOL_DIRECTORY, str(version)))
         for test in conformance_tests:
             if test.get("doc") == doc:
                 return test
@@ -408,13 +430,14 @@ class CwlPopulator(object):
 
     def run_conformance_test(self, version, doc):
         test = self.get_conformance_test(version, doc)
-        if version < "v1.1":
-            tool = os.path.join(CWL_TOOL_DIRECTORY, test["tool"])
-            job = os.path.join(CWL_TOOL_DIRECTORY, test["job"])
+        if "relative_path" in test:
+            directory = test["relative_path"]
+        elif version < "v1.1":
+            directory = CWL_TOOL_DIRECTORY
         else:
-            tool = os.path.join(CWL_TOOL_DIRECTORY, version, test["tool"])
-            job = os.path.join(CWL_TOOL_DIRECTORY, version, test["job"])
-
+            directory = os.path.join(CWL_TOOL_DIRECTORY, version)
+        tool = os.path.join(directory, test["tool"])
+        job = os.path.join(directory, test["job"])
         try:
             run = self.run_cwl_job(tool, job)
         except Exception:
