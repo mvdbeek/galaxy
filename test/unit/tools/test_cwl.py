@@ -372,6 +372,17 @@ def test_workflow_simple_optional_input():
     assert input_step['tool_state']['parameter_type'] == "field", input_step
 
 
+def test_boolean_defaults():
+    proxy = workflow_proxy(_cwl_tool_path("v1.2/tests/conditionals/cond-wf-002_nojs.cwl"))
+    galaxy_workflow_dict = proxy.to_dict()
+    assert len(galaxy_workflow_dict["steps"]) == 3
+    bool_input = galaxy_workflow_dict["steps"][0]
+    assert bool_input["label"] == "test", bool_input
+    bool_tool_state = bool_input["tool_state"]
+    assert bool_tool_state["optional"]
+    assert bool_tool_state["default"]["value"] is False
+
+
 def test_workflow_file_optional_input():
     proxy = workflow_proxy(_cwl_tool_path("v1.0/count-lines11-wf.cwl"))
 
