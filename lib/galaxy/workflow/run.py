@@ -369,12 +369,12 @@ class WorkflowProgress:
 
             if input_dict["input_type"] == "dataset_collection":
                 # TODO: Implement more nested types here...
-                assert input_dict["collection_types"] == ["list"], "Input dict [%s] doesn't specify collection types..." % input_dict
+                if input_dict.get("collection_types") != ["list"]:
+                    return self.replacement_for_connection(connections[0], is_data=is_data)
 
             collection = model.DatasetCollection()
             # If individual datasets provided (type is None) - premote to a list.
             collection.collection_type = input_collection_type or "list"
-            elements = []
 
             next_index = 0
             if input_collection_type is None:
@@ -383,40 +383,38 @@ class WorkflowProgress:
                     raise NotImplementedError()
 
                 for input in inputs:
-                    element = model.DatasetCollectionElement(
+                    model.DatasetCollectionElement(
+                        collection=collection,
                         element=input,
                         element_index=next_index,
                         element_identifier=str(next_index),
                     )
-                    elements.append(element)
                     next_index += 1
 
             elif input_collection_type == "list":
                 if merge_type == "merge_flattened":
                     for input in inputs:
                         for dataset_instance in input.dataset_instances:
-                            element = model.DatasetCollectionElement(
+                            model.DatasetCollectionElement(
+                                collection=collection,
                                 element=dataset_instance,
                                 element_index=next_index,
                                 element_identifier=str(next_index),
                             )
-                            elements.append(element)
                             next_index += 1
                 elif merge_type == "merge_nested":
                     # Increase nested level of collection
                     collection.collection_type = "list:%s" % input_collection_type
                     for input in inputs:
-                        element = model.DatasetCollectionElement(
+                        model.DatasetCollectionElement(
+                            collection=collection,
                             element=input.collection,
                             element_index=next_index,
                             element_identifier=str(next_index),
                         )
-                        elements.append(element)
                         next_index += 1
             else:
                 raise NotImplementedError()
-
-            collection.elements = elements
 
             ephemeral_collection = modules.EphemeralCollection(
                 collection=collection,
