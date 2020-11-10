@@ -1818,6 +1818,7 @@ class ToolModule(WorkflowModule):
                 replacement = NO_REPLACEMENT
                 dataset_instance = None
                 if iteration_elements and prefixed_name in iteration_elements:
+                    dataset_instance = getattr(iteration_elements[prefixed_name], 'dataset_instance', None)
                     if not isinstance(input, DataCollectionToolParameter) and dataset_instance:
                         # Pull out dataset instance (=HDA) from element and set a temporary element_identifier attribute
                         # See https://github.com/galaxyproject/galaxy/pull/1693 for context.
