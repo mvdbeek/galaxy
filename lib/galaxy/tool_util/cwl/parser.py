@@ -614,7 +614,7 @@ class JobProxy:
 
     def _output_extra_files_dir(self, output_name):
         output_id = self.output_id(output_name)
-        return os.path.join(self._job_directory, "working", "dataset_%s_files" % output_id)
+        return os.path.join(self._job_directory, "outputs", "dataset_%s_files" % output_id)
 
     def output_id(self, output_name):
         output_id = self._output_dict[output_name]["id"]
