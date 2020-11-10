@@ -438,13 +438,18 @@ class CwlPopulator(object):
             directory = os.path.join(CWL_TOOL_DIRECTORY, version)
         tool = os.path.join(directory, test["tool"])
         job = os.path.join(directory, test["job"])
+        should_fail = test.get("should_fail", False)
         try:
             run = self.run_cwl_job(tool, job)
         except Exception:
             # Should fail so this is good!
-            if test.get("should_fail", False):
+            if should_fail:
                 return True
             raise
+
+        if should_fail:
+            self.dataset_populator._summarize_history(run.history_id)
+            raise Exception("Expected run to fail but it didn't.")
 
         expected_outputs = test["output"]
         try:
