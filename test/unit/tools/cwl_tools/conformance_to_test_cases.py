@@ -411,6 +411,8 @@ def main():
     conformance_tests = load_conformance_tests(os.path.join(THIS_DIRECTORY, version))
 
     green_tests_list = GREEN_TESTS[version]
+    green_tests_found = set()
+    all_tests_found = set()
 
     tests = ""
     green_tests = ""
@@ -442,6 +444,10 @@ def main():
             marks += "    @pytest.mark.red\n"
         if is_regression:
             marks += "    @pytest.mark.regression\n"
+
+        if "command_line_tool" not in tags and "workflow" not in tags and "expression_tool" not in tags:
+            print("PROBLEM - test tagged with neither command_line_tool, expression_tool, nor workflow [%s]" % label)
+
         template_kwargs = {
             'version_simple': version_simple,
             'version': version,
@@ -465,6 +471,12 @@ def main():
                 red_required_tests += test_body
         if is_regression:
             regression_tests += test_body
+
+        if label in all_tests_found:
+            print("PROBLEM - Duplicate label found [%s]" % label)
+        all_tests_found.add(label)
+        if is_green:
+            green_tests_found.add(label)
 
     def generate_test_file(tests):
         return TEST_FILE_TEMPLATE.safe_substitute({
@@ -502,6 +514,9 @@ def main():
     write_test_cases(required_red_test_file_contents, "required_red")
     write_test_cases(required_green_test_file_contents, "required_green")
 
+    for green_test in green_tests_list:
+        if green_test not in green_tests_found:
+            print("PROBLEM - Failed to find annotated green test [%s]" % green_test)
 
 if __name__ == "__main__":
     main()
