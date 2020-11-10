@@ -1085,9 +1085,13 @@ class BaseWorkflowPopulator:
 
         return workflow_id
 
-    def wait_for_invocation(self, workflow_id, invocation_id, timeout=DEFAULT_TIMEOUT):
+    def wait_for_invocation(self, workflow_id, invocation_id, timeout=DEFAULT_TIMEOUT, assert_ok=True):
         url = f"workflows/{workflow_id}/usage/{invocation_id}"
-        return wait_on_state(lambda: self._get(url), desc="workflow invocation state", timeout=timeout)
+
+        def workflow_state():
+            return self._get(url)
+
+        return wait_on_state(workflow_state, desc="workflow invocation state", timeout=timeout, assert_ok=assert_ok)
 
     def history_invocations(self, history_id):
         history_invocations_response = self._get("invocations", {"history_id": history_id})
@@ -1110,7 +1114,7 @@ class BaseWorkflowPopulator:
     def wait_for_workflow(self, workflow_id, invocation_id, history_id, assert_ok=True, timeout=DEFAULT_TIMEOUT):
         """ Wait for a workflow invocation to completely schedule and then history
         to be complete. """
-        self.wait_for_invocation(workflow_id, invocation_id, timeout=timeout)
+        self.wait_for_invocation(workflow_id, invocation_id, timeout=timeout, assert_ok=assert_ok)
         self.dataset_populator.wait_for_history_jobs(history_id, assert_ok=assert_ok, timeout=timeout)
 
     def get_invocation(self, invocation_id):
@@ -1838,7 +1842,7 @@ def wait_on_state(state_func, desc="state", skip_states=None, ok_states=None, as
     if skip_states is None:
         skip_states = ["running", "queued", "new", "ready"]
     if ok_states is None:
-        ok_states = ["ok"]
+        ok_states = ["ok", "scheduled"]
     try:
         return wait_on(get_state, desc=desc, timeout=timeout)
     except TimeoutAssertionError as e:
