@@ -850,7 +850,7 @@ class InputParameterModule(WorkflowModule):
         parameter_type_cond.test_param = input_parameter_type
         cases = []
 
-        for param_type in ["text", "integer", "float", "boolean", "color"]:
+        for param_type in ["text", "integer", "float", "boolean", "color", "field"]:
             default_source = dict(name="default", label="Default Value", type=param_type)
             if param_type == "text":
                 if parameter_type == "text":

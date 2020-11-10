@@ -834,13 +834,15 @@ class WorkflowProxy:
                 # to be field - simpler types could be simpler inputs.
                 tool_state = {}
                 tool_state["parameter_type"] = "field"
+                default_set = "default" in input
                 default_value = input.get("default")
-                optional = False
+                optional = default_set
                 if isinstance(input_type, list) and "null" in input_type:
                     optional = True
                 if not optional and isinstance(input_type, dict) and "type" in input_type:
                     assert False
-                tool_state["default_value"] = {"src": "json", "value": default_value}
+                if default_set:
+                    tool_state["default"] = {"src": "json", "value": default_value}
                 tool_state["optional"] = optional
                 input_as_dict["tool_state"] = tool_state
             else:
