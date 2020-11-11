@@ -45,29 +45,28 @@ RED_TESTS = {
     "valuefrom_wf_step_multiple": "basic.py problem ValueError: invalid literal for int() with base 10: ''",
 }
 
-# Regressions
-REGRESSIONS = {
-    'directory_output': "Bug1: Extra files handling changes.",
-    'wf_compound_doc': "Bug4: No clue what is wrong here.",
-    'step_input_default_value_nosource': "Bug2: Broken step input defaults?",
-    "wf_input_default_missing": "Bug2",
-    "wf_input_default_provided": "Bug3: is not a valid workflow invocation id",
-    "wf_scatter_dotproduct_twoempty": "Bug3",
-    "wf_scatter_emptylist": "Bug3",
-    "wf_step_connect_undeclared_param": "Bug2",
-    "wf_two_inputfiles_namecollision": "Bug3",
-    "wf_wc_expressiontool": "Bug3",
-    "wf_wc_nomultiple": "Bug3",
-    "wf_wc_scatter_multiple_merge": "Bug3",
-    "wf_wc_scatter_multiple_flattened": "Bug3",
-    "wf_wc_scatter": "Bug3",
-    "wf_wc_parseInt": "Bug3",
-    "workflow_union_default_input_unspecified": "Bug2",
-}
-RED_TESTS.update(REGRESSIONS)
+# Regressions -- hopefully not needed anymore
+REGRESSIONS = []
+RED_TESTS.update({r: 'bug' for r in REGRESSIONS})
 
 GREEN_TESTS = {
     "v1.0": [
+        'directory_output',
+        'wf_compound_doc',
+        'step_input_default_value_nosource',
+        "wf_input_default_missing",
+        "wf_input_default_provided",
+        "wf_scatter_dotproduct_twoempty",
+        "wf_scatter_emptylist",
+        "wf_step_connect_undeclared_param",
+        "wf_two_inputfiles_namecollision",
+        "wf_wc_expressiontool",
+        "wf_wc_nomultiple",
+        "wf_wc_scatter_multiple_merge",
+        "wf_wc_scatter_multiple_flattened",
+        "wf_wc_scatter",
+        "wf_wc_parseInt",
+        "workflow_union_default_input_unspecified",
         "expression_tool_int_array_output",
         "cl_gen_arrayofarrays",
         "docker_json_output_location",
@@ -162,6 +161,22 @@ GREEN_TESTS = {
         "valuefrom_ignored_null",
     ],
     "v1.1": [
+        'directory_output',
+        'wf_compound_doc',
+        'step_input_default_value_nosource',
+        "wf_input_default_missing",
+        "wf_input_default_provided",
+        "wf_scatter_dotproduct_twoempty",
+        "wf_scatter_emptylist",
+        "wf_step_connect_undeclared_param",
+        "wf_two_inputfiles_namecollision",
+        "wf_wc_expressiontool",
+        "wf_wc_nomultiple",
+        "wf_wc_scatter_multiple_merge",
+        "wf_wc_scatter_multiple_flattened",
+        "wf_wc_scatter",
+        "wf_wc_parseInt",
+        "workflow_union_default_input_unspecified",
         "expression_tool_int_array_output",
         "cl_gen_arrayofarrays",
         "docker_json_output_location",
@@ -274,6 +289,22 @@ GREEN_TESTS = {
         "timelimit_invalid",
     ],
     "v1.2": [
+        'directory_output',
+        'wf_compound_doc',
+        'step_input_default_value_nosource',
+        "wf_input_default_missing",
+        "wf_input_default_provided",
+        "wf_scatter_dotproduct_twoempty",
+        "wf_scatter_emptylist",
+        "wf_step_connect_undeclared_param",
+        "wf_two_inputfiles_namecollision",
+        "wf_wc_expressiontool",
+        "wf_wc_nomultiple",
+        "wf_wc_scatter_multiple_merge",
+        "wf_wc_scatter_multiple_flattened",
+        "wf_wc_scatter",
+        "wf_wc_parseInt",
+        "workflow_union_default_input_unspecified",
         "expression_tool_int_array_output",
         "cl_gen_arrayofarrays",
         "docker_json_output_location",
@@ -394,7 +425,7 @@ def load_conformance_tests(directory, path="conformance_tests.yaml"):
         conformance_tests = yaml.load(f)
 
     expanded_conformance_tests = []
-    for i, conformance_test in enumerate(conformance_tests):
+    for conformance_test in conformance_tests:
         if "$import" in conformance_test:
             import_path = conformance_test["$import"]
             expanded_conformance_tests.extend(load_conformance_tests(directory, import_path))
@@ -487,16 +518,6 @@ def main():
 
     test_file_contents = generate_test_file(tests)
 
-    green_test_file_contents = generate_test_file(green_tests)
-
-    red_test_file_contents = generate_test_file(red_tests)
-
-    required_test_file_contents = generate_test_file(required_tests)
-
-    required_red_test_file_contents = generate_test_file(red_required_tests)
-    required_green_test_file_contents = generate_test_file(green_required_tests)
-    regressed_test_file_contents = generate_test_file(regression_tests)
-
     def write_test_cases(contents, suffix=None):
         if suffix is None:
             test_file = "test_cwl_conformance_%s.py" % version_simple
@@ -507,13 +528,6 @@ def main():
             f.write(contents)
 
     write_test_cases(test_file_contents)
-    write_test_cases(green_test_file_contents, "green")
-    write_test_cases(red_test_file_contents, "red")
-    write_test_cases(required_test_file_contents, "required")
-    write_test_cases(regressed_test_file_contents, "regressed")
-    write_test_cases(required_red_test_file_contents, "required_red")
-    write_test_cases(required_green_test_file_contents, "required_green")
-
     for green_test in green_tests_list:
         if green_test not in green_tests_found:
             print("PROBLEM - Failed to find annotated green test [%s]" % green_test)
