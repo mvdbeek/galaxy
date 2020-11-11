@@ -632,12 +632,6 @@ fi
 
 setup_python
 
-if [ -n "$marker" ]; then
-    marker_arg="-m"
-else
-    marker_arg=""
-fi
-
 if [ -n "$framework_test" -o -n "$installed_test" -o -n "$migrated_test" -o -n "$data_managers_test" ] ; then
     [ -n "$test_id" ] && selector="-k $test_id" || selector=""
     extra_args="test/functional/test_toolbox_pytest.py $selector"
@@ -680,9 +674,13 @@ if [ "$test_script" = 'pytest' ]; then
     if [ "$coverage_arg" = '--with-coverage' ]; then
         coverage_arg="--cov-report term --cov=lib"
     fi
-    "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args $marker_arg "$marker" "$@"
+    if [ -n "$marker" ]; then
+        "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args -m "$marker" "$@"
+    else
+        "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args "$@"
+    fi
 else
-    python $test_script $coverage_arg -v --with-nosehtml --html-report-file $report_file $xunit_args $structured_data_args $extra_args $marker_arg "$marker" "$@"
+    python $test_script $coverage_arg -v --with-nosehtml --html-report-file $report_file $xunit_args $structured_data_args $extra_args "$@"
 fi
 exit_status=$?
 echo "Testing complete. HTML report is in \"$report_file\"." 1>&2
