@@ -58,25 +58,25 @@ class CwlToolsTestCase(ApiTestCase):
     @skip_without_tool("cat1-tool")
     def test_cat1_number_cwl_json_file(self):
         """Test execution of cat1 using the CWL job definition file."""
-        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool", "test/functional/tools/cwl_tools/draft3/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
         stdout = self._get_job_stdout(run_object.job_id)
         self.assertEquals(stdout, "Hello world!\n")
 
     @skip_without_tool("cat1-tool")
     def test_cat1_number_cwl_n_json_file(self):
-        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool", "test/functional/tools/cwl_tools/draft3/cat-n-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-n-job.json")
         stdout = self._get_job_stdout(run_object.job_id)
         self.assertEquals(stdout, "     1\tHello world!\n")
 
     @skip_without_tool("cat2-tool")
     def test_cat2(self):
-        run_object = self.cwl_populator.run_cwl_artifact("cat2-tool", "test/functional/tools/cwl_tools/draft3/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat2-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
         stdout = self._get_job_stdout(run_object.job_id)
         self.assertEquals(stdout, "Hello world!\n")
 
     @skip_without_tool("cat4-tool")
     def test_cat4(self):
-        run_object = self.cwl_populator.run_cwl_artifact("cat4-tool", "test/functional/tools/cwl_tools/draft3/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat4-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output1_content, "Hello world!\n")
 
@@ -88,7 +88,7 @@ class CwlToolsTestCase(ApiTestCase):
 
     @skip_without_tool("wc-tool")
     def test_wc(self):
-        run_object = self.cwl_populator.run_cwl_artifact("wc-tool", "test/functional/tools/cwl_tools/draft3/wc-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("wc-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/wc-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         if not IS_OS_X:
             self.assertEquals(output1_content, "  16  198 1111\n")
@@ -97,7 +97,7 @@ class CwlToolsTestCase(ApiTestCase):
 
     @skip_without_tool("wc2-tool")
     def test_wc2(self):
-        run_object = self.cwl_populator.run_cwl_artifact("wc2-tool", "test/functional/tools/cwl_tools/draft3/wc-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("wc2-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/wc-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output1_content, "16")
 
@@ -113,14 +113,14 @@ class CwlToolsTestCase(ApiTestCase):
                     },
                 ],
             },
-            test_data_directory="test/functional/tools/cwl_tools/draft3/"
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/"
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output1_content, "16")
 
     @skip_without_tool("wc4-tool")
     def test_wc4(self):
-        run_object = self.cwl_populator.run_cwl_artifact("wc4-tool", "test/functional/tools/cwl_tools/draft3/wc-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("wc4-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/wc-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output1_content, "16")
 
@@ -223,19 +223,19 @@ class CwlToolsTestCase(ApiTestCase):
 
     @skip_without_tool("env-tool2")
     def test_env_tool2(self):
-        run_object = self.cwl_populator.run_cwl_artifact("env-tool2", "test/functional/tools/cwl_tools/draft3/env-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("env-tool2", "test/functional/tools/cwl_tools/v1.0/v1.0/env-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output1_content, "hello test env\n")
 
     @skip_without_tool("rename")
     def test_rename(self):
-        run_object = self.cwl_populator.run_cwl_artifact("rename", "test/functional/tools/cwl_tools/draft3/rename-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("rename", "test/functional/tools/cwl_tools/v1.0/v1.0/rename-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output1_content, whale_text())
 
     @skip_without_tool("optional-output")
     def test_optional_output(self):
-        run_object = self.cwl_populator.run_cwl_artifact("optional-output", "test/functional/tools/cwl_tools/draft3/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("optional-output", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
         output_file = run_object.output(0)
         optional_file = run_object.output(1)
         output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id, dataset=output_file)
@@ -250,7 +250,7 @@ class CwlToolsTestCase(ApiTestCase):
             job={
                 "produce": "do_write",
             },
-            test_data_directory="test/functional/tools/cwl_tools/draft3/"
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/"
         )
         output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output_content, "bees\n")
@@ -262,7 +262,7 @@ class CwlToolsTestCase(ApiTestCase):
             job={
                 "produce": "dont_write",
             },
-            test_data_directory="test/functional/tools/cwl_tools/draft3/"
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/"
         )
         output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEquals(output_content, "null")
@@ -278,7 +278,7 @@ class CwlToolsTestCase(ApiTestCase):
                     "path": "whale.txt"
                 },
             },
-            test_data_directory="test/functional/tools/cwl_tools/draft3/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
         )
         output1 = self.dataset_populator.get_history_dataset_details(run_object.history_id)
         run_object = self.cwl_populator.run_cwl_artifact(
@@ -289,7 +289,7 @@ class CwlToolsTestCase(ApiTestCase):
                     "id": output1["id"],
                 },
             },
-            test_data_directory="test/functional/tools/cwl_tools/draft3/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
             history_id=run_object.history_id,
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
@@ -300,7 +300,7 @@ class CwlToolsTestCase(ApiTestCase):
         run_object = self.cwl_populator.run_cwl_artifact(
             "any1",
             job={"bar": 7},
-            test_data_directory="test/functional/tools/cwl_tools/draft3/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content == '7', output1_content
@@ -310,7 +310,7 @@ class CwlToolsTestCase(ApiTestCase):
         run_object = self.cwl_populator.run_cwl_artifact(
             "any1",
             job={"bar": "7"},
-            test_data_directory="test/functional/tools/cwl_tools/draft3/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content == '"7"', output1_content
@@ -323,7 +323,7 @@ class CwlToolsTestCase(ApiTestCase):
                 "class": "File",
                 "location": "whale.txt",
             }},
-            test_data_directory="test/functional/tools/cwl_tools/draft3/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.dataset_populator._summarize_history_errors(run_object.history_id)
@@ -334,38 +334,38 @@ class CwlToolsTestCase(ApiTestCase):
         run_object = self.cwl_populator.run_cwl_artifact(
             "any1",
             job={"bar": {"Cow": ["Turkey"]}},
-            test_data_directory="test/functional/tools/cwl_tools/draft3/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content == '{"Cow": ["Turkey"]}', output1_content
 
     @skip_without_tool("null-expression1-tool")
     def test_null_expression_1_1(self):
-        run_object = self.cwl_populator.run_cwl_artifact("null-expression1-tool", "test/functional/tools/cwl_tools/draft3/empty.json")
+        run_object = self.cwl_populator.run_cwl_artifact("null-expression1-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/empty.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content == '1', output1_content
 
     @skip_without_tool("null-expression1-tool")
     def test_null_expression_1_2(self):
-        run_object = self.cwl_populator.run_cwl_artifact("null-expression1-tool", "test/functional/tools/cwl_tools/draft3/null-expression2-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("null-expression1-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/null-expression2-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content == '2', output1_content
 
     @skip_without_tool("null-expression2-tool")
     def test_null_expression_any_bad_1(self):
         """Test explicitly passing null to Any type without a default value fails."""
-        run_object = self.cwl_populator.run_cwl_artifact("null-expression2-tool", "test/functional/tools/cwl_tools/draft3/null-expression1-job.json", assert_ok=False)
+        run_object = self.cwl_populator.run_cwl_artifact("null-expression2-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/null-expression1-job.json", assert_ok=False)
         self._assert_status_code_is(run_object.run_response, 400)
 
     @skip_without_tool("null-expression2-tool")
     def test_null_expression_any_bad_2(self):
         """Test Any without defaults can be unspecified."""
-        run_object = self.cwl_populator.run_cwl_artifact("null-expression2-tool", "test/functional/tools/cwl_tools/draft3/empty.json", assert_ok=False)
+        run_object = self.cwl_populator.run_cwl_artifact("null-expression2-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/empty.json", assert_ok=False)
         self._assert_status_code_is(run_object.run_response, 400)
 
     @skip_without_tool("default_path")
     def test_default_path_override(self):
-        run_object = self.cwl_populator.run_cwl_artifact("default_path", "test/functional/tools/cwl_tools/v1.0/default_path_job.yml")
+        run_object = self.cwl_populator.run_cwl_artifact("default_path", "test/functional/tools/cwl_tools/v1.0/v1.0/default_path_job.yml")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content.strip() == "Hello world!", output1_content
 
@@ -379,13 +379,13 @@ class CwlToolsTestCase(ApiTestCase):
 
     @skip_without_tool("params")
     def test_params1(self):
-        run_object = self.cwl_populator.run_cwl_artifact("params", "test/functional/tools/cwl_tools/draft3/empty.json")
+        run_object = self.cwl_populator.run_cwl_artifact("params", "test/functional/tools/cwl_tools/v1.0/v1.0/empty.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         assert output1_content == '"b b"', output1_content
 
     @skip_without_tool("parseInt-tool")
     def test_parse_int_tool(self):
-        run_object = self.cwl_populator.run_cwl_artifact("parseInt-tool", "test/functional/tools/cwl_tools/draft3/parseInt-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("parseInt-tool", "test/functional/tools/cwl_tools/v1.0/v1.0/parseInt-job.json")
         output1 = self.dataset_populator.get_history_dataset_details(run_object.history_id, hid=2)
         assert output1["state"] == "ok"
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id, hid=2)
@@ -394,7 +394,7 @@ class CwlToolsTestCase(ApiTestCase):
 
     @skip_without_tool("record-output")
     def test_record_output(self):
-        run_object = self.cwl_populator.run_cwl_artifact("record-output", "test/functional/tools/cwl_tools/v1.0/record-output-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("record-output", "test/functional/tools/cwl_tools/v1.0/v1.0/record-output-job.json")
         result_record = run_object.output_collection(0)
         assert result_record["collection_type"] == "record"
         record_elements = result_record["elements"]
@@ -406,10 +406,10 @@ class CwlToolsTestCase(ApiTestCase):
 
     # def test_dynamic_tool_execution( self ):
     #     workflow_tool_json = {
-    #         'inputs': [{'inputBinding': {}, 'type': 'File', 'id': 'file:///home/john/workspace/galaxy/test/unit/tools/cwl_tools/draft3/count-lines2-wf.cwl#step1/wc/wc_file1'}],
+    #         'inputs': [{'inputBinding': {}, 'type': 'File', 'id': 'file:///home/john/workspace/galaxy/test/unit/tools/cwl_tools/v1.0/v1.0/count-lines2-wf.cwl#step1/wc/wc_file1'}],
     #         'stdout': 'output.txt',
-    #         'id': 'file:///home/john/workspace/galaxy/test/unit/tools/cwl_tools/draft3/count-lines2-wf.cwl#step1/wc',
-    #         'outputs': [{'outputBinding': {'glob': 'output.txt'}, 'type': 'File', 'id': 'file:///home/john/workspace/galaxy/test/unit/tools/cwl_tools/draft3/count-lines2-wf.cwl#step1/wc/wc_output'}],
+    #         'id': 'file:///home/john/workspace/galaxy/test/unit/tools/cwl_tools/v1.0/v1.0/count-lines2-wf.cwl#step1/wc',
+    #         'outputs': [{'outputBinding': {'glob': 'output.txt'}, 'type': 'File', 'id': 'file:///home/john/workspace/galaxy/test/unit/tools/cwl_tools/v1.0/v1.0/count-lines2-wf.cwl#step1/wc/wc_output'}],
     #         'baseCommand': 'wc',
     #         'class': 'CommandLineTool'
     #     }
@@ -441,7 +441,7 @@ class CwlToolsTestCase(ApiTestCase):
 
 
 def whale_text():
-    return open("test/functional/tools/cwl_tools/draft3/whale.txt", "r").read()
+    return open("test/functional/tools/cwl_tools/v1.0/v1.0/whale.txt", "r").read()
 
 
 def _dataset_to_param(dataset):

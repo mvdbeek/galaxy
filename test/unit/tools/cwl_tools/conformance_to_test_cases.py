@@ -4,8 +4,9 @@ import sys
 
 import yaml
 
-THIS_DIRECTORY = os.path.dirname(os.path.normpath(__file__))
-API_TEST_DIRECTORY = os.path.join(THIS_DIRECTORY, "..", "..", "..", "..", "lib", "galaxy_test", "api")
+THIS_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
+GALAXY_ROOT_DIR = os.path.abspath(os.path.join(THIS_DIRECTORY, os.pardir, os.pardir, os.pardir, os.pardir))
+API_TEST_DIRECTORY = os.path.join(GALAXY_ROOT_DIR, "lib", "galaxy_test", "api")
 CWL_TESTS_DIRECTORY = os.path.join(API_TEST_DIRECTORY, "cwl")
 
 TEST_FILE_TEMPLATE = string.Template('''"""Test CWL conformance for version ${version}."""
@@ -423,7 +424,7 @@ GREEN_TESTS = {
 def load_conformance_tests(directory, path="conformance_tests.yaml"):
     conformance_tests_path = os.path.join(directory, path)
     with open(conformance_tests_path, "r") as f:
-        conformance_tests = yaml.load(f)
+        conformance_tests = yaml.safe_load(f)
 
     expanded_conformance_tests = []
     for conformance_test in conformance_tests:

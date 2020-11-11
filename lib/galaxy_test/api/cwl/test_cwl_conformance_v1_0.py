@@ -1,6 +1,7 @@
 """Test CWL conformance for version v1.0."""
 
 import pytest
+
 from ..test_workflows_cwl import BaseCwlWorklfowTestCase
 
 
@@ -4423,7 +4424,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.inline_javascript
     @pytest.mark.red
     def test_conformance_v1_0_workflow_any_input_with_record_provided(self):
-        """Test Any parameter with record input to a tool
+        """Test Any parameter with record input to a tool in a workflow
 
         Generated from::
 
@@ -4439,7 +4440,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - inline_javascript
             tool: v1.0/io-any-wf-1.cwl
         """  # noqa: W293
-        self.cwl_populator.run_conformance_test("""v1.0""", """Test Any parameter with record input to a tool""")
+        self.cwl_populator.run_conformance_test("""v1.0""", """Test Any parameter with record input to a tool in a workflow""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_0

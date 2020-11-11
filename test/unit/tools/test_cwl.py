@@ -1,18 +1,27 @@
+import json
 import os
 import shutil
 import tempfile
 from unittest import TestCase
 from uuid import uuid4
 
+import yaml
+
 import galaxy.model
 from galaxy.tool_util.cwl import (
+    to_cwl_job,
     tool_proxy as real_tool_proxy,
     workflow_proxy,
 )
-from galaxy.tool_util.cwl.parser import _to_cwl_tool_object, tool_proxy_from_persistent_representation
+from galaxy.tool_util.cwl.parser import (
+    _to_cwl_tool_object,
+    tool_proxy_from_persistent_representation,
+)
 from galaxy.tool_util.cwl.representation import USE_FIELD_TYPES
 from galaxy.tool_util.parser.cwl import CWL_DEFAULT_FILE_OUTPUT
 from galaxy.tool_util.parser.factory import get_tool_source
+from galaxy.tools.parameters import populate_state
+from galaxy.tools.parameters.wrapped import WrappedParameters
 from .. import tools_support
 from ..unittest_utils import galaxy_mock
 
@@ -29,17 +38,16 @@ def tool_proxy(*args, **kwd):
 
 def test_tool_proxy():
     """Test that tool proxies load some valid tools correctly."""
-    tool_proxy(_cwl_tool_path("v1.0/cat1-testcli.cwl"))
-    tool_proxy(_cwl_tool_path("v1.0/cat3-tool.cwl"))
-    tool_proxy(_cwl_tool_path("v1.0/env-tool1.cwl"))
-    tool_proxy(_cwl_tool_path("v1.0/sorttool.cwl"))
-    tool_proxy(_cwl_tool_path("v1.0/bwa-mem-tool.cwl"))
-
-    tool_proxy(_cwl_tool_path("v1.0/parseInt-tool.cwl"))
+    tool_proxy(_cwl_tool_path("v1.0/v1.0/cat1-testcli.cwl"))
+    tool_proxy(_cwl_tool_path("v1.0/v1.0/cat3-tool.cwl"))
+    tool_proxy(_cwl_tool_path("v1.0/v1.0/env-tool1.cwl"))
+    tool_proxy(_cwl_tool_path("v1.0/v1.0/sorttool.cwl"))
+    tool_proxy(_cwl_tool_path("v1.0/v1.0/bwa-mem-tool.cwl"))
+    tool_proxy(_cwl_tool_path("v1.0/v1.0/parseInt-tool.cwl"))
 
 
 def test_tool_source_records():
-    record_output_path = _cwl_tool_path("v1.0/record-output.cwl")
+    record_output_path = _cwl_tool_path("v1.0/v1.0/record-output.cwl")
     tool_source = get_tool_source(record_output_path)
     inputs = _inputs(tool_source)
     assert len(inputs) == 1, inputs
@@ -50,7 +58,7 @@ def test_tool_source_records():
 
 
 def test_serialize_deserialize():
-    path = _cwl_tool_path("v1.0/cat5-tool.cwl")
+    path = _cwl_tool_path("v1.0/v1.0/cat5-tool.cwl")
     tool = tool_proxy(path)
     expected_uuid = tool._uuid
     print(tool._tool.tool)
@@ -62,31 +70,29 @@ def test_serialize_deserialize():
     print(tool._tool.tool)
 
     with open(path, "r") as f:
-        import yaml
-        tool_object = yaml.load(f)
-        import json
-        tool_object = json.loads(json.dumps(tool_object))
+        tool_object = yaml.safe_load(f)
+    tool_object = json.loads(json.dumps(tool_object))
     tool = _to_cwl_tool_object(tool_object=tool_object, uuid=expected_uuid)
     assert tool._uuid == expected_uuid
 
 
 def test_job_proxy():
-    bwa_parser = get_tool_source(_cwl_tool_path("v1.0/bwa-mem-tool.cwl"))
+    bwa_parser = get_tool_source(_cwl_tool_path("v1.0/v1.0/bwa-mem-tool.cwl"))
     bwa_inputs = {
         "reference": {
             "class": "File",
-            "location": _cwl_tool_path("v1.0/chr20.fa"),
+            "location": _cwl_tool_path("v1.0/v1.0/chr20.fa"),
             "size": 123,
             "checksum": "sha1$hash"
         },
         "reads": [
             {
                 "class": "File",
-                "location": _cwl_tool_path("v1.0/example_human_Illumina.pe_1.fastq")
+                "location": _cwl_tool_path("v1.0/v1.0/example_human_Illumina.pe_1.fastq")
             },
             {
                 "class": "File",
-                "location": _cwl_tool_path("v1.0/example_human_Illumina.pe_2.fastq")
+                "location": _cwl_tool_path("v1.0/v1.0/example_human_Illumina.pe_2.fastq")
             }
         ],
         "min_std_max_min": [
@@ -109,7 +115,7 @@ def test_job_proxy():
     cmd = job_proxy.command_line
     print(cmd)
 
-    bind_parser = get_tool_source(_cwl_tool_path("v1.0/binding-test.cwl"))
+    bind_parser = get_tool_source(_cwl_tool_path("v1.0/v1.0/binding-test.cwl"))
     binding_proxy = bind_parser.tool_proxy
     binding_id = bind_parser.parse_id()
 
@@ -124,15 +130,15 @@ def test_job_proxy():
 
 
 def test_cores_min():
-    sort_parser = get_tool_source(_cwl_tool_path("v1.0/sorttool.cwl"))
-    bwa_parser = get_tool_source(_cwl_tool_path("v1.0/bwa-mem-tool.cwl"))
+    sort_parser = get_tool_source(_cwl_tool_path("v1.0/v1.0/sorttool.cwl"))
+    bwa_parser = get_tool_source(_cwl_tool_path("v1.0/v1.0/bwa-mem-tool.cwl"))
 
     assert sort_parser.parse_cores_min() == 1
     assert bwa_parser.parse_cores_min() == 2
 
 
 def test_success_codes():
-    exit_success_parser = get_tool_source(_cwl_tool_path("v1.0/exit-success.cwl"))
+    exit_success_parser = get_tool_source(_cwl_tool_path("v1.0/v1.0/exit-success.cwl"))
 
     stdio, _ = exit_success_parser.parse_stdio()
     assert len(stdio) == 2
@@ -144,7 +150,7 @@ def test_success_codes():
     assert stdio_1.range_start == 2
     assert stdio_1.range_end == float("inf")
 
-    bwa_parser = get_tool_source(_cwl_tool_path("v1.0/bwa-mem-tool.cwl"))
+    bwa_parser = get_tool_source(_cwl_tool_path("v1.0/v1.0/bwa-mem-tool.cwl"))
     stdio, _ = bwa_parser.parse_stdio()
 
     assert len(stdio) == 2
@@ -160,24 +166,19 @@ def test_success_codes():
 def test_serialize_deserialize_workflow_embed():
     # Test inherited hints and requirements from workflow -> tool
     # work here.
-    versions = ["v1.0"]
-    for version in versions:
-        proxy = workflow_proxy(_cwl_tool_path("%s/count-lines2-wf.cwl" % version))
-        step_proxies = proxy.step_proxies()
-        tool_proxy = step_proxies[0].tool_proxy
-        assert tool_proxy.requirements, tool_proxy.requirements
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines2-wf.cwl"))
+    step_proxies = proxy.step_proxies()
+    tool_proxy = step_proxies[0].tool_proxy
+    assert tool_proxy.requirements, tool_proxy.requirements
 
 
 def test_reference_proxies():
-    versions = ["v1.0"]
-    for version in versions:
-        proxy = workflow_proxy(_cwl_tool_path("%s/count-lines1-wf.cwl" % version))
-        proxy.tool_reference_proxies()
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines1-wf.cwl"))
+    proxy.tool_reference_proxies()
 
 
 def test_subworkflow_parsing():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/count-lines10-wf.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines10-wf.cwl"))
     assert len(proxy.tool_reference_proxies()) == 2
 
     assert len(proxy.output_labels) == 1
@@ -195,7 +196,7 @@ def test_checks_is_a_tool():
     """Test that tool proxy cannot be created for a workflow."""
     exception = None
     try:
-        tool_proxy(_cwl_tool_path("v1.0/count-lines1-wf.cwl"))
+        tool_proxy(_cwl_tool_path("v1.0/v1.0/count-lines1-wf.cwl"))
     except Exception as e:
         exception = e
 
@@ -203,58 +204,42 @@ def test_checks_is_a_tool():
     assert "CommandLineTool" in str(exception), str(exception)
 
 
-def test_checks_cwl_version():
-    """Test that tool proxy verifies supported version."""
-    exception = None
-    try:
-        tool_proxy(_cwl_tool_path("draft3_custom/version345.cwl"))
-    except Exception as e:
-        exception = e
-
-    assert exception is not None
-
-
 def test_workflow_of_files_proxy():
-    versions = ["v1.0"]
-    for version in versions:
-        proxy = workflow_proxy(_cwl_tool_path("%s/count-lines1-wf.cwl" % version))
-        step_proxies = proxy.step_proxies()
-        assert len(step_proxies) == 2
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines1-wf.cwl"))
+    step_proxies = proxy.step_proxies()
+    assert len(step_proxies) == 2
 
-        galaxy_workflow_dict = proxy.to_dict()
+    galaxy_workflow_dict = proxy.to_dict()
 
-        assert len(proxy.runnables) == 2
+    assert len(proxy.runnables) == 2
 
-        assert len(galaxy_workflow_dict["steps"]) == 3
-        wc_step = galaxy_workflow_dict["steps"][1]
-        exp_step = galaxy_workflow_dict["steps"][2]
-        assert wc_step["input_connections"]
-        assert exp_step["input_connections"]
+    assert len(galaxy_workflow_dict["steps"]) == 3
+    wc_step = galaxy_workflow_dict["steps"][1]
+    exp_step = galaxy_workflow_dict["steps"][2]
+    assert wc_step["input_connections"]
+    assert exp_step["input_connections"]
 
 
 def test_workflow_embedded_tools_proxy():
-    versions = ["v1.0"]
-    for version in versions:
-        proxy = workflow_proxy(_cwl_tool_path("%s/count-lines2-wf.cwl" % version))
-        step_proxies = proxy.step_proxies()
-        assert len(step_proxies) == 2
-        print(step_proxies[1].requirements)
-        print(step_proxies[1]._step.embedded_tool.requirements)
-        galaxy_workflow_dict = proxy.to_dict()
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines2-wf.cwl"))
+    step_proxies = proxy.step_proxies()
+    assert len(step_proxies) == 2
+    print(step_proxies[1].requirements)
+    print(step_proxies[1]._step.embedded_tool.requirements)
+    galaxy_workflow_dict = proxy.to_dict()
 
-        assert len(proxy.runnables) == 2
-        print(proxy.runnables[1])
+    assert len(proxy.runnables) == 2
+    print(proxy.runnables[1])
 
-        assert len(galaxy_workflow_dict["steps"]) == 3
-        wc_step = galaxy_workflow_dict["steps"][1]
-        exp_step = galaxy_workflow_dict["steps"][2]
-        assert wc_step["input_connections"]
-        assert exp_step["input_connections"]
+    assert len(galaxy_workflow_dict["steps"]) == 3
+    wc_step = galaxy_workflow_dict["steps"][1]
+    exp_step = galaxy_workflow_dict["steps"][2]
+    assert wc_step["input_connections"]
+    assert exp_step["input_connections"]
 
 
 def test_workflow_scatter():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/count-lines3-wf.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines3-wf.cwl"))
 
     step_proxies = proxy.step_proxies()
     assert len(step_proxies) == 1
@@ -277,8 +262,7 @@ def test_workflow_scatter():
 
 
 def test_workflow_outputs_of_inputs():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/any-type-compat.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/any-type-compat.cwl"))
 
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 3
@@ -288,8 +272,7 @@ def test_workflow_outputs_of_inputs():
 
 
 def test_workflow_scatter_multiple_input():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/count-lines4-wf.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines4-wf.cwl"))
 
     step_proxies = proxy.step_proxies()
     assert len(step_proxies) == 1
@@ -299,8 +282,7 @@ def test_workflow_scatter_multiple_input():
 
 
 def test_workflow_multiple_input_merge_flattened():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/count-lines7-wf.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines7-wf.cwl"))
 
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 3
@@ -314,8 +296,7 @@ def test_workflow_multiple_input_merge_flattened():
 
 
 def test_workflow_step_value_from():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/step-valuefrom-wf.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/step-valuefrom-wf.cwl"))
 
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 3
@@ -329,8 +310,7 @@ def test_workflow_step_value_from():
 
 
 def test_workflow_input_without_source():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/step-valuefrom3-wf.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/step-valuefrom3-wf.cwl"))
 
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 3
@@ -343,8 +323,7 @@ def test_workflow_input_without_source():
 
 
 def test_workflow_input_default():
-    version = "v1.0"
-    proxy = workflow_proxy(_cwl_tool_path("%s/pass-unconnected.cwl" % version))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/pass-unconnected.cwl"))
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 3
 
@@ -357,7 +336,7 @@ def test_workflow_input_default():
 
 
 def test_search_workflow():
-    proxy = workflow_proxy(_cwl_tool_path("v1.0/search.cwl#main"))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/search.cwl#main"))
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 5
 
@@ -385,7 +364,7 @@ def test_boolean_defaults():
 
 
 def test_workflow_file_optional_input():
-    proxy = workflow_proxy(_cwl_tool_path("v1.0/count-lines11-wf.cwl"))
+    proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/count-lines11-wf.cwl"))
 
     galaxy_workflow_dict = proxy.to_dict()
     assert len(galaxy_workflow_dict["steps"]) == 3
@@ -397,7 +376,7 @@ def test_workflow_file_optional_input():
 
 
 def test_load_proxy_simple():
-    cat3 = _cwl_tool_path("v1.0/cat3-tool.cwl")
+    cat3 = _cwl_tool_path("v1.0/v1.0/cat3-tool.cwl")
     tool_source = get_tool_source(cat3)
 
     # Behavior was changed - too verbose?
@@ -434,7 +413,7 @@ def test_cwl_strict_parsing():
 
 
 def test_load_proxy_bwa_mem():
-    bwa_mem = _cwl_tool_path("v1.0/bwa-mem-tool.cwl")
+    bwa_mem = _cwl_tool_path("v1.0/v1.0/bwa-mem-tool.cwl")
     tool_source = get_tool_source(bwa_mem)
     tool_id = tool_source.parse_id()
     assert tool_id == "bwa-mem-tool.cwl", tool_id
@@ -443,10 +422,9 @@ def test_load_proxy_bwa_mem():
 
 
 def test_representation_id():
-    import yaml
-    cat3 = _cwl_tool_path("v1.0/cat3-tool.cwl")
+    cat3 = _cwl_tool_path("v1.0/v1.0/cat3-tool.cwl")
     with open(cat3, "r") as f:
-        representation = yaml.load(f)
+        representation = yaml.safe_load(f)
         representation["id"] = "my-cool-id"
 
         uuid = str(uuid4())
@@ -462,13 +440,13 @@ def test_representation_id():
 
 
 def test_env_tool1():
-    env_tool1 = _cwl_tool_path("v1.0/env-tool1.cwl")
+    env_tool1 = _cwl_tool_path("v1.0/v1.0/env-tool1.cwl")
     tool_source = get_tool_source(env_tool1)
     _inputs(tool_source)
 
 
 def test_wc2_tool():
-    env_tool1 = _cwl_tool_path("v1.0/wc2-tool.cwl")
+    env_tool1 = _cwl_tool_path("v1.0/v1.0/wc2-tool.cwl")
     tool_source = get_tool_source(env_tool1)
     _inputs(tool_source)
     datasets, collections = _outputs(tool_source)
@@ -478,7 +456,7 @@ def test_wc2_tool():
 
 
 def test_optional_output():
-    optional_output2_tool1 = _cwl_tool_path("v1.0/optional-output.cwl")
+    optional_output2_tool1 = _cwl_tool_path("v1.0/v1.0/optional-output.cwl")
     tool_source = get_tool_source(optional_output2_tool1)
     datasets, collections = _outputs(tool_source)
     assert len(datasets) == 2, datasets
@@ -487,7 +465,7 @@ def test_optional_output():
 
 
 def test_sorttool():
-    env_tool1 = _cwl_tool_path("v1.0/sorttool.cwl")
+    env_tool1 = _cwl_tool_path("v1.0/v1.0/sorttool.cwl")
     tool_source = get_tool_source(env_tool1)
 
     assert tool_source.parse_id() == "sorttool.cwl"
@@ -508,19 +486,19 @@ def test_sorttool():
 
 
 def test_scheadef_tool():
-    tool_path = _cwl_tool_path("v1.0/schemadef-tool.cwl")
+    tool_path = _cwl_tool_path("v1.0/v1.0/schemadef-tool.cwl")
     tool_source = get_tool_source(tool_path)
     _inputs(tool_source)
 
 
 def test_params_tool():
-    tool_path = _cwl_tool_path("v1.0/params.cwl")
+    tool_path = _cwl_tool_path("v1.0/v1.0/params.cwl")
     tool_source = get_tool_source(tool_path)
     _inputs(tool_source)
 
 
 def test_cat1():
-    cat1_tool = _cwl_tool_path("v1.0/cat1-testcli.cwl")
+    cat1_tool = _cwl_tool_path("v1.0/v1.0/cat1-testcli.cwl")
     tool_source = get_tool_source(cat1_tool)
     inputs = _inputs(tool_source)
 
@@ -545,12 +523,12 @@ def test_cat1():
 
 
 def test_tool_reload():
-    cat1_tool = _cwl_tool_path("v1.0/cat1-testcli.cwl")
+    cat1_tool = _cwl_tool_path("v1.0/v1.0/cat1-testcli.cwl")
     tool_source = get_tool_source(cat1_tool)
     _inputs(tool_source)
 
     # Test reloading - had a regression where this broke down.
-    cat1_tool_again = _cwl_tool_path("v1.0/cat1-testcli.cwl")
+    cat1_tool_again = _cwl_tool_path("v1.0/v1.0/cat1-testcli.cwl")
     tool_source = get_tool_source(cat1_tool_again)
     _inputs(tool_source)
 
@@ -567,11 +545,9 @@ class CwlToolObjectTestCase(TestCase, tools_support.UsesApp, tools_support.UsesT
         shutil.rmtree(self.test_directory)
 
     def test_default_data_inputs(self):
-        self._init_tool(tool_path=_cwl_tool_path("v1.0/default_path.cwl"))
+        self._init_tool(tool_path=_cwl_tool_path("v1.0/v1.0/default_path.cwl"))
         print("TOOL IS %s" % self.tool)
         hda = self._new_hda()
-        from galaxy.tool_util.cwl import to_cwl_job
-        from galaxy.tools.parameters import populate_state
         errors = {}
         cwl_inputs = {
             "file1": {"src": "hda", "id": self.app.security.encode_id(hda.id)}
@@ -582,7 +558,6 @@ class CwlToolObjectTestCase(TestCase, tools_support.UsesApp, tools_support.UsesT
         populated_state = {}
         populate_state(self.trans, self.tool.inputs, inputs, populated_state, errors)
         print("populated state is %s" % inputs)
-        from galaxy.tools.parameters.wrapped import WrappedParameters
         wrapped_params = WrappedParameters(self.trans, self.tool, populated_state)
         input_json = to_cwl_job(self.tool, wrapped_params.params, self.test_directory)
         print(inputs)

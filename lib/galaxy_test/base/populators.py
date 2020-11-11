@@ -298,19 +298,18 @@ class CwlWorkflowRun(CwlRun):
 def load_conformance_tests(directory, path="conformance_tests.yaml"):
     conformance_tests_path = os.path.join(directory, path)
     with open(conformance_tests_path, "r") as f:
-        conformance_tests = yaml.load(f)
+        conformance_tests = yaml.safe_load(f)
 
     expanded_conformance_tests = []
-    for i, conformance_test in enumerate(conformance_tests):
+    for conformance_test in conformance_tests:
         if "$import" in conformance_test:
             import_path = conformance_test["$import"]
             expanded_conformance_tests.extend(load_conformance_tests(directory, import_path))
         else:
-            subdirectory, _ = os.path.split(path)
+            subdirectory = os.path.dirname(path)
             if subdirectory:
                 conformance_test["relative_path"] = os.path.join(directory, subdirectory)
             expanded_conformance_tests.append(conformance_test)
-
     return expanded_conformance_tests
 
 
@@ -329,7 +328,7 @@ class CwlPopulator(object):
             assert job is None
             with open(json_path, "r") as f:
                 if json_path.endswith(".yml") or json_path.endswith(".yaml"):
-                    job_as_dict = yaml.load(f)
+                    job_as_dict = yaml.safe_load(f)
                 else:
                     job_as_dict = json.load(f)
         else:
@@ -366,7 +365,7 @@ class CwlPopulator(object):
                         dynamic_tool = self.dataset_populator.create_tool_from_path(tool_id)
                     else:
                         with open(tool_id, "r") as f:
-                            representation = yaml.load(f)
+                            representation = yaml.safe_load(f)
                         if "id" not in representation:
                             # TODO: following line doesn't work.
                             representation["id"] = os.path.splitext(os.path.basename(tool_id))[0]
@@ -429,8 +428,6 @@ class CwlPopulator(object):
         test = self.get_conformance_test(version, doc)
         if "relative_path" in test:
             directory = test["relative_path"]
-        elif version < "v1.1":
-            directory = CWL_TOOL_DIRECTORY
         else:
             directory = os.path.join(CWL_TOOL_DIRECTORY, version)
         tool = os.path.join(directory, test["tool"])

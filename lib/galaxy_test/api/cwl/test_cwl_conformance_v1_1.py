@@ -1,6 +1,7 @@
 """Test CWL conformance for version v1.1."""
 
 import pytest
+
 from ..test_workflows_cwl import BaseCwlWorklfowTestCase
 
 
