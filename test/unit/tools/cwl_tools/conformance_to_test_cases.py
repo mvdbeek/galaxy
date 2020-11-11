@@ -466,7 +466,7 @@ def main():
         is_green = label in green_tests_list
         is_regression = label in REGRESSIONS
 
-        marks = "    @pytest.mark.cwl_conformance\n"
+        marks = f"    @pytest.mark.cwl_conformance_{version_simple}\n"
         for tag in tags:
             marks += f"    @pytest.mark.{tag}\n"
         if is_green:
