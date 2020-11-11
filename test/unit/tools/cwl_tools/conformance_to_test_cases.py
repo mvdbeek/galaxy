@@ -11,6 +11,7 @@ CWL_TESTS_DIRECTORY = os.path.join(API_TEST_DIRECTORY, "cwl")
 TEST_FILE_TEMPLATE = string.Template('''"""Test CWL conformance for version ${version}."""
 
 import pytest
+
 from ..test_workflows_cwl import BaseCwlWorklfowTestCase
 
 

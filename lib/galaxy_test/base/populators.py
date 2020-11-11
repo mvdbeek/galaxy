@@ -27,10 +27,7 @@ from pkg_resources import resource_string
 
 from galaxy.tool_util.client.staging import InteractorStaging
 from galaxy.tool_util.cwl.util import (
-    DirectoryUploadTarget,
     download_output,
-    FileLiteralTarget,
-    FileUploadTarget,
     guess_artifact_type,
     invocation_to_output,
     output_to_cwl_json,
@@ -250,7 +247,7 @@ class CwlRun:
                 output["path"] = download_path
                 output["location"] = "file://%s" % download_path
         return output
-        
+
 
 class CwlToolRun(CwlRun):
 

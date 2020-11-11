@@ -1,14 +1,15 @@
 import os
-import sys
-import tempfile
 import shutil
+import tempfile
 from unittest import TestCase
 from uuid import uuid4
 
 import galaxy.model
-from galaxy.tool_util.cwl import tool_proxy as real_tool_proxy
-from galaxy.tool_util.cwl.parser import tool_proxy_from_persistent_representation, _to_cwl_tool_object
-from galaxy.tool_util.cwl import workflow_proxy
+from galaxy.tool_util.cwl import (
+    tool_proxy as real_tool_proxy,
+    workflow_proxy,
+)
+from galaxy.tool_util.cwl.parser import _to_cwl_tool_object, tool_proxy_from_persistent_representation
 from galaxy.tool_util.cwl.representation import USE_FIELD_TYPES
 from galaxy.tool_util.parser.cwl import CWL_DEFAULT_FILE_OUTPUT
 from galaxy.tool_util.parser.factory import get_tool_source
@@ -119,7 +120,7 @@ def test_job_proxy():
     )
 
     cmd = job_proxy.command_line
-    assert bwa_id != binding_id, bwa_id_id
+    assert bwa_id != binding_id, bwa_id
 
 
 def test_cores_min():
