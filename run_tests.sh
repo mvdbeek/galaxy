@@ -11,6 +11,8 @@ cat <<EOF
 '${0##*/} -list'                    for listing all the tool ids
 '${0##*/} -api (test_path)'         for running all the test scripts in the ./lib/galaxy_test/api directory, test_path
                                     can be pytest selector
+'${0##*/} -cwl (test_path)'         for running all the test scripts in the ./lib/galaxy_test/api/cwl directory, test_path
+                                    can be pytest selector
 '${0##*/} -integration (test_path)' for running all integration test scripts in the ./test/integration directory, test_path
                                     can be pytest selector
 '${0##*/} -toolshed (test_path)'    for running all the test scripts in the ./lib/tool_shed/test directory
@@ -381,6 +383,7 @@ do
           # GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE="True"  # Run these tests with a non-trivial object store.
           # export GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE
           GALAXY_TEST_TOOL_CONF="lib/galaxy/config/sample/tool_conf.xml.sample,test/functional/tools/samples_tool_conf.xml"
+          marker="not cwl_conformance"
           test_script="pytest"
           report_file="./run_api_tests.html"
           if [ $# -gt 1 ]; then
@@ -388,6 +391,21 @@ do
               shift 2
           else
               api_script="./lib/galaxy_test/api"
+              shift 1
+          fi
+          ;;
+      -c|-cwl|--cwl)
+          # GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE="True"  # Run these tests with a non-trivial object store.
+          # export GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE
+          GALAXY_TEST_TOOL_CONF="lib/galaxy/config/sample/tool_conf.xml.sample,test/functional/tools/samples_tool_conf.xml"
+          marker="cwl_conformance"
+          test_script="pytest"
+          report_file="./run_cwl_tests.html"
+          if [ $# -gt 1 ]; then
+              api_script=$2
+              shift 2
+          else
+              api_script="./lib/galaxy_test/api/cwl"
               shift 1
           fi
           ;;
@@ -440,7 +458,7 @@ do
           ;;
       -f|-framework|--framework)
           GALAXY_TEST_TOOL_CONF="test/functional/tools/samples_tool_conf.xml"
-          marker="-m tool"
+          marker="tool"
           test_script="pytest"
           report_file="run_framework_tests.html"
           framework_test=1;
@@ -448,14 +466,14 @@ do
           ;;
       -main|-main_tools|--main_tools)
           GALAXY_TEST_TOOL_CONF="lib/galaxy/config/sample/tool_conf.xml.sample,config/tool_conf.xml.main"
-          marker="-m tool"
+          marker="tool"
           test_script="pytest"
           report_file="run_framework_tests.html"
           framework_test=1;
           shift 1
           ;;
       -d|-data_managers|--data_managers)
-          marker="-m data_manager"
+          marker="data_manager"
           test_script="pytest"
           report_file="run_data_managers_tests.html"
           data_managers_test=1;
@@ -463,7 +481,7 @@ do
           ;;
       -m|-migrated|--migrated)
           GALAXY_TEST_TOOL_CONF="config/migrated_tools_conf.xml"
-          marker="-m tool"
+          marker="tool"
           test_script="pytest"
           report_file="run_migrated_tests.html"
           migrated_test=1;
@@ -471,7 +489,7 @@ do
           ;;
       -i|-installed|--installed)
           GALAXY_TEST_TOOL_CONF="config/shed_tool_conf.xml"
-          marker="-m tool"
+          marker="tool"
           test_script="pytest"
           report_file="run_installed_tests.html"
           installed_test=1;
@@ -614,9 +632,15 @@ fi
 
 setup_python
 
+if [ -n "$marker" ]; then
+    marker_arg="-m"
+else
+    marker_arg=""
+fi
+
 if [ -n "$framework_test" -o -n "$installed_test" -o -n "$migrated_test" -o -n "$data_managers_test" ] ; then
     [ -n "$test_id" ] && selector="-k $test_id" || selector=""
-    extra_args="test/functional/test_toolbox_pytest.py $selector $marker"
+    extra_args="test/functional/test_toolbox_pytest.py $selector"
 elif [ -n "$selenium_test" ] ; then
     extra_args="$selenium_script -selenium"
 elif [ -n "$toolshed_script" ]; then
@@ -656,9 +680,9 @@ if [ "$test_script" = 'pytest' ]; then
     if [ "$coverage_arg" = '--with-coverage' ]; then
         coverage_arg="--cov-report term --cov=lib"
     fi
-    "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args "$@"
+    "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args $marker_arg "$marker" "$@"
 else
-    python $test_script $coverage_arg -v --with-nosehtml --html-report-file $report_file $xunit_args $structured_data_args $extra_args "$@"
+    python $test_script $coverage_arg -v --with-nosehtml --html-report-file $report_file $xunit_args $structured_data_args $extra_args $marker_arg "$marker" "$@"
 fi
 exit_status=$?
 echo "Testing complete. HTML report is in \"$report_file\"." 1>&2
