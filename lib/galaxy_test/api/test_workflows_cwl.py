@@ -68,10 +68,6 @@ class CwlWorkflowsTestCase(BaseCwlWorklfowTestCase):
         run_object = self.cwl_populator.run_workflow_job("v1.0/count-lines1-wf.cwl", "v1.0/wc-job.json", history_id=self.history_id)
         self._check_countlines_wf(run_object.invocation_id, run_object.workflow_id, expected_count=16)
 
-    def test_count_line1_draft3(self):
-        """Test simple workflow draft3/count-lines1-wf.cwl."""
-        self._run_count_lines_wf("draft3/count-lines1-wf.cwl")
-
     def test_count_line2_v1(self):
         """Test simple workflow v1.0/count-lines2-wf.cwl."""
         self._run_count_lines_wf("v1.0/count-lines2-wf.cwl")
@@ -94,9 +90,6 @@ class CwlWorkflowsTestCase(BaseCwlWorklfowTestCase):
         assert element0["file_ext"] == "expression.json"
         # TODO: ensure this looks like an int[] - it doesn't currently...
 
-    def test_count_lines3_ct(self):
-        self.run_conformance_test("v1.0", "Test single step workflow with Scatter step")
-
     def test_count_lines4_v1(self):
         workflow_id = self._load_workflow("v1.0/count-lines4-wf.cwl")
         hda1 = self.dataset_populator.new_dataset(self.history_id, content="hello world\nhello all\nhello all in world\nhello")
@@ -117,39 +110,6 @@ class CwlWorkflowsTestCase(BaseCwlWorklfowTestCase):
         self.cwl_populator.run_workflow_job("v1.0/scatter-wf1.cwl", "v1.0/scatter-job1.json", history_id=self.history_id)
         self.dataset_populator.get_history_collection_details(self.history_id, hid=5)
 
-    def test_record_io(self):
-        self.run_conformance_test("v1.0_custom", "Test record type inputs to and outputs from workflows.")
-
-    def test_workflow_int_io(self):
-        self.run_conformance_test("v1.0_custom", "Test integer workflow input and outputs")
-
-    def test_workflow_int_io_opt_spec(self):
-        self.run_conformance_test("v1.0_custom", "Test optional integer workflow inputs (specified)")
-
-    def test_workflow_int_io_opt_unspec(self):
-        self.run_conformance_test("v1.0_custom", "Test optional integer workflow inputs (unspecified)")
-
-    def test_workflow_any_int(self):
-        self.run_conformance_test("v1.0_custom", "Test any parameter with integer input to a workflow")
-
-    def test_workflow_any_string(self):
-        self.run_conformance_test("v1.0_custom", "Test any parameter with string input to a workflow")
-
-    def test_workflow_any_file(self):
-        self.run_conformance_test("v1.0_custom", "Test any parameter with file input to a workflow")
-
-    def test_file_input_default_unspecified(self):
-        self.run_conformance_test("v1.0_custom", "Test File input with default unspecified")
-
-    def test_io_input_optional_unspecified(self):
-        self.run_conformance_test("v1.0_custom", "Test default integer workflow inputs (unspecified)")
-
-    def test_union_input_optional_unspecified(self):
-        self.run_conformance_test("v1.0_custom", "Test union type input to workflow with default unspecified")
-
-    def test_union_input_optional_specified_file(self):
-        self.run_conformance_test("v1.0_custom", "Test union type input to workflow with default specified as file")
-
     def _run_count_lines_wf(self, wf_path):
         workflow_id = self._load_workflow(wf_path)
         hda1 = self.dataset_populator.new_dataset(self.history_id, content="hello world\nhello all\nhello all in world\nhello")
@@ -162,7 +122,6 @@ class CwlWorkflowsTestCase(BaseCwlWorklfowTestCase):
     def _check_countlines_wf(self, invocation_id, workflow_id, expected_count=4):
         self.wait_for_invocation_and_jobs(self.history_id, workflow_id, invocation_id)
         output = self.dataset_populator.get_history_dataset_content(self.history_id, hid=3)
-        self.dataset_populator._summarize_history_errors(self.history_id)
         assert str(expected_count) == output, output
 
     def _invoke(self, inputs, workflow_id):
@@ -179,6 +138,7 @@ class CwlWorkflowsTestCase(BaseCwlWorklfowTestCase):
         return invocation_id
 
     def _load_workflow(self, rel_path):
+        rel_path = rel_path.split('#')[0]
         path = os.path.join(CWL_TOOL_DIRECTORY, rel_path)
         data = dict(
             from_path=path,
