@@ -3,6 +3,7 @@ from galaxy.tools.parser import get_tool_source
 from .parser import workflow_proxy
 from .util import guess_artifact_type
 
+
 def get_outputs(path):
     tool_or_workflow = guess_artifact_type(path)
     if tool_or_workflow == "tool":
@@ -31,5 +32,3 @@ class ToolOutput(object):
 
     def get_id(self):
         return self._tool_output.name
-
-

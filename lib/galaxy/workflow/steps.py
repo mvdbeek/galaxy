@@ -1,6 +1,7 @@
 """ This module contains utility methods for reasoning about and ordering
 workflow steps.
 """
+import logging
 import math
 
 from galaxy.util.topsort import (
@@ -9,7 +10,6 @@ from galaxy.util.topsort import (
     topsort_levels
 )
 
-import logging
 log = logging.getLogger(__name__)
 
 
