@@ -1,1 +1,1 @@
-../v1.0/record-output.cwl
+../v1.0/v1.0/record-output.cwl

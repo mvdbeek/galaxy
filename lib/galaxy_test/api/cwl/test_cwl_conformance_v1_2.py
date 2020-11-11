@@ -1,6 +1,7 @@
 """Test CWL conformance for version v1.2."""
 
 import pytest
+
 from ..test_workflows_cwl import BaseCwlWorklfowTestCase
 
 
@@ -779,15 +780,15 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.workflow
-    @pytest.mark.green
-    def test_conformance_v1_2_wf_wc_nomultiple(self):
+    @pytest.mark.red
+    def test_conformance_v1_2_wf_wc_nomultiple_merge_nested(self):
         """Test when step source is a single-item list and linkMerge is listed, then it is wrapped in a list.
 
         Generated from::
 
             id: count-lines19-wf
             job: tests/count-lines4-job.json
-            label: wf_wc_nomultiple
+            label: wf_wc_nomultiple_merge_nested
             output:
               count_output: 16
             tags:
@@ -1736,6 +1737,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.required
+    @pytest.mark.command_line_tool
     @pytest.mark.green
     def test_conformance_v1_2_metadata(self):
         """Test metadata
@@ -1748,6 +1750,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             output: {}
             tags:
             - required
+            - command_line_tool
             tool: tests/metadata.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Test metadata""")
@@ -3673,14 +3676,14 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.shell_command
     @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_env_home_tmpdir_docker(self):
+    def test_conformance_v1_2_env_home_tmpdir_docker_no_return_code(self):
         """Test $HOME and $TMPDIR are set correctly in Docker without using return code
 
         Generated from::
 
             id: 134
             job: tests/empty.json
-            label: env_home_tmpdir_docker
+            label: env_home_tmpdir_docker_no_return_code
             output:
               results:
                 basename: results
@@ -5895,6 +5898,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.networkaccess
+    @pytest.mark.command_line_tool
     @pytest.mark.red
     def test_conformance_v1_2_networkaccess_disabled(self):
         """Test networkaccess is disabled by default
@@ -5907,6 +5911,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             should_fail: true
             tags:
             - networkaccess
+            - command_line_tool
             tool: tests/networkaccess2.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Test networkaccess is disabled by default""")
@@ -6051,14 +6056,16 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.initial_work_dir
+    @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_230(self):
-        """Test output of InitialWorkDir
+    def test_conformance_v1_2_initial_workdir_output_glob(self):
+        """Test full path glob output of InitialWorkDir
 
         Generated from::
 
             id: 230
             job: tests/initialworkdirrequirement-docker-out-job.json
+            label: initial_workdir_output_glob
             output:
               OUTPUT:
                 checksum: sha1$aeb3d11bdf536511649129f4077d5cda6a324118
@@ -6072,21 +6079,24 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 size: 12010
             tags:
             - initial_work_dir
+            - command_line_tool
             tool: tests/initialworkdir-glob-fullpath.cwl
         """  # noqa: W293
-        self.cwl_populator.run_conformance_test("""v1.2""", """Test output of InitialWorkDir""")
+        self.cwl_populator.run_conformance_test("""v1.2""", """Test full path glob output of InitialWorkDir""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.initial_work_dir
+    @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_231(self):
-        """Test if full paths are allowed in glob
+    def test_conformance_v1_2_initial_workdir_output_glob_duplicate(self):
+        """Test full path glob output of InitialWorkDir (duplicate)
 
         Generated from::
 
             id: 231
             job: tests/initialworkdirrequirement-docker-out-job.json
+            label: initial_workdir_output_glob_duplicate
             output:
               OUTPUT:
                 checksum: sha1$aeb3d11bdf536511649129f4077d5cda6a324118
@@ -6100,30 +6110,37 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 size: 12010
             tags:
             - initial_work_dir
+            - command_line_tool
             tool: tests/initialworkdir-glob-fullpath.cwl
         """  # noqa: W293
-        self.cwl_populator.run_conformance_test("""v1.2""", """Test if full paths are allowed in glob""")
+        self.cwl_populator.run_conformance_test("""v1.2""", """Test full path glob output of InitialWorkDir (duplicate)""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.required
+    @pytest.mark.command_line_tool
+    @pytest.mark.docker
     @pytest.mark.red
-    def test_conformance_v1_2_232(self):
+    def test_conformance_v1_2_glob_outside_outputs_fails(self):
         """Test fail trying to glob outside output directory
 
         Generated from::
 
             id: 232
             job: tests/empty.json
+            label: glob_outside_outputs_fails
             should_fail: true
             tags:
             - required
+            - command_line_tool
+            - docker
             tool: tests/glob-path-error.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Test fail trying to glob outside output directory""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.command_line_tool
     @pytest.mark.red
     def test_conformance_v1_2_233(self):
         """symlink to file outside of working directory should NOT be retrieved
@@ -6139,12 +6156,15 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 class: File
                 size: 27
             should_fail: true
+            tags:
+            - command_line_tool
             tool: tests/symlink-illegal.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """symlink to file outside of working directory should NOT be retrieved""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.command_line_tool
     @pytest.mark.red
     def test_conformance_v1_2_234(self):
         """symlink to file inside of working directory should be retrieved
@@ -6159,6 +6179,8 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 checksum: sha1$cd28ec34f3f9425aca544b6332453708e8aaa82a
                 class: File
                 size: 27
+            tags:
+            - command_line_tool
             tool: tests/symlink-legal.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """symlink to file inside of working directory should be retrieved""")
@@ -6166,6 +6188,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inplace_update
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_235(self):
         """inplace update has side effect on file content
@@ -6179,6 +6202,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
               b: 4
             tags:
             - inplace_update
+            - workflow
             tool: tests/inp_update_wf.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """inplace update has side effect on file content""")
@@ -6186,6 +6210,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inplace_update
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_236(self):
         """inplace update has side effect on directory content
@@ -6205,6 +6230,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 location: blurb
             tags:
             - inplace_update
+            - workflow
             tool: tests/inpdir_update_wf.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """inplace update has side effect on directory content""")
@@ -6326,14 +6352,14 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.command_line_tool
     @pytest.mark.initial_work_dir
     @pytest.mark.red
-    def test_conformance_v1_2_stage_file_array(self):
+    def test_conformance_v1_2_stage_file_array_entryname_overrides(self):
         """Test that if array of input files are staged to directory with basename and entryname, entryname overrides
 
         Generated from::
 
             id: 240
             job: tests/stage_file_array.job.json
-            label: stage_file_array
+            label: stage_file_array_entryname_overrides
             output:
               output:
               - basename: sfa-1.txt
@@ -6710,13 +6736,13 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.red
-    def test_conformance_v1_2_escaping(self):
+    def test_conformance_v1_2_continuation(self):
         """Line continuations in bash scripts should behave correctly
 
         Generated from::
 
             id: iwdr-1
-            label: escaping
+            label: continuation
             output:
               out:
                 checksum: sha1$47d8510dce768c907f4dea6bcaf90f8d59cb265c
@@ -6733,13 +6759,13 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.red
-    def test_conformance_v1_2_escaping(self):
+    def test_conformance_v1_2_continuation_expression(self):
         """Line continuations in bash scripts should always behave correctly
 
         Generated from::
 
             id: iwdr-2
-            label: escaping
+            label: continuation_expression
             output:
               out:
                 checksum: sha1$47d8510dce768c907f4dea6bcaf90f8d59cb265c
@@ -6756,13 +6782,13 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.red
-    def test_conformance_v1_2_escaping(self):
+    def test_conformance_v1_2_quoting_multiple_backslashes(self):
         """Test quoting multiple backslashes
 
         Generated from::
 
             id: iwdr-3
-            label: escaping
+            label: quoting_multiple_backslashes
             output:
               out:
                 checksum: sha1$acfdc38aef5354c03b976cbb6d9f7d08a179951d
@@ -6779,13 +6805,13 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.red
-    def test_conformance_v1_2_quotes(self):
+    def test_conformance_v1_2_escaping_expression_no_extra_quotes(self):
         """Strings returned from JS expressions should not have extra quotes around them
 
         Generated from::
 
             id: iwdr-4
-            label: quotes
+            label: escaping_expression_no_extra_quotes
             output:
               out:
                 checksum: sha1$726e9e616f278d9028b4a870653b01c125c2fc89
