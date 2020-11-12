@@ -40,5 +40,5 @@ jobs:
       - uses: actions/upload-artifact@v2
         if: failure()
         with:
-          name: CWL conformance test results
+          name: CWL conformance test results (${{ matrix.python-version }}, ${{ matrix.marker }}, ${{ matrix.required }}, ${{ matrix.conformance-version }})
           path: 'galaxy root/run_cwl_tests.html'
