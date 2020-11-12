@@ -100,7 +100,7 @@ class JobExportHistoryArchiveWrapper:
         jeha.history_attrs_filename = history_attrs_filename
 
         # symlink files on export, on worker files will tarred up in a dereferenced manner.
-        with store.DirectoryModelExportStore(temp_output_dir, app=app, export_files="symlink") as export_store:
+        with store.BagDirectoryModelExportStore(temp_output_dir, app=app, export_files='copy') as export_store:
             export_store.export_history(history, include_hidden=include_hidden, include_deleted=include_deleted)
 
         #
