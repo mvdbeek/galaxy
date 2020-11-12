@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 
 cd "$(dirname "$0")"
 
@@ -325,7 +325,7 @@ then
     DOCKER_PIP_CACHE_DIR="$HOME"/.cache/docker_galaxy_pip
     mkdir -p "$DOCKER_PIP_CACHE_DIR"
     _on_exit() {
-        docker kill $name
+        docker kill "$name"
     }
     trap _on_exit 0
     docker $DOCKER_EXTRA_ARGS run $DOCKER_RUN_EXTRA_ARGS \
@@ -334,7 +334,7 @@ then
         -e "LC_ALL=C" \
         -e "PIP_CACHE_DIR=/pip_cache_dir" \
         --rm \
-        --name=$name \
+        --name="$name" \
         -v "$DOCKER_PIP_CACHE_DIR":/pip_cache_dir \
         -v "$(pwd)":/galaxy \
         -v "$(pwd)"/test/docker/base/run_test_wrapper.sh:/usr/local/bin/run_test_wrapper.sh "$DOCKER_IMAGE" "$@"
@@ -394,7 +394,7 @@ do
               shift 1
           fi
           ;;
-      -c|-cwl|--cwl)
+      -cwl|--cwl)
           # GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE="True"  # Run these tests with a non-trivial object store.
           # export GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE
           GALAXY_TEST_TOOL_CONF="lib/galaxy/config/sample/tool_conf.xml.sample,test/functional/tools/samples_tool_conf.xml"
@@ -487,7 +487,7 @@ do
           migrated_test=1;
           shift
           ;;
-      -i|-installed|--installed)
+      -installed|--installed)
           GALAXY_TEST_TOOL_CONF="config/shed_tool_conf.xml"
           marker="tool"
           test_script="pytest"
@@ -632,7 +632,7 @@ fi
 
 setup_python
 
-if [ -n "$framework_test" -o -n "$installed_test" -o -n "$migrated_test" -o -n "$data_managers_test" ] ; then
+if [ -n "$framework_test" ] || [ -n "$installed_test" ] || [ -n "$migrated_test" ] || [ -n "$data_managers_test" ] ; then
     [ -n "$test_id" ] && selector="-k $test_id" || selector=""
     extra_args="test/functional/test_toolbox_pytest.py $selector"
 elif [ -n "$selenium_test" ] ; then
@@ -675,14 +675,15 @@ if [ "$test_script" = 'pytest' ]; then
         coverage_arg="--cov-report term --cov=lib"
     fi
     if [ -n "$marker" ]; then
-        "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args -m "$marker" "$@"
+        marker_args=(-m "$marker")
     else
-        "$test_script" -v --html "$report_file" $coverage_arg  $xunit_args $extra_args "$@"
+        marker_args=()
     fi
+    args=(-v --html "$report_file" --self-contained-html $coverage_arg $xunit_args $extra_args "${marker_args[@]}" "$@")
+    "$test_script" "${args[@]}"
 else
-    python $test_script $coverage_arg -v --with-nosehtml --html-report-file $report_file $xunit_args $structured_data_args $extra_args "$@"
+    python "$test_script" $coverage_arg -v --with-nosehtml --html-report-file $report_file $xunit_args $structured_data_args $extra_args "$@"
 fi
 exit_status=$?
 echo "Testing complete. HTML report is in \"$report_file\"." 1>&2
 exit ${exit_status}
-
