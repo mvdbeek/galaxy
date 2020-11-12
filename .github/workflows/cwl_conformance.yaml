@@ -38,6 +38,7 @@ jobs:
         run: ./run_tests.sh --skip_flakey_fails -cwl lib/galaxy_test/api/cwl -- -m "${{ matrix.marker }} and ${{ matrix.required }} and ${{ matrix.conformance-version }}"
         working-directory: 'galaxy root'
       - uses: actions/upload-artifact@v2
+        if: failure()
         with:
           name: CWL conformance test results
           path: 'galaxy root/run_cwl_tests.html'
