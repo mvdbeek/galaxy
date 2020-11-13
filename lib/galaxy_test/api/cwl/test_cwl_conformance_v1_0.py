@@ -1715,6 +1715,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.required
+    @pytest.mark.command_line_tool
     @pytest.mark.green
     def test_conformance_v1_0_metadata(self):
         """Test metadata
@@ -1727,6 +1728,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             output: {}
             tags:
             - required
+            - command_line_tool
             tool: v1.0/metadata.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.0""", """Test metadata""")
@@ -3627,14 +3629,14 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.shell_command
     @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_0_env_home_tmpdir_docker(self):
+    def test_conformance_v1_0_env_home_tmpdir_docker_complex(self):
         """Test $HOME and $TMPDIR are set correctly in Docker without using return code
 
         Generated from::
 
             id: 133
             job: v1.0/empty.json
-            label: env_home_tmpdir_docker
+            label: env_home_tmpdir_docker_complex
             output:
               results:
                 basename: results
