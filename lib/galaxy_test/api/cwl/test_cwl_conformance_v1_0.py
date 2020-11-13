@@ -1300,7 +1300,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.required
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_simple(self):
         """Test simple workflow
 
