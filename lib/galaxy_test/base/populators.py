@@ -336,7 +336,7 @@ class CwlPopulator(object):
         if history_id is None:
             history_id = self.dataset_populator.new_history()
 
-        jobs_as_dict, datasets_uploaded = stage_inputs(
+        _, datasets_uploaded = stage_inputs(
             self.dataset_populator.galaxy_interactor,
             history_id,
             job_as_dict,
@@ -431,10 +431,15 @@ class CwlPopulator(object):
         else:
             directory = os.path.join(CWL_TOOL_DIRECTORY, version)
         tool = os.path.join(directory, test["tool"])
-        job = os.path.join(directory, test["job"])
+        job_path = test.get("job")
+        job = None
+        if job_path is not None:
+            job_path = os.path.join(directory, job_path)
+        else:
+            job = {}
         should_fail = test.get("should_fail", False)
         try:
-            run = self.run_cwl_job(tool, job)
+            run = self.run_cwl_job(tool, job=job, job_path=job_path)
         except Exception:
             # Should fail so this is good!
             if should_fail:
@@ -454,22 +459,23 @@ class CwlPopulator(object):
             self.dataset_populator._summarize_history(run.history_id)
             raise
 
-    def run_cwl_job(self, tool, job):
+    def run_cwl_job(self, tool, job, job_path):
         tool_or_workflow = guess_artifact_type(tool)
-        run = self.run_workflow_job(tool, job, tool_or_workflow=tool_or_workflow)
+        run = self.run_workflow_job(tool, job_path=job_path, job=job, tool_or_workflow=tool_or_workflow)
         assert run.history_id
         return run
 
-    def run_workflow_job(self, workflow_path, job_path, history_id=None, tool_or_workflow="workflow"):
+    def run_workflow_job(self, workflow_path, job_path, job=None, history_id=None, tool_or_workflow="workflow"):
         if history_id is None:
             history_id = self.dataset_populator.new_history()
         if not os.path.isabs(workflow_path):
             workflow_path = os.path.join(CWL_TOOL_DIRECTORY, workflow_path)
-        if not os.path.isabs(job_path):
+        if job_path and not os.path.isabs(job_path):
             job_path = os.path.join(CWL_TOOL_DIRECTORY, job_path)
         run_object = self.run_cwl_artifact(
             workflow_path,
             job_path,
+            job=job,
             history_id=history_id,
             tool_or_workflow=tool_or_workflow,
         )
