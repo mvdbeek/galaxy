@@ -1322,7 +1322,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.required
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_2_wf_simple(self):
         """Test simple workflow
 
@@ -6312,14 +6312,14 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.command_line_tool
     @pytest.mark.initial_work_dir
     @pytest.mark.red
-    def test_conformance_v1_2_stage_file_array(self):
+    def test_conformance_v1_2_stage_file_array_basename(self):
         """Test that array of input files can be staged to directory with basename
 
         Generated from::
 
             id: 239
             job: tests/stage_file_array.job.json
-            label: stage_file_array
+            label: stage_file_array_basename
             output:
               output:
               - basename: sfa-1.txt
@@ -6758,6 +6758,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
+    @pytest.mark.command_line_tool
     @pytest.mark.red
     def test_conformance_v1_2_continuation_expression(self):
         """Line continuations in bash scripts should always behave correctly
@@ -6774,6 +6775,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 size: 48
             tags:
             - inline_javascript
+            - command_line_tool
             tool: bash-line-continuation-with-expression.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Line continuations in bash scripts should always behave correctly""")
@@ -6781,6 +6783,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
+    @pytest.mark.command_line_tool
     @pytest.mark.red
     def test_conformance_v1_2_quoting_multiple_backslashes(self):
         """Test quoting multiple backslashes
@@ -6797,6 +6800,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 size: 246
             tags:
             - inline_javascript
+            - command_line_tool
             tool: bash-dollar-quote.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Test quoting multiple backslashes""")
@@ -6804,6 +6808,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
+    @pytest.mark.command_line_tool
     @pytest.mark.red
     def test_conformance_v1_2_escaping_expression_no_extra_quotes(self):
         """Strings returned from JS expressions should not have extra quotes around them
@@ -6820,6 +6825,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
                 size: 14
             tags:
             - inline_javascript
+            - command_line_tool
             tool: js-quote.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Strings returned from JS expressions should not have extra quotes around them""")
@@ -6828,6 +6834,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_direct_optional_null_result(self):
         """Simplest conditional pattern (False)
@@ -6842,6 +6849,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - inline_javascript
+            - workflow
             tool: cond-wf-001.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simplest conditional pattern (False)""")
@@ -6850,6 +6858,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_direct_optional_nonnull_result(self):
         """Simplest conditional pattern (True)
@@ -6864,6 +6873,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - inline_javascript
+            - workflow
             tool: cond-wf-001.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simplest conditional pattern (True)""")
@@ -6872,6 +6882,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_direct_required(self):
         """Should give validation warning because of required sink
@@ -6886,6 +6897,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - inline_javascript
+            - workflow
             tool: cond-wf-002.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Should give validation warning because of required sink""")
@@ -6895,6 +6907,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_false_when(self):
         """Pass through pattern with pickValue: first_non_null; 'when' is false
@@ -6910,6 +6923,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-003.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Pass through pattern with pickValue: first_non_null; 'when' is false""")
@@ -6919,6 +6933,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_true_when(self):
         """pass through pattern with pickvalue: first_non_null; 'when' is true
@@ -6934,6 +6949,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-003.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pass through pattern with pickvalue: first_non_null; 'when' is true""")
@@ -6943,6 +6959,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_first_non_null_first_non_null(self):
         """pickValue: first_non_null first item is non null
@@ -6958,6 +6975,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-003.1.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: first_non_null first item is non null""")
@@ -6967,6 +6985,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_first_non_null_all_null(self):
         """pickValue: first_non_null needs at least one non null
@@ -6981,6 +7000,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-003.1.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: first_non_null needs at least one non null""")
@@ -6990,6 +7010,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_first_non_null_second_non_null(self):
         """pickValue: first_non_null second item is non null
@@ -7005,6 +7026,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-003.1.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: first_non_null second item is non null""")
@@ -7014,6 +7036,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_the_only_non_null(self):
         """pickvalue: the_only_non_null will pass, only for false condition
@@ -7029,6 +7052,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-004.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickvalue: the_only_non_null will pass, only for false condition""")
@@ -7038,6 +7062,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_fail(self):
         """pickValue: the_only_non_null will fail due to multiple non nulls
@@ -7052,6 +7077,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-004.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: the_only_non_null will fail due to multiple non nulls""")
@@ -7061,6 +7087,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_multi_with_non_array_output(self):
         """pickValue: all_non_null will fail validation
@@ -7075,6 +7102,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-005.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will fail validation""")
@@ -7084,6 +7112,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_the_only_non_null_single_true(self):
         """pickValue: the_only_non_null will pass for only one active node
@@ -7099,6 +7128,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-006.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: the_only_non_null will pass for only one active node""")
@@ -7108,6 +7138,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_the_only_non_null_multi_true(self):
         """pickValue: the_only_non_null will fail with two active nodes
@@ -7122,6 +7153,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-006.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: the_only_non_null will fail with two active nodes""")
@@ -7131,6 +7163,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_all_null(self):
         """pickValue: all_non_null will produce a list, even if empty
@@ -7146,6 +7179,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-007.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will produce a list, even if empty""")
@@ -7155,6 +7189,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_one_non_null(self):
         """pickValue: all_non_null will produce a list; even if single item list
@@ -7171,6 +7206,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-007.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will produce a list; even if single item list""")
@@ -7180,6 +7216,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_multi_non_null(self):
         """pickValue: all_non_null will produce a list
@@ -7197,6 +7234,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - multiple_input
+            - workflow
             tool: cond-wf-007.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will produce a list""")
@@ -7206,6 +7244,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_condifional_scatter_on_nonscattered_false(self):
         """Simple scatter: conditional on a non scattered variable (False)
@@ -7221,6 +7260,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - scatter
+            - workflow
             tool: cond-wf-009.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simple scatter: conditional on a non scattered variable (False)""")
@@ -7230,6 +7270,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_condifional_scatter_on_nonscattered_true(self):
         """Simple scatter: conditional on a non scattered variable (True)
@@ -7251,6 +7292,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - scatter
+            - workflow
             tool: cond-wf-009.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simple scatter: conditional on a non scattered variable (True)""")
@@ -7260,6 +7302,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_scatter_on_scattered_conditional(self):
         """Simple scatter: Add conditional variable to scatter
@@ -7278,6 +7321,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - scatter
+            - workflow
             tool: cond-wf-010.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simple scatter: Add conditional variable to scatter""")
@@ -7287,6 +7331,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_conditionals_nested_cross_scatter(self):
         """nested cross product scatter with condition on one dimension
@@ -7326,6 +7371,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - inline_javascript
             - scatter
+            - workflow
             tool: cond-wf-011.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """nested cross product scatter with condition on one dimension""")
@@ -7334,6 +7380,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.inline_javascript
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_conditionals_non_boolean_fail(self):
         """Non-boolean values from "when" should fail
@@ -7347,6 +7394,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - inline_javascript
+            - workflow
             tool: cond-wf-012.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Non-boolean values from "when" should fail""")
@@ -7357,6 +7405,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.inline_javascript
     @pytest.mark.scatter
     @pytest.mark.multiple
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_conditionals_multi_scatter(self):
         """Scatter two steps, flatten result + pickValue
@@ -7379,6 +7428,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - inline_javascript
             - scatter
             - multiple
+            - workflow
             tool: cond-wf-013.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Scatter two steps, flatten result + pickValue""")
@@ -7386,6 +7436,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_direct_optional_null_result_nojs(self):
         """simplest conditional pattern (true), no javascript
@@ -7399,6 +7450,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
               out1: foo 23
             tags:
             - conditional
+            - workflow
             tool: cond-wf-001_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """simplest conditional pattern (true), no javascript""")
@@ -7406,6 +7458,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_direct_optional_nonnull_result_nojs(self):
         """simplest conditional pattern (false), no javascript
@@ -7419,6 +7472,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
               out1: null
             tags:
             - conditional
+            - workflow
             tool: cond-wf-001_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """simplest conditional pattern (false), no javascript""")
@@ -7426,6 +7480,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_direct_required_nojs(self):
         """Should give validation warning because of required sink, no javascript
@@ -7439,6 +7494,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
               out1: null
             tags:
             - conditional
+            - workflow
             tool: cond-wf-002_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Should give validation warning because of required sink, no javascript""")
@@ -7447,6 +7503,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_false_when_nojs(self):
         """Pass through pattern with pickValue: first_non_null; 'when' is false'; no javascript
@@ -7461,6 +7518,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-003_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Pass through pattern with pickValue: first_non_null; 'when' is false'; no javascript""")
@@ -7469,6 +7527,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_true_when_nojs(self):
         """pass through pattern with pickvalue: first_non_null; 'when' is true'; no javascript
@@ -7483,6 +7542,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-003_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pass through pattern with pickvalue: first_non_null; 'when' is true'; no javascript""")
@@ -7491,6 +7551,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_first_non_null_first_non_null_nojs(self):
         """pickValue: first_non_null first item is non null; no javascript
@@ -7505,6 +7566,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-003.1_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: first_non_null first item is non null; no javascript""")
@@ -7513,6 +7575,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_first_non_null_all_null_nojs(self):
         """pickValue: first_non_null needs at least one non null; no javascript
@@ -7526,6 +7589,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-003.1_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: first_non_null needs at least one non null; no javascript""")
@@ -7534,6 +7598,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_first_non_null_second_non_null_nojs(self):
         """pickValue: first_non_null second item is non null; no javascript
@@ -7548,6 +7613,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-003.1_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: first_non_null second item is non null; no javascript""")
@@ -7556,6 +7622,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_the_only_non_null(self):
         """pickvalue: the_only_non_null will pass, only for false condition; no javascript
@@ -7570,6 +7637,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-004_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickvalue: the_only_non_null will pass, only for false condition; no javascript""")
@@ -7578,6 +7646,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_pass_through_required_fail(self):
         """pickValue: the_only_non_null will fail due to multiple non nulls; no javascript
@@ -7591,6 +7660,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-004_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: the_only_non_null will fail due to multiple non nulls; no javascript""")
@@ -7599,6 +7669,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_multi_with_non_array_output_nojs(self):
         """pickValue: all_non_null will fail validation; no javascript
@@ -7612,6 +7683,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-005_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will fail validation; no javascript""")
@@ -7620,6 +7692,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_the_only_non_null_single_true_nojs(self):
         """pickValue: the_only_non_null will pass for only one active node; no javascript
@@ -7634,6 +7707,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-006_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: the_only_non_null will pass for only one active node; no javascript""")
@@ -7642,6 +7716,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_the_only_non_null_multi_true_nojs(self):
         """pickValue: the_only_non_null will fail with two active nodes; no javascript
@@ -7655,6 +7730,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-006_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: the_only_non_null will fail with two active nodes; no javascript""")
@@ -7663,6 +7739,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_all_null_nojs(self):
         """pickValue: all_non_null will produce a list, even if empty; no javascript
@@ -7677,6 +7754,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-007_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will produce a list, even if empty; no javascript""")
@@ -7685,6 +7763,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_one_non_null_nojs(self):
         """pickValue: all_non_null will produce a list; even if single item list; no javascript
@@ -7700,6 +7779,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-007_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will produce a list; even if single item list; no javascript""")
@@ -7708,6 +7788,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.multiple_input
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_all_non_null_multi_non_null_nojs(self):
         """pickValue: all_non_null will produce a list; no javascript
@@ -7724,6 +7805,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - multiple_input
+            - workflow
             tool: cond-wf-007_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """pickValue: all_non_null will produce a list; no javascript""")
@@ -7732,6 +7814,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_condifional_scatter_on_nonscattered_false_nojs(self):
         """Simple scatter: conditional on a non scattered variable (False); no javascript
@@ -7746,6 +7829,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - scatter
+            - workflow
             tool: cond-wf-009_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simple scatter: conditional on a non scattered variable (False); no javascript""")
@@ -7754,6 +7838,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_condifional_scatter_on_nonscattered_true_nojs(self):
         """Simple scatter: conditional on a non scattered variable (True); no javascript
@@ -7774,6 +7859,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - scatter
+            - workflow
             tool: cond-wf-009_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simple scatter: conditional on a non scattered variable (True); no javascript""")
@@ -7782,6 +7868,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_scatter_on_scattered_conditional_nojs(self):
         """Simple scatter: Add conditional variable to scatter; no javascript
@@ -7799,6 +7886,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - scatter
+            - workflow
             tool: cond-wf-010_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Simple scatter: Add conditional variable to scatter; no javascript""")
@@ -7807,6 +7895,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
     @pytest.mark.scatter
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_conditionals_nested_cross_scatter_nojs(self):
         """nested cross product scatter with condition on one dimension; no javascript
@@ -7845,6 +7934,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - conditional
             - scatter
+            - workflow
             tool: cond-wf-011_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """nested cross product scatter with condition on one dimension; no javascript""")
@@ -7852,6 +7942,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.conditional
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_conditionals_non_boolean_fail_nojs(self):
         """Non-boolean values from "when" should fail; no javascript
@@ -7864,6 +7955,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             should_fail: true
             tags:
             - conditional
+            - workflow
             tool: cond-wf-012_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Non-boolean values from "when" should fail; no javascript""")
@@ -7873,6 +7965,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.scatter
     @pytest.mark.multiple
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_conditionals_multi_scatter_nojs(self):
         """Scatter two steps, flatten result + pickValue; no javascript
@@ -7894,6 +7987,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - scatter
             - multiple
+            - workflow
             tool: cond-wf-013_nojs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Scatter two steps, flatten result + pickValue; no javascript""")
@@ -7903,6 +7997,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.scatter
     @pytest.mark.multiple
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_304(self):
         """Default inputs, choose step to run based on what was provided, first case
@@ -7927,6 +8022,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - scatter
             - multiple
+            - workflow
             tool: cond-with-defaults.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Default inputs, choose step to run based on what was provided, first case""")
@@ -7936,6 +8032,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.conditional
     @pytest.mark.scatter
     @pytest.mark.multiple
+    @pytest.mark.workflow
     @pytest.mark.red
     def test_conformance_v1_2_305(self):
         """Default inputs, choose step to run based on what was provided, second case
@@ -7955,6 +8052,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             - conditional
             - scatter
             - multiple
+            - workflow
             tool: cond-with-defaults.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Default inputs, choose step to run based on what was provided, second case""")
@@ -7963,13 +8061,15 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.secondary_files
+    @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_306(self):
+    def test_conformance_v1_2_command_input_file_expression(self):
         """Confirm CommandInputParameter expression can receive a File object
 
         Generated from::
 
             job: rename-inputs.yml
+            label: command_input_file_expression
             output:
               output_file:
                 checksum: sha1$901c3d387a263c57eaed6f24a82517c1fb0e198d
@@ -7979,6 +8079,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - inline_javascript
             - secondary_files
+            - command_line_tool
             tool: rename-inputs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Confirm CommandInputParameter expression can receive a File object""")
@@ -7987,12 +8088,14 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.inline_javascript
     @pytest.mark.secondary_files
+    @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_307(self):
+    def test_conformance_v1_2_command_output_file_expression(self):
         """Confirm CommandOutputParameter expression can receive a File object
 
         Generated from::
 
+            label: command_output_file_expression
             output:
               output_file:
                 checksum: sha1$da39a3ee5e6b4b0d3255bfef95601890afd80709
@@ -8007,112 +8110,142 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
             tags:
             - inline_javascript
             - secondary_files
+            - command_line_tool
             tool: rename-outputs.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """Confirm CommandOutputParameter expression can receive a File object""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.workflow
     @pytest.mark.red
-    def test_conformance_v1_2_308(self):
+    def test_conformance_v1_2_mixed_version_v10_wf(self):
         """test v1.0 workflow document that runs other versions
 
         Generated from::
 
             job: null
+            label: mixed_version_v10_wf
             output: {}
+            tags:
+            - workflow
             tool: wf-v10.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test v1.0 workflow document that runs other versions""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.workflow
     @pytest.mark.red
-    def test_conformance_v1_2_309(self):
+    def test_conformance_v1_2_mixed_version_v11_wf(self):
         """test v1.1 workflow document that runs other versions
 
         Generated from::
 
             job: null
+            label: mixed_version_v11_wf
             output: {}
+            tags:
+            - workflow
             tool: wf-v11.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test v1.1 workflow document that runs other versions""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.workflow
     @pytest.mark.red
-    def test_conformance_v1_2_310(self):
+    def test_conformance_v1_2_mixed_version_v12_wf(self):
         """test v1.2 workflow document that runs other versions
 
         Generated from::
 
             job: null
+            label: mixed_version_v12_wf
             output: {}
+            tags:
+            - workflow
             tool: wf-v12.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test v1.2 workflow document that runs other versions""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_311(self):
+    def test_conformance_v1_2_invalid_syntax_v10_uses_v12_tool(self):
         """test tool with v1.2 syntax marked as v1.0 (should fail)
 
         Generated from::
 
             job: null
+            label: invalid_syntax_v10_uses_v12_tool
             should_fail: true
+            tags:
+            - command_line_tool
             tool: invalid-tool-v10.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test tool with v1.2 syntax marked as v1.0 (should fail)""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_312(self):
+    def test_conformance_v1_2_invalid_syntax_v11_uses_v12_tool(self):
         """test tool with v1.2 syntax marked as v1.1 (should fail)
 
         Generated from::
 
             job: null
+            label: invalid_syntax_v11_uses_v12_tool
             should_fail: true
+            tags:
+            - command_line_tool
             tool: invalid-tool-v11.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test tool with v1.2 syntax marked as v1.1 (should fail)""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.workflow
     @pytest.mark.red
-    def test_conformance_v1_2_313(self):
+    def test_conformance_v1_2_invalid_syntax_v10_uses_v12_workflow(self):
         """test wf with v1.2 syntax marked as v1.0 (should fail)
 
         Generated from::
 
             job: null
+            label: invalid_syntax_v10_uses_v12_workflow
             should_fail: true
+            tags:
+            - workflow
             tool: invalid-wf-v10.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test wf with v1.2 syntax marked as v1.0 (should fail)""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.workflow
     @pytest.mark.red
-    def test_conformance_v1_2_314(self):
+    def test_conformance_v1_2_invalid_syntax_v11_uses_v12_workflow(self):
         """test wf with v1.2 syntax marked as v1.1 (should fail)
 
         Generated from::
 
             job: null
+            label: invalid_syntax_v11_uses_v12_workflow
             should_fail: true
+            tags:
+            - workflow
             tool: invalid-wf-v11.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test wf with v1.2 syntax marked as v1.1 (should fail)""")
 
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_2
+    @pytest.mark.workflow
     @pytest.mark.red
-    def test_conformance_v1_2_315(self):
+    def test_conformance_v1_2_invalid_syntax_mixed_v12_workflow(self):
         """test 1.2 wf that includes tools that are marked as v1.0 and v1.1 that
 contain v1.2 features (should fail)
 
@@ -8120,7 +8253,10 @@ contain v1.2 features (should fail)
         Generated from::
 
             job: null
+            label: invalid_syntax_mixed_v12_workflow
             should_fail: true
+            tags:
+            - workflow
             tool: invalid-wf-v12.cwl
         """  # noqa: W293
         self.cwl_populator.run_conformance_test("""v1.2""", """test 1.2 wf that includes tools that are marked as v1.0 and v1.1 that
@@ -8131,13 +8267,14 @@ contain v1.2 features (should fail)
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_316(self):
+    def test_conformance_v1_2_cwloutput_nolimit(self):
         """Test that loading from cwl.output.json isn't limited to 64k
 
         Generated from::
 
             id: cwloutput-nolimit
             job: null
+            label: cwloutput_nolimit
             output:
               $import: compare-output.json
             tags:
@@ -8150,13 +8287,14 @@ contain v1.2 features (should fail)
     @pytest.mark.cwl_conformance_v1_2
     @pytest.mark.command_line_tool
     @pytest.mark.red
-    def test_conformance_v1_2_317(self):
+    def test_conformance_v1_2_loadcontents_limit(self):
         """Test that loadContents on a file larger than 64k fails
 
         Generated from::
 
             id: loadContents-limit
             job: input.yml
+            label: loadcontents_limit
             output: {}
             should_fail: true
             tags:
