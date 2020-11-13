@@ -708,7 +708,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.multiple_input
     @pytest.mark.inline_javascript
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_wc_scatter_multiple_nested(self):
         """Test single step workflow with Scatter step and two data links connected to same input, nested merge behavior
 
@@ -872,7 +872,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.scatter
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_scatter_single_param(self):
         """Test workflow scatter with single scatter parameter
 
@@ -950,7 +950,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.scatter
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_scatter_two_dotproduct(self):
         """Test workflow scatter with two scatter parameters and dotproduct join method
 
@@ -1946,7 +1946,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.step_input
     @pytest.mark.inline_javascript
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_valuefrom_wf_step_other(self):
         """Test valueFrom on workflow step referencing other inputs
 
@@ -2200,7 +2200,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.scatter
     @pytest.mark.step_input
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_scatter_oneparam_valuefrom_twice_current_el(self):
         """Test workflow scatter with single scatter parameter and two valueFrom on step input (current el twice)
 
@@ -2228,7 +2228,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.scatter
     @pytest.mark.step_input
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_scatter_oneparam_valueFrom(self):
         """Test valueFrom eval on scattered input parameter
 
@@ -2623,7 +2623,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.inline_javascript
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_expressionlib_tool_wf_override(self):
         """Test that expressionLib requirement of individual tool step overrides expressionLib of workflow.
 
@@ -2682,7 +2682,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.subworkflow
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_embedded_subworkflow(self):
         """Test embedded subworkflow
 
@@ -3035,7 +3035,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.step_input
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_nameroot_nameext_generated(self):
         """Test that nameroot and nameext are generated from basename at execution time by the runner
 
@@ -3090,7 +3090,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.multiple_input
     @pytest.mark.inline_javascript
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_wf_scatter_twopar_oneinput_flattenedmerge(self):
         """Test single step workflow with Scatter step and two data links connected to same input, flattened merge behavior. Workflow inputs are set as list
 
@@ -3760,7 +3760,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_scatter_embedded_subworkflow(self):
         """Test simple scatter over an embedded subworkflow
 
@@ -3787,7 +3787,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.subworkflow
     @pytest.mark.multiple_input
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_scatter_multi_input_embedded_subworkflow(self):
         """Test simple multiple input scatter over an embedded subworkflow
 
@@ -3815,7 +3815,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.subworkflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_embedded_subworkflow_embedded_subsubworkflow(self):
         """Test twice nested subworkflow
 
@@ -3839,7 +3839,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.subworkflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_embedded_subworkflow_with_tool_and_subsubworkflow(self):
         """Test subworkflow of mixed depth with tool first
 
@@ -3919,7 +3919,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
     @pytest.mark.expression_tool
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_integer_input(self):
         """Test integer workflow input and outputs
 
@@ -3943,7 +3943,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
     @pytest.mark.expression_tool
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_integer_input_optional_specified(self):
         """Test optional integer workflow inputs (specified)
 
@@ -3991,7 +3991,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
     @pytest.mark.expression_tool
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_integer_input_default_specified(self):
         """Test default integer workflow inputs (specified)
 
@@ -4015,7 +4015,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
     @pytest.mark.expression_tool
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_integer_input_default_unspecified(self):
         """Test default integer workflow inputs (unspecified)
 
@@ -4039,7 +4039,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
     @pytest.mark.expression_tool
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_integer_input_default_and_tool_integer_input_default(self):
         """Test default integer tool and workflow inputs (unspecified)
 
@@ -4086,7 +4086,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_file_input_default_specified(self):
         """Test File input with default specified to workflow
 
@@ -4334,7 +4334,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_any_input_with_integer_provided(self):
         """Test Any parameter with integer input to a workflow
 
@@ -4356,7 +4356,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_any_input_with_string_provided(self):
         """Test Any parameter with string input to a workflow
 
@@ -4378,7 +4378,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_any_input_with_file_provided(self):
         """Test Any parameter with file input to a workflow
 
@@ -4400,7 +4400,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflow_any_input_with_mixed_array_provided(self):
         """Test Any parameter with array input to a workflow
 
@@ -4496,7 +4496,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.step_input
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflowstep_valuefrom_string(self):
         """Test valueFrom on workflow step from literal (string).
 
@@ -4520,7 +4520,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.step_input
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflowstep_valuefrom_file_basename(self):
         """Test valueFrom on workflow step using basename.
 
@@ -4573,7 +4573,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.workflow
     @pytest.mark.expression_tool
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_workflowstep_int_array_input_output(self):
         """Test output arrays in a workflow (with ints).
 
@@ -4982,7 +4982,7 @@ class CwlConformanceTestCase(BaseCwlWorklfowTestCase):
     @pytest.mark.cwl_conformance_v1_0
     @pytest.mark.workflow
     @pytest.mark.inline_javascript
-    @pytest.mark.red
+    @pytest.mark.green
     def test_conformance_v1_0_step_input_default_value_overriden_2nd_step_null(self):
         """Test default value on step input parameter overridden by provided source. With null producing first step
 
