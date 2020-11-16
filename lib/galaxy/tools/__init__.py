@@ -331,7 +331,7 @@ class ToolBox(BaseGalaxyToolBox):
         if not self.app.config.delay_tool_initialization:
             tool.assert_finalized(raise_if_invalid=True)
         return tool
-
+    
     def get_expanded_tool_source(self, config_file, **kwargs):
         try:
             return get_tool_source(
@@ -545,6 +545,7 @@ class Tool(Dictifiable):
         self.tool_errors = None
         # Parse XML element containing configuration
         self.tool_source = tool_source
+        self._source_path = tool_source._source_path
         self._is_workflow_compatible = None
         self.finalized = False
         try:
@@ -556,6 +557,7 @@ class Tool(Dictifiable):
         # loading tools into the toolshed for validation.
         if self.app.name == 'galaxy':
             self.job_search = JobSearch(app=self.app)
+        self.tool_source._xml_tree = self.tool_source._root = None
 
     def __getattr__(self, name):
         lazy_attributes = {
@@ -991,7 +993,6 @@ class Tool(Dictifiable):
                 self.uihints[key] = value
 
     def __parse_tests(self, tool_source):
-        self.__tests_source = tool_source
         self.__tests_populated = False
 
     def __parse_config_files(self, tool_source):
@@ -1036,16 +1037,17 @@ class Tool(Dictifiable):
     def tests(self):
         self.assert_finalized()
         if not self.__tests_populated:
-            tests_source = self.__tests_source
-            if tests_source:
+            tool_source = self.tool_source
+            if tool_source:
                 try:
-                    self.__tests = parse_tests(self, tests_source)
+                    self.__tests = parse_tests(self, tool_source)
                 except Exception:
                     self.__tests = None
                     log.exception("Failed to parse tool tests for tool '%s'", self.id)
             else:
                 self.__tests = None
             self.__tests_populated = True
+            self.tool_source._xml_tree = self.tool_source._root = None
         return self.__tests
 
     @property
@@ -1391,8 +1393,7 @@ class Tool(Dictifiable):
     @property
     def raw_help(self):
         # may return rst (or Markdown in the future)
-        tool_source = self.__help_source
-        help_text = tool_source.parse_help()
+        help_text = self.tool_source.parse_help()
         return help_text
 
     def __ensure_help(self):
@@ -1480,7 +1481,8 @@ class Tool(Dictifiable):
         if self.tool_type.startswith('data_source'):
             return False
 
-        if hasattr(tool_source, "root"):
+        
+        if self.finalized and hasattr(tool_source, "root"):
             root = tool_source.root
             if not string_as_bool(root.get("workflow_compatible", "True")):
                 return False

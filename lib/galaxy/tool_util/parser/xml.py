@@ -12,6 +12,7 @@ from galaxy.tool_util.parser.util import (
     DEFAULT_DELTA_FRAC
 )
 from galaxy.util import (
+    parse_xml_string,
     string_as_bool,
     xml_text,
     xml_to_string
@@ -49,11 +50,24 @@ class XmlToolSource(ToolSource):
     """
 
     def __init__(self, xml_tree, source_path=None, macro_paths=None):
-        self.xml_tree = xml_tree
-        self.root = xml_tree.getroot()
+        self._xml_tree = xml_tree
+        self._root = xml_tree.getroot()
+        self._xml_string = self.to_string()
         self._source_path = source_path
         self._macro_paths = macro_paths or []
         self.legacy_defaults = self.parse_profile() == "16.01"
+
+    @property
+    def xml_tree(self):
+        if self._xml_tree is None:
+            self._xml_tree = parse_xml_string(self._xml_string)
+        return self._xml_tree
+
+    @property
+    def root(self):
+        if self._root is None:
+            self._root = self.xml_tree
+        return self._root
 
     def to_string(self):
         return xml_to_string(self.root)
