@@ -510,10 +510,10 @@ class XmlToolSource(ToolSource):
         rval = dict(
             tests=tests
         )
+        profile = self.parse_profile()
 
         if tests_elem is not None:
             for i, test_elem in enumerate(tests_elem.findall("test")):
-                profile = self.parse_profile()
                 tests.append(_test_elem_to_dict(test_elem, i, profile))
 
         return rval
