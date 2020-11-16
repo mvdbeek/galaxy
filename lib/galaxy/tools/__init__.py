@@ -1187,7 +1187,6 @@ class Tool(Dictifiable):
         # TODO: Allow raw HTML or an external link.
         self.__help = HELP_UNINITIALIZED
         self.__help_by_page = HELP_UNINITIALIZED
-        self.__help_source = tool_source
 
     def parse_outputs(self, tool_source):
         """
@@ -1402,7 +1401,7 @@ class Tool(Dictifiable):
                 self.__inititalize_help()
 
     def __inititalize_help(self):
-        tool_source = self.__help_source
+        tool_source = self.tool_source
         self.__help = None
         self.__help_by_page = []
         help_footer = ""
