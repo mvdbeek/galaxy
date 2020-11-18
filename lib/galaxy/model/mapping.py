@@ -2222,7 +2222,14 @@ simple_mapping(model.ImplicitlyCreatedDatasetCollectionInput,
     ),
 )
 
-simple_mapping(model.ImplicitCollectionJobs)
+simple_mapping(
+    model.ImplicitCollectionJobs,
+    latest_job_update_time = column_property(
+        select([func.max(model.Job.table.c.update_time)]).where(and_(
+                model.Job.table.c.id == model.ImplicitCollectionJobsJobAssociation.table.c.job_id,
+                model.ImplicitCollectionJobsJobAssociation.table.c.implicit_collection_jobs_id == model.ImplicitCollectionJobs.table.c.id,
+    )), deferred=True),
+)
 
 # simple_mapping(
 #     model.ImplicitCollectionJobsHistoryDatasetCollectionAssociation,
