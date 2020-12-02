@@ -214,6 +214,10 @@ class UniverseApplication(config.ConfiguresGalaxyMixin):
             from galaxy.jobs import transfer_manager
             self.transfer_manager = transfer_manager.TransferManager(self)
         # Start the job manager
+        import zmq
+        ctx = zmq.Context()
+        self.zmq_pub_socket = ctx.socket(zmq.PUB)
+        self.zmq_pub_socket.connect('tcp://127.0.0.1:5555')
         from galaxy.jobs import manager
         self.job_manager = manager.JobManager(self)
         self.application_stack.register_postfork_function(self.job_manager.start)

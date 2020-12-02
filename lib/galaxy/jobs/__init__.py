@@ -1357,6 +1357,7 @@ class JobWrapper(HasResourceParameters):
                 self.sa_session.add(dataset_assoc.dataset)
             log.debug("Pausing Job '%d', %s", job.id, message)
             job.set_state(job.states.PAUSED)
+            self.broadcast_state(job)
             self.sa_session.add(job)
 
     def is_ready_for_resubmission(self, job=None):
@@ -1377,6 +1378,7 @@ class JobWrapper(HasResourceParameters):
         if info is not None:
             job.info = info
         job.set_state(model.Job.states.RESUBMITTED)
+        self.broadcast_state(job)
         self.sa_session.add(job)
         self.sa_session.flush()
 
@@ -1400,6 +1402,10 @@ class JobWrapper(HasResourceParameters):
         job.update_output_states()
         if flush:
             self.sa_session.flush()
+        self.broadcast_state(job)
+
+    def broadcast_state(self, job):
+        self.app.zmq_pub_socket.send(json.dumps(job.output_items()).encode())
 
     def get_state(self):
         job = self.get_job()
@@ -1760,6 +1766,7 @@ class JobWrapper(HasResourceParameters):
         # Finally set the job state.  This should only happen *after* all
         # dataset creation, and will allow us to eliminate force_history_refresh.
         job.set_final_state(final_job_state)
+        self.broadcast_state(job)
         if not job.tasks:
             # If job was composed of tasks, don't attempt to recollect statistics
             self._collect_metrics(job, job_metrics_directory)

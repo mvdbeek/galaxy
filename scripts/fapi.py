@@ -23,7 +23,9 @@ def wsgiloop(args, log):
     # this needs to happen before we can import the router from individual api modules
     # (until we've replaced everything with FastAPI, at which point we can do normal imports).
     from galaxy.webapps.galaxy.api import jobs
+    from galaxy.webapps.galaxy.api import websocket
     app.include_router(jobs.router, prefix='/api/jobs')
+    app.include_router(websocket.router, prefix='/api/websocket')
     app.mount('/', wsgi_handler)
     uvicorn.run(app)
 

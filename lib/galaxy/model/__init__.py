@@ -768,6 +768,33 @@ class Job(JobLike, UsesCreateAndUpdateTime, Dictifiable, RepresentById):
         out_collections.update([(obj.name, obj.dataset_collection) for obj in self.output_dataset_collections])
         return inp_data, out_data, out_collections
 
+    def output_items(self):
+        session = object_session(self)
+        # This includes direct HDCAs as well as implicit output collections
+        hdca_statement = """SELECT hdca.id
+FROM history_dataset_collection_association hdca
+INNER JOIN implicit_collection_jobs icj
+    on icj.id = hdca.implicit_collection_jobs_id
+INNER JOIN implicit_collection_jobs_job_association icjja
+    on icj.id = icjja.implicit_collection_jobs_id
+WHERE icjja.job_id = :job_id
+UNION
+SELECT hdca2.id
+FROM history_dataset_collection_association hdca2
+WHERE hdca2.job_id = :job_id"""
+        hda_statement = """SELECT hda.id FROM history_dataset_association hda
+INNER JOIN job_to_output_dataset jtod
+ON jtod.dataset_id = hda.id AND jtod.job_id = :job_id
+        """
+        params = {'job_id': self.id}
+        return {
+            'output_hdca_id': [_[0] for _ in session.execute(hdca_statement, params)],
+            'output_hda_id': [_[0] for _ in session.execute(hda_statement, params)],
+            'job_id': self.id,
+            'history_id': self.history_id,
+            'state': self.state,
+        }
+
     # TODO: Add accessors for members defined in SQL Alchemy for the Job table and
     # for the mapper defined to the Job table.
     def get_external_output_metadata(self):
@@ -1141,34 +1168,17 @@ class Job(JobLike, UsesCreateAndUpdateTime, Dictifiable, RepresentById):
     def set_final_state(self, final_state):
         self.set_state(final_state)
         # TODO: migrate to where-in subqueries?
-        statements = ['''
-            UPDATE history_dataset_collection_association
-            SET update_time = :update_time
-            WHERE id in (
-                SELECT hdca.id
-                FROM history_dataset_collection_association hdca
-                INNER JOIN implicit_collection_jobs icj
-                    on icj.id = hdca.implicit_collection_jobs_id
-                INNER JOIN implicit_collection_jobs_job_association icjja
-                    on icj.id = icjja.implicit_collection_jobs_id
-                WHERE icjja.job_id = :job_id
-                UNION
-                SELECT hdca2.id
-                FROM history_dataset_collection_association hdca2
-                WHERE hdca2.job_id = :job_id
-            );
-        ''', '''
+        wis = '''
             UPDATE workflow_invocation_step
             SET update_time = :update_time
             WHERE job_id = :job_id;
-        ''']
+        '''
         sa_session = object_session(self)
         params = {
             'job_id': self.id,
             'update_time': galaxy.model.orm.now.now()
         }
-        for statement in statements:
-            sa_session.execute(statement, params)
+        sa_session.execute(wis, params)
 
     def get_destination_configuration(self, dest_params, config, key, default=None):
         """ Get a destination parameter that can be defaulted back

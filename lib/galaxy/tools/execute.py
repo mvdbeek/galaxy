@@ -4,6 +4,7 @@ from various states, tracking results, and building implicit dataset
 collections from matched collections.
 """
 import collections
+import json
 import logging
 
 from galaxy import model
@@ -112,6 +113,10 @@ def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, colle
         tool.app.job_manager.enqueue(job, tool=tool, flush=False)
         trans.log_event("Added job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
     trans.sa_session.flush()
+    for job in execution_tracker.successful_jobs:
+        # TODO: find a better place for this, but more importantly get rid of expire_on_refresh,
+        # so we can just iterate over the job outputs
+        tool.app.zmq_pub_socket.send(json.dumps(job.output_items()).encode())
 
     if has_remaining_jobs:
         raise PartialJobExecution(execution_tracker)
