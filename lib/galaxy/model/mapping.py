@@ -1872,10 +1872,10 @@ mapper(model.History, model.History.table, properties=dict(
     ratings=relation(model.HistoryRatingAssociation,
         order_by=model.HistoryRatingAssociation.table.c.id,
         backref="histories"),
-    average_rating=column_property(
-        select([func.avg(model.HistoryRatingAssociation.table.c.rating)]).where(model.HistoryRatingAssociation.table.c.history_id == model.History.table.c.id),
-        deferred=True
-    ),
+    # average_rating=column_property(
+    #     select([func.avg(model.HistoryRatingAssociation.table.c.rating)]).where(model.HistoryRatingAssociation.table.c.history_id == model.History.table.c.id).label('average_rating'),
+    #     deferred=True,
+    # ),
     users_shared_with_count=column_property(
         select([func.count(model.HistoryUserShareAssociation.table.c.id)]).where(model.History.table.c.id == model.HistoryUserShareAssociation.table.c.history_id),
         deferred=True

@@ -24,8 +24,10 @@ def wsgiloop(args, log):
     # (until we've replaced everything with FastAPI, at which point we can do normal imports).
     from galaxy.webapps.galaxy.api import jobs
     from galaxy.webapps.galaxy.api import websocket
+    from galaxy.webapps.galaxy.api import graphql
     app.include_router(jobs.router, prefix='/api/jobs')
     app.include_router(websocket.router, prefix='/api/websocket')
+    app.add_route('/graphql', graphql.graphql_app)
     app.mount('/', wsgi_handler)
     uvicorn.run(app)
 
