@@ -1721,6 +1721,21 @@ simple_mapping(model.HistoryDatasetAssociation,
     dataset=relation(model.Dataset,
         primaryjoin=(model.Dataset.table.c.id == model.HistoryDatasetAssociation.table.c.dataset_id), lazy=False),
     # .history defined in History mapper
+    # user=relation(model.User,
+    #     primaryjoin=(
+    #         and_(model.User.table.c.id == model.History.table.c.user_id,
+    #         model.HistoryDatasetAssociation.table.c.history_id == model.History.table.c.id)
+    #     ),
+    #     foreign_keys=[model.User.table.c.id],
+    #     remote_side=[model.History.table.c.id],
+    #     uselist=False,
+    #     viewonly=True,
+    # ),
+    user_id=column_property(select([model.User.table.c.id]).where(and_(
+        model.User.table.c.id == model.History.table.c.user_id,
+        model.History.table.c.id == model.HistoryDatasetAssociation.table.c.history_id)),
+        deferred=True,
+    ),
     copied_from_history_dataset_association=relation(model.HistoryDatasetAssociation,
         primaryjoin=(model.HistoryDatasetAssociation.table.c.copied_from_history_dataset_association_id ==
                      model.HistoryDatasetAssociation.table.c.id),
@@ -2363,7 +2378,12 @@ simple_mapping(model.HistoryDatasetCollectionAssociation,
         backref="dataset_collections"),
     ratings=relation(model.HistoryDatasetCollectionRatingAssociation,
         order_by=model.HistoryDatasetCollectionRatingAssociation.table.c.id,
-        backref="dataset_collections")
+        backref="dataset_collections"),
+    user_id=column_property(select([model.User.table.c.id]).where(and_(
+        model.User.table.c.id == model.History.table.c.user_id,
+        model.History.table.c.id == model.HistoryDatasetCollectionAssociation.table.c.history_id)),
+        deferred=True,
+    ),
 )
 
 simple_mapping(model.LibraryDatasetCollectionAssociation,
