@@ -48,26 +48,32 @@ for cls_name, cls in model.__dict__.items():
 
 
 class Query(graphene.ObjectType):
-    hdas = graphene.List(adapted_classes['HistoryDatasetAssociation'])
+    hdas = graphene.List(adapted_classes['HistoryDatasetAssociation'], user_id = graphene.Int(), history_id=graphene.Int())
     datasets = graphene.List(adapted_classes['Dataset'])
-    hdcas = graphene.List(adapted_classes['HistoryDatasetCollectionAssociation'])
-    histories = graphene.List(adapted_classes['History'])
+    hdcas = graphene.List(adapted_classes['HistoryDatasetCollectionAssociation'], user_id = graphene.Int(), history_id=graphene.Int())
+    histories = graphene.List(adapted_classes['History'], user_id = graphene.Int(), history_id=graphene.Int())
     jobs = graphene.List(adapted_classes['Job'])
 
-    def resolve_hdas(self, info):
+    get_histories_for_user = graphene.Field
+
+    def resolve_hdas(self, info, user_id, history_id):
         query = adapted_classes['HistoryDatasetAssociation'].get_query(info)  # SQLAlchemy query
+        query = query.filter_by(user_id=user_id, history_id=history_id)
         return query.all()
     
-    def resolve_hdcas(self, info):
+    def resolve_hdcas(self, info, user_id, history_id):
         query = adapted_classes['HistoryDatasetCollectionAssociation'].get_query(info)  # SQLAlchemy query
+        query = query.filter_by(user_id=user_id, history_id=history_id)
         return query.all()
 
-    def resolve_histories(self, info):
-        query = adapted_classes['History'].get_query(info)  # SQLAlchemy query
+    def resolve_histories(self, info, user_id):
+        query = adapted_classes['History'].get_query(info).filter_by(user_id=user_id)  # SQLAlchemy query
+        query = query.filter_by(user_id=user_id)
         return query.all()
 
-    def resolve_jobs(self, info):
+    def resolve_jobs(self, info, history_id, user_id):
         query = adapted_classes['Job'].get_query(info)  # SQLAlchemy query
+        query = query.filter_by(user_id=user_id, history_id=history_id)
         return query.all()
 
 
