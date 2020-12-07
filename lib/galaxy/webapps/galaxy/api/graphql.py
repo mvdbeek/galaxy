@@ -1,3 +1,5 @@
+import asyncio
+
 import graphene
 from starlette.graphql import GraphQLApp
 
@@ -28,28 +30,23 @@ def convert_column_to_string(type, column, registry=None):
 def convert_column_to_string(type, column, registry=None):
     return String
 
+allowed_classes = ['HistoryDatasetAssociation', 'HistoryDatasetCollectionAssociation', 'History', 'Job', 'DatasetCollection', 'DatasetCollectionElement']
 
 adapted_classes = {}
 query = app.app.model.session.query_property()
 for cls_name, cls in model.__dict__.items():
-    if cls_name == 'WorkflowStepConnection':
-        continue
-    try:
+    if cls_name in allowed_classes:
         if isinstance(inspect(cls), Mapper):
             new_meta = type('Meta', (object,), {'model': cls, 'interfaces': (relay.Node, )})
             new_cls = type(cls_name, (SQLAlchemyObjectType,), {'Meta': new_meta})
             adapted_classes[cls_name] = new_cls
             cls.query = query
-    except Exception:
-        # TODO: Don't know how to convert the SQLAlchemy field happens for SELECT avg() columns
-        continue
 
 
 
 
 class Query(graphene.ObjectType):
     hdas = graphene.List(adapted_classes['HistoryDatasetAssociation'], user_id = graphene.Int(), history_id=graphene.Int())
-    datasets = graphene.List(adapted_classes['Dataset'])
     hdcas = graphene.List(adapted_classes['HistoryDatasetCollectionAssociation'], user_id = graphene.Int(), history_id=graphene.Int())
     histories = graphene.List(adapted_classes['History'], user_id = graphene.Int(), history_id=graphene.Int())
     jobs = graphene.List(adapted_classes['Job'])
@@ -77,4 +74,18 @@ class Query(graphene.ObjectType):
         return query.all()
 
 
-graphql_app = GraphQLApp(schema=graphene.Schema(query=Query))
+class Subscription(graphene.ObjectType):
+    count = graphene.Int(up_to=graphene.Int(default_value=2))
+    history = graphene.Int(history_id=graphene.Int(default_value=2))
+
+    async def subscribe_history(root, into, history_id):
+        yield history_id
+
+    async def subscribe_count(root, info, up_to):
+        for i in range(1, up_to):
+            yield i
+            await asyncio.sleep(0.1)
+        yield up_to
+
+
+schema = graphene.Schema(query=Query, subscription=Subscription)
