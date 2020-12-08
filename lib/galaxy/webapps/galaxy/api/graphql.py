@@ -6,6 +6,7 @@ from starlette.graphql import GraphQLApp
 from galaxy import model
 from galaxy import app
 
+import zmq
 from graphene import String
 from graphene.types.json import JSONString
 
@@ -16,6 +17,8 @@ from graphene_sqlalchemy.converter import convert_sqlalchemy_type
 from sqlalchemy import inspect
 from sqlalchemy.exc import NoInspectionAvailable
 from sqlalchemy.orm import Mapper
+
+from zmq.asyncio import Context
 
 from galaxy.model.custom_types import JSONType, TrimmedString, UUIDType
 
@@ -30,6 +33,10 @@ def convert_column_to_string(type, column, registry=None):
 def convert_column_to_string(type, column, registry=None):
     return String
 
+class HistoryContent(graphene.Interface):
+    pass
+
+
 allowed_classes = ['HistoryDatasetAssociation', 'HistoryDatasetCollectionAssociation', 'History', 'Job', 'DatasetCollection', 'DatasetCollectionElement']
 
 adapted_classes = {}
@@ -37,7 +44,7 @@ query = app.app.model.session.query_property()
 for cls_name, cls in model.__dict__.items():
     if cls_name in allowed_classes:
         if isinstance(inspect(cls), Mapper):
-            new_meta = type('Meta', (object,), {'model': cls, 'interfaces': (relay.Node, )})
+            new_meta = type('Meta', (object,), {'model': cls, 'interfaces': (relay.Node, HistoryContent)})
             new_cls = type(cls_name, (SQLAlchemyObjectType,), {'Meta': new_meta})
             adapted_classes[cls_name] = new_cls
             cls.query = query
@@ -74,12 +81,21 @@ class Query(graphene.ObjectType):
         return query.all()
 
 
+ctx = Context.instance()
+
+
+
 class Subscription(graphene.ObjectType):
     count = graphene.Int(up_to=graphene.Int(default_value=2))
-    history = graphene.Int(history_id=graphene.Int(default_value=2))
+    history_content = graphene.Field(HistoryContent, history_id=graphene.Int(default_value=2))
 
-    async def subscribe_history(root, into, history_id):
-        yield history_id
+    async def subscribe_history_content(root, into, history_id):
+        socket = ctx.socket(zmq.SUB)
+        socket.bind('tcp://127.0.0.1:5555')
+        socket.subscribe("")
+        while True:
+            msg = await socket.recv_json()
+            yield msg
 
     async def subscribe_count(root, info, up_to):
         for i in range(1, up_to):
