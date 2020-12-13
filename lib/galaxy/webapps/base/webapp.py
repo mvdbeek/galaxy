@@ -109,8 +109,8 @@ class WebApplication(base.WebApplication):
             trans.response.status = e.status_code
             return trans.show_message(sanitize_html(e.err_msg), e.type)
 
-    def make_body_iterable(self, trans, body):
-        return base.WebApplication.make_body_iterable(self, trans, body)
+    def make_body_iterable(self, trans, body, environ, start_response):
+        return base.WebApplication.make_body_iterable(self, trans, body, environ, start_response)
 
     def transaction_chooser(self, environ, galaxy_app, session_cookie):
         return GalaxyWebTransaction(environ, galaxy_app, self, session_cookie)
