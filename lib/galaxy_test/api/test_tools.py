@@ -2,7 +2,7 @@
 import contextlib
 import json
 import os
-import tarfile
+import zipfile
 from io import BytesIO
 
 import pytest
@@ -370,8 +370,8 @@ class ToolsTestCase(ApiTestCase, TestsTools):
     def test_test_data_download_composite(self):
         test_data_response = self._get("tools/%s/test_data_download?filename=velveth_test1" % "composite_output")
         assert test_data_response.status_code == 200
-        with tarfile.open(fileobj=BytesIO(test_data_response.content)) as tar_contents:
-            namelist = tar_contents.getnames()
+        with zipfile.ZipFile(fileobj=BytesIO(test_data_response.content)) as contents:
+            namelist = contents.namelist()
             assert len(namelist) == 5
 
     def test_unzip_collection(self):
