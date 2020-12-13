@@ -89,6 +89,7 @@ cloudauthz = "==0.6.0"
 gxformat2 = "*"
 refgenconf = ">=0.7.0"
 future = "*"
+zipseeker = "*"
 
 [requires]
 python_version = "3.6"

@@ -173,7 +173,7 @@ class BatchMiddleware:
         return dict(
             status=trans.response.status,
             headers=trans.response.headers,
-            body=json.loads(unicodify(self.galaxy.make_body_iterable(trans, body)[0]))
+            body=json.loads(unicodify(self.galaxy.make_body_iterable(trans, body, environ, lambda *args: None)[0]))
         )
 
     def _default_headers(self):

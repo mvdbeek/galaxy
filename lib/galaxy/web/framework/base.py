@@ -236,20 +236,16 @@ class WebApplication:
             # Stream the file back to the browser
             return send_file(start_response, trans, body)
         else:
-            start_response(trans.response.wsgi_status(),
-                           trans.response.wsgi_headeritems())
-            return self.make_body_iterable(trans, body)
+            return self.make_body_iterable(trans, body, environ, start_response)
 
-    def make_body_iterable(self, trans, body):
+    def make_body_iterable(self, trans, body, environ, start_response):
         if isinstance(body, (types.GeneratorType, list, tuple)):
-            # Recursively stream the iterable
-            return flatten(body)
-        elif body is None:
-            # Returns an empty body
-            return []
+            # stream the iterable
+            return flatten(body, trans, start_response)
         else:
-            # Worst case scenario
-            return [smart_str(body)]
+            start_response(trans.response.wsgi_status(),
+               trans.response.wsgi_headeritems())
+            return [smart_str(body)] if body is not None else []
 
     def handle_controller_exception(self, e, trans, **kwargs):
         """
@@ -510,13 +506,12 @@ def iterate_file(fh):
         yield chunk
 
 
-def flatten(seq):
+def flatten(seq, trans, start_response):
     """
     Flatten a possible nested set of iterables
     """
+    x = next(seq)
+    start_response(trans.response.wsgi_status(), trans.response.wsgi_headeritems())
+    yield x
     for x in seq:
-        if isinstance(x, (types.GeneratorType, list, tuple)):
-            for y in flatten(x):
-                yield smart_str(y)
-        else:
-            yield smart_str(x)
+        yield smart_str(x)
