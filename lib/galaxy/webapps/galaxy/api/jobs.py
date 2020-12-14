@@ -95,7 +95,6 @@ class FastAPIJobs:
         - id: ID of job to return
         - full: Return extra information ?
         """
-        trans = self.trans
         id = trans.app.security.decode_id(id)
         job = self.job_manager.get_accessible_job(trans, id)
         return view_show_job(trans, job, full)
