@@ -300,7 +300,6 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
         trans.response.set_content_type("application/zip")
         archive_name, archive = hdcas.stream_dataset_collection(dataset_collection_instance=dataset_collection_instance)
         trans.response.headers["Content-Disposition"] = f'attachment; filename="{archive_name}"'
-        trans.response.headers["Content-Length"] = str(archive.size())
         return iter(archive)
 
     @expose_api_anonymous

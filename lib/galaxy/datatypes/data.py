@@ -301,7 +301,6 @@ class Data(metaclass=DataMeta):
         if not error:
             trans.response.set_content_type("application/zip")
             trans.response.headers["Content-Disposition"] = 'attachment; filename="%s.zip"' % outfname
-            trans.response.headers["Content-Length"] = str(archive.size())
             return iter(archive)
         return trans.show_error_message(msg)
 
