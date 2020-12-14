@@ -5,7 +5,7 @@ import logging
 import os
 import re
 
-from zipseeker import ZipSeeker
+import zipstream
 
 from galaxy import (
     exceptions,
@@ -301,8 +301,7 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
         archive_name, archive = hdcas.stream_dataset_collection(dataset_collection_instance=dataset_collection_instance)
         trans.response.headers["Content-Disposition"] = f'attachment; filename="{archive_name}"'
         trans.response.headers["Content-Length"] = str(archive.size())
-        for block in archive.blocksOffset():
-            yield block
+        return iter(archive)
 
     @expose_api_anonymous
     def create(self, trans, history_id, payload, **kwd):
@@ -1024,14 +1023,12 @@ class HistoryContentsController(BaseAPIController, UsesLibraryMixin, UsesLibrary
 
         # create the archive, add the dataset files, then stream the archive as a download
         archive_ext = 'zip'
-        archive = ZipSeeker()
+        archive = zipstream.ZipFile(allowZip64=True)
 
         for file_path, archive_path in paths_and_files:
-            archive.add(file_path, archive_path)
+            archive.write(file_path, archive_path)
 
         archive_name = '.'.join((archive_base_name, archive_ext))
         trans.response.set_content_type("application/zip")
         trans.response.headers["Content-Disposition"] = f'attachment; filename="{archive_name}"'
-        trans.response.headers["Content-Length"] = str(archive.size())
-        for block in archive.blocksOffset():
-            yield block
+        return iter(archive)

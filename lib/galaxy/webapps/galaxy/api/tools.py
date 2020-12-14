@@ -2,7 +2,7 @@ import logging
 import os
 from json import dumps, loads
 
-from zipseeker import ZipSeeker
+import zipstream
 
 from galaxy import exceptions, managers, util, web
 from galaxy.managers.collections_util import dictify_dataset_collection_instance
@@ -157,13 +157,12 @@ class ToolsController(BaseAPIController, UsesVisualizationMixin):
                 trans.response.headers["Content-Disposition"] = f'attachment; filename="{filename}"'
                 return open(path, mode='rb')
             elif os.path.isdir(path):
-                archive = ZipSeeker()
-                archive.add(path)
+                archive = zipstream.ZipFile(allowZip64=True)
+                for rel_path in os.listdir(path):
+                    archive.write(os.path.join(path, rel_path), rel_path)
                 trans.response.set_content_type("application/zip")
                 trans.response.headers["Content-Disposition"] = f'attachment; filename="{filename}.zip"'
-                trans.response.headers["Content-Length"] = str(archive.size())
-                for block in archive.blocksOffset():
-                    yield block
+                return iter(archive)
         raise exceptions.ObjectNotFound("Specified test data path not found.")
 
     @expose_api_anonymous_and_sessionless

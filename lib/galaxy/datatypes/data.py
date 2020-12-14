@@ -9,8 +9,8 @@ from collections import OrderedDict
 from inspect import isclass
 
 import webob.exc
+import zipstream
 from markupsafe import escape
-from zipseeker import ZipSeeker
 
 from galaxy import util
 from galaxy.datatypes.metadata import MetadataElement  # import directly to maintain ease of use in Datatype class definitions
@@ -263,7 +263,7 @@ class Data(metaclass=DataMeta):
         error, msg, messagetype = False, "", ""
         archname = '%s.html' % display_name  # fake the real nature of the html file
         try:
-            archive.add(data_filename, archname)
+            archive.write(data_filename, archname)
         except OSError:
             error = True
             log.exception("Unable to add composite parent %s to temporary library download archive", data_filename)
@@ -275,7 +275,7 @@ class Data(metaclass=DataMeta):
         # save a composite object into a compressed archive for downloading
         outfname = data.name[0:150]
         outfname = ''.join(c in FILENAME_VALID_CHARS and c or '_' for c in outfname)
-        archive = ZipSeeker()
+        archive = zipstream.ZipFile(allowZip64=True)
         error = False
         msg = ''
         ext = data.extension
@@ -292,7 +292,7 @@ class Data(metaclass=DataMeta):
             # Add any child files to the archive,
             for fpath, rpath in self.__archive_extra_files_path(extra_files_path=efp):
                 try:
-                    archive.add(fpath, rpath)
+                    archive.write(fpath, rpath)
                 except OSError:
                     error = True
                     log.exception("Unable to add %s to temporary library download archive", rpath)
@@ -302,8 +302,7 @@ class Data(metaclass=DataMeta):
             trans.response.set_content_type("application/zip")
             trans.response.headers["Content-Disposition"] = 'attachment; filename="%s.zip"' % outfname
             trans.response.headers["Content-Length"] = str(archive.size())
-            for block in archive.blocksOffset():
-                yield block
+            return iter(archive)
         return trans.show_error_message(msg)
 
     def __archive_extra_files_path(self, extra_files_path):

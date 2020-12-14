@@ -512,6 +512,6 @@ def flatten(seq, trans, start_response):
     """
     x = next(seq)
     start_response(trans.response.wsgi_status(), trans.response.wsgi_headeritems())
-    yield x
+    yield smart_str(x)
     for x in seq:
         yield smart_str(x)

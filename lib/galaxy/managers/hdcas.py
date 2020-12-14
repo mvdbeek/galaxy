@@ -6,7 +6,7 @@ history.
 """
 import logging
 
-from zipseeker import ZipSeeker
+import zipstream
 
 from galaxy import model
 from galaxy.managers import (
@@ -23,13 +23,13 @@ log = logging.getLogger(__name__)
 
 
 def stream_dataset_collection(dataset_collection_instance):
-    archive = ZipSeeker()
+    archive = zipstream.ZipFile(allowZip64=True)
     names, hdas = get_hda_and_element_identifiers(dataset_collection_instance)
     for name, hda in zip(names, hdas):
         if hda.state != hda.states.OK:
             continue
         for file_path, relpath in hda.datatype.to_archive(dataset=hda, name=name):
-            archive.add(path=file_path, zipname=relpath)
+            archive.write(file_path, relpath)
 
     return f"{dataset_collection_instance.hid}: {dataset_collection_instance.name}.zip", archive
 

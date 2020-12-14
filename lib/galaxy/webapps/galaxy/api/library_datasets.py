@@ -6,8 +6,8 @@ import os.path
 import string
 from json import dumps
 
+import zipstream
 from paste.httpexceptions import HTTPBadRequest, HTTPInternalServerError
-from zipseeker import ZipSeeker
 
 from galaxy import (
     exceptions,
@@ -583,7 +583,7 @@ class LibraryDatasetsController(BaseAPIController, UsesVisualizationMixin, Libra
             raise exceptions.RequestParameterMissingException('Request has to contain a list of dataset ids or folder ids to download.')
 
         if archive_format == 'zip':
-            archive = ZipSeeker()
+            archive = zipstream.ZipFile(allowZip64=True)
             # error = False
             killme = string.punctuation + string.whitespace
             trantab = str.maketrans(killme, '_' * len(killme))
@@ -614,9 +614,9 @@ class LibraryDatasetsController(BaseAPIController, UsesVisualizationMixin, Libra
                         zpath = '%s.html' % zpath  # fake the real nature of the html file
                     try:
                         if archive_format == 'zip':
-                            archive.add(ldda.dataset.file_name, zpath)  # add the primary of a composite set
+                            archive.write(ldda.dataset.file_name, zpath)  # add the primary of a composite set
                         else:
-                            archive.add(ldda.dataset.file_name, zpath, check_file=True)  # add the primary of a composite set
+                            archive.write(ldda.dataset.file_name, zpath)  # add the primary of a composite set
                     except OSError:
                         log.exception("Unable to add composite parent %s to temporary library download archive", ldda.dataset.file_name)
                         raise exceptions.InternalServerError("Unable to create archive for download.")
@@ -633,7 +633,7 @@ class LibraryDatasetsController(BaseAPIController, UsesVisualizationMixin, Libra
                         if fname > '':
                             fname = fname.translate(trantab)
                         try:
-                            archive.add(fpath, fname)
+                            archive.write(fpath, fname)
                         except OSError:
                             log.exception("Unable to add %s to temporary library download archive %s", fname, outfname)
                             raise exceptions.InternalServerError("Unable to create archive for download.")
@@ -645,7 +645,7 @@ class LibraryDatasetsController(BaseAPIController, UsesVisualizationMixin, Libra
                             raise exceptions.InternalServerError("Unable to add dataset to temporary library download archive . " + util.unicodify(e))
                 else:
                     try:
-                        archive.add(ldda.dataset.file_name, path)
+                        archive.write(ldda.dataset.file_name, path)
                     except OSError:
                         log.exception("Unable to write %s to temporary library download archive", ldda.dataset.file_name)
                         raise exceptions.InternalServerError("Unable to create archive for download")
@@ -659,9 +659,7 @@ class LibraryDatasetsController(BaseAPIController, UsesVisualizationMixin, Libra
             fname = lname.replace(' ', '_') + '_files'
             trans.response.set_content_type("application/zip")
             trans.response.headers["Content-Disposition"] = f'attachment; filename="{fname}.zip"'
-            trans.response.headers["Content-Length"] = str(archive.size())
-            for block in archive.blocksOffset():
-                yield block
+            return iter(archive)
         elif archive_format == 'uncompressed':
             if len(library_datasets) != 1:
                 raise exceptions.RequestParameterInvalidException("You can download only one uncompressed file at once.")

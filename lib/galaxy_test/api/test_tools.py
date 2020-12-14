@@ -370,7 +370,7 @@ class ToolsTestCase(ApiTestCase, TestsTools):
     def test_test_data_download_composite(self):
         test_data_response = self._get("tools/%s/test_data_download?filename=velveth_test1" % "composite_output")
         assert test_data_response.status_code == 200
-        with zipfile.ZipFile(fileobj=BytesIO(test_data_response.content)) as contents:
+        with zipfile.ZipFile(BytesIO(test_data_response.content)) as contents:
             namelist = contents.namelist()
             assert len(namelist) == 5
 
