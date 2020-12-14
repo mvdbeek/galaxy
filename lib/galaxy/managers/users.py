@@ -248,7 +248,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
             raise exceptions.AuthenticationFailed('User account is deactivated, please contact an administrator.')
         newest_key = provided_key.user.api_keys[0]
         if newest_key.key != provided_key.key:
-            raise exceptions.AuthenticationFailed('Provided API key has expired.')
+            raise exceptions.AuthenticationFailed(f'Provided API key {provided_key.key} has expired. New api key is {newest_key.key}')
         return provided_key.user
 
     def check_master_api_key(self, api_key):
