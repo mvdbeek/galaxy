@@ -2,6 +2,12 @@
 import Vue from "vue";
 import axios from "axios";
 import { prependPath } from "utils/redirect";
+import { cacheContent } from "../caching";
+
+import { of } from "rxjs";
+import { map } from "rxjs/operators";
+import { monitorQuery } from "../caching/db/monitorQuery";
+import { content$ } from "../caching/db/observables";
 
 var SimpleProviderMixin = {
     props: {
@@ -29,6 +35,46 @@ var SimpleProviderMixin = {
             const result = await axios.get(this.url);
             this.item = result.data;
             this.loading = false;
+            const cachedContent = await cacheContent(result.data);
+            console.log(this.item.id);
+            console.log(cachedContent);
+            const item_id = this.item.id;
+            const selector = { id: item_id };
+            const monitor$ = of({selector}).pipe(
+                monitorQuery({db$: content$}),
+                map((update) => {
+                    console.log(update);
+                    const { initialMatches = [], doc = null, deleted } = update;
+                    if (deleted) {
+                        return null;
+                    }
+                    let updatedDoc = doc;
+                    if (initialMatches.length == 1) {
+                        updatedDoc = initialMatches[0];
+                    }
+                    return updatedDoc;
+                }),
+            );
+            this.$subscribeTo(monitor$, (doc) => {
+                console.log(doc);
+                if (doc) {
+                    this.item = doc;
+                }
+            });
+            await new Promise(r => setTimeout(r, 2000));
+            const new_item = {...this.item};
+            new_item.name = '123 hey';
+            console.log('Updating now');
+            await cacheContent(new_item);
+            // monitor$.subscribe({
+            //     next: result => {
+            //         console.log(result);
+            //         if (result) {
+            //             this.item = result;
+            //         }
+            //     }
+            // });
+
         },
         async save(newProps) {
             this.loading = true;
