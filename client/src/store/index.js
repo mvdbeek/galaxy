@@ -58,6 +58,7 @@ export function createStore() {
             store.dispatch("config/$init", { store });
             store.dispatch("user/$init", { store });
             store.dispatch("betaHistory/$init", { store });
+            store.dispatch("datasets/$init", { store });
         });
     }
 
