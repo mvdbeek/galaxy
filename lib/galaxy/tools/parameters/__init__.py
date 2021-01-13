@@ -246,10 +246,7 @@ def visit_input_values(inputs, input_values, callback, name_prefix='', label_pre
         elif isinstance(input, Conditional):
             values = input_values[input.name] = input_values.get(input.name, {})
             new_name_prefix = name_prefix + input.name + '|'
-            if profile < packaging.version.parse("21.01"):
-                parent_prefix = name_prefix
-            else:
-                parent_prefix = new_name_prefix
+            parent_prefix = new_name_prefix
             case_error = None if get_current_case(input, values) >= 0 else 'The selected case is unavailable/invalid.'
             callback_helper(input.test_param, values, new_name_prefix, label_prefix, parent_prefix=parent_prefix, context=context, error=case_error)
             values['__current_case__'] = get_current_case(input, values)
@@ -258,10 +255,7 @@ def visit_input_values(inputs, input_values, callback, name_prefix='', label_pre
         elif isinstance(input, Section):
             values = input_values[input.name] = input_values.get(input.name, {})
             new_name_prefix = name_prefix + input.name + '|'
-            if profile < packaging.version.parse("21.01"):
-                parent_prefix = name_prefix
-            else:
-                parent_prefix = new_name_prefix
+            parent_prefix = new_name_prefix
             visit_input_values(input.inputs, values, callback, new_name_prefix, label_prefix, parent_prefix=parent_prefix, profile=profile, **payload)
         else:
             callback_helper(input, input_values, name_prefix, label_prefix, parent_prefix=parent_prefix, context=context)

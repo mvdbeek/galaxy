@@ -273,7 +273,13 @@ class ToolEvaluator:
         #   tool?: can this be abstracted out as part of being a datasouce tool?)
         # For now we try to not wrap unnecessarily, but this should be untangled at some point.
         for name, data in input_datasets.items():
-            param_dict_value = param_dict.get(name, None)
+            param_dict_value = param_dict.get(name)
+            if param_dict_value is None:
+                _param_dict_value = param_dict
+                for fragment in name.split('|'):
+                    _param_dict_value = _param_dict_value.get(fragment, {})
+                if _param_dict_value and _param_dict_value is not param_dict:
+                    param_dict_value = _param_dict_value
             if data and param_dict_value is None:
                 # We may have a nested parameter that is not fully prefixed.
                 # We try recovering from param_dict, but tool authors should really use fully-qualified
@@ -432,7 +438,18 @@ class ToolEvaluator:
                     # Remove key so that new wrapped object will occupy key slot
                     del param_dict[key]
                     # And replace with new wrapped key
-                    param_dict[wrap_with_safe_string(key, no_wrap_classes=ToolParameterValueWrapper)] = wrap_with_safe_string(value, no_wrap_classes=ToolParameterValueWrapper)
+                    wrapped_value = wrap_with_safe_string(value, no_wrap_classes=ToolParameterValueWrapper)
+                    # add fallback for tools < 21.01
+                    if self.tool.profile < 21.01:
+                        key_fragments = key.split('|')
+                        for i in range(1, len(key_fragments)):
+                            key_fragment = "|".join(key_fragments[(i):])
+                            wrapped_key = wrap_with_safe_string(key_fragment, no_wrap_classes=ToolParameterValueWrapper)
+                            if wrapped_key not in param_dict:
+                                param_dict[wrapped_key] = wrapped_value
+                            else:
+                                param_dict[wrapped_key] = wrapped_value
+                    param_dict[wrap_with_safe_string(key, no_wrap_classes=ToolParameterValueWrapper)] = wrapped_value
 
     def build(self):
         """

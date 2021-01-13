@@ -1,4 +1,4 @@
-<tool id="mapper2" name="mapper2" version="0.1.0">
+<tool id="mapper2" name="mapper2" version="0.1.0" profile="21.01">
     <command><![CDATA[
 cp '$__tool_directory__/1.bam' '$out_file1'
     ]]></command>
