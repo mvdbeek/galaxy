@@ -44,6 +44,8 @@ jobs:
         if: matrix.subset == 'kubernetes'
         run: |
           kubectl get pods
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - uses: actions/checkout@v2
         with:
           path: 'galaxy root'
@@ -62,8 +64,6 @@ jobs:
       - name: Run tests
         run: './run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}" || true'
         working-directory: 'galaxy root'
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - uses: actions/upload-artifact@v2
         if: failure()
         with:
