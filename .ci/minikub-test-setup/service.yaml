@@ -1,13 +1,15 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: postgres-service
+  name: testing-service
   labels:
-    app: postgres
+    app: testing
 spec:
   ports:
   - port: 5432
     name: postgres
+  - port: 5672
+    name: rabbitmq
   type: NodePort 
   selector:
-    app: postgres
+    app: testing
