@@ -2,7 +2,7 @@
 set -ex
 
 kubectl create -f configMap.yaml
-kubectl create -f stateFule.yaml
+kubectl create -f statefulSet.yaml
 kubectl create -f service.yaml
 minikube service postgres-service --url=true
 
