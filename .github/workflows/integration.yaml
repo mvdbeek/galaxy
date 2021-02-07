@@ -44,8 +44,6 @@ jobs:
         if: matrix.subset == 'kubernetes'
         run: |
           kubectl get pods
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - uses: actions/checkout@v2
         with:
           path: 'galaxy root'
@@ -61,6 +59,8 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install ffmpeg -y
         if: matrix.subset == 'upload_datatype'
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
       - name: Run tests
         run: './run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}" || true'
         working-directory: 'galaxy root'
