@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -ex
 
-SCRIPTDIR="$(dirname "${0}")"
+SCRIPTDIR=$(dirname "${BASH_SOURCE[0]}")
 kubectl apply -f "$SCRIPTDIR/deployment.yaml"
 kubectl expose deployment testing --type=LoadBalancer --name=testing-service
 
