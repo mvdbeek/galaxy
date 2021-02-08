@@ -1,7 +1,7 @@
 name: Integration
 on: [push, pull_request]
 env:
-  GALAXY_TEST_DBURI: 'postgres://postgres:postgres@localhost:5435/galaxy?client_encoding=utf8'
+  GALAXY_TEST_DBURI: 'postgres://postgres:postgres@localhost:5432/galaxy?client_encoding=utf8'
   GALAXY_TEST_AMQP_URL: 'amqp://localhost:5672//'
 jobs:
   test:
@@ -20,7 +20,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: postgres
         ports:
-          - 5435:5435
+          - 5432:5432
       rabbitmq:
         image: rabbitmq
         ports:
@@ -62,7 +62,12 @@ jobs:
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
       - name: Run tests
-        run: './run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}" || true'
+        if: matrix.subset != 'kubernetes'
+        run: './run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}"'
+        working-directory: 'galaxy root'
+      - name: Run tests
+        if: matrix.subset == 'kubernetes'
+        run: 'source .ci/minikube-test-setup/start_services.sh && ./run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}"'
         working-directory: 'galaxy root'
       - uses: actions/upload-artifact@v2
         if: failure()
