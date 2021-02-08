@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/name: testing
   name: testing
 spec:
-  replicas: 0
+  replicas: 1
   selector:
     matchLabels:
       app.kubernetes.io/name: test
