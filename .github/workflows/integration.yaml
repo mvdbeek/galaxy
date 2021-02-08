@@ -59,8 +59,6 @@ jobs:
       - name: Install ffmpeg
         run: sudo apt-get update && sudo apt-get install ffmpeg -y
         if: matrix.subset == 'upload_datatype'
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
       - name: Run tests
         if: matrix.subset != 'kubernetes'
         run: './run_tests.sh -integration test/integration -- -k "${{ matrix.subset }}"'
