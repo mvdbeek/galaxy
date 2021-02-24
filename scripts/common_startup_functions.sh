@@ -103,6 +103,9 @@ setup_python() {
         [ -n "$PYTHONPATH" ] && { echo 'Unsetting $PYTHONPATH'; unset PYTHONPATH; }
         echo "Activating virtualenv at $GALAXY_VIRTUAL_ENV"
         . "$GALAXY_VIRTUAL_ENV/bin/activate"
+        if [ -n "$ZSH_VERSION" ]; then
+            rehash
+        fi
     elif [ -z "$skip_venv" ]; then
         set_conda_exe
         if [ -n "$CONDA_EXE" ] && \
