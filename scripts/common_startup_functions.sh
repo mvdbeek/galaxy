@@ -103,6 +103,7 @@ setup_python() {
         [ -n "$PYTHONPATH" ] && { echo 'Unsetting $PYTHONPATH'; unset PYTHONPATH; }
         echo "Activating virtualenv at $GALAXY_VIRTUAL_ENV"
         . "$GALAXY_VIRTUAL_ENV/bin/activate"
+        echo "VIRTUAL_ENV is $VIRTUAL_ENV"
         if [ -n "$ZSH_VERSION" ]; then
             rehash
             echo "VIRTUAL_ENV is $VIRTUAL_ENV"
