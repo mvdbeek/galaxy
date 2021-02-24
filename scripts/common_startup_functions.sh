@@ -105,6 +105,7 @@ setup_python() {
         . "$GALAXY_VIRTUAL_ENV/bin/activate"
         if [ -n "$ZSH_VERSION" ]; then
             rehash
+            echo "VIRTUAL_ENV is $VIRTUAL_ENV"
         fi
     elif [ -z "$skip_venv" ]; then
         set_conda_exe
