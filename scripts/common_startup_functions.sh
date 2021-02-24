@@ -104,6 +104,7 @@ setup_python() {
         echo "Activating virtualenv at $GALAXY_VIRTUAL_ENV"
         . "$GALAXY_VIRTUAL_ENV/bin/activate"
         echo "VIRTUAL_ENV is $VIRTUAL_ENV"
+        echo "PATH is $PATH"
         if [ -n "$ZSH_VERSION" ]; then
             rehash
             echo "VIRTUAL_ENV is $VIRTUAL_ENV"
