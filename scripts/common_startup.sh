@@ -198,7 +198,7 @@ fi
 [ "$CI" = 'true' ] && export PIP_PROGRESS_BAR=off
 
 if [ $FETCH_WHEELS -eq 1 ]; then
-    pip install $requirement_args --index-url "${GALAXY_WHEELS_INDEX_URL}" --extra-index-url "${PYPI_INDEX_URL}"
+    python -m pip install $requirement_args --index-url "${GALAXY_WHEELS_INDEX_URL}" --extra-index-url "${PYPI_INDEX_URL}"
     GALAXY_CONDITIONAL_DEPENDENCIES=$(PYTHONPATH=lib python -c "from __future__ import print_function; import galaxy.dependencies; print('\n'.join(galaxy.dependencies.optional('$GALAXY_CONFIG_FILE')))")
     if [ -n "$GALAXY_CONDITIONAL_DEPENDENCIES" ]; then
         if pip list --format=columns | grep "psycopg2[\(\ ]*2.7.3" > /dev/null; then
