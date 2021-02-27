@@ -1371,7 +1371,7 @@ class BaseDatasetCollectionPopulator:
 
     def wait_for_fetched_collection(self, fetch_response):
         self.dataset_populator.wait_for_job(fetch_response["jobs"][0]["id"], assert_ok=True)
-        initial_dataset_collection = fetch_response["outputs"][0]
+        initial_dataset_collection = fetch_response["output_collections"][0]
         dataset_collection = self.dataset_populator.get_history_collection_details(initial_dataset_collection["history_id"], hid=initial_dataset_collection["hid"])
         return dataset_collection
 
@@ -1506,7 +1506,7 @@ def load_data_dict(history_id, test_data, dataset_populator, dataset_collection_
                 fetch_response = dataset_collection_populator.create_list_in_history(history_id, contents=elements, direct_upload=True, **new_collection_kwds).json()
             else:
                 fetch_response = dataset_collection_populator.create_pair_in_history(history_id, contents=elements or None, direct_upload=True, **new_collection_kwds).json()
-            hdca_output = fetch_response["outputs"][0]
+            hdca_output = fetch_response["output_collections"][0]
             hdca = dataset_populator.ds_entry(hdca_output)
             hdca["hid"] = hdca_output["hid"]
             label_map[key] = hdca

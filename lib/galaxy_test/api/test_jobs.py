@@ -739,7 +739,7 @@ class JobsApiTestCase(ApiTestCase, TestsTools):
         elif collection_type == 'list:pair':
             fetch_response = self.dataset_collection_populator.create_list_of_pairs_in_history(history_id).json()
         self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
-        return fetch_response["outputs"][0]['id']
+        return fetch_response["output_collections"][0]['id']
 
     def __jobs_index(self, **kwds):
         jobs_response = self._get("jobs", **kwds)

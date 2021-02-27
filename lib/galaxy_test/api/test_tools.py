@@ -48,7 +48,7 @@ class TestsTools:
 
     def _build_pair(self, history_id, contents):
         create_response = self.dataset_collection_populator.create_pair_in_history(history_id, contents=contents, direct_upload=True)
-        hdca_id = create_response.json()["outputs"][0]["id"]
+        hdca_id = create_response.json()["output_collections"][0]["id"]
         return hdca_id
 
     def _run_and_check_simple_collection_mapping(self, history_id, inputs):
@@ -2192,7 +2192,7 @@ class ToolsTestCase(ApiTestCase, TestsTools):
                 }
             ])
             self._assert_status_code_is(response, 200)
-            hdca_id = response.json()["outputs"][0]["id"]
+            hdca_id = response.json()["output_collections"][0]["id"]
             inputs = {
                 "input1": {'src': 'hdca', 'id': hdca_id},
                 "col": param,
@@ -2460,7 +2460,7 @@ class ToolsTestCase(ApiTestCase, TestsTools):
             }
         ])
         self._assert_status_code_is(response, 200)
-        hdca_list_id = response.json()["outputs"][0]["id"]
+        hdca_list_id = response.json()["output_collections"][0]["id"]
         return hdca_list_id
 
     def __build_nested_list(self, history_id):
@@ -2481,12 +2481,12 @@ class ToolsTestCase(ApiTestCase, TestsTools):
             }
         ])
         self._assert_status_code_is(response, 200)
-        hdca_list_id = response.json()["outputs"][0]["id"]
+        hdca_list_id = response.json()["output_collections"][0]["id"]
         return hdca_list_id
 
     def _build_pair(self, history_id, contents):
         create_response = self.dataset_collection_populator.create_pair_in_history(history_id, contents=contents, direct_upload=True)
-        hdca_id = create_response.json()["outputs"][0]["id"]
+        hdca_id = create_response.json()["output_collections"][0]["id"]
         return hdca_id
 
     def _assert_dataset_permission_denied_response(self, response):
