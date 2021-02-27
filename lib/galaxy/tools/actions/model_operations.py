@@ -2,6 +2,7 @@ import logging
 
 from galaxy.tools.actions import (
     DefaultToolAction,
+    ExecutionResult,
     OutputCollections,
     ToolExecutionCache,
 )
@@ -69,7 +70,7 @@ class ModelOperationToolAction(DefaultToolAction):
         # trans.app.job_manager.job_queue.put( job.id, tool.id )
         # trans.log_event( "Added database job action to the job queue, id: %s" % str(job.id), tool_id=job.tool_id )
         log.info("Calling produce_outputs, tool is %s" % tool)
-        return job, out_data, history
+        return ExecutionResult(job=job, out_data=out_data, out_collections=output_collections.out_collection_instances, history=history)
 
     def _produce_outputs(self, trans, tool, out_data, output_collections, incoming, history, tags):
         tag_handler = trans.app.tag_handler.create_tag_handler_session()

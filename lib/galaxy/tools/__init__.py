@@ -1646,7 +1646,7 @@ class Tool(Dictifiable):
         resulting output data or an error message indicating the problem.
         """
         try:
-            rval = self.execute(
+            execution_result = self.execute(
                 trans,
                 incoming=execution_slice.param_combination,
                 history=history,
@@ -1658,27 +1658,16 @@ class Tool(Dictifiable):
                 job_callback=job_callback,
                 flush_job=flush_job,
             )
-            job = rval[0]
-            out_data = rval[1]
-            if len(rval) > 2:
-                execution_slice.history = rval[2]
+            execution_slice.history = execution_result.history
+            return execution_result
         except (webob.exc.HTTPFound, exceptions.MessageException) as e:
             # if it's a webob redirect exception, pass it up the stack
             raise e
         except ToolInputsNotReadyException as e:
-            return False, e
+            return unicodify(e)
         except Exception as e:
             log.exception("Exception caught while attempting to execute tool with id '%s':", self.id)
-            message = "Error executing tool with id '{}': {}".format(self.id, unicodify(e))
-            return False, message
-        if isinstance(out_data, dict):
-            return job, list(out_data.items())
-        else:
-            if isinstance(out_data, str):
-                message = out_data
-            else:
-                message = "Failure executing tool with id '%s' (invalid data returned from tool execution)" % self.id
-            return False, message
+            return unicodify(e)
 
     def find_fieldstorage(self, x):
         if isinstance(x, cgi_FieldStorage):

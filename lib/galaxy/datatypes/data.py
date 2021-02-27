@@ -637,7 +637,7 @@ class Data(metaclass=DataMeta):
         params[input_name] = original_dataset
 
         # Run converter, job is dispatched through Queue
-        converted_dataset = converter.execute(trans, incoming=params, set_output_hid=visible, history=history)[1]
+        converted_dataset = converter.execute(trans, incoming=params, set_output_hid=visible, history=history).out_data
         if len(params) > 0:
             trans.log_event("Converter params: %s" % (str(params)), tool_id=converter.id)
         if not visible:

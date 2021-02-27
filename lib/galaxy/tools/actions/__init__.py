@@ -3,7 +3,10 @@ import logging
 import os
 import re
 from json import dumps
-
+from typing import (
+    Dict,
+    NamedTuple,
+)
 
 from galaxy import model
 from galaxy.exceptions import ItemAccessibilityException
@@ -19,6 +22,16 @@ from galaxy.util.template import fill_template
 from galaxy.web import url_for
 
 log = logging.getLogger(__name__)
+
+
+class ExecutionResult(NamedTuple):
+    """
+    Holds objects created or used by creating a single job.
+    """
+    job: model.Job
+    out_data: Dict = {}
+    out_collections: Dict = {}
+    history: model.History = None
 
 
 class ToolExecutionCache:
@@ -603,8 +616,7 @@ class DefaultToolAction:
                 # Dispatch to a job handler. enqueue() is responsible for flushing the job
                 app.job_manager.enqueue(job, tool=tool)
                 trans.log_event("Added job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
-            out_data.update(output_collections.out_collection_instances)
-            return job, out_data, history
+            return ExecutionResult(job, out_data=out_data, out_collections=output_collections.out_collection_instances, history=history)
 
     def _remap_job_on_rerun(self, trans, galaxy_session, rerun_remap_job_id, current_job, out_data):
         """

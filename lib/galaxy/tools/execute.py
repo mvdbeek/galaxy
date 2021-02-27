@@ -65,12 +65,13 @@ def execute(trans, tool, mapping_params, history, rerun_remap_job_id=None, colle
             del params['__workflow_resource_params__']
         if validate_outputs:
             params['__validate_outputs__'] = True
-        job, result = tool.handle_single_execution(trans, rerun_remap_job_id, execution_slice, history, execution_cache, completed_job, collection_info, job_callback=job_callback, flush_job=False)
+        execution_result = tool.handle_single_execution(trans, rerun_remap_job_id, execution_slice, history, execution_cache, completed_job, collection_info, job_callback=job_callback, flush_job=False)
+        job = getattr(execution_result, 'job', None)
         if job:
-            log.debug(job_timer.to_str(tool_id=tool.id, job_id=job.id))
-            execution_tracker.record_success(execution_slice, job, result)
+            log.debug(job_timer.to_str(tool_id=tool.id, job_id=execution_result.job.id))
+            execution_tracker.record_success(execution_slice, execution_result)
         else:
-            execution_tracker.record_error(result)
+            execution_tracker.record_error(execution_error=execution_result)
 
     tool_action = tool.tool_action
     if hasattr(tool_action, "check_inputs_ready"):
@@ -172,11 +173,11 @@ class ExecutionTracker:
     def job_count(self):
         return len(self.param_combinations)
 
-    def record_error(self, error):
+    def record_error(self, execution_error):
         self.failed_jobs += 1
         message = "There was a failure executing a job for tool [%s] - %s"
-        log.warning(message, self.tool.id, error)
-        self.execution_errors.append(error)
+        log.warning(message, self.tool.id, execution_error)
+        self.execution_errors.append(execution_error)
 
     @property
     def on_text(self):
@@ -360,23 +361,22 @@ class ExecutionTracker:
         else:
             yield from self.new_collection_execution_slices()
 
-    def record_success(self, execution_slice, job, outputs):
+    def record_success(self, execution_slice, execution_result):
         # TODO: successful_jobs need to be inserted in the correct place...
-        self.successful_jobs.append(job)
-        self.output_datasets.extend(outputs)
-        for job_output in job.output_dataset_collection_instances:
-            self.output_collections.append((job_output.name, job_output.dataset_collection_instance))
+        self.successful_jobs.append(execution_result.job)
+        self.output_datasets.extend(execution_result.out_data.items())
+        self.output_collections.extend(execution_result.out_collections.items())
         if self.implicit_collections:
             implicit_collection_jobs = None
             for output_name, collection_instance in self.implicit_collections.items():
-                job.add_output_dataset_collection(output_name, collection_instance)
+                execution_result.job.add_output_dataset_collection(output_name, collection_instance)
                 if implicit_collection_jobs is None:
                     implicit_collection_jobs = collection_instance.implicit_collection_jobs
 
             job_assoc = model.ImplicitCollectionJobsJobAssociation()
             job_assoc.order_index = execution_slice.job_index
             job_assoc.implicit_collection_jobs = implicit_collection_jobs
-            job_assoc.job = job
+            job_assoc.job = execution_result.job
             self.trans.sa_session.add(job_assoc)
 
 
@@ -392,15 +392,15 @@ class ToolExecutionTracker(ExecutionTracker):
         # it.
         self.outputs_by_output_name = collections.defaultdict(list)
 
-    def record_success(self, execution_slice, job, outputs):
-        super().record_success(execution_slice, job, outputs)
-        for output_name, output_dataset in outputs:
+    def record_success(self, execution_slice, execution_results):
+        super().record_success(execution_slice, execution_results)
+        for output_name, output_dataset in execution_results.out_data.items():
             if ToolOutputCollectionPart.is_named_collection_part_name(output_name):
                 # Skip known collection outputs, these will be covered by
                 # output collections.
                 continue
             self.outputs_by_output_name[output_name].append(output_dataset)
-        for job_output in job.output_dataset_collections:
+        for job_output in execution_results.job.output_dataset_collections:
             self.outputs_by_output_name[job_output.name].append(job_output.dataset_collection)
 
     def new_collection_execution_slices(self):
@@ -419,12 +419,10 @@ class WorkflowStepExecutionTracker(ExecutionTracker):
         super().__init__(trans, tool, mapping_params, collection_info, completed_jobs=completed_jobs)
         self.invocation_step = invocation_step
 
-    def record_success(self, execution_slice, job, outputs):
-        super().record_success(execution_slice, job, outputs)
+    def record_success(self, execution_slice, execution_results):
+        super().record_success(execution_slice, execution_results)
         if not self.collection_info:
-            for output_name, output in outputs:
-                self.invocation_step.add_output(output_name, output)
-            self.invocation_step.job = job
+            self.invocation_step.job = execution_results.job
 
     def new_collection_execution_slices(self):
         for job_index, (param_combination, dataset_collection_elements) in enumerate(zip(self.param_combinations, self.walk_implicit_collections())):

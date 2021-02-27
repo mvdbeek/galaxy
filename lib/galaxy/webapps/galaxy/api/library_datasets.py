@@ -519,10 +519,10 @@ class LibraryDatasetsController(BaseAPIController, UsesVisualizationMixin, Libra
         job_params = {}
         job_params['link_data_only'] = dumps(kwd.get('link_data_only', 'copy_files'))
         job_params['uuid'] = dumps(kwd.get('uuid', None))
-        job, output = upload_common.create_job(trans, tool_params, tool, json_file_path, data_list, folder=folder, job_params=job_params)
-        trans.sa_session.add(job)
+        execution_result = upload_common.create_job(trans, tool_params, tool, json_file_path, data_list, folder=folder, job_params=job_params)
+        trans.sa_session.add(execution_result.job)
         trans.sa_session.flush()
-        job_dict = job.to_dict()
+        job_dict = execution_result.job.to_dict()
         job_dict['id'] = trans.security.encode_id(job_dict['id'])
         return job_dict
 

@@ -18,6 +18,7 @@ from galaxy.exceptions import (
 from galaxy.model import tags
 from galaxy.util import unicodify
 from galaxy.util.path import external_chown
+from . import ExecutionResult
 
 log = logging.getLogger(__name__)
 
@@ -417,12 +418,16 @@ def create_job(trans, params, tool, json_file_path, outputs, folder=None, histor
         job.add_parameter(name, value)
     job.add_parameter('paramfile', dumps(json_file_path))
     object_store_id = None
+    out_data = {}
+    out_collections = {}
     for i, output_object in enumerate(outputs):
         output_name = "output%i" % i
         if hasattr(output_object, "collection"):
+            out_collections[output_name] = output_object
             job.add_output_dataset_collection(output_name, output_object)
             output_object.job = job
         else:
+            out_data[output_name] = output_object
             dataset = output_object
             if folder:
                 job.add_output_library_dataset(output_name, dataset)
@@ -441,11 +446,7 @@ def create_job(trans, params, tool, json_file_path, outputs, folder=None, histor
     # Queue the job for execution
     trans.app.job_manager.enqueue(job, tool=tool)
     trans.log_event("Added job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
-    output = {}
-    for i, v in enumerate(outputs):
-        if not hasattr(output_object, "collection_type"):
-            output['output%i' % i] = v
-    return job, output
+    return ExecutionResult(job, out_data=out_data, out_collections=out_collections)
 
 
 def active_folders(trans, folder):

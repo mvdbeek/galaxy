@@ -10,6 +10,7 @@ from galaxy.tools.imp_exp import (
     JobImportHistoryArchiveWrapper
 )
 from galaxy.util import ready_name_for_url
+from . import ExecutionResult
 
 log = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class ImportHistoryToolAction(ToolAction):
         trans.app.job_manager.enqueue(job, tool=tool)
         trans.log_event("Added import history job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
 
-        return job, {}
+        return ExecutionResult(job=job)
 
 
 class ExportHistoryToolAction(ToolAction):
@@ -172,4 +173,4 @@ class ExportHistoryToolAction(ToolAction):
         trans.app.job_manager.enqueue(job, tool=tool)
         trans.log_event("Added export history job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
 
-        return job, {}
+        return ExecutionResult(job)

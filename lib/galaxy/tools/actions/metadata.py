@@ -5,7 +5,10 @@ from json import dumps
 from galaxy.job_execution.datasets import DatasetPath
 from galaxy.metadata import get_metadata_compute_strategy
 from galaxy.util import asbool
-from . import ToolAction
+from . import (
+    ExecutionResult,
+    ToolAction,
+)
 
 log = logging.getLogger(__name__)
 
@@ -22,13 +25,12 @@ class SetMetadataToolAction(ToolAction):
         session = trans.get_galaxy_session()
         session_id = session and session.id
         history_id = trans.history and trans.history.id
-        incoming = incoming or {}
-        job, odict = self.execute_via_app(tool, trans.app, session_id,
+        execution_result = self.execute_via_app(tool, trans.app, session_id,
                                           history_id, trans.user, incoming, set_output_hid,
                                           overwrite, history, job_params)
         # FIXME: can remove this when logging in execute_via_app method.
-        trans.log_event("Added set external metadata job to the job queue, id: %s" % str(job.id), tool_id=job.tool_id)
-        return job, odict
+        trans.log_event("Added set external metadata job to the job queue, id: %s" % str(execution_result.job.id), tool_id=execution_result.job.tool_id)
+        return execution_result
 
     def execute_via_app(self, tool, app, session_id, history_id, user=None,
                         incoming=None, set_output_hid=False, overwrite=True,
@@ -128,4 +130,4 @@ class SetMetadataToolAction(ToolAction):
         # clear e.g. converted files
         dataset.datatype.before_setting_metadata(dataset)
 
-        return job, {}
+        return ExecutionResult(job=job)
