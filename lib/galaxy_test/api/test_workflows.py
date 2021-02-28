@@ -2530,7 +2530,7 @@ data_input:
 
     def test_run_with_validated_parameter_connection_default_values(self):
         with self.dataset_populator.test_history() as history_id:
-            self._run_jobs(WORKFLOW_PARAMETER_INPUT_INTEGER_DEFAULT, test_data="""
+            run_response = self._run_jobs(WORKFLOW_PARAMETER_INPUT_INTEGER_DEFAULT, test_data="""
 data_input:
   value: 1.bed
   type: File
@@ -2538,6 +2538,8 @@ data_input:
             self.dataset_populator.wait_for_history(history_id, assert_ok=True)
             content = self.dataset_populator.get_history_dataset_content(history_id)
             assert len(content.splitlines()) == 3, content
+            invocation = self.workflow_populator.get_invocation(run_response.invocation_id)
+            assert invocation['input_step_parameters']['int_input']['parameter_value'] == 3
 
     def test_run_with_validated_parameter_connection_invalid(self):
         with self.dataset_populator.test_history() as history_id:

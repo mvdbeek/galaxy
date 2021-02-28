@@ -429,6 +429,10 @@ def workflow_run_config_to_request(trans, run_config, workflow):
                 step,
                 subworkflow_invocation,
             )
+        if step.type in INPUT_STEP_TYPES:
+            content = run_config.inputs.get(step.id) or step.tool_inputs.get("default")
+            if content is not None:
+                workflow_invocation.add_input(content, step=step)
 
     replacement_dict = run_config.replacement_dict
     for name, value in replacement_dict.items():
@@ -437,8 +441,6 @@ def workflow_run_config_to_request(trans, run_config, workflow):
             value=value,
             type=param_types.REPLACEMENT_PARAMETERS,
         )
-    for step_id, content in run_config.inputs.items():
-        workflow_invocation.add_input(content, step_id)
     for step_id, param_dict in run_config.param_map.items():
         add_parameter(
             name=step_id,
