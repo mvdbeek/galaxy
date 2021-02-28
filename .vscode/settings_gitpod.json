@@ -8,8 +8,5 @@
         "lib/galaxy_test/selenium/"
     ],
     "python.testing.pytestEnabled": true,
-    "python.analysis.extraPaths": [
-        "lib/"
-    ]
 }
 

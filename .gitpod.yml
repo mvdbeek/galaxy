@@ -17,9 +17,11 @@ github:
 image: gitpod/workspace-postgres
 tasks:
   - init: > 
+      cp .vscode/settings_gitpod.json .vscode/settings.json &&
       cp .vscode/launch_gitpod.json .vscode/launch.json &&
       pip install psycopg2 &&
       pip install -r lib/galaxy/dependencies/dev-requirements.txt &&
+      createdb galaxy &&
       make client
   - command: cp config/galaxy.yml.sample config/galaxy.yml
   - command: make client-watch
