@@ -1,5 +1,4 @@
-image:
-  file: .gitpod.Dockerfile
+image: gitpod/workspace-postgres
 tasks:
   - init: > 
       # cp .vscode/settings_gitpod.json .vscode/settings.json &&
