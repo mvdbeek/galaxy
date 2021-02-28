@@ -1,0 +1,6 @@
+tasks:
+  - init: pip install -r lib/galaxy/dependencies/dev-requirements.txt && make client
+  - command: make client-watch
+# Ports to expose on workspace startup (optional)
+ports:
+  - port: 8000
