@@ -5,5 +5,6 @@ FROM gitpod/workspace-postgres
 # RUN brew install bastet
 #
 # More information: https://www.gitpod.io/docs/config-docker/
-wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh
-bash ~/miniconda.sh -b -p /miniconda
+RUN wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O ~/miniconda.sh && \
+    bash ~/miniconda.sh -b -p /miniconda && \
+    rm ~/miniconda.sh
