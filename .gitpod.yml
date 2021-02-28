@@ -1,7 +1,7 @@
 tasks:
   - init: > 
-      ln -s .vscode/settings_gitpod.json .vscode/settings.json &&
-      ln -s .vscode/launch_gitpod.json .vscode/launch.json &&
+      cp .vscode/settings_gitpod.json .vscode/settings.json &&
+      cp .vscode/launch_gitpod.json .vscode/launch.json &&
       pip install -r lib/galaxy/dependencies/dev-requirements.txt && 
       make client
   - command: cp config/galaxy.yml.sample config/galaxy.yml
@@ -12,3 +12,4 @@ ports:
 vscode:
   extensions:
     - ms-python.python
+    - ms-python.vscode-pylance
