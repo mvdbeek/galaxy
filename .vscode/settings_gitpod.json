@@ -1,6 +1,4 @@
 {
-    "python.testing.cwd": "${workspaceFolder}",
-    "python.testing.unittestArgs": [],
     "python.testing.pytestArgs": [
         "--doctest-modules",
         "lib/galaxy_test/api/",
@@ -10,7 +8,6 @@
         "lib/galaxy_test/selenium/"
     ],
     "python.testing.pytestEnabled": true,
-    "python.languageServer": "Pylance",
     "python.analysis.extraPaths": [
         "lib/"
     ]
