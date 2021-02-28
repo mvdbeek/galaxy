@@ -16,7 +16,7 @@ github:
     addLabel: prebuilt-in-gitpod
 image: gitpod/workspace-postgres
 tasks:
-  - init: > 
+  - init: >
       cp .vscode/settings_gitpod.json .vscode/settings.json &&
       cp .vscode/launch_gitpod.json .vscode/launch.json &&
       pip install psycopg2 &&
