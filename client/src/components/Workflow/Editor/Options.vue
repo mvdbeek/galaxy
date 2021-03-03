@@ -92,9 +92,6 @@ export default {
         hasChanges: {
             type: Boolean,
         },
-        requiredReindex: {
-            type: Boolean,
-        },
     },
 };
 </script>
