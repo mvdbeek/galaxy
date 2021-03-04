@@ -101,5 +101,8 @@ export default {
             this.showRemove = false;
         },
     },
+    beforeDestroy() {
+        this.onRemove();
+    },
 };
 </script>

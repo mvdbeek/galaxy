@@ -57,7 +57,7 @@
             <loading-span v-if="showLoading" message="Loading details" />
             <node-input
                 v-for="input in inputs"
-                :key="input.name"
+                :key="`${input.name}-${input.input_type}-${input.label}`"
                 :input="input"
                 :get-node="getNode"
                 :get-manager="getManager"
@@ -68,7 +68,7 @@
             <div v-if="showRule" class="rule" />
             <node-output
                 v-for="output in outputs"
-                :key="output.name"
+                :key="`${output.name}-${output.input_type}-${output.label}`"
                 :output="output"
                 :get-node="getNode"
                 :get-manager="getManager"
@@ -276,7 +276,7 @@ export default {
             Object.values(this.outputTerminals).forEach((t) => {
                 t.destroy();
             });
-            this.activeOutputs.filterOutputs({});
+            this.activeOutputs.filterOutputs([]);
             this.$emit("onRemove", this);
         },
         onRedraw() {
@@ -341,88 +341,9 @@ export default {
             this.setData(data);
 
             // Create a dictionary of all incoming outputs
-            const outputNames = {};
-            const outputIndex = {};
-            data.outputs.forEach((output) => {
-                const name = output.name;
-                outputNames[name] = 1;
-                outputIndex[name] = output;
-            });
-
-            // Identify unused outputs which existed previously
-            for (let i = this.outputs.length - 1; i >= 0; i--) {
-                const output = this.outputs[i];
-                const name = output.name;
-                if (!outputNames[name]) {
-                    // Remove the noodle connectors
-                    this.outputTerminals[name].connectors.forEach((x) => {
-                        if (x) {
-                            x.destroy();
-                        }
-                    });
-                    // Remove the reference to the output and output terminal
-                    delete this.outputTerminals[name];
-                    this.outputs.splice(i, 1);
-                } else {
-                    // Output exists in both sources
-                    outputNames[name] = 2;
-                    // Update existing outputs with incoming output attributes
-                    const outputIncoming = outputIndex[name];
-                    Object.entries(outputIncoming).forEach(([key, newValue]) => {
-                        Vue.set(output, key, newValue);
-                    });
-                }
-            }
-
-            // Add or update remaining outputs
-            data.outputs.forEach((output) => {
-                const terminal = this.outputTerminals[output.name];
-                if (terminal) {
-                    terminal.update(output);
-                    terminal.destroyInvalidConnections();
-                }
-                if (outputNames[output.name] == 1) {
-                    this.outputs.push(output);
-                }
-            });
-
-            // Create a list of all current input names
-            const inputNames = {};
-            const inputIndex = {};
-            data.inputs.forEach((input) => {
-                const name = input.name;
-                inputNames[name] = 1;
-                inputIndex[name] = input;
-            });
-
-            // Identify unused inputs which existed previously
-            for (let i = this.inputs.length - 1; i >= 0; i--) {
-                const name = this.inputs[i].name;
-                if (!inputNames[name] || inputIndex[name].input_type !== this.inputs[i].input_type) {
-                    this.inputTerminals[name].destroy();
-                    delete this.inputTerminals[name];
-                    this.inputs.splice(i, 1);
-                } else {
-                    inputNames[name] = 2;
-                }
-            }
-
-            // Add and update input rows
-            data.inputs.forEach((input) => {
-                const terminal = this.inputTerminals[input.name];
-                if (terminal) {
-                    terminal.update(input);
-                    terminal.destroyInvalidConnections();
-                }
-                if (inputNames[input.name] == 1) {
-                    this.inputs.push(input);
-                }
-            });
-
-            this.inputs.forEach((input) => {
-                // Update input terminal labels
-                input.label = inputIndex[input.name].label;
-            });
+            const outputNames = data.outputs.map((output) => output.name);
+            this.inputs = data.inputs;
+            this.outputs = data.outputs;
 
             // removes output from list of workflow outputs
             this.activeOutputs.filterOutputs(outputNames);
