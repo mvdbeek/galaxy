@@ -5,6 +5,7 @@ HistoryDatasetCollectionAssociations (HDCAs) are datasets contained or created i
 history.
 """
 import logging
+from typing import Dict
 
 from galaxy import model
 from galaxy.managers import (
@@ -37,6 +38,11 @@ def stream_dataset_collection(dataset_collection_instance, upstream_mod_zip=Fals
         for file_path, relpath in hda.datatype.to_archive(dataset=hda, name=name):
             archive.write(file_path, relpath)
     return archive
+
+
+def set_collection_attributes(dataset_element, attributes):
+    for attribute, value in attributes:
+        setattr(dataset_element, attribute, value)
 
 
 # TODO: to DatasetCollectionInstanceManager
@@ -76,6 +82,10 @@ class HDCAManager(
                 processed = fn(element.dataset_instance, *next_parents)
                 returned.append(processed)
         return returned
+    
+    def update_attributes(self, content, attributes: Dict):
+        # pre-requisite cehecked that attributes are valid
+        self.map_datasets(content, fn=set_collection_attributes)
 
     # TODO: un-stub
 
