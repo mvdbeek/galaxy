@@ -36,7 +36,7 @@ def invoke_create():
         create_db(config['db_url'], config['config_file'])
         if not config['install_database_connection']:
             # Combined install and Galaxy database, this is the default
-            create_install_db(config['db_url'])
+            create_install_db(config['db_url'], verify_migration=False)
     elif config['database'] == 'tool_shed':
         create_tool_shed_db(config['db_url'])
     elif config['database'] == 'install':

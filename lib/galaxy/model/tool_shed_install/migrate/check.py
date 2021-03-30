@@ -27,7 +27,7 @@ migrate_repository_directory = os.path.abspath(os.path.dirname(__file__)).replac
 migrate_repository = repository.Repository(migrate_repository_directory)
 
 
-def create_or_verify_database(url, engine_options=None, app=None):
+def create_or_verify_database(url, engine_options=None, app=None, verify_migration=True):
     """
     """
     # Create engine and metadata
@@ -81,15 +81,16 @@ def create_or_verify_database(url, engine_options=None, app=None):
         except NoSuchTableError:
             schema.ControlledSchema.create(engine, migrate_repository, version=1)
 
-    # Verify that the code and the DB are in sync
-    db_schema = schema.ControlledSchema(engine, migrate_repository)
-    if migrate_repository.versions.latest != db_schema.version:
-        exception_msg = "Your database has version '%d' but this code expects version '%d'.  " % (db_schema.version, migrate_repository.versions.latest)
-        exception_msg += "Back up your database and then migrate the schema by running the following from your Galaxy installation directory:"
-        exception_msg += "\n\nsh manage_db.sh upgrade install\n"
+    if verify_migration:
+        # Verify that the code and the DB are in sync
+        db_schema = schema.ControlledSchema(engine, migrate_repository)
+        if migrate_repository.versions.latest != db_schema.version:
+            exception_msg = "Your database has version '%d' but this code expects version '%d'.  " % (db_schema.version, migrate_repository.versions.latest)
+            exception_msg += "Back up your database and then migrate the schema by running the following from your Galaxy installation directory:"
+            exception_msg += "\n\nsh manage_db.sh upgrade install\n"
 
-    else:
-        log.info("At database version %d" % db_schema.version)
+        else:
+            log.info("At database version %d" % db_schema.version)
 
 
 def migrate_to_current_version(engine, schema):
