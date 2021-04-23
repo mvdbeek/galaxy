@@ -1072,9 +1072,25 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
 
         I've also abandoned the wierd q/qv syntax.
 
-        * GET /api/histories/{history_id}/contents/near/{hid}/{limit}
+        * GET /api/histories/{history_id}/contents/near/{hid}/{limit}?deleted=True|False&since=ISO8601DateTime
         """
-        history = self.history_manager.get_accessible(self.decode_id(history_id), trans.user, current_history=trans.history)
+        # while polling, if we have a "since" parameter then check to see if the history has changed
+        # since that date, if it hasn't then we can short-circuit the poll request
+        history_filters = []
+        history_filters += [self.app.model.History.id == self.decode_id(history_id)]
+        if 'since' in kwd:
+            since_str = self.history_contents_filters.parse_date(kwd['since'])
+            history_filters += [self.app.model.History.update_time > since_str]
+            kwd.pop('since', None)
+
+        history_matches = self.history_manager.by_user(trans.user, filters=history_filters)
+        history = history_matches[0] if len(history_matches) else None
+        if not history:
+            trans.response.status = 204
+            trans.response.headers['Content-Length'] = 2
+            return ''
+
+        # parse content params
         filter_params = self._parse_rest_params(kwd)
         serialization_params = self._parse_serialization_params(kwd, 'betawebclient')
         view = serialization_params.pop('view')
@@ -1122,8 +1138,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
             serialization_params=serialization_params)
 
         # count of same query
-        count_filter_params = [f for f in filter_params if f[0] != 'update_time']
-        count_filters = self.history_contents_filters.parse_filters(count_filter_params)
+        count_filters = self.history_contents_filters.parse_filters(filter_params)
         contents_count = self.history_contents_manager.contents_count(history, count_filters)
 
         return contents, contents_count
@@ -1160,8 +1175,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
 
     def _get_filtered_extrema(self, history, filter_params):
         extrema_params = self._parse_serialization_params(dict(keys='hid'), 'summary')
-        extrema_filter_params = [f for f in filter_params if f[0] != 'update_time']
-        extrema_filters = self.history_contents_filters.parse_filters(extrema_filter_params)
+        extrema_filters = self.history_contents_filters.parse_filters(filter_params)
 
         order_by_dsc = self._parse_order_by(manager=self.history_contents_manager, order_by_string='hid-dsc')
         order_by_asc = self._parse_order_by(manager=self.history_contents_manager, order_by_string='hid-asc')
