@@ -1,5 +1,5 @@
 import { zip } from "rxjs";
-import { map, pluck, share, filter, tap } from "rxjs/operators";
+import { map, pluck, share, filter } from "rxjs/operators";
 import { hydrate } from "utils/observable";
 import { areDefined } from "utils/validation";
 import { requestWithUpdateTime } from "./operators/requestWithUpdateTime";
@@ -38,7 +38,6 @@ export const loadHistoryContents = (cfg = {}) => (rawInputs$) => {
         }),
         map(prependPath),
         requestWithUpdateTime({ dateStore, noInitial, dateFieldName: "since" }),
-        tap(response => console.log("response.status", response.status)),
     );
 
     const validResponses$ = ajaxResponse$.pipe(
