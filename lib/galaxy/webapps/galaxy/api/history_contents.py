@@ -1,6 +1,7 @@
 """
 API operations on the contents of a history.
 """
+import json
 import logging
 import os
 import re
@@ -1057,7 +1058,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         trans.response.headers.update(archive.get_headers())
         return archive.response()
 
-    @expose_api_anonymous
+    @expose_api_raw_anonymous
     def contents_near(self, trans, history_id, hid, limit, **kwd):
         """
         This endpoint provides random access to a large history without having
@@ -1087,8 +1088,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         history = history_matches[0] if len(history_matches) else None
         if not history:
             trans.response.status = 204
-            trans.response.headers['Content-Length'] = 2
-            return ''
+            return
 
         # parse content params
         filter_params = self._parse_rest_params(kwd)
@@ -1122,7 +1122,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         trans.response.headers['max_hid'] = max_hid
         trans.response.headers['min_hid'] = min_hid
 
-        return contents
+        return json.dumps(contents)
 
     # Perform content query and matching count
     def _seek(self, history, filter_params, order_by_string, limit, serialization_params):
