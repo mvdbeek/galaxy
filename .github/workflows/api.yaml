@@ -10,15 +10,15 @@ jobs:
       matrix:
         python-version: ['3.7']
         chunk: [1, 2, 3, 4, 5]
-    services:
-      postgres:
-        image: postgres:13
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
+    # services:
+    #   postgres:
+    #     image: postgres:13
+    #     env:
+    #       POSTGRES_USER: postgres
+    #       POSTGRES_PASSWORD: postgres
+    #       POSTGRES_DB: postgres
+    #     ports:
+    #       - 5432:5432
     steps:
       - uses: actions/checkout@v2
         with:
@@ -26,6 +26,8 @@ jobs:
       - uses: actions/setup-python@v2
         with:
           python-version: ${{ matrix.python-version }}
+      - name: Start postgres
+        run: docker run -d -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=postgres -p 5432:5432 --name postgres postgres:13 -c log_statement=all
       - name: Cache pip dir
         uses: actions/cache@v2
         with:
@@ -34,8 +36,6 @@ jobs:
       - name: Run tests
         run: ./run_tests.sh --skip_flakey_fails -api
         working-directory: 'galaxy root'
-      - uses: actions/upload-artifact@v2
-        if: failure()
-        with:
-          name: API test results (${{ matrix.python-version }})
-          path: 'galaxy root/run_api_tests.html'
+      - name: Print db logs
+        if: always()
+        run: docker logs postgres
