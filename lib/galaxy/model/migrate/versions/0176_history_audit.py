@@ -11,19 +11,23 @@ from galaxy.model.migrate.versions.util import (
     create_table,
     drop_table
 )
+from galaxy.model.triggers import (
+    drop_history_audit_triggers,
+    install_history_audit_triggers,
+)
 
 log = logging.getLogger(__name__)
 now = datetime.datetime.utcnow
 metadata = MetaData()
 
-AuditTable = Table(
+HistoryAuditTable = Table(
     "history_audit",
     metadata,
+    Column("id", Integer, primary_key=True),
     Column("history_id", Integer, ForeignKey("history.id"), nullable=False),
     Column("update_time", DateTime, default=now, nullable=False),
 )
-
-Index('ix_history_audit_history_id_update_time_desc', AuditTable.c.history_id.desc(), AuditTable.c.update_time.desc())
+Index('ix_history_audit_history_id_update_time_desc', HistoryAuditTable.c.history_id.desc(), HistoryAuditTable.c.update_time.desc())
 
 
 def upgrade(migrate_engine):
@@ -32,17 +36,18 @@ def upgrade(migrate_engine):
     metadata.reflect()
 
     # create table + index
-    create_table(AuditTable)
+    create_table(HistoryAuditTable)
 
     # populate with update_time from every history
-    copy_update_times = """
-        INSERT INTO history_audit (history_id, update_time)
-        SELECT id, update_time FROM history
-    """
-    migrate_engine.execute(copy_update_times)
+    # copy_update_times = """
+    #     INSERT INTO history_audit (history_id, update_time)
+    #     SELECT id, update_time FROM history
+    # """
+    # migrate_engine.execute(copy_update_times)
 
     # drop update_time from history table (later maybe?)
     # create triggers to insert rows into audit table
+    install_history_audit_triggers(migrate_engine)
 
 
 def downgrade(migrate_engine):
@@ -62,5 +67,6 @@ def downgrade(migrate_engine):
         WHERE h.id = a.history_id
     """
     migrate_engine.execute(put_em_back)
+    drop_history_audit_triggers(migrate_engine)
 
-    drop_table(AuditTable)
+    drop_table(HistoryAuditTable)

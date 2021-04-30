@@ -9,7 +9,7 @@ from sqlalchemy import Column, DateTime, MetaData, Table
 
 from galaxy.model.migrate.versions.util import add_column, drop_column
 from galaxy.model.orm.now import now
-from galaxy.model.triggers import drop_timestamp_triggers, install_timestamp_triggers
+from galaxy.model.triggers import drop_in_place_timestamp_triggers, install_in_place_timestamp_triggers
 
 log = logging.getLogger(__name__)
 metadata = MetaData()
@@ -20,13 +20,13 @@ def upgrade(migrate_engine):
     metadata.bind = migrate_engine
     metadata.reflect()
     create_timestamps(metadata, "history_dataset_collection_association")
-    install_timestamp_triggers(migrate_engine)
+    install_in_place_timestamp_triggers(migrate_engine)
 
 
 def downgrade(migrate_engine):
     metadata.bind = migrate_engine
     metadata.reflect()
-    drop_timestamp_triggers(migrate_engine)
+    drop_in_place_timestamp_triggers(migrate_engine)
     drop_timestamps(metadata, "history_dataset_collection_association")
 
 

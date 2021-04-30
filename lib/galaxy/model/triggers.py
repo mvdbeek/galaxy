@@ -5,19 +5,32 @@ Database trigger installation and removal
 from sqlalchemy import DDL
 
 
-def install_timestamp_triggers(engine):
+def install_in_place_timestamp_triggers(engine):
     """
     Install update_time propagation triggers for history table
     """
-    statements = get_timestamp_install_sql(engine.name)
+    statements = get_in_place_timestamp_install_sql(engine.name)
     execute_statements(engine, statements)
 
 
-def drop_timestamp_triggers(engine):
+def drop_in_place_timestamp_triggers(engine):
     """
     Remove update_time propagation triggers for history table
     """
     statements = get_timestamp_drop_sql(engine.name)
+    execute_statements(engine, statements)
+
+
+def install_history_audit_triggers(engine):
+    statements = get_timestamp_audit_install_sql(engine.name)
+    execute_statements(engine, statements)
+
+
+def drop_history_audit_triggers(engine):
+    """
+    Remove update_time propagation triggers for history table
+    """
+    statements = get_timestamp_audit_drop_sql(engine.name)
     execute_statements(engine, statements)
 
 
@@ -27,7 +40,7 @@ def execute_statements(engine, statements):
         cmd.execute(bind=engine)
 
 
-def get_timestamp_install_sql(variant):
+def get_in_place_timestamp_install_sql(variant):
     """
     Generate a list of SQL statements for installation of timestamp triggers
     """
@@ -68,6 +81,38 @@ def get_timestamp_install_sql(variant):
             ))
 
     return sql
+
+
+def get_timestamp_audit_drop_sql(variant):
+    sql = []
+    if 'postgres' in variant:
+        sql.append('DROP FUNCTION IF EXISTS update_history_audit_table_from_history_contents() CASCADE;')
+    return sql
+
+
+def get_timestamp_audit_install_sql(variant):
+    sql = get_timestamp_audit_drop_sql(variant)
+    if 'postgres' in variant:
+        history_contents_fn_name = 'update_history_audit_table_from_history_contents'
+        sql.append(build_pg_history_audit_fn(history_contents_fn_name))
+        sql.append(build_pg_statement_trigger('history_dataset_association', history_contents_fn_name))
+        sql.append(build_pg_statement_trigger('history_dataset_collection_association', history_contents_fn_name))
+        # If we want to drop history.update_time we'd need to build these triggers as well
+        # history_fn_name = 'update_history_audit_table_from_history'
+        # sql.append(build_pg_statement_trigger('history', history_fn_name))
+    return sql
+
+
+def build_pg_history_audit_fn(fn_name, history_id_literal="history_id"):
+    return f"""
+CREATE OR REPLACE FUNCTION {fn_name}() RETURNS TRIGGER AS $history_audit$
+    BEGIN
+        INSERT INTO history_audit (history_id, update_time)
+            SELECT n.{history_id_literal}, (CURRENT_TIMESTAMP AT TIME ZONE 'UTC') FROM new_table n;
+        RETURN NULL;
+    END;
+$history_audit$ LANGUAGE plpgsql;
+    """
 
 
 def get_timestamp_drop_sql(variant):
@@ -128,6 +173,17 @@ def build_pg_trigger(source_table, fn_name, when='AFTER'):
             ON {source_table}
             FOR EACH ROW
             EXECUTE PROCEDURE {fn_name}();
+    """
+
+
+def build_pg_statement_trigger(source_table, fn_name, when='AFTER'):
+    when_initial = when.lower()[0]
+    trigger_name = f"trigger_{source_table}_{when_initial}_ur"
+    return f"""
+CREATE TRIGGER {trigger_name}
+    {when} UPDATE ON {source_table}
+    REFERENCING NEW TABLE AS new_table
+    FOR EACH STATEMENT EXECUTE FUNCTION {fn_name}();
     """
 
 

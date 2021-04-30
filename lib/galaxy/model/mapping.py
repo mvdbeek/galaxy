@@ -49,7 +49,7 @@ from galaxy.model.custom_types import (
 from galaxy.model.orm.engine_factory import build_engine
 from galaxy.model.orm.now import now
 from galaxy.model.security import GalaxyRBACAgent
-from galaxy.model.triggers import install_timestamp_triggers
+from galaxy.model.triggers import install_in_place_timestamp_triggers
 from galaxy.model.view import HistoryDatasetCollectionJobStateSummary
 from galaxy.model.view.utils import install_views
 
@@ -197,7 +197,6 @@ model.DynamicTool.table = Table(
     Column("value", JSONType),
 )
 
-
 model.History.table = Table(
     "history", metadata,
     Column("id", Integer, primary_key=True),
@@ -215,6 +214,14 @@ model.History.table = Table(
     Column("published", Boolean, index=True, default=False),
     Index('ix_history_slug', 'slug', mysql_length=200),
 )
+
+HistoryAuditTable = Table(
+    "history_audit", metadata,
+    Column("id", Integer, primary_key=True),
+    Column("history_id", Integer, ForeignKey("history.id"), nullable=False),
+    Column("update_time", DateTime, default=now, nullable=False),
+)
+Index('ix_history_audit_history_id_update_time_desc', HistoryAuditTable.c.history_id.desc(), HistoryAuditTable.c.update_time.desc())
 
 model.HistoryUserShareAssociation.table = Table(
     "history_user_share_association", metadata,
@@ -2912,7 +2919,7 @@ def init(file_path, url, engine_options=None, create_tables=False, map_install_m
     # Create tables if needed
     if create_tables:
         metadata.create_all()
-        install_timestamp_triggers(engine)
+        install_in_place_timestamp_triggers(engine)
         install_views(engine)
 
     result.create_tables = create_tables
