@@ -77,6 +77,7 @@ def _postgres_install(engine):
                 BEGIN
                     INSERT INTO history_audit (history_id, update_time)
                     VALUES (NEW.{id_field}, CURRENT_TIMESTAMP AT TIME ZONE 'UTC')
+                    WHERE NEW.{id_field} IS NOT NULL
                     ON CONFLICT DO NOTHING;
                     RETURN NULL;
                 END;
