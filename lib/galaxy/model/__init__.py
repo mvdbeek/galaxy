@@ -4421,8 +4421,14 @@ class DatasetCollection(Dictifiable, UsesAnnotations, RepresentById):
             except IndexError:
                 pass
         else:
-            # This might be a peformance issue for large collection, but we don't use this a lot
-            for element in self.elements:
+            element_identifer_cache = getattr(self, '_element_identifier_cache', None)
+            if element_identifer_cache is None:
+                self._element_identifier_cache = element_identifer_cache = {}
+            if key in element_identifer_cache:
+                return self.elements[element_identifer_cache[key]]
+            starting_index = len(element_identifer_cache)
+            for i, element in enumerate(self.elements[starting_index:], start=starting_index):
+                element_identifer_cache[element.element_identifier] = i
                 if element.element_identifier == key:
                     return element
         get_by_attribute = "element_index" if isinstance(key, int) else "element_identifier"
