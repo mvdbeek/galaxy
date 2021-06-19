@@ -340,17 +340,23 @@ class GalaxyQueueWorker(ConsumerProducerMixin, threading.Thread):
         super().__init__()
         log.info("Initializing %s Galaxy Queue Worker on %s", app.config.server_name, util.mask_password_from_url(app.config.amqp_internal_connection))
         self.daemon = True
-        self.connection = app.amqp_internal_connection_obj
-        # Force connection instead of lazy-connecting the first time it is required.
-        # Fixes `'kombu.transport.sqlalchemy.Message' is not mapped` error.
-        self.connection.connect()
-        self.connection.release()
         self.app = app
+        self.connection = None
+        self.connection = self.create_connection()
         self.task_mapping = task_mapping or control_message_to_task
         self.exchange_queue = None
         self.direct_queue = None
         self.control_queues = []
         self.epoch = 0
+
+    def create_connection(self):
+        if self.connection:
+            self.connection.release()
+        self.connection = galaxy.queues.connection_from_config(self.app.config)
+        # Force connection instead of lazy-connecting the first time it is required.
+        # Fixes `'kombu.transport.sqlalchemy.Message' is not mapped` error.
+        self.connection.connect()
+        self.connection.release()
 
     def send_control_task(self, task, noop_self=False, get_response=False, routing_key='control.*', kwargs=None):
         return send_control_task(app=self.app, task=task, noop_self=noop_self, get_response=get_response, routing_key=routing_key, kwargs=kwargs)
@@ -372,6 +378,14 @@ class GalaxyQueueWorker(ConsumerProducerMixin, threading.Thread):
         self.start()
 
     def get_consumers(self, Consumer, channel):
+        try:
+            return self._get_connection(Consumer=Consumer)
+        except Exception:
+            # Reset connection for next attempt and re-raise
+            self.socket.create_connection()
+            raise
+
+    def _get_connection(self, Consumer):
         return [Consumer(queues=[q],
                          callbacks=[self.process_task],
                          accept={'application/json'}) for q in self.control_queues]

@@ -91,7 +91,6 @@ class StructuredApp(MinimalManagerApp):
     is_webapp: bool  # is_webapp will be set to true when building WSGI app
     new_installation: bool
     tag_handler: GalaxyTagHandler
-    amqp_internal_connection_obj: Optional[Connection]
     dependency_resolvers_view: DependencyResolversView
     test_data_resolver: test_data.TestDataResolver
     file_sources: ConfiguredFileSources
