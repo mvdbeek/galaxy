@@ -990,7 +990,7 @@ class JobWrapper(HasResourceParameters):
     @property
     def job_io(self):
         if self._job_io is None:
-            self._job_io = JobIO(self.get_job(), self.dataset_path_rewriter)
+            self._job_io = JobIO(self.sa_session, self.get_job(), self.dataset_path_rewriter)
         return self._job_io
 
     @property
@@ -2501,7 +2501,8 @@ class ComputeEnvironment(metaclass=ABCMeta):
 
 class JobIO:
 
-    def __init__(self, job, dataset_path_rewriter):
+    def __init__(self, sa_session, job, dataset_path_rewriter):
+        self.sa_session = sa_session
         self.job = job
         self.dataset_path_rewriter = dataset_path_rewriter
         self.output_paths = None
@@ -2577,7 +2578,7 @@ class JobIO:
     def compute_outputs(self):
         dataset_path_rewriter = self.dataset_path_rewriter
 
-        job = self.get_job()
+        job = self.job
         # Job output datasets are combination of history, library, and jeha datasets.
         special = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job=job).first()
         false_path = None
