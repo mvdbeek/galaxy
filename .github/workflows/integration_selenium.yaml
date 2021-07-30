@@ -27,7 +27,7 @@ jobs:
         ports:
           - 5432:5432
       selenium:
-        image: selenium/standalone-chrome:3.141.59
+        image: selenium/standalone-chrome:latest
         ports:
           - 4444:4444
     steps:
