@@ -11,7 +11,15 @@ from json import (
     dumps,
     load,
 )
-from typing import Any, cast, Dict, List, Optional, Union
+from typing import (
+    Any,
+    cast,
+    Dict,
+    DefaultDict,
+    List,
+    Optional,
+    Union,
+)
 
 from bdbag import bdbag_api as bdb
 from boltons.iterutils import remap
@@ -67,7 +75,11 @@ class SessionlessContext:
         def find(obj_id):
             return self.objects.get(model_class, {}).get(obj_id) or None
 
-        return Bunch(find=find, get=find)
+        def filter_by(*args, **kwargs):
+            # TODO: Hack for history export archive, should support this too
+            return Bunch(first=lambda: None)
+
+        return Bunch(find=find, get=find, filter_by=filter_by)
 
 
 class ModelImportStore(metaclass=abc.ABCMeta):
@@ -1092,10 +1104,10 @@ class DirectoryModelExportStore(ModelExportStore):
         if not os.path.exists(export_directory):
             os.makedirs(export_directory)
 
-        if encode_ids is False:
-            class security:
-                def encode_id(self, obj_id, kind=None):
-                    return obj_id
+        # if encode_ids is False:
+        #     class security:
+        #         def encode_id(self, obj_id, kind=None):
+        #             return obj_id
 
         sessionless = False
         if app is not None:

@@ -75,7 +75,9 @@ class BaseWrapperTestCase(UsesApp):
 class JobWrapperTestCase(BaseWrapperTestCase, TestCase):
 
     def _wrapper(self):
-        return JobWrapper(self.job, self.queue)
+        wrapper = JobWrapper(self.job, self.queue)
+        wrapper.remote_command_line = False
+        return wrapper
 
     def test_prepare_sets_version_command(self):
         with self._prepared_wrapper() as wrapper:
@@ -214,7 +216,7 @@ class MockObjectStore:
 
 
 # Poor man's mocking. Need to get a real mocking library as real Galaxy development
-# dependnecy.
+# dependency.
 @contextmanager
 def _mock_tool_evaluator(mock_constructor):
     name = evaluation.ToolEvaluator.__name__
