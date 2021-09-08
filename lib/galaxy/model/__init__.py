@@ -3237,11 +3237,11 @@ class DatasetInstance:
 
     @property
     def creating_job(self):
-        # TODO this should work with `return self.dataset.job` (revise failing unit tests)
-        creating_job_associations = None
-        if self.creating_job_associations:
-            creating_job_associations = self.creating_job_associations
-        else:
+        job = self.dataset.job
+        if job:
+            return self.dataset.job
+        creating_job_associations = self.creating_job_association
+        if not creating_job_associations:
             inherit_chain = self.source_dataset_chain
             if inherit_chain:
                 creating_job_associations = inherit_chain[-1][0].creating_job_associations
