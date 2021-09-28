@@ -5,21 +5,28 @@ import logging
 from typing import (
     Any,
     Dict,
+    List,
     Optional,
 )
 
 import dateutil.parser
 from fastapi import (
+    Depends,
+    Path,
     Query,
 )
 
 from galaxy import (
     util
 )
+from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.schema import (
     FilterQueryParams,
+    SerializationParams,
 )
+from galaxy.schema.fields import EncodedDatabaseIdField
 from galaxy.schema.schema import (
+    AnyHistoryContentItem,
     DatasetPermissionAction,
     HistoryContentType,
     UpdateDatasetPermissionsPayload,
@@ -36,7 +43,9 @@ from galaxy.webapps.base.controller import (
     UsesTagsMixin
 )
 from galaxy.webapps.galaxy.api.common import (
+    get_filter_query_params,
     parse_serialization_params,
+    query_serialization_params,
 )
 from galaxy.webapps.galaxy.services.history_contents import (
     CreateHistoryContentPayload,
@@ -49,9 +58,20 @@ from galaxy.webapps.galaxy.services.history_contents import (
 from . import (
     BaseGalaxyAPIController,
     depends,
+    DependsOnTrans,
+    Router,
 )
 
 log = logging.getLogger(__name__)
+
+
+router = Router(tags=['histories'])
+
+HistoryIDPathParam: EncodedDatabaseIdField = Path(
+    ...,
+    title='History ID',
+    description='The ID of the History.'
+)
 
 
 def get_index_query_params(
@@ -167,6 +187,46 @@ def parse_legacy_index_query_params(
         visible=visible,
         dataset_details=dataset_details,
     )
+
+
+@router.cbv
+class FastAPIHistoryContents:
+    service: HistoriesContentsService = depends(HistoriesContentsService)
+
+    @router.get(
+        '/api/histories/{history_id}/contents',
+        summary='Returns the contents of the given history.',
+    )
+    @router.get(
+        '/api/histories/{history_id}/contents/{type}s',
+        summary='Returns the contents of the given history filtered by type.',
+    )
+    def index(
+        self,
+        trans: ProvidesHistoryContext = DependsOnTrans,
+        history_id: EncodedDatabaseIdField = HistoryIDPathParam,
+        index_params: HistoryContentsIndexParams = Depends(get_index_query_params),
+        legacy_params: LegacyHistoryContentsIndexParams = Depends(get_legacy_index_query_params),
+        serialization_params: SerializationParams = Depends(query_serialization_params),
+        filter_query_params: FilterQueryParams = Depends(get_filter_query_params),
+    ) -> List[AnyHistoryContentItem]:
+        """
+        Return a list of `HDA`/`HDCA` data for the history with the given ``ID``.
+
+        - The contents can be filtered and queried using the appropriate parameters.
+        - The amount of information returned for each item can be customized.
+
+        .. note:: Anonymous users are allowed to get their current history contents.
+        """
+        items = self.service.index(
+            trans,
+            history_id,
+            index_params,
+            legacy_params,
+            serialization_params,
+            filter_query_params,
+        )
+        return items
 
 
 class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, UsesTagsMixin):
