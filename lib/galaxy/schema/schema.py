@@ -345,6 +345,9 @@ class HistoryItemBase(Model):
 
 class HistoryItemCommon(HistoryItemBase):
     """Common information provided by items contained in a History."""
+    class Config:
+        extra = Extra.allow
+
     type_id: str = Field(
         ...,
         title="Type - ID",
@@ -2375,17 +2378,23 @@ class DeleteHDCAResult(Model):
     )
 
 
+class CustomHistoryItem(Model):
+    """Can contain any serializable property of the item.
+
+    Allows arbitrary custom keys to be specified in the serialization
+    parameters without a particular view (predefined set of keys).
+    """
+    class Config:
+        extra = Extra.allow
+
+
 AnyHDA = Union[HDABeta, HDADetailed, HDASummary]
 AnyHDCA = Union[HDCABeta, HDCADetailed, HDCASummary]
 AnyHistoryContentItem = Union[
     AnyHDA,
     AnyHDCA,
-    Any,  # Allows custom keys to be specified in the serialization parameters
+    CustomHistoryItem,
 ]
-
-
-class HistoryContentItemList(BaseModel):
-    __root__: List[AnyHistoryContentItem]
 
 
 AnyJobStateSummary = Union[
