@@ -156,13 +156,13 @@ class CollectionElementIdentifier(Model):
 
 
 class CreateNewCollectionPayload(Model):
-    collection_type: str = Field(
-        ...,
+    collection_type: Optional[str] = Field(
+        default=None,
         title="Collection Type",
         description="The type of the collection. For example, `list`, `paired`, `list:paired`.",
     )
-    element_identifiers: List[CollectionElementIdentifier] = Field(
-        ...,
+    element_identifiers: Optional[List[CollectionElementIdentifier]] = Field(
+        default=None,
         title="Element Identifiers",
         description="List of elements that should be in the new collection.",
     )
@@ -195,7 +195,7 @@ class CreateHistoryContentPayloadFromCollection(CreateHistoryContentPayloadFromC
     )
 
 
-class CreateHistoryContentPayload(CreateHistoryContentPayloadFromCollection):
+class CreateHistoryContentPayload(CreateHistoryContentPayloadFromCollection, CreateNewCollectionPayload):
     class Config:
         extra = Extra.allow
 
