@@ -1454,7 +1454,7 @@ class BaseDatasetCollectionPopulator:
         payload = dict(
             instance_type="history",
             history_id=history_id,
-            element_identifiers=json.dumps(element_identifiers),
+            element_identifiers=element_identifiers,
             collection_type=collection_type,
             name=name,
         )
@@ -1855,7 +1855,7 @@ class GiDatasetCollectionPopulator(GiHttpMixin, BaseDatasetCollectionPopulator):
         self.dataset_collection_populator = GiDatasetCollectionPopulator(gi)
 
     def _create_collection(self, payload):
-        create_response = self._post("dataset_collections", data=payload)
+        create_response = self._post("dataset_collections", data=payload, json=True)
         return create_response
 
 
