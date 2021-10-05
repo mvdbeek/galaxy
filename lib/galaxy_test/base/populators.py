@@ -1588,7 +1588,7 @@ class BaseDatasetCollectionPopulator:
             del kwds["contents"]
 
         if "element_identifiers" not in kwds:
-            kwds["element_identifiers"] = json.dumps(identifiers_func(history_id, contents=contents))
+            kwds["element_identifiers"] = identifiers_func(history_id, contents=contents)
 
         if "name" not in kwds:
             kwds["name"] = "Test Dataset Collection"
@@ -1666,7 +1666,7 @@ class DatasetCollectionPopulator(BaseDatasetCollectionPopulator):
         self.dataset_populator = DatasetPopulator(galaxy_interactor)
 
     def _create_collection(self, payload: dict) -> Response:
-        create_response = self.galaxy_interactor.post("dataset_collections", data=payload)
+        create_response = self.galaxy_interactor.post("dataset_collections", data=payload, json=True)
         return create_response
 
 
