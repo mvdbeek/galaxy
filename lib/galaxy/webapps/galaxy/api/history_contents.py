@@ -89,6 +89,13 @@ HistoryHDCAIDPathParam: EncodedDatabaseIdField = Path(
     description='The ID of the `HDCA` contained in the history.'
 )
 
+ContentTypeQueryParam = Query(
+    default=HistoryContentType.dataset,
+    title="Content Type",
+    description="The type of the history element to show.",
+    example=HistoryContentType.dataset,
+)
+
 
 def get_index_query_params(
     v: Optional[str] = Query(  # Should this be deprecated at some point and directly use the latest version by default?
@@ -337,12 +344,7 @@ class FastAPIHistoryContents:
         trans: ProvidesHistoryContext = DependsOnTrans,
         history_id: EncodedDatabaseIdField = HistoryIDPathParam,
         id: EncodedDatabaseIdField = HistoryItemIDPathParam,
-        type: Optional[HistoryContentType] = Query(
-            default=None,
-            title="Content Type",
-            description="The type of the history element to show.",
-            example=HistoryContentType.dataset,
-        ),
+        type: HistoryContentType = ContentTypeQueryParam,
         fuzzy_count: Optional[int] = Query(
             default=None,
             title="Fuzzy Count",
@@ -405,12 +407,7 @@ class FastAPIHistoryContents:
         trans: ProvidesHistoryContext = DependsOnTrans,
         history_id: EncodedDatabaseIdField = HistoryIDPathParam,
         id: EncodedDatabaseIdField = HistoryItemIDPathParam,
-        type: HistoryContentType = Path(
-            default=None,
-            title="Content Type",
-            description="The type of the history element to show.",
-            example=HistoryContentType.dataset,
-        ),
+        type: HistoryContentType = ContentTypeQueryParam,
     ) -> AnyJobStateSummary:
         """Return detailed information about an `HDA` or `HDCAs` jobs.
 
