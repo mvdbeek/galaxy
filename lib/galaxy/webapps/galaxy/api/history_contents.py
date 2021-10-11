@@ -33,6 +33,7 @@ from galaxy.schema.schema import (
     DatasetAssociationRoles,
     DeleteHistoryContentPayload,
     DeleteHistoryContentResult,
+    HistoryContentsArchiveDryRunResult,
     HistoryContentType,
     UpdateDatasetPermissionsPayload,
     UpdateHistoryContentsBatchPayload,
@@ -1014,7 +1015,11 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         """
         dry_run = util.string_as_bool(dry_run)
         filter_parameters = FilterQueryParams(**kwd)
-        return self.service.archive(trans, history_id, filter_parameters, filename, dry_run)
+        archive = self.service.archive(trans, history_id, filter_parameters, filename, dry_run)
+        if not isinstance(archive, HistoryContentsArchiveDryRunResult):
+            trans.response.headers.update(archive.get_headers())
+            return archive.response
+        return archive
 
     @expose_api_raw_anonymous
     def contents_near(self, trans, history_id, hid, limit, **kwd):
