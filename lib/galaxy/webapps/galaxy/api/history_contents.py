@@ -1056,7 +1056,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
             return archive.response
         return archive
 
-    @expose_api_raw_anonymous
+    @expose_api_anonymous
     def contents_near(self, trans, history_id, hid, limit, **kwd):
         """
         This endpoint provides random access to a large history without having
@@ -1085,9 +1085,15 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         hid = int(hid)
         limit = int(limit)
 
-        return self.service.contents_near(
+        result = self.service.contents_near(
             trans, history_id, serialization_params, filter_params, hid, limit, since,
         )
+        if result is None:
+            trans.response.status = 204
+            return
+        # Put stats in http headers
+        trans.response.headers.update(result.stats.dict())
+        return result.contents
 
     # Parsing query string according to REST standards.
     def _parse_rest_params(self, qdict: Dict[str, Any]) -> HistoryContentsFilterList:

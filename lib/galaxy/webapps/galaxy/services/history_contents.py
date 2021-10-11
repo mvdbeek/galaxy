@@ -60,6 +60,8 @@ from galaxy.schema.schema import (
     AnyHistoryContentItem,
     AnyJobStateSummary,
     ColletionSourceType,
+    ContentsNearResult,
+    ContentsNearStats,
     DatasetAssociationRoles,
     DeleteHistoryContentPayload,
     DeleteHistoryContentResult,
@@ -684,7 +686,7 @@ class HistoriesContentsService(ServiceBase):
         hid: int,
         limit: int,
         since: Optional[datetime.datetime] = None,
-    ):
+    ) -> Optional[ContentsNearResult]:
         """
         This endpoint provides random access to a large history without having
         to know exactly how many pages are in the final query. Pick a target HID
@@ -710,8 +712,7 @@ class HistoriesContentsService(ServiceBase):
             # If a timezone is provided (since.tzinfo is not None) we convert to UTC and remove tzinfo so that comparison with history.update_time is correct.
             since = since if since.tzinfo is None else since.astimezone(datetime.timezone.utc).replace(tzinfo=None)
             if history.update_time <= since:
-                trans.response.status = 204
-                return
+                return None
 
         # SEEK UP, contents > hid
         up_params = filter_params + self._hid_greater_than(hid)
@@ -732,17 +733,17 @@ class HistoriesContentsService(ServiceBase):
         down = self._expand_contents(trans, contents_down, serialization_params)
         contents = up + down
 
-        # Put stats in http headers
-        trans.response.headers['matches_up'] = len(contents_up)
-        trans.response.headers['matches_down'] = len(contents_down)
-        trans.response.headers['total_matches_up'] = up_count
-        trans.response.headers['total_matches_down'] = down_count
-        trans.response.headers['max_hid'] = max_hid
-        trans.response.headers['min_hid'] = min_hid
-        trans.response.headers['history_size'] = str(history.disk_size)
-        trans.response.headers['history_empty'] = json.dumps(history.empty)  # convert to proper bool
-
-        return json.dumps(contents)
+        stats = ContentsNearStats(
+            matches_up=len(contents_up),
+            matches_down=len(contents_down),
+            total_matches_up=up_count,
+            total_matches_down=down_count,
+            max_hid=max_hid,
+            min_hid=min_hid,
+            history_size=history.disk_size,
+            history_empty=history.empty,
+        )
+        return ContentsNearResult(contents=contents, stats=stats)
 
     def _hid_greater_than(self, hid: int) -> HistoryContentsFilterList:
         return [["hid", "gt", hid]]
