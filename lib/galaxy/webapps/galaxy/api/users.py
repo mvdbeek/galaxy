@@ -826,6 +826,9 @@ class UserAPIController(BaseGalaxyAPIController, UsesTagsMixin, BaseUIController
             if len_type in ['text', 'file']:
                 # Create new len file
                 new_len = trans.app.model.HistoryDatasetAssociation(extension='len', create_dataset=True, sa_session=trans.sa_session)
+                # HDAs need a history, otherwise there's no owner and no way to delete a HDA.
+                # This is really suboptimal, since you'd probably delete the HDA if you delete the history.
+                new_len.history = trans.history
                 trans.sa_session.add(new_len)
                 new_len.name = name
                 new_len.visible = False
