@@ -105,6 +105,8 @@ class SharedModelMapping(ModelMapping):
 def versioned_objects(iter):
     for obj in iter:
         if hasattr(obj, '__create_version__'):
+            if not obj.history and not obj.history_id:
+                raise Exception('This is not acceptable')
             yield obj
 
 
