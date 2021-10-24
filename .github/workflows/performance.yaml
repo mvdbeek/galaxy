@@ -2,6 +2,7 @@ name: Performance tests
 on: [push, pull_request]
 env:
   GALAXY_CONFIG_OVERRIDE_METADATA_STRATEGY: 'extended'
+  GALAXY_CONFIG_OVERRIDE_OUTPUTS_TO_WORKING_DIRECTORY: 'true'
   GALAXY_TEST_DBURI: 'postgresql://postgres:postgres@localhost:5432/galaxy?client_encoding=utf8'
 concurrency:
   group: performance-${{ github.ref }}
