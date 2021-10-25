@@ -1,5 +1,7 @@
 """Integration tests for realtime tools."""
 import os
+import subprocess
+import sqlite3
 import tempfile
 
 import pytest
@@ -10,7 +12,10 @@ from galaxy_test.base.populators import (
     DatasetPopulator,
     wait_on,
 )
-from galaxy_test.driver import integration_util
+from galaxy_test.driver import (
+    driver_util,
+    integration_util,
+)
 from .test_containerized_jobs import (
     ContainerizedIntegrationTestCase,
     disable_dependency_resolution,
@@ -26,16 +31,44 @@ SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 EMBEDDED_PULSAR_JOB_CONFIG_FILE_DOCKER = os.path.join(SCRIPT_DIRECTORY, "embedded_pulsar_docker_job_conf.yml")
 
 
+def gx_it_proxy():
+    interactivetools_map = tempfile.NamedTemporaryFile(prefix="it-proxy-session-db").name
+    port = driver_util.attempt_ports(set_web_port=False)
+    sqlite3.connect(interactivetools_map)
+    process = subprocess.Popen(['docker', 'run', '-p', f'{port}:8800', '-v', f"{interactivetools_map}:/sessions.sqlite", 'galaxy/gx-it-proxy', 'npm', 'run', 'it-proxy', '--', '--sessions', '/sessions.sqlite', '--ip', '0.0.0.0', '--port', '8800'])
+
+    def cleanup():
+        process.kill()
+        os.remove(sqlite3)
+
+    return {
+        'interactivetools_map': interactivetools_map,
+        'interactivetools_proxy_host': f"localhost:{port}",
+        'cleanup': cleanup
+    }
+
+
 class BaseInteractiveToolsIntegrationTestCase(ContainerizedIntegrationTestCase):
     framework_tool_and_types = True
     container_type = "docker"
-    require_uwsgi = True
     enable_realtime_mapping = True
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        kwargs = gx_it_proxy()
+        config["job_config_file"] = DOCKERIZED_JOB_CONFIG_FILE
+        config["interactivetools_enable"] = True
+        config.update(kwargs)
+        cls.cleanup = kwargs['cleanup']
+        disable_dependency_resolution(config)
 
     def setUp(self):
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
         self.history_id = self.dataset_populator.new_history()
+
+    def tearDownClass(cls):
+        cls.cleanup()
 
     # Move helpers to populators.py
     def wait_on_proxied_content(self, target):
@@ -143,7 +176,7 @@ class InteractiveToolsPulsarIntegrationTestCase(BaseInteractiveToolsIntegrationT
     @classmethod
     def handle_galaxy_config_kwds(cls, config):
         config["job_config_file"] = EMBEDDED_PULSAR_JOB_CONFIG_FILE_DOCKER
-        config["galaxy_infrastructure_url"] = 'http://localhost:$UWSGI_PORT'
+        config["galaxy_infrastructure_url"] = 'http://localhost:$GALAXY_WEB_PORT'
         disable_dependency_resolution(config)
 
 

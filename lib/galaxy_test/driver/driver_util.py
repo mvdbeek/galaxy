@@ -530,7 +530,7 @@ def attempt_port(port):
         return None
 
 
-def attempt_ports(port):
+def attempt_ports(port=None, set_web_port=True):
     if port is not None:
         return port
 
@@ -541,7 +541,8 @@ def attempt_ports(port):
             port = attempt_port(random.randint(8000, 10000))
             if port:
                 port = str(port)
-                os.environ['GALAXY_WEB_PORT'] = port
+                if set_web_port:
+                    os.environ['GALAXY_WEB_PORT'] = port
                 return port
 
         raise Exception(f"Unable to open a port between {8000} and {10000} to start Galaxy server")

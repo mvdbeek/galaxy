@@ -1,0 +1,17 @@
+http:
+  routers:
+    galaxy-router:
+      rule: "Host(`localhost`)"
+      service: galaxy
+    gxit-router:
+      rule: "HostRegexp(`{subdomain:[a-zA-Z0-9-]+}.interactivetoolentrypoint.interactivetool.localhost`)"
+      service: gxit-proxy
+  services:
+    galaxy:
+      loadBalancer:
+        servers:
+        - url: "http://localhost:8000/"
+    gxit-proxy:
+      loadBalancer:
+        servers:
+          - url: "http://localhost:8888/"
