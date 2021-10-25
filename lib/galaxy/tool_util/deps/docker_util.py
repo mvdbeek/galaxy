@@ -119,6 +119,7 @@ def build_docker_run_command(
     auto_rm=DEFAULT_AUTO_REMOVE,
     set_user=DEFAULT_SET_USER,
     host=DEFAULT_HOST,
+    labels=None,
     guest_ports=False,
     container_name=None
 ):
@@ -166,6 +167,9 @@ def build_docker_run_command(
         command_parts.append("--rm")
     if run_extra_arguments:
         command_parts.append(run_extra_arguments)
+    if labels:
+        for label in labels:
+            command_parts.extend(["-l", label])
     if set_user:
         user = set_user
         if set_user == DEFAULT_SET_USER:

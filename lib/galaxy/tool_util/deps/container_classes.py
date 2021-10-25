@@ -102,7 +102,7 @@ class Container(metaclass=ABCMeta):
         return ""
 
     @abstractmethod
-    def containerize_command(self, command):
+    def containerize_command(self, command, entry_points=None):
         """
         Use destination supplied container configuration parameters,
         container_id, and command to build a new command that runs
@@ -286,7 +286,7 @@ class DockerContainer(Container, HasDockerLikeVolumes):
     def build_pull_command(self):
         return docker_util.build_pull_command(self.container_id, **self.docker_host_props)
 
-    def containerize_command(self, command):
+    def containerize_command(self, command, entry_points=None):
         env_directives = []
         for pass_through_var in self.tool_info.env_pass_through:
             env_directives.append(f'"{pass_through_var}=${pass_through_var}"')
@@ -317,6 +317,11 @@ class DockerContainer(Container, HasDockerLikeVolumes):
             cache_command = docker_util.build_docker_cache_command(self.container_id, **docker_host_props)
         else:
             cache_command = self.__cache_from_file_command(cached_image_file, docker_host_props)
+        labels = []
+        if entry_points:
+            for ep in entry_points:
+                labels.append(f"'traefik.http.services.{ep.token}.loadbalancer.server.port={ep.tool_port}'")
+                labels.append(f"'traefik.http.routers.{ep.token}.rule=Host(`{ep.token}.interactivetoolentrypoint.interactivetool.localhost`)'")
         run_command = docker_util.build_docker_run_command(
             command,
             self.container_id,
@@ -324,12 +329,13 @@ class DockerContainer(Container, HasDockerLikeVolumes):
             volumes_from=volumes_from,
             env_directives=env_directives,
             working_directory=working_directory,
-            net=self.prop("net", None),  # By default, docker instance has networking disabled
+            net=self.prop("net", 'bridge'),  # By default, docker instance has networking disabled
             auto_rm=asbool(self.prop("auto_rm", docker_util.DEFAULT_AUTO_REMOVE)),
             set_user=self.prop("set_user", docker_util.DEFAULT_SET_USER),
             run_extra_arguments=self.prop("run_extra_arguments", docker_util.DEFAULT_RUN_EXTRA_ARGUMENTS),
             guest_ports=self.tool_info.guest_ports,
             container_name=self.container_name,
+            labels=labels,
             **docker_host_props
         )
         kill_command = docker_util.build_docker_simple_command("kill", container_name=self.container_name, **docker_host_props)
@@ -400,7 +406,7 @@ class SingularityContainer(Container, HasDockerLikeVolumes):
             **self.get_singularity_target_kwds()
         )
 
-    def containerize_command(self, command):
+    def containerize_command(self, command, entry_points=None):
 
         env = []
         for pass_through_var in self.tool_info.env_pass_through:

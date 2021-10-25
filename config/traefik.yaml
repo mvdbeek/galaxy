@@ -1,8 +1,15 @@
 providers:
   file:
     directory: "traefik"
+  docker:
+    exposedByDefault: true
 entryPoints:
   http:
     address: ":80"
   websecure:
    address: ":443"
+api:
+  dashboard: true
+  insecure: true
+log:
+  level: INFO

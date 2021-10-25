@@ -87,6 +87,7 @@ def build_command(
         else:
             external_command_shell = shell
         externalized_commands = __externalize_commands(job_wrapper, external_command_shell, commands_builder, remote_command_params, container=container)
+        new_entry_points = job_wrapper.interactivetool_manager.create_entry_points(job_wrapper.get_job(), job_wrapper.tool)
         if container and modify_command_for_container:
             # Stop now and build command before handling metadata and copying
             # working directory files back. These should always happen outside
@@ -95,7 +96,8 @@ def build_command(
             # and not copying workdir outputs back means on can be more restrictive
             # of where container can write to in some circumstances.
             run_in_container_command = container.containerize_command(
-                externalized_commands
+                externalized_commands,
+                new_entry_points
             )
             commands_builder = CommandsBuilder(run_in_container_command)
         else:

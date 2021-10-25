@@ -141,11 +141,14 @@ class InteractiveToolManager:
 
     def create_entry_points(self, job, tool, entry_points=None, flush=True):
         entry_points = entry_points or tool.ports
+        iteps = []
         for entry in entry_points:
             ep = self.model.InteractiveToolEntryPoint(job=job, tool_port=entry['port'], entry_url=entry['url'], name=entry['name'], requires_domain=entry['requires_domain'])
             self.sa_session.add(ep)
+            iteps.append(ep)
         if flush:
             self.sa_session.flush()
+        return iteps
 
     def configure_entry_point(self, job, tool_port=None, host=None, port=None, protocol=None):
         return self.configure_entry_points(job, {tool_port: dict(tool_port=tool_port, host=host, port=port, protocol=protocol)})

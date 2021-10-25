@@ -338,6 +338,7 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication):
                 time_execution=True)
             self.application_stack.register_postfork_function(self.prune_history_audit_task.start)
             self.haltables.append(("HistoryAuditTablePruneTask", self.prune_history_audit_task.shutdown))
+        self.interactivetool_manager = InteractiveToolManager(self)
         # Start the job manager
         self.application_stack.register_postfork_function(self.job_manager.start)
         # If app is not job handler but uses mule messaging.
@@ -354,8 +355,6 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication):
         # it becomes more commonly needed we could create a prefork function registration method like we do with
         # postfork functions.
         self.application_stack.init_late_prefork()
-
-        self.interactivetool_manager = InteractiveToolManager(self)
 
         # Configure handling of signals
         handlers = {}

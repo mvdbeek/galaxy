@@ -932,6 +932,7 @@ class JobWrapper(HasResourceParameters):
         self.tool = queue.app.toolbox.get_tool(job.tool_id, job.tool_version, exact=True)
         self.queue = queue
         self.app = queue.app
+        self.interactivetool_manager = self.app.interactivetool_manager
         self.sa_session = self.app.model.context
         self.extra_filenames = []
         self.command_line = None
