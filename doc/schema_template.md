@@ -1,4 +1,4 @@
-# Galaxy Tool XML File ;)
+# Galaxy Tool XML File ;))
 
 The XML File for a Galaxy tool, generally referred to as the "tool config
 file" or "wrapper", serves a number of purposes. First, it lays out the user
