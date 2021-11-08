@@ -185,7 +185,7 @@ def _get_new_toolbox(app, save_integrated_tool_panel=True):
         app.tool_shed_repository_cache.rebuild()
     tool_configs = app.config.tool_configs
 
-    new_toolbox = tools.ToolBox(tool_configs, app.config.tool_path, app, save_integrated_tool_panel=save_integrated_tool_panel)
+    new_toolbox = tools.ToolBox(app, save_integrated_tool_panel=save_integrated_tool_panel)
     new_toolbox.data_manager_tools = app.toolbox.data_manager_tools
     app.datatypes_registry.load_datatype_converters(new_toolbox, use_cached=True)
     app.datatypes_registry.load_external_metadata_tool(new_toolbox)

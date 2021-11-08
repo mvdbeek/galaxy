@@ -28,6 +28,7 @@ from galaxy import (
 from galaxy.exceptions import ToolInputsNotReadyException
 from galaxy.job_execution import output_collect
 from galaxy.metadata import get_metadata_compute_strategy
+from galaxy.structured_app import StructuredApp
 from galaxy.tool_shed.util.repository_util import get_installed_repository
 from galaxy.tool_shed.util.shed_util_common import set_image_paths
 from galaxy.tool_util.deps import (
@@ -272,13 +273,14 @@ class ToolBox(BaseGalaxyToolBox):
     how to construct them, action types, dependency management, etc....
     """
 
-    def __init__(self, config_filenames, tool_root_dir, app, save_integrated_tool_panel=True):
+    def __init__(self, app: StructuredApp, save_integrated_tool_panel=True):
         self._reload_count = 0
         self.tool_location_fetcher = ToolLocationFetcher()
         self.cache_regions = {}
         # This is here to deal with the old default value, which doesn't make
         # sense in an "installed Galaxy" world.
         # FIXME: ./
+        tool_root_dir = app.config.tool_path
         if tool_root_dir == './tools':
             tool_root_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), 'bundled'))
         view_sources = StaticToolBoxViewSources(
@@ -287,7 +289,7 @@ class ToolBox(BaseGalaxyToolBox):
         )
         default_panel_view = app.config.default_panel_view
         super().__init__(
-            config_filenames=config_filenames,
+            config_filenames=app.config.tool_configs,
             tool_root_dir=tool_root_dir,
             app=app,
             view_sources=view_sources,

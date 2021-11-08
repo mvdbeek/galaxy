@@ -1170,7 +1170,7 @@ class ConfiguresGalaxyMixin:
         from galaxy.managers.tools import DynamicToolManager
         self.dynamic_tools_manager = DynamicToolManager(self)
         self._toolbox_lock = threading.RLock()
-        self.toolbox = tools.ToolBox(self.config.tool_configs, self.config.tool_path, self)
+        self.toolbox = tools.ToolBox(self)
         galaxy_root_dir = os.path.abspath(self.config.root)
         file_path = os.path.abspath(self.config.file_path)
         app_info = AppInfo(
