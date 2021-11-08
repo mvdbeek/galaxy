@@ -833,7 +833,6 @@ class WorkflowProxy:
             "input_connections": {},  # Should the Galaxy API really require this? - Seems to.
             "workflow_outputs": self.get_outputs_for_label(label),
         }
-
         if input_type == "File" and "default" not in input:
             input_as_dict["type"] = "data_input"
         elif isinstance(input_type, dict) and input_type.get("type") == "array":
@@ -1054,7 +1053,8 @@ class ToolStepProxy(BaseStepProxy):
             tool_state[input_name] = None
 
         outputs = self.galaxy_workflow_outputs_list()
-        return {
+        when_expression =self._step.tool.get("when")
+        rval = {
             "id": self._index,
             "tool_uuid": self.tool_proxy._uuid,  # TODO: make sure this is respected...
             "label": self.label,
@@ -1065,6 +1065,9 @@ class ToolStepProxy(BaseStepProxy):
             "inputs": self.inputs_to_dicts(),
             "workflow_outputs": outputs,
         }
+        if when_expression:
+            rval["when"] = when_expression
+        return rval
 
 
 class SubworkflowStepProxy(BaseStepProxy):

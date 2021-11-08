@@ -6384,6 +6384,7 @@ class WorkflowStep(Base, RepresentById):
     tool_errors = Column(JSONType)
     position = Column(MutableJSONType)
     config = Column(JSONType)
+    when_expression = Column(JSONType)
     order_index = Column(Integer)
     uuid = Column(UUIDType)
     label = Column(Unicode(255))
