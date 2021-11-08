@@ -17,10 +17,11 @@ for version in $VERSIONS; do
     fi
     wget "https://github.com/common-workflow-language/${repo_name}/archive/main.zip"
     unzip main.zip
+    rm -rf "v${version}"
     mkdir -p "v${version}"
     cp "${repo_name}-main/${conformance_filepath}" "v${version}/conformance_tests.yaml"
     cp -r "${repo_name}-main/${tests_dir}" "v${version}"/
     rm -rf "${repo_name}-main"
     rm -rf main.zip
-    python conformance_to_test_cases.py "v${version}"
+    python3 conformance_to_test_cases.py "v${version}"
 done

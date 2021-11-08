@@ -131,7 +131,7 @@ update-dependencies: update-lint-requirements ## update pinned and dev dependenc
 	$(IN_VENV) ./lib/galaxy/dependencies/update.sh
 
 update-cwl-conformance-tests: ## update CWL conformance tests
-	./test/unit/tools/cwl_tools/update_versions.sh
+	./test/unit/app/tools/cwl_tools/update_versions.sh
 
 node-deps: ## Install NodeJS dependencies.
 ifndef YARN

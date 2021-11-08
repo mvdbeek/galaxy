@@ -8,6 +8,10 @@ from uuid import uuid4
 import yaml
 
 import galaxy.model
+from galaxy.app_unittest_utils import (
+    galaxy_mock,
+    tools_support,
+)
 from galaxy.tool_util.cwl import (
     to_cwl_job,
     tool_proxy as real_tool_proxy,
@@ -22,12 +26,14 @@ from galaxy.tool_util.parser.cwl import CWL_DEFAULT_FILE_OUTPUT
 from galaxy.tool_util.parser.factory import get_tool_source
 from galaxy.tools.parameters import populate_state
 from galaxy.tools.parameters.wrapped import WrappedParameters
-from .. import tools_support
-from ..unittest_utils import galaxy_mock
 
 
-TESTS_DIRECTORY = os.path.dirname(__file__)
-CWL_TOOLS_DIRECTORY = os.path.abspath(os.path.join(TESTS_DIRECTORY, "cwl_tools"))
+THIS_DIRECTORY = os.path.dirname(__file__)
+CWL_TOOLS_DIRECTORY = os.path.abspath(os.path.join(THIS_DIRECTORY, "cwl_tools"))
+
+
+def _cwl_tool_path(path):
+    return os.path.join(CWL_TOOLS_DIRECTORY, path)
 
 
 def tool_proxy(*args, **kwd):
@@ -533,7 +539,7 @@ def test_tool_reload():
     _inputs(tool_source)
 
 
-class CwlToolObjectTestCase(TestCase, tools_support.UsesApp, tools_support.UsesTools):
+class CwlToolObjectTestCase(TestCase, tools_support.UsesTools):
 
     def setUp(self):
         self.test_directory = tempfile.mkdtemp()
@@ -594,7 +600,3 @@ def _inputs(tool_source=None, path=None):
     page_source = page_sources[0]
     input_sources = page_source.parse_input_sources()
     return input_sources
-
-
-def _cwl_tool_path(path):
-    return os.path.join(CWL_TOOLS_DIRECTORY, path)
