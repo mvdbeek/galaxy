@@ -1430,8 +1430,12 @@ class WorkflowContentsManager(UsesAnnotations):
                     step_input.default_value = default
                     step_input.default_value_set = True
 
+        if "when" in step_dict:
+            step.when_expression = step_dict["when"]
+
         if dry_run and step in trans.sa_session:
             trans.sa_session.expunge(step)
+
         return module, step
 
     def __load_subworkflow_from_step_dict(self, trans, step_dict, subworkflow_id_map, workflow_state_resolution_options, dry_run=False):

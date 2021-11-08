@@ -348,6 +348,15 @@ def test_search_workflow():
     assert len(galaxy_workflow_dict["steps"]) == 5
 
 
+def test_simplest_conditional_workflow():
+    proxy = workflow_proxy(_cwl_tool_path("v1.2/tests/conditionals/cond-wf-001.cwl"))
+    galaxy_workflow_dict = proxy.to_dict()
+    assert len(galaxy_workflow_dict["steps"]) == 2
+    step = galaxy_workflow_dict["steps"][1]
+    assert "when" in step
+    assert step["when"] == "$(inputs.a_new_var > 2)", step
+
+
 def test_workflow_simple_optional_input():
     proxy = workflow_proxy(_cwl_tool_path("v1.0/v1.0/io-int-optional-wf.cwl"))
 

@@ -1728,6 +1728,7 @@ class ToolModule(WorkflowModule):
                                        tool_id=self.tool_id)
 
     def evaluate_value_from_expressions(self, progress, step, execution_state, extra_step_state):
+        when_expression = step.when_expression
         value_from_expressions = {}
         replacements: Dict[str, str] = {}
 
@@ -1736,7 +1737,7 @@ class ToolModule(WorkflowModule):
             if step_input and step_input.value_from is not None:
                 value_from_expressions[key] = step_input.value_from
 
-        if not value_from_expressions:
+        if not value_from_expressions and when_expression is None:
             return replacements
 
         hda_references = []
@@ -1800,6 +1801,23 @@ class ToolModule(WorkflowModule):
             step_state[key] = to_cwl(value)
         for key, value in execution_state.inputs.items():
             step_state[key] = to_cwl(value)
+
+        if when_expression is not None:
+            from cwltool.expression import do_eval
+            as_cwl_value = do_eval(
+                when_expression,
+                step_state,
+                [{"class": "InlineJavascriptRequirement"}],
+                None,
+                None,
+                {},
+            )
+            when_val = from_cwl(as_cwl_value)
+            if type(when_val) != bool:
+                raise CancelWorkflowEvaluation("Invalid when expression evaluated at runtime")
+            if when_val is False:
+                outputs = self.get_all_outputs()
+                raise SkipWorkflowStepEvaluation(outputs)
 
         replacements = {}
         for key, value_from in value_from_expressions.items():
@@ -2208,6 +2226,12 @@ class DelayedWorkflowEvaluation(Exception):
 
 class CancelWorkflowEvaluation(Exception):
     pass
+
+
+class SkipWorkflowStepEvaluation(Exception):
+
+    def __init__(self, outputs):
+        self.outputs = outputs
 
 
 class WorkflowModuleInjector:
