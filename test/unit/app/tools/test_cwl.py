@@ -14,7 +14,7 @@ from galaxy.app_unittest_utils import (
 )
 from galaxy.tool_util.cwl import (
     to_cwl_job,
-    tool_proxy as real_tool_proxy,
+    tool_proxy,
     workflow_proxy,
 )
 from galaxy.tool_util.cwl.parser import (
@@ -33,12 +33,6 @@ CWL_TOOLS_DIRECTORY = os.path.abspath(os.path.join(galaxy_directory(), "test/fun
 
 def _cwl_tool_path(path):
     return os.path.join(CWL_TOOLS_DIRECTORY, path)
-
-
-def tool_proxy(*args, **kwd):
-    if 'uuid' not in kwd:
-        kwd['uuid'] = str(uuid4())
-    return real_tool_proxy(*args, **kwd)
 
 
 def test_tool_proxy():

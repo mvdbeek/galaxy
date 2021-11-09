@@ -86,7 +86,6 @@ class UsesTools(UsesApp):
         tool_path=None,
     ):
         if tool_path is None:
-            filename = filename or "tool.xml"
             self.tool_file = os.path.join(self.test_directory, filename)
             contents_template = string.Template(tool_contents or SIMPLE_TOOL_CONTENTS)
             tool_contents = contents_template.safe_substitute(dict(version=version, profile=profile, tool_id=tool_id))
