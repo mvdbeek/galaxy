@@ -535,33 +535,27 @@ def test_tool_reload():
 class CwlToolObjectTestCase(TestCase, tools_support.UsesTools):
 
     def setUp(self):
+        self.setup_app()
         self.test_directory = tempfile.mkdtemp()
-        self.app = galaxy_mock.MockApp()
         self.history = galaxy.model.History()
-        self.trans = galaxy_mock.MockTrans(history=self.history)
+        self.trans = galaxy_mock.MockTrans(app=self.app, history=self.history)
 
     def tearDown(self):
         shutil.rmtree(self.test_directory)
 
     def test_default_data_inputs(self):
         self._init_tool(tool_path=_cwl_tool_path("v1.0/v1.0/default_path.cwl"))
-        print("TOOL IS %s" % self.tool)
         hda = self._new_hda()
         errors = {}
         cwl_inputs = {
             "file1": {"src": "hda", "id": self.app.security.encode_id(hda.id)}
         }
         inputs = self.tool.inputs_from_dict({"inputs": cwl_inputs, "inputs_representation": "cwl"})
-        print(inputs)
-        print("pre-populated state is %s" % inputs)
         populated_state = {}
         populate_state(self.trans, self.tool.inputs, inputs, populated_state, errors)
-        print("populated state is %s" % inputs)
         wrapped_params = WrappedParameters(self.trans, self.tool, populated_state)
         input_json = to_cwl_job(self.tool, wrapped_params.params, self.test_directory)
-        print(inputs)
         print("to_cwl_job is %s" % input_json)
-        # assert False
 
     def _new_hda(self):
         hda = galaxy.model.HistoryDatasetAssociation(history=self.history)
