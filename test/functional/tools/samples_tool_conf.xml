@@ -231,8 +231,8 @@
   <tool file="cwl_tools/v1.0/v1.0/record-output.cwl" />
   <tool file="cwl_tools/v1.0_custom/any1.cwl" />
   <tool file="cwl_tools/v1.0_custom/default_path_custom_1.cwl" />
-  <tool file="cwl_tools/galactic_flavored/galactic_cat.cwl" />
-  <tool file="cwl_tools/galactic_flavored/galactic_record_input.cwl" />
+  <tool file="galactic_cat.cwl" />
+  <tool file="galactic_record_input.cwl" />
   <!--
   <tool file="cwl_tools/v1.0/v1.0/bwa-mem-tool.cwl" />
   <tool file="cwl_tools/v1.0/v1.0/cat4-tool.cwl" />
