@@ -26,10 +26,9 @@ from galaxy.tool_util.parser.cwl import CWL_DEFAULT_FILE_OUTPUT
 from galaxy.tool_util.parser.factory import get_tool_source
 from galaxy.tools.parameters import populate_state
 from galaxy.tools.parameters.wrapped import WrappedParameters
+from galaxy.util import galaxy_directory
 
-
-THIS_DIRECTORY = os.path.dirname(__file__)
-CWL_TOOLS_DIRECTORY = os.path.abspath(os.path.join(THIS_DIRECTORY, "cwl_tools"))
+CWL_TOOLS_DIRECTORY = os.path.abspath(os.path.join(galaxy_directory(), "test/functional/tools/cwl_tools"))
 
 
 def _cwl_tool_path(path):

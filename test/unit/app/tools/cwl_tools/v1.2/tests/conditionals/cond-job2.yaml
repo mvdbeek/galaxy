@@ -1,3 +1,0 @@
-single_reads:
-  class: File
-  location: ../reads.fastq
