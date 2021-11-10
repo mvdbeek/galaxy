@@ -758,8 +758,6 @@ def handle_uploaded_dataset_file_internal(
         else:
             ext = guessed_ext
 
-        if not is_binary and check_content and check_html(converted_path):
-            raise InappropriateDatasetContentError('The uploaded file contains invalid HTML content')
     except Exception:
         if filename != converted_path:
             os.unlink(converted_path)
