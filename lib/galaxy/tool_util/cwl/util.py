@@ -83,6 +83,7 @@ def output_properties(
 
 def _handle_pseudo_location(properties, pseduo_location):
     if pseduo_location:
+        # TODO: should be a URI to the dataset on the server
         properties["location"] = properties["basename"]
 
 
@@ -559,6 +560,7 @@ def output_to_cwl_json(
                     "basename": basename,
                     "listing": listing,
                 }
+                _handle_pseudo_location(properties, pseduo_location=pseduo_location)
 
                 extra_files = get_extra_files(output_metadata)
                 for extra_file in extra_files:
