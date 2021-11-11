@@ -72,6 +72,7 @@ from requests.models import Response
 from galaxy.tool_util.client.staging import InteractorStaging
 from galaxy.tool_util.cwl.util import (
     download_output,
+    GalaxyOutput,
     guess_artifact_type,
     invocation_to_output,
     output_to_cwl_json,
@@ -237,6 +238,12 @@ class CwlRun:
     def __init__(self, dataset_populator, history_id):
         self.dataset_populator = dataset_populator
         self.history_id = history_id
+
+    @abstractmethod
+    def _output_name_to_object(self, output_name) -> GalaxyOutput:
+        """
+        Convert the name of a run output to a GalaxyOutput object.
+        """
 
     def get_output_as_object(self, output_name, download_folder=None):
         galaxy_output = self._output_name_to_object(output_name)
