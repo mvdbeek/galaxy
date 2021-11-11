@@ -2178,6 +2178,10 @@ class EphemeralCollection:
         hdca.history.add_dataset_collection(hdca)
         self.persistent_object = hdca
 
+    @property
+    def elements(self):
+        return self.collection.elements
+
 
 class DelayedWorkflowEvaluation(Exception):
 
