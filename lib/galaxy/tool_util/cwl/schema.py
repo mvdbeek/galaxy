@@ -14,7 +14,7 @@ from .cwltool_deps import (
 
 RawProcessReference = namedtuple("RawProcessReference", ["loading_context", "process_object", "uri"])
 ResolvedProcessDefinition = namedtuple("ResolvedProcessDefinition", ["loading_context", "uri", "raw_process_reference"])
-REWRITE_EXPRESSIONS = True
+REWRITE_EXPRESSIONS = False
 
 
 class SchemaLoader:
