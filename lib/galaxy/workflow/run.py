@@ -594,7 +594,7 @@ class WorkflowProgress:
             progress=subworkflow_progress,
         )
 
-    def subworkflow_progress(self, subworkflow_invocation, step, param_map, structure):
+    def subworkflow_progress(self, subworkflow_invocation, step, param_map, structure=None):
         subworkflow = subworkflow_invocation.workflow
         subworkflow_inputs = {}
         for input_subworkflow_step in subworkflow.input_steps:
