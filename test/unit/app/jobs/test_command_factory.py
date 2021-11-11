@@ -102,7 +102,7 @@ class TestCommandFactory(TestCase):
         self.include_metadata = True
         self.include_work_dir_outputs = False
         self.job_wrapper.metadata_line = TEST_METADATA_LINE
-        expected_command = _surround_command(f"{MOCK_COMMAND_LINE}; return_code=$?; cd '{self.job_dir}'; {SETUP_GALAXY_FOR_METADATA}{TEST_METADATA_LINE}")
+        expected_command = _surround_command(f"{MOCK_COMMAND_LINE}; return_code=$?; cd '{self.job_dir}'; {SETUP_GALAXY_FOR_METADATA}\n{TEST_METADATA_LINE}")
         self.__assert_command_is(expected_command)
 
     def test_empty_metadata(self):
