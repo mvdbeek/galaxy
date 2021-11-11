@@ -46,6 +46,8 @@ colorama==0.4.5 ; python_version >= "3.7" and python_version < "3.11" and platfo
 coloredlogs==15.0.1 ; python_version >= "3.7" and python_version < "3.11"
 commonmark==0.9.1 ; python_version >= "3.7" and python_version < "3.11"
 cryptography==38.0.3 ; python_version >= "3.7" and python_version < "3.11"
+cwl-upgrader==1.2.4 ; python_version >= "3.7" and python_version < "3.11"
+cwl-utils==0.20 ; python_version >= "3.7" and python_version < "3.11"
 cwltool==3.1.20211107152837 ; python_version >= "3.7" and python_version < "3.11"
 decorator==5.1.1 ; python_version >= "3.7" and python_version < "3.11"
 defusedxml==0.7.1 ; python_version >= "3.7" and python_version < "3.11"
