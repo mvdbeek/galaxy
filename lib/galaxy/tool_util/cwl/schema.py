@@ -14,7 +14,7 @@ from .cwltool_deps import (
 
 RawProcessReference = namedtuple("RawProcessReference", ["loading_context", "process_object", "uri"])
 ResolvedProcessDefinition = namedtuple("ResolvedProcessDefinition", ["loading_context", "uri", "raw_process_reference"])
-REWRITE_EXPRESSIONS = False
+REWRITE_EXPRESSIONS = True
 
 
 class SchemaLoader:
@@ -54,8 +54,8 @@ class SchemaLoader:
             uri = f"file://{path}"
             loading_context = loading_context or self.loading_context()
             if REWRITE_EXPRESSIONS:
-                from cwl_utils import cwl_v1_0_expression_refactor
-                exit_code = cwl_v1_0_expression_refactor.main([output_dir, path, '--skip-some1', '--skip-some2'])
+                from cwl_utils import cwl_expression_refactor
+                exit_code = cwl_expression_refactor.main([output_dir, path, '--skip-some1', '--skip-some2'])
                 if exit_code == 0:
                     uri = f"file://{processed_path}"
                     print(f""" -------
