@@ -18,15 +18,6 @@ log = getLogger(__name__)
 CAPTURE_RETURN_CODE = "return_code=$?"
 YIELD_CAPTURED_CODE = 'sh -c "exit $return_code"'
 SETUP_GALAXY_FOR_METADATA = """
-if [ "$GALAXY_LIB" != "None" ]; then
-    if [ -n "$PYTHONPATH" ]; then
-        PYTHONPATH="$GALAXY_LIB:$PYTHONPATH"
-    else
-        PYTHONPATH="$GALAXY_LIB"
-    fi
-    export PYTHONPATH
-fi
-PATH="$_GALAXY_PATH"
 [ "$GALAXY_VIRTUAL_ENV" = "None" ] && GALAXY_VIRTUAL_ENV="$_GALAXY_VIRTUAL_ENV"; _galaxy_setup_environment True
 """
 PREPARE_DIRS = """mkdir -p working outputs configs
