@@ -32,6 +32,7 @@ cloudbridge = "*"
 contextvars = {version = "*", python = "~3.6"}
 circus = "*"
 cwltool = "==3.1.20211107152837"
+cwl-utils = ">=0.12"
 dictobj = "*"
 docutils = "!=0.17, !=0.17.1"
 edam-ontology = "*"

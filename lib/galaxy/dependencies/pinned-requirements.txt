@@ -48,6 +48,7 @@ commonmark==0.9.1; python_version >= "3.6" and python_version < "4.0"
 contextvars==2.4; python_version >= "3.6" and python_version < "3.7"
 cryptography==35.0.0; python_version >= "3.6"
 cwltool==3.1.20211107152837; python_version >= "3.6" and python_version < "4"
+cwl-utils >= 0.12
 dataclasses==0.8; python_version >= "3.6" and python_version < "3.7" and python_full_version >= "3.6.1"
 debtcollector==2.3.0; python_version >= "3.6"
 decorator==5.1.0; python_version >= "3.6"
