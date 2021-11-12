@@ -7230,6 +7230,8 @@ class WorkflowInvocationStep(Base, Dictifiable, RepresentById):
         return self.state == self.states.NEW
 
     def add_output(self, output_name, output_object):
+        if getattr(output_object, 'ephemeral', False):
+            return
         if output_object.history_content_type == "dataset":
             output_assoc = WorkflowInvocationStepOutputDatasetAssociation()
             output_assoc.workflow_invocation_step = self
