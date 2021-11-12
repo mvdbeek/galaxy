@@ -998,9 +998,10 @@ class CreateNewCollectionPayload(Model):
         default=None,
         description="The ID of the history that will contain the collection. Required if `instance_type=library`.",
     )
-    fields: Optional[Union[str, List[Dict['str', 'str']]]] = Field(
+    fields_: Optional[Union[str, List[Dict['str', 'str']]]] = Field(
         default=[],
-        description="List of fields to create for this collection. Set to 'auto' to guess fields from identifiers."
+        description="List of fields to create for this collection. Set to 'auto' to guess fields from identifiers.",
+        alias="fields",
     )
 
 
