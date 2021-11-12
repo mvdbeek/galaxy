@@ -30,7 +30,7 @@ class RecordDatasetCollectionType(BaseDatasetCollectionType):
 
     def prototype_elements(self, fields=None, **kwds):
         if fields is None:
-            raise RequestParameterMissingException("Missing or null parameter fields required for record types.")
+            raise RequestParameterMissingException("Missing or null parameter 'fields' required for record types.")
         for field in fields:
             name = field.get("name", None)
             assert name
