@@ -32,7 +32,7 @@ cloudbridge = "*"
 contextvars = {version = "*", python = "~3.6"}
 circus = "*"
 cwltool = "==3.1.20211107152837"
-cwl-utils = ">=0.12"
+cwl-utils = ">=0.13"
 dictobj = "*"
 docutils = "!=0.17, !=0.17.1"
 edam-ontology = "*"
@@ -88,7 +88,7 @@ Whoosh = "*"
 zipstream-new = "*"
 
 [tool.poetry.dev-dependencies]
-cwltest = "2.0.20200626112502"
+cwltest = "2.2.20210901154959"
 fluent-logger = "*"
 httpx = "*"
 gunicorn = "*"
