@@ -1,4 +1,5 @@
 import Backbone from "backbone";
+import $ from "jquery";
 import Ui from "mvc/ui/ui-misc";
 
 /** Renders an input type field parameter */
