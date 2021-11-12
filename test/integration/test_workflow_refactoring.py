@@ -120,6 +120,7 @@ class WorkflowRefactoringIntegrationTestCase(integration_util.IntegrationTestCas
         assert self._latest_workflow.step_by_label("new_param2").position["left"] == 2
 
         assert len(self._latest_workflow.step_by_label("first_cat").inputs) == 1
+        assert len(self._latest_workflow.step_by_label("first_cat").inputs[0].connections) == 1
         actions = [
             {
                 "action_type": "disconnect",
@@ -128,7 +129,8 @@ class WorkflowRefactoringIntegrationTestCase(integration_util.IntegrationTestCas
             }
         ]
         self._refactor(actions)
-        assert len(self._latest_workflow.step_by_label("first_cat").inputs) == 0
+        assert len(self._latest_workflow.step_by_label("first_cat").inputs) == 1
+        assert len(self._latest_workflow.step_by_label("first_cat").inputs[0].connections) == 0
 
         actions = [
             {
