@@ -1,8 +1,7 @@
-/** Renders the color picker used e.g. in the tool form **/
-import Utils from "utils/utils";
+import Backbone from "backbone";
 import Ui from "mvc/ui/ui-misc";
 
-/** Renders an input element used e.g. in the tool form */
+/** Renders an input type field parameter */
 export default Backbone.View.extend({
     initialize: function (options) {
         this.model =
