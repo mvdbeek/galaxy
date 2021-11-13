@@ -367,11 +367,10 @@ class WorkflowProgress:
             else:
                 raise NotImplementedError()
 
-            ephemeral_collection = modules.EphemeralCollection(
+            return modules.EphemeralCollection(
                 collection=collection,
                 history=self.workflow_invocation.history,
             )
-            replacement = ephemeral_collection
 
         return replacement
 

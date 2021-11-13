@@ -327,7 +327,7 @@ class CwlToolsTestCase(ApiTestCase):
             test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
-        self.dataset_populator._summarize_history_errors(run_object.history_id)
+        self.dataset_populator._summarize_history(run_object.history_id)
         assert output1_content == '"File"', "[%s]" % output1_content
 
     @skip_without_tool("any1")

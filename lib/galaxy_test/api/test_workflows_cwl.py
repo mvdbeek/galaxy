@@ -11,6 +11,7 @@ from galaxy_test.base.populators import (
 
 
 class BaseCwlWorklfowTestCase(BaseWorkflowsApiTestCase):
+    history_id: str
     allow_path_paste = True
     require_admin_user = True
 

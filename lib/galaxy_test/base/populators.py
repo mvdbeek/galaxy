@@ -472,7 +472,7 @@ class CwlPopulator:
             directory = os.path.join(CWL_TOOL_DIRECTORY, version)
         tool = os.path.join(directory, test["tool"])
         job_path = test.get("job")
-        job = None
+        job: Optional[Dict[str, str]] = None
         if job_path is not None:
             job_path = os.path.join(directory, job_path)
         else:

@@ -879,7 +879,7 @@ class InputParameterModule(WorkflowModule):
         cases = []
 
         for param_type in ["text", "integer", "float", "boolean", "color", "field"]:
-            default_source: Dict[str, Union[int, float, bool, str]] = dict(
+            default_source: Dict[str, Union[None, int, float, bool, str]] = dict(
                 name="default", label="Default Value", type=param_type
             )
             if param_type == "text":
@@ -891,6 +891,7 @@ class InputParameterModule(WorkflowModule):
                 input_default_value: Union[
                     TextToolParameter,
                     IntegerToolParameter,
+                    FieldTypeToolParameter,
                     FloatToolParameter,
                     BooleanToolParameter,
                     ColorToolParameter,
@@ -1728,7 +1729,7 @@ class ToolModule(WorkflowModule):
 
     def evaluate_value_from_expressions(self, progress, step, execution_state, extra_step_state):
         value_from_expressions = {}
-        replacements = {}
+        replacements: Dict[str, str] = {}
 
         for key in execution_state.inputs.keys():
             step_input = step.inputs_by_name.get(key)
@@ -1882,8 +1883,17 @@ class ToolModule(WorkflowModule):
                                 replacement = json.load(f)
                     found_replacement_keys.add(prefixed_name)
 
-                is_data = isinstance(input, DataToolParameter) or isinstance(input, DataCollectionToolParameter) or isinstance(input, FieldTypeToolParameter)
-                if not is_data and getattr(replacement, "history_content_type", None) == "dataset" and getattr(replacement, "ext", None) == "expression.json":
+                is_data = (
+                    isinstance(input, DataToolParameter)
+                    or isinstance(input, DataCollectionToolParameter)
+                    or isinstance(input, FieldTypeToolParameter)
+                )
+                if (
+                    not is_data
+                    and not isinstance(replacement, NoReplacement)
+                    and getattr(replacement, "history_content_type", None) == "dataset"
+                    and getattr(replacement, "ext", None) == "expression.json"
+                ):
                     if isinstance(replacement, model.HistoryDatasetAssociation):
                         if not replacement.dataset.in_ready_state():
                             why = "dataset [%s] is needed for non-data connection and is non-ready" % replacement.id
@@ -1897,11 +1907,11 @@ class ToolModule(WorkflowModule):
 
                 if isinstance(input, FieldTypeToolParameter):
                     if isinstance(replacement, model.HistoryDatasetAssociation):
-                        replacement = {"src": "hda", "value": replacement}
+                        return {"src": "hda", "value": replacement}
                     elif isinstance(replacement, model.HistoryDatasetCollectionAssociation):
-                        replacement = {"src": "hdca", "value": replacement}
+                        return {"src": "hdca", "value": replacement}
                     elif replacement is not NO_REPLACEMENT:
-                        replacement = {"src": "json", "value": replacement}
+                        return {"src": "json", "value": replacement}
 
                 return replacement
 
@@ -1944,9 +1954,9 @@ class ToolModule(WorkflowModule):
                 if prefixed_name in expression_replacements:
                     expression_replacement = expression_replacements[prefixed_name]
                     if isinstance(input, FieldTypeToolParameter):
-                        replacement = {"src": "json", "value": expression_replacement}
+                        return {"src": "json", "value": expression_replacement}
                     else:
-                        replacement = expression_replacement
+                        return expression_replacement
 
                 return replacement
 
