@@ -24,7 +24,6 @@ class CwlToolsTestCase(ApiTestCase):
         worklfow_populator = WorkflowPopulator(self.galaxy_interactor)
         self.cwl_populator = CwlPopulator(self.dataset_populator, worklfow_populator)
 
-    # FIXME: this tool is missing
     @skip_without_tool("cat1-tool.cwl")
     def test_cat1_number(self):
         """Test execution of cat1 using the "normal" Galaxy job API representation."""
@@ -44,7 +43,6 @@ class CwlToolsTestCase(ApiTestCase):
         stdout = self._run_and_get_stdout("cat1-tool.cwl", history_id, inputs, assert_ok=True)
         self.assertEqual(stdout, "     1\t1\n     2\t2\n     3\t3\n")
 
-    # FIXME: this tool is missing
     @skip_without_tool("cat1-tool.cwl")
     def test_cat1_number_cwl_json(self):
         """Test execution of cat1 using the "CWL" Galaxy job API representation."""
@@ -57,35 +55,31 @@ class CwlToolsTestCase(ApiTestCase):
         stdout = self._run_and_get_stdout("cat1-tool.cwl", history_id, inputs, assert_ok=True, inputs_representation="cwl")
         self.assertEqual(stdout, "     1\t1\n     2\t2\n     3\t3\n")
 
-    # FIXME: this tool is missing
     @skip_without_tool("cat1-tool.cwl")
     def test_cat1_number_cwl_json_file(self):
         """Test execution of cat1 using the CWL job definition file."""
-        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool.cwl", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool.cwl", "test/functional/tools/cwl_tools/v1.0_custom/cat-job.json")
         stdout = self._get_job_stdout(run_object.job_id)
         self.assertEqual(stdout, "Hello world!\n")
 
-    # FIXME: this tool is missing
     @skip_without_tool("cat1-tool.cwl")
     def test_cat1_number_cwl_n_json_file(self):
-        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool.cwl", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-n-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat1-tool.cwl", "test/functional/tools/cwl_tools/v1.0_custom/cat-n-job.json")
         stdout = self._get_job_stdout(run_object.job_id)
         self.assertEqual(stdout, "     1\tHello world!\n")
 
-    # FIXME: this tool is missing
     @skip_without_tool("cat2-tool.cwl")
     def test_cat2(self):
-        run_object = self.cwl_populator.run_cwl_artifact("cat2-tool.cwl", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat2-tool.cwl", "test/functional/tools/cwl_tools/v1.0_custom/cat-job.json")
         stdout = self._get_job_stdout(run_object.job_id)
         self.assertEqual(stdout, "Hello world!\n")
 
     @skip_without_tool("cat4-tool.cwl")
     def test_cat4(self):
-        run_object = self.cwl_populator.run_cwl_artifact("cat4-tool.cwl", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
+        run_object = self.cwl_populator.run_cwl_artifact("cat4-tool.cwl", "test/functional/tools/cwl_tools/v1.0_custom/cat-job.json")
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEqual(output1_content, "Hello world!\n")
 
-    # FIXME: this tool is missing
     @skip_without_tool("cat-default.cwl")
     def test_cat_default(self):
         run_object = self.cwl_populator.run_cwl_artifact("cat-default.cwl", job={})
@@ -250,7 +244,6 @@ class CwlToolsTestCase(ApiTestCase):
         self.assertEqual(output_content, "Hello world!\n")
         self.assertEqual(optional_content, "null")
 
-    # FIXME: this tool is missing
     @skip_without_tool("optional-output2.cwl")
     def test_optional_output2_on(self):
         run_object = self.cwl_populator.run_cwl_artifact(
@@ -258,12 +251,11 @@ class CwlToolsTestCase(ApiTestCase):
             job={
                 "produce": "do_write",
             },
-            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/"
+            test_data_directory="test/functional/tools/cwl_tools/v1.0_custom"
         )
         output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEqual(output_content, "bees\n")
 
-    # FIXME: this tool is missing
     @skip_without_tool("optional-output2.cwl")
     def test_optional_output2_off(self):
         run_object = self.cwl_populator.run_cwl_artifact(
@@ -271,12 +263,11 @@ class CwlToolsTestCase(ApiTestCase):
             job={
                 "produce": "dont_write",
             },
-            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/"
+            test_data_directory="test/functional/tools/cwl_tools/v1.0_custom"
         )
         output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
         self.assertEqual(output_content, "null")
 
-    # FIXME: these tools are missing
     @skip_without_tool("index1.cwl")
     @skip_without_tool("showindex1.cwl")
     def test_index1(self):
@@ -288,7 +279,7 @@ class CwlToolsTestCase(ApiTestCase):
                     "path": "whale.txt"
                 },
             },
-            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0_custom",
         )
         output1 = self.dataset_populator.get_history_dataset_details(run_object.history_id)
         run_object = self.cwl_populator.run_cwl_artifact(
@@ -299,7 +290,7 @@ class CwlToolsTestCase(ApiTestCase):
                     "id": output1["id"],
                 },
             },
-            test_data_directory="test/functional/tools/cwl_tools/v1.0/v1.0/",
+            test_data_directory="test/functional/tools/cwl_tools/v1.0_custom",
             history_id=run_object.history_id,
         )
         output1_content = self.dataset_populator.get_history_dataset_content(run_object.history_id)
