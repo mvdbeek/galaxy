@@ -385,6 +385,7 @@ class CwlPopulator:
         if datasets_uploaded:
             self.dataset_populator.wait_for_history(history_id=history_id, assert_ok=True)
         if tool_or_workflow == "tool":
+            galaxy_tool_id = tool_id
             tool_uuid = None
 
             if os.path.exists(tool_id):

@@ -556,7 +556,7 @@ class GalaxyFlavoredCwlLoaderTestCase(BaseLoaderTestCase):
 
     def test_id(self):
         tool_id = self._tool_source.parse_id()
-        assert tool_id == "galactic_record_input", tool_id
+        assert tool_id == "galactic_record_input.cwl#galactic_record_input", tool_id
 
 
 class DataSourceLoaderTestCase(BaseLoaderTestCase):
