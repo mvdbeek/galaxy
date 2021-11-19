@@ -4,12 +4,12 @@ import os
 import shlex
 import string
 import tempfile
-from typing import Any, Callable, cast, Dict, List, Optional, Union
+from typing import Any, Callable, cast, Dict, List, Optional
 
 from galaxy import model
 from galaxy.files import ProvidesUserFileSourcesUserContext
 from galaxy.job_execution.setup import ensure_configs_directory
-from galaxy.jobs import SharedComputeEnvironment, SimpleComputeEnvironment
+from galaxy.jobs import ComputeEnvironment
 from galaxy.model.none_like import NoneDataset
 from galaxy.security.object_wrapper import wrap_with_safe_string
 from galaxy.tools import global_tool_errors, Tool
@@ -104,7 +104,7 @@ class ToolEvaluator:
         self.tool = tool
         self.local_working_directory = local_working_directory
 
-    def set_compute_environment(self, compute_environment: Union[SimpleComputeEnvironment, SharedComputeEnvironment], get_special: Optional[Callable] = None):
+    def set_compute_environment(self, compute_environment: ComputeEnvironment, get_special: Optional[Callable] = None):
         """
         Setup the compute environment and established the outline of the param_dict
         for evaluating command and config cheetah templates.

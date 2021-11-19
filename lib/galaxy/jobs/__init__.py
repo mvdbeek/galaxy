@@ -2474,6 +2474,10 @@ class ComputeEnvironment(metaclass=ABCMeta):
         """ Directory containing config files (potentially remote) """
 
     @abstractmethod
+    def env_config_directory(self):
+        """Working directory (possibly as environment variable evaluation)."""
+
+    @abstractmethod
     def sep(self):
         """ os.path.sep for the platform this job will execute in.
         """
@@ -2512,7 +2516,7 @@ class SimpleComputeEnvironment:
         return os.path.sep
 
 
-class SharedComputeEnvironment(SimpleComputeEnvironment):
+class SharedComputeEnvironment(SimpleComputeEnvironment, ComputeEnvironment):
     """ Default ComputeEnvironment for job and task wrapper to pass
     to ToolEvaluator - valid when Galaxy and compute share all the relevant
     file systems.
