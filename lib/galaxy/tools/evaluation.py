@@ -9,7 +9,7 @@ from typing import Any, Callable, cast, Dict, List, Optional
 from galaxy import model
 from galaxy.files import ProvidesUserFileSourcesUserContext
 from galaxy.job_execution.setup import ensure_configs_directory
-from galaxy.jobs import ComputeEnvironment
+from galaxy.job_execution.compute_environment import ComputeEnvironment
 from galaxy.model.none_like import NoneDataset
 from galaxy.security.object_wrapper import wrap_with_safe_string
 from galaxy.tools import global_tool_errors, Tool
