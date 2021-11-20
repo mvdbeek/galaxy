@@ -42,7 +42,7 @@ from galaxy.job_execution.setup import (  # noqa: F401
     TOOL_PROVIDED_JOB_METADATA_FILE,
     TOOL_PROVIDED_JOB_METADATA_KEYS,
 )
-from galaxy.jobs.actions.post import ActionBox
+from galaxy.job_execution.actions.post import ActionBox
 from galaxy.jobs.mapper import (
     JobMappingException,
     JobRunnerMapper,
