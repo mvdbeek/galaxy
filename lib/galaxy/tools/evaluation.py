@@ -4,6 +4,7 @@ import os
 import shlex
 import string
 import tempfile
+from datetime import datetime
 from typing import Any, Callable, cast, Dict, List, Optional
 
 from galaxy import model
@@ -12,7 +13,7 @@ from galaxy.job_execution.setup import ensure_configs_directory
 from galaxy.job_execution.compute_environment import ComputeEnvironment
 from galaxy.model.none_like import NoneDataset
 from galaxy.security.object_wrapper import wrap_with_safe_string
-from galaxy.tools import global_tool_errors, Tool
+from galaxy.tools import Tool
 from galaxy.tools.parameters import (
     visit_input_values,
     wrapped_json,
@@ -91,6 +92,25 @@ What won't work:
 - Can't just serialize param_dict and overwrite inputs (I think), too many custom methods that could be called
 
 """
+
+
+class ToolErrorLog:
+    def __init__(self):
+        self.error_stack = []
+        self.max_errors = 100
+
+    def add_error(self, file, phase, exception):
+        self.error_stack.insert(0, {
+            "file": file,
+            "time": str(datetime.now()),
+            "phase": phase,
+            "error": unicodify(exception)
+        })
+        if len(self.error_stack) > self.max_errors:
+            self.error_stack.pop()
+
+
+global_tool_errors = ToolErrorLog()
 
 
 class ToolEvaluator:
