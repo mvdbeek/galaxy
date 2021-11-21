@@ -52,8 +52,9 @@ class SchemaLoader:
             uri = f"file://{path}"
             loading_context = loading_context or self.loading_context()
             if REWRITE_EXPRESSIONS:
+                # Has update in cwl-1.0 branch
                 from cwl_utils import cwl_v1_0_expression_refactor
-                exit_code = cwl_v1_0_expression_refactor.main([output_dir, path, '--skip-some1', '--skip-some2'])
+                exit_code = cwl_v1_0_expression_refactor.main([output_dir, path, '--skip-some1', '--skip-some2'])  # type: ignore[attr-defined]
                 if exit_code == 0:
                     uri = f"file://{processed_path}"
                     print(f""" -------
