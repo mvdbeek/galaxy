@@ -85,7 +85,7 @@ class ComputeEnvironment(metaclass=ABCMeta):
 class SimpleComputeEnvironment:
 
     def config_directory(self):
-        return os.path.join(self.working_directory(), "configs")  # typing: ignore[attr-defined]
+        return os.path.join(self.working_directory(), "configs")  # type: ignore[attr-defined]
 
     def sep(self):
         return os.path.sep

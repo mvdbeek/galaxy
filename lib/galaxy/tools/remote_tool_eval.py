@@ -47,10 +47,15 @@ class ToolAppConfig(NamedTuple):
     admin_users: list = []
 
 
+class ModelProxy:
+
+    def __init__(self, sa_session: scoped_session) -> None:
+        self.context = sa_session
+
+
 class ToolApp:
     """Dummy App that allows loading tools"""
     name = 'tool_app'
-    model = model
 
     def __init__(
         self,
@@ -61,7 +66,7 @@ class ToolApp:
         tool_data_table_manager: ToolDataTableManager,
         file_sources: ConfiguredFileSources,
     ):
-        self.model.context = sa_session  # type: ignore[attr-defined]
+        self.model = ModelProxy(sa_session)
         self.config = tool_app_config
         self.datatypes_registry = datatypes_registry
         self.object_store = object_store
