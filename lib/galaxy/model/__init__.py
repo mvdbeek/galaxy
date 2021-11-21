@@ -924,42 +924,42 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
     params = Column(TrimmedString(255), index=True)
     handler = Column(TrimmedString(255), index=True)
 
-    user = relationship('User')
-    galaxy_session = relationship('GalaxySession')
-    history = relationship('History', back_populates='jobs')
-    library_folder = relationship('LibraryFolder', lazy=True)
+    user: 'User' = relationship('User')
+    galaxy_session: 'GalaxySession' = relationship('GalaxySession')
+    history: Optional['History'] = relationship('History', back_populates='jobs')
+    library_folder: Optional['LibraryFolder'] = relationship('LibraryFolder', lazy=True)
     parameters = relationship('JobParameter', lazy=True)
-    input_datasets = relationship('JobToInputDatasetAssociation', back_populates='job')
-    input_dataset_collections = relationship('JobToInputDatasetCollectionAssociation',
+    input_datasets: List['JobToInputDatasetAssociation'] = relationship('JobToInputDatasetAssociation', back_populates='job')
+    input_dataset_collections: List['JobToInputDatasetCollectionAssociation'] = relationship('JobToInputDatasetCollectionAssociation',
         back_populates='job', lazy=True)
-    input_dataset_collection_elements = relationship('JobToInputDatasetCollectionElementAssociation',
+    input_dataset_collection_elements: List['JobToInputDatasetCollectionElementAssociation'] = relationship('JobToInputDatasetCollectionElementAssociation',
         back_populates='job', lazy=True)
-    output_dataset_collection_instances = relationship('JobToOutputDatasetCollectionAssociation',
+    output_dataset_collection_instances: List['JobToOutputDatasetCollectionAssociation'] = relationship('JobToOutputDatasetCollectionAssociation',
         back_populates='job', lazy=True)
-    output_dataset_collections = relationship('JobToImplicitOutputDatasetCollectionAssociation',
+    output_dataset_collections: List['JobToImplicitOutputDatasetCollectionAssociation'] = relationship('JobToImplicitOutputDatasetCollectionAssociation',
         back_populates='job', lazy=True)
-    post_job_actions = relationship('PostJobActionAssociation', back_populates='job', lazy=False)
-    input_library_datasets = relationship('JobToInputLibraryDatasetAssociation',
+    post_job_actions: List['PostJobActionAssociation'] = relationship('PostJobActionAssociation', back_populates='job', lazy=False)
+    input_library_datasets: List['JobToInputLibraryDatasetAssociation'] = relationship('JobToInputLibraryDatasetAssociation',
         back_populates='job')
-    output_library_datasets = relationship('JobToOutputLibraryDatasetAssociation',
+    output_library_datasets: List['JobToOutputLibraryDatasetAssociation'] = relationship('JobToOutputLibraryDatasetAssociation',
         back_populates='job', lazy=True)
-    external_output_metadata = relationship('JobExternalOutputMetadata',
+    external_output_metadata: Optional['JobExternalOutputMetadata'] = relationship('JobExternalOutputMetadata',
         lazy=True, back_populates='job')
-    tasks = relationship('Task', back_populates='job')
-    output_datasets = relationship('JobToOutputDatasetAssociation', back_populates='job')
-    state_history = relationship('JobStateHistory')
-    text_metrics = relationship('JobMetricText')
-    numeric_metrics = relationship('JobMetricNumeric')
-    interactivetool_entry_points = relationship('InteractiveToolEntryPoint',
+    tasks: List['Task'] = relationship('Task', back_populates='job')
+    output_datasets: List['JobToOutputDatasetAssociation'] = relationship('JobToOutputDatasetAssociation', back_populates='job')
+    state_history: List['JobStateHistory'] = relationship('JobStateHistory')
+    text_metrics: List['JobMetricText'] = relationship('JobMetricText')
+    numeric_metrics: List['JobMetricNumeric'] = relationship('JobMetricNumeric')
+    interactivetool_entry_points: List['InteractiveToolEntryPoint'] = relationship('InteractiveToolEntryPoint',
         back_populates='job', uselist=True)
-    implicit_collection_jobs_association = relationship('ImplicitCollectionJobsJobAssociation',
+    implicit_collection_jobs_association: List['ImplicitCollectionJobsJobAssociation'] = relationship('ImplicitCollectionJobsJobAssociation',
         back_populates='job', uselist=False)
-    container = relationship('JobContainerAssociation', back_populates='job', uselist=False)
-    data_manager_association = relationship('DataManagerJobAssociation',
+    container: Optional['JobContainerAssociation'] = relationship('JobContainerAssociation', back_populates='job', uselist=False)
+    data_manager_association: Optional['DataManagerJobAssociation'] = relationship('DataManagerJobAssociation',
         back_populates='job', uselist=False)
-    history_dataset_collection_associations = relationship('HistoryDatasetCollectionAssociation',
+    history_dataset_collection_associations: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
         back_populates='job')
-    workflow_invocation_step = relationship('WorkflowInvocationStep',
+    workflow_invocation_step: Optional['WorkflowInvocationStep'] = relationship('WorkflowInvocationStep',
         back_populates='job', uselist=False)
 
     any_output_dataset_collection_instances_deleted: column_property  # defined at the end of this module
