@@ -8,7 +8,7 @@ import logging
 import os
 import os.path
 import re
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from webob.compat import cgi_FieldStorage
 
@@ -1937,7 +1937,7 @@ class DataToolParameter(BaseDataToolParameter):
                     if not isinstance(val, galaxy.model.HistoryDatasetCollectionAssociation):
                         raise ParameterValueError("if collections are supplied to multiple data input parameter, only collections may be used", self.name)
         elif isinstance(value, (galaxy.model.HistoryDatasetAssociation, galaxy.model.LibraryDatasetDatasetAssociation)):
-            rval = value
+            rval = [value]
         elif isinstance(value, dict) and 'src' in value and 'id' in value:
             if value['src'] == 'hda':
                 decoded_id = trans.security.decode_id(value['id'])
@@ -1955,9 +1955,9 @@ class DataToolParameter(BaseDataToolParameter):
                 hdca = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(decoded_id)
                 rval.append(hdca)
         elif isinstance(value, galaxy.model.HistoryDatasetCollectionAssociation) or isinstance(value, galaxy.model.DatasetCollectionElement):
-            rval = value
+            rval = [value]
         else:
-            rval = trans.sa_session.query(galaxy.model.HistoryDatasetAssociation).get(value)
+            rval = [trans.sa_session.query(galaxy.model.HistoryDatasetAssociation).get(value)]
         values = util.listify(rval)
         dataset_matcher_factory = get_dataset_matcher_factory(trans)
         dataset_matcher = dataset_matcher_factory.dataset_matcher(self, other_values)
@@ -2177,7 +2177,7 @@ class DataCollectionToolParameter(BaseDataToolParameter):
 
     def from_json(self, value, trans, other_values=None):
         other_values = other_values or {}
-        rval = None
+        rval: Optional[Union[galaxy.model.HistoryDatasetCollectionAssociation, galaxy.model.DatasetCollectionElement]] = None
         if trans.workflow_building_mode is workflow_building_modes.ENABLED:
             return None
         if not value and not self.optional:
@@ -2191,7 +2191,7 @@ class DataCollectionToolParameter(BaseDataToolParameter):
         elif isinstance(value, galaxy.model.HistoryDatasetCollectionAssociation):
             rval = value
         elif isinstance(value, galaxy.model.DatasetCollectionElement):
-            # When mapping over nested collection - this paramter will recieve
+            # When mapping over nested collection - this parameter will receive
             # a DatasetCollectionElement instead of a
             # HistoryDatasetCollectionAssociation.
             rval = value
