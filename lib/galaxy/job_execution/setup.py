@@ -1,8 +1,18 @@
 """Utilities to help job and tool code setup jobs."""
 import json
 import os
+from dataclasses import (
+    asdict,
+    dataclass,
+)
 
-from galaxy import model
+from galaxy.model import (
+    Job,
+    JobExportHistoryArchive,
+    MetadataFile,
+
+)
+from galaxy.model.scoped_session import galaxy_scoped_session
 from galaxy.files import ConfiguredFileSources
 from galaxy.job_execution.datasets import (
     DatasetPath,
@@ -15,73 +25,35 @@ TOOL_PROVIDED_JOB_METADATA_FILE = 'galaxy.json'
 TOOL_PROVIDED_JOB_METADATA_KEYS = ['name', 'info', 'dbkey', 'created_from_basename']
 
 
+@dataclass
 class JobIO(Dictifiable):
-    dict_collection_visible_keys = (
-        'working_directory',
-        'outputs_directory',
-        'outputs_to_working_directory',
-        'galaxy_url',
-        'version_path',
-        'tool_directory',
-        'home_directory',
-        'tmp_directory',
-        'tool_data_path',
-        'new_file_path',
-        'len_file_path',
-        'builds_file_path',
-        '_file_sources',
-        'check_job_script_integrity',
-        'check_job_script_integrity_count',
-        'check_job_script_integrity_sleep',
-        'is_task',
-    )
+    sa_session: galaxy_scoped_session
+    job: Job
+    working_directory: str
+    outputs_directory: str
+    outputs_to_working_directory: bool
+    galaxy_url: str
+    version_path: str
+    tool_directory: str
+    home_directory: str
+    tmp_directory: str
+    tool_data_path: str
+    new_file_path: str
+    len_file_path: str
+    builds_file_path: str
+    _file_sources: str
+    check_job_script_integrity: bool
+    check_job_script_integrity_count: int
+    check_job_script_integrity_sleep: float
+    is_task: bool = False
 
-    def __init__(
-            self,
-            sa_session,
-            job,
-            working_directory,
-            outputs_directory,
-            outputs_to_working_directory,
-            galaxy_url,
-            version_path,
-            tool_directory,
-            home_directory,
-            tmp_directory,
-            tool_data_path,
-            new_file_path,
-            len_file_path,
-            builds_file_path,
-            _file_sources,
-            check_job_script_integrity,
-            check_job_script_integrity_count,
-            check_job_script_integrity_sleep,
-            is_task=False):
-        self.sa_session = sa_session
-        self.job = job
-        self.working_directory = working_directory
-        self.outputs_directory = outputs_directory
-        self.outputs_to_working_directory = outputs_to_working_directory
-        self.galaxy_url = galaxy_url
-        self.version_path = version_path
-        self.tool_directory = tool_directory
-        self.home_directory = home_directory
-        self.tmp_directory = tmp_directory
-        self.tool_data_path = tool_data_path
-        self.new_file_path = new_file_path
-        self.len_file_path = len_file_path
-        self.builds_file_path = builds_file_path
-        self._file_sources = _file_sources
-        self.check_job_script_integrity = check_job_script_integrity
-        self.check_job_script_integrity_count = check_job_script_integrity_count
-        self.check_job_script_integrity_sleep = check_job_script_integrity_sleep
-        self.is_task = is_task
+    def __post_init__(self):
         self.output_paths = None
         self.output_hdas_and_paths = None
         self._dataset_path_rewriter = None
 
     @classmethod
-    def from_json(cls, path, sa_session, job):
+    def from_json(cls, path: str, sa_session: galaxy_scoped_session, job: Job):
         with open(path) as job_io_serialized:
             kwargs = json.load(job_io_serialized)
         kwargs.pop('model_class')
@@ -112,7 +84,7 @@ class JobIO(Dictifiable):
         # we will need to stage in metadata file names also
         # TODO: would be better to only stage in metadata files that are actually needed (found in command line, referenced in config files, etc.)
         for value in ds.metadata.values():
-            if isinstance(value, model.MetadataFile):
+            if isinstance(value, MetadataFile):
                 filenames.append(value.file_name)
         return filenames
 
@@ -179,7 +151,7 @@ class JobIO(Dictifiable):
 
         job = self.job
         # Job output datasets are combination of history, library, and jeha datasets.
-        special = self.sa_session.query(model.JobExportHistoryArchive).filter_by(job=job).first()
+        special = self.sa_session.query(JobExportHistoryArchive).filter_by(job=job).first()
         false_path = None
 
         results = []
