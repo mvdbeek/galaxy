@@ -75,7 +75,7 @@ def is_runtime_context(trans, other_values):
         if is_runtime_value(context_value):
             return True
         for v in util.listify(context_value):
-            if isinstance(v, trans.app.model.HistoryDatasetAssociation) and \
+            if isinstance(v, galaxy.model.HistoryDatasetAssociation) and \
                     ((hasattr(v, 'state') and v.state != galaxy.model.Dataset.states.OK)
                     or hasattr(v, 'implicit_conversion')):
                 return True
@@ -1305,9 +1305,9 @@ class ColumnListParameter(SelectToolParameter):
         column_list = None
         for dataset in util.listify(dataset):
             # Use representative dataset if a dataset collection is parsed
-            if isinstance(dataset, trans.app.model.HistoryDatasetCollectionAssociation):
+            if isinstance(dataset, galaxy.model.HistoryDatasetCollectionAssociation):
                 dataset = dataset.to_hda_representative()
-            if isinstance(dataset, trans.app.model.HistoryDatasetAssociation) and self.ref_input and self.ref_input.formats:
+            if isinstance(dataset, galaxy.model.HistoryDatasetAssociation) and self.ref_input and self.ref_input.formats:
                 direct_match, target_ext, converted_dataset = dataset.find_conversion_destination(self.ref_input.formats)
                 if not direct_match and target_ext:
                     if not converted_dataset:
@@ -1385,9 +1385,9 @@ class ColumnListParameter(SelectToolParameter):
     def is_file_empty(self, trans, other_values):
         for dataset in util.listify(other_values.get(self.data_ref)):
             # Use representative dataset if a dataset collection is parsed
-            if isinstance(dataset, trans.app.model.HistoryDatasetCollectionAssociation):
+            if isinstance(dataset, galaxy.model.HistoryDatasetCollectionAssociation):
                 dataset = dataset.to_hda_representative()
-            if isinstance(dataset, trans.app.model.DatasetInstance):
+            if isinstance(dataset, galaxy.model.DatasetInstance):
                 return not dataset.has_data()
             if is_runtime_value(dataset):
                 return True
@@ -1754,11 +1754,11 @@ class BaseDataToolParameter(ToolParameter):
                 return value
             elif isinstance(value, galaxy.model.DatasetCollectionElement):
                 src = 'dce'
-            elif isinstance(value, app.model.HistoryDatasetCollectionAssociation):
+            elif isinstance(value, galaxy.model.HistoryDatasetCollectionAssociation):
                 src = 'hdca'
-            elif isinstance(value, app.model.LibraryDatasetDatasetAssociation):
+            elif isinstance(value, galaxy.model.LibraryDatasetDatasetAssociation):
                 src = 'ldda'
-            elif isinstance(value, app.model.HistoryDatasetAssociation) or hasattr(value, 'id'):
+            elif isinstance(value, galaxy.model.HistoryDatasetAssociation) or hasattr(value, 'id'):
                 # hasattr 'id' fires a query on persistent objects after a flush so better
                 # to do the isinstance check. Not sure we need the hasattr check anymore - it'd be
                 # nice to drop it.
@@ -1780,13 +1780,13 @@ class BaseDataToolParameter(ToolParameter):
             if isinstance(value, dict) and 'src' in value:
                 id = value['id'] if isinstance(value['id'], int) else app.security.decode_id(value['id'])
                 if value['src'] == 'dce':
-                    return app.model.context.query(app.model.DatasetCollectionElement).get(id)
+                    return app.model.context.query(galaxy.model.DatasetCollectionElement).get(id)
                 elif value['src'] == 'hdca':
-                    return app.model.context.query(app.model.HistoryDatasetCollectionAssociation).get(id)
+                    return app.model.context.query(galaxy.model.HistoryDatasetCollectionAssociation).get(id)
                 elif value['src'] == 'ldda':
-                    return app.model.context.query(app.model.LibraryDatasetDatasetAssociation).get(id)
+                    return app.model.context.query(galaxy.model.LibraryDatasetDatasetAssociation).get(id)
                 else:
-                    return app.model.context.query(app.model.HistoryDatasetAssociation).get(id)
+                    return app.model.context.query(galaxy.model.HistoryDatasetAssociation).get(id)
 
         if isinstance(value, dict) and 'values' in value:
             if hasattr(self, 'multiple') and self.multiple is True:
@@ -1799,18 +1799,18 @@ class BaseDataToolParameter(ToolParameter):
         if value in none_values:
             return None
         if isinstance(value, str) and value.find(',') > -1:
-            return [app.model.context.query(app.model.HistoryDatasetAssociation).get(int(v)) for v in value.split(',') if v not in none_values]
+            return [app.model.context.query(galaxy.model.HistoryDatasetAssociation).get(int(v)) for v in value.split(',') if v not in none_values]
         elif str(value).startswith("__collection_reduce__|"):
             decoded_id = str(value)[len("__collection_reduce__|"):]
             if not decoded_id.isdigit():
                 decoded_id = app.security.decode_id(decoded_id)
-            return app.model.context.query(app.model.HistoryDatasetCollectionAssociation).get(int(decoded_id))
+            return app.model.context.query(galaxy.model.HistoryDatasetCollectionAssociation).get(int(decoded_id))
         elif str(value).startswith("dce:"):
-            return app.model.context.query(app.model.DatasetCollectionElement).get(int(value[len("dce:"):]))
+            return app.model.context.query(galaxy.model.DatasetCollectionElement).get(int(value[len("dce:"):]))
         elif str(value).startswith("hdca:"):
-            return app.model.context.query(app.model.HistoryDatasetCollectionAssociation).get(int(value[len("hdca:"):]))
+            return app.model.context.query(galaxy.model.HistoryDatasetCollectionAssociation).get(int(value[len("hdca:"):]))
         else:
-            return app.model.context.query(app.model.HistoryDatasetAssociation).get(int(value))
+            return app.model.context.query(galaxy.model.HistoryDatasetAssociation).get(int(value))
 
     def validate(self, value, trans=None):
 
@@ -1908,21 +1908,21 @@ class DataToolParameter(BaseDataToolParameter):
                 if isinstance(single_value, dict) and 'src' in single_value and 'id' in single_value:
                     if single_value['src'] == 'hda':
                         decoded_id = trans.security.decode_id(single_value['id'])
-                        rval.append(trans.sa_session.query(trans.app.model.HistoryDatasetAssociation).get(decoded_id))
+                        rval.append(trans.sa_session.query(galaxy.model.HistoryDatasetAssociation).get(decoded_id))
                     elif single_value['src'] == 'hdca':
                         found_hdca = True
                         decoded_id = trans.security.decode_id(single_value['id'])
-                        rval.append(trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(decoded_id))
+                        rval.append(trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(decoded_id))
                     elif single_value['src'] == 'ldda':
                         decoded_id = trans.security.decode_id(single_value['id'])
-                        rval.append(trans.sa_session.query(trans.app.model.LibraryDatasetDatasetAssociation).get(decoded_id))
+                        rval.append(trans.sa_session.query(galaxy.model.LibraryDatasetDatasetAssociation).get(decoded_id))
                     else:
                         raise ValueError(f"Unknown input source {single_value['src']} passed to job submission API.")
                 elif isinstance(single_value, (
-                        trans.app.model.HistoryDatasetCollectionAssociation,
-                        trans.app.model.DatasetCollectionElement,
-                        trans.app.model.HistoryDatasetAssociation,
-                        trans.app.model.LibraryDatasetDatasetAssociation
+                        galaxy.model.HistoryDatasetCollectionAssociation,
+                        galaxy.model.DatasetCollectionElement,
+                        galaxy.model.HistoryDatasetAssociation,
+                        galaxy.model.LibraryDatasetDatasetAssociation
                 )):
                     rval.append(single_value)
                 else:
@@ -1931,20 +1931,20 @@ class DataToolParameter(BaseDataToolParameter):
                         # support that for integer column types.
                         log.warning("Encoded ID where unencoded ID expected.")
                         single_value = trans.security.decode_id(single_value)
-                    rval.append(trans.sa_session.query(trans.app.model.HistoryDatasetAssociation).get(single_value))
+                    rval.append(trans.sa_session.query(galaxy.model.HistoryDatasetAssociation).get(single_value))
             if found_hdca:
                 for val in rval:
-                    if not isinstance(val, trans.app.model.HistoryDatasetCollectionAssociation):
+                    if not isinstance(val, galaxy.model.HistoryDatasetCollectionAssociation):
                         raise ParameterValueError("if collections are supplied to multiple data input parameter, only collections may be used", self.name)
-        elif isinstance(value, (trans.app.model.HistoryDatasetAssociation, trans.app.model.LibraryDatasetDatasetAssociation)):
+        elif isinstance(value, (galaxy.model.HistoryDatasetAssociation, galaxy.model.LibraryDatasetDatasetAssociation)):
             rval = value
         elif isinstance(value, dict) and 'src' in value and 'id' in value:
             if value['src'] == 'hda':
                 decoded_id = trans.security.decode_id(value['id'])
-                rval = trans.sa_session.query(trans.app.model.HistoryDatasetAssociation).get(decoded_id)
+                rval = trans.sa_session.query(galaxy.model.HistoryDatasetAssociation).get(decoded_id)
             elif value['src'] == 'hdca':
                 decoded_id = trans.security.decode_id(value['id'])
-                rval = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(decoded_id)
+                rval = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(decoded_id)
             else:
                 raise ValueError(f"Unknown input source {value['src']} passed to job submission API.")
         elif str(value).startswith("__collection_reduce__|"):
@@ -1952,12 +1952,12 @@ class DataToolParameter(BaseDataToolParameter):
             decoded_ids = map(trans.security.decode_id, encoded_ids)
             rval = []
             for decoded_id in decoded_ids:
-                hdca = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(decoded_id)
+                hdca = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(decoded_id)
                 rval.append(hdca)
-        elif isinstance(value, trans.app.model.HistoryDatasetCollectionAssociation) or isinstance(value, trans.app.model.DatasetCollectionElement):
+        elif isinstance(value, galaxy.model.HistoryDatasetCollectionAssociation) or isinstance(value, galaxy.model.DatasetCollectionElement):
             rval = value
         else:
-            rval = trans.sa_session.query(trans.app.model.HistoryDatasetAssociation).get(value)
+            rval = trans.sa_session.query(galaxy.model.HistoryDatasetAssociation).get(value)
         values = util.listify(rval)
         dataset_matcher_factory = get_dataset_matcher_factory(trans)
         dataset_matcher = dataset_matcher_factory.dataset_matcher(self, other_values)
@@ -2188,32 +2188,32 @@ class DataCollectionToolParameter(BaseDataToolParameter):
             value = self.to_python(value, trans.app)
         if isinstance(value, str) and value.find(",") > 0:
             value = [int(value_part) for value_part in value.split(",")]
-        elif isinstance(value, trans.app.model.HistoryDatasetCollectionAssociation):
+        elif isinstance(value, galaxy.model.HistoryDatasetCollectionAssociation):
             rval = value
-        elif isinstance(value, trans.app.model.DatasetCollectionElement):
+        elif isinstance(value, galaxy.model.DatasetCollectionElement):
             # When mapping over nested collection - this paramter will recieve
             # a DatasetCollectionElement instead of a
             # HistoryDatasetCollectionAssociation.
             rval = value
         elif isinstance(value, dict) and 'src' in value and 'id' in value:
             if value['src'] == 'hdca':
-                rval = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(trans.security.decode_id(value['id']))
+                rval = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(trans.security.decode_id(value['id']))
         elif isinstance(value, list):
             if len(value) > 0:
                 value = value[0]
                 if isinstance(value, dict) and 'src' in value and 'id' in value:
                     if value['src'] == 'hdca':
-                        rval = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(trans.security.decode_id(value['id']))
+                        rval = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(trans.security.decode_id(value['id']))
                     elif value['src'] == 'dce':
-                        rval = trans.sa_session.query(trans.app.model.DatasetCollectionElement).get(trans.security.decode_id(value['id']))
+                        rval = trans.sa_session.query(galaxy.model.DatasetCollectionElement).get(trans.security.decode_id(value['id']))
         elif isinstance(value, str):
             if value.startswith("dce:"):
-                rval = trans.sa_session.query(trans.app.model.DatasetCollectionElement).get(value[len("dce:"):])
+                rval = trans.sa_session.query(galaxy.model.DatasetCollectionElement).get(value[len("dce:"):])
             elif value.startswith("hdca:"):
-                rval = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(value[len("hdca:"):])
+                rval = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(value[len("hdca:"):])
             else:
-                rval = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(value)
-        if rval and isinstance(rval, trans.app.model.HistoryDatasetCollectionAssociation):
+                rval = trans.sa_session.query(galaxy.model.HistoryDatasetCollectionAssociation).get(value)
+        if rval and isinstance(rval, galaxy.model.HistoryDatasetCollectionAssociation):
             if rval.deleted:
                 raise ParameterValueError("the previously selected dataset collection has been deleted", self.name)
             # TODO: Handle error states, implement error states ...
@@ -2336,7 +2336,7 @@ class LibraryDatasetToolParameter(ToolParameter):
         lst: List[Dict[str, str]] = []
         for item in value:
             lda_id = lda_name = None
-            if isinstance(item, app.model.LibraryDatasetDatasetAssociation):
+            if isinstance(item, galaxy.model.LibraryDatasetDatasetAssociation):
                 lda_id = app.security.encode_id(item.id) if use_security else item.id
                 lda_name = item.name
             elif isinstance(item, dict):
@@ -2368,7 +2368,7 @@ class LibraryDatasetToolParameter(ToolParameter):
             value = [value]
         lst = []
         for item in value:
-            if isinstance(item, app.model.LibraryDatasetDatasetAssociation):
+            if isinstance(item, galaxy.model.LibraryDatasetDatasetAssociation):
                 lst.append(item)
             else:
                 lda_id = None
@@ -2379,7 +2379,7 @@ class LibraryDatasetToolParameter(ToolParameter):
                 else:
                     lst = []
                     break
-                lda = app.model.context.query(app.model.LibraryDatasetDatasetAssociation).get(lda_id if isinstance(lda_id, int) else app.security.decode_id(lda_id))
+                lda = app.model.context.query(galaxy.model.LibraryDatasetDatasetAssociation).get(lda_id if isinstance(lda_id, int) else app.security.decode_id(lda_id))
                 if lda is not None:
                     lst.append(lda)
                 elif validate:
