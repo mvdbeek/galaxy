@@ -5,7 +5,7 @@ import shlex
 import string
 import tempfile
 from datetime import datetime
-from typing import Any, Callable, cast, Dict, List, Optional
+from typing import Any, Callable, cast, Dict, List, Optional, TYPE_CHECKING
 
 from galaxy import model
 from galaxy.files import ProvidesUserFileSourcesUserContext
@@ -13,7 +13,6 @@ from galaxy.job_execution.setup import ensure_configs_directory
 from galaxy.job_execution.compute_environment import ComputeEnvironment
 from galaxy.model.none_like import NoneDataset
 from galaxy.security.object_wrapper import wrap_with_safe_string
-from galaxy.tools import Tool
 from galaxy.tools.parameters import (
     visit_input_values,
     wrapped_json,
@@ -48,6 +47,9 @@ from galaxy.util import (
 from galaxy.util.bunch import Bunch
 from galaxy.util.template import fill_template
 from galaxy.work.context import WorkRequestContext
+
+if TYPE_CHECKING:
+    from galaxy.tools import Tool
 
 log = logging.getLogger(__name__)
 
@@ -280,7 +282,7 @@ class ToolEvaluator:
                             converted_dataset,
                             datatypes_registry=self.app.datatypes_registry,
                             tool=cast(
-                                Tool, Bunch(conversion_name=Bunch(extensions=conv_ext))
+                                'Tool', Bunch(conversion_name=Bunch(extensions=conv_ext))
                             ),
                             name=conversion_name,
                         )
