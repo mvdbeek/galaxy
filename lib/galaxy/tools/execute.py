@@ -6,7 +6,7 @@ collections from matched collections.
 import collections
 import logging
 from abc import abstractmethod
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from boltons.iterutils import remap
 
@@ -405,16 +405,20 @@ class ExecutionTracker:
         for job_output in job.output_dataset_collection_instances:
             self.output_collections.append((job_output.name, job_output.dataset_collection_instance))
         if self.implicit_collections:
-            implicit_collection_jobs = None
+            implicit_collection_jobs: Optional[model.ImplicitCollectionJobs] = None
             for output_name, collection_instance in self.implicit_collections.items():
                 job.add_output_dataset_collection(output_name, collection_instance)
                 if implicit_collection_jobs is None:
                     implicit_collection_jobs = collection_instance.implicit_collection_jobs
 
-            job_assoc = model.ImplicitCollectionJobsJobAssociation()
-            job_assoc.order_index = execution_slice.job_index
-            job_assoc.implicit_collection_jobs = implicit_collection_jobs
-            job_assoc.job = job
+            if implicit_collection_jobs is None:
+                raise Exception("Expected ImplicitCollectionJobs")
+
+            job_assoc = model.ImplicitCollectionJobsJobAssociation(
+                job=job,
+                order_index=execution_slice.job_index,
+                implicit_collection_jobs=implicit_collection_jobs,
+            )
             self.trans.sa_session.add(job_assoc)
 
     @abstractmethod

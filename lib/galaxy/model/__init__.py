@@ -146,6 +146,7 @@ AUTO_PROPAGATED_TAGS = ["name"]
 
 if TYPE_CHECKING:
     from galaxy.datatypes.data import Data
+    from galaxy.workflow.modules import WorkflowModule
 
     class _HasTable:
         table: Table
@@ -1982,8 +1983,8 @@ class ImplicitCollectionJobsJobAssociation(Base, RepresentById):
     implicit_collection_jobs_id = Column(Integer, ForeignKey('implicit_collection_jobs.id'), index=True)
     job_id = Column(Integer, ForeignKey('job.id'), index=True)  # Consider making this nullable...
     order_index = Column(Integer, nullable=False)
-    implicit_collection_jobs = relationship('ImplicitCollectionJobs', back_populates='jobs')
-    job = relationship('Job', back_populates='implicit_collection_jobs_association')
+    implicit_collection_jobs: 'ImplicitCollectionJobs' = relationship('ImplicitCollectionJobs', back_populates='jobs')
+    job: 'Job' = relationship('Job', back_populates='implicit_collection_jobs_association')
 
 
 class PostJobAction(Base, RepresentById):
@@ -6195,7 +6196,7 @@ class Workflow(Base, Dictifiable, RepresentById):
     license = Column(TEXT)
     uuid = Column(UUIDType, nullable=True)
 
-    steps = relationship('WorkflowStep',
+    steps: List['WorkflowStep'] = relationship('WorkflowStep',
         back_populates='workflow',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.workflow_id),  # type: ignore
         order_by=lambda: asc(WorkflowStep.order_index),  # type: ignore
@@ -6362,6 +6363,7 @@ class WorkflowStep(Base, RepresentById):
     uuid = Column(UUIDType)
     label = Column(Unicode(255))
     temp_input_connections: Optional[InputConnDictType]
+    module: Optional['WorkflowModule'] = None
 
     subworkflow = relationship('Workflow',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.subworkflow_id),  # type: ignore
@@ -6702,7 +6704,7 @@ class StoredWorkflowMenuEntry(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     order_index = Column(Integer)
 
-    stored_workflow = relationship('StoredWorkflow')
+    stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow')
     user = relationship('User', back_populates='stored_workflow_menu_entries',
         primaryjoin=(lambda:
             (StoredWorkflowMenuEntry.user_id == User.id)  # type: ignore

@@ -45,12 +45,12 @@ from typing import (
 
 import sqlalchemy
 from sqlalchemy.orm import Query
-from sqlalchemy.orm.scoping import scoped_session
 from typing_extensions import Protocol
 
 from galaxy import exceptions
 from galaxy import model
 from galaxy.model import tool_shed_install
+from galaxy.model.scoped_session import galaxy_scoped_session
 from galaxy.schema import FilterQueryParams
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.structured_app import BasicApp, MinimalManagerApp
@@ -195,7 +195,7 @@ class ModelManager:
     def __init__(self, app: BasicApp):
         self.app = app
 
-    def session(self) -> scoped_session:
+    def session(self) -> galaxy_scoped_session:
         return self.app.model.context
 
     def _session_setattr(self, item: model._HasTable, attr: str, val: Any, flush: bool = True):

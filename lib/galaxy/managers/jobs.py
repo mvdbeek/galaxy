@@ -160,7 +160,7 @@ class JobSearch:
                 return key, value
             return key, value
 
-        job_conditions = [and_(
+        job_conditions: typing.List[typing.Any] = [and_(
             model.Job.tool_id == tool_id,
             model.Job.user == user,
             model.Job.copied_from_job_id.is_(None)  # Always pick original job
@@ -423,7 +423,7 @@ def view_show_job(trans, job, full: bool) -> typing.Dict:
 def invocation_job_source_iter(sa_session, invocation_id):
     # TODO: Handle subworkflows.
     join = model.WorkflowInvocationStep.table.join(
-        model.WorkflowInvocation
+        model.WorkflowInvocation.table
     )
     statement = select(
         [model.WorkflowInvocationStep.job_id, model.WorkflowInvocationStep.implicit_collection_jobs_id, model.WorkflowInvocationStep.state]
@@ -569,7 +569,7 @@ def summarize_jobs_to_dict(sa_session, jobs_source):
             # produce state summary...
             states = {}
             join = model.ImplicitCollectionJobs.table.join(
-                model.ImplicitCollectionJobsJobAssociation.table.join(model.Job)
+                model.ImplicitCollectionJobsJobAssociation.table.join(model.Job.table)
             )
             statement = select(
                 [model.Job.state, func.count("*")]

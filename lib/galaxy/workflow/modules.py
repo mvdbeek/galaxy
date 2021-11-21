@@ -404,7 +404,7 @@ class SubWorkflowModule(WorkflowModule):
     # - Second pass actually turn RuntimeInputs into inputs if possible.
     type = "subworkflow"
     name = "Subworkflow"
-    _modules: Optional[List[Any]] = None
+    _modules: Optional[List[WorkflowModule]] = None
     subworkflow: Workflow
 
     @classmethod
@@ -551,7 +551,7 @@ class SubWorkflowModule(WorkflowModule):
     def get_runtime_inputs(self, connections=None):
         inputs = {}
         for step in self.subworkflow.steps:
-            if step.type == "tool":
+            if isinstance(step.module, ToolModule):
                 tool = step.module.tool
                 tool_inputs = step.module.state
 
@@ -562,7 +562,7 @@ class SubWorkflowModule(WorkflowModule):
                         return
 
                     if is_runtime_value(value) and runtime_to_json(value)["__class__"] != "ConnectedValue":
-                        input_name = "%d|%s" % (step.order_index, prefixed_name)
+                        input_name = f"{step.order_index}|{prefixed_name}"
                         inputs[input_name] = InputProxy(input, input_name)
 
                 visit_input_values(tool.inputs, tool_inputs.inputs, callback)
@@ -574,6 +574,9 @@ class SubWorkflowModule(WorkflowModule):
         replacement_parameters = set()
         for subworkflow_step in self.subworkflow.steps:
             module = subworkflow_step.module
+            if module is None:
+                # Never happens, needed for type checking
+                raise Exception("Step module not injected")
             for replacement_parameter in module.get_replacement_parameters(subworkflow_step):
                 replacement_parameters.add(replacement_parameter)
 

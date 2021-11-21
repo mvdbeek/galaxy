@@ -134,7 +134,10 @@ class HDAManager(datasets.DatasetAssociationManager,
         if flush:
             if history:
                 history.add_pending_items()
-            object_session(copy).flush()
+            session = object_session(copy)
+            if not session:
+                raise Exception("Flush requested, but abject not bound to session.")
+            session.flush()
 
         return copy
 

@@ -662,10 +662,11 @@ class DatasetCollectionManager:
         contents = contents_qry.with_session(trans.sa_session()).all()
         return contents
 
-    def _get_collection_contents_qry(self, parent_id, limit=None, offset=None):
+    def _get_collection_contents_qry(self, parent_id, limit=None, offset=None) -> Query:
         """Build query to find first level of collection contents by containing collection parent_id"""
         DCE = model.DatasetCollectionElement
-        qry = Query(DCE).filter(DCE.dataset_collection_id == parent_id)
+        qry: Query = Query([DCE])
+        qry = qry.filter(DCE.dataset_collection_id == parent_id)
         qry = qry.order_by(DCE.element_index)
         qry = qry.options(joinedload('child_collection'), joinedload('hda'))
         if limit is not None:

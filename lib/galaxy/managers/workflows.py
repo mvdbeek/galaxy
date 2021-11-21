@@ -404,8 +404,7 @@ class WorkflowContentsManager(UsesAnnotations):
         if add_to_menu:
             if trans.user.stored_workflow_menu_entries is None:
                 trans.user.stored_workflow_menu_entries = []
-            menuEntry = model.StoredWorkflowMenuEntry()
-            menuEntry.stored_workflow = stored
+            menuEntry = model.StoredWorkflowMenuEntry(stored_workflow=stored)
             trans.user.stored_workflow_menu_entries.append(menuEntry)
 
         trans.sa_session.flush()
