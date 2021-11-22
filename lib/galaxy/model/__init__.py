@@ -1884,7 +1884,7 @@ class JobToInputLibraryDatasetAssociation(Base, RepresentById):
     ldda_id = Column(Integer, ForeignKey('library_dataset_dataset_association.id'), index=True)
     name = Column(Unicode(255))
     job: 'Job' = relationship('Job', back_populates='input_library_datasets')
-    dataset = relationship(
+    dataset: 'LibraryDatasetDatasetAssociation' = relationship(
         'LibraryDatasetDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
 
     def __init__(self, name, dataset):
@@ -1900,7 +1900,7 @@ class JobToOutputLibraryDatasetAssociation(Base, RepresentById):
     ldda_id = Column(Integer, ForeignKey('library_dataset_dataset_association.id'), index=True)
     name = Column(Unicode(255))
     job: 'Job' = relationship('Job', back_populates='output_library_datasets')
-    dataset = relationship(
+    dataset: 'LibraryDatasetDatasetAssociation' = relationship(
         'LibraryDatasetDatasetAssociation', lazy="joined", back_populates='creating_job_associations')
 
     def __init__(self, name, dataset):
@@ -2042,7 +2042,7 @@ class JobExternalOutputMetadata(Base, RepresentById):
     filename_override_metadata = Column(String(255))
     job_runner_external_pid = Column(String(255))
     history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', lazy="joined", uselist=False)
-    library_dataset_dataset_association = relationship('LibraryDatasetDatasetAssociation', lazy="joined")
+    library_dataset_dataset_association: 'LibraryDatasetDatasetAssociation' = relationship('LibraryDatasetDatasetAssociation', lazy="joined")
     job: 'Job' = relationship('Job', back_populates='external_output_metadata')
 
     def __init__(self, job=None, dataset=None):
@@ -3085,7 +3085,7 @@ class LibraryDatasetDatasetAssociationPermissions(Base, RepresentById):
     library_dataset_dataset_association_id = Column(
         Integer, ForeignKey('library_dataset_dataset_association.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
-    library_dataset_dataset_association = relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: 'LibraryDatasetDatasetAssociation' = relationship('LibraryDatasetDatasetAssociation',
         back_populates='actions')
     role = relationship('Role')
 
@@ -4668,10 +4668,10 @@ class LibraryDataset(Base, Serializable):
     deleted = Column(Boolean, index=True, default=False)
     purged = Column(Boolean, index=True, default=False)
     folder = relationship('LibraryFolder')
-    library_dataset_dataset_association = relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: 'LibraryDatasetDatasetAssociation' = relationship('LibraryDatasetDatasetAssociation',
             foreign_keys=library_dataset_dataset_association_id,
             post_update=True)
-    expired_datasets = relationship('LibraryDatasetDatasetAssociation',
+    expired_datasets: List['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
         foreign_keys=[id, library_dataset_dataset_association_id],
         primaryjoin=(
             'and_(LibraryDataset.id == LibraryDatasetDatasetAssociation.library_dataset_id, \
@@ -5023,7 +5023,7 @@ class LibraryDatasetDatasetInfoAssociation(Base, RepresentById):
     form_values_id = Column(Integer, ForeignKey('form_values.id'), index=True)
     deleted = Column(Boolean, index=True, default=False)
 
-    library_dataset_dataset_association = relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: List['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda:
             (LibraryDatasetDatasetInfoAssociation.library_dataset_dataset_association_id
              == LibraryDatasetDatasetAssociation.id)
@@ -5066,7 +5066,7 @@ class ImplicitlyConvertedDatasetAssociation(Base, RepresentById):
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_parent_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_datasets')
-    dataset_ldda = relationship('LibraryDatasetDatasetAssociation',
+    dataset_ldda: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_id
             == LibraryDatasetDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
@@ -5074,7 +5074,7 @@ class ImplicitlyConvertedDatasetAssociation(Base, RepresentById):
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
-    parent_ldda = relationship('LibraryDatasetDatasetAssociation',
+    parent_ldda: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_parent_id
             == LibraryDatasetDatasetAssociation.table.c.id),
         back_populates='implicitly_converted_datasets')
@@ -7458,7 +7458,7 @@ class MetadataFile(Base, StorableObject, Serializable):
     purged = Column(Boolean, index=True, default=False)
 
     history_dataset = relationship('HistoryDatasetAssociation')
-    library_dataset = relationship('LibraryDatasetDatasetAssociation')
+    library_dataset: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation')
 
     def __init__(self, dataset=None, name=None, uuid=None):
         self.uuid = get_uuid(uuid)
@@ -8232,7 +8232,7 @@ class LibraryDatasetDatasetAssociationTagAssociation(Base, ItemTagAssociation, R
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    library_dataset_dataset_association = relationship(
+    library_dataset_dataset_association: 'LibraryDatasetAssociation' = relationship(
         'LibraryDatasetDatasetAssociation', back_populates='tags')
     tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
