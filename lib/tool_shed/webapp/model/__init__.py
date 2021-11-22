@@ -260,7 +260,7 @@ class UserRoleAssociation(Base, _HasTable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
     user: 'User' = relationship('User', back_populates='roles')
-    role = relationship('Role', back_populates='users')
+    role : 'Role' = relationship('Role', back_populates='users')
 
     def __init__(self, user, role):
         self.user = user
@@ -276,7 +276,7 @@ class GroupRoleAssociation(Base, _HasTable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
     group = relationship('Group', back_populates='roles')
-    role = relationship('Role', back_populates='groups')
+    role : 'Role' = relationship('Role', back_populates='groups')
 
     def __init__(self, group, role):
         self.group = group
@@ -292,7 +292,7 @@ class RepositoryRoleAssociation(Base, _HasTable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
     repository = relationship('Repository', back_populates='roles')
-    role = relationship('Role', back_populates='repositories')
+    role : 'Role' = relationship('Role', back_populates='repositories')
 
     def __init__(self, repository, role):
         self.repository = repository

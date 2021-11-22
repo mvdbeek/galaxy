@@ -2830,7 +2830,7 @@ class UserRoleAssociation(Base, RepresentById):
     update_time = Column(DateTime, default=now, onupdate=now)
 
     user: 'User' = relationship('User', back_populates="roles")
-    role = relationship('Role', back_populates="users")
+    role : 'Role' = relationship('Role', back_populates="users")
 
     def __init__(self, user, role):
         self.user = user
@@ -2846,7 +2846,7 @@ class GroupRoleAssociation(Base, RepresentById):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
     group = relationship('Group', back_populates='roles')
-    role = relationship('Role', back_populates='groups')
+    role : 'Role' = relationship('Role', back_populates='groups')
 
     def __init__(self, group, role):
         self.group = group
@@ -3001,7 +3001,7 @@ class DatasetPermissions(Base, RepresentById):
     dataset_id = Column(Integer, ForeignKey('dataset.id'), index=True)
     role_id = Column(Integer, ForeignKey("role.id"), index=True)
     dataset = relationship('Dataset', back_populates='actions')
-    role = relationship('Role', back_populates='dataset_actions')
+    role : 'Role' = relationship('Role', back_populates='dataset_actions')
 
     def __init__(self, action, dataset, role=None, role_id=None):
         self.action = action
@@ -3022,7 +3022,7 @@ class LibraryPermissions(Base, RepresentById):
     library_id = Column(Integer, ForeignKey('library.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     library = relationship('Library', back_populates='actions')
-    role = relationship('Role')
+    role : 'Role' = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3043,7 +3043,7 @@ class LibraryFolderPermissions(Base, RepresentById):
     library_folder_id = Column(Integer, ForeignKey('library_folder.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     folder = relationship('LibraryFolder', back_populates='actions')
-    role = relationship('Role')
+    role : 'Role' = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3064,7 +3064,7 @@ class LibraryDatasetPermissions(Base, RepresentById):
     library_dataset_id = Column(Integer, ForeignKey('library_dataset.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     library_dataset = relationship('LibraryDataset', back_populates='actions')
-    role = relationship('Role')
+    role : 'Role' = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3087,7 +3087,7 @@ class LibraryDatasetDatasetAssociationPermissions(Base, RepresentById):
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     library_dataset_dataset_association: 'LibraryDatasetDatasetAssociation' = relationship('LibraryDatasetDatasetAssociation',
         back_populates='actions')
-    role = relationship('Role')
+    role : 'Role' = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3106,7 +3106,7 @@ class DefaultUserPermissions(Base, RepresentById):
     action = Column(TEXT)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     user: 'User' = relationship('User', back_populates='default_permissions')
-    role = relationship('Role')
+    role : 'Role' = relationship('Role')
 
     def __init__(self, user, action, role):
         self.user = user
@@ -3122,7 +3122,7 @@ class DefaultHistoryPermissions(Base, RepresentById):
     action = Column(TEXT)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     history: 'History' = relationship('History', back_populates='default_permissions')
-    role = relationship('Role')
+    role : 'Role' = relationship('Role')
 
     def __init__(self, history, action, role):
         self.history = history
