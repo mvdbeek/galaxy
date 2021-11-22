@@ -80,6 +80,7 @@ from sqlalchemy.orm import (
     column_property,
     deferred,
     joinedload,
+    Mapped,
     object_session,
     Query,
     reconstructor,
@@ -88,7 +89,6 @@ from sqlalchemy.orm import (
 )
 from sqlalchemy.orm.collections import attribute_mapped_collection
 from sqlalchemy.orm.decl_api import DeclarativeMeta
-from sqlalchemy.orm.relationships import RelationshipProperty
 from sqlalchemy.sql import exists
 
 import galaxy.exceptions
@@ -489,26 +489,26 @@ class User(Base, Dictifiable, RepresentById):
     active = Column(Boolean, index=True, default=True, nullable=False)
     activation_token = Column(TrimmedString(64), nullable=True, index=True)
 
-    addresses: RelationshipProperty[List['UserAddress'] ]= relationship('UserAddress',
+    addresses: Mapped[List['UserAddress']] = relationship('UserAddress',
         back_populates='user',
         order_by=lambda: desc(UserAddress.update_time))
-    cloudauthz: RelationshipProperty[Optional['CloudAuthz'] ]= relationship('CloudAuthz', back_populates='user')
-    custos_auth: RelationshipProperty[List['CustosAuthnzToken'] ]= relationship('CustosAuthnzToken', back_populates='user')
-    default_permissions: RelationshipProperty[List['DefaultUserPermissions'] ]= relationship('DefaultUserPermissions', back_populates='user')
-    groups: RelationshipProperty[List['UserGroupAssociation'] ]= relationship('UserGroupAssociation', back_populates='user')
-    histories: RelationshipProperty[List['History'] ]= relationship('History',
+    cloudauthz: Mapped[Optional['CloudAuthz']] = relationship('CloudAuthz', back_populates='user')
+    custos_auth: Mapped[List['CustosAuthnzToken']] = relationship('CustosAuthnzToken', back_populates='user')
+    default_permissions: Mapped[List['DefaultUserPermissions']] = relationship('DefaultUserPermissions', back_populates='user')
+    groups: Mapped[List['UserGroupAssociation']] = relationship('UserGroupAssociation', back_populates='user')
+    histories: Mapped[List['History']] = relationship('History',
         back_populates='user',
         order_by=lambda: desc(History.update_time))
-    active_histories: RelationshipProperty[List['History'] ]= relationship('History',
+    active_histories: Mapped[List['History']] = relationship('History',
         primaryjoin=(lambda: (History.user_id == User.id) & (not_(History.deleted))),
         viewonly=True,
         order_by=lambda: desc(History.update_time))
-    galaxy_sessions: RelationshipProperty[List['GalaxySession'] ]= relationship('GalaxySession',
+    galaxy_sessions: Mapped[List['GalaxySession']] = relationship('GalaxySession',
         back_populates='user',
         order_by=lambda: desc(GalaxySession.update_time))
-    quotas: RelationshipProperty[List['UserQuotaAssociation'] ]= relationship('UserQuotaAssociation', back_populates='user')
-    social_auth: RelationshipProperty[List['UserAuthnzToken'] ]= relationship('UserAuthnzToken', back_populates='user')
-    stored_workflow_menu_entries: RelationshipProperty[List['StoredWorkflowMenuEntry'] ]= relationship('StoredWorkflowMenuEntry',
+    quotas: Mapped[List['UserQuotaAssociation']] = relationship('UserQuotaAssociation', back_populates='user')
+    social_auth: Mapped[List['UserAuthnzToken']] = relationship('UserAuthnzToken', back_populates='user')
+    stored_workflow_menu_entries: Mapped[List['StoredWorkflowMenuEntry']] = relationship('StoredWorkflowMenuEntry',
         primaryjoin=(lambda:
             (StoredWorkflowMenuEntry.user_id == User.id)
             & (StoredWorkflowMenuEntry.stored_workflow_id == StoredWorkflow.id)
@@ -517,18 +517,18 @@ class User(Base, Dictifiable, RepresentById):
         back_populates='user',
         cascade='all, delete-orphan',
         collection_class=ordering_list('order_index'))
-    _preferences: RelationshipProperty['UserPreference'] = relationship('UserPreference', collection_class=attribute_mapped_collection('name'))
-    values: RelationshipProperty[Optional['FormValues'] ]= relationship('FormValues',
+    _preferences: Mapped['UserPreference'] = relationship('UserPreference', collection_class=attribute_mapped_collection('name'))
+    values: Mapped[Optional['FormValues']] = relationship('FormValues',
         primaryjoin=(lambda: User.form_values_id == FormValues.id))
     # Add type hint (will this work w/SA?)
-    api_keys: RelationshipProperty['List[APIKeys]'] = relationship('APIKeys',
+    api_keys: Mapped['List[APIKeys]'] = relationship('APIKeys',
         back_populates='user',
         order_by=lambda: desc(APIKeys.create_time))
-    data_manager_histories: RelationshipProperty[List['DataManagerHistoryAssociation'] ]= relationship('DataManagerHistoryAssociation', back_populates='user')
-    roles: RelationshipProperty[List['UserRoleAssociation'] ]= relationship('UserRoleAssociation', back_populates='user')
-    stored_workflows: RelationshipProperty[List['StoredWorkflow'] ]= relationship('StoredWorkflow', back_populates='user',
+    data_manager_histories: Mapped[List['DataManagerHistoryAssociation']] = relationship('DataManagerHistoryAssociation', back_populates='user')
+    roles: Mapped[List['UserRoleAssociation']] = relationship('UserRoleAssociation', back_populates='user')
+    stored_workflows: Mapped[List['StoredWorkflow']] = relationship('StoredWorkflow', back_populates='user',
         primaryjoin=(lambda: User.id == StoredWorkflow.user_id))
-    non_private_roles: RelationshipProperty[List['UserRoleAssociation'] ]= relationship(
+    non_private_roles: Mapped[List['UserRoleAssociation']] = relationship(
         'UserRoleAssociation',
         viewonly=True,
         primaryjoin=(lambda:
@@ -795,7 +795,7 @@ class PasswordResetToken(Base, _HasTable):
     token = Column(String(32), primary_key=True, unique=True, index=True)
     expiration_time = Column(DateTime)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user: RelationshipProperty['User'] = relationship('User')
+    user: Mapped['User'] = relationship('User')
 
     def __init__(self, user, token=None):
         if token:
@@ -924,41 +924,41 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
     params = Column(TrimmedString(255), index=True)
     handler = Column(TrimmedString(255), index=True)
 
-    user: RelationshipProperty['User'] = relationship('User')
-    galaxy_session: RelationshipProperty['GalaxySession'] = relationship('GalaxySession')
-    history: RelationshipProperty[Optional['History'] ]= relationship('History', back_populates='jobs')
-    library_folder: RelationshipProperty[Optional['LibraryFolder'] ]= relationship('LibraryFolder',)
-    parameters: RelationshipProperty[List['JobParameter'] ]= relationship('JobParameter',)
-    input_datasets: RelationshipProperty[List['JobToInputDatasetAssociation'] ]= relationship('JobToInputDatasetAssociation', back_populates='job')
-    input_dataset_collections: RelationshipProperty[List['JobToInputDatasetCollectionAssociation'] ]= relationship('JobToInputDatasetCollectionAssociation',
+    user: Mapped['User'] = relationship('User')
+    galaxy_session: Mapped['GalaxySession'] = relationship('GalaxySession')
+    history: Mapped[Optional['History']] = relationship('History', back_populates='jobs')
+    library_folder: Mapped[Optional['LibraryFolder']] = relationship('LibraryFolder',)
+    parameters: Mapped[List['JobParameter']] = relationship('JobParameter',)
+    input_datasets: Mapped[List['JobToInputDatasetAssociation']] = relationship('JobToInputDatasetAssociation', back_populates='job')
+    input_dataset_collections: Mapped[List['JobToInputDatasetCollectionAssociation']] = relationship('JobToInputDatasetCollectionAssociation',
         back_populates='job',)
-    input_dataset_collection_elements: RelationshipProperty[List['JobToInputDatasetCollectionElementAssociation'] ]= relationship('JobToInputDatasetCollectionElementAssociation',
+    input_dataset_collection_elements: Mapped[List['JobToInputDatasetCollectionElementAssociation']] = relationship('JobToInputDatasetCollectionElementAssociation',
         back_populates='job',)
-    output_dataset_collection_instances: RelationshipProperty[List['JobToOutputDatasetCollectionAssociation'] ]= relationship('JobToOutputDatasetCollectionAssociation',
+    output_dataset_collection_instances: Mapped[List['JobToOutputDatasetCollectionAssociation']] = relationship('JobToOutputDatasetCollectionAssociation',
         back_populates='job',)
-    output_dataset_collections: RelationshipProperty[List['JobToImplicitOutputDatasetCollectionAssociation'] ]= relationship('JobToImplicitOutputDatasetCollectionAssociation',
+    output_dataset_collections: Mapped[List['JobToImplicitOutputDatasetCollectionAssociation']] = relationship('JobToImplicitOutputDatasetCollectionAssociation',
         back_populates='job',)
-    post_job_actions: RelationshipProperty[List['PostJobActionAssociation'] ]= relationship('PostJobActionAssociation', back_populates='job', lazy="joined")
-    input_library_datasets: RelationshipProperty[List['JobToInputLibraryDatasetAssociation'] ]= relationship('JobToInputLibraryDatasetAssociation',
+    post_job_actions: Mapped[List['PostJobActionAssociation']] = relationship('PostJobActionAssociation', back_populates='job', lazy="joined")
+    input_library_datasets: Mapped[List['JobToInputLibraryDatasetAssociation']] = relationship('JobToInputLibraryDatasetAssociation',
         back_populates='job')
-    output_library_datasets: RelationshipProperty[List['JobToOutputLibraryDatasetAssociation'] ]= relationship('JobToOutputLibraryDatasetAssociation',
+    output_library_datasets: Mapped[List['JobToOutputLibraryDatasetAssociation']] = relationship('JobToOutputLibraryDatasetAssociation',
         back_populates='job',)
-    external_output_metadata: RelationshipProperty[Optional['JobExternalOutputMetadata'] ]= relationship('JobExternalOutputMetadata', back_populates='job')
-    tasks: RelationshipProperty[List['Task'] ]= relationship('Task', back_populates='job')
-    output_datasets: RelationshipProperty[List['JobToOutputDatasetAssociation'] ]= relationship('JobToOutputDatasetAssociation', back_populates='job')
-    state_history: RelationshipProperty[List['JobStateHistory'] ]= relationship('JobStateHistory')
-    text_metrics: RelationshipProperty[List['JobMetricText'] ]= relationship('JobMetricText')
-    numeric_metrics: RelationshipProperty[List['JobMetricNumeric'] ]= relationship('JobMetricNumeric')
-    interactivetool_entry_points: RelationshipProperty[List['InteractiveToolEntryPoint'] ]= relationship('InteractiveToolEntryPoint',
+    external_output_metadata: Mapped[Optional['JobExternalOutputMetadata']] = relationship('JobExternalOutputMetadata', back_populates='job')
+    tasks: Mapped[List['Task']] = relationship('Task', back_populates='job')
+    output_datasets: Mapped[List['JobToOutputDatasetAssociation']] = relationship('JobToOutputDatasetAssociation', back_populates='job')
+    state_history: Mapped[List['JobStateHistory']] = relationship('JobStateHistory')
+    text_metrics: Mapped[List['JobMetricText']] = relationship('JobMetricText')
+    numeric_metrics: Mapped[List['JobMetricNumeric']] = relationship('JobMetricNumeric')
+    interactivetool_entry_points: Mapped[List['InteractiveToolEntryPoint']] = relationship('InteractiveToolEntryPoint',
         back_populates='job', uselist=True)
-    implicit_collection_jobs_association: RelationshipProperty[List['ImplicitCollectionJobsJobAssociation'] ]= relationship('ImplicitCollectionJobsJobAssociation',
+    implicit_collection_jobs_association: Mapped[List['ImplicitCollectionJobsJobAssociation']] = relationship('ImplicitCollectionJobsJobAssociation',
         back_populates='job', uselist=False)
-    container: RelationshipProperty[Optional['JobContainerAssociation'] ]= relationship('JobContainerAssociation', back_populates='job', uselist=False)
-    data_manager_association: RelationshipProperty[Optional['DataManagerJobAssociation'] ]= relationship('DataManagerJobAssociation',
+    container: Mapped[Optional['JobContainerAssociation']] = relationship('JobContainerAssociation', back_populates='job', uselist=False)
+    data_manager_association: Mapped[Optional['DataManagerJobAssociation']] = relationship('DataManagerJobAssociation',
         back_populates='job', uselist=False)
-    history_dataset_collection_associations: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation',
+    history_dataset_collection_associations: Mapped[List['HistoryDatasetCollectionAssociation']] = relationship('HistoryDatasetCollectionAssociation',
         back_populates='job')
-    workflow_invocation_step: RelationshipProperty[Optional['WorkflowInvocationStep'] ]= relationship('WorkflowInvocationStep',
+    workflow_invocation_step: Mapped[Optional['WorkflowInvocationStep']] = relationship('WorkflowInvocationStep',
         back_populates='job', uselist=False)
 
     any_output_dataset_collection_instances_deleted: column_property  # defined at the end of this module
@@ -1605,9 +1605,9 @@ class Task(Base, JobLike, RepresentById):
     task_runner_name = Column(String(255))
     task_runner_external_id = Column(String(255))
     prepare_input_files_cmd = Column(TEXT)
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='tasks')
-    text_metrics: RelationshipProperty[List['TaskMetricText'] ]= relationship('TaskMetricText')
-    numeric_metrics: RelationshipProperty[List['TaskMetricNumeric'] ]= relationship('TaskMetricNumeric')
+    job: Mapped['Job'] = relationship('Job', back_populates='tasks')
+    text_metrics: Mapped[List['TaskMetricText']] = relationship('TaskMetricText')
+    numeric_metrics: Mapped[List['TaskMetricNumeric']] = relationship('TaskMetricNumeric')
 
     _numeric_metric = TaskMetricNumeric
     _text_metric = TaskMetricText
@@ -1776,8 +1776,8 @@ class JobToInputDatasetAssociation(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     dataset_version = Column(Integer)
     name = Column(String(255))
-    dataset: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='input_datasets')
+    dataset: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
+    job: Mapped['Job'] = relationship('Job', back_populates='input_datasets')
 
     def __init__(self, name, dataset):
         self.name = name
@@ -1792,9 +1792,9 @@ class JobToOutputDatasetAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     dataset_id = Column(Integer, ForeignKey('history_dataset_association.id'), index=True)
     name = Column(String(255))
-    dataset: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    dataset: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         lazy="joined", back_populates='creating_job_associations')
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='output_datasets')
+    job: Mapped['Job'] = relationship('Job', back_populates='output_datasets')
 
     def __init__(self, name, dataset):
         self.name = name
@@ -1813,8 +1813,8 @@ class JobToInputDatasetCollectionAssociation(Base, RepresentById):
     dataset_collection_id = Column(Integer,
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(String(255))
-    dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='input_dataset_collections')
+    dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
+    job: Mapped['Job'] = relationship('Job', back_populates='input_dataset_collections')
 
     def __init__(self, name, dataset_collection):
         self.name = name
@@ -1829,8 +1829,8 @@ class JobToInputDatasetCollectionElementAssociation(Base, RepresentById):
     dataset_collection_element_id = Column(Integer,
         ForeignKey('dataset_collection_element.id'), index=True)
     name = Column(Unicode(255))
-    dataset_collection_element: RelationshipProperty['DatasetCollectionElement'] = relationship('DatasetCollectionElement', lazy="joined")
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='input_dataset_collection_elements')
+    dataset_collection_element: Mapped['DatasetCollectionElement'] = relationship('DatasetCollectionElement', lazy="joined")
+    job: Mapped['Job'] = relationship('Job', back_populates='input_dataset_collection_elements')
 
     def __init__(self, name, dataset_collection_element):
         self.name = name
@@ -1847,8 +1847,8 @@ class JobToOutputDatasetCollectionAssociation(Base, RepresentById):
     dataset_collection_id = Column(Integer,
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(Unicode(255))
-    dataset_collection_instance: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='output_dataset_collection_instances')
+    dataset_collection_instance: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
+    job: Mapped['Job'] = relationship('Job', back_populates='output_dataset_collection_instances')
 
     def __init__(self, name, dataset_collection_instance):
         self.name = name
@@ -1869,8 +1869,8 @@ class JobToImplicitOutputDatasetCollectionAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     dataset_collection_id = Column(Integer, ForeignKey('dataset_collection.id'), index=True)
     name = Column(Unicode(255))
-    dataset_collection: RelationshipProperty['DatasetCollection'] = relationship('DatasetCollection')
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='output_dataset_collections')
+    dataset_collection: Mapped['DatasetCollection'] = relationship('DatasetCollection')
+    job: Mapped['Job'] = relationship('Job', back_populates='output_dataset_collections')
 
     def __init__(self, name, dataset_collection):
         self.name = name
@@ -1884,8 +1884,8 @@ class JobToInputLibraryDatasetAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     ldda_id = Column(Integer, ForeignKey('library_dataset_dataset_association.id'), index=True)
     name = Column(Unicode(255))
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='input_library_datasets')
-    dataset: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship(
+    job: Mapped['Job'] = relationship('Job', back_populates='input_library_datasets')
+    dataset: Mapped['LibraryDatasetDatasetAssociation'] = relationship(
         'LibraryDatasetDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
 
     def __init__(self, name, dataset):
@@ -1900,8 +1900,8 @@ class JobToOutputLibraryDatasetAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     ldda_id = Column(Integer, ForeignKey('library_dataset_dataset_association.id'), index=True)
     name = Column(Unicode(255))
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='output_library_datasets')
-    dataset: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship(
+    job: Mapped['Job'] = relationship('Job', back_populates='output_library_datasets')
+    dataset: Mapped['LibraryDatasetDatasetAssociation'] = relationship(
         'LibraryDatasetDatasetAssociation', lazy="joined", back_populates='creating_job_associations')
 
     def __init__(self, name, dataset):
@@ -1935,7 +1935,7 @@ class ImplicitlyCreatedDatasetCollectionInput(Base, RepresentById):
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(Unicode(255))
 
-    input_dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
+    input_dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(lambda: HistoryDatasetCollectionAssociation.id
             == ImplicitlyCreatedDatasetCollectionInput.input_dataset_collection_id)
     )
@@ -1950,7 +1950,7 @@ class ImplicitCollectionJobs(Base, Serializable):
 
     id = Column(Integer, primary_key=True)
     populated_state = Column(TrimmedString(64), default='new', nullable=False)
-    jobs: RelationshipProperty[List['ImplicitCollectionJobsJobAssociation'] ]= relationship('ImplicitCollectionJobsJobAssociation',
+    jobs: Mapped[List['ImplicitCollectionJobsJobAssociation']] = relationship('ImplicitCollectionJobsJobAssociation',
         back_populates='implicit_collection_jobs')
 
     class populated_states(str, Enum):
@@ -1982,8 +1982,8 @@ class ImplicitCollectionJobsJobAssociation(Base, RepresentById):
     implicit_collection_jobs_id = Column(Integer, ForeignKey('implicit_collection_jobs.id'), index=True)
     job_id = Column(Integer, ForeignKey('job.id'), index=True)  # Consider making this nullable...
     order_index = Column(Integer, nullable=False)
-    implicit_collection_jobs: RelationshipProperty['ImplicitCollectionJobs'] = relationship('ImplicitCollectionJobs', back_populates='jobs')
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='implicit_collection_jobs_association')
+    implicit_collection_jobs: Mapped['ImplicitCollectionJobs'] = relationship('ImplicitCollectionJobs', back_populates='jobs')
+    job: Mapped['Job'] = relationship('Job', back_populates='implicit_collection_jobs_association')
 
 
 class PostJobAction(Base, RepresentById):
@@ -1994,7 +1994,7 @@ class PostJobAction(Base, RepresentById):
     action_type = Column(String(255), nullable=False)
     output_name = Column(String(255), nullable=True)
     action_arguments = Column(MutableJSONType, nullable=True)
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep',
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep',
         back_populates='post_job_actions',
         primaryjoin=(lambda: WorkflowStep.id == PostJobAction.workflow_step_id),
         uselist=False,
@@ -2013,8 +2013,8 @@ class PostJobActionAssociation(Base, RepresentById):
     id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey('job.id'), index=True, nullable=False)
     post_job_action_id = Column(Integer, ForeignKey('post_job_action.id'), index=True, nullable=False)
-    post_job_action: RelationshipProperty['PostJobAction'] = relationship('PostJobAction')
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='post_job_actions')
+    post_job_action: Mapped['PostJobAction'] = relationship('PostJobAction')
+    job: Mapped['Job'] = relationship('Job', back_populates='post_job_actions')
 
     def __init__(self, pja, job=None, job_id=None):
         if job is not None:
@@ -2042,9 +2042,9 @@ class JobExternalOutputMetadata(Base, RepresentById):
     filename_kwds = Column(String(255))
     filename_override_metadata = Column(String(255))
     job_runner_external_pid = Column(String(255))
-    history_dataset_association: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', lazy="joined", uselist=False)
-    library_dataset_dataset_association: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation', lazy="joined")
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='external_output_metadata')
+    history_dataset_association: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', lazy="joined", uselist=False)
+    library_dataset_dataset_association: Mapped['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation', lazy="joined")
+    job: Mapped['Job'] = relationship('Job', back_populates='external_output_metadata')
 
     def __init__(self, job=None, dataset=None):
         self.job = job
@@ -2087,9 +2087,9 @@ class JobExportHistoryArchive(Base, RepresentById):
     dataset_id = Column(Integer, ForeignKey('dataset.id'), index=True)
     compressed = Column(Boolean, index=True, default=False)
     history_attrs_filename = Column(TEXT)
-    job: RelationshipProperty['Job'] = relationship('Job')
-    dataset: RelationshipProperty['Dataset'] = relationship('Dataset')
-    history: RelationshipProperty['History'] = relationship('History', back_populates='exports')
+    job: Mapped['Job'] = relationship('Job')
+    dataset: Mapped['Dataset'] = relationship('Dataset')
+    history: Mapped['History'] = relationship('History', back_populates='exports')
 
     ATTRS_FILENAME_HISTORY = 'history_attrs.txt'
 
@@ -2173,8 +2173,8 @@ class JobImportHistoryArchive(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     archive_dir = Column(TEXT)
-    job: RelationshipProperty['Job'] = relationship('Job')
-    history: RelationshipProperty['History'] = relationship('History')
+    job: Mapped['Job'] = relationship('Job')
+    history: Mapped['History'] = relationship('History')
 
 
 class JobContainerAssociation(Base, RepresentById):
@@ -2187,7 +2187,7 @@ class JobContainerAssociation(Base, RepresentById):
     container_info = Column(MutableJSONType, nullable=True)
     created_time = Column(DateTime, default=now)
     modified_time = Column(DateTime, default=now, onupdate=now)
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='container')
+    job: Mapped['Job'] = relationship('Job', back_populates='container')
 
     def __init__(self, **kwd):
         super().__init__(**kwd)
@@ -2212,7 +2212,7 @@ class InteractiveToolEntryPoint(Base, Dictifiable, RepresentById):
     deleted = Column(Boolean, default=False)
     created_time = Column(DateTime, default=now)
     modified_time = Column(DateTime, default=now, onupdate=now)
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='interactivetool_entry_points', uselist=False)
+    job: Mapped['Job'] = relationship('Job', back_populates='interactivetool_entry_points', uselist=False)
 
     dict_collection_visible_keys = ['id', 'name', 'active', 'created_time', 'modified_time']
     dict_element_visible_keys = ['id', 'name', 'active', 'created_time', 'modified_time']
@@ -2244,9 +2244,9 @@ class GenomeIndexToolData(Base, RepresentById):  # TODO: params arg is lost
     modified_time = Column(DateTime, default=now, onupdate=now)
     indexer = Column(String(64))
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    job: RelationshipProperty['Job'] = relationship('Job')
-    dataset: RelationshipProperty['Dataset'] = relationship('Dataset')
-    user: RelationshipProperty['User'] = relationship('User')
+    job: Mapped['Job'] = relationship('Job')
+    dataset: Mapped['Dataset'] = relationship('Dataset')
+    user: Mapped['User'] = relationship('User')
 
 
 class Group(Base, Dictifiable, RepresentById):
@@ -2257,9 +2257,9 @@ class Group(Base, Dictifiable, RepresentById):
     update_time = Column(DateTime, default=now, onupdate=now)
     name = Column(String(255), index=True, unique=True)
     deleted = Column(Boolean, index=True, default=False)
-    quotas: RelationshipProperty[List['GroupQuotaAssociation'] ]= relationship('GroupQuotaAssociation', back_populates='group')
-    roles: RelationshipProperty[List['GroupRoleAssociation'] ]= relationship('GroupRoleAssociation', back_populates='group')
-    users: RelationshipProperty[List['UserGroupAssociation'] ]= relationship('UserGroupAssociation', back_populates='group')
+    quotas: Mapped[List['GroupQuotaAssociation']] = relationship('GroupQuotaAssociation', back_populates='group')
+    roles: Mapped[List['GroupRoleAssociation']] = relationship('GroupRoleAssociation', back_populates='group')
+    users: Mapped[List['UserGroupAssociation']] = relationship('UserGroupAssociation', back_populates='group')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name']
@@ -2277,8 +2277,8 @@ class UserGroupAssociation(Base, RepresentById):
     group_id = Column(Integer, ForeignKey('galaxy_group.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    user: RelationshipProperty['User'] = relationship('User', back_populates='groups')
-    group: RelationshipProperty['Group'] = relationship('Group', back_populates='users')
+    user: Mapped['User'] = relationship('User', back_populates='groups')
+    group: Mapped['Group'] = relationship('Group', back_populates='users')
 
     def __init__(self, user, group):
         self.user = user
@@ -2337,36 +2337,36 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
     slug = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
 
-    datasets: RelationshipProperty[List['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
+    datasets: Mapped[List['HistoryDatasetAssociation']] = relationship('HistoryDatasetAssociation',
         back_populates='history',
         order_by=lambda: asc(HistoryDatasetAssociation.hid))
-    exports: RelationshipProperty[List['JobExportHistoryArchive'] ]= relationship('JobExportHistoryArchive',
+    exports: Mapped[List['JobExportHistoryArchive']] = relationship('JobExportHistoryArchive',
         back_populates='history',
         primaryjoin=lambda: JobExportHistoryArchive.history_id == History.id,
         order_by=lambda: desc(JobExportHistoryArchive.id))
-    active_datasets: RelationshipProperty[List['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
+    active_datasets: Mapped[List['HistoryDatasetAssociation']] = relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id
                 == History.id, not_(HistoryDatasetAssociation.deleted))
         ),
         order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
-    dataset_collections: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation', back_populates='history')
-    active_dataset_collections: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation',
+    dataset_collections: Mapped[List['HistoryDatasetCollectionAssociation']] = relationship('HistoryDatasetCollectionAssociation', back_populates='history')
+    active_dataset_collections: Mapped[List['HistoryDatasetCollectionAssociation']] = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
             lambda: (and_(HistoryDatasetCollectionAssociation.history_id == History.id,
              not_(HistoryDatasetCollectionAssociation.deleted)))
         ),
         order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
-    visible_datasets: RelationshipProperty[List['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
+    visible_datasets: Mapped[List['HistoryDatasetAssociation']] = relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id == History.id,
              not_(HistoryDatasetAssociation.deleted), HistoryDatasetAssociation.visible)
         ),
         order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
-    visible_dataset_collections: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation',
+    visible_dataset_collections: Mapped[List['HistoryDatasetCollectionAssociation']] = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
             lambda: and_(
                 HistoryDatasetCollectionAssociation.history_id == History.id,
@@ -2375,21 +2375,21 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
         ),
         order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
-    tags: RelationshipProperty[List['HistoryTagAssociation'] ]= relationship('HistoryTagAssociation',
+    tags: Mapped[List['HistoryTagAssociation']] = relationship('HistoryTagAssociation',
         order_by=lambda: HistoryTagAssociation.id,
         back_populates='history')
-    annotations: RelationshipProperty[List['HistoryAnnotationAssociation'] ]= relationship('HistoryAnnotationAssociation',
+    annotations: Mapped[List['HistoryAnnotationAssociation']] = relationship('HistoryAnnotationAssociation',
         order_by=lambda: HistoryAnnotationAssociation.id,
         back_populates='history')
-    ratings: RelationshipProperty[List['HistoryRatingAssociation'] ]= relationship('HistoryRatingAssociation',
+    ratings: Mapped[List['HistoryRatingAssociation']] = relationship('HistoryRatingAssociation',
         order_by=lambda: HistoryRatingAssociation.id,
         back_populates='history')
-    default_permissions: RelationshipProperty[List['DefaultHistoryPermissions'] ] = relationship('DefaultHistoryPermissions', back_populates='history')
-    users_shared_with: RelationshipProperty[List['HistoryUserShareAssociation'] ]= relationship('HistoryUserShareAssociation', back_populates='history')
-    galaxy_sessions: RelationshipProperty[List['GalaxySessionToHistoryAssociation'] ]= relationship('GalaxySessionToHistoryAssociation', back_populates='history')
-    workflow_invocations: RelationshipProperty[List['WorkflowInvocation'] ]= relationship('WorkflowInvocation', back_populates='history')
-    user: RelationshipProperty[Optional['User'] ]= relationship('User', back_populates='histories')
-    jobs: RelationshipProperty[List['Job'] ]= relationship('Job', back_populates='history')
+    default_permissions: Mapped[List['DefaultHistoryPermissions'] ] = relationship('DefaultHistoryPermissions', back_populates='history')
+    users_shared_with: Mapped[List['HistoryUserShareAssociation']] = relationship('HistoryUserShareAssociation', back_populates='history')
+    galaxy_sessions: Mapped[List['GalaxySessionToHistoryAssociation']] = relationship('GalaxySessionToHistoryAssociation', back_populates='history')
+    workflow_invocations: Mapped[List['WorkflowInvocation']] = relationship('WorkflowInvocation', back_populates='history')
+    user: Mapped[Optional['User']] = relationship('User', back_populates='histories')
+    jobs: Mapped[List['Job']] = relationship('Job', back_populates='history')
 
     update_time = column_property(
         select(func.max(HistoryAudit.update_time)).where(HistoryAudit.history_id == id).scalar_subquery(),
@@ -2808,7 +2808,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
 
 
 class UserShareAssociation(RepresentById):
-    user: Optional[User]
+    user: Mapped[Optional[User]]
 
 
 class HistoryUserShareAssociation(Base, UserShareAssociation):
@@ -2817,8 +2817,8 @@ class HistoryUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user: RelationshipProperty['User'] = relationship('User')
-    history: RelationshipProperty['History'] = relationship('History', back_populates='users_shared_with')
+    user: Mapped['User'] = relationship('User')
+    history: Mapped['History'] = relationship('History', back_populates='users_shared_with')
 
 
 class UserRoleAssociation(Base, RepresentById):
@@ -2830,8 +2830,8 @@ class UserRoleAssociation(Base, RepresentById):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
 
-    user: RelationshipProperty['User'] = relationship('User', back_populates="roles")
-    role : RelationshipProperty['Role'] = relationship('Role', back_populates="users")
+    user: Mapped['User'] = relationship('User', back_populates="roles")
+    role : Mapped['Role'] = relationship('Role', back_populates="users")
 
     def __init__(self, user, role):
         self.user = user
@@ -2846,8 +2846,8 @@ class GroupRoleAssociation(Base, RepresentById):
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    group: RelationshipProperty['Group'] = relationship('Group', back_populates='roles')
-    role: RelationshipProperty['Role'] = relationship('Role', back_populates='groups')
+    group: Mapped['Group'] = relationship('Group', back_populates='roles')
+    role: Mapped['Role'] = relationship('Role', back_populates='groups')
 
     def __init__(self, group, role):
         self.group = group
@@ -2865,8 +2865,8 @@ class Role(Base, Dictifiable, RepresentById):
     type = Column(String(40), index=True)
     deleted = Column(Boolean, index=True, default=False)
     dataset_actions = relationship('DatasetPermissions', back_populates='role')
-    groups: RelationshipProperty[List['GroupRoleAssociation'] ]= relationship('GroupRoleAssociation', back_populates='role')
-    users: RelationshipProperty[List['UserRoleAssociation'] ]= relationship('UserRoleAssociation', back_populates='role')
+    groups: Mapped[List['GroupRoleAssociation']] = relationship('GroupRoleAssociation', back_populates='role')
+    users: Mapped[List['UserRoleAssociation']] = relationship('UserRoleAssociation', back_populates='role')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name', 'description', 'type']
@@ -2894,8 +2894,8 @@ class UserQuotaAssociation(Base, Dictifiable, RepresentById):
     quota_id = Column(Integer, ForeignKey('quota.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    user: RelationshipProperty['User'] = relationship('User', back_populates='quotas')
-    quota: RelationshipProperty['Quota'] = relationship('Quota', back_populates='users')
+    user: Mapped['User'] = relationship('User', back_populates='quotas')
+    quota: Mapped['Quota'] = relationship('Quota', back_populates='users')
 
     dict_element_visible_keys = ['user']
 
@@ -2912,8 +2912,8 @@ class GroupQuotaAssociation(Base, Dictifiable, RepresentById):
     quota_id = Column(Integer, ForeignKey('quota.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    group: RelationshipProperty['Group'] = relationship('Group', back_populates='quotas')
-    quota: RelationshipProperty['Quota'] = relationship('Quota', back_populates='groups')
+    group: Mapped['Group'] = relationship('Group', back_populates='quotas')
+    quota: Mapped['Quota'] = relationship('Quota', back_populates='groups')
 
     dict_element_visible_keys = ['group']
 
@@ -2933,9 +2933,9 @@ class Quota(Base, Dictifiable, RepresentById):
     bytes = Column(BigInteger)
     operation = Column(String(8))
     deleted = Column(Boolean, index=True, default=False)
-    default: RelationshipProperty[List['DefaultQuotaAssociation'] ]= relationship('DefaultQuotaAssociation', back_populates='quota')
-    groups: RelationshipProperty[List['GroupQuotaAssociation'] ]= relationship('GroupQuotaAssociation', back_populates='quota')
-    users: RelationshipProperty[List['UserQuotaAssociation'] ]= relationship('UserQuotaAssociation', back_populates='quota')
+    default: Mapped[List['DefaultQuotaAssociation']] = relationship('DefaultQuotaAssociation', back_populates='quota')
+    groups: Mapped[List['GroupQuotaAssociation']] = relationship('GroupQuotaAssociation', back_populates='quota')
+    users: Mapped[List['UserQuotaAssociation']] = relationship('UserQuotaAssociation', back_populates='quota')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name', 'description', 'bytes', 'operation', 'display_amount', 'default', 'users', 'groups']
@@ -2978,7 +2978,7 @@ class DefaultQuotaAssociation(Base, Dictifiable, RepresentById):
     update_time = Column(DateTime, default=now, onupdate=now)
     type = Column(String(32), index=True, unique=True)
     quota_id = Column(Integer, ForeignKey('quota.id'), index=True)
-    quota: RelationshipProperty['Quota'] = relationship('Quota', back_populates='default')
+    quota: Mapped['Quota'] = relationship('Quota', back_populates='default')
 
     dict_element_visible_keys = ['type']
 
@@ -3001,8 +3001,8 @@ class DatasetPermissions(Base, RepresentById):
     action = Column(TEXT)
     dataset_id = Column(Integer, ForeignKey('dataset.id'), index=True)
     role_id = Column(Integer, ForeignKey("role.id"), index=True)
-    dataset: RelationshipProperty[Optional['Dataset'] ]= relationship('Dataset', back_populates='actions')
-    role : RelationshipProperty['Role'] = relationship('Role', back_populates='dataset_actions')
+    dataset: Mapped[Optional['Dataset']] = relationship('Dataset', back_populates='actions')
+    role : Mapped['Role'] = relationship('Role', back_populates='dataset_actions')
 
     def __init__(self, action, dataset, role=None, role_id=None):
         self.action = action
@@ -3023,7 +3023,7 @@ class LibraryPermissions(Base, RepresentById):
     library_id = Column(Integer, ForeignKey('library.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     library = relationship('Library', back_populates='actions')
-    role : RelationshipProperty['Role'] = relationship('Role')
+    role : Mapped['Role'] = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3044,7 +3044,7 @@ class LibraryFolderPermissions(Base, RepresentById):
     library_folder_id = Column(Integer, ForeignKey('library_folder.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     folder = relationship('LibraryFolder', back_populates='actions')
-    role : RelationshipProperty['Role'] = relationship('Role')
+    role : Mapped['Role'] = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3065,7 +3065,7 @@ class LibraryDatasetPermissions(Base, RepresentById):
     library_dataset_id = Column(Integer, ForeignKey('library_dataset.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
     library_dataset = relationship('LibraryDataset', back_populates='actions')
-    role : RelationshipProperty['Role'] = relationship('Role')
+    role : Mapped['Role'] = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3086,9 +3086,9 @@ class LibraryDatasetDatasetAssociationPermissions(Base, RepresentById):
     library_dataset_dataset_association_id = Column(
         Integer, ForeignKey('library_dataset_dataset_association.id'), nullable=True, index=True)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
-    library_dataset_dataset_association: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: Mapped['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
         back_populates='actions')
-    role : RelationshipProperty['Role'] = relationship('Role')
+    role : Mapped['Role'] = relationship('Role')
 
     def __init__(self, action, library_item, role):
         self.action = action
@@ -3106,8 +3106,8 @@ class DefaultUserPermissions(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     action = Column(TEXT)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
-    user: RelationshipProperty['User'] = relationship('User', back_populates='default_permissions')
-    role : RelationshipProperty['Role'] = relationship('Role')
+    user: Mapped['User'] = relationship('User', back_populates='default_permissions')
+    role : Mapped['Role'] = relationship('Role')
 
     def __init__(self, user, action, role):
         self.user = user
@@ -3122,8 +3122,8 @@ class DefaultHistoryPermissions(Base, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     action = Column(TEXT)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
-    history: RelationshipProperty['History'] = relationship('History', back_populates='default_permissions')
-    role : RelationshipProperty['Role'] = relationship('Role')
+    history: Mapped['History'] = relationship('History', back_populates='default_permissions')
+    role : Mapped['Role'] = relationship('Role')
 
     def __init__(self, history, action, role):
         self.history = history
@@ -3419,8 +3419,8 @@ class DatasetSource(Base, Dictifiable, Serializable):
     source_uri = Column(TEXT)
     extra_files_path = Column(TEXT)
     transform = Column(MutableJSONType)
-    dataset: RelationshipProperty['Dataset'] = relationship('Dataset', back_populates='sources')
-    hashes: RelationshipProperty[List['DatasetSourceHash'] ]= relationship('DatasetSourceHash', back_populates='source')
+    dataset: Mapped['Dataset'] = relationship('Dataset', back_populates='sources')
+    hashes: Mapped[List['DatasetSourceHash']] = relationship('DatasetSourceHash', back_populates='source')
     dict_collection_visible_keys = ['id', 'source_uri', 'extra_files_path', "transform"]
     dict_element_visible_keys = ['id', 'source_uri', 'extra_files_path', 'transform']  # TODO: implement to_dict and add hashes...
 
@@ -3463,7 +3463,7 @@ class DatasetHash(Base, Dictifiable, Serializable):
     hash_function = Column(TEXT)
     hash_value = Column(TEXT)
     extra_files_path = Column(TEXT)
-    dataset: RelationshipProperty['Dataset'] = relationship('Dataset', back_populates='hashes')
+    dataset: Mapped['Dataset'] = relationship('Dataset', back_populates='hashes')
     dict_collection_visible_keys = ['id', 'hash_function', 'hash_value', 'extra_files_path']
     dict_element_visible_keys = ['id', 'hash_function', 'hash_value', 'extra_files_path']
 
@@ -4417,8 +4417,8 @@ class HistoryDatasetAssociationDisplayAtAuthorization(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     site = Column(TrimmedString(255))
-    history_dataset_association: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    history_dataset_association: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
     def __init__(self, hda=None, user=None, site=None):
         self.history_dataset_association = hda
@@ -4437,7 +4437,7 @@ class HistoryDatasetAssociationSubset(Base, RepresentById):
     location = Column(Unicode(255), index=True)
 
     # TODO: what type is this ?
-    hda: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    hda: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: HistoryDatasetAssociationSubset.history_dataset_association_id
             == HistoryDatasetAssociation.id))
     subset = relationship('HistoryDatasetAssociation',
@@ -4669,10 +4669,10 @@ class LibraryDataset(Base, Serializable):
     deleted = Column(Boolean, index=True, default=False)
     purged = Column(Boolean, index=True, default=False)
     folder = relationship('LibraryFolder')
-    library_dataset_dataset_association: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: Mapped['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
             foreign_keys=library_dataset_dataset_association_id,
             post_update=True)
-    expired_datasets: RelationshipProperty[List['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
+    expired_datasets: Mapped[List['LibraryDatasetDatasetAssociation']] = relationship('LibraryDatasetDatasetAssociation',
         foreign_keys=[id, library_dataset_dataset_association_id],
         primaryjoin=(
             'and_(LibraryDataset.id == LibraryDatasetDatasetAssociation.library_dataset_id, \
@@ -5024,7 +5024,7 @@ class LibraryDatasetDatasetInfoAssociation(Base, RepresentById):
     form_values_id = Column(Integer, ForeignKey('form_values.id'), index=True)
     deleted = Column(Boolean, index=True, default=False)
 
-    library_dataset_dataset_association: RelationshipProperty[List['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: Mapped[List['LibraryDatasetDatasetAssociation']] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda:
             (LibraryDatasetDatasetInfoAssociation.library_dataset_dataset_association_id
              == LibraryDatasetDatasetAssociation.id)
@@ -5063,19 +5063,19 @@ class ImplicitlyConvertedDatasetAssociation(Base, RepresentById):
     metadata_safe = Column(Boolean, index=True, default=True)
     type = Column(TrimmedString(255))
 
-    parent_hda: RelationshipProperty[Optional['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
+    parent_hda: Mapped[Optional['HistoryDatasetAssociation']] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_parent_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_datasets')
-    dataset_ldda: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
+    dataset_ldda: Mapped[Optional['LibraryDatasetDatasetAssociation']] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_id
             == LibraryDatasetDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
-    dataset: RelationshipProperty[Optional['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
+    dataset: Mapped[Optional['HistoryDatasetAssociation']] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
-    parent_ldda: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
+    parent_ldda: Mapped[Optional['LibraryDatasetDatasetAssociation']] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_parent_id
             == LibraryDatasetDatasetAssociation.table.c.id),
         back_populates='implicitly_converted_datasets')
@@ -5137,7 +5137,7 @@ class DatasetCollection(Base, Dictifiable, UsesAnnotations, Serializable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
 
-    elements: RelationshipProperty[List['DatasetCollectionElement'] ]= relationship('DatasetCollectionElement',
+    elements: Mapped[List['DatasetCollectionElement']] = relationship('DatasetCollectionElement',
         primaryjoin=(lambda: DatasetCollection.id == DatasetCollectionElement.dataset_collection_id),
         back_populates='collection',
         order_by=lambda: DatasetCollectionElement.element_index)
@@ -5530,8 +5530,8 @@ class HistoryDatasetCollectionAssociation(
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now, index=True)
 
-    collection: RelationshipProperty['DatasetCollection'] = relationship('DatasetCollection')
-    history: RelationshipProperty['History'] = relationship('History', back_populates='dataset_collections')
+    collection: Mapped['DatasetCollection'] = relationship('DatasetCollection')
+    history: Mapped['History'] = relationship('History', back_populates='dataset_collections')
 
     copied_from_history_dataset_collection_association = relationship(
         'HistoryDatasetCollectionAssociation',
@@ -5793,7 +5793,7 @@ class LibraryDatasetCollectionAssociation(Base, DatasetCollectionInstance, Repre
     name = Column(TrimmedString(255))
     deleted = Column(Boolean, default=False)
 
-    collection: RelationshipProperty['DatasetCollection'] = relationship('DatasetCollection')
+    collection: Mapped['DatasetCollection'] = relationship('DatasetCollection')
     folder = relationship('LibraryFolder')
 
     tags = relationship('LibraryDatasetCollectionTagAssociation',
@@ -5842,13 +5842,13 @@ class DatasetCollectionElement(Base, Dictifiable, Serializable):
     element_index = Column(Integer)
     element_identifier = Column(Unicode(255))
 
-    hda: RelationshipProperty[Optional['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
+    hda: Mapped[Optional['HistoryDatasetAssociation']] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: DatasetCollectionElement.hda_id == HistoryDatasetAssociation.id))
-    ldda: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
+    ldda: Mapped[Optional['LibraryDatasetDatasetAssociation']] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: DatasetCollectionElement.ldda_id == LibraryDatasetDatasetAssociation.id))
-    child_collection: RelationshipProperty[Optional['DatasetCollection'] ]= relationship('DatasetCollection',
+    child_collection: Mapped[Optional['DatasetCollection']] = relationship('DatasetCollection',
         primaryjoin=(lambda: DatasetCollectionElement.child_collection_id == DatasetCollection.id))
-    collection: RelationshipProperty[Optional['DatasetCollection'] ]= relationship('DatasetCollection',
+    collection: Mapped[Optional['DatasetCollection']] = relationship('DatasetCollection',
         primaryjoin=(lambda: DatasetCollection.id == DatasetCollectionElement.dataset_collection_id),
         back_populates='elements',
     )
@@ -5995,8 +5995,8 @@ class Event(Base, RepresentById):
     session_id = Column(Integer, ForeignKey('galaxy_session.id'), index=True, nullable=True)
     tool_id = Column(String(255))
 
-    history: RelationshipProperty['History'] = relationship('History')
-    user: RelationshipProperty['User'] = relationship('User')
+    history: Mapped['History'] = relationship('History')
+    user: Mapped['User'] = relationship('User')
     galaxy_session = relationship('GalaxySession')
 
 
@@ -6018,9 +6018,9 @@ class GalaxySession(Base, RepresentById):
     prev_session_id = Column(Integer)
     disk_usage = Column(Numeric(15, 0), index=True)
     last_action = Column(DateTime)
-    current_history: RelationshipProperty['History'] = relationship('History')
+    current_history: Mapped['History'] = relationship('History')
     histories = relationship('GalaxySessionToHistoryAssociation', back_populates='galaxy_session')
-    user: RelationshipProperty['User'] = relationship('User', back_populates='galaxy_sessions')
+    user: Mapped['User'] = relationship('User', back_populates='galaxy_sessions')
 
     def __init__(self, is_valid=False, **kwd):
         super().__init__(**kwd)
@@ -6051,7 +6051,7 @@ class GalaxySessionToHistoryAssociation(Base, RepresentById):
     session_id = Column(Integer, ForeignKey('galaxy_session.id'), index=True)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     galaxy_session = relationship('GalaxySession', back_populates='histories')
-    history: RelationshipProperty['History'] = relationship('History', back_populates='galaxy_sessions')
+    history: Mapped['History'] = relationship('History', back_populates='galaxy_sessions')
 
     def __init__(self, galaxy_session, history):
         self.galaxy_session = galaxy_session
@@ -6092,7 +6092,7 @@ class StoredWorkflow(Base, HasTags, Dictifiable, RepresentById):
     from_path = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
 
-    user: RelationshipProperty['User'] = relationship('User',
+    user: Mapped['User'] = relationship('User',
         primaryjoin=(lambda: User.id == StoredWorkflow.user_id),
         back_populates='stored_workflows')
     workflows = relationship('Workflow',
@@ -6194,7 +6194,7 @@ class Workflow(Base, Dictifiable, RepresentById):
     license = Column(TEXT)
     uuid = Column(UUIDType, nullable=True)
 
-    steps: RelationshipProperty[List['WorkflowStep'] ]= relationship('WorkflowStep',
+    steps: Mapped[List['WorkflowStep']] = relationship('WorkflowStep',
         back_populates='workflow',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.workflow_id),
         order_by=lambda: asc(WorkflowStep.order_index),
@@ -6205,7 +6205,7 @@ class Workflow(Base, Dictifiable, RepresentById):
         'WorkflowStep',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.subworkflow_id),
         back_populates='subworkflow')
-    stored_workflow: RelationshipProperty['StoredWorkflow'] = relationship('StoredWorkflow',
+    stored_workflow: Mapped['StoredWorkflow'] = relationship('StoredWorkflow',
         primaryjoin=(lambda: StoredWorkflow.id == Workflow.stored_workflow_id),
         back_populates='workflows')
 
@@ -6362,7 +6362,7 @@ class WorkflowStep(Base, RepresentById):
     uuid = Column(UUIDType)
     label = Column(Unicode(255))
     temp_input_connections: Optional[InputConnDictType]
-    module: RelationshipProperty[Optional['WorkflowModule'] ]= None
+    module: Mapped[Optional['WorkflowModule']] = None
 
     subworkflow = relationship('Workflow',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.subworkflow_id),
@@ -6584,7 +6584,7 @@ class WorkflowStepInput(Base, RepresentById):
     default_value_set = Column(Boolean, default=False)
     runtime_value = Column(Boolean, default=False)
 
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep',
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep',
         back_populates='inputs',
         cascade='all',
         primaryjoin=(lambda: WorkflowStepInput.workflow_step_id == WorkflowStep.id),
@@ -6623,7 +6623,7 @@ class WorkflowStepConnection(Base, RepresentById):
         back_populates='connections',
         cascade='all',
         primaryjoin=(lambda: WorkflowStepConnection.input_step_input_id == WorkflowStepInput.id))
-    input_subworkflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep',
+    input_subworkflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep',
         primaryjoin=(lambda: WorkflowStepConnection.input_subworkflow_step_id == WorkflowStep.id),
         uselist=False)
     output_step = relationship('WorkflowStep',
@@ -6671,7 +6671,7 @@ class WorkflowOutput(Base, RepresentById):
     output_name = Column(String(255), nullable=True)
     label = Column(Unicode(255))
     uuid = Column(UUIDType)
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep',
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep',
         back_populates='workflow_outputs',
         primaryjoin=(lambda: WorkflowStep.id == WorkflowOutput.workflow_step_id),
         uselist=False)
@@ -6695,8 +6695,8 @@ class StoredWorkflowUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user: RelationshipProperty['User'] = relationship('User')
-    stored_workflow: RelationshipProperty['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='users_shared_with')
+    user: Mapped['User'] = relationship('User')
+    stored_workflow: Mapped['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='users_shared_with')
 
 
 class StoredWorkflowMenuEntry(Base, RepresentById):
@@ -6707,8 +6707,8 @@ class StoredWorkflowMenuEntry(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     order_index = Column(Integer)
 
-    stored_workflow: RelationshipProperty['StoredWorkflow'] = relationship('StoredWorkflow')
-    user: RelationshipProperty['User'] = relationship('User', back_populates='stored_workflow_menu_entries',
+    stored_workflow: Mapped['StoredWorkflow'] = relationship('StoredWorkflow')
+    user: Mapped['User'] = relationship('User', back_populates='stored_workflow_menu_entries',
         primaryjoin=(lambda:
             (StoredWorkflowMenuEntry.user_id == User.id)
             & (StoredWorkflowMenuEntry.stored_workflow_id == StoredWorkflow.id)
@@ -6729,7 +6729,7 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, RepresentBy
     uuid = Column(UUIDType())
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
 
-    history: RelationshipProperty['History'] = relationship('History', back_populates='workflow_invocations')
+    history: Mapped['History'] = relationship('History', back_populates='workflow_invocations')
     input_parameters = relationship('WorkflowRequestInputParameter',
         back_populates='workflow_invocation')
     step_states = relationship('WorkflowRequestStepState', back_populates='workflow_invocation')
@@ -7111,14 +7111,14 @@ class WorkflowInvocationToSubworkflowInvocationAssociation(Base, Dictifiable, Re
         ForeignKey('workflow_invocation.id', name='fk_wfi_swi_swi'), index=True)
     workflow_step_id = Column(Integer, ForeignKey('workflow_step.id', name='fk_wfi_swi_ws'))
 
-    subworkflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation',
+    subworkflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation',
         primaryjoin=(lambda:
             WorkflowInvocationToSubworkflowInvocationAssociation.subworkflow_invocation_id
                 == WorkflowInvocation.id),
         uselist=False,
     )
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    parent_workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation',
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    parent_workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation',
         primaryjoin=(lambda:
             WorkflowInvocationToSubworkflowInvocationAssociation.workflow_invocation_id
                 == WorkflowInvocation.id),
@@ -7145,15 +7145,15 @@ class WorkflowInvocationStep(Base, Dictifiable, RepresentById):
         ForeignKey('implicit_collection_jobs.id'), index=True, nullable=True)
     action = Column(MutableJSONType, nullable=True)
 
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='workflow_invocation_step', uselist=False)
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    job: Mapped['Job'] = relationship('Job', back_populates='workflow_invocation_step', uselist=False)
     implicit_collection_jobs = relationship('ImplicitCollectionJobs', uselist=False)
     output_dataset_collections = relationship(
         'WorkflowInvocationStepOutputDatasetCollectionAssociation',
         back_populates='workflow_invocation_step')
     output_datasets = relationship('WorkflowInvocationStepOutputDatasetAssociation',
         back_populates='workflow_invocation_step')
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='steps')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='steps')
     output_value = relationship('WorkflowInvocationOutputValue',
         foreign_keys='[WorkflowInvocationStep.workflow_invocation_id, WorkflowInvocationStep.workflow_step_id]',
         primaryjoin=(lambda: and_(
@@ -7252,7 +7252,7 @@ class WorkflowRequestInputParameter(Base, Dictifiable, RepresentById):
     name = Column(Unicode(255))
     value = Column(TEXT)
     type = Column(Unicode(255))
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='input_parameters')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='input_parameters')
 
     dict_collection_visible_keys = ['id', 'name', 'value', 'type']
 
@@ -7273,8 +7273,8 @@ class WorkflowRequestStepState(Base, Dictifiable, RepresentById):
         ForeignKey('workflow_invocation.id', onupdate='CASCADE', ondelete='CASCADE'))
     workflow_step_id = Column(Integer, ForeignKey('workflow_step.id'))
     value = Column(MutableJSONType)
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='step_states')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='step_states')
 
     dict_collection_visible_keys = ['id', 'name', 'value', 'workflow_step_id']
 
@@ -7290,9 +7290,9 @@ class WorkflowRequestToInputDatasetAssociation(Base, Dictifiable, RepresentById)
     workflow_step_id = Column(Integer, ForeignKey("workflow_step.id"))
     dataset_id = Column(Integer, ForeignKey("history_dataset_association.id"), index=True)
 
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    dataset: RelationshipProperty['HistoryDatasetAssocitaion'] = relationship('HistoryDatasetAssociation')
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='input_datasets')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    dataset: Mapped['HistoryDatasetAssocitaion'] = relationship('HistoryDatasetAssociation')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='input_datasets')
 
     history_content_type = "dataset"
     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'dataset_id', 'name']
@@ -7309,9 +7309,9 @@ class WorkflowRequestToInputDatasetCollectionAssociation(Base, Dictifiable, Repr
     workflow_step_id = Column(Integer, ForeignKey('workflow_step.id'))
     dataset_collection_id = Column(Integer,
         ForeignKey('history_dataset_collection_association.id'), index=True)
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation')
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation',
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation',
         back_populates='input_dataset_collections')
 
     history_content_type = "dataset_collection"
@@ -7328,8 +7328,8 @@ class WorkflowRequestInputStepParameter(Base, Dictifiable, RepresentById):
     workflow_step_id = Column(Integer, ForeignKey('workflow_step.id'))
     parameter_value = Column(MutableJSONType)
 
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='input_step_parameters')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='input_step_parameters')
 
     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'parameter_value']
 
@@ -7344,9 +7344,9 @@ class WorkflowInvocationOutputDatasetAssociation(Base, Dictifiable, RepresentByI
     dataset_id = Column(Integer, ForeignKey('history_dataset_association.id'), index=True)
     workflow_output_id = Column(Integer, ForeignKey('workflow_output.id'), index=True)
 
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='output_datasets')
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    dataset: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation')
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='output_datasets')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    dataset: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation')
     workflow_output = relationship('WorkflowOutput')
 
     history_content_type = "dataset"
@@ -7367,10 +7367,10 @@ class WorkflowInvocationOutputDatasetCollectionAssociation(Base, Dictifiable, Re
     workflow_output_id = Column(Integer,
         ForeignKey('workflow_output.id', name='fk_wiodca_woi'), index=True)
 
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation',
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation',
         back_populates='output_dataset_collections')
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
-    dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
+    dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation')
     workflow_output = relationship('WorkflowOutput')
 
     history_content_type = "dataset_collection"
@@ -7387,7 +7387,7 @@ class WorkflowInvocationOutputValue(Base, Dictifiable, RepresentById):
     workflow_output_id = Column(Integer, ForeignKey('workflow_output.id'), index=True)
     value = Column(MutableJSONType)
 
-    workflow_invocation: RelationshipProperty['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates="output_values")
+    workflow_invocation: Mapped['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates="output_values")
 
     workflow_invocation_step = relationship('WorkflowInvocationStep',
         foreign_keys='[WorkflowInvocationStep.workflow_invocation_id, WorkflowInvocationStep.workflow_step_id]',
@@ -7399,7 +7399,7 @@ class WorkflowInvocationOutputValue(Base, Dictifiable, RepresentById):
         viewonly=True
     )
 
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep')
     workflow_output = relationship('WorkflowOutput')
 
     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'value']
@@ -7416,7 +7416,7 @@ class WorkflowInvocationStepOutputDatasetAssociation(Base, Dictifiable, Represen
     output_name = Column(String(255), nullable=True)
     workflow_invocation_step = relationship('WorkflowInvocationStep',
         back_populates='output_datasets')
-    dataset: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation')
+    dataset: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation')
 
     dict_collection_visible_keys = ['id', 'workflow_invocation_step_id', 'dataset_id', 'output_name']
 
@@ -7437,7 +7437,7 @@ class WorkflowInvocationStepOutputDatasetCollectionAssociation(Base, Dictifiable
 
     workflow_invocation_step = relationship('WorkflowInvocationStep',
         back_populates='output_dataset_collections')
-    dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation')
+    dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation')
 
     dict_collection_visible_keys = ['id', 'workflow_invocation_step_id', 'dataset_collection_id', 'output_name']
 
@@ -7459,7 +7459,7 @@ class MetadataFile(Base, StorableObject, Serializable):
     purged = Column(Boolean, index=True, default=False)
 
     history_dataset = relationship('HistoryDatasetAssociation')
-    library_dataset: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation')
+    library_dataset: Mapped[Optional['LibraryDatasetDatasetAssociation']] = relationship('LibraryDatasetDatasetAssociation')
 
     def __init__(self, dataset=None, name=None, uuid=None):
         self.uuid = get_uuid(uuid)
@@ -7618,7 +7618,7 @@ class UserAddress(Base, RepresentById):
     purged = Column(Boolean, index=True, default=False)
     # `desc` needs to be fully qualified because it is shadowed by `desc` Column defined above
     # TODO: db migration to rename column, then use `desc`
-    user: RelationshipProperty['User'] = relationship('User', back_populates='addresses', order_by=sqlalchemy.desc('update_time'))
+    user: Mapped['User'] = relationship('User', back_populates='addresses', order_by=sqlalchemy.desc('update_time'))
 
     def to_dict(self, trans):
         return {'id': trans.security.encode_id(self.id),
@@ -7774,7 +7774,7 @@ class UserAuthnzToken(Base, UserMixin, RepresentById):
     extra_data = Column(MutableJSONType, nullable=True)
     lifetime = Column(Integer)
     assoc_type = Column(VARCHAR(64))
-    user: RelationshipProperty['User'] = relationship('User', back_populates='social_auth')
+    user: Mapped['User'] = relationship('User', back_populates='social_auth')
 
     # This static property is set at: galaxy.authnz.psa_authnz.PSAAuthnz
     sa_session = None
@@ -7895,7 +7895,7 @@ class CustosAuthnzToken(Base, RepresentById):
     refresh_token = Column(Text)
     expiration_time = Column(DateTime)
     refresh_expiration_time = Column(DateTime)
-    user: RelationshipProperty['User'] = relationship('User', back_populates='custos_auth')
+    user: Mapped['User'] = relationship('User', back_populates='custos_auth')
 
 
 class CloudAuthz(Base, _HasTable):
@@ -7911,7 +7911,7 @@ class CloudAuthz(Base, _HasTable):
     last_activity = Column(DateTime)
     description = Column(TEXT)
     create_time = Column(DateTime, default=now)
-    user: RelationshipProperty['User'] = relationship('User', back_populates='cloudauthz')
+    user: Mapped['User'] = relationship('User', back_populates='cloudauthz')
     authn = relationship('UserAuthnzToken')
 
     def __init__(self, user_id, provider, config, authn_id, description=None):
@@ -7949,7 +7949,7 @@ class Page(Base, Dictifiable, RepresentById):
     importable = Column(Boolean, index=True, default=False)
     slug = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    user: Mapped['User'] = relationship('User')
     revisions = relationship(
         'PageRevision',
         cascade="all, delete-orphan",
@@ -8009,7 +8009,7 @@ class PageRevision(Base, Dictifiable, RepresentById):
     title = Column(TEXT)
     content = Column(TEXT)
     content_format = Column(TrimmedString(32))
-    page: RelationshipProperty['Page'] = relationship('Page',
+    page: Mapped['Page'] = relationship('Page',
         primaryjoin=(lambda: Page.id == PageRevision.page_id), uselist=False)
     DEFAULT_CONTENT_FORMAT = 'html'
     dict_element_visible_keys = ['id', 'page_id', 'title', 'content', 'content_format']
@@ -8030,8 +8030,8 @@ class PageUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     page_id = Column(Integer, ForeignKey("page.id"), index=True)
     user_id = Column(Integer, ForeignKey("galaxy_user.id"), index=True)
-    user: RelationshipProperty['User'] = relationship('User')
-    page: RelationshipProperty['Page'] = relationship('Page', back_populates='users_shared_with', uselist=False)
+    user: Mapped['User'] = relationship('User')
+    page: Mapped['Page'] = relationship('Page', back_populates='users_shared_with', uselist=False)
 
 
 class Visualization(Base, RepresentById):
@@ -8056,25 +8056,25 @@ class Visualization(Base, RepresentById):
     slug = Column(TEXT)
     published = Column(Boolean, default=False, index=True)
 
-    user: RelationshipProperty['User'] = relationship('User')
-    revisions: RelationshipProperty[List['VisualizationRevision']] = relationship('VisualizationRevision',
+    user: Mapped['User'] = relationship('User')
+    revisions: Mapped[List['VisualizationRevision']] = relationship('VisualizationRevision',
         back_populates='visualization',
         cascade="all, delete-orphan",
         primaryjoin=(lambda: Visualization.id == VisualizationRevision.visualization_id))
-    latest_revision: RelationshipProperty['VisualizationRevision'] = relationship('VisualizationRevision',
+    latest_revision: Mapped['VisualizationRevision'] = relationship('VisualizationRevision',
         post_update=True,
         primaryjoin=(lambda: Visualization.latest_revision_id == VisualizationRevision.id),
         lazy="joined")
-    tags: RelationshipProperty[List['VisualizationTagAssociation']] = relationship('VisualizationTagAssociation',
+    tags: Mapped[List['VisualizationTagAssociation']] = relationship('VisualizationTagAssociation',
         order_by=lambda: VisualizationTagAssociation.id,
         back_populates="visualization")
-    annotations: RelationshipProperty[List['VisualizationAnnotationAssociation']] = relationship('VisualizationAnnotationAssociation',
+    annotations: Mapped[List['VisualizationAnnotationAssociation']] = relationship('VisualizationAnnotationAssociation',
         order_by=lambda: VisualizationAnnotationAssociation.id,
         back_populates="visualization")
-    ratings: RelationshipProperty[List['VisualizationRatingAssociation']] = relationship('VisualizationRatingAssociation',
+    ratings: Mapped[List['VisualizationRatingAssociation']] = relationship('VisualizationRatingAssociation',
         order_by=lambda: VisualizationRatingAssociation.id,
         back_populates="visualization")
-    users_shared_with: RelationshipProperty[List['VisualizationUserShareAssociation']] = relationship('VisualizationUserShareAssociation', back_populates='visualization')
+    users_shared_with: Mapped[List['VisualizationUserShareAssociation']] = relationship('VisualizationUserShareAssociation', back_populates='visualization')
 
     average_rating: column_property  # defined at the end of this module
 
@@ -8123,7 +8123,7 @@ class VisualizationRevision(Base, RepresentById):
     title = Column(TEXT)
     dbkey = Column(TEXT)
     config = Column(MutableJSONType)
-    visualization: RelationshipProperty['Visualization'] = relationship('Visualization',
+    visualization: Mapped['Visualization'] = relationship('Visualization',
         back_populates='revisions',
         primaryjoin=(lambda: Visualization.id == VisualizationRevision.visualization_id),
         uselist=False,
@@ -8150,8 +8150,8 @@ class VisualizationUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user: RelationshipProperty['User'] = relationship('User')
-    visualization: RelationshipProperty['Visualization'] = relationship('Visualization', back_populates='users_shared_with', uselist=False)
+    user: Mapped['User'] = relationship('User')
+    visualization: Mapped['Visualization'] = relationship('Visualization', back_populates='users_shared_with', uselist=False)
 
 
 class Tag(Base, RepresentById):
@@ -8203,9 +8203,9 @@ class HistoryTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    history: RelationshipProperty['History'] = relationship('History', back_populates='tags')
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    history: Mapped['History'] = relationship('History', back_populates='tags')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class HistoryDatasetAssociationTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8218,9 +8218,9 @@ class HistoryDatasetAssociationTagAssociation(Base, ItemTagAssociation, Represen
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    history_dataset_association: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', back_populates='tags', uselist=False)
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    history_dataset_association: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', back_populates='tags', uselist=False)
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class LibraryDatasetDatasetAssociationTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8233,10 +8233,10 @@ class LibraryDatasetDatasetAssociationTagAssociation(Base, ItemTagAssociation, R
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    library_dataset_dataset_association: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship(
+    library_dataset_dataset_association: Mapped['LibraryDatasetDatasetAssociation'] = relationship(
         'LibraryDatasetDatasetAssociation', back_populates='tags')
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class PageTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8248,9 +8248,9 @@ class PageTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    page: RelationshipProperty['Page'] = relationship('Page', back_populates='tags', uselist=False)
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    page: Mapped['Page'] = relationship('Page', back_populates='tags', uselist=False)
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class WorkflowStepTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8262,9 +8262,9 @@ class WorkflowStepTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep', back_populates='tags')
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep', back_populates='tags')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class StoredWorkflowTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8276,9 +8276,9 @@ class StoredWorkflowTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    stored_workflow: RelationshipProperty['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='tags')
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    stored_workflow: Mapped['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='tags')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class VisualizationTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8290,9 +8290,9 @@ class VisualizationTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    visualization: RelationshipProperty['Visualization'] = relationship('Visualization', back_populates='tags', uselist=False)
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    visualization: Mapped['Visualization'] = relationship('Visualization', back_populates='tags', uselist=False)
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class HistoryDatasetCollectionTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8305,9 +8305,9 @@ class HistoryDatasetCollectionTagAssociation(Base, ItemTagAssociation, Represent
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', back_populates='tags')
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', back_populates='tags')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class LibraryDatasetCollectionTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8320,9 +8320,9 @@ class LibraryDatasetCollectionTagAssociation(Base, ItemTagAssociation, Represent
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    dataset_collection: RelationshipProperty['LibraryDatasetCollectionAssociation'] = relationship('LibraryDatasetCollectionAssociation', back_populates='tags')
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    dataset_collection: Mapped['LibraryDatasetCollectionAssociation'] = relationship('LibraryDatasetCollectionAssociation', back_populates='tags')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 class ToolTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8334,8 +8334,8 @@ class ToolTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    tag: RelationshipProperty['Tag'] = relationship('Tag')
-    user: RelationshipProperty['User'] = relationship('User')
+    tag: Mapped['Tag'] = relationship('Tag')
+    user: Mapped['User'] = relationship('User')
 
 
 # Item annotation classes.
@@ -8349,8 +8349,8 @@ class HistoryAnnotationAssociation(Base, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    history: RelationshipProperty['History'] = relationship('History', back_populates='annotations')
-    user: RelationshipProperty['User'] = relationship('User')
+    history: Mapped['History'] = relationship('History', back_populates='annotations')
+    user: Mapped['User'] = relationship('User')
 
 
 class HistoryDatasetAssociationAnnotationAssociation(Base, RepresentById):
@@ -8364,8 +8364,8 @@ class HistoryDatasetAssociationAnnotationAssociation(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    hda: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', back_populates='annotations')
-    user: RelationshipProperty['User'] = relationship('User')
+    hda: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', back_populates='annotations')
+    user: Mapped['User'] = relationship('User')
 
 
 class StoredWorkflowAnnotationAssociation(Base, RepresentById):
@@ -8378,8 +8378,8 @@ class StoredWorkflowAnnotationAssociation(Base, RepresentById):
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    stored_workflow: RelationshipProperty['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='annotations')
-    user: RelationshipProperty['User'] = relationship('User')
+    stored_workflow: Mapped['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='annotations')
+    user: Mapped['User'] = relationship('User')
 
 
 class WorkflowStepAnnotationAssociation(Base, RepresentById):
@@ -8392,8 +8392,8 @@ class WorkflowStepAnnotationAssociation(Base, RepresentById):
     workflow_step_id = Column(Integer, ForeignKey('workflow_step.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    workflow_step: RelationshipProperty['WorkflowStep'] = relationship('WorkflowStep', back_populates='annotations', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    workflow_step: Mapped['WorkflowStep'] = relationship('WorkflowStep', back_populates='annotations', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
 
 class PageAnnotationAssociation(Base, RepresentById):
@@ -8406,8 +8406,8 @@ class PageAnnotationAssociation(Base, RepresentById):
     page_id = Column(Integer, ForeignKey('page.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    page: RelationshipProperty['Page'] = relationship('Page', back_populates='annotations', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    page: Mapped['Page'] = relationship('Page', back_populates='annotations', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
 
 class VisualizationAnnotationAssociation(Base, RepresentById):
@@ -8420,8 +8420,8 @@ class VisualizationAnnotationAssociation(Base, RepresentById):
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    visualization: RelationshipProperty['Visualization'] = relationship('Visualization', back_populates='annotations', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    visualization: Mapped['Visualization'] = relationship('Visualization', back_populates='annotations', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
 
 class HistoryDatasetCollectionAssociationAnnotationAssociation(Base, RepresentById):
@@ -8432,9 +8432,9 @@ class HistoryDatasetCollectionAssociationAnnotationAssociation(Base, RepresentBy
         Integer, ForeignKey('history_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    history_dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
+    history_dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
         back_populates='annotations')
-    user: RelationshipProperty['User'] = relationship('User')
+    user: Mapped['User'] = relationship('User')
 
 
 class LibraryDatasetCollectionAnnotationAssociation(Base, RepresentById):
@@ -8445,9 +8445,9 @@ class LibraryDatasetCollectionAnnotationAssociation(Base, RepresentById):
         Integer, ForeignKey('library_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    dataset_collection: RelationshipProperty['LibraryDatasetCollectionAssociation'] = relationship('LibraryDatasetCollectionAssociation',
+    dataset_collection: Mapped['LibraryDatasetCollectionAssociation'] = relationship('LibraryDatasetCollectionAssociation',
         back_populates='annotations')
-    user: RelationshipProperty['User'] = relationship('User')
+    user: Mapped['User'] = relationship('User')
 
 
 # Item rating classes.
@@ -8471,8 +8471,8 @@ class HistoryRatingAssociation(ItemRatingAssociation, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    history: RelationshipProperty['History'] = relationship('History', back_populates='ratings')
-    user: RelationshipProperty['User'] = relationship('User')
+    history: Mapped['History'] = relationship('History', back_populates='ratings')
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, history):
         self.history = history
@@ -8486,8 +8486,8 @@ class HistoryDatasetAssociationRatingAssociation(ItemRatingAssociation, Represen
         ForeignKey('history_dataset_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    history_dataset_association: RelationshipProperty['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', back_populates='ratings', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    history_dataset_association: Mapped['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation', back_populates='ratings', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, history_dataset_association):
         self.history_dataset_association = history_dataset_association
@@ -8500,8 +8500,8 @@ class StoredWorkflowRatingAssociation(ItemRatingAssociation, RepresentById):
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    stored_workflow: RelationshipProperty['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='ratings')
-    user: RelationshipProperty['User'] = relationship('User')
+    stored_workflow: Mapped['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='ratings')
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, stored_workflow):
         self.stored_workflow = stored_workflow
@@ -8514,8 +8514,8 @@ class PageRatingAssociation(ItemRatingAssociation, RepresentById):
     page_id = Column(Integer, ForeignKey('page.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    page: RelationshipProperty['Page'] = relationship('Page', back_populates='ratings', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    page: Mapped['Page'] = relationship('Page', back_populates='ratings', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, page):
         self.page = page
@@ -8528,8 +8528,8 @@ class VisualizationRatingAssociation(ItemRatingAssociation, RepresentById):
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    visualization: RelationshipProperty['Visualization'] = relationship('Visualization', back_populates='ratings', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    visualization: Mapped['Visualization'] = relationship('Visualization', back_populates='ratings', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, visualization):
         self.visualization = visualization
@@ -8543,8 +8543,8 @@ class HistoryDatasetCollectionRatingAssociation(ItemRatingAssociation, Represent
         Integer, ForeignKey('history_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    dataset_collection: RelationshipProperty['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', back_populates='ratings')
-    user: RelationshipProperty['User'] = relationship('User')
+    dataset_collection: Mapped['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', back_populates='ratings')
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, dataset_collection):
         self.dataset_collection = dataset_collection
@@ -8558,8 +8558,8 @@ class LibraryDatasetCollectionRatingAssociation(ItemRatingAssociation, Represent
         Integer, ForeignKey('library_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    dataset_collection: RelationshipProperty['LibraryDatasetCollectionAssociation'] = relationship('LibraryDatasetCollectionAssociation', back_populates='ratings', uselist=False)
-    user: RelationshipProperty['User'] = relationship('User')
+    dataset_collection: Mapped['LibraryDatasetCollectionAssociation'] = relationship('LibraryDatasetCollectionAssociation', back_populates='ratings', uselist=False)
+    user: Mapped['User'] = relationship('User')
 
     def _set_item(self, dataset_collection):
         self.dataset_collection = dataset_collection
@@ -8574,8 +8574,8 @@ class DataManagerHistoryAssociation(Base, RepresentById):
     update_time = Column(DateTime, index=True, default=now, onupdate=now)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    history: RelationshipProperty['History'] = relationship('History')
-    user: RelationshipProperty['User'] = relationship('User', back_populates='data_manager_histories')
+    history: Mapped['History'] = relationship('History')
+    user: Mapped['User'] = relationship('User', back_populates='data_manager_histories')
 
 
 class DataManagerJobAssociation(Base, RepresentById):
@@ -8589,7 +8589,7 @@ class DataManagerJobAssociation(Base, RepresentById):
     update_time = Column(DateTime, index=True, default=now, onupdate=now)
     job_id = Column(Integer, ForeignKey("job.id"), index=True)
     data_manager_id = Column(TEXT)
-    job: RelationshipProperty['Job'] = relationship('Job', back_populates='data_manager_association', uselist=False)
+    job: Mapped['Job'] = relationship('Job', back_populates='data_manager_association', uselist=False)
 
 
 class UserPreference(Base, RepresentById):
@@ -8617,7 +8617,7 @@ class UserAction(Base, RepresentById):
     action = Column(Unicode(255))
     context = Column(Unicode(512))
     params = Column(Unicode(1024))
-    user: RelationshipProperty['User'] = relationship('User')
+    user: Mapped['User'] = relationship('User')
 
 
 class APIKeys(Base, RepresentById):
@@ -8627,7 +8627,7 @@ class APIKeys(Base, RepresentById):
     create_time = Column(DateTime, default=now)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     key = Column(TrimmedString(32), index=True, unique=True)
-    user: RelationshipProperty['User'] = relationship('User', back_populates='api_keys', uselist=False)
+    user: Mapped['User'] = relationship('User', back_populates='api_keys', uselist=False)
 
 
 def copy_list(lst, *args, **kwds):
