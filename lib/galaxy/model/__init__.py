@@ -489,26 +489,26 @@ class User(Base, Dictifiable, RepresentById):
     active = Column(Boolean, index=True, default=True, nullable=False)
     activation_token = Column(TrimmedString(64), nullable=True, index=True)
 
-    addresses: List['UserAddress'] = relationship('UserAddress',
+    addresses: RelationshipProperty[List['UserAddress'] ]= relationship('UserAddress',
         back_populates='user',
         order_by=lambda: desc(UserAddress.update_time))
-    cloudauthz: Optional['CloudAuthz'] = relationship('CloudAuthz', back_populates='user')
-    custos_auth: List['CustosAuthnzToken'] = relationship('CustosAuthnzToken', back_populates='user')
-    default_permissions: List['DefaultUserPermissions'] = relationship('DefaultUserPermissions', back_populates='user')
-    groups: List['UserGroupAssociation'] = relationship('UserGroupAssociation', back_populates='user')
-    histories: List['History'] = relationship('History',
+    cloudauthz: RelationshipProperty[Optional['CloudAuthz'] ]= relationship('CloudAuthz', back_populates='user')
+    custos_auth: RelationshipProperty[List['CustosAuthnzToken'] ]= relationship('CustosAuthnzToken', back_populates='user')
+    default_permissions: RelationshipProperty[List['DefaultUserPermissions'] ]= relationship('DefaultUserPermissions', back_populates='user')
+    groups: RelationshipProperty[List['UserGroupAssociation'] ]= relationship('UserGroupAssociation', back_populates='user')
+    histories: RelationshipProperty[List['History'] ]= relationship('History',
         back_populates='user',
         order_by=lambda: desc(History.update_time))
-    active_histories: List['History'] = relationship('History',
+    active_histories: RelationshipProperty[List['History'] ]= relationship('History',
         primaryjoin=(lambda: (History.user_id == User.id) & (not_(History.deleted))),
         viewonly=True,
         order_by=lambda: desc(History.update_time))
-    galaxy_sessions: List['GalaxySession'] = relationship('GalaxySession',
+    galaxy_sessions: RelationshipProperty[List['GalaxySession'] ]= relationship('GalaxySession',
         back_populates='user',
         order_by=lambda: desc(GalaxySession.update_time))
-    quotas: List['UserQuotaAssociation'] = relationship('UserQuotaAssociation', back_populates='user')
-    social_auth: List['UserAuthnzToken'] = relationship('UserAuthnzToken', back_populates='user')
-    stored_workflow_menu_entries: List['StoredWorkflowMenuEntry'] = relationship('StoredWorkflowMenuEntry',
+    quotas: RelationshipProperty[List['UserQuotaAssociation'] ]= relationship('UserQuotaAssociation', back_populates='user')
+    social_auth: RelationshipProperty[List['UserAuthnzToken'] ]= relationship('UserAuthnzToken', back_populates='user')
+    stored_workflow_menu_entries: RelationshipProperty[List['StoredWorkflowMenuEntry'] ]= relationship('StoredWorkflowMenuEntry',
         primaryjoin=(lambda:
             (StoredWorkflowMenuEntry.user_id == User.id)
             & (StoredWorkflowMenuEntry.stored_workflow_id == StoredWorkflow.id)
@@ -518,17 +518,17 @@ class User(Base, Dictifiable, RepresentById):
         cascade='all, delete-orphan',
         collection_class=ordering_list('order_index'))
     _preferences: RelationshipProperty['UserPreference'] = relationship('UserPreference', collection_class=attribute_mapped_collection('name'))
-    values: Optional['FormValues'] = relationship('FormValues',
+    values: RelationshipProperty[Optional['FormValues'] ]= relationship('FormValues',
         primaryjoin=(lambda: User.form_values_id == FormValues.id))
     # Add type hint (will this work w/SA?)
     api_keys: RelationshipProperty['List[APIKeys]'] = relationship('APIKeys',
         back_populates='user',
         order_by=lambda: desc(APIKeys.create_time))
-    data_manager_histories: List['DataManagerHistoryAssociation'] = relationship('DataManagerHistoryAssociation', back_populates='user')
-    roles: List['UserRoleAssociation'] = relationship('UserRoleAssociation', back_populates='user')
-    stored_workflows: List['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='user',
+    data_manager_histories: RelationshipProperty[List['DataManagerHistoryAssociation'] ]= relationship('DataManagerHistoryAssociation', back_populates='user')
+    roles: RelationshipProperty[List['UserRoleAssociation'] ]= relationship('UserRoleAssociation', back_populates='user')
+    stored_workflows: RelationshipProperty[List['StoredWorkflow'] ]= relationship('StoredWorkflow', back_populates='user',
         primaryjoin=(lambda: User.id == StoredWorkflow.user_id))
-    non_private_roles: List['UserRoleAssociation'] = relationship(
+    non_private_roles: RelationshipProperty[List['UserRoleAssociation'] ]= relationship(
         'UserRoleAssociation',
         viewonly=True,
         primaryjoin=(lambda:
@@ -926,39 +926,39 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
 
     user: RelationshipProperty['User'] = relationship('User')
     galaxy_session: RelationshipProperty['GalaxySession'] = relationship('GalaxySession')
-    history: Optional['History'] = relationship('History', back_populates='jobs')
-    library_folder: Optional['LibraryFolder'] = relationship('LibraryFolder',)
-    parameters: List['JobParameter'] = relationship('JobParameter',)
-    input_datasets: List['JobToInputDatasetAssociation'] = relationship('JobToInputDatasetAssociation', back_populates='job')
-    input_dataset_collections: List['JobToInputDatasetCollectionAssociation'] = relationship('JobToInputDatasetCollectionAssociation',
+    history: RelationshipProperty[Optional['History'] ]= relationship('History', back_populates='jobs')
+    library_folder: RelationshipProperty[Optional['LibraryFolder'] ]= relationship('LibraryFolder',)
+    parameters: RelationshipProperty[List['JobParameter'] ]= relationship('JobParameter',)
+    input_datasets: RelationshipProperty[List['JobToInputDatasetAssociation'] ]= relationship('JobToInputDatasetAssociation', back_populates='job')
+    input_dataset_collections: RelationshipProperty[List['JobToInputDatasetCollectionAssociation'] ]= relationship('JobToInputDatasetCollectionAssociation',
         back_populates='job',)
-    input_dataset_collection_elements: List['JobToInputDatasetCollectionElementAssociation'] = relationship('JobToInputDatasetCollectionElementAssociation',
+    input_dataset_collection_elements: RelationshipProperty[List['JobToInputDatasetCollectionElementAssociation'] ]= relationship('JobToInputDatasetCollectionElementAssociation',
         back_populates='job',)
-    output_dataset_collection_instances: List['JobToOutputDatasetCollectionAssociation'] = relationship('JobToOutputDatasetCollectionAssociation',
+    output_dataset_collection_instances: RelationshipProperty[List['JobToOutputDatasetCollectionAssociation'] ]= relationship('JobToOutputDatasetCollectionAssociation',
         back_populates='job',)
-    output_dataset_collections: List['JobToImplicitOutputDatasetCollectionAssociation'] = relationship('JobToImplicitOutputDatasetCollectionAssociation',
+    output_dataset_collections: RelationshipProperty[List['JobToImplicitOutputDatasetCollectionAssociation'] ]= relationship('JobToImplicitOutputDatasetCollectionAssociation',
         back_populates='job',)
-    post_job_actions: List['PostJobActionAssociation'] = relationship('PostJobActionAssociation', back_populates='job', lazy="joined")
-    input_library_datasets: List['JobToInputLibraryDatasetAssociation'] = relationship('JobToInputLibraryDatasetAssociation',
+    post_job_actions: RelationshipProperty[List['PostJobActionAssociation'] ]= relationship('PostJobActionAssociation', back_populates='job', lazy="joined")
+    input_library_datasets: RelationshipProperty[List['JobToInputLibraryDatasetAssociation'] ]= relationship('JobToInputLibraryDatasetAssociation',
         back_populates='job')
-    output_library_datasets: List['JobToOutputLibraryDatasetAssociation'] = relationship('JobToOutputLibraryDatasetAssociation',
+    output_library_datasets: RelationshipProperty[List['JobToOutputLibraryDatasetAssociation'] ]= relationship('JobToOutputLibraryDatasetAssociation',
         back_populates='job',)
-    external_output_metadata: Optional['JobExternalOutputMetadata'] = relationship('JobExternalOutputMetadata', back_populates='job')
-    tasks: List['Task'] = relationship('Task', back_populates='job')
-    output_datasets: List['JobToOutputDatasetAssociation'] = relationship('JobToOutputDatasetAssociation', back_populates='job')
-    state_history: List['JobStateHistory'] = relationship('JobStateHistory')
-    text_metrics: List['JobMetricText'] = relationship('JobMetricText')
-    numeric_metrics: List['JobMetricNumeric'] = relationship('JobMetricNumeric')
-    interactivetool_entry_points: List['InteractiveToolEntryPoint'] = relationship('InteractiveToolEntryPoint',
+    external_output_metadata: RelationshipProperty[Optional['JobExternalOutputMetadata'] ]= relationship('JobExternalOutputMetadata', back_populates='job')
+    tasks: RelationshipProperty[List['Task'] ]= relationship('Task', back_populates='job')
+    output_datasets: RelationshipProperty[List['JobToOutputDatasetAssociation'] ]= relationship('JobToOutputDatasetAssociation', back_populates='job')
+    state_history: RelationshipProperty[List['JobStateHistory'] ]= relationship('JobStateHistory')
+    text_metrics: RelationshipProperty[List['JobMetricText'] ]= relationship('JobMetricText')
+    numeric_metrics: RelationshipProperty[List['JobMetricNumeric'] ]= relationship('JobMetricNumeric')
+    interactivetool_entry_points: RelationshipProperty[List['InteractiveToolEntryPoint'] ]= relationship('InteractiveToolEntryPoint',
         back_populates='job', uselist=True)
-    implicit_collection_jobs_association: List['ImplicitCollectionJobsJobAssociation'] = relationship('ImplicitCollectionJobsJobAssociation',
+    implicit_collection_jobs_association: RelationshipProperty[List['ImplicitCollectionJobsJobAssociation'] ]= relationship('ImplicitCollectionJobsJobAssociation',
         back_populates='job', uselist=False)
-    container: Optional['JobContainerAssociation'] = relationship('JobContainerAssociation', back_populates='job', uselist=False)
-    data_manager_association: Optional['DataManagerJobAssociation'] = relationship('DataManagerJobAssociation',
+    container: RelationshipProperty[Optional['JobContainerAssociation'] ]= relationship('JobContainerAssociation', back_populates='job', uselist=False)
+    data_manager_association: RelationshipProperty[Optional['DataManagerJobAssociation'] ]= relationship('DataManagerJobAssociation',
         back_populates='job', uselist=False)
-    history_dataset_collection_associations: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
+    history_dataset_collection_associations: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation',
         back_populates='job')
-    workflow_invocation_step: Optional['WorkflowInvocationStep'] = relationship('WorkflowInvocationStep',
+    workflow_invocation_step: RelationshipProperty[Optional['WorkflowInvocationStep'] ]= relationship('WorkflowInvocationStep',
         back_populates='job', uselist=False)
 
     any_output_dataset_collection_instances_deleted: column_property  # defined at the end of this module
@@ -1606,8 +1606,8 @@ class Task(Base, JobLike, RepresentById):
     task_runner_external_id = Column(String(255))
     prepare_input_files_cmd = Column(TEXT)
     job: RelationshipProperty['Job'] = relationship('Job', back_populates='tasks')
-    text_metrics: List['TaskMetricText'] = relationship('TaskMetricText')
-    numeric_metrics: List['TaskMetricNumeric'] = relationship('TaskMetricNumeric')
+    text_metrics: RelationshipProperty[List['TaskMetricText'] ]= relationship('TaskMetricText')
+    numeric_metrics: RelationshipProperty[List['TaskMetricNumeric'] ]= relationship('TaskMetricNumeric')
 
     _numeric_metric = TaskMetricNumeric
     _text_metric = TaskMetricText
@@ -1950,7 +1950,7 @@ class ImplicitCollectionJobs(Base, Serializable):
 
     id = Column(Integer, primary_key=True)
     populated_state = Column(TrimmedString(64), default='new', nullable=False)
-    jobs: List['ImplicitCollectionJobsJobAssociation'] = relationship('ImplicitCollectionJobsJobAssociation',
+    jobs: RelationshipProperty[List['ImplicitCollectionJobsJobAssociation'] ]= relationship('ImplicitCollectionJobsJobAssociation',
         back_populates='implicit_collection_jobs')
 
     class populated_states(str, Enum):
@@ -2257,9 +2257,9 @@ class Group(Base, Dictifiable, RepresentById):
     update_time = Column(DateTime, default=now, onupdate=now)
     name = Column(String(255), index=True, unique=True)
     deleted = Column(Boolean, index=True, default=False)
-    quotas: List['GroupQuotaAssociation'] = relationship('GroupQuotaAssociation', back_populates='group')
-    roles: List['GroupRoleAssociation'] = relationship('GroupRoleAssociation', back_populates='group')
-    users: List['UserGroupAssociation'] = relationship('UserGroupAssociation', back_populates='group')
+    quotas: RelationshipProperty[List['GroupQuotaAssociation'] ]= relationship('GroupQuotaAssociation', back_populates='group')
+    roles: RelationshipProperty[List['GroupRoleAssociation'] ]= relationship('GroupRoleAssociation', back_populates='group')
+    users: RelationshipProperty[List['UserGroupAssociation'] ]= relationship('UserGroupAssociation', back_populates='group')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name']
@@ -2337,36 +2337,36 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
     slug = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
 
-    datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    datasets: RelationshipProperty[List['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
         back_populates='history',
         order_by=lambda: asc(HistoryDatasetAssociation.hid))
-    exports: List['JobExportHistoryArchive'] = relationship('JobExportHistoryArchive',
+    exports: RelationshipProperty[List['JobExportHistoryArchive'] ]= relationship('JobExportHistoryArchive',
         back_populates='history',
         primaryjoin=lambda: JobExportHistoryArchive.history_id == History.id,
         order_by=lambda: desc(JobExportHistoryArchive.id))
-    active_datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    active_datasets: RelationshipProperty[List['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id
                 == History.id, not_(HistoryDatasetAssociation.deleted))
         ),
         order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
-    dataset_collections: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', back_populates='history')
-    active_dataset_collections: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
+    dataset_collections: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation', back_populates='history')
+    active_dataset_collections: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
             lambda: (and_(HistoryDatasetCollectionAssociation.history_id == History.id,
              not_(HistoryDatasetCollectionAssociation.deleted)))
         ),
         order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
-    visible_datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    visible_datasets: RelationshipProperty[List['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id == History.id,
              not_(HistoryDatasetAssociation.deleted), HistoryDatasetAssociation.visible)
         ),
         order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
-    visible_dataset_collections: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
+    visible_dataset_collections: RelationshipProperty[List['HistoryDatasetCollectionAssociation'] ]= relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
             lambda: and_(
                 HistoryDatasetCollectionAssociation.history_id == History.id,
@@ -2375,21 +2375,21 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
         ),
         order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
-    tags: List['HistoryTagAssociation'] = relationship('HistoryTagAssociation',
+    tags: RelationshipProperty[List['HistoryTagAssociation'] ]= relationship('HistoryTagAssociation',
         order_by=lambda: HistoryTagAssociation.id,
         back_populates='history')
-    annotations: List['HistoryAnnotationAssociation'] = relationship('HistoryAnnotationAssociation',
+    annotations: RelationshipProperty[List['HistoryAnnotationAssociation'] ]= relationship('HistoryAnnotationAssociation',
         order_by=lambda: HistoryAnnotationAssociation.id,
         back_populates='history')
-    ratings: List['HistoryRatingAssociation'] = relationship('HistoryRatingAssociation',
+    ratings: RelationshipProperty[List['HistoryRatingAssociation'] ]= relationship('HistoryRatingAssociation',
         order_by=lambda: HistoryRatingAssociation.id,
         back_populates='history')
-    default_permissions: List['DefaultHistoryPermissions']  = relationship('DefaultHistoryPermissions', back_populates='history')
-    users_shared_with: List['HistoryUserShareAssociation'] = relationship('HistoryUserShareAssociation', back_populates='history')
-    galaxy_sessions: List['GalaxySessionToHistoryAssociation'] = relationship('GalaxySessionToHistoryAssociation', back_populates='history')
-    workflow_invocations: List['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='history')
-    user: Optional['User'] = relationship('User', back_populates='histories')
-    jobs: List['Job'] = relationship('Job', back_populates='history')
+    default_permissions: RelationshipProperty[List['DefaultHistoryPermissions'] ] = relationship('DefaultHistoryPermissions', back_populates='history')
+    users_shared_with: RelationshipProperty[List['HistoryUserShareAssociation'] ]= relationship('HistoryUserShareAssociation', back_populates='history')
+    galaxy_sessions: RelationshipProperty[List['GalaxySessionToHistoryAssociation'] ]= relationship('GalaxySessionToHistoryAssociation', back_populates='history')
+    workflow_invocations: RelationshipProperty[List['WorkflowInvocation'] ]= relationship('WorkflowInvocation', back_populates='history')
+    user: RelationshipProperty[Optional['User'] ]= relationship('User', back_populates='histories')
+    jobs: RelationshipProperty[List['Job'] ]= relationship('Job', back_populates='history')
 
     update_time = column_property(
         select(func.max(HistoryAudit.update_time)).where(HistoryAudit.history_id == id).scalar_subquery(),
@@ -2865,8 +2865,8 @@ class Role(Base, Dictifiable, RepresentById):
     type = Column(String(40), index=True)
     deleted = Column(Boolean, index=True, default=False)
     dataset_actions = relationship('DatasetPermissions', back_populates='role')
-    groups: List['GroupRoleAssociation'] = relationship('GroupRoleAssociation', back_populates='role')
-    users: List['UserRoleAssociation'] = relationship('UserRoleAssociation', back_populates='role')
+    groups: RelationshipProperty[List['GroupRoleAssociation'] ]= relationship('GroupRoleAssociation', back_populates='role')
+    users: RelationshipProperty[List['UserRoleAssociation'] ]= relationship('UserRoleAssociation', back_populates='role')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name', 'description', 'type']
@@ -2933,9 +2933,9 @@ class Quota(Base, Dictifiable, RepresentById):
     bytes = Column(BigInteger)
     operation = Column(String(8))
     deleted = Column(Boolean, index=True, default=False)
-    default: List['DefaultQuotaAssociation'] = relationship('DefaultQuotaAssociation', back_populates='quota')
-    groups: List['GroupQuotaAssociation'] = relationship('GroupQuotaAssociation', back_populates='quota')
-    users: List['UserQuotaAssociation'] = relationship('UserQuotaAssociation', back_populates='quota')
+    default: RelationshipProperty[List['DefaultQuotaAssociation'] ]= relationship('DefaultQuotaAssociation', back_populates='quota')
+    groups: RelationshipProperty[List['GroupQuotaAssociation'] ]= relationship('GroupQuotaAssociation', back_populates='quota')
+    users: RelationshipProperty[List['UserQuotaAssociation'] ]= relationship('UserQuotaAssociation', back_populates='quota')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name', 'description', 'bytes', 'operation', 'display_amount', 'default', 'users', 'groups']
@@ -3001,7 +3001,7 @@ class DatasetPermissions(Base, RepresentById):
     action = Column(TEXT)
     dataset_id = Column(Integer, ForeignKey('dataset.id'), index=True)
     role_id = Column(Integer, ForeignKey("role.id"), index=True)
-    dataset: Optional['Dataset'] = relationship('Dataset', back_populates='actions')
+    dataset: RelationshipProperty[Optional['Dataset'] ]= relationship('Dataset', back_populates='actions')
     role : RelationshipProperty['Role'] = relationship('Role', back_populates='dataset_actions')
 
     def __init__(self, action, dataset, role=None, role_id=None):
@@ -3420,7 +3420,7 @@ class DatasetSource(Base, Dictifiable, Serializable):
     extra_files_path = Column(TEXT)
     transform = Column(MutableJSONType)
     dataset: RelationshipProperty['Dataset'] = relationship('Dataset', back_populates='sources')
-    hashes: List['DatasetSourceHash'] = relationship('DatasetSourceHash', back_populates='source')
+    hashes: RelationshipProperty[List['DatasetSourceHash'] ]= relationship('DatasetSourceHash', back_populates='source')
     dict_collection_visible_keys = ['id', 'source_uri', 'extra_files_path', "transform"]
     dict_element_visible_keys = ['id', 'source_uri', 'extra_files_path', 'transform']  # TODO: implement to_dict and add hashes...
 
@@ -4672,7 +4672,7 @@ class LibraryDataset(Base, Serializable):
     library_dataset_dataset_association: RelationshipProperty['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
             foreign_keys=library_dataset_dataset_association_id,
             post_update=True)
-    expired_datasets: List['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    expired_datasets: RelationshipProperty[List['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
         foreign_keys=[id, library_dataset_dataset_association_id],
         primaryjoin=(
             'and_(LibraryDataset.id == LibraryDatasetDatasetAssociation.library_dataset_id, \
@@ -5024,7 +5024,7 @@ class LibraryDatasetDatasetInfoAssociation(Base, RepresentById):
     form_values_id = Column(Integer, ForeignKey('form_values.id'), index=True)
     deleted = Column(Boolean, index=True, default=False)
 
-    library_dataset_dataset_association: List['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    library_dataset_dataset_association: RelationshipProperty[List['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda:
             (LibraryDatasetDatasetInfoAssociation.library_dataset_dataset_association_id
              == LibraryDatasetDatasetAssociation.id)
@@ -5063,19 +5063,19 @@ class ImplicitlyConvertedDatasetAssociation(Base, RepresentById):
     metadata_safe = Column(Boolean, index=True, default=True)
     type = Column(TrimmedString(255))
 
-    parent_hda: Optional['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    parent_hda: RelationshipProperty[Optional['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_parent_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_datasets')
-    dataset_ldda: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    dataset_ldda: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_id
             == LibraryDatasetDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
-    dataset: Optional['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    dataset: RelationshipProperty[Optional['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
-    parent_ldda: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    parent_ldda: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_parent_id
             == LibraryDatasetDatasetAssociation.table.c.id),
         back_populates='implicitly_converted_datasets')
@@ -5137,7 +5137,7 @@ class DatasetCollection(Base, Dictifiable, UsesAnnotations, Serializable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
 
-    elements: List['DatasetCollectionElement'] = relationship('DatasetCollectionElement',
+    elements: RelationshipProperty[List['DatasetCollectionElement'] ]= relationship('DatasetCollectionElement',
         primaryjoin=(lambda: DatasetCollection.id == DatasetCollectionElement.dataset_collection_id),
         back_populates='collection',
         order_by=lambda: DatasetCollectionElement.element_index)
@@ -5842,13 +5842,13 @@ class DatasetCollectionElement(Base, Dictifiable, Serializable):
     element_index = Column(Integer)
     element_identifier = Column(Unicode(255))
 
-    hda: Optional['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
+    hda: RelationshipProperty[Optional['HistoryDatasetAssociation'] ]= relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: DatasetCollectionElement.hda_id == HistoryDatasetAssociation.id))
-    ldda: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
+    ldda: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: DatasetCollectionElement.ldda_id == LibraryDatasetDatasetAssociation.id))
-    child_collection: Optional['DatasetCollection'] = relationship('DatasetCollection',
+    child_collection: RelationshipProperty[Optional['DatasetCollection'] ]= relationship('DatasetCollection',
         primaryjoin=(lambda: DatasetCollectionElement.child_collection_id == DatasetCollection.id))
-    collection: Optional['DatasetCollection'] = relationship('DatasetCollection',
+    collection: RelationshipProperty[Optional['DatasetCollection'] ]= relationship('DatasetCollection',
         primaryjoin=(lambda: DatasetCollection.id == DatasetCollectionElement.dataset_collection_id),
         back_populates='elements',
     )
@@ -6194,7 +6194,7 @@ class Workflow(Base, Dictifiable, RepresentById):
     license = Column(TEXT)
     uuid = Column(UUIDType, nullable=True)
 
-    steps: List['WorkflowStep'] = relationship('WorkflowStep',
+    steps: RelationshipProperty[List['WorkflowStep'] ]= relationship('WorkflowStep',
         back_populates='workflow',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.workflow_id),
         order_by=lambda: asc(WorkflowStep.order_index),
@@ -6362,7 +6362,7 @@ class WorkflowStep(Base, RepresentById):
     uuid = Column(UUIDType)
     label = Column(Unicode(255))
     temp_input_connections: Optional[InputConnDictType]
-    module: Optional['WorkflowModule'] = None
+    module: RelationshipProperty[Optional['WorkflowModule'] ]= None
 
     subworkflow = relationship('Workflow',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.subworkflow_id),
@@ -7459,7 +7459,7 @@ class MetadataFile(Base, StorableObject, Serializable):
     purged = Column(Boolean, index=True, default=False)
 
     history_dataset = relationship('HistoryDatasetAssociation')
-    library_dataset: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation')
+    library_dataset: RelationshipProperty[Optional['LibraryDatasetDatasetAssociation'] ]= relationship('LibraryDatasetDatasetAssociation')
 
     def __init__(self, dataset=None, name=None, uuid=None):
         self.uuid = get_uuid(uuid)
