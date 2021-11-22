@@ -33,7 +33,7 @@ def _workflow_invocation_update(self):
     table = self.table
     now_val = now()
     stmt = table.update().values(update_time=now_val).where(and_(table.c.id == self.id, table.c.update_time < now_val))
-    session.execute(stmt)
+    session.execute(stmt)  # type: ignore
 
 
 model.WorkflowInvocation.update = _workflow_invocation_update  # type: ignore

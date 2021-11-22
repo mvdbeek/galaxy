@@ -615,14 +615,16 @@ class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
 
         if isinstance(has_collection, HistoryDatasetCollectionAssociation):
             collection = has_collection.collection
-            self.name = has_collection.name
+            self.name = cast(str, has_collection.name)
         elif isinstance(has_collection, DatasetCollectionElement):
             collection = has_collection.child_collection
-            self.name = has_collection.element_identifier
-        else:
+            self.name = cast(str, has_collection.element_identifier)
+        elif isinstance(has_collection, DatasetCollection):
             collection = has_collection
             self.name = None
-        self.collection = collection
+        else:
+            raise Exception(f"Unknown collection type '{type(has_collection)}'")
+        self.collection = cast(DatasetCollection, collection)
 
         elements = collection.elements
         element_instances = {}

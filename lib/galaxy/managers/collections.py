@@ -1,7 +1,9 @@
 import logging
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Union, cast
 
 from sqlalchemy.orm import joinedload, Query
+from sqlalchemy.sql.schema import Column
+from sqlalchemy.sql.sqltypes import Integer
 
 from galaxy import model
 from galaxy.datatypes.registry import Registry
@@ -103,7 +105,7 @@ class DatasetCollectionManager:
                     element_index=index,
                 )
                 elements.append(element)
-            dataset_collection.element_count = len(elements)
+            dataset_collection.element_count = cast(Column[Integer], len(elements))
 
         return dataset_collection
 

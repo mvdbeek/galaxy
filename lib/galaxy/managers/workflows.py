@@ -20,6 +20,8 @@ from gxformat2 import (
 from pydantic import BaseModel
 from sqlalchemy import and_
 from sqlalchemy.orm import joinedload, subqueryload
+from sqlalchemy.sql.schema import Column
+from sqlalchemy.sql.sqltypes import Boolean
 
 from galaxy import (
     exceptions,
@@ -493,7 +495,7 @@ class WorkflowContentsManager(UsesAnnotations):
             workflow.creator_metadata = data['creator']
 
         # Assume no errors until we find a step that has some
-        workflow.has_errors = False
+        workflow.has_errors = cast(Column[Boolean], False)
         # Create each step
         steps: List[model.WorkflowStep] = []
         # The editor will provide ids for each step that we don't need to save,
@@ -527,7 +529,7 @@ class WorkflowContentsManager(UsesAnnotations):
                 if missing_tool_tup not in missing_tool_tups:
                     missing_tool_tups.append(missing_tool_tup)
             if module.get_errors():
-                workflow.has_errors = True
+                workflow.has_errors = cast(Column[Boolean], True)
 
         # Second pass to deal with connections between steps
         self.__connect_workflow_steps(steps, steps_by_external_id, dry_run)
