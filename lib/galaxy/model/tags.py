@@ -1,6 +1,6 @@
 import logging
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import cast, Dict, List, Optional, Tuple
 
 from sqlalchemy.sql import select
 from sqlalchemy.sql.expression import func
@@ -145,9 +145,9 @@ class TagHandler:
         if isinstance(tag, str):
             tag_name = tag
         elif isinstance(tag, galaxy.model.Tag):
-            tag_name = tag.name
+            tag_name = cast(str, tag.name)
         elif isinstance(tag, galaxy.model.ItemTagAssociation):
-            tag_name = str(tag.user_tname)
+            tag_name = cast(str, tag.user_tname)
         # Check for an item-tag association to see if item has a given tag.
         item_tag_assoc = self._get_item_tag_assoc(user, item, tag_name)
         if item_tag_assoc:

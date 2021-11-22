@@ -355,7 +355,7 @@ class DatasetFilenameWrapper(ToolParameterValueWrapper):
             assert dataset
             self.metadata = self.MetadataWrapper(dataset, compute_environment)
             if isinstance(dataset, HasTags):
-                self.groups = {tag.user_value.lower() for tag in dataset.tags if tag and tag.user_tname == 'group'}
+                self.groups = {tag.user_value.lower() for tag in dataset.tags if tag and tag.user_value and tag.user_tname == 'group'}
             else:
                 # May be a 'FakeDatasetAssociation'
                 self.groups = set()
