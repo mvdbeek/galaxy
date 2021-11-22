@@ -27,6 +27,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 from sqlalchemy.orm.decl_api import DeclarativeMeta
+from sqlalchemy.orm.relationships import RelationshipProperty
 
 import tool_shed.repository_types.util as rt_util
 from galaxy import util
@@ -76,7 +77,7 @@ class APIKeys(Base, _HasTable):
     create_time = Column(DateTime, default=now)
     user_id = Column(ForeignKey('galaxy_user.id'), index=True)
     key = Column(TrimmedString(32), index=True, unique=True)
-    user: 'User' = relationship('User', back_populates='api_keys')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='api_keys')
 
 
 class User(Base, Dictifiable, _HasTable):
@@ -166,7 +167,7 @@ class PasswordResetToken(Base, _HasTable):
     token = Column(String(32), primary_key=True, unique=True, index=True)
     expiration_time = Column(DateTime)
     user_id = Column(ForeignKey('galaxy_user.id'), index=True)
-    user: 'User' = relationship('User', back_populates='reset_tokens')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='reset_tokens')
 
     def __init__(self, user, token=None):
         if token:
@@ -243,8 +244,8 @@ class UserGroupAssociation(Base, _HasTable):
     group_id = Column(ForeignKey('galaxy_group.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    user: 'User' = relationship('User', back_populates='groups')
-    role : 'Group' = relationship('Group', back_populates='users')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='groups')
+    group = relationship('Group', back_populates='users')
 
     def __init__(self, user, group):
         self.user = user
@@ -259,7 +260,7 @@ class UserRoleAssociation(Base, _HasTable):
     role_id = Column(ForeignKey('role.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    user: 'User' = relationship('User', back_populates='roles')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='roles')
     role : 'Role' = relationship('Role', back_populates='users')
 
     def __init__(self, user, role):
@@ -275,7 +276,7 @@ class GroupRoleAssociation(Base, _HasTable):
     role_id = Column(ForeignKey("role.id"), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    role : 'Group' = relationship('Group', back_populates='roles')
+    group = relationship('Group', back_populates='roles')
     role : 'Role' = relationship('Role', back_populates='groups')
 
     def __init__(self, group, role):
@@ -315,7 +316,7 @@ class GalaxySession(Base, _HasTable):
     # saves a reference to the previous session so we have a way to chain them together
     prev_session_id = Column(Integer)
     last_action = Column(DateTime)
-    user: 'User' = relationship('User', back_populates='galaxy_sessions')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='galaxy_sessions')
 
     def __init__(self, is_valid=False, **kwd):
         super().__init__(**kwd)
@@ -344,7 +345,7 @@ class Repository(Base, Dictifiable, _HasTable):
     categories = relationship('RepositoryCategoryAssociation', back_populates='repository')
     ratings = relationship('RepositoryRatingAssociation',
         order_by=lambda: desc(RepositoryRatingAssociation.update_time), back_populates='repository')  # type: ignore
-    user: 'User' = relationship('User', back_populates='active_repositories')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='active_repositories')
     downloadable_revisions = relationship('RepositoryMetadata',
         primaryjoin=lambda: (Repository.id == RepositoryMetadata.repository_id) & (RepositoryMetadata.downloadable == true()),  # type: ignore
         viewonly=True,
@@ -524,7 +525,7 @@ class RepositoryReview(Base, Dictifiable, _HasTable):
         primaryjoin=lambda: ((RepositoryReview.repository_id == RepositoryMetadata.repository_id)  # type: ignore
             & (RepositoryReview.changeset_revision == RepositoryMetadata.changeset_revision)),  # type: ignore
         back_populates='reviews')
-    user: 'User' = relationship('User', back_populates='repository_reviews')
+    user: RelationshipProperty['User'] = relationship('User', back_populates='repository_reviews')
 
     component_reviews = relationship('ComponentReview',
         viewonly=True,
@@ -605,7 +606,7 @@ class RepositoryRatingAssociation(Base, ItemRatingAssociation, _HasTable):
     rating = Column(Integer, index=True)
     comment = Column(TEXT)
     repository = relationship('Repository', back_populates='ratings')
-    user: 'User' = relationship('User')
+    user: RelationshipProperty['User'] = relationship('User')
 
     def set_item(self, repository):
         self.repository = repository

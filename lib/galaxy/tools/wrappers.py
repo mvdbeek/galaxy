@@ -614,7 +614,7 @@ class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
             self.__input_supplied = True
 
         if isinstance(has_collection, HistoryDatasetCollectionAssociation):
-            collection = has_collection.collection
+            collection = cast(DatasetCollection, has_collection.collection)
             self.name = cast(str, has_collection.name)
         elif isinstance(has_collection, DatasetCollectionElement):
             if has_collection.child_collection is None:
