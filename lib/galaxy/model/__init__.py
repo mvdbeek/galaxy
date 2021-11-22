@@ -8056,11 +8056,11 @@ class Visualization(Base, RepresentById):
     published = Column(Boolean, default=False, index=True)
 
     user: 'User' = relationship('User')
-    revisions = relationship('VisualizationRevision',
+    revisions: List['VisualizationRevision'] = relationship('VisualizationRevision',
         back_populates='visualization',
         cascade="all, delete-orphan",
         primaryjoin=(lambda: Visualization.id == VisualizationRevision.visualization_id))
-    latest_revision = relationship('VisualizationRevision',
+    latest_revision: 'VisualizationRevision' = relationship('VisualizationRevision',
         post_update=True,
         primaryjoin=(lambda: Visualization.latest_revision_id == VisualizationRevision.id),
         lazy="joined")
@@ -8122,9 +8122,11 @@ class VisualizationRevision(Base, RepresentById):
     title = Column(TEXT)
     dbkey = Column(TEXT)
     config = Column(MutableJSONType)
-    visualization = relationship('Visualization',
+    visualization: 'Visualization' = relationship('Visualization',
         back_populates='revisions',
-        primaryjoin=(lambda: Visualization.id == VisualizationRevision.visualization_id))
+        primaryjoin=(lambda: Visualization.id == VisualizationRevision.visualization_id),
+        uselist=False,
+    )
 
     def copy(self, visualization=None):
         """
