@@ -3000,7 +3000,7 @@ class DatasetPermissions(Base, RepresentById):
     action = Column(TEXT)
     dataset_id = Column(Integer, ForeignKey('dataset.id'), index=True)
     role_id = Column(Integer, ForeignKey("role.id"), index=True)
-    dataset = relationship('Dataset', back_populates='actions')
+    dataset: Optional['Dataset'] = relationship('Dataset', back_populates='actions')
     role : 'Role' = relationship('Role', back_populates='dataset_actions')
 
     def __init__(self, action, dataset, role=None, role_id=None):
@@ -3418,8 +3418,8 @@ class DatasetSource(Base, Dictifiable, Serializable):
     source_uri = Column(TEXT)
     extra_files_path = Column(TEXT)
     transform = Column(MutableJSONType)
-    dataset = relationship('Dataset', back_populates='sources')
-    hashes = relationship('DatasetSourceHash', back_populates='source')
+    dataset: 'Dataset' = relationship('Dataset', back_populates='sources')
+    hashes: List['DatasetSourceHash'] = relationship('DatasetSourceHash', back_populates='source')
     dict_collection_visible_keys = ['id', 'source_uri', 'extra_files_path', "transform"]
     dict_element_visible_keys = ['id', 'source_uri', 'extra_files_path', 'transform']  # TODO: implement to_dict and add hashes...
 
@@ -3462,7 +3462,7 @@ class DatasetHash(Base, Dictifiable, Serializable):
     hash_function = Column(TEXT)
     hash_value = Column(TEXT)
     extra_files_path = Column(TEXT)
-    dataset = relationship('Dataset', back_populates='hashes')
+    dataset: 'Dataset' = relationship('Dataset', back_populates='hashes')
     dict_collection_visible_keys = ['id', 'hash_function', 'hash_value', 'extra_files_path']
     dict_element_visible_keys = ['id', 'hash_function', 'hash_value', 'extra_files_path']
 
@@ -5062,7 +5062,7 @@ class ImplicitlyConvertedDatasetAssociation(Base, RepresentById):
     metadata_safe = Column(Boolean, index=True, default=True)
     type = Column(TrimmedString(255))
 
-    parent_hda = relationship('HistoryDatasetAssociation',
+    parent_hda: Optional['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_parent_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_datasets')
@@ -5070,7 +5070,7 @@ class ImplicitlyConvertedDatasetAssociation(Base, RepresentById):
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.ldda_id
             == LibraryDatasetDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
-    dataset = relationship('HistoryDatasetAssociation',
+    dataset: Optional['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: ImplicitlyConvertedDatasetAssociation.hda_id
             == HistoryDatasetAssociation.id),
         back_populates='implicitly_converted_parent_datasets')
@@ -7290,7 +7290,7 @@ class WorkflowRequestToInputDatasetAssociation(Base, Dictifiable, RepresentById)
     dataset_id = Column(Integer, ForeignKey("history_dataset_association.id"), index=True)
 
     workflow_step: 'WorkflowStep' = relationship('WorkflowStep')
-    dataset = relationship('HistoryDatasetAssociation')
+    dataset: 'HistoryDatasetAssocitaion' = relationship('HistoryDatasetAssociation')
     workflow_invocation: 'WorkflowInvocation' = relationship('WorkflowInvocation', back_populates='input_datasets')
 
     history_content_type = "dataset"
@@ -7345,7 +7345,7 @@ class WorkflowInvocationOutputDatasetAssociation(Base, Dictifiable, RepresentByI
 
     workflow_invocation: 'WorkflowInvocation' = relationship('WorkflowInvocation', back_populates='output_datasets')
     workflow_step: 'WorkflowStep' = relationship('WorkflowStep')
-    dataset = relationship('HistoryDatasetAssociation')
+    dataset: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation')
     workflow_output = relationship('WorkflowOutput')
 
     history_content_type = "dataset"
@@ -7415,7 +7415,7 @@ class WorkflowInvocationStepOutputDatasetAssociation(Base, Dictifiable, Represen
     output_name = Column(String(255), nullable=True)
     workflow_invocation_step = relationship('WorkflowInvocationStep',
         back_populates='output_datasets')
-    dataset = relationship('HistoryDatasetAssociation')
+    dataset: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation')
 
     dict_collection_visible_keys = ['id', 'workflow_invocation_step_id', 'dataset_id', 'output_name']
 
