@@ -488,7 +488,7 @@ class User(Base, Dictifiable, RepresentById):
     active = Column(Boolean, index=True, default=True, nullable=False)
     activation_token = Column(TrimmedString(64), nullable=True, index=True)
 
-    addresses = relationship('UserAddress',
+    addresses: List['UserAddress'] = relationship('UserAddress',
         back_populates='user',
         order_by=lambda: desc(UserAddress.update_time))
     cloudauthz: Optional['CloudAuthz'] = relationship('CloudAuthz', back_populates='user')
@@ -794,7 +794,7 @@ class PasswordResetToken(Base, _HasTable):
     token = Column(String(32), primary_key=True, unique=True, index=True)
     expiration_time = Column(DateTime)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def __init__(self, user, token=None):
         if token:
@@ -2244,7 +2244,7 @@ class GenomeIndexToolData(Base, RepresentById):  # TODO: params arg is lost
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     job = relationship('Job')
     dataset = relationship('Dataset')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class Group(Base, Dictifiable, RepresentById):
@@ -2275,7 +2275,7 @@ class UserGroupAssociation(Base, RepresentById):
     group_id = Column(Integer, ForeignKey('galaxy_group.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    user = relationship('User', back_populates='groups')
+    user: 'User' = relationship('User', back_populates='groups')
     group = relationship('Group', back_populates='users')
 
     def __init__(self, user, group):
@@ -2386,7 +2386,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
     users_shared_with = relationship('HistoryUserShareAssociation', back_populates='history')
     galaxy_sessions = relationship('GalaxySessionToHistoryAssociation', back_populates='history')
     workflow_invocations = relationship('WorkflowInvocation', back_populates='history')
-    user = relationship('User', back_populates='histories')
+    user: 'User' = relationship('User', back_populates='histories')
     jobs = relationship('Job', back_populates='history')
 
     update_time = column_property(
@@ -2815,7 +2815,7 @@ class HistoryUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user = relationship('User')
+    user: 'User' = relationship('User')
     history = relationship('History', back_populates='users_shared_with')
 
 
@@ -2828,7 +2828,7 @@ class UserRoleAssociation(Base, RepresentById):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
 
-    user = relationship('User', back_populates="roles")
+    user: 'User' = relationship('User', back_populates="roles")
     role = relationship('Role', back_populates="users")
 
     def __init__(self, user, role):
@@ -2892,7 +2892,7 @@ class UserQuotaAssociation(Base, Dictifiable, RepresentById):
     quota_id = Column(Integer, ForeignKey('quota.id'), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    user = relationship('User', back_populates='quotas')
+    user: 'User' = relationship('User', back_populates='quotas')
     quota = relationship('Quota', back_populates='users')
 
     dict_element_visible_keys = ['user']
@@ -3104,7 +3104,7 @@ class DefaultUserPermissions(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     action = Column(TEXT)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
-    user = relationship('User', back_populates='default_permissions')
+    user: 'User' = relationship('User', back_populates='default_permissions')
     role = relationship('Role')
 
     def __init__(self, user, action, role):
@@ -4416,7 +4416,7 @@ class HistoryDatasetAssociationDisplayAtAuthorization(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     site = Column(TrimmedString(255))
     history_dataset_association = relationship('HistoryDatasetAssociation')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def __init__(self, hda=None, user=None, site=None):
         self.history_dataset_association = hda
@@ -5993,7 +5993,7 @@ class Event(Base, RepresentById):
     tool_id = Column(String(255))
 
     history = relationship('History')
-    user = relationship('User')
+    user: 'User' = relationship('User')
     galaxy_session = relationship('GalaxySession')
 
 
@@ -6017,7 +6017,7 @@ class GalaxySession(Base, RepresentById):
     last_action = Column(DateTime)
     current_history = relationship('History')
     histories = relationship('GalaxySessionToHistoryAssociation', back_populates='galaxy_session')
-    user = relationship('User', back_populates='galaxy_sessions')
+    user: 'User' = relationship('User', back_populates='galaxy_sessions')
 
     def __init__(self, is_valid=False, **kwd):
         super().__init__(**kwd)
@@ -6089,7 +6089,7 @@ class StoredWorkflow(Base, HasTags, Dictifiable, RepresentById):
     from_path = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
 
-    user = relationship('User',
+    user: 'User' = relationship('User',
         primaryjoin=(lambda: User.id == StoredWorkflow.user_id),
         back_populates='stored_workflows')
     workflows = relationship('Workflow',
@@ -6687,7 +6687,7 @@ class StoredWorkflowUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user = relationship('User')
+    user: 'User' = relationship('User')
     stored_workflow = relationship('StoredWorkflow', back_populates='users_shared_with')
 
 
@@ -6700,7 +6700,7 @@ class StoredWorkflowMenuEntry(Base, RepresentById):
     order_index = Column(Integer)
 
     stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow')
-    user = relationship('User', back_populates='stored_workflow_menu_entries',
+    user: 'User' = relationship('User', back_populates='stored_workflow_menu_entries',
         primaryjoin=(lambda:
             (StoredWorkflowMenuEntry.user_id == User.id)
             & (StoredWorkflowMenuEntry.stored_workflow_id == StoredWorkflow.id)
@@ -7610,7 +7610,7 @@ class UserAddress(Base, RepresentById):
     purged = Column(Boolean, index=True, default=False)
     # `desc` needs to be fully qualified because it is shadowed by `desc` Column defined above
     # TODO: db migration to rename column, then use `desc`
-    user = relationship('User', back_populates='addresses', order_by=sqlalchemy.desc('update_time'))
+    user: 'User' = relationship('User', back_populates='addresses', order_by=sqlalchemy.desc('update_time'))
 
     def to_dict(self, trans):
         return {'id': trans.security.encode_id(self.id),
@@ -7766,7 +7766,7 @@ class UserAuthnzToken(Base, UserMixin, RepresentById):
     extra_data = Column(MutableJSONType, nullable=True)
     lifetime = Column(Integer)
     assoc_type = Column(VARCHAR(64))
-    user = relationship('User', back_populates='social_auth')
+    user: 'User' = relationship('User', back_populates='social_auth')
 
     # This static property is set at: galaxy.authnz.psa_authnz.PSAAuthnz
     sa_session = None
@@ -7887,7 +7887,7 @@ class CustosAuthnzToken(Base, RepresentById):
     refresh_token = Column(Text)
     expiration_time = Column(DateTime)
     refresh_expiration_time = Column(DateTime)
-    user = relationship('User', back_populates='custos_auth')
+    user: 'User' = relationship('User', back_populates='custos_auth')
 
 
 class CloudAuthz(Base, _HasTable):
@@ -7903,7 +7903,7 @@ class CloudAuthz(Base, _HasTable):
     last_activity = Column(DateTime)
     description = Column(TEXT)
     create_time = Column(DateTime, default=now)
-    user = relationship('User', back_populates='cloudauthz')
+    user: 'User' = relationship('User', back_populates='cloudauthz')
     authn = relationship('UserAuthnzToken')
 
     def __init__(self, user_id, provider, config, authn_id, description=None):
@@ -7941,7 +7941,7 @@ class Page(Base, Dictifiable, RepresentById):
     importable = Column(Boolean, index=True, default=False)
     slug = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
-    user = relationship('User')
+    user: 'User' = relationship('User')
     revisions = relationship(
         'PageRevision',
         cascade="all, delete-orphan",
@@ -8022,7 +8022,7 @@ class PageUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     page_id = Column(Integer, ForeignKey("page.id"), index=True)
     user_id = Column(Integer, ForeignKey("galaxy_user.id"), index=True)
-    user = relationship('User')
+    user: 'User' = relationship('User')
     page = relationship('Page', back_populates='users_shared_with')
 
 
@@ -8048,7 +8048,7 @@ class Visualization(Base, RepresentById):
     slug = Column(TEXT)
     published = Column(Boolean, default=False, index=True)
 
-    user = relationship('User')
+    user: 'User' = relationship('User')
     revisions = relationship('VisualizationRevision',
         back_populates='visualization',
         cascade="all, delete-orphan",
@@ -8140,7 +8140,7 @@ class VisualizationUserShareAssociation(Base, UserShareAssociation):
     id = Column(Integer, primary_key=True)
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    user = relationship('User')
+    user: 'User' = relationship('User')
     visualization = relationship('Visualization', back_populates='users_shared_with')
 
 
@@ -8195,7 +8195,7 @@ class HistoryTagAssociation(Base, ItemTagAssociation, RepresentById):
     value = Column(TrimmedString(255), index=True)
     history = relationship('History', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class HistoryDatasetAssociationTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8210,7 +8210,7 @@ class HistoryDatasetAssociationTagAssociation(Base, ItemTagAssociation, Represen
     value = Column(TrimmedString(255), index=True)
     history_dataset_association = relationship('HistoryDatasetAssociation', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class LibraryDatasetDatasetAssociationTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8226,7 +8226,7 @@ class LibraryDatasetDatasetAssociationTagAssociation(Base, ItemTagAssociation, R
     library_dataset_dataset_association = relationship(
         'LibraryDatasetDatasetAssociation', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class PageTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8240,7 +8240,7 @@ class PageTagAssociation(Base, ItemTagAssociation, RepresentById):
     value = Column(TrimmedString(255), index=True)
     page = relationship('Page', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class WorkflowStepTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8254,7 +8254,7 @@ class WorkflowStepTagAssociation(Base, ItemTagAssociation, RepresentById):
     value = Column(TrimmedString(255), index=True)
     workflow_step = relationship('WorkflowStep', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class StoredWorkflowTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8268,7 +8268,7 @@ class StoredWorkflowTagAssociation(Base, ItemTagAssociation, RepresentById):
     value = Column(TrimmedString(255), index=True)
     stored_workflow = relationship('StoredWorkflow', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class VisualizationTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8282,7 +8282,7 @@ class VisualizationTagAssociation(Base, ItemTagAssociation, RepresentById):
     value = Column(TrimmedString(255), index=True)
     visualization = relationship('Visualization', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class HistoryDatasetCollectionTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8297,7 +8297,7 @@ class HistoryDatasetCollectionTagAssociation(Base, ItemTagAssociation, Represent
     value = Column(TrimmedString(255), index=True)
     dataset_collection = relationship('HistoryDatasetCollectionAssociation', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class LibraryDatasetCollectionTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8312,7 +8312,7 @@ class LibraryDatasetCollectionTagAssociation(Base, ItemTagAssociation, Represent
     value = Column(TrimmedString(255), index=True)
     dataset_collection = relationship('LibraryDatasetCollectionAssociation', back_populates='tags')
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class ToolTagAssociation(Base, ItemTagAssociation, RepresentById):
@@ -8325,7 +8325,7 @@ class ToolTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
     tag = relationship('Tag')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 # Item annotation classes.
@@ -8340,7 +8340,7 @@ class HistoryAnnotationAssociation(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
     history = relationship('History', back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class HistoryDatasetAssociationAnnotationAssociation(Base, RepresentById):
@@ -8355,7 +8355,7 @@ class HistoryDatasetAssociationAnnotationAssociation(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
     hda = relationship('HistoryDatasetAssociation', back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class StoredWorkflowAnnotationAssociation(Base, RepresentById):
@@ -8369,7 +8369,7 @@ class StoredWorkflowAnnotationAssociation(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
     stored_workflow = relationship('StoredWorkflow', back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class WorkflowStepAnnotationAssociation(Base, RepresentById):
@@ -8383,7 +8383,7 @@ class WorkflowStepAnnotationAssociation(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
     workflow_step = relationship('WorkflowStep', back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class PageAnnotationAssociation(Base, RepresentById):
@@ -8397,7 +8397,7 @@ class PageAnnotationAssociation(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
     page = relationship('Page', back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class VisualizationAnnotationAssociation(Base, RepresentById):
@@ -8411,7 +8411,7 @@ class VisualizationAnnotationAssociation(Base, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
     visualization = relationship('Visualization', back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class HistoryDatasetCollectionAssociationAnnotationAssociation(Base, RepresentById):
@@ -8424,7 +8424,7 @@ class HistoryDatasetCollectionAssociationAnnotationAssociation(Base, RepresentBy
     annotation = Column(TEXT)
     history_dataset_collection = relationship('HistoryDatasetCollectionAssociation',
         back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class LibraryDatasetCollectionAnnotationAssociation(Base, RepresentById):
@@ -8437,7 +8437,7 @@ class LibraryDatasetCollectionAnnotationAssociation(Base, RepresentById):
     annotation = Column(TEXT)
     dataset_collection = relationship('LibraryDatasetCollectionAssociation',
         back_populates='annotations')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 # Item rating classes.
@@ -8462,7 +8462,7 @@ class HistoryRatingAssociation(ItemRatingAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     history = relationship('History', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, history):
         self.history = history
@@ -8477,7 +8477,7 @@ class HistoryDatasetAssociationRatingAssociation(ItemRatingAssociation, Represen
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     history_dataset_association = relationship('HistoryDatasetAssociation', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, history_dataset_association):
         self.history_dataset_association = history_dataset_association
@@ -8491,7 +8491,7 @@ class StoredWorkflowRatingAssociation(ItemRatingAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     stored_workflow = relationship('StoredWorkflow', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, stored_workflow):
         self.stored_workflow = stored_workflow
@@ -8505,7 +8505,7 @@ class PageRatingAssociation(ItemRatingAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     page = relationship('Page', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, page):
         self.page = page
@@ -8519,7 +8519,7 @@ class VisualizationRatingAssociation(ItemRatingAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     visualization = relationship('Visualization', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, visualization):
         self.visualization = visualization
@@ -8534,7 +8534,7 @@ class HistoryDatasetCollectionRatingAssociation(ItemRatingAssociation, Represent
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     dataset_collection = relationship('HistoryDatasetCollectionAssociation', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, dataset_collection):
         self.dataset_collection = dataset_collection
@@ -8549,7 +8549,7 @@ class LibraryDatasetCollectionRatingAssociation(ItemRatingAssociation, Represent
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
     dataset_collection = relationship('LibraryDatasetCollectionAssociation', back_populates='ratings')
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
     def _set_item(self, dataset_collection):
         self.dataset_collection = dataset_collection
@@ -8565,7 +8565,7 @@ class DataManagerHistoryAssociation(Base, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     history = relationship('History')
-    user = relationship('User', back_populates='data_manager_histories')
+    user: 'User' = relationship('User', back_populates='data_manager_histories')
 
 
 class DataManagerJobAssociation(Base, RepresentById):
@@ -8607,7 +8607,7 @@ class UserAction(Base, RepresentById):
     action = Column(Unicode(255))
     context = Column(Unicode(512))
     params = Column(Unicode(1024))
-    user = relationship('User')
+    user: 'User' = relationship('User')
 
 
 class APIKeys(Base, RepresentById):
@@ -8617,7 +8617,7 @@ class APIKeys(Base, RepresentById):
     create_time = Column(DateTime, default=now)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     key = Column(TrimmedString(32), index=True, unique=True)
-    user = relationship('User', back_populates='api_keys')
+    user: User = relationship('User', back_populates='api_keys')
 
 
 def copy_list(lst, *args, **kwds):
