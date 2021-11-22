@@ -147,7 +147,7 @@ class TagHandler:
         elif isinstance(tag, galaxy.model.Tag):
             tag_name = tag.name
         elif isinstance(tag, galaxy.model.ItemTagAssociation):
-            tag_name = tag.user_tname
+            tag_name = str(tag.user_tname)
         # Check for an item-tag association to see if item has a given tag.
         item_tag_assoc = self._get_item_tag_assoc(user, item, tag_name)
         if item_tag_assoc:
