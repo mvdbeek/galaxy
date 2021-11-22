@@ -2040,7 +2040,7 @@ class JobExternalOutputMetadata(Base, RepresentById):
     filename_kwds = Column(String(255))
     filename_override_metadata = Column(String(255))
     job_runner_external_pid = Column(String(255))
-    history_dataset_association = relationship('HistoryDatasetAssociation', lazy="joined")
+    history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', lazy="joined", uselist=False)
     library_dataset_dataset_association = relationship('LibraryDatasetDatasetAssociation', lazy="joined")
     job = relationship('Job', back_populates='external_output_metadata')
 
@@ -4415,7 +4415,7 @@ class HistoryDatasetAssociationDisplayAtAuthorization(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     site = Column(TrimmedString(255))
-    history_dataset_association = relationship('HistoryDatasetAssociation')
+    history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', uselist=False)
     user: 'User' = relationship('User')
 
     def __init__(self, hda=None, user=None, site=None):
@@ -8208,7 +8208,7 @@ class HistoryDatasetAssociationTagAssociation(Base, ItemTagAssociation, Represen
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    history_dataset_association = relationship('HistoryDatasetAssociation', back_populates='tags')
+    history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', back_populates='tags', uselist=False)
     tag = relationship('Tag')
     user: 'User' = relationship('User')
 
@@ -8476,7 +8476,7 @@ class HistoryDatasetAssociationRatingAssociation(ItemRatingAssociation, Represen
         ForeignKey('history_dataset_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    history_dataset_association = relationship('HistoryDatasetAssociation', back_populates='ratings')
+    history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', back_populates='ratings', uselist=False)
     user: 'User' = relationship('User')
 
     def _set_item(self, history_dataset_association):
