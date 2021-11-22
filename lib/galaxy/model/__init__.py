@@ -5136,7 +5136,7 @@ class DatasetCollection(Base, Dictifiable, UsesAnnotations, Serializable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
 
-    elements = relationship('DatasetCollectionElement',
+    elements: List['DatasetCollectionElement'] = relationship('DatasetCollectionElement',
         primaryjoin=(lambda: DatasetCollection.id == DatasetCollectionElement.dataset_collection_id),
         back_populates='collection',
         order_by=lambda: DatasetCollectionElement.element_index)
@@ -5529,8 +5529,8 @@ class HistoryDatasetCollectionAssociation(
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now, index=True)
 
-    collection = relationship('DatasetCollection')
-    history = relationship('History', back_populates='dataset_collections')
+    collection: 'DatasetCollection' = relationship('DatasetCollection')
+    history: 'History' = relationship('History', back_populates='dataset_collections')
 
     copied_from_history_dataset_collection_association = relationship(
         'HistoryDatasetCollectionAssociation',
@@ -5792,7 +5792,7 @@ class LibraryDatasetCollectionAssociation(Base, DatasetCollectionInstance, Repre
     name = Column(TrimmedString(255))
     deleted = Column(Boolean, default=False)
 
-    collection = relationship('DatasetCollection')
+    collection: 'DatasetCollection' = relationship('DatasetCollection')
     folder = relationship('LibraryFolder')
 
     tags = relationship('LibraryDatasetCollectionTagAssociation',
