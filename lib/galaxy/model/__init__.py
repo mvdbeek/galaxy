@@ -1775,8 +1775,8 @@ class JobToInputDatasetAssociation(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     dataset_version = Column(Integer)
     name = Column(String(255))
-    dataset = relationship('HistoryDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
-    job = relationship('Job', back_populates='input_datasets')
+    dataset: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
+    job: 'Job' = relationship('Job', back_populates='input_datasets')
 
     def __init__(self, name, dataset):
         self.name = name
@@ -1791,7 +1791,7 @@ class JobToOutputDatasetAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     dataset_id = Column(Integer, ForeignKey('history_dataset_association.id'), index=True)
     name = Column(String(255))
-    dataset = relationship('HistoryDatasetAssociation',
+    dataset: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation',
         lazy="joined", back_populates='creating_job_associations')
     job = relationship('Job', back_populates='output_datasets')
 
@@ -2336,14 +2336,14 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
     slug = Column(TEXT)
     published = Column(Boolean, index=True, default=False)
 
-    datasets = relationship('HistoryDatasetAssociation',
+    datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         back_populates='history',
         order_by=lambda: asc(HistoryDatasetAssociation.hid))
     exports = relationship('JobExportHistoryArchive',
         back_populates='history',
         primaryjoin=lambda: JobExportHistoryArchive.history_id == History.id,
         order_by=lambda: desc(JobExportHistoryArchive.id))
-    active_datasets = relationship('HistoryDatasetAssociation',
+    active_datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id
                 == History.id, not_(HistoryDatasetAssociation.deleted))
@@ -2358,7 +2358,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
         ),
         order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
-    visible_datasets = relationship('HistoryDatasetAssociation',
+    visible_datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id == History.id,
              not_(HistoryDatasetAssociation.deleted), HistoryDatasetAssociation.visible)
@@ -4435,7 +4435,8 @@ class HistoryDatasetAssociationSubset(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     location = Column(Unicode(255), index=True)
 
-    hda = relationship('HistoryDatasetAssociation',
+    # TODO: what type is this ?
+    hda: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: HistoryDatasetAssociationSubset.history_dataset_association_id
             == HistoryDatasetAssociation.id))
     subset = relationship('HistoryDatasetAssociation',
@@ -5840,13 +5841,13 @@ class DatasetCollectionElement(Base, Dictifiable, Serializable):
     element_index = Column(Integer)
     element_identifier = Column(Unicode(255))
 
-    hda = relationship('HistoryDatasetAssociation',
+    hda: Optional['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         primaryjoin=(lambda: DatasetCollectionElement.hda_id == HistoryDatasetAssociation.id))
-    ldda = relationship('LibraryDatasetDatasetAssociation',
+    ldda: Optional['LibraryDatasetDatasetAssociation'] = relationship('LibraryDatasetDatasetAssociation',
         primaryjoin=(lambda: DatasetCollectionElement.ldda_id == LibraryDatasetDatasetAssociation.id))
-    child_collection = relationship('DatasetCollection',
+    child_collection: Optional['DatasetCollection'] = relationship('DatasetCollection',
         primaryjoin=(lambda: DatasetCollectionElement.child_collection_id == DatasetCollection.id))
-    collection = relationship('DatasetCollection',
+    collection: Optional['DatasetCollection'] = relationship('DatasetCollection',
         primaryjoin=(lambda: DatasetCollection.id == DatasetCollectionElement.dataset_collection_id),
         back_populates='elements',
     )
@@ -8360,7 +8361,7 @@ class HistoryDatasetAssociationAnnotationAssociation(Base, RepresentById):
         ForeignKey('history_dataset_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    hda = relationship('HistoryDatasetAssociation', back_populates='annotations')
+    hda: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', back_populates='annotations')
     user: 'User' = relationship('User')
 
 
