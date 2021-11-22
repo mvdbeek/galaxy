@@ -1604,7 +1604,7 @@ class Task(Base, JobLike, RepresentById):
     task_runner_name = Column(String(255))
     task_runner_external_id = Column(String(255))
     prepare_input_files_cmd = Column(TEXT)
-    job = relationship('Job', back_populates='tasks')
+    job: 'Job' = relationship('Job', back_populates='tasks')
     text_metrics = relationship('TaskMetricText')
     numeric_metrics = relationship('TaskMetricNumeric')
 
@@ -1793,7 +1793,7 @@ class JobToOutputDatasetAssociation(Base, RepresentById):
     name = Column(String(255))
     dataset: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation',
         lazy="joined", back_populates='creating_job_associations')
-    job = relationship('Job', back_populates='output_datasets')
+    job: 'Job' = relationship('Job', back_populates='output_datasets')
 
     def __init__(self, name, dataset):
         self.name = name
@@ -1812,8 +1812,8 @@ class JobToInputDatasetCollectionAssociation(Base, RepresentById):
     dataset_collection_id = Column(Integer,
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(String(255))
-    dataset_collection = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
-    job = relationship('Job', back_populates='input_dataset_collections')
+    dataset_collection: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
+    job: 'Job' = relationship('Job', back_populates='input_dataset_collections')
 
     def __init__(self, name, dataset_collection):
         self.name = name
@@ -1829,7 +1829,7 @@ class JobToInputDatasetCollectionElementAssociation(Base, RepresentById):
         ForeignKey('dataset_collection_element.id'), index=True)
     name = Column(Unicode(255))
     dataset_collection_element = relationship('DatasetCollectionElement', lazy="joined")
-    job = relationship('Job', back_populates='input_dataset_collection_elements')
+    job: 'Job' = relationship('Job', back_populates='input_dataset_collection_elements')
 
     def __init__(self, name, dataset_collection_element):
         self.name = name
@@ -1847,7 +1847,7 @@ class JobToOutputDatasetCollectionAssociation(Base, RepresentById):
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(Unicode(255))
     dataset_collection_instance = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
-    job = relationship('Job', back_populates='output_dataset_collection_instances')
+    job: 'Job' = relationship('Job', back_populates='output_dataset_collection_instances')
 
     def __init__(self, name, dataset_collection_instance):
         self.name = name
@@ -1868,8 +1868,8 @@ class JobToImplicitOutputDatasetCollectionAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     dataset_collection_id = Column(Integer, ForeignKey('dataset_collection.id'), index=True)
     name = Column(Unicode(255))
-    dataset_collection = relationship('DatasetCollection')
-    job = relationship('Job', back_populates='output_dataset_collections')
+    dataset_collection: 'DatasetCollection' = relationship('DatasetCollection')
+    job: 'Job' = relationship('Job', back_populates='output_dataset_collections')
 
     def __init__(self, name, dataset_collection):
         self.name = name
@@ -1883,7 +1883,7 @@ class JobToInputLibraryDatasetAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     ldda_id = Column(Integer, ForeignKey('library_dataset_dataset_association.id'), index=True)
     name = Column(Unicode(255))
-    job = relationship('Job', back_populates='input_library_datasets')
+    job: 'Job' = relationship('Job', back_populates='input_library_datasets')
     dataset = relationship(
         'LibraryDatasetDatasetAssociation', lazy="joined", back_populates='dependent_jobs')
 
@@ -1899,7 +1899,7 @@ class JobToOutputLibraryDatasetAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     ldda_id = Column(Integer, ForeignKey('library_dataset_dataset_association.id'), index=True)
     name = Column(Unicode(255))
-    job = relationship('Job', back_populates='output_library_datasets')
+    job: 'Job' = relationship('Job', back_populates='output_library_datasets')
     dataset = relationship(
         'LibraryDatasetDatasetAssociation', lazy="joined", back_populates='creating_job_associations')
 
@@ -1934,7 +1934,7 @@ class ImplicitlyCreatedDatasetCollectionInput(Base, RepresentById):
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(Unicode(255))
 
-    input_dataset_collection = relationship('HistoryDatasetCollectionAssociation',
+    input_dataset_collection: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(lambda: HistoryDatasetCollectionAssociation.id
             == ImplicitlyCreatedDatasetCollectionInput.input_dataset_collection_id)
     )
@@ -2013,7 +2013,7 @@ class PostJobActionAssociation(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True, nullable=False)
     post_job_action_id = Column(Integer, ForeignKey('post_job_action.id'), index=True, nullable=False)
     post_job_action = relationship('PostJobAction')
-    job = relationship('Job', back_populates='post_job_actions')
+    job: 'Job' = relationship('Job', back_populates='post_job_actions')
 
     def __init__(self, pja, job=None, job_id=None):
         if job is not None:
@@ -2043,7 +2043,7 @@ class JobExternalOutputMetadata(Base, RepresentById):
     job_runner_external_pid = Column(String(255))
     history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', lazy="joined", uselist=False)
     library_dataset_dataset_association = relationship('LibraryDatasetDatasetAssociation', lazy="joined")
-    job = relationship('Job', back_populates='external_output_metadata')
+    job: 'Job' = relationship('Job', back_populates='external_output_metadata')
 
     def __init__(self, job=None, dataset=None):
         self.job = job
@@ -2086,9 +2086,9 @@ class JobExportHistoryArchive(Base, RepresentById):
     dataset_id = Column(Integer, ForeignKey('dataset.id'), index=True)
     compressed = Column(Boolean, index=True, default=False)
     history_attrs_filename = Column(TEXT)
-    job = relationship('Job')
+    job: 'Job' = relationship('Job')
     dataset = relationship('Dataset')
-    history = relationship('History', back_populates='exports')
+    history: 'History' = relationship('History', back_populates='exports')
 
     ATTRS_FILENAME_HISTORY = 'history_attrs.txt'
 
@@ -2172,8 +2172,8 @@ class JobImportHistoryArchive(Base, RepresentById):
     job_id = Column(Integer, ForeignKey('job.id'), index=True)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     archive_dir = Column(TEXT)
-    job = relationship('Job')
-    history = relationship('History')
+    job: 'Job' = relationship('Job')
+    history: 'History' = relationship('History')
 
 
 class JobContainerAssociation(Base, RepresentById):
@@ -2186,7 +2186,7 @@ class JobContainerAssociation(Base, RepresentById):
     container_info = Column(MutableJSONType, nullable=True)
     created_time = Column(DateTime, default=now)
     modified_time = Column(DateTime, default=now, onupdate=now)
-    job = relationship('Job', back_populates='container')
+    job: 'Job' = relationship('Job', back_populates='container')
 
     def __init__(self, **kwd):
         super().__init__(**kwd)
@@ -2211,7 +2211,7 @@ class InteractiveToolEntryPoint(Base, Dictifiable, RepresentById):
     deleted = Column(Boolean, default=False)
     created_time = Column(DateTime, default=now)
     modified_time = Column(DateTime, default=now, onupdate=now)
-    job = relationship('Job', back_populates='interactivetool_entry_points', uselist=False)
+    job: 'Job' = relationship('Job', back_populates='interactivetool_entry_points', uselist=False)
 
     dict_collection_visible_keys = ['id', 'name', 'active', 'created_time', 'modified_time']
     dict_element_visible_keys = ['id', 'name', 'active', 'created_time', 'modified_time']
@@ -2243,7 +2243,7 @@ class GenomeIndexToolData(Base, RepresentById):  # TODO: params arg is lost
     modified_time = Column(DateTime, default=now, onupdate=now)
     indexer = Column(String(64))
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    job = relationship('Job')
+    job: 'Job' = relationship('Job')
     dataset = relationship('Dataset')
     user: 'User' = relationship('User')
 
@@ -2817,7 +2817,7 @@ class HistoryUserShareAssociation(Base, UserShareAssociation):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user: 'User' = relationship('User')
-    history = relationship('History', back_populates='users_shared_with')
+    history: 'History' = relationship('History', back_populates='users_shared_with')
 
 
 class UserRoleAssociation(Base, RepresentById):
@@ -3121,7 +3121,7 @@ class DefaultHistoryPermissions(Base, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     action = Column(TEXT)
     role_id = Column(Integer, ForeignKey('role.id'), index=True)
-    history = relationship('History', back_populates='default_permissions')
+    history: 'History' = relationship('History', back_populates='default_permissions')
     role = relationship('Role')
 
     def __init__(self, history, action, role):
@@ -5994,7 +5994,7 @@ class Event(Base, RepresentById):
     session_id = Column(Integer, ForeignKey('galaxy_session.id'), index=True, nullable=True)
     tool_id = Column(String(255))
 
-    history = relationship('History')
+    history: 'History' = relationship('History')
     user: 'User' = relationship('User')
     galaxy_session = relationship('GalaxySession')
 
@@ -6017,7 +6017,7 @@ class GalaxySession(Base, RepresentById):
     prev_session_id = Column(Integer)
     disk_usage = Column(Numeric(15, 0), index=True)
     last_action = Column(DateTime)
-    current_history = relationship('History')
+    current_history: 'History' = relationship('History')
     histories = relationship('GalaxySessionToHistoryAssociation', back_populates='galaxy_session')
     user: 'User' = relationship('User', back_populates='galaxy_sessions')
 
@@ -6050,7 +6050,7 @@ class GalaxySessionToHistoryAssociation(Base, RepresentById):
     session_id = Column(Integer, ForeignKey('galaxy_session.id'), index=True)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     galaxy_session = relationship('GalaxySession', back_populates='histories')
-    history = relationship('History', back_populates='galaxy_sessions')
+    history: 'History' = relationship('History', back_populates='galaxy_sessions')
 
     def __init__(self, galaxy_session, history):
         self.galaxy_session = galaxy_session
@@ -6204,7 +6204,7 @@ class Workflow(Base, Dictifiable, RepresentById):
         'WorkflowStep',
         primaryjoin=(lambda: Workflow.id == WorkflowStep.subworkflow_id),
         back_populates='subworkflow')
-    stored_workflow = relationship('StoredWorkflow',
+    stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow',
         primaryjoin=(lambda: StoredWorkflow.id == Workflow.stored_workflow_id),
         back_populates='workflows')
 
@@ -6695,7 +6695,7 @@ class StoredWorkflowUserShareAssociation(Base, UserShareAssociation):
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user: 'User' = relationship('User')
-    stored_workflow = relationship('StoredWorkflow', back_populates='users_shared_with')
+    stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow', back_populates='users_shared_with')
 
 
 class StoredWorkflowMenuEntry(Base, RepresentById):
@@ -6728,7 +6728,7 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, RepresentBy
     uuid = Column(UUIDType())
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
 
-    history = relationship('History', back_populates='workflow_invocations')
+    history: 'History' = relationship('History', back_populates='workflow_invocations')
     input_parameters = relationship('WorkflowRequestInputParameter',
         back_populates='workflow_invocation')
     step_states = relationship('WorkflowRequestStepState', back_populates='workflow_invocation')
@@ -7436,7 +7436,7 @@ class WorkflowInvocationStepOutputDatasetCollectionAssociation(Base, Dictifiable
 
     workflow_invocation_step = relationship('WorkflowInvocationStep',
         back_populates='output_dataset_collections')
-    dataset_collection = relationship('HistoryDatasetCollectionAssociation')
+    dataset_collection: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation')
 
     dict_collection_visible_keys = ['id', 'workflow_invocation_step_id', 'dataset_collection_id', 'output_name']
 
@@ -8346,7 +8346,7 @@ class HistoryAnnotationAssociation(Base, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    history = relationship('History', back_populates='annotations')
+    history: 'History' = relationship('History', back_populates='annotations')
     user: 'User' = relationship('User')
 
 
@@ -8375,7 +8375,7 @@ class StoredWorkflowAnnotationAssociation(Base, RepresentById):
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    stored_workflow = relationship('StoredWorkflow', back_populates='annotations')
+    stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow', back_populates='annotations')
     user: 'User' = relationship('User')
 
 
@@ -8429,7 +8429,7 @@ class HistoryDatasetCollectionAssociationAnnotationAssociation(Base, RepresentBy
         Integer, ForeignKey('history_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    history_dataset_collection = relationship('HistoryDatasetCollectionAssociation',
+    history_dataset_collection: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation',
         back_populates='annotations')
     user: 'User' = relationship('User')
 
@@ -8442,7 +8442,7 @@ class LibraryDatasetCollectionAnnotationAssociation(Base, RepresentById):
         Integer, ForeignKey('library_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    dataset_collection = relationship('LibraryDatasetCollectionAssociation',
+    dataset_collection: 'LibraryDatasetCollectionAssociation' = relationship('LibraryDatasetCollectionAssociation',
         back_populates='annotations')
     user: 'User' = relationship('User')
 
@@ -8468,7 +8468,7 @@ class HistoryRatingAssociation(ItemRatingAssociation, RepresentById):
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    history = relationship('History', back_populates='ratings')
+    history: 'History' = relationship('History', back_populates='ratings')
     user: 'User' = relationship('User')
 
     def _set_item(self, history):
@@ -8497,7 +8497,7 @@ class StoredWorkflowRatingAssociation(ItemRatingAssociation, RepresentById):
     stored_workflow_id = Column(Integer, ForeignKey('stored_workflow.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    stored_workflow = relationship('StoredWorkflow', back_populates='ratings')
+    stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow', back_populates='ratings')
     user: 'User' = relationship('User')
 
     def _set_item(self, stored_workflow):
@@ -8540,7 +8540,7 @@ class HistoryDatasetCollectionRatingAssociation(ItemRatingAssociation, Represent
         Integer, ForeignKey('history_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    dataset_collection = relationship('HistoryDatasetCollectionAssociation', back_populates='ratings')
+    dataset_collection: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation', back_populates='ratings')
     user: 'User' = relationship('User')
 
     def _set_item(self, dataset_collection):
@@ -8555,7 +8555,7 @@ class LibraryDatasetCollectionRatingAssociation(ItemRatingAssociation, Represent
         Integer, ForeignKey('library_dataset_collection_association.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    dataset_collection = relationship('LibraryDatasetCollectionAssociation', back_populates='ratings')
+    dataset_collection: 'LibraryDatasetCollectionAssociation' = relationship('LibraryDatasetCollectionAssociation', back_populates='ratings', uselist=False)
     user: 'User' = relationship('User')
 
     def _set_item(self, dataset_collection):
@@ -8571,7 +8571,7 @@ class DataManagerHistoryAssociation(Base, RepresentById):
     update_time = Column(DateTime, index=True, default=now, onupdate=now)
     history_id = Column(Integer, ForeignKey('history.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
-    history = relationship('History')
+    history: 'History' = relationship('History')
     user: 'User' = relationship('User', back_populates='data_manager_histories')
 
 
@@ -8586,7 +8586,7 @@ class DataManagerJobAssociation(Base, RepresentById):
     update_time = Column(DateTime, index=True, default=now, onupdate=now)
     job_id = Column(Integer, ForeignKey("job.id"), index=True)
     data_manager_id = Column(TEXT)
-    job = relationship('Job', back_populates='data_manager_association', uselist=False)
+    job: 'Job' = relationship('Job', back_populates='data_manager_association', uselist=False)
 
 
 class UserPreference(Base, RepresentById):
