@@ -490,21 +490,21 @@ class User(Base, Dictifiable, RepresentById):
 
     addresses = relationship('UserAddress',
         back_populates='user',
-        order_by=lambda: desc(UserAddress.update_time))  # type: ignore
-    cloudauthz = relationship('CloudAuthz', back_populates='user')
+        order_by=lambda: desc(UserAddress.update_time))
+    cloudauthz: Optional['CloudAuthz'] = relationship('CloudAuthz', back_populates='user')
     custos_auth = relationship('CustosAuthnzToken', back_populates='user')
     default_permissions = relationship('DefaultUserPermissions', back_populates='user')
     groups = relationship('UserGroupAssociation', back_populates='user')
     histories = relationship('History',
         back_populates='user',
-        order_by=lambda: desc(History.update_time))  # type: ignore
+        order_by=lambda: desc(History.update_time))
     active_histories = relationship('History',
         primaryjoin=(lambda: (History.user_id == User.id) & (not_(History.deleted))),
         viewonly=True,
-        order_by=lambda: desc(History.update_time))  # type: ignore
+        order_by=lambda: desc(History.update_time))
     galaxy_sessions = relationship('GalaxySession',
         back_populates='user',
-        order_by=lambda: desc(GalaxySession.update_time))  # type: ignore
+        order_by=lambda: desc(GalaxySession.update_time))
     quotas = relationship('UserQuotaAssociation', back_populates='user')
     social_auth = relationship('UserAuthnzToken', back_populates='user')
     stored_workflow_menu_entries = relationship('StoredWorkflowMenuEntry',
@@ -522,7 +522,7 @@ class User(Base, Dictifiable, RepresentById):
     # Add type hint (will this work w/SA?)
     api_keys: 'List[APIKeys]' = relationship('APIKeys',
         back_populates='user',
-        order_by=lambda: desc(APIKeys.create_time))  # type: ignore
+        order_by=lambda: desc(APIKeys.create_time))
     data_manager_histories = relationship('DataManagerHistoryAssociation', back_populates='user')
     roles = relationship('UserRoleAssociation', back_populates='user')
     stored_workflows = relationship('StoredWorkflow', back_populates='user',
@@ -2298,7 +2298,7 @@ class HistoryAudit(Base, RepresentById):
 
     # This class should never be instantiated.
     # See https://github.com/galaxyproject/galaxy/pull/11914 for details.
-    __init__ = None  # type: ignore
+    __init__ = None
 
     @classmethod
     def prune(cls, sa_session):
@@ -2337,7 +2337,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
 
     datasets = relationship('HistoryDatasetAssociation',
         back_populates='history',
-        order_by=lambda: asc(HistoryDatasetAssociation.hid))  # type: ignore
+        order_by=lambda: asc(HistoryDatasetAssociation.hid))
     exports = relationship('JobExportHistoryArchive',
         back_populates='history',
         primaryjoin=lambda: JobExportHistoryArchive.history_id == History.id,
@@ -2347,7 +2347,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
             lambda: and_(HistoryDatasetAssociation.history_id
                 == History.id, not_(HistoryDatasetAssociation.deleted))
         ),
-        order_by=lambda: asc(HistoryDatasetAssociation.hid),  # type: ignore
+        order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
     dataset_collections = relationship('HistoryDatasetCollectionAssociation', back_populates='history')
     active_dataset_collections = relationship('HistoryDatasetCollectionAssociation',
@@ -2355,14 +2355,14 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
             lambda: (and_(HistoryDatasetCollectionAssociation.history_id == History.id,
              not_(HistoryDatasetCollectionAssociation.deleted)))
         ),
-        order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),  # type: ignore
+        order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
     visible_datasets = relationship('HistoryDatasetAssociation',
         primaryjoin=(
             lambda: and_(HistoryDatasetAssociation.history_id == History.id,
              not_(HistoryDatasetAssociation.deleted), HistoryDatasetAssociation.visible)
         ),
-        order_by=lambda: asc(HistoryDatasetAssociation.hid),  # type: ignore
+        order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
     visible_dataset_collections = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
@@ -2371,7 +2371,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
                 not_(HistoryDatasetCollectionAssociation.deleted),
                 HistoryDatasetCollectionAssociation.visible)
         ),
-        order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),  # type: ignore
+        order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
     tags = relationship('HistoryTagAssociation',
         order_by=lambda: HistoryTagAssociation.id,
@@ -2678,7 +2678,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
             rval = 0
         return rval
 
-    @disk_size.expression  # type: ignore
+    @disk_size.expression
     def disk_size(cls):
         """
         Return a query scalar that will get any history's size in bytes by summing
@@ -4365,7 +4365,7 @@ class HistoryDatasetAssociation(DatasetInstance, HasTags, Dictifiable, UsesAnnot
     def type_id(self):
         return '-'.join((self.content_type, str(self.id)))
 
-    @type_id.expression  # type: ignore
+    @type_id.expression
     def type_id(cls):
         return ((type_coerce(cls.content_type, Unicode) + '-'
                  + type_coerce(cls.id, Unicode)).label('type_id'))
@@ -5596,7 +5596,7 @@ class HistoryDatasetCollectionAssociation(
     def type_id(self):
         return '-'.join((self.content_type, str(self.id)))
 
-    @type_id.expression  # type: ignore
+    @type_id.expression
     def type_id(cls):
         return ((type_coerce(cls.content_type, Unicode) + '-'
                  + type_coerce(cls.id, Unicode)).label('type_id'))
