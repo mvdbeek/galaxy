@@ -8200,8 +8200,8 @@ class HistoryTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    history = relationship('History', back_populates='tags')
-    tag = relationship('Tag')
+    history: 'History' = relationship('History', back_populates='tags')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8216,7 +8216,7 @@ class HistoryDatasetAssociationTagAssociation(Base, ItemTagAssociation, Represen
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
     history_dataset_association: 'HistoryDatasetAssociation' = relationship('HistoryDatasetAssociation', back_populates='tags', uselist=False)
-    tag = relationship('Tag')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8232,7 +8232,7 @@ class LibraryDatasetDatasetAssociationTagAssociation(Base, ItemTagAssociation, R
     value = Column(TrimmedString(255), index=True)
     library_dataset_dataset_association = relationship(
         'LibraryDatasetDatasetAssociation', back_populates='tags')
-    tag = relationship('Tag')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8246,7 +8246,7 @@ class PageTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
     page: 'Page' = relationship('Page', back_populates='tags', uselist=False)
-    tag = relationship('Tag')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8260,7 +8260,7 @@ class WorkflowStepTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
     workflow_step: 'WorkflowStep' = relationship('WorkflowStep', back_populates='tags')
-    tag = relationship('Tag')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8273,8 +8273,8 @@ class StoredWorkflowTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    stored_workflow = relationship('StoredWorkflow', back_populates='tags')
-    tag = relationship('Tag')
+    stored_workflow: 'StoredWorkflow' = relationship('StoredWorkflow', back_populates='tags')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8287,8 +8287,8 @@ class VisualizationTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    visualization = relationship('Visualization', back_populates='tags')
-    tag = relationship('Tag')
+    visualization: 'Visualization' = relationship('Visualization', back_populates='tags', uselist=False)
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8302,8 +8302,8 @@ class HistoryDatasetCollectionTagAssociation(Base, ItemTagAssociation, Represent
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    dataset_collection = relationship('HistoryDatasetCollectionAssociation', back_populates='tags')
-    tag = relationship('Tag')
+    dataset_collection: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation', back_populates='tags')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8317,8 +8317,8 @@ class LibraryDatasetCollectionTagAssociation(Base, ItemTagAssociation, Represent
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    dataset_collection = relationship('LibraryDatasetCollectionAssociation', back_populates='tags')
-    tag = relationship('Tag')
+    dataset_collection: 'LibraryDatasetCollectionAssociation' = relationship('LibraryDatasetCollectionAssociation', back_populates='tags')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
@@ -8331,7 +8331,7 @@ class ToolTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    tag = relationship('Tag')
+    tag: 'Tag' = relationship('Tag')
     user: 'User' = relationship('User')
 
 
