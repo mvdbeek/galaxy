@@ -173,7 +173,6 @@ class Base(metaclass=DeclarativeMeta):
 
 
 class RepresentById(_HasTable):
-    id: int
 
     def __repr__(self):
         try:
