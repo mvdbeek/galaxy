@@ -8001,8 +8001,8 @@ class PageRevision(Base, Dictifiable, RepresentById):
     title = Column(TEXT)
     content = Column(TEXT)
     content_format = Column(TrimmedString(32))
-    page = relationship('Page',
-        primaryjoin=(lambda: Page.id == PageRevision.page_id))
+    page: 'Page' = relationship('Page',
+        primaryjoin=(lambda: Page.id == PageRevision.page_id), uselist=False)
     DEFAULT_CONTENT_FORMAT = 'html'
     dict_element_visible_keys = ['id', 'page_id', 'title', 'content', 'content_format']
 
@@ -8023,7 +8023,7 @@ class PageUserShareAssociation(Base, UserShareAssociation):
     page_id = Column(Integer, ForeignKey("page.id"), index=True)
     user_id = Column(Integer, ForeignKey("galaxy_user.id"), index=True)
     user: 'User' = relationship('User')
-    page = relationship('Page', back_populates='users_shared_with')
+    page: 'Page' = relationship('Page', back_populates='users_shared_with', uselist=False)
 
 
 class Visualization(Base, RepresentById):
@@ -8238,7 +8238,7 @@ class PageTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user_tname = Column(TrimmedString(255), index=True)
     value = Column(TrimmedString(255), index=True)
-    page = relationship('Page', back_populates='tags')
+    page: 'Page' = relationship('Page', back_populates='tags', uselist=False)
     tag = relationship('Tag')
     user: 'User' = relationship('User')
 
@@ -8396,7 +8396,7 @@ class PageAnnotationAssociation(Base, RepresentById):
     page_id = Column(Integer, ForeignKey('page.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    page = relationship('Page', back_populates='annotations')
+    page: 'Page' = relationship('Page', back_populates='annotations', uselist=False)
     user: 'User' = relationship('User')
 
 
@@ -8504,7 +8504,7 @@ class PageRatingAssociation(ItemRatingAssociation, RepresentById):
     page_id = Column(Integer, ForeignKey('page.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    page = relationship('Page', back_populates='ratings')
+    page: 'Page' = relationship('Page', back_populates='ratings', uselist=False)
     user: 'User' = relationship('User')
 
     def _set_item(self, page):
