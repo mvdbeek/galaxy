@@ -617,6 +617,8 @@ class DatasetCollectionWrapper(ToolParameterValueWrapper, HasDatasets):
             collection = has_collection.collection
             self.name = cast(str, has_collection.name)
         elif isinstance(has_collection, DatasetCollectionElement):
+            if has_collection.child_collection is None:
+                raise Exception("DatasetCollectionElement that does not refer to a child collection is not supported")
             collection = has_collection.child_collection
             self.name = cast(str, has_collection.element_identifier)
         elif isinstance(has_collection, DatasetCollection):

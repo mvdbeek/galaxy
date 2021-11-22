@@ -1835,6 +1835,8 @@ class BaseDataToolParameter(ToolParameter):
                         dataset_count += 1
                         do_validate(dataset_instance)
                 elif isinstance(v, galaxy.model.DatasetCollectionElement):
+                    if v.child_collection is None:
+                        raise Exception("DatasetCollectionElement that does not refer to a child collection is not supported")
                     for dataset_instance in v.child_collection.dataset_instances:
                         dataset_count += 1
                         do_validate(dataset_instance)

@@ -231,7 +231,10 @@ class DefaultToolAction(ToolAction):
                         # extraction and tool rerun.
                         if isinstance(value, model.DatasetCollectionElement):
                             # if we are mapping a collection over a tool, we only require the child_collection
-                            dataset_instances = value.child_collection.dataset_instances
+                            if value.child_collection is None:
+                                raise Exception("DatasetCollectionElement that does not refer to a child collection is not supported")
+                            else:
+                                dataset_instances = value.child_collection.dataset_instances
                         else:
                             # else the tool takes a collection as input so we need everything
                             dataset_instances = value.collection.dataset_instances
