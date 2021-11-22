@@ -492,22 +492,22 @@ class User(Base, Dictifiable, RepresentById):
         back_populates='user',
         order_by=lambda: desc(UserAddress.update_time))
     cloudauthz: Optional['CloudAuthz'] = relationship('CloudAuthz', back_populates='user')
-    custos_auth = relationship('CustosAuthnzToken', back_populates='user')
-    default_permissions = relationship('DefaultUserPermissions', back_populates='user')
-    groups = relationship('UserGroupAssociation', back_populates='user')
-    histories = relationship('History',
+    custos_auth: List['CustosAuthnzToken'] = relationship('CustosAuthnzToken', back_populates='user')
+    default_permissions: List['DefaultUserPermissions'] = relationship('DefaultUserPermissions', back_populates='user')
+    groups: List['UserGroupAssociation'] = relationship('UserGroupAssociation', back_populates='user')
+    histories: List['History'] = relationship('History',
         back_populates='user',
         order_by=lambda: desc(History.update_time))
-    active_histories = relationship('History',
+    active_histories: List['History'] = relationship('History',
         primaryjoin=(lambda: (History.user_id == User.id) & (not_(History.deleted))),
         viewonly=True,
         order_by=lambda: desc(History.update_time))
-    galaxy_sessions = relationship('GalaxySession',
+    galaxy_sessions: List['GalaxySession'] = relationship('GalaxySession',
         back_populates='user',
         order_by=lambda: desc(GalaxySession.update_time))
-    quotas = relationship('UserQuotaAssociation', back_populates='user')
-    social_auth = relationship('UserAuthnzToken', back_populates='user')
-    stored_workflow_menu_entries = relationship('StoredWorkflowMenuEntry',
+    quotas: List['UserQuotaAssociation'] = relationship('UserQuotaAssociation', back_populates='user')
+    social_auth: List['UserAuthnzToken'] = relationship('UserAuthnzToken', back_populates='user')
+    stored_workflow_menu_entries: List['StoredWorkflowMenuEntry'] = relationship('StoredWorkflowMenuEntry',
         primaryjoin=(lambda:
             (StoredWorkflowMenuEntry.user_id == User.id)
             & (StoredWorkflowMenuEntry.stored_workflow_id == StoredWorkflow.id)
@@ -516,18 +516,18 @@ class User(Base, Dictifiable, RepresentById):
         back_populates='user',
         cascade='all, delete-orphan',
         collection_class=ordering_list('order_index'))
-    _preferences = relationship('UserPreference', collection_class=attribute_mapped_collection('name'))
-    values = relationship('FormValues',
+    _preferences: 'UserPreference' = relationship('UserPreference', collection_class=attribute_mapped_collection('name'))
+    values: Optional['FormValues'] = relationship('FormValues',
         primaryjoin=(lambda: User.form_values_id == FormValues.id))
     # Add type hint (will this work w/SA?)
     api_keys: 'List[APIKeys]' = relationship('APIKeys',
         back_populates='user',
         order_by=lambda: desc(APIKeys.create_time))
-    data_manager_histories = relationship('DataManagerHistoryAssociation', back_populates='user')
-    roles = relationship('UserRoleAssociation', back_populates='user')
-    stored_workflows = relationship('StoredWorkflow', back_populates='user',
+    data_manager_histories: List['DataManagerHistoryAssociation'] = relationship('DataManagerHistoryAssociation', back_populates='user')
+    roles: List['UserRoleAssociation'] = relationship('UserRoleAssociation', back_populates='user')
+    stored_workflows: List['StoredWorkflow'] = relationship('StoredWorkflow', back_populates='user',
         primaryjoin=(lambda: User.id == StoredWorkflow.user_id))
-    non_private_roles = relationship(
+    non_private_roles: List['UserRoleAssociation'] = relationship(
         'UserRoleAssociation',
         viewonly=True,
         primaryjoin=(lambda:
