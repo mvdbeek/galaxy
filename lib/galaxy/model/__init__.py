@@ -8148,7 +8148,7 @@ class VisualizationUserShareAssociation(Base, UserShareAssociation):
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     user: 'User' = relationship('User')
-    visualization = relationship('Visualization', back_populates='users_shared_with')
+    visualization: 'Visualization' = relationship('Visualization', back_populates='users_shared_with', uselist=False)
 
 
 class Tag(Base, RepresentById):
@@ -8417,7 +8417,7 @@ class VisualizationAnnotationAssociation(Base, RepresentById):
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     annotation = Column(TEXT)
-    visualization = relationship('Visualization', back_populates='annotations')
+    visualization: 'Visualization' = relationship('Visualization', back_populates='annotations', uselist=False)
     user: 'User' = relationship('User')
 
 
@@ -8525,7 +8525,7 @@ class VisualizationRatingAssociation(ItemRatingAssociation, RepresentById):
     visualization_id = Column(Integer, ForeignKey('visualization.id'), index=True)
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     rating = Column(Integer, index=True)
-    visualization = relationship('Visualization', back_populates='ratings')
+    visualization: 'Visualization' = relationship('Visualization', back_populates='ratings', uselist=False)
     user: 'User' = relationship('User')
 
     def _set_item(self, visualization):
