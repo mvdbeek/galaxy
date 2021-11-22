@@ -244,7 +244,7 @@ class UserGroupAssociation(Base, _HasTable):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
     user: 'User' = relationship('User', back_populates='groups')
-    group = relationship('Group', back_populates='users')
+    role : 'Group' = relationship('Group', back_populates='users')
 
     def __init__(self, user, group):
         self.user = user
@@ -275,7 +275,7 @@ class GroupRoleAssociation(Base, _HasTable):
     role_id = Column(ForeignKey("role.id"), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    group = relationship('Group', back_populates='roles')
+    role : 'Group' = relationship('Group', back_populates='roles')
     role : 'Role' = relationship('Role', back_populates='groups')
 
     def __init__(self, group, role):
