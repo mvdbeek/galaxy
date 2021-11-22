@@ -1429,7 +1429,7 @@ class DirectoryModelExportStore(ModelExportStore):
         self.add_dataset_collection(collection)
 
         # export datasets for this collection
-        has_collection = collection.collection if isinstance(collection, model.HistoryDatasetCollectionAssociation) else collection
+        has_collection = cast(model.DatasetCollection, collection.collection if isinstance(collection, model.HistoryDatasetCollectionAssociation) else collection)
         for collection_dataset in has_collection.dataset_instances:
             if collection_dataset.deleted and not include_deleted:
                 include_files = False
