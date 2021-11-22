@@ -2,12 +2,10 @@
 
 See the file error_codes.json for actual error code descriptions.
 """
+import os
 from json import loads
+from importlib import resources
 from typing import Dict
-
-from pkg_resources import resource_string
-
-from galaxy.util import unicodify
 
 
 # Error codes are provided as a convience to Galaxy API clients, but at this
@@ -45,10 +43,9 @@ def _from_dict(entry):
     return (name, ErrorCode(code, message))
 
 
-error_codes_json = unicodify(resource_string(__name__, 'error_codes.json'))
 error_codes_by_name: Dict[str, ErrorCode] = {}
 
-for entry in loads(error_codes_json):
+for entry in loads(resources.read_text('galaxy.exceptions', 'error_codes.json')):
     name, error_code_obj = _from_dict(entry)
     globals()[name] = error_code_obj
     error_codes_by_name[name] = error_code_obj

@@ -1,11 +1,10 @@
 import json
-import os
 import subprocess
 
+from galaxy.util import resource_path
 from .util import find_engine
 
-FILE_DIRECTORY = os.path.normpath(os.path.dirname(os.path.join(__file__)))
-NODE_ENGINE = os.path.join(FILE_DIRECTORY, "cwlNodeEngine.js")
+NODE_ENGINE = resource_path('galaxy.tools.expressions', 'cwlNodeEngine.js')
 
 
 def evaluate(config, input):

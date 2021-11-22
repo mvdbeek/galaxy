@@ -26,8 +26,9 @@ from galaxy.web.framework.helpers import grids, time_ago
 from galaxy.webapps.base import controller
 from tool_shed.util.web_util import escape
 
-
 log = logging.getLogger(__name__)
+
+MIGRATION_MODULE = 'galaxy.tool_shed.galaxy_install.migrate'
 
 
 class UserListGrid(grids.Grid):
@@ -863,7 +864,7 @@ class AdminGalaxy(controller.JSAppLauncher):
 
     def check_for_tool_dependencies(self, trans, migration_stage):
         # Get the 000x_tools.xml file associated with migration_stage.
-        tools_xml_file_path = os.path.abspath(os.path.join(common_util.TOOL_MIGRATION_SCRIPTS_DIR, '%04d_tools.xml' % migration_stage))
+        tools_xml_file_path =  util.resource_path(MIGRATION_MODULE, '%04d_tools.xml' % migration_stage)
         tree = util.parse_xml(tools_xml_file_path)
         root = tree.getroot()
         tool_shed = root.get('name')

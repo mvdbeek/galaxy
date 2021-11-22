@@ -101,6 +101,7 @@ from galaxy.util import (
     listify,
     Params,
     parse_xml_string,
+    resource_path,
     rst_to_html,
     string_as_bool,
     unicodify,
@@ -137,7 +138,7 @@ REQUIRES_JS_RUNTIME_MESSAGE = ("The tool [%s] requires a nodejs runtime to execu
                                "but node or nodejs could not be found. Please contact the Galaxy adminstrator")
 
 HELP_UNINITIALIZED = threading.Lock()
-MODEL_TOOLS_PATH = os.path.abspath(os.path.dirname(__file__))
+MODEL_TOOLS_PATH = os.path.dirname(resource_path('galaxy.tools', 'apply_rules.xml'))
 # Tools that require Galaxy's Python environment to be preserved.
 GALAXY_LIB_TOOLS_UNVERSIONED = [
     "upload1",

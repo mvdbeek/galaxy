@@ -29,6 +29,7 @@ from datetime import datetime
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from hashlib import md5
+from importlib import resources
 from os.path import relpath
 from urllib.parse import (
     urlencode,
@@ -100,6 +101,11 @@ RWXRWXRWX = stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO
 XML = etree.XML
 
 defaultdict = collections.defaultdict
+
+
+def resource_path(module, resource):
+    with resources.path(module, resource) as p:
+        return str(p)
 
 
 def remove_protocol_from_url(url):

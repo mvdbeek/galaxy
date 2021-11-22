@@ -27,6 +27,7 @@ from galaxy.tool_util.deps.conda_util import best_search_result
 from galaxy.tool_util.deps.docker_util import command_list as docker_command_list
 from galaxy.util import (
     commands,
+    resource_path,
     safe_makedirs,
     unicodify,
 )
@@ -45,7 +46,6 @@ from ..conda_compat import MetaData
 
 log = logging.getLogger(__name__)
 
-DIRNAME = os.path.dirname(__file__)
 DEFAULT_BASE_IMAGE = os.environ.get("DEFAULT_BASE_IMAGE", "quay.io/bioconda/base-glibc-busybox-bash:latest")
 DEFAULT_EXTENDED_BASE_IMAGE = os.environ.get("DEFAULT_EXTENDED_BASE_IMAGE", "quay.io/bioconda/base-glibc-debian-bash:latest")
 if 'DEFAULT_MULLED_CONDA_CHANNELS' in os.environ:
@@ -227,7 +227,7 @@ def mull_targets(
     target_str = ",".join(map(conda_build_target_str, targets))
     bind_str = ",".join(binds)
     involucro_args = [
-        '-f', f'{DIRNAME}/invfile.lua',
+        '-f', f'{resource_path("galaxy.tool_util.deps.mulled", "/invfile.lua")}',
         '-set', f"CHANNELS={channels}",
         '-set', f"TARGETS={target_str}",
         '-set', f"REPO={repo}",

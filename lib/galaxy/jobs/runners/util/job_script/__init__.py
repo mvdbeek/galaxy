@@ -2,10 +2,9 @@ import logging
 import os
 import subprocess
 import time
+from importlib.resources import read_text
 from string import Template
 from typing import Any, Dict
-
-from pkg_resources import resource_string
 
 from galaxy.util import (
     RWXR_XR_X,
@@ -14,16 +13,10 @@ from galaxy.util import (
 
 log = logging.getLogger(__name__)
 DEFAULT_SHELL = '/bin/bash'
-
-DEFAULT_JOB_FILE_TEMPLATE = Template(
-    unicodify(resource_string(__name__, 'DEFAULT_JOB_FILE_TEMPLATE.sh'))
-)
-
-SLOTS_STATEMENT_CLUSTER_DEFAULT = \
-    unicodify(resource_string(__name__, 'CLUSTER_SLOTS_STATEMENT.sh'))
-
-MEMORY_STATEMENT_DEFAULT = \
-    unicodify(resource_string(__name__, 'MEMORY_STATEMENT.sh'))
+MODULE = 'galaxy.jobs.runners.util.job_script'
+DEFAULT_JOB_FILE_TEMPLATE = Template(read_text(MODULE, 'DEFAULT_JOB_FILE_TEMPLATE.sh'))
+SLOTS_STATEMENT_CLUSTER_DEFAULT = read_text(MODULE, 'CLUSTER_SLOTS_STATEMENT.sh')
+MEMORY_STATEMENT_DEFAULT = read_text(MODULE, 'MEMORY_STATEMENT.sh')
 
 SLOTS_STATEMENT_SINGLE = """
 GALAXY_SLOTS="1"
