@@ -8057,7 +8057,7 @@ class Visualization(Base, RepresentById):
     published = Column(Boolean, default=False, index=True)
 
     user: RelationshipProperty['User'] = relationship('User')
-    revisions: List['VisualizationRevision'] = relationship('VisualizationRevision',
+    revisions: RelationshipProperty[List['VisualizationRevision']] = relationship('VisualizationRevision',
         back_populates='visualization',
         cascade="all, delete-orphan",
         primaryjoin=(lambda: Visualization.id == VisualizationRevision.visualization_id))
@@ -8065,16 +8065,16 @@ class Visualization(Base, RepresentById):
         post_update=True,
         primaryjoin=(lambda: Visualization.latest_revision_id == VisualizationRevision.id),
         lazy="joined")
-    tags = relationship('VisualizationTagAssociation',
+    tags: RelationshipProperty[List['VisualizationTagAssociation']] = relationship('VisualizationTagAssociation',
         order_by=lambda: VisualizationTagAssociation.id,
         back_populates="visualization")
-    annotations = relationship('VisualizationAnnotationAssociation',
+    annotations: RelationshipProperty[List['VisualizationAnnotationAssociation']] = relationship('VisualizationAnnotationAssociation',
         order_by=lambda: VisualizationAnnotationAssociation.id,
         back_populates="visualization")
-    ratings = relationship('VisualizationRatingAssociation',
+    ratings: RelationshipProperty[List['VisualizationRatingAssociation']] = relationship('VisualizationRatingAssociation',
         order_by=lambda: VisualizationRatingAssociation.id,
         back_populates="visualization")
-    users_shared_with = relationship('VisualizationUserShareAssociation', back_populates='visualization')
+    users_shared_with: RelationshipProperty[List['VisualizationUserShareAssociation']] = relationship('VisualizationUserShareAssociation', back_populates='visualization')
 
     average_rating: column_property  # defined at the end of this module
 
