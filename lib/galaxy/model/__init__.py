@@ -927,7 +927,7 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
     galaxy_session: 'GalaxySession' = relationship('GalaxySession')
     history: Optional['History'] = relationship('History', back_populates='jobs')
     library_folder: Optional['LibraryFolder'] = relationship('LibraryFolder',)
-    parameters = relationship('JobParameter',)
+    parameters: List['JobParameter'] = relationship('JobParameter',)
     input_datasets: List['JobToInputDatasetAssociation'] = relationship('JobToInputDatasetAssociation', back_populates='job')
     input_dataset_collections: List['JobToInputDatasetCollectionAssociation'] = relationship('JobToInputDatasetCollectionAssociation',
         back_populates='job',)
@@ -1605,8 +1605,8 @@ class Task(Base, JobLike, RepresentById):
     task_runner_external_id = Column(String(255))
     prepare_input_files_cmd = Column(TEXT)
     job: 'Job' = relationship('Job', back_populates='tasks')
-    text_metrics = relationship('TaskMetricText')
-    numeric_metrics = relationship('TaskMetricNumeric')
+    text_metrics: List['TaskMetricText'] = relationship('TaskMetricText')
+    numeric_metrics: List['TaskMetricNumeric'] = relationship('TaskMetricNumeric')
 
     _numeric_metric = TaskMetricNumeric
     _text_metric = TaskMetricText
@@ -1828,7 +1828,7 @@ class JobToInputDatasetCollectionElementAssociation(Base, RepresentById):
     dataset_collection_element_id = Column(Integer,
         ForeignKey('dataset_collection_element.id'), index=True)
     name = Column(Unicode(255))
-    dataset_collection_element = relationship('DatasetCollectionElement', lazy="joined")
+    dataset_collection_element: 'DatasetCollectionElement' = relationship('DatasetCollectionElement', lazy="joined")
     job: 'Job' = relationship('Job', back_populates='input_dataset_collection_elements')
 
     def __init__(self, name, dataset_collection_element):
@@ -1846,7 +1846,7 @@ class JobToOutputDatasetCollectionAssociation(Base, RepresentById):
     dataset_collection_id = Column(Integer,
         ForeignKey('history_dataset_collection_association.id'), index=True)
     name = Column(Unicode(255))
-    dataset_collection_instance = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
+    dataset_collection_instance: 'HistoryDatasetCollectionAssociation' = relationship('HistoryDatasetCollectionAssociation', lazy="joined")
     job: 'Job' = relationship('Job', back_populates='output_dataset_collection_instances')
 
     def __init__(self, name, dataset_collection_instance):
@@ -1949,7 +1949,7 @@ class ImplicitCollectionJobs(Base, Serializable):
 
     id = Column(Integer, primary_key=True)
     populated_state = Column(TrimmedString(64), default='new', nullable=False)
-    jobs = relationship('ImplicitCollectionJobsJobAssociation',
+    jobs: List['ImplicitCollectionJobsJobAssociation'] = relationship('ImplicitCollectionJobsJobAssociation',
         back_populates='implicit_collection_jobs')
 
     class populated_states(str, Enum):
@@ -2012,7 +2012,7 @@ class PostJobActionAssociation(Base, RepresentById):
     id = Column(Integer, primary_key=True)
     job_id = Column(Integer, ForeignKey('job.id'), index=True, nullable=False)
     post_job_action_id = Column(Integer, ForeignKey('post_job_action.id'), index=True, nullable=False)
-    post_job_action = relationship('PostJobAction')
+    post_job_action: 'PostJobAction' = relationship('PostJobAction')
     job: 'Job' = relationship('Job', back_populates='post_job_actions')
 
     def __init__(self, pja, job=None, job_id=None):
@@ -2087,7 +2087,7 @@ class JobExportHistoryArchive(Base, RepresentById):
     compressed = Column(Boolean, index=True, default=False)
     history_attrs_filename = Column(TEXT)
     job: 'Job' = relationship('Job')
-    dataset = relationship('Dataset')
+    dataset: 'Dataset' = relationship('Dataset')
     history: 'History' = relationship('History', back_populates='exports')
 
     ATTRS_FILENAME_HISTORY = 'history_attrs.txt'
@@ -2244,7 +2244,7 @@ class GenomeIndexToolData(Base, RepresentById):  # TODO: params arg is lost
     indexer = Column(String(64))
     user_id = Column(Integer, ForeignKey('galaxy_user.id'), index=True)
     job: 'Job' = relationship('Job')
-    dataset = relationship('Dataset')
+    dataset: 'Dataset' = relationship('Dataset')
     user: 'User' = relationship('User')
 
 
@@ -2256,9 +2256,9 @@ class Group(Base, Dictifiable, RepresentById):
     update_time = Column(DateTime, default=now, onupdate=now)
     name = Column(String(255), index=True, unique=True)
     deleted = Column(Boolean, index=True, default=False)
-    quotas = relationship('GroupQuotaAssociation', back_populates='group')
-    roles = relationship('GroupRoleAssociation', back_populates='group')
-    users = relationship('UserGroupAssociation', back_populates='group')
+    quotas: List['GroupQuotaAssociation'] = relationship('GroupQuotaAssociation', back_populates='group')
+    roles: List['GroupRoleAssociation'] = relationship('GroupRoleAssociation', back_populates='group')
+    users: List['UserGroupAssociation'] = relationship('UserGroupAssociation', back_populates='group')
 
     dict_collection_visible_keys = ['id', 'name']
     dict_element_visible_keys = ['id', 'name']
@@ -2277,7 +2277,7 @@ class UserGroupAssociation(Base, RepresentById):
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
     user: 'User' = relationship('User', back_populates='groups')
-    group = relationship('Group', back_populates='users')
+    group: 'Group' = relationship('Group', back_populates='users')
 
     def __init__(self, user, group):
         self.user = user
@@ -2339,7 +2339,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
     datasets: List['HistoryDatasetAssociation'] = relationship('HistoryDatasetAssociation',
         back_populates='history',
         order_by=lambda: asc(HistoryDatasetAssociation.hid))
-    exports = relationship('JobExportHistoryArchive',
+    exports: List['JobExportHistoryArchive'] = relationship('JobExportHistoryArchive',
         back_populates='history',
         primaryjoin=lambda: JobExportHistoryArchive.history_id == History.id,
         order_by=lambda: desc(JobExportHistoryArchive.id))
@@ -2350,8 +2350,8 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
         ),
         order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
-    dataset_collections = relationship('HistoryDatasetCollectionAssociation', back_populates='history')
-    active_dataset_collections = relationship('HistoryDatasetCollectionAssociation',
+    dataset_collections: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation', back_populates='history')
+    active_dataset_collections: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
             lambda: (and_(HistoryDatasetCollectionAssociation.history_id == History.id,
              not_(HistoryDatasetCollectionAssociation.deleted)))
@@ -2365,7 +2365,7 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
         ),
         order_by=lambda: asc(HistoryDatasetAssociation.hid),
         viewonly=True)
-    visible_dataset_collections = relationship('HistoryDatasetCollectionAssociation',
+    visible_dataset_collections: List['HistoryDatasetCollectionAssociation'] = relationship('HistoryDatasetCollectionAssociation',
         primaryjoin=(
             lambda: and_(
                 HistoryDatasetCollectionAssociation.history_id == History.id,
@@ -2374,21 +2374,21 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
         ),
         order_by=lambda: asc(HistoryDatasetCollectionAssociation.hid),
         viewonly=True)
-    tags = relationship('HistoryTagAssociation',
+    tags: List['HistoryTagAssociation'] = relationship('HistoryTagAssociation',
         order_by=lambda: HistoryTagAssociation.id,
         back_populates='history')
-    annotations = relationship('HistoryAnnotationAssociation',
+    annotations: List['HistoryAnnotationAssociation'] = relationship('HistoryAnnotationAssociation',
         order_by=lambda: HistoryAnnotationAssociation.id,
         back_populates='history')
-    ratings = relationship('HistoryRatingAssociation',
+    ratings: List['HistoryRatingAssociation'] = relationship('HistoryRatingAssociation',
         order_by=lambda: HistoryRatingAssociation.id,
         back_populates='history')
-    default_permissions = relationship('DefaultHistoryPermissions', back_populates='history')
-    users_shared_with = relationship('HistoryUserShareAssociation', back_populates='history')
-    galaxy_sessions = relationship('GalaxySessionToHistoryAssociation', back_populates='history')
-    workflow_invocations = relationship('WorkflowInvocation', back_populates='history')
-    user: 'User' = relationship('User', back_populates='histories')
-    jobs = relationship('Job', back_populates='history')
+    default_permissions: List['DefaultHistoryPermissions']  = relationship('DefaultHistoryPermissions', back_populates='history')
+    users_shared_with: List['HistoryUserShareAssociation'] = relationship('HistoryUserShareAssociation', back_populates='history')
+    galaxy_sessions: List['GalaxySessionToHistoryAssociation'] = relationship('GalaxySessionToHistoryAssociation', back_populates='history')
+    workflow_invocations: List['WorkflowInvocation'] = relationship('WorkflowInvocation', back_populates='history')
+    user: Optional['User'] = relationship('User', back_populates='histories')
+    jobs: List['Job'] = relationship('Job', back_populates='history')
 
     update_time = column_property(
         select(func.max(HistoryAudit.update_time)).where(HistoryAudit.history_id == id).scalar_subquery(),
