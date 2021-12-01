@@ -151,7 +151,9 @@ def __externalize_commands(job_wrapper, shell, commands_builder, remote_command_
     write_script(
         local_container_script,
         script_contents,
-        job_io=job_wrapper.job_io,
+        check_job_script_integrity=job_wrapper.job_io.check_job_script_integrity,
+        check_job_script_integrity_count=job_wrapper.job_io.check_job_script_integrity_count,
+        check_job_script_integrity_sleep=job_wrapper.job_io.check_job_script_integrity_sleep,
     )
     commands = f"{shell} {local_container_script}"
     # TODO: Cleanup for_pulsar hack.
