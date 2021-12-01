@@ -206,7 +206,7 @@ class MockJobWrapper:
 
     @property
     def job_io(self):
-        return Bunch(get_output_fnames=lambda: ['output1'], check_job_script_integrity=False)
+        return Bunch(get_output_fnames=lambda: ['output1'], check_job_script_integrity=False, check_job_script_integrity_count=0, check_job_script_integrity_sleep=0)
 
     @property
     def is_cwl_job(self):
