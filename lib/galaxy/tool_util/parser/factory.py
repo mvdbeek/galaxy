@@ -5,10 +5,11 @@ from uuid import uuid4
 
 from yaml import safe_load
 
+from galaxy.tool_util.cwl.parser import tool_proxy_from_persistent_representation
 from galaxy.tool_util.loader import load_tool_with_refereces
 from galaxy.util import parse_xml_string_to_etree
 from galaxy.util.yaml_util import ordered_load
-from .cwl import CwlToolSource, tool_proxy
+from .cwl import CwlToolSource
 from .interface import InputSource, ToolSource
 from .xml import XmlInputSource, XmlToolSource
 from .yaml import YamlInputSource, YamlToolSource
@@ -21,9 +22,9 @@ def build_xml_tool_source(xml_string):
     return XmlToolSource(parse_xml_string_to_etree(xml_string))
 
 
-def build_cwl_tool_source(yaml_string):
-    tool_proxy(tool_object=safe_load(yaml_string))
-    return CwlToolSource(tool_file=None, tool_proxy=tool_proxy)
+def build_cwl_tool_source(persistent_representation):
+    tool_proxy = tool_proxy_from_persistent_representation(persistent_representation)
+    return CwlToolSource(tool_proxy=tool_proxy)
 
 
 def build_yaml_tool_source(yaml_string):

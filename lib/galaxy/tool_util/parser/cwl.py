@@ -1,3 +1,4 @@
+import json
 import logging
 
 from galaxy.tool_util.cwl.parser import tool_proxy, tool_proxy_from_persistent_representation
@@ -273,6 +274,9 @@ class CwlToolSource(ToolSource):
 
     def parse_python_template_version(self):
         return '3.5'
+
+    def to_string(self):
+        return json.dumps(self.tool_proxy.to_persistent_representation())
 
 
 def strip_namespace(ordered_dict, namespace):
