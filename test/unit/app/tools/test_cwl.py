@@ -39,6 +39,7 @@ def get_tool_source(*args, **kwargs):
     tool_source = _get_tool_source(*args, **kwargs)
     if not isinstance(tool_source, CwlToolSource):
         raise Exception(f"Returned ToolSource class '{type(tool_source)}' was not expected class 'CwlToolSource'")
+    return tool_source
 
 
 def _cwl_tool_path(path):
