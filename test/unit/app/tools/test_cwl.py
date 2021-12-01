@@ -23,13 +23,22 @@ from galaxy.tool_util.cwl.parser import (
     tool_proxy_from_persistent_representation,
 )
 from galaxy.tool_util.cwl.representation import USE_FIELD_TYPES
-from galaxy.tool_util.parser.cwl import CWL_DEFAULT_FILE_OUTPUT
-from galaxy.tool_util.parser.factory import get_tool_source
+from galaxy.tool_util.parser.cwl import (
+    CWL_DEFAULT_FILE_OUTPUT,
+    CwlToolSource,
+)
+from galaxy.tool_util.parser.factory import get_tool_source as _get_tool_source
 from galaxy.tools.parameters import populate_state
 from galaxy.tools.parameters.wrapped import WrappedParameters
 from galaxy.util import galaxy_directory
 
 CWL_TOOLS_DIRECTORY = os.path.abspath(os.path.join(galaxy_directory(), "test/functional/tools/cwl_tools"))
+
+
+def get_tool_source(*args, **kwargs):
+    tool_source = _get_tool_source(*args, **kwargs)
+    if not isinstance(tool_source, CwlToolSource):
+        raise Exception(f"Returned ToolSource class '{type(tool_source)}' was not expected class 'CwlToolSource'")
 
 
 def _cwl_tool_path(path):
