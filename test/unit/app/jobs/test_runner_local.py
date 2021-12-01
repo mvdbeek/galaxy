@@ -190,7 +190,7 @@ class MockJobWrapper:
 
     @property
     def job_io(self):
-        return bunch.Bunch(get_output_fnames=lambda: [], check_job_script_integrity=False)
+        return bunch.Bunch(get_output_fnames=lambda: [], check_job_script_integrity=False, check_job_script_integrity_count=0, check_job_script_integrity_sleep=0)
 
     def get_job(self):
         return self.job
