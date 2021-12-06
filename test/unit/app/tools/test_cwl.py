@@ -444,7 +444,7 @@ def test_representation_id():
         representation["id"] = "my-cool-id"
 
         uuid = str(uuid4())
-        proxy = tool_proxy(tool_object=representation, tool_directory="/", uuid=uuid)
+        proxy = tool_proxy(tool_object=representation, uuid=uuid)
         tool_id = proxy.galaxy_id()
         # assert tool_id == "my-cool-id", tool_id
         assert tool_id == uuid, tool_id
