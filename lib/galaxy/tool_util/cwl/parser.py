@@ -4,12 +4,10 @@ adapt cwltool to Galaxy features and abstract the library away from the rest
 of the framework.
 """
 
-import base64
 import copy
 import json
 import logging
 import os
-import pickle
 from abc import ABCMeta, abstractmethod
 from typing import Dict, List, overload, Union
 from uuid import uuid4
@@ -20,7 +18,6 @@ from galaxy.exceptions import MessageException
 from galaxy.util import (
     listify,
     safe_makedirs,
-    unicodify,
 )
 from galaxy.util.bunch import Bunch
 from .cwltool_deps import (
@@ -116,14 +113,7 @@ def tool_proxy(tool_path=None, tool_object=None, strict_cwl_validation=True, too
 def tool_proxy_from_persistent_representation(persisted_tool, strict_cwl_validation=True, tool_directory=None):
     """Load a ToolProxy from a previously persisted representation."""
     ensure_cwltool_available()
-    if PERSISTED_REPRESENTATION == "cwl_tool_object":
-        kwds = {"cwl_tool_object": ToolProxy.from_persistent_representation(persisted_tool)}
-    else:
-        raw_process_reference = persisted_tool  # ???
-        kwds = {"raw_process_reference": ToolProxy.from_persistent_representation(raw_process_reference)}
-    uuid = persisted_tool["uuid"]
-    tool = _to_cwl_tool_object(uuid=uuid, strict_cwl_validation=strict_cwl_validation, tool_directory=tool_directory, **kwds)
-    return tool
+    return ToolProxy.from_persistent_representation(persisted_tool, strict_cwl_validation=strict_cwl_validation, tool_directory=tool_directory)
 
 
 def workflow_proxy(workflow_path, strict_cwl_validation=True):
@@ -138,13 +128,8 @@ def load_job_proxy(job_directory, strict_cwl_validation=True):
     job_objects = json.load(open(job_objects_path))
     job_inputs = job_objects["job_inputs"]
     output_dict = job_objects["output_dict"]
-    # Any reason to retain older tool_path variant of this? Probably not?
-    if "tool_path" in job_objects:
-        tool_path = job_objects["tool_path"]
-        cwl_tool = tool_proxy(tool_path, strict_cwl_validation=strict_cwl_validation)
-    else:
-        persisted_tool = job_objects["tool_representation"]
-        cwl_tool = tool_proxy_from_persistent_representation(persisted_tool=persisted_tool, strict_cwl_validation=strict_cwl_validation)
+    persisted_tool = job_objects["tool_representation"]
+    cwl_tool = tool_proxy_from_persistent_representation(persisted_tool=persisted_tool, strict_cwl_validation=strict_cwl_validation)
     cwl_job = cwl_tool.job_proxy(job_inputs, output_dict, job_directory=job_directory)
     return cwl_job
 
@@ -321,30 +306,29 @@ class ToolProxy(metaclass=ABCMeta):
     def to_persistent_representation(self):
         """Return a JSON representation of this tool. Not for serialization
         over the wire, but serialization in a database."""
-        # TODO: Replace this with some more readable serialization,
-        # I really don't like using pickle here.
-        if PERSISTED_REPRESENTATION == "cwl_tool_object":
-            persisted_obj = remove_pickle_problems(self._tool)
-        else:
-            persisted_obj = self._raw_process_reference
+        persisted_obj = self._tool.tool
+        persisted_obj['requirements'] = self.requirements
+        if not persisted_obj.get('cwlVersion'):
+            # This happens for any inline process, but getting it from metadata is correct for inline processes at least
+            persisted_obj['cwlVersion'] = self._tool.metadata['cwlVersion']
         return {
             "class": self._class,
-            "pickle": unicodify(base64.b64encode(pickle.dumps(persisted_obj, pickle.HIGHEST_PROTOCOL))),
+            # Should maybe be yaml instead
+            "raw_process_reference": persisted_obj,
             "uuid": self._uuid,
         }
 
     @staticmethod
-    def from_persistent_representation(as_object):
+    def from_persistent_representation(as_object, strict_cwl_validation=True, tool_directory=None):
         """Recover an object serialized with to_persistent_representation."""
         if "class" not in as_object:
             raise Exception("Failed to deserialize tool proxy from JSON object - no class found.")
-        if "pickle" not in as_object:
-            raise Exception("Failed to deserialize tool proxy from JSON object - no pickle representation found.")
-        if "uuid" not in as_object:
-            raise Exception("Failed to deserialize tool proxy from JSON object - no uuid found.")
-        to_unpickle = base64.b64decode(as_object["pickle"])
-        loaded_object = pickle.loads(to_unpickle)
+        loaded_object = tool_proxy(tool_object=as_object['raw_process_reference'], strict_cwl_validation=strict_cwl_validation, tool_directory=tool_directory, uuid=as_object.get('uuid'))
         return loaded_object
+
+    @property
+    def requirements(self):
+        return getattr(self._tool, "requirements", [])
 
 
 class CommandLineToolProxy(ToolProxy):
@@ -438,10 +422,6 @@ class CommandLineToolProxy(ToolProxy):
                     first_version = None if not versions else versions[0]
                     requirements.append((package["package"], first_version))
         return requirements
-
-    @property
-    def requirements(self):
-        return getattr(self._tool, "requirements", [])
 
 
 class ExpressionToolProxy(CommandLineToolProxy):
@@ -1116,17 +1096,6 @@ class SubworkflowStepProxy(BaseStepProxy):
         if self._subworkflow_proxy is None:
             self._subworkflow_proxy = WorkflowProxy(self.cwl_tool_object)
         return self._subworkflow_proxy
-
-
-def remove_pickle_problems(obj):
-    """doc_loader does not pickle correctly"""
-    if hasattr(obj, "doc_loader"):
-        obj.doc_loader = None
-    if hasattr(obj, "embedded_tool"):
-        obj.embedded_tool = remove_pickle_problems(obj.embedded_tool)
-    if hasattr(obj, "steps"):
-        obj.steps = [remove_pickle_problems(s) for s in obj.steps]
-    return obj
 
 
 class WorkflowToolReference(metaclass=ABCMeta):
