@@ -468,7 +468,7 @@ def test_optional_output():
     datasets, collections = _outputs(tool_source)
     assert len(datasets) == 2, datasets
     output = datasets["optional_file"]
-    assert output.format == CWL_DEFAULT_FILE_OUTPUT, output.format
+    assert output.format == "expression.json", output.format
 
 
 def test_sorttool():
