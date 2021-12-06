@@ -97,7 +97,7 @@ class DynamicToolManager(ModelManager):
             else:
                 # Else - build a tool proxy so that we can convert to the presistable
                 # hash.
-                proxy = tool_proxy(tool_object=representation, tool_directory=tool_directory, uuid=uuid)
+                proxy = tool_proxy(tool_object=representation['raw_process_reference'], tool_directory=tool_directory, uuid=uuid)
                 tool_id = proxy.galaxy_id()
             value = representation
         else:
