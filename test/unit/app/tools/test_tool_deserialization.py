@@ -2,7 +2,6 @@ import pytest
 
 from galaxy.model.unittest_utils import GalaxyDataTestApp
 from galaxy.tool_util.parser import get_tool_source
-from galaxy.tool_util.parser.cwl import CwlToolSource
 from galaxy.tools import create_tool_from_source
 
 XML_TOOL = """
