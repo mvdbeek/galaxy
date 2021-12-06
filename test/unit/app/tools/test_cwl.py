@@ -75,10 +75,7 @@ def test_serialize_deserialize():
     rep = tool.to_persistent_representation()
     tool = tool_proxy_from_persistent_representation(rep)
     assert tool._uuid == expected_uuid
-    print(tool)
     tool.job_proxy({"file1": "/moo"}, {})
-    print(tool._tool.tool)
-
     with open(path) as f:
         tool_object = yaml.safe_load(f)
     tool_object = json.loads(json.dumps(tool_object))
