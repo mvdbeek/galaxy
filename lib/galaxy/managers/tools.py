@@ -79,23 +79,17 @@ class DynamicToolManager(ModelManager):
             value = representation
         elif tool_format in ["CommandLineTool", "ExpressionTool"]:
             # CWL tools
-            uuid = tool_payload.get("uuid", None)
+            uuid = tool_payload.get("uuid") or representation.get('uuid')
             if uuid is None:
-                uuid = uuid4()
+                uuid = str(uuid4())
             tool_id = representation.get("id", None)
             tool_version = representation.get("version", None)
             tool_path = tool_payload.get("path", None)
             if is_path:
                 proxy = tool_proxy(tool_path=tool_path, uuid=uuid)
                 tool_id = proxy.galaxy_id()
-            elif "pickle" in representation:
-                # It has already been proxies and pickled - just take the tool as is.
-                assert 'uuid' in representation
-                # Why is this here though - creating a tool from pickled representation?
-                # Seems bad at first glance...
-                uuid = representation["uuid"]
             else:
-                # Else - build a tool proxy so that we can convert to the presistable
+                # Else - build a tool proxy so that we can convert to the persistable
                 # hash.
                 proxy = tool_proxy(tool_object=representation['raw_process_reference'], tool_directory=tool_directory, uuid=uuid)
                 tool_id = proxy.galaxy_id()

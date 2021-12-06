@@ -48,11 +48,8 @@ class CwlToolSource(ToolSource):
             if self._source_path is not None:
                 self._tool_proxy = tool_proxy(self._source_path, strict_cwl_validation=self._strict_cwl_validation, tool_directory=self._tool_directory, uuid=self._uuid)
             else:
-                if "pickle" not in self._source_object:
-                    self._tool_proxy = tool_proxy(tool_object=self._source_object, strict_cwl_validation=self._strict_cwl_validation, tool_directory=self._tool_directory, uuid=self._uuid)
-                else:
-                    assert 'uuid' in self._source_object
-                    self._tool_proxy = tool_proxy_from_persistent_representation(self._source_object, strict_cwl_validation=self._strict_cwl_validation, tool_directory=self._tool_directory)
+                assert 'uuid' in self._source_object
+                self._tool_proxy = tool_proxy_from_persistent_representation(self._source_object, strict_cwl_validation=self._strict_cwl_validation, tool_directory=self._tool_directory)
         return self._tool_proxy
 
     def _get_gx_interface(self):
