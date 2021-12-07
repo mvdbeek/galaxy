@@ -212,6 +212,7 @@ class GalaxyManagerApplication(MinimalManagerApp, MinimalGalaxyApplication):
         # to setup the installed repositories ... this is not ideal
         self._configure_tool_config_files()
         self.installed_repository_manager = self._register_singleton(InstalledRepositoryManager, InstalledRepositoryManager(self))
+        self.dynamic_tool_manager = self._register_singleton(DynamicToolManager)
         self._configure_datatypes_registry(self.installed_repository_manager)
         self._register_singleton(Registry, self.datatypes_registry)
         galaxy.model.set_datatypes_registry(self.datatypes_registry)
@@ -250,7 +251,6 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication):
 
         self.dependency_resolvers_view = self._register_singleton(DependencyResolversView, DependencyResolversView(self))
         self.test_data_resolver = self._register_singleton(TestDataResolver, TestDataResolver(file_dirs=self.config.tool_test_data_directories))
-        self.dynamic_tool_manager = self._register_singleton(DynamicToolManager)
         self.api_keys_manager = self._register_singleton(ApiKeyManager)
 
         # Tool Data Tables
