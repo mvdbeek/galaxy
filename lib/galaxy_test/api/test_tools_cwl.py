@@ -239,10 +239,10 @@ class CwlToolsTestCase(ApiTestCase):
     @skip_without_tool("optional-output.cwl")
     def test_optional_output(self):
         run_object = self.cwl_populator.run_cwl_job("optional-output.cwl", "test/functional/tools/cwl_tools/v1.0/v1.0/cat-job.json")
-        output_file = run_object.output(0)
-        optional_file = run_object.output(1)
-        output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id, dataset=output_file)
-        optional_content = self.dataset_populator.get_history_dataset_content(run_object.history_id, dataset=optional_file)
+        output_file_id = run_object._output_name_to_object('output_file').history_content_id
+        optional_file_id = run_object._output_name_to_object('optional_file').history_content_id
+        output_content = self.dataset_populator.get_history_dataset_content(run_object.history_id, dataset_id=output_file_id)
+        optional_content = self.dataset_populator.get_history_dataset_content(run_object.history_id, dataset_id=optional_file_id)
         self.assertEqual(output_content, "Hello world!\n")
         self.assertEqual(optional_content, "null")
 
