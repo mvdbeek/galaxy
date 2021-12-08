@@ -409,7 +409,8 @@ class CwlPopulator:
         job: Optional[Dict] = None,
         test_data_directory: Optional[str] = None,
         history_id: Optional[str] = None,
-        assert_ok=True,
+        skip_input_staging: bool = False,
+        assert_ok: bool = True,
     ):
         """
         :param artifact: CWL tool id, or (absolute or relative) path to a CWL
@@ -436,16 +437,17 @@ class CwlPopulator:
                     job = json.load(f)
         elif job is None:
             job = {}
-        _, datasets_uploaded = stage_inputs(
-            self.dataset_populator.galaxy_interactor,
-            history_id,
-            job,
-            use_fetch_api=False,
-            tool_or_workflow=tool_or_workflow,
-            job_dir=test_data_directory,
-        )
-        if datasets_uploaded:
-            self.dataset_populator.wait_for_history(history_id=history_id, assert_ok=True)
+        if not skip_input_staging:
+            _, datasets_uploaded = stage_inputs(
+                self.dataset_populator.galaxy_interactor,
+                history_id,
+                job,
+                use_fetch_api=False,
+                tool_or_workflow=tool_or_workflow,
+                job_dir=test_data_directory,
+            )
+            if datasets_uploaded:
+                self.dataset_populator.wait_for_history(history_id=history_id, assert_ok=True)
         if tool_or_workflow == "tool":
             run_object = self._run_cwl_tool_job(
                 artifact,
