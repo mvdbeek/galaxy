@@ -82,7 +82,6 @@ class DynamicToolManager(ModelManager):
             uuid = tool_payload.get("uuid") or representation.get('uuid')
             if uuid is None:
                 uuid = str(uuid4())
-            tool_id = representation.get("id", None)
             tool_version = representation.get("version", None)
             tool_path = tool_payload.get("path", None)
             if is_path:
