@@ -8,6 +8,8 @@ from galaxy import exceptions
 def artifact_class(trans, as_dict):
     object_id = as_dict.get("object_id", None)
     if as_dict.get("src", None) == "from_path":
+        # FIXME: assert trans is not None, but probably breaks conformance tests
+        # Don't merge before we haven't addressed this
         if trans and not trans.user_is_admin:
             raise exceptions.AdminRequiredException()
 
@@ -16,10 +18,10 @@ def artifact_class(trans, as_dict):
             as_dict = yaml.safe_load(f)
 
     artifact_class = as_dict.get("class", None)
+    target_object = None
     if artifact_class is None and "$graph" in as_dict:
         object_id = object_id or "main"
         graph = as_dict["$graph"]
-        target_object = None
         if isinstance(graph, dict):
             target_object = graph.get(object_id)
         else:
@@ -27,11 +29,14 @@ def artifact_class(trans, as_dict):
                 found_id = item.get("id")
                 if found_id == object_id or found_id == f"#{object_id}":
                     target_object = item
+                    break
 
         if target_object and target_object.get("class"):
             artifact_class = target_object["class"]
+            if artifact_class in ("CommandLineTool", "ExpressionTool"):
+                target_object['cwlVersion'] = as_dict['cwlVersion']
 
-    return artifact_class, as_dict, object_id
+    return artifact_class, as_dict, object_id, target_object
 
 
 __all__ = (

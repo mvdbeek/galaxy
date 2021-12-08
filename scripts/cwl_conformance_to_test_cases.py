@@ -84,8 +84,6 @@ RED_TESTS = {
     ],
     "v1.1": [
         # required
-        "any_input_param_graph_no_default",
-        "any_input_param_graph_no_default_hashmain",
         "directory_literal_with_literal_file_nostdin",
         "fail_glob_outside_output_dir",
         "format_checking",
@@ -174,8 +172,6 @@ RED_TESTS = {
     ],
     "v1.2": [
         # required
-        "any_input_param_graph_no_default",
-        "any_input_param_graph_no_default_hashmain",
         "directory_literal_with_literal_file_nostdin",
         "format_checking",
         "format_checking_equivalentclass",

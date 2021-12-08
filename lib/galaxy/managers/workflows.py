@@ -344,7 +344,7 @@ class WorkflowContentsManager(UsesAnnotations):
             workflow_path = as_dict.get("path")
             workflow_directory = os.path.normpath(os.path.dirname(workflow_path))
 
-        workflow_class, as_dict, object_id = artifact_class(trans, as_dict)
+        workflow_class, as_dict, object_id, _ = artifact_class(trans, as_dict)
         if workflow_class == "GalaxyWorkflow" or "yaml_content" in as_dict:
             # Format 2 Galaxy workflow.
             galaxy_interface = Format2ConverterGalaxyInterface()

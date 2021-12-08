@@ -43,9 +43,10 @@ class DynamicToolManager(ModelManager):
     def create_tool(self, trans, tool_payload, allow_load=True):
         src = tool_payload.get("src", "representation")
         is_path = src == "from_path"
+        target_object = None
 
         if is_path:
-            tool_format, representation, object_id = artifact_class(None, tool_payload)
+            tool_format, representation, object_id, target_object = artifact_class(None, tool_payload)
         else:
             assert src == "representation"
             if "representation" not in tool_payload:
@@ -58,12 +59,12 @@ class DynamicToolManager(ModelManager):
                 raise exceptions.ObjectAttributeMissingException(
                     "Current tool representations require 'class'."
                 )
+            tool_format = representation["class"]
 
         enable_beta_formats = getattr(self.app.config, "enable_beta_tool_formats", False)
         if not enable_beta_formats:
             raise exceptions.ConfigDoesNotAllowException("Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools.")
 
-        tool_format = representation["class"]
         tool_directory = tool_payload.get("tool_directory", None)
         tool_path = None
         if tool_format == "GalaxyTool":
@@ -77,21 +78,24 @@ class DynamicToolManager(ModelManager):
 
             tool_version = representation.get("version", None)
             value = representation
-        elif tool_format in ["CommandLineTool", "ExpressionTool"]:
+        elif tool_format in ("CommandLineTool", "ExpressionTool"):
             # CWL tools
             uuid = tool_payload.get("uuid") or representation.get('uuid')
             if uuid is None:
                 uuid = str(uuid4())
             tool_version = representation.get("version", None)
             tool_path = tool_payload.get("path", None)
-            if is_path:
+            if target_object is not None:
+                representation = {'raw_process_reference': target_object, 'uuid': uuid, 'class': tool_format}
+                proxy = tool_proxy(tool_object=target_object, tool_directory=tool_directory, uuid=uuid)
+                tool_path = None
+            elif is_path:
                 proxy = tool_proxy(tool_path=tool_path, uuid=uuid)
-                tool_id = proxy.galaxy_id()
             else:
                 # Else - build a tool proxy so that we can convert to the persistable
                 # hash.
                 proxy = tool_proxy(tool_object=representation['raw_process_reference'], tool_directory=tool_directory, uuid=uuid)
-                tool_id = proxy.galaxy_id()
+            tool_id = proxy.galaxy_id()
             value = representation
         else:
             raise Exception(f"Unknown tool format [{tool_format}] encountered.")
