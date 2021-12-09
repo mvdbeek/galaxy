@@ -76,14 +76,11 @@ class DynamicToolManager(ModelManager):
             if tool_id is None:
                 tool_id = str(uuid)
 
-            tool_version = representation.get("version", None)
-            value = representation
         elif tool_format in ("CommandLineTool", "ExpressionTool"):
             # CWL tools
             uuid = tool_payload.get("uuid") or representation.get('uuid')
             if uuid is None:
                 uuid = str(uuid4())
-            tool_version = representation.get("version", None)
             tool_path = tool_payload.get("path", None)
             if target_object is not None:
                 representation = {'raw_process_reference': target_object, 'uuid': uuid, 'class': tool_format}
@@ -96,7 +93,6 @@ class DynamicToolManager(ModelManager):
                 # hash.
                 proxy = tool_proxy(tool_object=representation['raw_process_reference'], tool_directory=tool_directory, uuid=uuid)
             tool_id = proxy.galaxy_id()
-            value = representation
         else:
             raise Exception(f"Unknown tool format [{tool_format}] encountered.")
         # TODO: enforce via DB constraint and catch appropriate
@@ -108,6 +104,7 @@ class DynamicToolManager(ModelManager):
             assert existing_tool.uuid == uuid
             dynamic_tool = existing_tool
         else:
+            tool_version = representation.get("version")
             dynamic_tool = self.create(
                 tool_format=tool_format,
                 tool_id=tool_id,
@@ -115,7 +112,7 @@ class DynamicToolManager(ModelManager):
                 tool_path=tool_path,
                 tool_directory=tool_directory,
                 uuid=uuid,
-                value=value,
+                value=representation,
             )
         self.app.toolbox.load_dynamic_tool(dynamic_tool)
         return dynamic_tool
