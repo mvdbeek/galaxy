@@ -214,6 +214,7 @@
   <!-- CWL Testing -->
   <tool file="cwl_tools/v1.0/v1.0/cat3-tool.cwl" />
   <tool file="cwl_tools/v1.0/v1.0/env-tool1.cwl" />
+  <tool file="cwl_tools/v1.0/v1.0/null-expression1-tool.cwl" />
   <tool file="cwl_tools/v1.0/v1.0/null-expression2-tool.cwl" />
   <tool file="cwl_tools/v1.0/v1.0/optional-output.cwl" />
   <tool file="cwl_tools/v1.0/v1.0/parseInt-tool.cwl" />
