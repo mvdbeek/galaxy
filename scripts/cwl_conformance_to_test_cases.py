@@ -34,9 +34,6 @@ RED_TESTS = {
     "v1.0": [
         # required
         "directory_literal_with_literal_file_nostdin",
-        "format_checking",
-        "format_checking_equivalentclass",
-        "format_checking_subclass",
         "stdin_from_directory_literal_with_literal_file",
         "stdin_from_directory_literal_with_local_file",
         "step_input_default_value_overriden_2nd_step_noexp",
@@ -86,9 +83,6 @@ RED_TESTS = {
         # required
         "directory_literal_with_literal_file_nostdin",
         "fail_glob_outside_output_dir",
-        "format_checking",
-        "format_checking_equivalentclass",
-        "format_checking_subclass",
         "input_records_file_entry_with_format",
         "outputEval_exitCode",
         "outputbinding_glob_directory",
@@ -173,9 +167,6 @@ RED_TESTS = {
     "v1.2": [
         # required
         "directory_literal_with_literal_file_nostdin",
-        "format_checking",
-        "format_checking_equivalentclass",
-        "format_checking_subclass",
         "glob_outside_outputs_fails",
         "input_records_file_entry_with_format",
         "outputEval_exitCode",
