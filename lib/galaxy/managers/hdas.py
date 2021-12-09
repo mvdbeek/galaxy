@@ -315,6 +315,7 @@ class HDASerializer(  # datasets._UnflattenedMetadataDatasetAssociationSerialize
             'display_apps',
             'display_types',
             'visualizations',
+            'cwl_formats',
 
             'validated_state',
             'validated_state_message',
