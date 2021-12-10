@@ -33,9 +33,6 @@ ${cwl_test_def}
 RED_TESTS = {
     "v1.0": [
         # required
-        "directory_literal_with_literal_file_nostdin",
-        "stdin_from_directory_literal_with_literal_file",
-        "stdin_from_directory_literal_with_local_file",
         "step_input_default_value_overriden_2nd_step_noexp",
         "step_input_default_value_overriden_noexp",
         # not required
@@ -81,7 +78,6 @@ RED_TESTS = {
     ],
     "v1.1": [
         # required
-        "directory_literal_with_literal_file_nostdin",
         "fail_glob_outside_output_dir",
         "input_records_file_entry_with_format",
         "outputEval_exitCode",
@@ -92,8 +88,6 @@ RED_TESTS = {
         "stage_file_array_to_dir",
         "stage_file_array_to_dir_basename",
         "stage_file_array_to_dir_basename_entryname",
-        "stdin_from_directory_literal_with_literal_file",
-        "stdin_from_directory_literal_with_local_file",
         "step_input_default_value_overriden_2nd_step_noexp",
         "step_input_default_value_overriden_noexp",
         # not required
@@ -166,7 +160,6 @@ RED_TESTS = {
     ],
     "v1.2": [
         # required
-        "directory_literal_with_literal_file_nostdin",
         "glob_outside_outputs_fails",
         "input_records_file_entry_with_format",
         "outputEval_exitCode",
@@ -177,8 +170,6 @@ RED_TESTS = {
         "stage_file_array",
         "stage_file_array_basename",
         "stage_file_array_entryname_overrides",
-        "stdin_from_directory_literal_with_literal_file",
-        "stdin_from_directory_literal_with_local_file",
         "step_input_default_value_overriden_2nd_step_noexp",
         "step_input_default_value_overriden_noexp",
         # not required
