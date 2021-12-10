@@ -49,31 +49,31 @@ class DynamicToolManager(ModelManager):
             tool_format, representation, object_id, target_object = artifact_class(None, tool_payload)
         else:
             assert src == "representation"
-            if "representation" not in tool_payload:
+            representation = tool_payload.get("representation")
+            if not representation:
                 raise exceptions.ObjectAttributeMissingException(
                     "A tool 'representation' is required."
                 )
 
-            representation = tool_payload["representation"]
-            if "class" not in representation:
+            tool_format = representation.get("class")
+            if not tool_format:
                 raise exceptions.ObjectAttributeMissingException(
                     "Current tool representations require 'class'."
                 )
-            tool_format = representation["class"]
 
         enable_beta_formats = getattr(self.app.config, "enable_beta_tool_formats", False)
         if not enable_beta_formats:
             raise exceptions.ConfigDoesNotAllowException("Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools.")
 
-        tool_directory = tool_payload.get("tool_directory", None)
+        tool_directory = tool_payload.get("tool_directory")
         tool_path = None
         if tool_format == "GalaxyTool":
-            uuid = tool_payload.get("uuid", None)
+            uuid = tool_payload.get("uuid")
             if uuid is None:
                 uuid = uuid4()
 
-            tool_id = representation.get("id", None)
-            if tool_id is None:
+            tool_id = representation.get("id")
+            if not tool_id:
                 tool_id = str(uuid)
 
         elif tool_format in ("CommandLineTool", "ExpressionTool"):
@@ -81,7 +81,7 @@ class DynamicToolManager(ModelManager):
             uuid = tool_payload.get("uuid") or representation.get('uuid')
             if uuid is None:
                 uuid = str(uuid4())
-            tool_path = tool_payload.get("path", None)
+            tool_path = tool_payload.get("path")
             if target_object is not None:
                 representation = {'raw_process_reference': target_object, 'uuid': uuid, 'class': tool_format}
                 proxy = tool_proxy(tool_object=target_object, tool_directory=tool_directory, uuid=uuid)
@@ -89,20 +89,23 @@ class DynamicToolManager(ModelManager):
             elif is_path:
                 proxy = tool_proxy(tool_path=tool_path, uuid=uuid)
             else:
-                # Else - build a tool proxy so that we can convert to the persistable
+                # Build a tool proxy so that we can convert to the persistable
                 # hash.
-                proxy = tool_proxy(tool_object=representation['raw_process_reference'], tool_directory=tool_directory, uuid=uuid)
+                proxy = tool_proxy(
+                    tool_object=representation["raw_process_reference"],
+                    tool_directory=tool_directory,
+                    uuid=uuid,
+                )
             tool_id = proxy.galaxy_id()
         else:
             raise Exception(f"Unknown tool format [{tool_format}] encountered.")
         # TODO: enforce via DB constraint and catch appropriate
         # exception.
-        existing_tool = self.get_tool_by_uuid(uuid)
-        if existing_tool is not None and not allow_load:
-            raise DuplicatedIdentifierException(existing_tool.id)
-        elif existing_tool:
-            assert existing_tool.uuid == uuid
-            dynamic_tool = existing_tool
+        dynamic_tool = self.get_tool_by_uuid(uuid)
+        if dynamic_tool:
+            if not allow_load:
+                raise DuplicatedIdentifierException(dynamic_tool.id)
+            assert dynamic_tool.uuid == uuid
         else:
             tool_version = representation.get("version")
             dynamic_tool = self.create(
