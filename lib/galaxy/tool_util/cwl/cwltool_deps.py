@@ -47,10 +47,12 @@ try:
         default_loader,
         resolve_and_validate_document,
     )
+    from cwltool.utils import get_listing
 except ImportError:
     default_loader = None  # type: ignore[assignment]
     load_tool = None  # type: ignore[assignment]
     resolve_and_validate_document = None  # type: ignore[assignment]
+    get_listing = None  # type: ignore[assignment]
 
 
 try:
@@ -108,6 +110,7 @@ def ensure_cwltool_available():
 __all__ = (
     'default_loader',
     'ensure_cwltool_available',
+    'get_listing',
     'getdefault',
     'load_tool',
     'LoadingContext',
