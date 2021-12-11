@@ -5,7 +5,7 @@ import json
 import logging
 import os
 from enum import Enum
-from typing import Any, NamedTuple, Optional
+from typing import Any, Dict, NamedTuple, Optional
 
 from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.util import safe_makedirs, string_as_bool
@@ -198,14 +198,29 @@ def dataset_wrapper_to_directory_json(inputs_dir, dataset_wrapper):
     except Exception:
         archive_location = None
 
+    extra_params = getattr(dataset_wrapper.unsanitized, "extra_params", {})
+    # We need to resolve path to location if there is a listing
+
     directory_json = {"location": dataset_wrapper.extra_files_path,
                       "class": "Directory",
                       "name": directory_name,
                       "archive_location": archive_location,
                       "archive_nameext": nameext,
                       "archive_nameroot": nameroot}
+    extra_params.update(directory_json)
+    entry_to_location(extra_params, extra_params['location'])
+    return extra_params
 
-    return directory_json
+
+def entry_to_location(entry: Dict[str, Any], parent_location: str):
+    # TODO unit test
+    if entry['class'] == 'File' and 'path' in entry and 'location' not in entry:
+        entry['location'] = os.path.join(parent_location, entry.pop('path'))
+    elif entry['class'] == 'Directory' and 'listing' in entry:
+        if 'location' not in entry and 'path' in entry:
+            entry['location'] = os.path.join(parent_location, entry.pop('path'))
+        for listing_entry in entry['listing']:
+            entry_to_location(listing_entry, parent_location=entry['location'])
 
 
 def collection_wrapper_to_array(inputs_dir, wrapped_value):

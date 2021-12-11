@@ -1795,7 +1795,10 @@ class BaseDataToolParameter(ToolParameter):
                 src = 'hda'
             if src is not None:
                 object_id = cached_id(value)
-                return {'id': app.security.encode_id(object_id) if use_security else object_id, 'src': src}
+                new_val = getattr(value, 'extra_params', {})
+                new_val['id'] = app.security.encode_id(object_id) if use_security else object_id
+                new_val['src'] = src
+                return new_val
 
         if value not in [None, '', 'None']:
             if isinstance(value, list) and len(value) > 0:
@@ -1808,16 +1811,9 @@ class BaseDataToolParameter(ToolParameter):
     def to_python(self, value, app):
         def single_to_python(value):
             if isinstance(value, dict) and 'src' in value:
-                id = value['id'] if isinstance(value['id'], int) else app.security.decode_id(value['id'])
-                if value['src'] == 'dce':
-                    return app.model.context.query(DatasetCollectionElement).get(id)
-                elif value['src'] == 'hdca':
-                    return app.model.context.query(HistoryDatasetCollectionAssociation).get(id)
-                elif value['src'] == 'ldda':
-                    return app.model.context.query(LibraryDatasetDatasetAssociation).get(id)
-                else:
-                    return app.model.context.query(HistoryDatasetAssociation).get(id)
-
+                if not value['src'] in ('hda', 'dce', 'ldda', 'hdca'):
+                    raise ParameterValueError(f"Invalid value {value}", self.name)
+                return src_id_to_item(app.model.context, app.security, value=value)
         if isinstance(value, dict) and 'values' in value:
             if hasattr(self, 'multiple') and self.multiple is True:
                 return [single_to_python(v) for v in value['values']]
@@ -1880,6 +1876,22 @@ class BaseDataToolParameter(ToolParameter):
                 raise ValueError("At most %d datasets are required for %s" % (self.max, self.name))
 
 
+def src_id_to_item(sa_session, security, value):
+    src_to_class = {
+        'hda': HistoryDatasetAssociation,
+        'ldda': LibraryDatasetDatasetAssociation,
+        'dce': DatasetCollectionElement,
+        'hdca': HistoryDatasetCollectionAssociation}
+    id_value = value['id']
+    decoded_id = id_value if isinstance(id_value, int) else security.decode_id(id_value)
+    try:
+        item = sa_session.query(src_to_class[value['src']]).get(decoded_id)
+    except KeyError:
+        raise ValueError(f"Unknown input source {value['src']} passed to job submission API.")
+    item.extra_params = {k: v for k, v in value.items() if k not in ('src', 'id')}
+    return item
+
+
 class DataToolParameter(BaseDataToolParameter):
     # TODO, Nate: Make sure the following unit tests appropriately test the dataset security
     # components.  Add as many additional tests as necessary.
@@ -1936,18 +1948,7 @@ class DataToolParameter(BaseDataToolParameter):
             found_hdca = False
             for single_value in value:
                 if isinstance(single_value, dict) and 'src' in single_value and 'id' in single_value:
-                    if single_value['src'] == 'hda':
-                        decoded_id = trans.security.decode_id(single_value['id'])
-                        rval.append(trans.sa_session.query(HistoryDatasetAssociation).get(decoded_id))
-                    elif single_value['src'] == 'hdca':
-                        found_hdca = True
-                        decoded_id = trans.security.decode_id(single_value['id'])
-                        rval.append(trans.sa_session.query(HistoryDatasetCollectionAssociation).get(decoded_id))
-                    elif single_value['src'] == 'ldda':
-                        decoded_id = trans.security.decode_id(single_value['id'])
-                        rval.append(trans.sa_session.query(LibraryDatasetDatasetAssociation).get(decoded_id))
-                    else:
-                        raise ValueError(f"Unknown input source {single_value['src']} passed to job submission API.")
+                    rval.append(src_id_to_item(trans.sa_session, trans.security, single_value))
                 elif isinstance(single_value, (
                         HistoryDatasetCollectionAssociation,
                         DatasetCollectionElement,
@@ -1969,14 +1970,7 @@ class DataToolParameter(BaseDataToolParameter):
         elif isinstance(value, (HistoryDatasetAssociation, LibraryDatasetDatasetAssociation)):
             rval.append(value)
         elif isinstance(value, dict) and 'src' in value and 'id' in value:
-            if value['src'] == 'hda':
-                decoded_id = trans.security.decode_id(value['id'])
-                rval.append(trans.sa_session.query(HistoryDatasetAssociation).get(decoded_id))
-            elif value['src'] == 'hdca':
-                decoded_id = trans.security.decode_id(value['id'])
-                rval.append(trans.sa_session.query(HistoryDatasetCollectionAssociation).get(decoded_id))
-            else:
-                raise ValueError(f"Unknown input source {value['src']} passed to job submission API.")
+            rval.append(src_id_to_item(trans.sa_session, trans.security, value))
         elif str(value).startswith("__collection_reduce__|"):
             encoded_ids = [v[len("__collection_reduce__|"):] for v in str(value).split(",")]
             decoded_ids = map(trans.security.decode_id, encoded_ids)

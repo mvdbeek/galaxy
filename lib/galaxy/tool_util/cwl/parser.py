@@ -23,7 +23,6 @@ from galaxy.util.bunch import Bunch
 from .cwltool_deps import (
     beta_relaxed_fmt_check,
     ensure_cwltool_available,
-    get_listing,
     getdefault,
     pathmapper,
     process,
@@ -58,6 +57,7 @@ SUPPORTED_TOOL_REQUIREMENTS = [
     "EnvVarRequirement",
     "InitialWorkDirRequirement",
     "InlineJavascriptRequirement",
+    "LoadListingRequirement",
     "ResourceRequirement",
     "ShellCommandRequirement",
     "ScatterFeatureRequirement",
@@ -486,20 +486,19 @@ class JobProxy:
             self._is_command_line_job = hasattr(self._cwl_job, "command_line")
 
     def _normalize_job(self):
+        runtime_context = RuntimeContext({})
+        make_fs_access = getdefault(runtime_context.make_fs_access, StdFsAccess)
+        fs_access = make_fs_access(runtime_context.basedir)
+
         # Somehow reuse whatever causes validate in cwltool... maybe?
         def pathToLoc(p):
             if "location" not in p and "path" in p:
                 p["location"] = p["path"]
                 del p["path"]
 
-        runtime_context = RuntimeContext({})
-        make_fs_access = getdefault(runtime_context.make_fs_access, StdFsAccess)
-        fs_access = make_fs_access(runtime_context.basedir)
         process.fill_in_defaults(self._tool_proxy._tool.tool["inputs"], self._input_dict, fs_access)
         process.visit_class(self._input_dict, ("File", "Directory"), pathToLoc)
         # TODO: Why doesn't fillInDefault fill in locations instead of paths?
-        # get_listing will fill in listing for class Directory, which we don't store
-        get_listing(fs_access, self._input_dict)
         # TODO: validate like cwltool process _init_job.
         #    validate.validate_ex(self.names.get_name("input_record_schema", ""), builder.job,
         #                         strict=False, logger=_logger_validation_warnings)
