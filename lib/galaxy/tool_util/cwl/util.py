@@ -294,7 +294,9 @@ def galactic_job_json(job, test_data_directory, upload_func, collection_create_f
         finally:
             if temp_dir:
                 shutil.rmtree(temp_dir)
-        return upload_tar(tmp.name)
+        upload_response = upload_tar(tmp.name)
+        upload_response.update(value)
+        return upload_response
 
     def replacement_list(value):
         collection_element_identifiers = []
