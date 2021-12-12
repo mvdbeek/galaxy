@@ -1813,7 +1813,7 @@ class BaseDataToolParameter(ToolParameter):
             if isinstance(value, dict) and 'src' in value:
                 if not value['src'] in ('hda', 'dce', 'ldda', 'hdca'):
                     raise ParameterValueError(f"Invalid value {value}", self.name)
-                return src_id_to_item(app.model.context, app.security, value=value)
+                return src_id_to_item(sa_session=app.model.context, value=value)
         if isinstance(value, dict) and 'values' in value:
             if hasattr(self, 'multiple') and self.multiple is True:
                 return [single_to_python(v) for v in value['values']]
@@ -1876,14 +1876,17 @@ class BaseDataToolParameter(ToolParameter):
                 raise ValueError("At most %d datasets are required for %s" % (self.max, self.name))
 
 
-def src_id_to_item(sa_session, security, value):
+def src_id_to_item(sa_session, value, security=None):
     src_to_class = {
         'hda': HistoryDatasetAssociation,
         'ldda': LibraryDatasetDatasetAssociation,
         'dce': DatasetCollectionElement,
         'hdca': HistoryDatasetCollectionAssociation}
     id_value = value['id']
-    decoded_id = id_value if isinstance(id_value, int) else security.decode_id(id_value)
+    if security is None:
+        decoded_id = id_value
+    else:
+        decoded_id = id_value if isinstance(id_value, int) else security.decode_id(id_value)
     try:
         item = sa_session.query(src_to_class[value['src']]).get(decoded_id)
     except KeyError:
@@ -1948,7 +1951,7 @@ class DataToolParameter(BaseDataToolParameter):
             found_hdca = False
             for single_value in value:
                 if isinstance(single_value, dict) and 'src' in single_value and 'id' in single_value:
-                    rval.append(src_id_to_item(trans.sa_session, trans.security, single_value))
+                    rval.append(src_id_to_item(sa_session=trans.sa_session, value=single_value, security=trans.security))
                 elif isinstance(single_value, (
                         HistoryDatasetCollectionAssociation,
                         DatasetCollectionElement,
@@ -1970,7 +1973,7 @@ class DataToolParameter(BaseDataToolParameter):
         elif isinstance(value, (HistoryDatasetAssociation, LibraryDatasetDatasetAssociation)):
             rval.append(value)
         elif isinstance(value, dict) and 'src' in value and 'id' in value:
-            rval.append(src_id_to_item(trans.sa_session, trans.security, value))
+            rval.append(src_id_to_item(sa_session=trans.sa_session, value=value, security=trans.security))
         elif str(value).startswith("__collection_reduce__|"):
             encoded_ids = [v[len("__collection_reduce__|"):] for v in str(value).split(",")]
             decoded_ids = map(trans.security.decode_id, encoded_ids)
