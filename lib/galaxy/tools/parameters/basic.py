@@ -1948,9 +1948,10 @@ class DataToolParameter(BaseDataToolParameter):
             value = [int(value_part) for value_part in value.split(",")]
         rval = []
         if isinstance(value, list):
-            found_hdca = False
+            found_srcs = set()
             for single_value in value:
                 if isinstance(single_value, dict) and 'src' in single_value and 'id' in single_value:
+                    found_srcs.add(single_value['src'])
                     rval.append(src_id_to_item(sa_session=trans.sa_session, value=single_value, security=trans.security))
                 elif isinstance(single_value, (
                         HistoryDatasetCollectionAssociation,
@@ -1966,10 +1967,8 @@ class DataToolParameter(BaseDataToolParameter):
                         log.warning("Encoded ID where unencoded ID expected.")
                         single_value = trans.security.decode_id(single_value)
                     rval.append(trans.sa_session.query(HistoryDatasetAssociation).get(single_value))
-            if found_hdca:
-                for val in rval:
-                    if not isinstance(val, HistoryDatasetCollectionAssociation):
-                        raise ParameterValueError("if collections are supplied to multiple data input parameter, only collections may be used", self.name)
+                if len(found_srcs) > 1 and 'hdca' in found_srcs:
+                    raise ParameterValueError("if collections are supplied to multiple data input parameter, only collections may be used", self.name)
         elif isinstance(value, (HistoryDatasetAssociation, LibraryDatasetDatasetAssociation)):
             rval.append(value)
         elif isinstance(value, dict) and 'src' in value and 'id' in value:
