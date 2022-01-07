@@ -8,17 +8,21 @@ from galaxy.webapps.base.api import (
 )
 
 
-def initialize_fast_app(gx_webapp):
-    app = FastAPI(
+def initialize_fast_app(wsgi_app, app):
+    asgi_app = FastAPI(
         title="Galaxy Tool Shed API",
         description=(
             "This API allows you to manage the Tool Shed repositories."
         ),
         docs_url="/api/docs",
     )
-    add_exception_handler(app)
-    add_request_id_middleware(app)
-    include_all_package_routers(app, 'tool_shed.webapp.api')
-    wsgi_handler = WSGIMiddleware(gx_webapp)
-    app.mount('/', wsgi_handler)
-    return app
+    add_exception_handler(asgi_app)
+    add_request_id_middleware(asgi_app)
+    include_all_package_routers(asgi_app, 'tool_shed.webapp.api')
+    wsgi_handler = WSGIMiddleware(wsgi_app)
+    asgi_app.mount(app.config.url_prefix, wsgi_handler)
+    if app.config.url_prefix != '/':
+        parent_app = FastAPI()
+        parent_app.mount(app.config.url_prefix, app=app)
+        return parent_app
+    return asgi_app

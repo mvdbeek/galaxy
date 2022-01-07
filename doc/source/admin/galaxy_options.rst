@@ -1886,7 +1886,7 @@
 
 
 ~~~~~~~~~~~~~~~~~~~~~
-``galaxy_url_prefix``
+``url_prefix``
 ~~~~~~~~~~~~~~~~~~~~~
 
 :Description:

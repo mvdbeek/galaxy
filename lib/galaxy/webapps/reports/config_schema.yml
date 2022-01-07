@@ -8,6 +8,14 @@ mapping:
       Galaxy Reports configuration options.
     mapping:
 
+      url_prefix:
+        type: str
+        default: '/'
+        required: false
+        desc: |
+          URL prefix for Reports application. If Reports should be served under a prefix set this to
+          the desired prefix value.
+
       log_level:
         type: str
         default: DEBUG

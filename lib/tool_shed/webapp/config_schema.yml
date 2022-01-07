@@ -407,6 +407,14 @@ mapping:
           Class of the message box under the masthead. Possible values are:
           'info' (the default), 'warning', 'error', 'done'.
 
+      url_prefix:
+        type: str
+        default: '/'
+        required: false
+        desc: |
+          URL prefix for Tool Shed application. If the Tool Shed should be served under a prefix set this to
+          the desired prefix value.
+
       static_enabled:
         type: bool
         default: true

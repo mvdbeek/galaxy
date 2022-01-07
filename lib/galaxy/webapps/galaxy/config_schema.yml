@@ -1361,7 +1361,7 @@ mapping:
           Users can override this settings in their user preferences if the localization
           settings are enabled in user_preferences_extra_conf.yml
 
-      galaxy_url_prefix:
+      url_prefix:
         type: str
         default: '/'
         required: false

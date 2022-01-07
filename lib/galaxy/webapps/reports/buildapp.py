@@ -45,6 +45,10 @@ def add_ui_controllers(webapp, app):
 
 
 def app_factory(global_conf, load_app_kwds=None, **kwargs):
+    return app_pair(global_conf, load_app_kwds, **kwargs)[0]
+
+
+def app_pair(global_conf, load_app_kwds=None, **kwargs):
     """Return a wsgi application serving the root object"""
     # Create the Galaxy application unless passed in
     load_app_kwds = load_app_kwds or {}
@@ -68,7 +72,7 @@ def app_factory(global_conf, load_app_kwds=None, **kwargs):
     # Wrap the webapp in some useful middleware
     if kwargs.get('middleware', True):
         webapp = wrap_in_middleware(webapp, global_conf, app.application_stack, **kwargs)
-    return webapp
+    return webapp, app
 
 
 def wrap_in_middleware(app, global_conf, application_stack, **local_conf):

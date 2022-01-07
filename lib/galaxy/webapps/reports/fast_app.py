@@ -8,8 +8,8 @@ from galaxy.webapps.base.api import (
 )
 
 
-def initialize_fast_app(gx_webapp):
-    app = FastAPI(
+def initialize_fast_app(wsgi_app, app):
+    asgi_app = FastAPI(
         title="Galaxy Reports API",
         description=(
             "This API will give you insights into the Galaxy instance's usage and load. "
@@ -17,9 +17,13 @@ def initialize_fast_app(gx_webapp):
         ),
         docs_url="/api/docs",
     )
-    add_exception_handler(app)
-    add_request_id_middleware(app)
-    include_all_package_routers(app, 'galaxy.webapps.reports.api')
-    wsgi_handler = WSGIMiddleware(gx_webapp)
-    app.mount('/', wsgi_handler)
-    return app
+    add_exception_handler(asgi_app)
+    add_request_id_middleware(asgi_app)
+    include_all_package_routers(asgi_app, 'galaxy.webapps.reports.api')
+    wsgi_handler = WSGIMiddleware(wsgi_app)
+    asgi_app.mount(app.config.url_prefix, wsgi_handler)
+    if app.config.url_prefix != '/':
+        parent_app = FastAPI()
+        parent_app.mount(app.config.url_prefix, app=app)
+        return parent_app
+    return asgi_app

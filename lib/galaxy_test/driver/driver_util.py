@@ -777,13 +777,19 @@ def launch_server(app, webapp_factory, kwargs, prefix=DEFAULT_CONFIG_PREFIX, con
         static_enabled=True,
         register_shutdown_at_exit=False
     )
-    from galaxy.webapps.galaxy.fast_app import initialize_fast_app
-    app = initialize_fast_app(wsgi_webapp, app)
-    server, port, thread = uvicorn_serve(app, host=host, port=port)
-    set_and_wait_for_http_target(prefix, host, port, url_prefix=app.config.galaxy_url_prefix)
-    log.info(f"Embedded uvicorn web server for {name} started at {host}:{port}{app.config.galaxy_url_prefix}")
+    if name == 'galaxy':
+        from galaxy.webapps.galaxy.fast_app import initialize_fast_app as init_galaxy_fast_app
+        asgi_app = init_galaxy_fast_app(wsgi_webapp, app)
+    elif name == 'tool_shed':
+        from tool_shed.webapp.fast_app import initialize_fast_app as init_tool_shed_fast_app
+        asgi_app = init_tool_shed_fast_app(wsgi_webapp, app)
+    else:
+        raise NotImplementedError(f"Launching {name} not implemented")
+    server, port, thread = uvicorn_serve(asgi_app, host=host, port=port)
+    set_and_wait_for_http_target(prefix, host, port, url_prefix=app.config.url_prefix)
+    log.info(f"Embedded uvicorn web server for {name} started at {host}:{port}{app.config.url_prefix}")
     return EmbeddedServerWrapper(
-        app, server, name, host, port, thread=thread, prefix=app.config.galaxy_url_prefix
+        app, server, name, host, port, thread=thread, prefix=app.config.url_prefix
     )
 
 

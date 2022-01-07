@@ -38,7 +38,7 @@ from galaxy.main_config import (
     WebappConfigResolver,
     WebappSetupProps
 )
-from galaxy.webapps.reports.buildapp import app_factory
+from galaxy.webapps.reports.buildapp import app_pair
 from .fast_app import initialize_fast_app
 
 
@@ -50,5 +50,5 @@ def factory():
     )
     config_provider = WebappConfigResolver(props)
     config = config_provider.resolve_config()
-    gx_webapp = app_factory(global_conf=config.global_conf, load_app_kwds=config.load_app_kwds, wsgi_preflight=config.wsgi_preflight)
-    return initialize_fast_app(gx_webapp)
+    gx_webapp, app = app_pair(global_conf=config.global_conf, load_app_kwds=config.load_app_kwds, wsgi_preflight=config.wsgi_preflight)
+    return initialize_fast_app(gx_webapp, app)
