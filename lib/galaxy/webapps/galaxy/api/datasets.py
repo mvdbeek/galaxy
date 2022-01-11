@@ -301,8 +301,8 @@ class FastAPIDatasets:
         return self.service.show(trans, dataset_id, hda_ldda, serialization_params, data_type, **extra_params)
 
     @router.delete(
-        '/api/datasets',
-        summary='Deletes or purges a batch of datasets.',
+        "/api/datasets",
+        summary="Deletes or purges a batch of datasets.",
     )
     def delete_batch(
         self,
