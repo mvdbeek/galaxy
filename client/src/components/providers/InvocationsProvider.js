@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export function invocationsProvider(ctx, callback, extraParams) {
-    const { apiUrl, filter, ...requestParams } = ctx;
+    const { apiUrl, ...requestParams } = ctx;
     const promise = axios.get(apiUrl, { params: { ...requestParams, ...extraParams } });
 
     // Must return a promise that resolves to an array of items
