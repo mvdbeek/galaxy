@@ -846,7 +846,10 @@ class WorkflowsAPIController(BaseGalaxyAPIController, UsesStoredWorkflowMixin, U
         else:
             # Get all invocation if user is admin
             user_id = target_user_id
-
+        sort_by = kwd.get('sortBy') or kwd.get('sort_by')
+        if sort_by and sort_by not in ['update_time', 'create_time']:
+            raise exceptions.RequestParameterInvalidException(f"Invalid sort_by paramerer '{sort_by}'")
+        sort_desc = util.string_as_bool(kwd.get('sortDesc', False) or kwd.get('sort_desc', False))
         include_terminal = util.string_as_bool(kwd.get("include_terminal", True))
         limit = kwd.get("limit", kwd.get("perPage"))
         offset = None
@@ -859,7 +862,16 @@ class WorkflowsAPIController(BaseGalaxyAPIController, UsesStoredWorkflowMixin, U
             offset = (currentPage - 1) * limit
 
         invocations, total_matches = self.workflow_manager.build_invocations_query(
-            trans, stored_workflow_id=stored_workflow_id, history_id=history_id, job_id=job_id, user_id=user_id, include_terminal=include_terminal, limit=limit, offset=offset
+            trans,
+            stored_workflow_id=stored_workflow_id,
+            history_id=history_id,
+            job_id=job_id,
+            user_id=user_id,
+            include_terminal=include_terminal,
+            limit=limit,
+            offset=offset,
+            sort_by=sort_by,
+            sort_desc=sort_desc,
         )
         trans.response.headers['total_matches'] = total_matches
         return self.workflow_manager.serialize_workflow_invocations(invocations, **kwd)

@@ -251,10 +251,10 @@ class WorkflowsManager:
         return workflow_invocation_step
 
     def build_invocations_query(self, trans, stored_workflow_id=None, history_id=None, job_id=None, user_id=None,
-                                include_terminal=True, limit=None, offset=None):
+                                include_terminal=True, limit=None, offset=None, sort_by=None, sort_desc=None):
         """Get invocations owned by the current user."""
         sa_session = trans.sa_session
-        invocations_query = sa_session.query(model.WorkflowInvocation).order_by(model.WorkflowInvocation.table.c.id.desc())
+        invocations_query = sa_session.query(model.WorkflowInvocation)
         if stored_workflow_id is not None:
             stored_workflow = sa_session.query(model.StoredWorkflow).get(stored_workflow_id)
             if not stored_workflow:
@@ -283,6 +283,13 @@ class WorkflowsManager:
                 model.WorkflowInvocation.table.c.state.in_(model.WorkflowInvocation.non_terminal_states)
             )
         total_matches = invocations_query.count()
+        if sort_by:
+            sort_column = getattr(model.WorkflowInvocation, sort_by)
+            if sort_desc:
+                sort_column = sort_column.desc()
+            invocations_query = invocations_query.order_by(sort_column)
+        else:
+            invocations_query = invocations_query.order_by(model.WorkflowInvocation.table.c.id.desc())
         if limit is not None:
             invocations_query = invocations_query.limit(limit)
         if offset is not None:

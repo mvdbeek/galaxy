@@ -104,8 +104,8 @@ export default {
         const fields = [
             { key: "workflow_id", label: "Workflow" },
             { key: "history_id", label: "History" },
-            { key: "create_time", label: "Invoked" },
-            { key: "update_time", label: "Updated" },
+            { key: "create_time", label: "Invoked", sortable: true },
+            { key: "update_time", label: "Updated", sortable: true },
             { key: "state" },
             { key: "execute", label: "" },
         ];
