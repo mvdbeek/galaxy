@@ -82,9 +82,22 @@ def require_login(verb="perform this action", use_panels=False, webapp='galaxy')
             if trans.get_user():
                 return func(self, trans, *args, **kwargs)
             else:
-                return trans.show_error_message(
-                    'You must be <a target="galaxy_main" href="%s">logged in</a> to %s.'
-                    % (url_for(controller='login', webapp=webapp), verb), use_panels=use_panels)
+                if webapp == 'galaxy':
+                    redirect_url = url_for(controller=trans.controller, action=trans.action)
+                    query_string = trans.environ.get('QUERY_STRING', '')
+                    if query_string:
+                        redirect_url = f"{redirect_url}?{query_string}"
+                    href = url_for(controller='login', webapp=webapp, redirect=redirect_url)
+                    return trans.show_error_message(
+                        f'You must be <a target="galaxy_main" href="{href}">logged in</a> to {verb}.',
+                        use_panels=use_panels
+                    )
+                else:
+                    href = url_for(controller='user', action='login', webapp=webapp)
+                    return trans.show_error_message(
+                        f'You must be <a target="galaxy_main" href="{href}">logged in</a> to {verb}.',
+                        use_panels=use_panels
+                    )
         return decorator
     return argcatcher
 
