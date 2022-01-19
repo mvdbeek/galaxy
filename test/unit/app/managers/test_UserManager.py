@@ -309,21 +309,11 @@ class UserDeserializerTestCase(BaseTestCase):
         # self.deserializer.deserialize( user, { 'username': 'Σίσυφος' }, trans=self.trans )
 
         self.log("usernames must be long enough and with no non-hyphen punctuation")
-        exception = self._assertRaises_and_return_raised(
-            base_manager.ModelDeserializingError,
-            self.deserializer.deserialize,
-            user,
-            {"username": "ed"},
-            trans=self.trans,
-        )
-        self.assertTrue("Public name must be at least" in str(exception))
-        self.assertRaises(
-            base_manager.ModelDeserializingError,
-            self.deserializer.deserialize,
-            user,
-            {"username": "f,d,r,"},
-            trans=self.trans,
-        )
+        exception = self._assertRaises_and_return_raised(base_manager.ModelDeserializingError,
+            self.deserializer.deserialize, user, {'username': ''}, trans=self.trans)
+        self.assertTrue('Public name must be at least' in str(exception))
+        self.assertRaises(base_manager.ModelDeserializingError, self.deserializer.deserialize,
+            user, {'username': 'f,d,r,'}, trans=self.trans)
 
         self.log("usernames must be unique")
         self.user_manager.create(**user3_data)
