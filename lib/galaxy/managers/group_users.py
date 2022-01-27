@@ -13,6 +13,10 @@ from galaxy.exceptions import (
 )
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.schema.fields import DecodedDatabaseIdField
+from galaxy.schema.schema import (
+    UserEmailUrlResponse,
+    UserEmailUrlResponseList,
+)
 from galaxy.web import url_for
 
 log = logging.getLogger(__name__)
@@ -24,18 +28,14 @@ class GroupUsersManager:
     def __init__(self, app: MinimalManagerApp) -> None:
         self._app = app
 
-    def index(self, trans: ProvidesAppContext, group_id: DecodedDatabaseIdField) -> List[Dict[str, Any]]:
+    def index(self, trans: ProvidesAppContext, group_id: DecodedDatabaseIdField) -> UserEmailUrlResponseList:
         """
         Returns a collection (list) with some information about users associated with the given group.
         """
         group = self._get_group(trans, group_id)
-        rval = []
-        for uga in group.users:
-            group_user = self._serialize_group_user(group_id, uga.user)
-            rval.append(group_user)
-        return rval
+        return UserEmailUrlResponseList(__root__=(self._serialize_group_user(group_id, uga.user) for uga in group.users))
 
-    def show(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, group_id: DecodedDatabaseIdField) -> Dict[str, Any]:
+    def show(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, group_id: DecodedDatabaseIdField) -> UserEmailUrlResponse:
         """
         Returns information about a group user.
         """
@@ -48,7 +48,7 @@ class GroupUsersManager:
 
         return self._serialize_group_user(group_id, user)
 
-    def update(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, group_id: DecodedDatabaseIdField):
+    def update(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, group_id: DecodedDatabaseIdField) -> UserEmailUrlResponse:
         """
         Adds a user to a group.
         """
@@ -61,7 +61,7 @@ class GroupUsersManager:
 
         return self._serialize_group_user(group_id, user)
 
-    def delete(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, group_id: DecodedDatabaseIdField):
+    def delete(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, group_id: DecodedDatabaseIdField) -> UserEmailUrlResponse:
         """
         Removes a user from a group.
         """
@@ -101,10 +101,7 @@ class GroupUsersManager:
         trans.sa_session.delete(group_user)
         trans.sa_session.flush()
 
-    def _serialize_group_user(self, encoded_group_id: DecodedDatabaseIdField, user: model.User):
+    def _serialize_group_user(self, group_id: DecodedDatabaseIdField, user: model.User):
         encoded_user_id = self._app.security.encode_id(user.id)
-        return {
-            "id": encoded_user_id,
-            "email": user.email,
-            "url": url_for('group_user', group_id=encoded_group_id, id=encoded_user_id)
-        }
+        encoded_group_id = self._app.security.encode_id(group_id)
+        return UserEmailUrlResponse(id=user.id, email=user.email, url=url_for('group_user', group_id=encoded_group_id, id=encoded_user_id))

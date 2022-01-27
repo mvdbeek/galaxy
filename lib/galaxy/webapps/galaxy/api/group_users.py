@@ -25,6 +25,7 @@ class GroupUsersAPIController(BaseGalaxyAPIController):
         GET /api/groups/{encoded_group_id}/users
         Displays a collection (list) of groups.
         """
+        group_id = self.decode_id(group_id)
         return self.manager.index(trans, group_id)
 
     @require_admin
@@ -34,6 +35,8 @@ class GroupUsersAPIController(BaseGalaxyAPIController):
         GET /api/groups/{encoded_group_id}/users/{encoded_user_id}
         Displays information about a group user.
         """
+        id = self.decode_id(id)
+        group_id = self.decode_id(group_id)
         return self.manager.show(trans, id, group_id)
 
     @require_admin
@@ -43,6 +46,8 @@ class GroupUsersAPIController(BaseGalaxyAPIController):
         PUT /api/groups/{encoded_group_id}/users/{encoded_user_id}
         Adds a user to a group
         """
+        id = self.decode_id(id)
+        group_id = self.decode_id(group_id)
         return self.manager.update(trans, id, group_id)
 
     @require_admin
@@ -52,4 +57,6 @@ class GroupUsersAPIController(BaseGalaxyAPIController):
         DELETE /api/groups/{encoded_group_id}/users/{encoded_user_id}
         Removes a user from a group
         """
+        id = self.decode_id(id)
+        group_id = self.decode_id(group_id)
         return self.manager.delete(trans, id, group_id)
