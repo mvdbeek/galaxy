@@ -37,7 +37,7 @@ from galaxy.schema import (
 )
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
-    AnyHistoryView,
+    AnyHistoryViewResponse,
     CreateHistoryPayload,
     CustomBuildsMetadataResponse,
     ExportHistoryArchivePayload,
@@ -556,7 +556,7 @@ class HistoriesService(ServiceBase):
         history: model.History,
         serialization_params: SerializationParams,
         default_view: str = "detailed",
-    ) -> AnyHistoryView:
+    ) -> AnyHistoryViewResponse:
         """
         Returns a dictionary with the corresponding values depending on the
         serialization parameters provided.

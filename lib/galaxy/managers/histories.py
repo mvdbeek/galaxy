@@ -33,8 +33,8 @@ from galaxy.managers.base import (
     SortableManager,
 )
 from galaxy.schema.schema import (
-    HDABasicInfo,
-    ShareHistoryExtra,
+    HDABasicInfoResponse,
+    ShareHistoryExtraResponse,
 )
 from galaxy.schema.types import LatestLiteral
 from galaxy.structured_app import MinimalManagerApp
@@ -255,10 +255,15 @@ class HistoryManager(sharable.SharableModelManager, deletable.PurgableManagerMix
         return job
 
     def get_sharing_extra_information(
-        self, trans, item, users: Set[model.User], errors: Set[str], option: Optional[sharable.SharingOptions] = None
-    ) -> Optional[sharable.ShareWithExtra]:
+        self,
+        trans,
+        item,
+        users: Set[model.User],
+        errors: Set[str],
+        option: Optional[sharable.SharingOptions] = None,
+    ) -> Optional[sharable.ShareWithExtraResponse]:
         """Returns optional extra information about the datasets of the history that can be accessed by the users."""
-        extra = ShareHistoryExtra()
+        extra = ShareHistoryExtraResponse()
         history = cast(model.History, item)
         if history.empty:
             errors.add("You cannot share an empty history.")
@@ -293,7 +298,7 @@ class HistoryManager(sharable.SharableModelManager, deletable.PurgableManagerMix
                         trans.app.security_agent.make_dataset_public(hda.dataset)
                 else:
                     hda_id = trans.security.encode_id(hda.id)
-                    hda_info = HDABasicInfo(id=hda_id, name=hda.name)
+                    hda_info = HDABasicInfoResponse(id=hda_id, name=hda.name)
                     if owner_can_manage_dataset:
                         can_change_dict[hda_id] = hda_info
                     else:

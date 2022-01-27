@@ -9,7 +9,10 @@ from fastapi import Path
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.managers.group_roles import GroupRolesManager
 from galaxy.schema.fields import DecodedDatabaseIdField
-from galaxy.schema.schema import GroupRoleListModel, GroupRoleModel
+from galaxy.schema.schema import (
+    GroupRoleListModelResponse,
+    GroupRoleModelResponse,
+)
 from galaxy.web import (
     expose_api,
     require_admin,
@@ -37,7 +40,7 @@ RoleIDParam: DecodedDatabaseIdField = Path(
 def group_role_to_model(trans, encoded_group_id, role):
     encoded_role_id = trans.security.encode_id(role.id)
     url = trans.url_builder("group_role", group_id=encoded_group_id, id=encoded_role_id)
-    return GroupRoleModel(id=encoded_role_id, name=role.name, url=url)
+    return GroupRoleModelResponse(id=encoded_role_id, name=role.name, url=url)
 
 
 @router.cbv
@@ -49,9 +52,13 @@ class FastAPIGroupRoles:
         self,
         trans: ProvidesAppContext = DependsOnTrans,
         group_id: DecodedDatabaseIdField = GroupIDParam,
-    ) -> GroupRoleListModel:
+    ) -> GroupRoleListModelResponse:
         group_roles = self.manager.index(trans, group_id)
-        return GroupRoleListModel(__root__=[group_role_to_model(trans, group_id, gr.role) for gr in group_roles])
+        return GroupRoleListModelResponse(
+            __root__=[
+                group_role_to_model(trans, group_id, gr.role) for gr in group_roles
+            ]
+        )
 
     @router.get(
         "/api/groups/{group_id}/roles/{id}",
@@ -64,7 +71,7 @@ class FastAPIGroupRoles:
         trans: ProvidesAppContext = DependsOnTrans,
         group_id: DecodedDatabaseIdField = GroupIDParam,
         id: DecodedDatabaseIdField = RoleIDParam,
-    ) -> GroupRoleModel:
+    ) -> GroupRoleModelResponse:
         role = self.manager.show(trans, id, group_id)
         return group_role_to_model(trans, group_id, role)
 
@@ -74,7 +81,7 @@ class FastAPIGroupRoles:
         trans: ProvidesAppContext = DependsOnTrans,
         group_id: DecodedDatabaseIdField = GroupIDParam,
         role_id: DecodedDatabaseIdField = RoleIDParam,
-    ) -> GroupRoleModel:
+    ) -> GroupRoleModelResponse:
         role = self.manager.update(trans, role_id, group_id)
         return group_role_to_model(trans, group_id, role)
 
@@ -84,7 +91,7 @@ class FastAPIGroupRoles:
         trans: ProvidesAppContext = DependsOnTrans,
         group_id: DecodedDatabaseIdField = GroupIDParam,
         role_id: DecodedDatabaseIdField = RoleIDParam,
-    ) -> GroupRoleModel:
+    ) -> GroupRoleModelResponse:
         role = self.manager.delete(trans, role_id, group_id)
         return group_role_to_model(trans, group_id, role)
 
@@ -100,7 +107,11 @@ class GroupRolesAPIController(BaseGalaxyAPIController):
         Displays a collection (list) of groups.
         """
         group_roles = self.manager.index(trans, group_id)
-        return GroupRoleListModel(__root__=[group_role_to_model(trans, group_id, gr.role) for gr in group_roles])
+        return GroupRoleListModelResponse(
+            __root__=[
+                group_role_to_model(trans, group_id, gr.role) for gr in group_roles
+            ]
+        )
 
     @require_admin
     @expose_api

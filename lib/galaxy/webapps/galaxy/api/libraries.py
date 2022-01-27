@@ -22,14 +22,14 @@ from galaxy.schema.schema import (
     CreateLibraryPayload,
     DeleteLibraryPayload,
     LegacyLibraryPermissionsPayload,
-    LibraryAvailablePermissions,
-    LibraryCurrentPermissions,
-    LibraryLegacySummary,
+    LibraryAvailablePermissionsResponse,
+    LibraryCurrentPermissionsResponse,
+    LibraryLegacySummaryResponse,
     LibraryPermissionAction,
     LibraryPermissionScope,
     LibraryPermissionsPayload,
-    LibrarySummary,
-    LibrarySummaryList,
+    LibrarySummaryResponse,
+    LibrarySummaryListResponse,
     UpdateLibraryPayload,
 )
 from galaxy.web import (
@@ -73,7 +73,7 @@ class FastAPILibraries:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         deleted: Optional[bool] = DeletedQueryParam,
-    ) -> LibrarySummaryList:
+    ) -> LibrarySummaryListResponse:
         """Returns a list of summary data for all libraries."""
         return self.service.index(trans, deleted)
 
@@ -84,7 +84,7 @@ class FastAPILibraries:
     def index_deleted(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-    ) -> LibrarySummaryList:
+    ) -> LibrarySummaryListResponse:
         """Returns a list of summary data for all libraries marked as deleted."""
         return self.service.index(trans, True)
 
@@ -96,7 +96,7 @@ class FastAPILibraries:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = LibraryIdPathParam,
-    ) -> LibrarySummary:
+    ) -> LibrarySummaryResponse:
         """Returns summary information about a particular library."""
         return self.service.show(trans, id)
 
@@ -109,7 +109,7 @@ class FastAPILibraries:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         payload: CreateLibraryPayload = Body(...),
-    ) -> LibrarySummary:
+    ) -> LibrarySummaryResponse:
         """Creates a new library and returns its summary information. Currently, only admin users can create libraries."""
         return self.service.create(trans, payload)
 
@@ -123,7 +123,7 @@ class FastAPILibraries:
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = LibraryIdPathParam,
         payload: UpdateLibraryPayload = Body(...),
-    ) -> LibrarySummary:
+    ) -> LibrarySummaryResponse:
         """Updates the information of an existing library.
         Currently, only admin users can update libraries."""
         return self.service.update(trans, id, payload)
@@ -139,7 +139,7 @@ class FastAPILibraries:
         id: DecodedDatabaseIdField = LibraryIdPathParam,
         undelete: Optional[bool] = UndeleteQueryParam,
         payload: Optional[DeleteLibraryPayload] = Body(default=None),
-    ) -> LibrarySummary:
+    ) -> LibrarySummaryResponse:
         """Marks the specified library as deleted (or undeleted).
         Currently, only admin users can delete or restore libraries."""
         if payload:
@@ -173,7 +173,7 @@ class FastAPILibraries:
         q: Optional[str] = Query(
             None, title="Query", description="Optional search text to retrieve only the roles matching this query."
         ),
-    ) -> Union[LibraryCurrentPermissions, LibraryAvailablePermissions]:
+    ) -> Union[LibraryCurrentPermissionsResponse, LibraryAvailablePermissionsResponse]:
         """Gets the current or available permissions of a particular library.
         The results can be paginated and additionally filtered by a query."""
         return self.service.get_permissions(
@@ -203,7 +203,10 @@ class FastAPILibraries:
             LibraryPermissionsPayload,
             LegacyLibraryPermissionsPayload,
         ] = Body(...),
-    ) -> Union[LibraryLegacySummary, LibraryCurrentPermissions]:  # Old legacy response
+    ) -> Union[
+        LibraryLegacySummaryResponse,  # Old legacy response
+        LibraryCurrentPermissionsResponse,
+    ]:
         """Sets the permissions to access and manipulate a library."""
         payload_dict = payload.dict(by_alias=True)
         if isinstance(payload, LibraryPermissionsPayload) and action is not None:

@@ -24,12 +24,12 @@ from galaxy.managers.hdcas import HDCAManager
 from galaxy.managers.histories import HistoryManager
 from galaxy.schema.fields import DecodedDatabaseIdField, ModelClassField
 from galaxy.schema.schema import (
-    AnyHDCA,
+    AnyHDCAResponse,
     CreateNewCollectionPayload,
     DatasetCollectionInstanceType,
-    DCESummary,
+    DCESummaryResponse,
     DCEType,
-    HDCADetailed,
+    HDCADetailedResponse,
     TagCollection,
 )
 from galaxy.security.idencoding import IdEncodingHelper
@@ -71,10 +71,10 @@ class SuitableConverters(BaseModel):
     __root__: List[SuitableConverter]
 
 
-class DatasetCollectionContentElements(BaseModel):
+class DatasetCollectionContentElementsResponse(BaseModel):
     """Represents a collection of elements contained in the dataset collection."""
 
-    __root__: List[DCESummary]
+    __root__: List[DCESummaryResponse]
 
 
 class DatasetCollectionsService(ServiceBase, UsesLibraryMixinItems):
@@ -92,7 +92,9 @@ class DatasetCollectionsService(ServiceBase, UsesLibraryMixinItems):
         self.collection_manager = collection_manager
         self.datatypes_registry = datatypes_registry
 
-    def create(self, trans: ProvidesHistoryContext, payload: CreateNewCollectionPayload) -> HDCADetailed:
+    def create(
+        self, trans: ProvidesHistoryContext, payload: CreateNewCollectionPayload
+    ) -> HDCADetailedResponse:
         """
         Create a new dataset collection instance.
 
@@ -179,7 +181,7 @@ class DatasetCollectionsService(ServiceBase, UsesLibraryMixinItems):
         trans: ProvidesHistoryContext,
         id: DecodedDatabaseIdField,
         instance_type: DatasetCollectionInstanceType = DatasetCollectionInstanceType.history,
-    ) -> AnyHDCA:
+    ) -> AnyHDCAResponse:
         """
         Returns information about a particular dataset collection.
         """
@@ -212,7 +214,7 @@ class DatasetCollectionsService(ServiceBase, UsesLibraryMixinItems):
         instance_type: DatasetCollectionInstanceType = DatasetCollectionInstanceType.history,
         limit: Optional[int] = None,
         offset: Optional[int] = None,
-    ) -> DatasetCollectionContentElements:
+    ) -> DatasetCollectionContentElementsResponse:
         """
         Shows direct child contents of indicated dataset collection parent id
 
@@ -245,8 +247,10 @@ class DatasetCollectionsService(ServiceBase, UsesLibraryMixinItems):
         )
 
         # dictify and tack on a collection_url for drilling down into nested collections
-        def serialize_element(dsc_element) -> DCESummary:
-            result = dictify_element_reference(dsc_element, recursive=False, security=trans.security)
+        def serialize_element(dsc_element) -> DCESummaryResponse:
+            result = dictify_element_reference(
+                dsc_element, recursive=False, security=trans.security
+            )
             if result["element_type"] == DCEType.dataset_collection:
                 assert trans.url_builder
                 result["object"]["contents_url"] = trans.url_builder(
@@ -258,4 +262,4 @@ class DatasetCollectionsService(ServiceBase, UsesLibraryMixinItems):
             return result
 
         rval = [serialize_element(el) for el in contents]
-        return DatasetCollectionContentElements.parse_obj(rval)
+        return DatasetCollectionContentElementsResponse.parse_obj(rval)

@@ -32,9 +32,9 @@ from galaxy.schema import (
 )
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
-    AnyHDA,
-    AnyHistoryContentItem,
-    DatasetAssociationRoles,
+    AnyHDAResponse,
+    AnyHistoryContentItemResponse,
+    DatasetAssociationRolesResponse,
     DatasetSourceType,
     UpdateDatasetPermissionsPayload,
 )
@@ -95,8 +95,10 @@ class FastAPIDatasets:
         ),
         serialization_params: SerializationParams = Depends(query_serialization_params),
         filter_query_params: FilterQueryParams = Depends(get_filter_query_params),
-    ) -> List[AnyHistoryContentItem]:
-        return self.service.index(trans, history_id, serialization_params, filter_query_params)
+    ) -> List[AnyHistoryContentItemResponse]:
+        return self.service.index(
+            trans, history_id, serialization_params, filter_query_params
+        )
 
     @router.get(
         "/api/datasets/{dataset_id}/storage",
@@ -147,7 +149,7 @@ class FastAPIDatasets:
             description="File extension of the new format to convert this dataset to.",
         ),
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> AnyHDA:
+    ) -> AnyHDAResponse:
         """
         Return information about datasets made by converting this dataset to a new format.
 
@@ -184,7 +186,7 @@ class FastAPIDatasets:
             default=...,
             example=UpdateDatasetPermissionsPayload(),
         ),
-    ) -> DatasetAssociationRoles:
+    ) -> DatasetAssociationRolesResponse:
         """Set permissions of the given history dataset to the given role ids."""
         update_payload = get_update_permission_payload(payload)
         return self.service.update_permissions(trans, dataset_id, update_payload)

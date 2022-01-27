@@ -607,20 +607,21 @@ class DatasetCollectionManager:
         try:
             src_type = element_identifier.get("src", "hda")
         except AttributeError:
-            raise MessageException(f"Dataset collection element definition ({element_identifier}) not dictionary-like.")
-        encoded_id = element_identifier.get("id")
-        if not src_type or not encoded_id:
+            raise MessageException(
+                f"Dataset collection element definition ({element_identifier}) not dictionary-like."
+            )
+        src_id = element_identifier.get("id")
+        if not src_type or not src_id:
             message_template = "Problem decoding element identifier %s - must contain a 'src' and a 'id'."
             message = message_template % element_identifier
             raise RequestParameterInvalidException(message)
-        decoded_id = trans.app.security.decode_id(encoded_id)
 
         tags = element_identifier.pop("tags", None)
         tag_str = ""
         if tags:
             tag_str = ",".join(str(_) for _ in tags)
         if src_type == "hda":
-            hda = self.hda_manager.get_accessible(decoded_id, trans.user)
+            hda = self.hda_manager.get_accessible(src_id, trans.user)
             if copy_elements:
                 element = self.hda_manager.copy(hda, history=history or trans.history, hide_copy=True, flush=False)
             else:
@@ -631,16 +632,14 @@ class DatasetCollectionManager:
                 hda.visible = False
             self.tag_handler.apply_item_tags(user=trans.user, item=element, tags_str=tag_str, flush=False)
         elif src_type == "ldda":
-            element = self.ldda_manager.get(trans, decoded_id, check_accessible=True)
+            element = self.ldda_manager.get(trans, src_id, check_accessible=True)
             element = element.to_history_dataset_association(
                 history or trans.history, add_to_history=True, visible=not hide_source_items
             )
             self.tag_handler.apply_item_tags(user=trans.user, item=element, tags_str=tag_str, flush=False)
         elif src_type == "hdca":
             # TODO: Option to copy? Force copy? Copy or allow if not owned?
-            element = self.__get_history_collection_instance(
-                trans, decoded_id
-            ).collection
+            element = self.__get_history_collection_instance(trans, src_id).collection
         # TODO: ldca.
         else:
             raise RequestParameterInvalidException(f"Unknown src_type parameter supplied '{src_type}'.")
