@@ -15,9 +15,9 @@ from galaxy.managers.roles import RoleManager
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreateLibraryFolderPayload,
-    LibraryAvailablePermissions,
-    LibraryFolderCurrentPermissions,
-    LibraryFolderDetails,
+    LibraryAvailablePermissionsResponse,
+    LibraryFolderCurrentPermissionsResponse,
+    LibraryFolderDetailsResponse,
     LibraryPermissionScope,
     UpdateLibraryFolderPayload,
 )
@@ -43,7 +43,7 @@ class LibraryFoldersService(ServiceBase):
         self.folder_manager = folder_manager
         self.role_manager = role_manager
 
-    def show(self, trans, id: DecodedDatabaseIdField) -> LibraryFolderDetails:
+    def show(self, trans, id: DecodedDatabaseIdField) -> LibraryFolderDetailsResponse:
         """
         Displays information about a folder.
 
@@ -55,14 +55,14 @@ class LibraryFoldersService(ServiceBase):
         """
         folder = self.folder_manager.get(trans, id, check_manageable=False, check_accessible=True)
         return_dict = self.folder_manager.get_folder_dict(trans, folder)
-        return LibraryFolderDetails.parse_obj(return_dict)
+        return LibraryFolderDetailsResponse.parse_obj(return_dict)
 
     def create(
         self,
         trans,
         folder_id: DecodedDatabaseIdField,
         payload: CreateLibraryFolderPayload
-    ) -> LibraryFolderDetails:
+    ) -> LibraryFolderDetailsResponse:
         """
         Create a new folder object underneath the one specified in the parameters.
 
@@ -83,7 +83,7 @@ class LibraryFoldersService(ServiceBase):
         parent_folder = self.folder_manager.get(trans, folder_id)
         new_folder = self.folder_manager.create(trans, parent_folder.id, payload.name, payload.description)
         return_dict = self.folder_manager.get_folder_dict(trans, new_folder)
-        return LibraryFolderDetails.parse_obj(return_dict)
+        return LibraryFolderDetailsResponse.parse_obj(return_dict)
 
     def get_permissions(
         self,
@@ -93,7 +93,7 @@ class LibraryFoldersService(ServiceBase):
         page: Optional[int] = 1,
         page_limit: Optional[int] = 10,
         query: Optional[str] = None,
-    ) -> Union[LibraryFolderCurrentPermissions, LibraryAvailablePermissions]:
+    ) -> Union[LibraryFolderCurrentPermissionsResponse, LibraryAvailablePermissionsResponse]:
         """
         Load all permissions for the given folder id and return it.
 
@@ -117,7 +117,7 @@ class LibraryFoldersService(ServiceBase):
 
         if scope is None or scope == LibraryPermissionScope.current:
             current_permissions = self.folder_manager.get_current_roles(trans, folder)
-            return LibraryFolderCurrentPermissions.parse_obj(current_permissions)
+            return LibraryFolderCurrentPermissionsResponse.parse_obj(current_permissions)
         #  Return roles that are available to select.
         elif scope == LibraryPermissionScope.available:
             roles, total_roles = trans.app.security_agent.get_valid_roles(trans, folder, query, page, page_limit)
@@ -125,7 +125,7 @@ class LibraryFoldersService(ServiceBase):
             for role in roles:
                 role_id = trans.security.encode_id(role.id)
                 return_roles.append(dict(id=role_id, name=role.name, type=role.type))
-            return LibraryAvailablePermissions(roles=return_roles, page=page, page_limit=page_limit, total=total_roles)
+            return LibraryAvailablePermissionsResponse(roles=return_roles, page=page, page_limit=page_limit, total=total_roles)
         else:
             raise RequestParameterInvalidException("The value of 'scope' parameter is invalid. Allowed values: current, available")
 
@@ -134,7 +134,7 @@ class LibraryFoldersService(ServiceBase):
         trans,
         folder_id: DecodedDatabaseIdField,
         payload: dict
-    ) -> LibraryFolderCurrentPermissions:
+    ) -> LibraryFolderCurrentPermissionsResponse:
         """
         Set permissions of the given folder to the given role ids.
 
@@ -223,9 +223,9 @@ class LibraryFoldersService(ServiceBase):
             raise RequestParameterInvalidException('The mandatory parameter "action" has an invalid value.'
                                                    'Allowed values are: "set_permissions"')
         current_permissions = self.folder_manager.get_current_roles(trans, folder)
-        return LibraryFolderCurrentPermissions.parse_obj(current_permissions)
+        return LibraryFolderCurrentPermissionsResponse.parse_obj(current_permissions)
 
-    def delete(self, trans, folder_id: DecodedDatabaseIdField, undelete: Optional[bool] = False) -> LibraryFolderDetails:
+    def delete(self, trans, folder_id: DecodedDatabaseIdField, undelete: Optional[bool] = False) -> LibraryFolderDetailsResponse:
         """
         DELETE /api/folders/{folder_id}
 
@@ -247,9 +247,9 @@ class LibraryFoldersService(ServiceBase):
         folder = self.folder_manager.get(trans, folder_id, True)
         folder = self.folder_manager.delete(trans, folder, undelete)
         folder_dict = self.folder_manager.get_folder_dict(trans, folder)
-        return LibraryFolderDetails.parse_obj(folder_dict)
+        return LibraryFolderDetailsResponse.parse_obj(folder_dict)
 
-    def update(self, trans, folder_id: DecodedDatabaseIdField, payload: UpdateLibraryFolderPayload) -> LibraryFolderDetails:
+    def update(self, trans, folder_id: DecodedDatabaseIdField, payload: UpdateLibraryFolderPayload) -> LibraryFolderDetailsResponse:
         """
         Update the folder defined by an ``encoded_folder_id``
         with the data in the payload.
@@ -272,4 +272,4 @@ class LibraryFoldersService(ServiceBase):
         folder = self.folder_manager.get(trans, folder_id)
         updated_folder = self.folder_manager.update(trans, folder, payload.name, payload.description)
         folder_dict = self.folder_manager.get_folder_dict(trans, updated_folder)
-        return LibraryFolderDetails.parse_obj(folder_dict)
+        return LibraryFolderDetailsResponse.parse_obj(folder_dict)

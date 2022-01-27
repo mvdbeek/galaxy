@@ -22,7 +22,7 @@ from galaxy import (
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.model.item_attrs import UsesAnnotations
 from galaxy.schema.fields import DecodedDatabaseIdField
-from galaxy.schema.schema import SetSlugPayload, ShareWithPayload, ShareWithStatus, SharingStatus
+from galaxy.schema.schema import SetSlugPayload, ShareWithPayload, ShareWithStatusResponse, SharingStatusResponse
 from galaxy.web import expose_api
 from galaxy.webapps.base.controller import (
     UsesVisualizationMixin
@@ -59,7 +59,7 @@ class FastAPIVisualizations:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = VisualizationIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Return the sharing status of the item."""
         return self.service.shareable_service.sharing(trans, id)
 
@@ -71,7 +71,7 @@ class FastAPIVisualizations:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = VisualizationIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item accessible by a URL link and return the current sharing status."""
         return self.service.shareable_service.enable_link_access(trans, id)
 
@@ -83,7 +83,7 @@ class FastAPIVisualizations:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = VisualizationIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item inaccessible by a URL link and return the current sharing status."""
         return self.service.shareable_service.disable_link_access(trans, id)
 
@@ -95,7 +95,7 @@ class FastAPIVisualizations:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = VisualizationIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item publicly available by a URL link and return the current sharing status."""
         return self.service.shareable_service.publish(trans, id)
 
@@ -107,7 +107,7 @@ class FastAPIVisualizations:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = VisualizationIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Removes this item from the published list and return the current sharing status."""
         return self.service.shareable_service.unpublish(trans, id)
 
@@ -120,7 +120,7 @@ class FastAPIVisualizations:
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = VisualizationIdPathParam,
         payload: ShareWithPayload = Body(...)
-    ) -> ShareWithStatus:
+    ) -> ShareWithStatusResponse:
         """Shares this item with specific users and return the current sharing status."""
         return self.service.shareable_service.share_with_users(trans, id, payload)
 

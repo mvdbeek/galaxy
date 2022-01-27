@@ -39,7 +39,7 @@ from galaxy.schema.fields import (
     OrderParamField,
 )
 from galaxy.schema.schema import (
-    AnyHistoryView,
+    AnyHistoryViewResponse,
     CreateHistoryPayload,
     CustomBuildsMetadataResponse,
     ExportHistoryArchivePayload,
@@ -48,8 +48,8 @@ from galaxy.schema.schema import (
     JobImportHistoryResponse,
     SetSlugPayload,
     ShareWithPayload,
-    ShareWithStatus,
-    SharingStatus,
+    ShareWithStatusResponse,
+    SharingStatusResponse,
 )
 from galaxy.schema.types import LatestLiteral
 from galaxy.util import (
@@ -136,7 +136,7 @@ class FastAPIHistories:
             description="Whether to return only deleted items.",
             deprecated=True,  # Marked as deprecated as it seems just like '/api/histories/deleted'
         )
-    ) -> List[AnyHistoryView]:
+    ) -> List[AnyHistoryViewResponse]:
         return self.service.index(trans, serialization_params, params, deleted_only=deleted, all_histories=params.all)
 
     @router.get(
@@ -148,7 +148,7 @@ class FastAPIHistories:
         trans: ProvidesHistoryContext = DependsOnTrans,
         params: HistoryIndexParams = Depends(HistoryIndexParams),
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> List[AnyHistoryView]:
+    ) -> List[AnyHistoryViewResponse]:
         return self.service.index(trans, serialization_params, params, deleted_only=True, all_histories=params.all)
 
     @router.get(
@@ -160,7 +160,7 @@ class FastAPIHistories:
         trans: ProvidesHistoryContext = DependsOnTrans,
         serialization_params: SerializationParams = Depends(query_serialization_params),
         filter_params: HistoryFilterQueryParams = Depends(HistoryFilterQueryParams),
-    ) -> List[AnyHistoryView]:
+    ) -> List[AnyHistoryViewResponse]:
         return self.service.published(trans, serialization_params, filter_params)
 
     @router.get(
@@ -172,7 +172,7 @@ class FastAPIHistories:
         trans: ProvidesHistoryContext = DependsOnTrans,
         serialization_params: SerializationParams = Depends(query_serialization_params),
         filter_params: HistoryFilterQueryParams = Depends(HistoryFilterQueryParams),
-    ) -> List[AnyHistoryView]:
+    ) -> List[AnyHistoryViewResponse]:
         return self.service.shared_with_me(trans, serialization_params, filter_params)
 
     @router.get(
@@ -183,7 +183,7 @@ class FastAPIHistories:
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> AnyHistoryView:
+    ) -> AnyHistoryViewResponse:
         return self.service.show(trans, serialization_params)
 
     @router.get(
@@ -195,7 +195,7 @@ class FastAPIHistories:
         trans: ProvidesHistoryContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> AnyHistoryView:
+    ) -> AnyHistoryViewResponse:
         return self.service.show(trans, serialization_params, id)
 
     @router.get(
@@ -219,7 +219,7 @@ class FastAPIHistories:
         payload: CreateHistoryPayload = Depends(CreateHistoryFormData.as_form),
         payload_as_json: Optional[Any] = Depends(try_get_request_body_as_json),
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> Union[JobImportHistoryResponse, AnyHistoryView]:
+    ) -> Union[JobImportHistoryResponse, AnyHistoryViewResponse]:
         """The new history can also be copied form a existing history or imported from an archive or URL."""
         # This action needs to work both with json and x-www-form-urlencoded payloads.
         # The way to support different content types on the same path operation is reading
@@ -242,7 +242,7 @@ class FastAPIHistories:
         serialization_params: SerializationParams = Depends(query_serialization_params),
         purge: bool = Query(default=False),
         payload: Optional[DeleteHistoryPayload] = Body(default=None)
-    ) -> AnyHistoryView:
+    ) -> AnyHistoryViewResponse:
         if payload:
             purge = payload.purge
         return self.service.delete(trans, id, serialization_params, purge)
@@ -256,7 +256,7 @@ class FastAPIHistories:
         trans: ProvidesHistoryContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> AnyHistoryView:
+    ) -> AnyHistoryViewResponse:
         return self.service.undelete(trans, id, serialization_params)
 
     @router.put(
@@ -272,7 +272,7 @@ class FastAPIHistories:
             description="Object containing any of the editable fields of the history.",
         ),
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> AnyHistoryView:
+    ) -> AnyHistoryViewResponse:
         return self.service.update(trans, id, payload, serialization_params)
 
     @router.get(
@@ -377,7 +377,7 @@ class FastAPIHistories:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Return the sharing status of the item."""
         return self.service.shareable_service.sharing(trans, id)
 
@@ -389,7 +389,7 @@ class FastAPIHistories:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item accessible by a URL link and return the current sharing status."""
         return self.service.shareable_service.enable_link_access(trans, id)
 
@@ -401,7 +401,7 @@ class FastAPIHistories:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item inaccessible by a URL link and return the current sharing status."""
         return self.service.shareable_service.disable_link_access(trans, id)
 
@@ -413,7 +413,7 @@ class FastAPIHistories:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item publicly available by a URL link and return the current sharing status."""
         return self.service.shareable_service.publish(trans, id)
 
@@ -425,7 +425,7 @@ class FastAPIHistories:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Removes this item from the published list and return the current sharing status."""
         return self.service.shareable_service.unpublish(trans, id)
 
@@ -438,7 +438,7 @@ class FastAPIHistories:
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = HistoryIDPathParam,
         payload: ShareWithPayload = Body(...)
-    ) -> ShareWithStatus:
+    ) -> ShareWithStatusResponse:
         """Shares this item with specific users and return the current sharing status."""
         return self.service.shareable_service.share_with_users(trans, id, payload)
 

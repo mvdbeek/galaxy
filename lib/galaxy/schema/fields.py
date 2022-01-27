@@ -29,7 +29,7 @@ class BaseDatabaseIdField:
 
     @classmethod
     def validate(cls, v):
-        return cls(v)
+        return v
 
     @classmethod
     def __modify_schema__(cls, field_schema):

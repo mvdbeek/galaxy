@@ -7,15 +7,15 @@ from galaxy import exceptions
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
-    AnyHDCA,
+    AnyHDCAResponse,
     CreateNewCollectionPayload,
     DatasetCollectionInstanceType,
-    HDCADetailed,
+    HDCADetailedResponse,
 )
 from galaxy.web import expose_api
 from galaxy.webapps.galaxy.services.dataset_collections import (
     DatasetCollectionAttributesResult,
-    DatasetCollectionContentElements,
+    DatasetCollectionContentElementsResponse,
     DatasetCollectionsService,
     SuitableConverters,
     UpdateCollectionAttributePayload,
@@ -54,7 +54,7 @@ class FastAPIDatasetCollections:
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
         payload: CreateNewCollectionPayload = Body(...),
-    ) -> HDCADetailed:
+    ) -> HDCADetailedResponse:
         return self.service.create(trans, payload)
 
     @router.post(
@@ -102,7 +102,7 @@ class FastAPIDatasetCollections:
         trans: ProvidesHistoryContext = DependsOnTrans,
         id: DecodedDatabaseIdField = DatasetCollectionIdPathParam,
         instance_type: DatasetCollectionInstanceType = InstanceTypeQueryParam,
-    ) -> AnyHDCA:
+    ) -> AnyHDCAResponse:
         return self.service.show(trans, id, instance_type)
 
     @router.get(
@@ -127,7 +127,7 @@ class FastAPIDatasetCollections:
             default=None,
             description="The number of content elements that will be skipped before returning.",
         ),
-    ) -> DatasetCollectionContentElements:
+    ) -> DatasetCollectionContentElementsResponse:
         return self.service.contents(trans, hdca_id, parent_id, instance_type, limit, offset)
 
 

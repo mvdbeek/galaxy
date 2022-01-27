@@ -15,7 +15,7 @@ from galaxy.schema.fields import (
 )
 from galaxy.schema.schema import (
     GroupModel,
-    UserModel,
+    UserResponseModel,
 )
 
 QUOTA_MODEL_CLASS_NAME = "Quota"
@@ -80,7 +80,7 @@ class DefaultQuota(BaseModel):  # TODO: should this replace lib.galaxy.model.Def
 
 class UserQuota(BaseModel):
     model_class: str = ModelClassField(USER_QUOTA_ASSOCIATION_MODEL_CLASS_NAME)
-    user: UserModel = Field(
+    user: UserResponseModel = Field(
         ...,
         title="User",
         description="Information about a user associated with a quota.",

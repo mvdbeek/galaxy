@@ -20,7 +20,7 @@ from galaxy.managers.users import (
     UserManager,
 )
 from galaxy.schema.fields import DecodedDatabaseIdField
-from galaxy.schema.schema import UserModel
+from galaxy.schema.schema import UserResponseModel
 from galaxy.web import (
     expose_api,
     expose_api_anonymous_and_sessionless,
@@ -59,9 +59,9 @@ class FastAPIConfiguration:
         summary="Return information about the current authenticated user",
         response_description="Information about the current authenticated user"
     )
-    def whoami(self, trans: ProvidesUserContext = DependsOnTrans) -> Optional[UserModel]:
+    def whoami(self, trans: ProvidesUserContext = DependsOnTrans) -> Optional[UserResponseModel]:
         """Return information about the current authenticated user."""
-        return _user_to_model(trans.user, trans.security)
+        return _user_to_model(trans.user)
 
     @router.get(
         '/api/configuration',
@@ -149,7 +149,7 @@ class ConfigurationController(BaseGalaxyAPIController):
         :rtype:   dict
         """
         user = self.user_manager.current_user(trans)
-        return _user_to_model(user, trans.security)
+        return _user_to_model(user)
 
     @expose_api_anonymous_and_sessionless
     def index(self, trans, **kwd):
@@ -205,8 +205,8 @@ class ConfigurationController(BaseGalaxyAPIController):
         return _index(self.configuration_manager, trans, view, keys)
 
 
-def _user_to_model(user, security):
-    return UserModel(**user.to_dict(view='element', value_mapper={'id': security.encode_id})) if user else None
+def _user_to_model(user):
+    return UserResponseModel(**user.to_dict(view='element')) if user else None
 
 
 def _index(manager: ConfigurationManager, trans, view, keys):

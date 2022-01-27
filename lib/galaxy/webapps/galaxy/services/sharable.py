@@ -25,9 +25,9 @@ from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     SetSlugPayload,
     ShareWithPayload,
-    ShareWithStatus,
+    ShareWithStatusResponse,
     SharingOptions,
-    SharingStatus,
+    SharingStatusResponse,
 )
 
 log = logging.getLogger(__name__)
@@ -50,12 +50,12 @@ class ShareableService:
         item = self._get_item_by_id(trans, id)
         self.manager.set_slug(item, payload.new_slug, trans.user)
 
-    def sharing(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
+    def sharing(self, trans, id: DecodedDatabaseIdField) -> SharingStatusResponse:
         """Gets the current sharing status of the item with the given id."""
         item = self._get_item_by_id(trans, id)
         return self._get_sharing_status(trans, item)
 
-    def enable_link_access(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
+    def enable_link_access(self, trans, id: DecodedDatabaseIdField) -> SharingStatusResponse:
         """Makes this item accessible by link.
         If this item contains other elements they will be publicly accessible too.
         """
@@ -64,12 +64,12 @@ class ShareableService:
         self.manager.make_importable(item)
         return self._get_sharing_status(trans, item)
 
-    def disable_link_access(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
+    def disable_link_access(self, trans, id: DecodedDatabaseIdField) -> SharingStatusResponse:
         item = self._get_item_by_id(trans, id)
         self.manager.make_non_importable(item)
         return self._get_sharing_status(trans, item)
 
-    def publish(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
+    def publish(self, trans, id: DecodedDatabaseIdField) -> SharingStatusResponse:
         """Makes this item publicly accessible.
         If this item contains other elements they will be publicly accessible too.
         """
@@ -78,17 +78,17 @@ class ShareableService:
         self.manager.publish(item)
         return self._get_sharing_status(trans, item)
 
-    def unpublish(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
+    def unpublish(self, trans, id: DecodedDatabaseIdField) -> SharingStatusResponse:
         item = self._get_item_by_id(trans, id)
         self.manager.unpublish(item)
         return self._get_sharing_status(trans, item)
 
-    def share_with_users(self, trans, id: DecodedDatabaseIdField, payload: ShareWithPayload) -> ShareWithStatus:
+    def share_with_users(self, trans, id: DecodedDatabaseIdField, payload: ShareWithPayload) -> ShareWithStatusResponse:
         item = self._get_item_by_id(trans, id)
         users, errors = self._get_users(trans, payload.user_ids)
         extra = self._share_with_options(trans, item, users, errors, payload.share_option)
         base_status = self._get_sharing_status(trans, item)
-        status = ShareWithStatus.parse_obj(base_status)
+        status = ShareWithStatusResponse.parse_obj(base_status)
         status.extra = extra
         status.errors.extend(errors)
         return status
@@ -116,7 +116,7 @@ class ShareableService:
         status = self.serializer.serialize_to_view(item,
             user=trans.user, trans=trans, default_view="sharing")
         status["users_shared_with"] = [{"id": self.manager.app.security.encode_id(a.user.id), "email": a.user.email} for a in item.users_shared_with]
-        return SharingStatus.parse_obj(status)
+        return SharingStatusResponse.parse_obj(status)
 
     def _get_users(self, trans, emails_or_ids: Optional[List] = None) -> Tuple[Set[User], Set[str]]:
         if emails_or_ids is None:

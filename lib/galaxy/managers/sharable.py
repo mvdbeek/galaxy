@@ -37,7 +37,7 @@ from galaxy.model import (
 )
 from galaxy.model.tags import GalaxyTagHandler
 from galaxy.schema.schema import (
-    ShareWithExtra,
+    ShareWithExtraResponse,
     SharingOptions,
 )
 from galaxy.structured_app import MinimalManagerApp
@@ -237,7 +237,7 @@ class SharableModelManager(base.ModelManager, secured.OwnableManagerMixin, secur
 
     def get_sharing_extra_information(
         self, trans, item, users: Set[User], errors: Set[str], option: Optional[SharingOptions] = None
-    ) -> Optional[ShareWithExtra]:
+    ) -> Optional[ShareWithExtraResponse]:
         """Returns optional extra information about the shareability of the given item.
 
         This function should be overridden in the particular manager class that wants

@@ -44,9 +44,9 @@ from galaxy.schema import (
 )
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
-    AnyHDA,
-    AnyHistoryContentItem,
-    DatasetAssociationRoles,
+    AnyHDAResponse,
+    AnyHistoryContentItemResponse,
+    DatasetAssociationRolesResponse,
     DatasetSourceType,
     Model,
     UpdateDatasetPermissionsPayload,
@@ -198,7 +198,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         history_id: Optional[DecodedDatabaseIdField],
         serialization_params: SerializationParams,
         filter_query_params: FilterQueryParams,
-    ) -> List[AnyHistoryContentItem]:
+    ) -> List[AnyHistoryContentItemResponse]:
         """
         Search datasets or collections using a query system and returns a list
         containing summary of dataset or dataset_collection information.
@@ -326,7 +326,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         dataset_id: DecodedDatabaseIdField,
         payload: UpdateDatasetPermissionsPayload,
         hda_ldda: DatasetSourceType = DatasetSourceType.hda,
-    ) -> DatasetAssociationRoles:
+    ) -> DatasetAssociationRolesResponse:
         """
         Updates permissions of a dataset.
         """
@@ -447,7 +447,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         dataset_id: DecodedDatabaseIdField,
         ext: str,
         serialization_params: SerializationParams,
-    ) -> AnyHDA:
+    ) -> AnyHDAResponse:
         """
         Return information about datasets made by converting this dataset to a new format
         """

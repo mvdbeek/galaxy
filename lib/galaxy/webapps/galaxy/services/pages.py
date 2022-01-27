@@ -19,9 +19,9 @@ from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreatePagePayload,
     PageContentFormat,
-    PageDetails,
-    PageSummary,
-    PageSummaryList,
+    PageDetailsResponse,
+    PageSummaryResponse,
+    PageSummaryListResponse,
 )
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.webapps.galaxy.services.base import ServiceBase
@@ -48,7 +48,7 @@ class PagesService(ServiceBase):
         self.serializer = serializer
         self.shareable_service = ShareableService(self.manager, self.serializer)
 
-    def index(self, trans, deleted: bool = False) -> PageSummaryList:
+    def index(self, trans, deleted: bool = False) -> PageSummaryListResponse:
         """Return a list of Pages viewable by the user
 
         :param deleted: Display deleted pages
@@ -79,9 +79,9 @@ class PagesService(ServiceBase):
             for row in r:
                 out.append(trans.security.encode_all_ids(row.to_dict(), recursive=True))
 
-        return PageSummaryList.parse_obj(out)
+        return PageSummaryListResponse.parse_obj(out)
 
-    def create(self, trans, payload: CreatePagePayload) -> PageSummary:
+    def create(self, trans, payload: CreatePagePayload) -> PageSummaryResponse:
         """
         Create a page and return Page summary
         """
@@ -89,7 +89,7 @@ class PagesService(ServiceBase):
         rval = trans.security.encode_all_ids(page.to_dict(), recursive=True)
         rval['content'] = page.latest_revision.content
         self.manager.rewrite_content_for_export(trans, rval)
-        return PageSummary.parse_obj(rval)
+        return PageSummaryResponse.parse_obj(rval)
 
     def delete(self, trans, id: DecodedDatabaseIdField):
         """
@@ -101,7 +101,7 @@ class PagesService(ServiceBase):
         page.deleted = True
         trans.sa_session.flush()
 
-    def show(self, trans, id: DecodedDatabaseIdField) -> PageDetails:
+    def show(self, trans, id: DecodedDatabaseIdField) -> PageDetailsResponse:
         """View a page summary and the content of the latest revision
 
         :param  id:    ID of page to be displayed
@@ -114,7 +114,7 @@ class PagesService(ServiceBase):
         rval['content'] = page.latest_revision.content
         rval['content_format'] = page.latest_revision.content_format
         self.manager.rewrite_content_for_export(trans, rval)
-        return PageDetails.parse_obj(rval)
+        return PageDetailsResponse.parse_obj(rval)
 
     def show_pdf(self, trans, id: DecodedDatabaseIdField):
         """

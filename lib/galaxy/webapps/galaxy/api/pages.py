@@ -17,13 +17,13 @@ from galaxy.managers.context import ProvidesUserContext
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreatePagePayload,
-    PageDetails,
-    PageSummary,
-    PageSummaryList,
+    PageDetailsResponse,
+    PageSummaryResponse,
+    PageSummaryListResponse,
     SetSlugPayload,
     ShareWithPayload,
-    ShareWithStatus,
-    SharingStatus,
+    ShareWithStatusResponse,
+    SharingStatusResponse,
 )
 from galaxy.web import (
     expose_api,
@@ -68,7 +68,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         deleted: bool = DeletedQueryParam,
-    ) -> PageSummaryList:
+    ) -> PageSummaryListResponse:
         """Get a list with summary information of all Pages available to the user."""
         return self.service.index(trans, deleted)
 
@@ -81,7 +81,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         payload: CreatePagePayload = Body(...),
-    ) -> PageSummary:
+    ) -> PageSummaryResponse:
         """Get a list with details of all Pages available to the user."""
         return self.service.create(trans, payload)
 
@@ -134,7 +134,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
-    ) -> PageDetails:
+    ) -> PageDetailsResponse:
         """Return summary information about a specific Page and the content of the last revision."""
         return self.service.show(trans, id)
 
@@ -146,7 +146,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Return the sharing status of the item."""
         return self.service.shareable_service.sharing(trans, id)
 
@@ -158,7 +158,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item accessible by a URL link and return the current sharing status."""
         return self.service.shareable_service.enable_link_access(trans, id)
 
@@ -170,7 +170,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item inaccessible by a URL link and return the current sharing status."""
         return self.service.shareable_service.disable_link_access(trans, id)
 
@@ -182,7 +182,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Makes this item publicly available by a URL link and return the current sharing status."""
         return self.service.shareable_service.publish(trans, id)
 
@@ -194,7 +194,7 @@ class FastAPIPages:
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
-    ) -> SharingStatus:
+    ) -> SharingStatusResponse:
         """Removes this item from the published list and return the current sharing status."""
         return self.service.shareable_service.unpublish(trans, id)
 
@@ -207,7 +207,7 @@ class FastAPIPages:
         trans: ProvidesUserContext = DependsOnTrans,
         id: DecodedDatabaseIdField = PageIdPathParam,
         payload: ShareWithPayload = Body(...)
-    ) -> ShareWithStatus:
+    ) -> ShareWithStatusResponse:
         """Shares this item with specific users and return the current sharing status."""
         return self.service.shareable_service.share_with_users(trans, id, payload)
 

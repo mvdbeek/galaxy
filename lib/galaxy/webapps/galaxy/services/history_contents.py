@@ -56,14 +56,14 @@ from galaxy.schema.fields import (
     DecodedDatabaseIdField,
 )
 from galaxy.schema.schema import (
-    AnyHistoryContentItem,
-    AnyJobStateSummary,
-    ContentsNearResult,
-    ContentsNearStats,
+    AnyHistoryContentItemResponse,
+    AnyJobStateSummaryResponse,
+    ContentsNearResponse,
+    ContentsNearStatsResponse,
     CreateNewCollectionPayload,
-    DatasetAssociationRoles,
+    DatasetAssociationRolesResponse,
     DeleteHistoryContentPayload,
-    DeleteHistoryContentResult,
+    DeleteHistoryContentResponse,
     HistoryContentsArchiveDryRunResult,
     HistoryContentSource,
     HistoryContentType,
@@ -204,7 +204,7 @@ class HistoriesContentsService(ServiceBase):
         legacy_params: LegacyHistoryContentsIndexParams,
         serialization_params: SerializationParams,
         filter_query_params: FilterQueryParams,
-    ) -> List[AnyHistoryContentItem]:
+    ) -> List[AnyHistoryContentItemResponse]:
         """
         Return a list of contents (HDAs and HDCAs) for the history with the given ``ID``.
 
@@ -223,7 +223,7 @@ class HistoriesContentsService(ServiceBase):
         serialization_params: SerializationParams,
         contents_type: HistoryContentType,
         fuzzy_count: Optional[int] = None,
-    ) -> AnyHistoryContentItem:
+    ) -> AnyHistoryContentItemResponse:
         """
         Return detailed information about an HDA or HDCA within a history
 
@@ -263,7 +263,7 @@ class HistoriesContentsService(ServiceBase):
     def index_jobs_summary(
         self, trans,
         params: HistoryContentsIndexJobsSummaryParams,
-    ) -> List[AnyJobStateSummary]:
+    ) -> List[AnyJobStateSummaryResponse]:
         """
         Return job state summary info for jobs, implicit groups jobs for collections or workflow invocations
 
@@ -287,7 +287,7 @@ class HistoriesContentsService(ServiceBase):
         self, trans,
         id: DecodedDatabaseIdField,
         contents_type: HistoryContentType,
-    ) -> AnyJobStateSummary:
+    ) -> AnyJobStateSummaryResponse:
         """
         Return detailed information about an HDA or HDCAs jobs
 
@@ -342,7 +342,7 @@ class HistoriesContentsService(ServiceBase):
         history_id: DecodedDatabaseIdField,
         payload: CreateHistoryContentPayload,
         serialization_params: SerializationParams,
-    ) -> AnyHistoryContentItem:
+    ) -> AnyHistoryContentItemResponse:
         """
         Create a new HDA or HDCA.
 
@@ -368,7 +368,7 @@ class HistoriesContentsService(ServiceBase):
         self, trans,
         history_content_id: DecodedDatabaseIdField,
         payload: UpdateDatasetPermissionsPayload,
-    ) -> DatasetAssociationRoles:
+    ) -> DatasetAssociationRolesResponse:
         """
         Set permissions of the given dataset to the given role ids.
 
@@ -391,7 +391,7 @@ class HistoriesContentsService(ServiceBase):
         assert hda is not None
         self.hda_manager.update_permissions(trans, hda, **payload_dict)
         roles = self.hda_manager.serialize_dataset_association_roles(trans, hda)
-        return DatasetAssociationRoles.parse_obj(roles)
+        return DatasetAssociationRolesResponse.parse_obj(roles)
 
     def update(
         self, trans,
@@ -424,7 +424,7 @@ class HistoriesContentsService(ServiceBase):
         history_id: DecodedDatabaseIdField,
         payload: UpdateHistoryContentsBatchPayload,
         serialization_params: SerializationParams,
-    ) -> List[AnyHistoryContentItem]:
+    ) -> List[AnyHistoryContentItemResponse]:
         """
         PUT /api/histories/{history_id}/contents
 
@@ -496,7 +496,7 @@ class HistoriesContentsService(ServiceBase):
         serialization_params: SerializationParams,
         contents_type: HistoryContentType,
         payload: DeleteHistoryContentPayload,
-    ) -> DeleteHistoryContentResult:
+    ) -> DeleteHistoryContentResponse:
         """
         Delete the history content with the given ``id`` and specified type (defaults to dataset)
 
@@ -508,7 +508,7 @@ class HistoriesContentsService(ServiceBase):
             self.dataset_collection_manager.delete(
                 trans, "history", id, recursive=payload.recursive, purge=payload.purge
             )
-            return DeleteHistoryContentResult(id=id, deleted=True)
+            return DeleteHistoryContentResponse(id=id, deleted=True)
         else:
             raise exceptions.UnknownContentsType(f'Unknown contents type: {contents_type}')
 
@@ -630,7 +630,7 @@ class HistoriesContentsService(ServiceBase):
         hid: int,
         limit: int,
         since: Optional[datetime.datetime] = None,
-    ) -> Optional[ContentsNearResult]:
+    ) -> Optional[ContentsNearResponse]:
         """
         Return {limit} history items "near" the {hid}. The {direction} determines what items
         are selected:
@@ -691,14 +691,14 @@ class HistoriesContentsService(ServiceBase):
                 matches_up=len(up_matches), matches_down=len(down_matches), total_matches_up=up_total_count,
                 total_matches_down=down_total_count)
 
-        stats = ContentsNearStats(
+        stats = ContentsNearStatsResponse(
             max_hid=max_hid,
             min_hid=min_hid,
             history_size=history.disk_size,
             history_empty=history.empty,
             **item_counts,
         )
-        return ContentsNearResult(contents=expanded, stats=stats)
+        return ContentsNearResponse(contents=expanded, stats=stats)
 
     def _get_limits(self, limit):
         q, r = divmod(limit, 2)
@@ -865,7 +865,7 @@ class HistoriesContentsService(ServiceBase):
         self, trans,
         history_id: DecodedDatabaseIdField,
         legacy_params: LegacyHistoryContentsIndexParams,
-    ) -> List[AnyHistoryContentItem]:
+    ) -> List[AnyHistoryContentItemResponse]:
         """Legacy implementation of the `index` action."""
         history = self._get_history(trans, history_id)
         legacy_params_dict = legacy_params.dict(exclude_defaults=True)
@@ -885,7 +885,7 @@ class HistoriesContentsService(ServiceBase):
         params: HistoryContentsIndexParams,
         serialization_params: SerializationParams,
         filter_query_params: FilterQueryParams,
-    ) -> List[AnyHistoryContentItem]:
+    ) -> List[AnyHistoryContentItemResponse]:
         """
         Latests implementation of the `index` action.
         Allows additional filtering of contents and custom serialization.
