@@ -781,7 +781,12 @@ def _remap_galaxy_markdown_containers(func, markdown):
         match = re.search(GALAXY_FENCED_BLOCK, from_markdown)
         if match is not None:
             replace = match.group(1)
-            (replacement, whole_block) = func(replace)
+            rval = func(replace)
+            if rval:
+                replacement, whole_block = rval
+            else:
+                replacement = replace
+                whole_block = False
             if whole_block:
                 start_pos = match.start()
                 end_pos = match.end()

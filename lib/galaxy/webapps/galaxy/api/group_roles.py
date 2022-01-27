@@ -37,10 +37,11 @@ RoleIDParam: DecodedDatabaseIdField = Path(
 )
 
 
-def group_role_to_model(trans, encoded_group_id, role):
+def group_role_to_model(trans, group_id, role):
     encoded_role_id = trans.security.encode_id(role.id)
+    encoded_group_id = trans.security.encode_id(group_id)
     url = trans.url_builder("group_role", group_id=encoded_group_id, id=encoded_role_id)
-    return GroupRoleModelResponse(id=encoded_role_id, name=role.name, url=url)
+    return GroupRoleModelResponse(id=role.id, name=role.name, url=url)
 
 
 @router.cbv
@@ -106,6 +107,7 @@ class GroupRolesAPIController(BaseGalaxyAPIController):
         GET /api/groups/{encoded_group_id}/roles
         Displays a collection (list) of groups.
         """
+        group_id = self.decode_id(group_id)
         group_roles = self.manager.index(trans, group_id)
         return GroupRoleListModelResponse(
             __root__=[
@@ -126,6 +128,8 @@ class GroupRolesAPIController(BaseGalaxyAPIController):
         GET /api/groups/{encoded_group_id}/roles/{encoded_role_id}
         Displays information about a group role.
         """
+        id = self.decode_id(id)
+        group_id = self.decode_id(group_id)
         role = self.manager.show(trans, id, group_id)
         return group_role_to_model(trans, group_id, role)
 
@@ -142,6 +146,8 @@ class GroupRolesAPIController(BaseGalaxyAPIController):
         PUT /api/groups/{encoded_group_id}/roles/{encoded_role_id}
         Adds a role to a group
         """
+        id = self.decode_id(id)
+        group_id = self.decode_id(group_id)
         role = self.manager.update(trans, id, group_id)
         return group_role_to_model(trans, group_id, role)
 
@@ -158,5 +164,7 @@ class GroupRolesAPIController(BaseGalaxyAPIController):
         DELETE /api/groups/{encoded_group_id}/roles/{encoded_role_id}
         Removes a role from a group
         """
+        id = self.decode_id(id)
+        group_id = self.decode_id(group_id)
         role = self.manager.delete(trans, id, group_id)
         return group_role_to_model(trans, group_id, role)

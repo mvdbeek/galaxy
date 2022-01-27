@@ -9,11 +9,11 @@ from sqlalchemy import false
 from galaxy import model
 from galaxy.exceptions import (
     Conflict,
-    ObjectAttributeMissingException,
     ObjectNotFound,
 )
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.schema.fields import DecodedDatabaseIdField
+from galaxy.schema.schema import GroupDefinitionModel, GroupUpdateModel
 from galaxy.web import url_for
 
 
@@ -35,21 +35,17 @@ class GroupsManager:
             rval.append(item)
         return rval
 
-    def create(self, trans: ProvidesAppContext, payload: Dict[str, Any]):
+    def create(self, trans: ProvidesAppContext, group_model: GroupDefinitionModel):
         """
         Creates a new group.
         """
-        name = payload.get("name", None)
-        if name is None:
-            raise ObjectAttributeMissingException("Missing required name")
+        name = group_model.name
         self._check_duplicated_group_name(trans, name)
 
         group = model.Group(name=name)
         trans.sa_session.add(group)
-        user_ids = payload.get("user_ids", [])
-        users = self._get_users_by_ids(trans, user_ids)
-        role_ids = payload.get("role_ids", [])
-        roles = self._get_roles_by_ids(trans, role_ids)
+        users = self._get_users_by_ids(trans, group_model.user_ids)
+        roles = self._get_roles_by_ids(trans, group_model.role_ids)
         trans.app.security_agent.set_entity_group_associations(
             groups=[group], roles=roles, users=users
         )
@@ -77,21 +73,19 @@ class GroupsManager:
         self,
         trans: ProvidesAppContext,
         group_id: DecodedDatabaseIdField,
-        payload: Dict[str, Any],
+        group_model: GroupUpdateModel,
     ):
         """
         Modifies a group.
         """
         group = self._get_group(trans, group_id)
-        name = payload.get("name", None)
+        name = group_model.name
         if name:
             self._check_duplicated_group_name(trans, name)
             group.name = name
             trans.sa_session.add(group)
-        encoded_user_ids = payload.get("user_ids", [])
-        users = self._get_users_by_ids(trans, encoded_user_ids)
-        encoded_role_ids = payload.get("role_ids", [])
-        roles = self._get_roles_by_ids(trans, encoded_role_ids)
+        users = self._get_users_by_ids(trans, group_model.user_ids)
+        roles = self._get_roles_by_ids(trans, group_model.role_ids)
         trans.app.security_agent.set_entity_group_associations(
             groups=[group], roles=roles, users=users, delete_existing_assocs=False
         )

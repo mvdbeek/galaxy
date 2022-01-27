@@ -584,6 +584,8 @@ class HistoriesController(BaseGalaxyAPIController):
         history_id = id
         if history_id == "most_recently_used":
             history_id = None  # Will default to the most recently used
+        if history_id:
+            history_id = self.decode_id(history_id)
         serialization_params = parse_serialization_params(**kwd)
         return self.service.show(trans, serialization_params, history_id)
 

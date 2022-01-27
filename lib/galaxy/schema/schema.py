@@ -2032,13 +2032,38 @@ RoleNameIdTuple = Tuple[str, EncodedDatabaseIdField]
 
 
 class GroupRoleModelResponse(ResponseModel):
-    id: DecodedDatabaseIdField = RoleIdField
+    id: EncodedDatabaseIdField = RoleIdField
     name: str = RoleNameField
     url: RelativeUrl = RelativeUrlField
 
 
 class GroupRoleListModelResponse(ResponseModel):
     __root__: List[GroupRoleModelResponse]
+
+
+UserIdsField = Field(
+    title="User IDs",
+    description="List of User IDs that should be part of this Group",
+    default=[],
+)
+RoleIdsField = Field(
+    title="Role IDs",
+    description="List of Role IDs that should be part of this Group",
+    default=[],
+)
+
+
+class BaseGroupModel(BaseModel):
+    user_ids: List[DecodedDatabaseIdField] = UserIdsField
+    role_ids: List[DecodedDatabaseIdField] = RoleIdsField
+
+
+class GroupDefinitionModel(BaseGroupModel):
+    name: str = Field(title="name", description="Name of Group")
+
+
+class GroupUpdateModel(BaseGroupModel):
+    name: Optional[str] = Field(title="name", description="New name of Group")
 
 
 # Libraries -----------------------------------------------------------------
@@ -2294,7 +2319,7 @@ class LibraryFolderPermissionsPayload(LibraryPermissionsPayloadBase):
 
 class LibraryFolderDetailsResponse(ResponseModel):
     model_class: str = ModelClassField("LibraryFolder")
-    id: EncodedDatabaseIdField = Field(
+    id: FolderEncodedDatabaseIdField = Field(
         ...,
         title="ID",
         description="Encoded ID of the library folder.",
@@ -2311,7 +2336,7 @@ class LibraryFolderDetailsResponse(ResponseModel):
         title="Parent Library ID",
         description="Encoded ID of the Library this folder belongs to.",
     )
-    parent_id: Optional[EncodedDatabaseIdField] = Field(
+    parent_id: Optional[FolderEncodedDatabaseIdField] = Field(
         None,
         title="Parent Folder ID",
         description="Encoded ID of the parent folder. Empty if it's the root folder.",
@@ -2615,7 +2640,7 @@ class SetSlugPayload(BaseModel):
     )
 
 
-class UserEmailResponse(BaseModel):
+class UserEmailResponse(ResponseModel):
     id: EncodedDatabaseIdField = Field(
         ...,
         title="User ID",
@@ -2626,6 +2651,14 @@ class UserEmailResponse(BaseModel):
         title="Email",
         description="The email of the user.",
     )
+
+
+class UserEmailUrlResponse(UserEmailResponse):
+    url: str = Field(..., title="URL", description="API url for group user")
+
+
+class UserEmailUrlResponseList(ResponseModel):
+    __root__: List[UserEmailUrlResponse]
 
 
 class SharingStatusResponse(BaseModel):

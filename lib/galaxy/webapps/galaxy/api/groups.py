@@ -10,6 +10,10 @@ from typing import (
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.managers.groups import GroupsManager
 from galaxy.schema.fields import DecodedDatabaseIdField
+from galaxy.schema.schema import (
+    GroupDefinitionModel,
+    GroupUpdateModel,
+)
 from galaxy.web import (
     expose_api,
     require_admin,
@@ -41,7 +45,7 @@ class GroupAPIController(BaseGalaxyAPIController):
         POST /api/groups
         Creates a new group.
         """
-        return self.manager.create(trans, payload)
+        return self.manager.create(trans, GroupDefinitionModel(**payload))
 
     @expose_api
     @require_admin
@@ -50,6 +54,7 @@ class GroupAPIController(BaseGalaxyAPIController):
         GET /api/groups/{encoded_group_id}
         Displays information about a group.
         """
+        id = self.decode_id(id)
         return self.manager.show(trans, id)
 
     @expose_api
@@ -65,4 +70,5 @@ class GroupAPIController(BaseGalaxyAPIController):
         PUT /api/groups/{encoded_group_id}
         Modifies a group.
         """
-        self.manager.update(trans, id, payload)
+        self.decode_id(id)
+        self.manager.update(trans, id, GroupUpdateModel(**payload))

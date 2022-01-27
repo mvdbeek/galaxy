@@ -775,6 +775,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :rtype:     list
         :returns:   dictionaries containing summary or detailed HDA information
         """
+        history_id = self.decode_id(history_id)
         index_params = parse_index_query_params(**kwd)
         legacy_params = parse_legacy_index_query_params(**kwd)
         # Sometimes the `v=dev` version is called with `details` or `dataset_details`
@@ -827,6 +828,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :rtype:     dict
         :returns:   dictionary containing detailed HDA or HDCA information
         """
+        id = self.decode_id(id)
         serialization_params = parse_serialization_params(**kwd)
         contents_type = self.__get_contents_type(kwd)
         fuzzy_count = kwd.get("fuzzy_count", None)
@@ -879,6 +881,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :rtype:     dict
         :returns:   dictionary containing jobs summary object
         """
+        id = self.decode_id(id)
         contents_type = self.__get_contents_type(kwd)
         return self.service.show_jobs_summary(trans, id, contents_type)
 
@@ -898,6 +901,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :param id: encoded HistoryDatasetCollectionAssociation (HDCA) id
         :param history_id: encoded id string of the HDCA's History
         """
+        id = self.decode_id(id)
         archive = self.service.get_dataset_collection_archive_for_download(trans, id)
         trans.response.headers.update(archive.get_headers())
         return archive.response()
@@ -982,6 +986,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :returns:   dictionary containing detailed information for the new HDA
 
         """
+        history_id = self.decode_id(history_id)
         serialization_params = parse_serialization_params(**kwd)
         create_payload = CreateHistoryContentPayload(**payload)
         create_payload.type = kwd.get("type") or create_payload.type
@@ -1059,6 +1064,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :returns:   an error object if an error occurred or a dictionary containing
                     any values that were different from the original and, therefore, updated
         """
+        history_id = self.decode_id(history_id)
         serialization_params = parse_serialization_params(**kwd)
         update_payload = UpdateHistoryContentsBatchPayload.parse_obj(payload)
         return self.service.update_batch(trans, history_id, update_payload, serialization_params)
@@ -1085,6 +1091,8 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :returns:   an error object if an error occurred or a dictionary containing
             any values that were different from the original and, therefore, updated
         """
+        history_id = self.decode_id(history_id)
+        id = self.decode_id(id)
         serialization_params = parse_serialization_params(**kwd)
         contents_type = self.__get_contents_type(kwd)
         return self.service.update(trans, history_id, id, payload, serialization_params, contents_type)
@@ -1104,6 +1112,8 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
         :rtype:     dict
         :returns:   TODO
         """
+        history_id = self.decode_id(history_id)
+        history_content_id = self.decode_id(history_content_id)
         return self.service.validate(trans, history_id, history_content_id)
 
     @expose_api_anonymous
@@ -1138,6 +1148,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
             * deleted:    if the history content was marked as deleted,
             * purged:     if the history content was purged
         """
+        id = self.decode_id(id)
         serialization_params = parse_serialization_params(**kwd)
         contents_type = self.__get_contents_type(kwd)
         purge = util.string_as_bool(purge)
@@ -1167,6 +1178,7 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
 
         .. note:: this is a volatile endpoint and settings and behavior may change.
         """
+        history_id = self.decode_id(history_id)
         dry_run = util.string_as_bool(dry_run)
         filter_parameters = FilterQueryParams(**kwd)
         archive = self.service.archive(trans, history_id, filter_parameters, filename, dry_run)
@@ -1197,7 +1209,10 @@ class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, 
 
         GET /api/histories/{history_id}/contents/{direction:near|before|after}/{hid}/{limit}
         """
-        serialization_params = parse_serialization_params(**kwd)
+        history_id = self.decode_id(history_id)
+        serialization_params = parse_serialization_params(
+            default_view="betawebclient", **kwd
+        )
 
         since_str = kwd.pop("since", None)
         if since_str:
