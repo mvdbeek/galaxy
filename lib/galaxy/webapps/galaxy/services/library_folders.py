@@ -12,7 +12,7 @@ from galaxy.exceptions import (
 )
 from galaxy.managers.folders import FolderManager
 from galaxy.managers.roles import RoleManager
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreateLibraryFolderPayload,
     LibraryAvailablePermissions,
@@ -38,7 +38,7 @@ class LibraryFoldersService(ServiceBase):
         self.folder_manager = folder_manager
         self.role_manager = role_manager
 
-    def show(self, trans, id: EncodedDatabaseIdField) -> LibraryFolderDetails:
+    def show(self, trans, id: DecodedDatabaseIdField) -> LibraryFolderDetails:
         """
         Displays information about a folder.
 
@@ -48,19 +48,23 @@ class LibraryFoldersService(ServiceBase):
         :returns:   dictionary including details of the folder
         :rtype:     dict
         """
-        folder_id = self.folder_manager.cut_and_decode(trans, id)
-        folder = self.folder_manager.get(trans, folder_id, check_manageable=False, check_accessible=True)
+        folder = self.folder_manager.get(
+            trans, id, check_manageable=False, check_accessible=True
+        )
         return_dict = self.folder_manager.get_folder_dict(trans, folder)
         return LibraryFolderDetails.parse_obj(return_dict)
 
     def create(
-        self, trans, encoded_parent_folder_id: EncodedDatabaseIdField, payload: CreateLibraryFolderPayload
+        self,
+        trans,
+        folder_id: DecodedDatabaseIdField,
+        payload: CreateLibraryFolderPayload,
     ) -> LibraryFolderDetails:
         """
         Create a new folder object underneath the one specified in the parameters.
 
-        :param  encoded_parent_folder_id:      (required) the parent folder's id
-        :type   encoded_parent_folder_id:      an encoded id string (should be prefixed by 'F')
+        :param  folder_id:      (required) the parent folder's id
+        :type   folder_id:      an encoded id string (should be prefixed by 'F')
         :param   payload: dictionary structure containing:
 
             :param  name:                          (required) the name of the new folder
@@ -73,16 +77,17 @@ class LibraryFoldersService(ServiceBase):
         :rtype:     dictionary
         :raises: RequestParameterMissingException
         """
-        decoded_parent_folder_id = self.folder_manager.cut_and_decode(trans, encoded_parent_folder_id)
-        parent_folder = self.folder_manager.get(trans, decoded_parent_folder_id)
-        new_folder = self.folder_manager.create(trans, parent_folder.id, payload.name, payload.description)
+        parent_folder = self.folder_manager.get(trans, folder_id)
+        new_folder = self.folder_manager.create(
+            trans, parent_folder.id, payload.name, payload.description
+        )
         return_dict = self.folder_manager.get_folder_dict(trans, new_folder)
         return LibraryFolderDetails.parse_obj(return_dict)
 
     def get_permissions(
         self,
         trans,
-        encoded_folder_id: EncodedDatabaseIdField,
+        folder_id: DecodedDatabaseIdField,
         scope: Optional[LibraryPermissionScope] = LibraryPermissionScope.current,
         page: Optional[int] = 1,
         page_limit: Optional[int] = 10,
@@ -91,8 +96,8 @@ class LibraryFoldersService(ServiceBase):
         """
         Load all permissions for the given folder id and return it.
 
-        :param  encoded_folder_id:     the encoded id of the folder
-        :type   encoded_folder_id:     an encoded id string
+        :param  folder_id:     the encoded id of the folder
+        :type   folder_id:     an encoded id string
 
         :param  scope:      either 'current' or 'available'
         :type   scope:      string
@@ -104,8 +109,7 @@ class LibraryFoldersService(ServiceBase):
         """
         current_user_roles = trans.get_current_user_roles()
         is_admin = trans.user_is_admin
-        decoded_folder_id = self.folder_manager.cut_and_decode(trans, encoded_folder_id)
-        folder = self.folder_manager.get(trans, decoded_folder_id)
+        folder = self.folder_manager.get(trans, folder_id)
 
         if not (is_admin or trans.app.security_agent.can_manage_library_item(current_user_roles, folder)):
             raise InsufficientPermissionsException(
@@ -129,13 +133,13 @@ class LibraryFoldersService(ServiceBase):
             )
 
     def set_permissions(
-        self, trans, encoded_folder_id: EncodedDatabaseIdField, payload: dict
+        self, trans, folder_id: DecodedDatabaseIdField, payload: dict
     ) -> LibraryFolderCurrentPermissions:
         """
         Set permissions of the given folder to the given role ids.
 
-        :param  encoded_folder_id:      the encoded id of the folder to set the permissions of
-        :type   encoded_folder_id:      an encoded id string
+        :param  folder_id:      the encoded id of the folder to set the permissions of
+        :type   folder_id:      an encoded id string
         :param   payload: dictionary structure containing:
 
             :param  action:            (required) describes what action should be performed
@@ -155,9 +159,13 @@ class LibraryFoldersService(ServiceBase):
 
         is_admin = trans.user_is_admin
         current_user_roles = trans.get_current_user_roles()
-        decoded_folder_id = self.folder_manager.cut_and_decode(trans, encoded_folder_id)
-        folder = self.folder_manager.get(trans, decoded_folder_id)
-        if not (is_admin or trans.app.security_agent.can_manage_library_item(current_user_roles, folder)):
+        folder = self.folder_manager.get(trans, folder_id)
+        if not (
+            is_admin
+            or trans.app.security_agent.can_manage_library_item(
+                current_user_roles, folder
+            )
+        ):
             raise InsufficientPermissionsException(
                 "You do not have proper permission to modify permissions of this folder."
             )
@@ -232,18 +240,18 @@ class LibraryFoldersService(ServiceBase):
         return LibraryFolderCurrentPermissions.parse_obj(current_permissions)
 
     def delete(
-        self, trans, encoded_folder_id: EncodedDatabaseIdField, undelete: Optional[bool] = False
+        self, trans, folder_id: DecodedDatabaseIdField, undelete: Optional[bool] = False
     ) -> LibraryFolderDetails:
         """
-        DELETE /api/folders/{encoded_folder_id}
+        DELETE /api/folders/{folder_id}
 
         Mark the folder with the given ``encoded_folder_id`` as `deleted`
         (or remove the `deleted` mark if the `undelete` param is true).
 
         .. note:: Currently, only admin users can un/delete folders.
 
-        :param  encoded_folder_id:     the encoded id of the folder to un/delete
-        :type   encoded_folder_id:     an encoded id string
+        :param  folder_id:     the encoded id of the folder to un/delete
+        :type   folder_id:     an encoded id string
 
         :param  undelete:    (optional) flag specifying whether the item should be deleted or undeleted, defaults to false:
         :type   undelete:    bool
@@ -252,13 +260,16 @@ class LibraryFoldersService(ServiceBase):
         :rtype:     dictionary
 
         """
-        folder = self.folder_manager.get(trans, self.folder_manager.cut_and_decode(trans, encoded_folder_id), True)
+        folder = self.folder_manager.get(trans, folder_id, True)
         folder = self.folder_manager.delete(trans, folder, undelete)
         folder_dict = self.folder_manager.get_folder_dict(trans, folder)
         return LibraryFolderDetails.parse_obj(folder_dict)
 
     def update(
-        self, trans, encoded_folder_id: EncodedDatabaseIdField, payload: UpdateLibraryFolderPayload
+        self,
+        trans,
+        folder_id: DecodedDatabaseIdField,
+        payload: UpdateLibraryFolderPayload,
     ) -> LibraryFolderDetails:
         """
          Update the folder defined by an ``encoded_folder_id``
@@ -266,8 +277,8 @@ class LibraryFoldersService(ServiceBase):
 
         .. note:: Currently, only admin users can update library folders. Also the folder must not be `deleted`.
 
-         :param  id:      the encoded id of the folder
-         :type   id:      an encoded id string
+         :param  folder_id:      the encoded id of the folder
+         :type   folder_id:      an encoded id string
 
          :param  payload: (required) dictionary structure containing::
              'name':         new folder's name, cannot be empty
@@ -279,8 +290,9 @@ class LibraryFoldersService(ServiceBase):
 
          :raises: RequestParameterMissingException
         """
-        decoded_folder_id = self.folder_manager.cut_and_decode(trans, encoded_folder_id)
-        folder = self.folder_manager.get(trans, decoded_folder_id)
-        updated_folder = self.folder_manager.update(trans, folder, payload.name, payload.description)
+        folder = self.folder_manager.get(trans, folder_id)
+        updated_folder = self.folder_manager.update(
+            trans, folder, payload.name, payload.description
+        )
         folder_dict = self.folder_manager.get_folder_dict(trans, updated_folder)
         return LibraryFolderDetails.parse_obj(folder_dict)

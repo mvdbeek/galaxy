@@ -311,7 +311,13 @@ class DatasetCollectionManager:
         dataset_collection.collection_type = collection_type
         return dataset_collection
 
-    def get_converters_for_collection(self, trans, id, datatypes_registry: Registry, instance_type="history"):
+    def get_converters_for_collection(
+        self,
+        trans,
+        id: int,
+        datatypes_registry: Registry,
+        instance_type: str = "history",
+    ):
         dataset_collection_instance = self.get_dataset_collection_instance(
             trans, id=id, instance_type=instance_type, check_ownership=True
         )
@@ -432,13 +438,21 @@ class DatasetCollectionManager:
         changed = self._set_from_dict(trans, dataset_collection_instance, payload)
         return changed
 
-    def copy(self, trans, parent, source, encoded_source_id, copy_elements=False, dataset_instance_attributes=None):
+    def copy(
+        self,
+        trans,
+        parent,
+        source: str,
+        source_id: int,
+        copy_elements=False,
+        dataset_instance_attributes=None,
+    ):
         """
         PRECONDITION: security checks on ability to add to parent occurred
         during load.
         """
         assert source == "hdca"  # for now
-        source_hdca = self.__get_history_collection_instance(trans, encoded_source_id)
+        source_hdca = self.__get_history_collection_instance(trans, source_id)
         copy_kwds = {}
         if copy_elements:
             copy_kwds["element_destination"] = parent  # e.g. a history
@@ -599,13 +613,13 @@ class DatasetCollectionManager:
             message_template = "Problem decoding element identifier %s - must contain a 'src' and a 'id'."
             message = message_template % element_identifier
             raise RequestParameterInvalidException(message)
+        decoded_id = trans.app.security.decode_id(encoded_id)
 
         tags = element_identifier.pop("tags", None)
         tag_str = ""
         if tags:
             tag_str = ",".join(str(_) for _ in tags)
         if src_type == "hda":
-            decoded_id = int(trans.app.security.decode_id(encoded_id))
             hda = self.hda_manager.get_accessible(decoded_id, trans.user)
             if copy_elements:
                 element = self.hda_manager.copy(hda, history=history or trans.history, hide_copy=True, flush=False)
@@ -617,14 +631,16 @@ class DatasetCollectionManager:
                 hda.visible = False
             self.tag_handler.apply_item_tags(user=trans.user, item=element, tags_str=tag_str, flush=False)
         elif src_type == "ldda":
-            element = self.ldda_manager.get(trans, encoded_id, check_accessible=True)
+            element = self.ldda_manager.get(trans, decoded_id, check_accessible=True)
             element = element.to_history_dataset_association(
                 history or trans.history, add_to_history=True, visible=not hide_source_items
             )
             self.tag_handler.apply_item_tags(user=trans.user, item=element, tags_str=tag_str, flush=False)
         elif src_type == "hdca":
             # TODO: Option to copy? Force copy? Copy or allow if not owned?
-            element = self.__get_history_collection_instance(trans, encoded_id).collection
+            element = self.__get_history_collection_instance(
+                trans, decoded_id
+            ).collection
         # TODO: ldca.
         else:
             raise RequestParameterInvalidException(f"Unknown src_type parameter supplied '{src_type}'.")
@@ -637,17 +653,14 @@ class DatasetCollectionManager:
         """
         return MatchingCollections.for_collections(collections_to_match, self.collection_type_descriptions)
 
-    def get_dataset_collection_instance(self, trans, instance_type, id, **kwds):
+    def get_dataset_collection_instance(
+        self, trans, instance_type: str, id: int, **kwds
+    ):
         """ """
         if instance_type == "history":
             return self.__get_history_collection_instance(trans, id, **kwds)
         elif instance_type == "library":
             return self.__get_library_collection_instance(trans, id, **kwds)
-
-    def get_dataset_collection(self, trans, encoded_id):
-        collection_id = int(trans.app.security.decode_id(encoded_id))
-        collection = trans.sa_session.query(trans.app.model.DatasetCollection).get(collection_id)
-        return collection
 
     def apply_rules(self, hdca, rule_set, handle_dataset):
         hdca_collection = hdca.collection
@@ -749,13 +762,16 @@ class DatasetCollectionManager:
 
         return data, sources
 
-    def __get_history_collection_instance(self, trans, id, check_ownership=False, check_accessible=True):
-        instance_id = int(trans.app.security.decode_id(id))
-        collection_instance = trans.sa_session.query(trans.app.model.HistoryDatasetCollectionAssociation).get(
-            instance_id
-        )
+    def __get_history_collection_instance(
+        self, trans, instance_id: int, check_ownership=False, check_accessible=True
+    ):
+        collection_instance = trans.sa_session.query(
+            trans.app.model.HistoryDatasetCollectionAssociation
+        ).get(instance_id)
         if not collection_instance:
-            raise RequestParameterInvalidException(f"History dataset collection association {id} not found")
+            raise RequestParameterInvalidException(
+                "History dataset collection association not found"
+            )
         history = getattr(trans, "history", collection_instance.history)
         if check_ownership:
             self.history_manager.error_unless_owner(collection_instance.history, trans.user, current_history=history)
@@ -765,15 +781,16 @@ class DatasetCollectionManager:
             )
         return collection_instance
 
-    def __get_library_collection_instance(self, trans, id, check_ownership=False, check_accessible=True):
+    def __get_library_collection_instance(
+        self, trans, instance_id: int, check_ownership=False, check_accessible=True
+    ):
         if check_ownership:
             raise NotImplementedError(
                 "Functionality (getting library dataset collection with ownership check) unimplemented."
             )
-        instance_id = int(trans.security.decode_id(id))
-        collection_instance = trans.sa_session.query(trans.app.model.LibraryDatasetCollectionAssociation).get(
-            instance_id
-        )
+        collection_instance = trans.sa_session.query(
+            trans.app.model.LibraryDatasetCollectionAssociation
+        ).get(instance_id)
         if not collection_instance:
             raise RequestParameterInvalidException(f"Library dataset collection association {id} not found")
         if check_accessible:

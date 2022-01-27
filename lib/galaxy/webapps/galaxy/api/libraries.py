@@ -17,7 +17,7 @@ from fastapi import (
 
 from galaxy import util
 from galaxy.managers.context import ProvidesUserContext
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreateLibraryPayload,
     DeleteLibraryPayload,
@@ -52,7 +52,7 @@ DeletedQueryParam: Optional[bool] = Query(
     default=None, title="Display deleted", description="Whether to include deleted libraries in the result."
 )
 
-LibraryIdPathParam: EncodedDatabaseIdField = Path(
+LibraryIdPathParam: DecodedDatabaseIdField = Path(
     ..., title="Library ID", description="The encoded identifier of the Library."
 )
 
@@ -95,7 +95,7 @@ class FastAPILibraries:
     def show(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = LibraryIdPathParam,
+        id: DecodedDatabaseIdField = LibraryIdPathParam,
     ) -> LibrarySummary:
         """Returns summary information about a particular library."""
         return self.service.show(trans, id)
@@ -121,7 +121,7 @@ class FastAPILibraries:
     def update(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = LibraryIdPathParam,
+        id: DecodedDatabaseIdField = LibraryIdPathParam,
         payload: UpdateLibraryPayload = Body(...),
     ) -> LibrarySummary:
         """Updates the information of an existing library.
@@ -136,7 +136,7 @@ class FastAPILibraries:
     def delete(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = LibraryIdPathParam,
+        id: DecodedDatabaseIdField = LibraryIdPathParam,
         undelete: Optional[bool] = UndeleteQueryParam,
         payload: Optional[DeleteLibraryPayload] = Body(default=None),
     ) -> LibrarySummary:
@@ -153,7 +153,7 @@ class FastAPILibraries:
     def get_permissions(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = LibraryIdPathParam,
+        id: DecodedDatabaseIdField = LibraryIdPathParam,
         scope: Optional[LibraryPermissionScope] = Query(
             None,
             title="Scope",
@@ -193,7 +193,7 @@ class FastAPILibraries:
     def set_permissions(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = LibraryIdPathParam,
+        id: DecodedDatabaseIdField = LibraryIdPathParam,
         action: Optional[LibraryPermissionAction] = Query(
             default=None,
             title="Action",
@@ -234,7 +234,7 @@ class LibrariesController(BaseGalaxyAPIController):
         return self.service.index(trans, deleted)
 
     @expose_api_anonymous
-    def show(self, trans: ProvidesUserContext, id: EncodedDatabaseIdField, **kwd):
+    def show(self, trans: ProvidesUserContext, id: DecodedDatabaseIdField, **kwd):
         """
         show( self, trans, id, deleted='False', **kwd )
         * GET /api/libraries/{encoded_id}:
@@ -278,7 +278,13 @@ class LibrariesController(BaseGalaxyAPIController):
         return self.service.create(trans, create_payload)
 
     @expose_api
-    def update(self, trans: ProvidesUserContext, id: EncodedDatabaseIdField, payload: Dict[str, str], **kwd):
+    def update(
+        self,
+        trans: ProvidesUserContext,
+        id: DecodedDatabaseIdField,
+        payload: Dict[str, str],
+        **kwd
+    ):
         """
          * PATCH /api/libraries/{encoded_id}
             Updates the library defined by an ``encoded_id`` with the data in the payload.
@@ -304,7 +310,11 @@ class LibrariesController(BaseGalaxyAPIController):
 
     @expose_api
     def delete(
-        self, trans: ProvidesUserContext, id: EncodedDatabaseIdField, payload: Optional[Dict[str, Any]] = None, **kwd
+        self,
+        trans: ProvidesUserContext,
+        id: DecodedDatabaseIdField,
+        payload: Dict[str, Any] = None,
+        **kwd
     ):
         """
         * DELETE /api/libraries/{id}
@@ -330,7 +340,12 @@ class LibrariesController(BaseGalaxyAPIController):
         return self.service.delete(trans, id, undelete)
 
     @expose_api
-    def get_permissions(self, trans: ProvidesUserContext, encoded_library_id: EncodedDatabaseIdField, **kwd):
+    def get_permissions(
+        self,
+        trans: ProvidesUserContext,
+        encoded_library_id: DecodedDatabaseIdField,
+        **kwd
+    ):
         """
         * GET /api/libraries/{encoded_library_id}/permissions
 
@@ -372,7 +387,11 @@ class LibrariesController(BaseGalaxyAPIController):
 
     @expose_api
     def set_permissions(
-        self, trans: ProvidesUserContext, encoded_library_id: EncodedDatabaseIdField, payload: Dict[str, Any], **kwd
+        self,
+        trans: ProvidesUserContext,
+        encoded_library_id: DecodedDatabaseIdField,
+        payload: Dict[str, Any],
+        **kwd
     ):
         """
         POST /api/libraries/{encoded_library_id}/permissions

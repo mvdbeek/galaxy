@@ -896,7 +896,7 @@ class WorkflowsAPIController(BaseGalaxyAPIController, UsesStoredWorkflowMixin, U
         workflow_id = invocation_payload.workflow_id
         if invocation_payload.instance:
             invocation_payload.workflow_id = self.__get_stored_workflow(
-                trans, trans.security.encode_id(workflow_id), instance=True
+                trans, workflow_id, instance=True
             ).id
         if invocation_payload.history_id:
             # access check

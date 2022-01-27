@@ -23,8 +23,7 @@ from galaxy.quota._schema import (
     DefaultQuotaValues,
     QuotaOperation,
 )
-from galaxy.schema.fields import EncodedDatabaseIdField
-from galaxy.structured_app import StructuredApp
+from galaxy.schema.fields import DecodedDatabaseIdField
 
 log = logging.getLogger(__name__)
 
@@ -257,5 +256,14 @@ class QuotaManager:
         message += ", ".join(names)
         return message
 
-    def get_quota(self, trans, id: EncodedDatabaseIdField, deleted: Optional[bool] = None) -> model.Quota:
-        return base.get_object(trans, id, "Quota", check_ownership=False, check_accessible=False, deleted=deleted)
+    def get_quota(
+        self, trans, id: DecodedDatabaseIdField, deleted: Optional[bool] = None
+    ) -> model.Quota:
+        return base.get_object(
+            trans,
+            id,
+            "Quota",
+            check_ownership=False,
+            check_accessible=False,
+            deleted=deleted,
+        )

@@ -9,7 +9,7 @@ from fastapi import (
 
 from galaxy import exceptions
 from galaxy.managers.context import ProvidesHistoryContext
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     AnyHDCA,
     CreateNewCollectionPayload,
@@ -35,7 +35,7 @@ log = getLogger(__name__)
 
 router = Router(tags=["dataset collections"])
 
-DatasetCollectionIdPathParam: EncodedDatabaseIdField = Path(
+DatasetCollectionIdPathParam: DecodedDatabaseIdField = Path(
     ..., description="The encoded identifier of the dataset collection."
 )
 
@@ -67,7 +67,9 @@ class FastAPIDatasetCollections:
     def copy(
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = Path(..., description="The ID of the dataset collection to copy."),
+        id: DecodedDatabaseIdField = Path(
+            ..., description="The ID of the dataset collection to copy."
+        ),
         payload: UpdateCollectionAttributePayload = Body(...),
     ):
         self.service.copy(trans, id, payload)
@@ -79,7 +81,7 @@ class FastAPIDatasetCollections:
     def attributes(
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = DatasetCollectionIdPathParam,
+        id: DecodedDatabaseIdField = DatasetCollectionIdPathParam,
         instance_type: DatasetCollectionInstanceType = InstanceTypeQueryParam,
     ) -> DatasetCollectionAttributesResult:
         return self.service.attributes(trans, id, instance_type)
@@ -91,7 +93,7 @@ class FastAPIDatasetCollections:
     def suitable_converters(
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = DatasetCollectionIdPathParam,
+        id: DecodedDatabaseIdField = DatasetCollectionIdPathParam,
         instance_type: DatasetCollectionInstanceType = InstanceTypeQueryParam,
     ) -> SuitableConverters:
         return self.service.suitable_converters(trans, id, instance_type)
@@ -103,7 +105,7 @@ class FastAPIDatasetCollections:
     def show(
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = DatasetCollectionIdPathParam,
+        id: DecodedDatabaseIdField = DatasetCollectionIdPathParam,
         instance_type: DatasetCollectionInstanceType = InstanceTypeQueryParam,
     ) -> AnyHDCA:
         return self.service.show(trans, id, instance_type)
@@ -116,8 +118,8 @@ class FastAPIDatasetCollections:
     def contents(
         self,
         trans: ProvidesHistoryContext = DependsOnTrans,
-        hdca_id: EncodedDatabaseIdField = DatasetCollectionIdPathParam,
-        parent_id: EncodedDatabaseIdField = Path(
+        hdca_id: DecodedDatabaseIdField = DatasetCollectionIdPathParam,
+        parent_id: DecodedDatabaseIdField = Path(
             ...,
             description="Parent collection ID describing what collection the contents belongs to.",
         ),

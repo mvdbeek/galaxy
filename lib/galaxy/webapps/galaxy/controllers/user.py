@@ -263,7 +263,7 @@ class User(BaseUIController, UsesFormDefinitionsMixin, CreatesApiKeysMixin):
                 send_local_control_task(
                     trans.app,
                     "recalculate_user_disk_usage",
-                    kwargs={"user_id": trans.security.encode_id(trans.user.id)},
+                    kwargs={"user_id": trans.user.id},
                 )
         # Since logging an event requires a session, we'll log prior to ending the session
         trans.log_event("User logged out")

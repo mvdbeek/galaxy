@@ -75,8 +75,12 @@ class JobManager:
         )
         return self.job_lock()
 
-    def get_accessible_job(self, trans, decoded_job_id):
-        job = trans.sa_session.query(trans.app.model.Job).filter(trans.app.model.Job.id == decoded_job_id).first()
+    def get_accessible_job(self, trans, decoded_job_id: int):
+        job = (
+            trans.sa_session.query(trans.app.model.Job)
+            .filter(trans.app.model.Job.id == decoded_job_id)
+            .first()
+        )
         if job is None:
             raise ObjectNotFound()
         belongs_to_user = (

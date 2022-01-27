@@ -18,7 +18,7 @@ from galaxy import (
     util,
 )
 from galaxy.managers.context import ProvidesUserContext
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreateLibraryFolderPayload,
     LibraryAvailablePermissions,
@@ -42,7 +42,7 @@ log = logging.getLogger(__name__)
 
 router = Router(tags=["folders"])
 
-FolderIdPathParam: EncodedDatabaseIdField = Path(
+FolderIdPathParam: DecodedDatabaseIdField = Path(
     ..., title="Folder ID", description="The encoded identifier of the library folder."
 )
 
@@ -62,7 +62,7 @@ class FastAPILibraryFolders:
     def show(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = FolderIdPathParam,
+        id: DecodedDatabaseIdField = FolderIdPathParam,
     ) -> LibraryFolderDetails:
         """Returns detailed information about the library folder with the given ID."""
         return self.service.show(trans, id)
@@ -74,7 +74,7 @@ class FastAPILibraryFolders:
     def create(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = FolderIdPathParam,
+        id: DecodedDatabaseIdField = FolderIdPathParam,
         payload: CreateLibraryFolderPayload = Body(...),
     ) -> LibraryFolderDetails:
         """Returns detailed information about the newly created library folder."""
@@ -88,7 +88,7 @@ class FastAPILibraryFolders:
     def update(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = FolderIdPathParam,
+        id: DecodedDatabaseIdField = FolderIdPathParam,
         payload: UpdateLibraryFolderPayload = Body(...),
     ) -> LibraryFolderDetails:
         """Updates the information of an existing library folder."""
@@ -101,7 +101,7 @@ class FastAPILibraryFolders:
     def delete(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = FolderIdPathParam,
+        id: DecodedDatabaseIdField = FolderIdPathParam,
         undelete: Optional[bool] = UndeleteQueryParam,
     ) -> LibraryFolderDetails:
         """Marks the specified library folder as deleted (or undeleted)."""
@@ -114,7 +114,7 @@ class FastAPILibraryFolders:
     def get_permissions(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = FolderIdPathParam,
+        id: DecodedDatabaseIdField = FolderIdPathParam,
         scope: Optional[LibraryPermissionScope] = Query(
             None,
             title="Scope",
@@ -148,7 +148,7 @@ class FastAPILibraryFolders:
     def set_permissions(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        id: EncodedDatabaseIdField = FolderIdPathParam,
+        id: DecodedDatabaseIdField = FolderIdPathParam,
         action: Optional[LibraryFolderPermissionAction] = Query(
             default=None,
             title="Action",

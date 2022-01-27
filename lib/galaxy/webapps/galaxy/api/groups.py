@@ -9,7 +9,7 @@ from typing import (
 
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.managers.groups import GroupsManager
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.web import (
     expose_api,
     require_admin,
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 
 class GroupAPIController(BaseGalaxyAPIController):
-    manager = depends(GroupsManager)
+    manager: GroupsManager = depends(GroupsManager)
 
     @expose_api
     @require_admin
@@ -45,7 +45,7 @@ class GroupAPIController(BaseGalaxyAPIController):
 
     @expose_api
     @require_admin
-    def show(self, trans: ProvidesAppContext, id: EncodedDatabaseIdField, **kwd):
+    def show(self, trans: ProvidesAppContext, id: DecodedDatabaseIdField, **kwd):
         """
         GET /api/groups/{encoded_group_id}
         Displays information about a group.
@@ -54,7 +54,13 @@ class GroupAPIController(BaseGalaxyAPIController):
 
     @expose_api
     @require_admin
-    def update(self, trans: ProvidesAppContext, id: EncodedDatabaseIdField, payload: Dict[str, Any], **kwd):
+    def update(
+        self,
+        trans: ProvidesAppContext,
+        id: DecodedDatabaseIdField,
+        payload: Dict[str, Any],
+        **kwd
+    ):
         """
         PUT /api/groups/{encoded_group_id}
         Modifies a group.
