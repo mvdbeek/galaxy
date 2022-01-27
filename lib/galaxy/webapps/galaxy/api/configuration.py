@@ -19,7 +19,7 @@ from galaxy.managers.context import (
 from galaxy.managers.users import (
     UserManager,
 )
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import UserModel
 from galaxy.web import (
     expose_api,
@@ -43,7 +43,7 @@ log = logging.getLogger(__name__)
 router = Router(tags=['configuration'])
 
 
-EncodedIdPathParam: EncodedDatabaseIdField = Path(
+EncodedIdPathParam: DecodedDatabaseIdField = Path(
     ...,
     title='Encoded id',
     description='Encoded id to be decoded',
@@ -110,10 +110,10 @@ class FastAPIConfiguration:
     )
     def decode_id(
         self,
-        encoded_id: EncodedDatabaseIdField = EncodedIdPathParam
-    ) -> Dict[str, int]:
+        encoded_id: DecodedDatabaseIdField = EncodedIdPathParam
+    ) -> Dict[str, DecodedDatabaseIdField]:
         """Decode a given id."""
-        return self.configuration_manager.decode_id(encoded_id)
+        return {"decoded_id": encoded_id}
 
     @router.get(
         '/api/configuration/tool_lineages',
@@ -183,7 +183,7 @@ class ConfigurationController(BaseGalaxyAPIController):
     @expose_api
     def decode_id(self, trans, encoded_id, **kwds):
         """Decode a given id."""
-        return self.configuration_manager.decode_id(encoded_id)
+        return trans.sec
 
     @require_admin
     @expose_api

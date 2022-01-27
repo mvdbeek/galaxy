@@ -876,7 +876,7 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
                                       % (escape(workflow_name), url_for(controller='workflow', action='editor', id=workflow_id),
                                          url_for(controller='workflows', action='run', id=workflow_id)))
 
-    def get_item(self, trans, id):
+    def get_item(self, trans, id: str):
         return self.get_stored_workflow(trans, id)
 
     def _workflow_to_svg_canvas(self, trans, stored):

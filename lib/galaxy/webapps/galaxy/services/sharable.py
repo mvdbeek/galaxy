@@ -21,7 +21,7 @@ from galaxy.managers.sharable import (
 from galaxy.model import (
     User,
 )
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     SetSlugPayload,
     ShareWithPayload,
@@ -46,16 +46,16 @@ class ShareableService:
         self.manager = manager
         self.serializer = serializer
 
-    def set_slug(self, trans, id: EncodedDatabaseIdField, payload: SetSlugPayload):
+    def set_slug(self, trans, id: DecodedDatabaseIdField, payload: SetSlugPayload):
         item = self._get_item_by_id(trans, id)
         self.manager.set_slug(item, payload.new_slug, trans.user)
 
-    def sharing(self, trans, id: EncodedDatabaseIdField) -> SharingStatus:
+    def sharing(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
         """Gets the current sharing status of the item with the given id."""
         item = self._get_item_by_id(trans, id)
         return self._get_sharing_status(trans, item)
 
-    def enable_link_access(self, trans, id: EncodedDatabaseIdField) -> SharingStatus:
+    def enable_link_access(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
         """Makes this item accessible by link.
         If this item contains other elements they will be publicly accessible too.
         """
@@ -64,12 +64,12 @@ class ShareableService:
         self.manager.make_importable(item)
         return self._get_sharing_status(trans, item)
 
-    def disable_link_access(self, trans, id: EncodedDatabaseIdField) -> SharingStatus:
+    def disable_link_access(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
         item = self._get_item_by_id(trans, id)
         self.manager.make_non_importable(item)
         return self._get_sharing_status(trans, item)
 
-    def publish(self, trans, id: EncodedDatabaseIdField) -> SharingStatus:
+    def publish(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
         """Makes this item publicly accessible.
         If this item contains other elements they will be publicly accessible too.
         """
@@ -78,12 +78,12 @@ class ShareableService:
         self.manager.publish(item)
         return self._get_sharing_status(trans, item)
 
-    def unpublish(self, trans, id: EncodedDatabaseIdField) -> SharingStatus:
+    def unpublish(self, trans, id: DecodedDatabaseIdField) -> SharingStatus:
         item = self._get_item_by_id(trans, id)
         self.manager.unpublish(item)
         return self._get_sharing_status(trans, item)
 
-    def share_with_users(self, trans, id: EncodedDatabaseIdField, payload: ShareWithPayload) -> ShareWithStatus:
+    def share_with_users(self, trans, id: DecodedDatabaseIdField, payload: ShareWithPayload) -> ShareWithStatus:
         item = self._get_item_by_id(trans, id)
         users, errors = self._get_users(trans, payload.user_ids)
         extra = self._share_with_options(trans, item, users, errors, payload.share_option)
@@ -107,7 +107,7 @@ class ShareableService:
             extra = None
         return extra
 
-    def _get_item_by_id(self, trans, id: EncodedDatabaseIdField):
+    def _get_item_by_id(self, trans, id: DecodedDatabaseIdField):
         class_name = self.manager.model_class.__name__
         item = base.get_object(trans, id, class_name, check_ownership=True, check_accessible=True, deleted=False)
         return item

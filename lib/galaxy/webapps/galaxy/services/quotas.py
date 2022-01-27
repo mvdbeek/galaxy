@@ -20,7 +20,7 @@ from galaxy.quota._schema import (
     QuotaSummaryList,
     UpdateQuotaParams,
 )
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.web import url_for
 from galaxy.webapps.galaxy.services.base import ServiceBase
@@ -52,7 +52,7 @@ class QuotasService(ServiceBase):
             rval.append(item)
         return QuotaSummaryList.parse_obj(rval)
 
-    def show(self, trans: ProvidesUserContext, id: EncodedDatabaseIdField, deleted: bool = False) -> QuotaDetails:
+    def show(self, trans: ProvidesUserContext, id: DecodedDatabaseIdField, deleted: bool = False) -> QuotaDetails:
         """Displays information about a quota."""
         quota = self.quota_manager.get_quota(trans, id, deleted=deleted)
         rval = quota.to_dict(view='element', value_mapper={'id': trans.security.encode_id, 'total_disk_usage': float})
@@ -68,7 +68,7 @@ class QuotasService(ServiceBase):
         item['message'] = message
         return CreateQuotaResult.parse_obj(item)
 
-    def update(self, trans: ProvidesUserContext, id: EncodedDatabaseIdField, params: UpdateQuotaParams) -> str:
+    def update(self, trans: ProvidesUserContext, id: DecodedDatabaseIdField, params: UpdateQuotaParams) -> str:
         """Modifies a quota."""
         payload = params.dict()
         self.validate_in_users_and_groups(trans, payload)
@@ -94,7 +94,7 @@ class QuotasService(ServiceBase):
             messages.append(message)
         return '; '.join(messages)
 
-    def delete(self, trans: ProvidesUserContext, id: EncodedDatabaseIdField, payload: Optional[DeleteQuotaPayload] = None) -> str:
+    def delete(self, trans: ProvidesUserContext, id: DecodedDatabaseIdField, payload: Optional[DeleteQuotaPayload] = None) -> str:
         """Marks a quota as deleted."""
         quota = self.quota_manager.get_quota(trans, id, deleted=False)  # deleted quotas are not technically members of this collection
         message = self.quota_manager.delete_quota(quota)
@@ -102,7 +102,7 @@ class QuotasService(ServiceBase):
             message += self.quota_manager.purge_quota(quota)
         return message
 
-    def undelete(self, trans: ProvidesUserContext, id: EncodedDatabaseIdField) -> str:
+    def undelete(self, trans: ProvidesUserContext, id: DecodedDatabaseIdField) -> str:
         """Restores a previously deleted quota."""
         quota = self.quota_manager.get_quota(trans, id, deleted=True)
         return self.quota_manager.undelete_quota(quota)

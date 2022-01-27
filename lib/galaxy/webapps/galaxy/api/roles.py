@@ -12,7 +12,7 @@ from galaxy import web
 from galaxy.managers.base import decode_id
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.managers.roles import RoleManager
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     RoleDefinitionModel,
     RoleListModel,
@@ -50,9 +50,8 @@ class FastAPIRoles:
         roles = self.role_manager.list_displayable_roles(trans)
         return RoleListModel(__root__=[role_to_model(trans, r) for r in roles])
 
-    @router.get('/api/roles/{id}')
-    def show(self, id: EncodedDatabaseIdField, trans: ProvidesUserContext = DependsOnTrans) -> RoleModel:
-        role_id = trans.app.security.decode_id(id)
+    @router.get('/api/roles/{role_id}')
+    def show(self, role_id: DecodedDatabaseIdField, trans: ProvidesUserContext = DependsOnTrans) -> RoleModel:
         role = self.role_manager.get(trans, role_id)
         return role_to_model(trans, role)
 

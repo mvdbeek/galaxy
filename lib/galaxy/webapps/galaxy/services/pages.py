@@ -15,7 +15,7 @@ from galaxy.managers.pages import (
     PageSerializer,
 )
 from galaxy.schema import PdfDocumentType
-from galaxy.schema.fields import EncodedDatabaseIdField
+from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     CreatePagePayload,
     PageContentFormat,
@@ -91,7 +91,7 @@ class PagesService(ServiceBase):
         self.manager.rewrite_content_for_export(trans, rval)
         return PageSummary.parse_obj(rval)
 
-    def delete(self, trans, id: EncodedDatabaseIdField):
+    def delete(self, trans, id: DecodedDatabaseIdField):
         """
         Deletes a page (or marks it as deleted)
         """
@@ -101,7 +101,7 @@ class PagesService(ServiceBase):
         page.deleted = True
         trans.sa_session.flush()
 
-    def show(self, trans, id: EncodedDatabaseIdField) -> PageDetails:
+    def show(self, trans, id: DecodedDatabaseIdField) -> PageDetails:
         """View a page summary and the content of the latest revision
 
         :param  id:    ID of page to be displayed
@@ -116,7 +116,7 @@ class PagesService(ServiceBase):
         self.manager.rewrite_content_for_export(trans, rval)
         return PageDetails.parse_obj(rval)
 
-    def show_pdf(self, trans, id: EncodedDatabaseIdField):
+    def show_pdf(self, trans, id: DecodedDatabaseIdField):
         """
         View a page summary and the content of the latest revision as PDF.
 
