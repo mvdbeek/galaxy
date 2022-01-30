@@ -19,10 +19,8 @@ from sqlalchemy import (
     true,
 )
 
-from galaxy import (
-    exceptions as glx_exceptions,
-    model
-)
+from galaxy import exceptions as glx_exceptions
+from galaxy import model
 from galaxy.managers.citations import CitationsManager
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.managers.histories import (

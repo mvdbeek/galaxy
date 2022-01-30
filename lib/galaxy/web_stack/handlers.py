@@ -8,14 +8,17 @@ import logging
 import os
 import random
 from enum import Enum
-from typing import Set, Tuple
+from typing import (
+    Set,
+    Tuple,
+)
 
 from sqlalchemy.orm import object_session
 
 from galaxy.exceptions import HandlerAssignmentError
 from galaxy.util import (
     ExecutionTimer,
-    listify
+    listify,
 )
 
 log = logging.getLogger(__name__)

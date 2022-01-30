@@ -7,7 +7,7 @@ from string import Template
 from galaxy.util import (
     asbool,
     in_directory,
-    smart_str
+    smart_str,
 )
 
 UPDATE_TEMPLATE = Template(

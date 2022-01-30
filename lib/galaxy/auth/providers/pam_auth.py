@@ -8,7 +8,7 @@ import shlex
 
 from galaxy.util import (
     commands,
-    string_as_bool
+    string_as_bool,
 )
 from ..providers import AuthProvider
 

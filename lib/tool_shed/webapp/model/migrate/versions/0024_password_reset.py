@@ -5,7 +5,15 @@ Migration script for the password reset table
 import datetime
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, String, Table
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

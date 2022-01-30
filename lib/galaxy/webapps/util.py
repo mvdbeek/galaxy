@@ -4,7 +4,6 @@ import mako.exceptions
 
 from galaxy.util import unicodify
 
-
 log = logging.getLogger(__name__)
 
 

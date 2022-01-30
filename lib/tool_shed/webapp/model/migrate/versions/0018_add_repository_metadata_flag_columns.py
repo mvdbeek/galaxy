@@ -6,7 +6,12 @@ tool_test_results, missing_test_components.
 import logging
 import sys
 
-from sqlalchemy import Boolean, Column, MetaData, Table
+from sqlalchemy import (
+    Boolean,
+    Column,
+    MetaData,
+    Table,
+)
 from sqlalchemy.exc import NoSuchTableError
 
 # Need our custom types, but don't import anything else from model

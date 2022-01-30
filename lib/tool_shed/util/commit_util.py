@@ -13,7 +13,11 @@ import tool_shed.repository_types.util as rt_util
 from galaxy.util import checkers
 from galaxy.util.path import safe_relpath
 from tool_shed.tools.data_table_manager import ShedToolDataTableManager
-from tool_shed.util import basic_util, hg_util, shed_util_common as suc
+from tool_shed.util import (
+    basic_util,
+    hg_util,
+)
+from tool_shed.util import shed_util_common as suc
 
 log = logging.getLogger(__name__)
 

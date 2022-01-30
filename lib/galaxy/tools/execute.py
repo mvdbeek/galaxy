@@ -6,14 +6,24 @@ collections from matched collections.
 import collections
 import logging
 from abc import abstractmethod
-from typing import Dict, List
+from typing import (
+    Dict,
+    List,
+)
 
 from boltons.iterutils import remap
 
 from galaxy import model
-from galaxy.model.dataset_collections.structure import get_structure, tool_output_to_structure
+from galaxy.model.dataset_collections.structure import (
+    get_structure,
+    tool_output_to_structure,
+)
 from galaxy.tool_util.parser import ToolOutputCollectionPart
-from galaxy.tools.actions import filter_output, on_text_for_names, ToolExecutionCache
+from galaxy.tools.actions import (
+    filter_output,
+    on_text_for_names,
+    ToolExecutionCache,
+)
 from galaxy.tools.parameters.basic import is_runtime_value
 
 log = logging.getLogger(__name__)

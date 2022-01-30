@@ -13,14 +13,14 @@ from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,
     get_headers,
-    iter_headers
+    iter_headers,
 )
 from galaxy.datatypes.tabular import Tabular
 from galaxy.datatypes.util.generic_util import count_special_lines
 from galaxy.datatypes.xml import GenericXml
 from galaxy.util import (
     commands,
-    unicodify
+    unicodify,
 )
 
 log = logging.getLogger(__name__)

@@ -1,5 +1,8 @@
 from galaxy import exceptions
-from galaxy.util import asbool, listify
+from galaxy.util import (
+    asbool,
+    listify,
+)
 from .dependencies import ToolInfo
 from .resolvers import (
     ContainerDependency,

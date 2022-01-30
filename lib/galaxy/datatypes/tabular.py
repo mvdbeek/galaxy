@@ -17,7 +17,11 @@ import pysam
 from markupsafe import escape
 
 from galaxy import util
-from galaxy.datatypes import binary, data, metadata
+from galaxy.datatypes import (
+    binary,
+    data,
+    metadata,
+)
 from galaxy.datatypes.binary import _BamOrSam
 from galaxy.datatypes.metadata import (
     MetadataElement,

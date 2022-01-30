@@ -1,5 +1,10 @@
 import logging
-from typing import Any, Dict, List, Sequence
+from typing import (
+    Any,
+    Dict,
+    List,
+    Sequence,
+)
 
 import packaging.version
 

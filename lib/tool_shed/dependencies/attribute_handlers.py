@@ -4,12 +4,16 @@ import logging
 from galaxy.util import asbool
 from galaxy.web import url_for
 from tool_shed.dependencies.tool import tag_attribute_handler
-from tool_shed.repository_types.util import REPOSITORY_DEPENDENCY_DEFINITION_FILENAME
-from tool_shed.repository_types.util import TOOL_DEPENDENCY_DEFINITION_FILENAME
-from tool_shed.util import hg_util
-from tool_shed.util import metadata_util
-from tool_shed.util import repository_util
-from tool_shed.util import xml_util
+from tool_shed.repository_types.util import (
+    REPOSITORY_DEPENDENCY_DEFINITION_FILENAME,
+    TOOL_DEPENDENCY_DEFINITION_FILENAME,
+)
+from tool_shed.util import (
+    hg_util,
+    metadata_util,
+    repository_util,
+    xml_util,
+)
 
 log = logging.getLogger(__name__)
 

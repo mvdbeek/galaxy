@@ -7,7 +7,10 @@ from urllib.parse import urljoin
 from routes import url_for
 
 from galaxy import util
-from galaxy.util.tool_shed import encoding_util, xml_util
+from galaxy.util.tool_shed import (
+    encoding_util,
+    xml_util,
+)
 
 log = logging.getLogger(__name__)
 

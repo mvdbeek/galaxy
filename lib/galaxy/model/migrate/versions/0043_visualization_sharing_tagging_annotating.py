@@ -13,7 +13,7 @@ from sqlalchemy import (
     MetaData,
     Table,
     TEXT,
-    Unicode
+    Unicode,
 )
 
 from galaxy.model.migrate.versions.util import (
@@ -22,7 +22,7 @@ from galaxy.model.migrate.versions.util import (
     create_table,
     drop_column,
     drop_table,
-    engine_false
+    engine_false,
 )
 
 log = logging.getLogger(__name__)

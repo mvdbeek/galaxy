@@ -3,12 +3,12 @@ Condor helper utilities.
 """
 from subprocess import (
     CalledProcessError,
-    check_call
+    check_call,
 )
 
 from galaxy.util import (
     commands,
-    unicodify
+    unicodify,
 )
 from ..external import parse_external_id
 

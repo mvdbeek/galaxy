@@ -9,7 +9,6 @@ import threading
 import markupsafe
 from paste import response
 
-
 template = """
 <script>
 function show_profile_output()

@@ -4,7 +4,13 @@ Migration script to add a new workflow_invocation_output_parameter table to trac
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, Table
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+)
 
 from galaxy.model.custom_types import JSONType
 

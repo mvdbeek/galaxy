@@ -11,7 +11,7 @@ from tool_shed.util import (
     hg_util,
     repository_util,
     tool_util,
-    xml_util
+    xml_util,
 )
 
 log = logging.getLogger(__name__)

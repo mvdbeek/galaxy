@@ -2,7 +2,6 @@ import pytest
 
 from galaxy.util.inflection import Inflector
 
-
 SINGULAR_TO_PLURAL = {
     "search": "searches",
     "switch": "switches",

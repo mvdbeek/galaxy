@@ -8,7 +8,10 @@ import os
 import sys
 import tempfile
 from collections import namedtuple
-from concurrent.futures import thread, ThreadPoolExecutor
+from concurrent.futures import (
+    thread,
+    ThreadPoolExecutor,
+)
 
 import yaml
 

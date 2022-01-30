@@ -7,7 +7,7 @@ from whoosh import scoring
 from whoosh.fields import (
     Schema,
     STORED,
-    TEXT
+    TEXT,
 )
 from whoosh.qparser import MultifieldParser
 

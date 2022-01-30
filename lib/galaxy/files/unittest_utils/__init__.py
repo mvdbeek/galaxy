@@ -2,7 +2,10 @@ import os
 import tempfile
 from typing import Tuple
 
-from galaxy.files import ConfiguredFileSources, ConfiguredFileSourcesConfig
+from galaxy.files import (
+    ConfiguredFileSources,
+    ConfiguredFileSourcesConfig,
+)
 
 
 class TestConfiguredFileSources(ConfiguredFileSources):

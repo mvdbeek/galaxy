@@ -8,12 +8,12 @@ import string
 
 import requests
 from cloudauthz import CloudAuthz
-from cloudauthz.exceptions import (
-    CloudAuthzBaseException
-)
+from cloudauthz.exceptions import CloudAuthzBaseException
 
-from galaxy import exceptions
-from galaxy import model
+from galaxy import (
+    exceptions,
+    model,
+)
 from galaxy.util import (
     asbool,
     etree,
@@ -31,9 +31,8 @@ from .psa_authnz import (
     on_the_fly_config,
     PSAAuthnz,
     Storage,
-    Strategy
+    Strategy,
 )
-
 
 log = logging.getLogger(__name__)
 

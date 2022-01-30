@@ -5,7 +5,18 @@ Migration script to create tables for disk quotas.
 import datetime
 import logging
 
-from sqlalchemy import BigInteger, Boolean, Column, DateTime, ForeignKey, Integer, MetaData, String, Table, TEXT
+from sqlalchemy import (
+    BigInteger,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    TEXT,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

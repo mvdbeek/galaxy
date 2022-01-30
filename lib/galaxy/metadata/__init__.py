@@ -8,7 +8,10 @@ from logging import getLogger
 
 import galaxy.model
 from galaxy.model import store
-from galaxy.model.metadata import FileParameter, MetadataTempFile
+from galaxy.model.metadata import (
+    FileParameter,
+    MetadataTempFile,
+)
 from galaxy.model.store import DirectoryModelExportStore
 from galaxy.util import safe_makedirs
 

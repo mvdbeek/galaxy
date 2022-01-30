@@ -9,7 +9,7 @@ from sqlalchemy import MetaData
 
 from galaxy.model.migrate.versions.util import (
     add_index,
-    drop_index
+    drop_index,
 )
 
 log = logging.getLogger(__name__)

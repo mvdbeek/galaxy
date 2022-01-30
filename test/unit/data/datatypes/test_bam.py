@@ -4,7 +4,7 @@ from galaxy.datatypes.binary import Bam
 from .util import (
     get_dataset,
     get_input_files,
-    get_tmp_path
+    get_tmp_path,
 )
 
 

@@ -3,7 +3,7 @@ import pytest
 from galaxy_test.base.populators import flakey
 from .framework import (
     selenium_test,
-    SeleniumTestCase
+    SeleniumTestCase,
 )
 
 

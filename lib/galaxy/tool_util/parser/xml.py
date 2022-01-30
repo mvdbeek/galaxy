@@ -10,12 +10,12 @@ import packaging.version
 from galaxy.tool_util.deps import requirements
 from galaxy.tool_util.parser.util import (
     DEFAULT_DELTA,
-    DEFAULT_DELTA_FRAC
+    DEFAULT_DELTA_FRAC,
 )
 from galaxy.util import (
     string_as_bool,
     xml_text,
-    xml_to_string
+    xml_to_string,
 )
 from .interface import (
     InputSource,
@@ -32,7 +32,7 @@ from .output_objects import (
     ToolExpressionOutput,
     ToolOutput,
     ToolOutputCollection,
-    ToolOutputCollectionStructure
+    ToolOutputCollectionStructure,
 )
 from .stdio import (
     aggressive_error_checks,
@@ -41,7 +41,6 @@ from .stdio import (
     ToolStdioExitCode,
     ToolStdioRegex,
 )
-
 
 log = logging.getLogger(__name__)
 

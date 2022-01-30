@@ -15,7 +15,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.custom_types import TrimmedString
@@ -24,7 +24,7 @@ from galaxy.model.migrate.versions.util import (
     create_table,
     drop_column,
     drop_table,
-    nextval
+    nextval,
 )
 
 now = datetime.datetime.utcnow

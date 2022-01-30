@@ -19,7 +19,7 @@ except ImportError:
 
 from galaxy.exceptions import (
     ObjectInvalid,
-    ObjectNotFound
+    ObjectNotFound,
 )
 from galaxy.util import (
     directory_hash_id,

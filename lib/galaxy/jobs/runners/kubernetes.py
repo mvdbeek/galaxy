@@ -14,7 +14,7 @@ from galaxy import model
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
     AsynchronousJobState,
-    JobState
+    JobState,
 )
 from galaxy.jobs.runners.util.pykube_util import (
     deduplicate_entries,
@@ -41,7 +41,7 @@ from galaxy.jobs.runners.util.pykube_util import (
     pull_policy,
     pykube_client_from_dict,
     Service,
-    service_object_dict
+    service_object_dict,
 )
 from galaxy.util.bytesize import ByteSize
 

@@ -4,7 +4,13 @@ This migration script adds support for storing tags in the context of a dataset 
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, Table
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+)
 
 # Need our custom types, but don't import anything else from model
 from galaxy.model.custom_types import TrimmedString

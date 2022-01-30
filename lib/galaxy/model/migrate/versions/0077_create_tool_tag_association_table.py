@@ -4,7 +4,13 @@ Migration script to create table for storing tool tag associations.
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, Table
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+)
 
 from galaxy.model.custom_types import TrimmedString
 

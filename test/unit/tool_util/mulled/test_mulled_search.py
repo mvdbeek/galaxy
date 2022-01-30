@@ -6,7 +6,7 @@ from galaxy.tool_util.deps.mulled.mulled_search import (
     GitHubSearch,
     QuaySearch,
     run_command,
-    singularity_search
+    singularity_search,
 )
 from ..util import external_dependency_management
 

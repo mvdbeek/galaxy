@@ -1,12 +1,11 @@
 import logging
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
-from galaxy.exceptions import (
-    RequestParameterInvalidException,
-)
-from galaxy.tools.parameters import (
-    visit_input_values,
-)
+from galaxy.exceptions import RequestParameterInvalidException
+from galaxy.tools.parameters import visit_input_values
 from galaxy.tools.parameters.basic import (
     ConnectedValue,
     contains_workflow_parameter,

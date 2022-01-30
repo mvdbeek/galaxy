@@ -10,8 +10,14 @@ from pykwalify.core import Core
 from galaxy.config import GALAXY_SCHEMAS_PATH
 from galaxy.job_metrics import JobMetrics
 from galaxy.jobs import JobConfiguration
-from galaxy.util import galaxy_directory, galaxy_samples_directory
-from galaxy.web_stack import ApplicationStack, UWSGIApplicationStack
+from galaxy.util import (
+    galaxy_directory,
+    galaxy_samples_directory,
+)
+from galaxy.web_stack import (
+    ApplicationStack,
+    UWSGIApplicationStack,
+)
 from galaxy.web_stack.handlers import HANDLER_ASSIGNMENT_METHODS
 
 # File would be slightly more readable if contents were embedded directly, but

@@ -12,7 +12,7 @@ from os import getenv
 from os.path import exists
 from subprocess import (
     PIPE,
-    Popen
+    Popen,
 )
 
 from . import (

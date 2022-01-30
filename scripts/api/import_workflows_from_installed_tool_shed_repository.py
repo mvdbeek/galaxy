@@ -8,7 +8,10 @@ python ./import_workflows_from_installed_tool_shed_repository.py -a 22be3b -l ht
 
 import argparse
 
-from common import display, submit
+from common import (
+    display,
+    submit,
+)
 
 
 def clean_url(url):

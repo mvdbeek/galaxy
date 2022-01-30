@@ -1,5 +1,8 @@
 import os
-from copy import copy, deepcopy
+from copy import (
+    copy,
+    deepcopy,
+)
 
 from galaxy.util import parse_xml
 

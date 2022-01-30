@@ -11,12 +11,9 @@ from galaxy.model import (
     User,
 )
 from galaxy.model.metadata import MetadataTempFile
-from galaxy.objectstore.unittest_utils import (
-    Config as TestConfig,
-    DISK_TEST_CONFIG,
-)
+from galaxy.objectstore.unittest_utils import Config as TestConfig
+from galaxy.objectstore.unittest_utils import DISK_TEST_CONFIG
 from galaxy.util import ExecutionTimer
-
 
 datatypes_registry = galaxy.datatypes.registry.Registry()
 datatypes_registry.load_datatypes()

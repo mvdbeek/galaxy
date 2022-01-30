@@ -8,7 +8,14 @@ import logging
 import os
 import os.path
 import re
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from webob.compat import cgi_FieldStorage
 
@@ -38,11 +45,9 @@ from galaxy.util.rules_dsl import RuleSet
 from . import (
     dynamic_options,
     history_query,
-    validation
+    validation,
 )
-from .dataset_matcher import (
-    get_dataset_matcher_factory,
-)
+from .dataset_matcher import get_dataset_matcher_factory
 from .sanitize import ToolParameterSanitizer
 
 log = logging.getLogger(__name__)

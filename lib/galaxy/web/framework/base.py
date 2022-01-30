@@ -9,7 +9,10 @@ import tarfile
 import tempfile
 import time
 import types
-from http.cookies import CookieError, SimpleCookie
+from http.cookies import (
+    CookieError,
+    SimpleCookie,
+)
 from importlib import import_module
 
 import routes

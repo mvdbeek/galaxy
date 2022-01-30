@@ -6,21 +6,33 @@ import hashlib
 import json
 import logging
 import os
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 import requests
 from gxformat2._yaml import ordered_dump
 from markupsafe import escape
-from sqlalchemy import desc, false, or_, true
+from sqlalchemy import (
+    desc,
+    false,
+    or_,
+    true,
+)
 from sqlalchemy.orm import joinedload
 
 from galaxy import (
     exceptions,
     model,
-    util
+    util,
 )
 from galaxy.managers.context import ProvidesUserContext
-from galaxy.managers.jobs import fetch_job_states, invocation_job_source_iter, summarize_job_metrics
+from galaxy.managers.jobs import (
+    fetch_job_states,
+    invocation_job_source_iter,
+    summarize_job_metrics,
+)
 from galaxy.managers.workflows import (
     MissingToolsException,
     RefactorRequest,
@@ -45,7 +57,7 @@ from galaxy.web import (
 from galaxy.webapps.base.controller import (
     SharableMixin,
     url_for,
-    UsesStoredWorkflowMixin
+    UsesStoredWorkflowMixin,
 )
 from galaxy.webapps.base.webapp import GalaxyWebTransaction
 from galaxy.workflow.extract import extract_workflow

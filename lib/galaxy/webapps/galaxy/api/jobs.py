@@ -7,9 +7,7 @@ API operations on a jobs.
 import logging
 import typing
 
-from sqlalchemy import (
-    or_,
-)
+from sqlalchemy import or_
 
 from galaxy import (
     exceptions,
@@ -17,7 +15,10 @@ from galaxy import (
     util,
 )
 from galaxy.managers import hdas
-from galaxy.managers.context import ProvidesHistoryContext, ProvidesUserContext
+from galaxy.managers.context import (
+    ProvidesHistoryContext,
+    ProvidesUserContext,
+)
 from galaxy.managers.jobs import (
     JobLock,
     JobManager,
@@ -33,12 +34,8 @@ from galaxy.web import (
     expose_api_anonymous,
     require_admin,
 )
-from galaxy.webapps.base.controller import (
-    UsesVisualizationMixin
-)
-from galaxy.work.context import (
-    WorkRequestContext,
-)
+from galaxy.webapps.base.controller import UsesVisualizationMixin
+from galaxy.work.context import WorkRequestContext
 from . import (
     BaseGalaxyAPIController,
     depends,

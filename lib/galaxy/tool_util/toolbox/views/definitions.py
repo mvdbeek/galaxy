@@ -1,7 +1,16 @@
 from enum import Enum
-from typing import Any, cast, List, Optional, Union
+from typing import (
+    Any,
+    cast,
+    List,
+    Optional,
+    Union,
+)
 
-from pydantic import BaseModel, Field
+from pydantic import (
+    BaseModel,
+    Field,
+)
 from typing_extensions import Literal
 
 

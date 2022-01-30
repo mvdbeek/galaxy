@@ -2,13 +2,16 @@
 Contains functionality needed in every web interface
 """
 import logging
-from typing import Any, Optional
+from typing import (
+    Any,
+    Optional,
+)
 
 from sqlalchemy import true
 from webob.exc import (
     HTTPBadRequest,
     HTTPInternalServerError,
-    HTTPNotImplemented
+    HTTPNotImplemented,
 )
 
 from galaxy import (
@@ -16,15 +19,15 @@ from galaxy import (
     model,
     security,
     util,
-    web
+    web,
 )
 from galaxy.datatypes.interval import ChromatinInteractions
+from galaxy.managers import api_keys
+from galaxy.managers import base as managers_base
 from galaxy.managers import (
-    api_keys,
-    base as managers_base,
     configuration,
     users,
-    workflows
+    workflows,
 )
 from galaxy.managers.sharable import SlugBuilder
 from galaxy.model import (
@@ -39,12 +42,12 @@ from galaxy.util.dictifiable import Dictifiable
 from galaxy.util.sanitize_html import sanitize_html
 from galaxy.web import (
     error,
-    url_for
+    url_for,
 )
 from galaxy.web.form_builder import (
     AddressField,
     CheckboxField,
-    PasswordField
+    PasswordField,
 )
 from galaxy.workflow.modules import WorkflowModuleInjector
 

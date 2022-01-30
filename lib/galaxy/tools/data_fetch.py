@@ -6,7 +6,12 @@ import shutil
 import sys
 import tempfile
 from io import StringIO
-from typing import Any, Dict, List, Tuple
+from typing import (
+    Any,
+    Dict,
+    List,
+    Tuple,
+)
 
 import bdbag.bdbag_api
 
@@ -16,10 +21,16 @@ from galaxy.datatypes.upload_util import (
     handle_upload,
     UploadProblemException,
 )
-from galaxy.util import in_directory, safe_makedirs
+from galaxy.util import (
+    in_directory,
+    safe_makedirs,
+)
 from galaxy.util.bunch import Bunch
 from galaxy.util.compression_utils import CompressedFile
-from galaxy.util.hash_util import HASH_NAMES, memory_bound_hexdigest
+from galaxy.util.hash_util import (
+    HASH_NAMES,
+    memory_bound_hexdigest,
+)
 
 DESCRIPTION = """Data Import Script"""
 

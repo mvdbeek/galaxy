@@ -17,9 +17,13 @@ from typing import cast
 import markupsafe
 from paste import (
     request,
-    wsgilib
+    wsgilib,
 )
-from paste.exceptions import collector, formatter, reporter
+from paste.exceptions import (
+    collector,
+    formatter,
+    reporter,
+)
 
 __all__ = ('ErrorMiddleware', 'handle_exception')
 

@@ -1,12 +1,10 @@
 import copy
 
-
 from galaxy.util import (
     asbool,
     xml_text,
 )
 from galaxy.util.oset import OrderedSet
-
 
 DEFAULT_REQUIREMENT_TYPE = "package"
 DEFAULT_REQUIREMENT_VERSION = None

@@ -3,7 +3,11 @@ Heterogenous lists/contents are difficult to query properly since unions are
 not easily made.
 """
 import logging
-from typing import Any, Dict, List
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 
 from sqlalchemy import (
     asc,
@@ -12,17 +16,15 @@ from sqlalchemy import (
     func,
     literal,
     sql,
-    true
+    true,
 )
 from sqlalchemy.orm import (
     eagerload,
-    undefer
+    undefer,
 )
 
-from galaxy import (
-    exceptions as glx_exceptions,
-    model
-)
+from galaxy import exceptions as glx_exceptions
+from galaxy import model
 from galaxy.managers import (
     annotatable,
     base,
@@ -30,7 +32,7 @@ from galaxy.managers import (
     hdas,
     hdcas,
     taggable,
-    tools
+    tools,
 )
 from galaxy.structured_app import MinimalManagerApp
 from .base import (

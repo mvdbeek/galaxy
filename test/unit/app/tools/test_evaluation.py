@@ -20,12 +20,12 @@ from galaxy.tools.parameters import params_from_strings
 from galaxy.tools.parameters.basic import (
     DataToolParameter,
     IntegerToolParameter,
-    SelectToolParameter
+    SelectToolParameter,
 )
 from galaxy.tools.parameters.grouping import (
     Conditional,
     ConditionalWhen,
-    Repeat
+    Repeat,
 )
 from galaxy.util import XML
 from galaxy.util.bunch import Bunch

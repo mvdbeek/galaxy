@@ -11,7 +11,7 @@ from galaxy.datatypes.data import (
 )
 from galaxy.datatypes.interval import (
     Bed,
-    BedStrict
+    BedStrict,
 )
 from galaxy.util import galaxy_directory
 

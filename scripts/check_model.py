@@ -10,7 +10,10 @@ from collections import namedtuple
 
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'lib')))
 
-from sqlalchemy import create_engine, MetaData
+from sqlalchemy import (
+    create_engine,
+    MetaData,
+)
 
 from galaxy.model import mapping
 from galaxy.model.orm.scripts import get_config

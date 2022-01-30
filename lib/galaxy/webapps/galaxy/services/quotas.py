@@ -1,14 +1,15 @@
 import logging
-from typing import (
-    Optional,
-)
+from typing import Optional
 
 from sqlalchemy import (
     false,
-    true
+    true,
 )
 
-from galaxy import model, util
+from galaxy import (
+    model,
+    util,
+)
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.managers.quotas import QuotaManager
 from galaxy.quota._schema import (

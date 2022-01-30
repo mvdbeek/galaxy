@@ -6,14 +6,20 @@ import logging
 import os
 import shutil
 
-from sqlalchemy import and_, false, true
+from sqlalchemy import (
+    and_,
+    false,
+    true,
+)
 
 from galaxy import util
 from galaxy.tool_shed.galaxy_install.datatypes import custom_datatype_manager
 from galaxy.tool_shed.galaxy_install.metadata.installed_repository_metadata_manager import InstalledRepositoryMetadataManager
 from galaxy.tool_shed.galaxy_install.repository_dependencies import repository_dependency_manager
-from galaxy.tool_shed.galaxy_install.tools import data_manager
-from galaxy.tool_shed.galaxy_install.tools import tool_panel_manager
+from galaxy.tool_shed.galaxy_install.tools import (
+    data_manager,
+    tool_panel_manager,
+)
 from galaxy.tool_shed.util import repository_util
 from galaxy.tool_shed.util import shed_util_common as suc
 from galaxy.tool_shed.util import tool_dependency_util

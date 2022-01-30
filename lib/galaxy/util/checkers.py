@@ -6,7 +6,7 @@ import tarfile
 import zipfile
 from io import (
     BytesIO,
-    StringIO
+    StringIO,
 )
 from typing import (
     IO,

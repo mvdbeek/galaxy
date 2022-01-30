@@ -20,7 +20,10 @@ from fastapi import (
     Request,
 )
 from starlette import status
-from starlette.responses import Response, StreamingResponse
+from starlette.responses import (
+    Response,
+    StreamingResponse,
+)
 
 from galaxy import util
 from galaxy.managers.context import ProvidesHistoryContext

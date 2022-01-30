@@ -4,14 +4,14 @@ import pytest
 
 from galaxy.selenium.navigates_galaxy import (
     edit_details,
-    WAIT_TYPES
+    WAIT_TYPES,
 )
 from galaxy_test.base.api_asserts import assert_status_code_is
 from galaxy_test.base.populators import flakey
 from .framework import (
     retry_assertion_during_transitions,
     selenium_test,
-    SeleniumTestCase
+    SeleniumTestCase,
 )
 
 

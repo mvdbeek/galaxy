@@ -4,7 +4,10 @@ import os
 import re
 
 from galaxy.datatypes.binary import Binary
-from galaxy.datatypes.data import get_file_peek, Text
+from galaxy.datatypes.data import (
+    get_file_peek,
+    Text,
+)
 from galaxy.datatypes.metadata import MetadataElement
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,

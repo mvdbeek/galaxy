@@ -1,12 +1,12 @@
 from galaxy.tools.parameters.basic import (
     DataCollectionToolParameter,
     DataToolParameter,
-    SelectToolParameter
+    SelectToolParameter,
 )
 from galaxy.tools.parameters.grouping import (
     Conditional,
     Repeat,
-    Section
+    Section,
 )
 from galaxy.tools.wrappers import (
     DatasetCollectionWrapper,
@@ -14,7 +14,7 @@ from galaxy.tools.wrappers import (
     DatasetListWrapper,
     ElementIdentifierMapper,
     InputValueWrapper,
-    SelectToolParameterWrapper
+    SelectToolParameterWrapper,
 )
 
 PARAMS_UNWRAPPED = object()

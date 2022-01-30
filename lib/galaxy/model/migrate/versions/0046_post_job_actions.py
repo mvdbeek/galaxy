@@ -10,13 +10,13 @@ from sqlalchemy import (
     Integer,
     MetaData,
     String,
-    Table
+    Table,
 )
 
 from galaxy.model.custom_types import JSONType
 from galaxy.model.migrate.versions.util import (
     create_table,
-    drop_table
+    drop_table,
 )
 
 log = logging.getLogger(__name__)

@@ -1,7 +1,7 @@
 import logging
 from subprocess import (
     PIPE,
-    Popen
+    Popen,
 )
 
 SUDO_PATH = '/usr/bin/sudo'

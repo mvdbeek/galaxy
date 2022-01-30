@@ -6,7 +6,10 @@ The module will be revised during migration from SQLAlchemy Migrate to Alembic.
 
 import logging
 from threading import local
-from typing import Optional, Type
+from typing import (
+    Optional,
+    Type,
+)
 
 from galaxy import model
 from galaxy.model import mapper_registry

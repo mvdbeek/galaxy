@@ -6,14 +6,17 @@ actual contents of the datatx_info column are stored as form_values.
 """
 
 import logging
-from json import dumps, loads
+from json import (
+    dumps,
+    loads,
+)
 
 from sqlalchemy import (
     Column,
     ForeignKey,
     Integer,
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.custom_types import JSONType
@@ -22,7 +25,7 @@ from galaxy.model.migrate.versions.util import (
     drop_column,
     engine_false,
     localtimestamp,
-    nextval
+    nextval,
 )
 
 log = logging.getLogger(__name__)

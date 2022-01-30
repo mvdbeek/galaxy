@@ -2,7 +2,7 @@
 """
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
 
 from galaxy.managers import workflows

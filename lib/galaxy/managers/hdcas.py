@@ -14,13 +14,15 @@ from galaxy.managers import (
     deletable,
     hdas,
     secured,
-    taggable
+    taggable,
 )
 from galaxy.managers.collections_util import get_hda_and_element_identifiers
 from galaxy.model.tags import GalaxyTagHandler
-from galaxy.structured_app import MinimalManagerApp, StructuredApp
+from galaxy.structured_app import (
+    MinimalManagerApp,
+    StructuredApp,
+)
 from galaxy.util.zipstream import ZipstreamWrapper
-
 
 log = logging.getLogger(__name__)
 

@@ -1,7 +1,14 @@
 import collections
 import gzip
 import tempfile
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+)
 
 import pytest
 
@@ -12,7 +19,6 @@ from galaxy.tool_util.verify import (
     files_re_match,
     files_re_match_multiline,
 )
-
 
 F1 = b"A\nB\nC"
 F2 = b"A\nB\nD\nE" * 61

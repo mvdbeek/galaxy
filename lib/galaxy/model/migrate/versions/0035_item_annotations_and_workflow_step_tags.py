@@ -12,12 +12,12 @@ from sqlalchemy import (
     MetaData,
     Table,
     TEXT,
-    Unicode
+    Unicode,
 )
 
 from galaxy.model.migrate.versions.util import (
     create_table,
-    drop_table
+    drop_table,
 )
 
 log = logging.getLogger(__name__)

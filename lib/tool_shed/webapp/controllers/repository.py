@@ -9,19 +9,26 @@ from mercurial import (
     cmdutil,
     commands,
     mdiff,
-    patch
+    patch,
 )
-from sqlalchemy import and_, false, null
+from sqlalchemy import (
+    and_,
+    false,
+    null,
+)
 
 import tool_shed.grids.repository_grids as repository_grids
 import tool_shed.grids.util as grids_util
 import tool_shed.repository_types.util as rt_util
 from galaxy import (
     util,
-    web
+    web,
 )
 from galaxy.tools.repositories import ValidationContext
-from galaxy.web.form_builder import CheckboxField, SelectField
+from galaxy.web.form_builder import (
+    CheckboxField,
+    SelectField,
+)
 from galaxy.web.legacy_framework import grids
 from galaxy.webapps.base.controller import BaseUIController
 from tool_shed.dependencies.repository import relation_builder
@@ -29,7 +36,7 @@ from tool_shed.galaxy_install import dependency_display
 from tool_shed.metadata import repository_metadata_manager
 from tool_shed.tools import (
     tool_validator,
-    tool_version_manager
+    tool_version_manager,
 )
 from tool_shed.util import (
     basic_util,
@@ -40,9 +47,9 @@ from tool_shed.util import (
     readme_util,
     repository_util,
     search_util,
-    shed_util_common as suc,
-    tool_util
 )
+from tool_shed.util import shed_util_common as suc
+from tool_shed.util import tool_util
 from tool_shed.util.web_util import escape
 from tool_shed.utility_containers import ToolShedUtilityContainerManager
 from tool_shed.webapp.util import ratings_util

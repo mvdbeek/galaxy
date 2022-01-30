@@ -3,15 +3,16 @@ API operations on the contents of a library folder.
 """
 import logging
 
-from galaxy import (
-    util
-)
+from galaxy import util
 from galaxy.web import (
     expose_api,
-    expose_api_anonymous
+    expose_api_anonymous,
 )
 from galaxy.webapps.galaxy.services.library_folder_contents import LibraryFolderContentsService
-from . import BaseGalaxyAPIController, depends
+from . import (
+    BaseGalaxyAPIController,
+    depends,
+)
 
 log = logging.getLogger(__name__)
 

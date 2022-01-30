@@ -1,5 +1,9 @@
 import threading
-from typing import Any, Dict, List
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 
 import packaging.version
 from sortedcontainers import SortedSet

@@ -8,13 +8,13 @@ from sqlalchemy import (
     Boolean,
     Column,
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.migrate.versions.util import (
     add_column,
     drop_column,
-    engine_false
+    engine_false,
 )
 
 log = logging.getLogger(__name__)

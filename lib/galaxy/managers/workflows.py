@@ -19,25 +19,28 @@ from gxformat2 import (
 )
 from pydantic import BaseModel
 from sqlalchemy import and_
-from sqlalchemy.orm import joinedload, subqueryload
+from sqlalchemy.orm import (
+    joinedload,
+    subqueryload,
+)
 
 from galaxy import (
     exceptions,
     model,
-    util
+    util,
 )
 from galaxy.job_execution.actions.post import ActionBox
 from galaxy.model.item_attrs import UsesAnnotations
 from galaxy.structured_app import MinimalManagerApp
 from galaxy.tools.parameters import (
     params_to_incoming,
-    visit_input_values
+    visit_input_values,
 )
 from galaxy.tools.parameters.basic import (
     DataCollectionToolParameter,
     DataToolParameter,
     RuntimeValue,
-    workflow_building_modes
+    workflow_building_modes,
 )
 from galaxy.util.json import (
     safe_dumps,
@@ -49,7 +52,7 @@ from galaxy.workflow.modules import (
     is_tool_module_type,
     module_factory,
     ToolModule,
-    WorkflowModuleInjector
+    WorkflowModuleInjector,
 )
 from galaxy.workflow.refactor.execute import WorkflowRefactorExecutor
 from galaxy.workflow.refactor.schema import (

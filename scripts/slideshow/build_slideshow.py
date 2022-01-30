@@ -2,7 +2,6 @@ import os
 import string
 import sys
 
-
 SCRIPTS_DIRECTORY = os.path.dirname(__file__)
 TEMPLATE_PATH = os.path.join(SCRIPTS_DIRECTORY, "slideshow_template.html")
 TEMPLATE = string.Template(open(TEMPLATE_PATH).read())

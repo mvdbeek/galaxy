@@ -1,7 +1,9 @@
 import logging
 
-from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe import step_handler
-from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe import tag_handler
+from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe import (
+    step_handler,
+    tag_handler,
+)
 
 log = logging.getLogger(__name__)
 

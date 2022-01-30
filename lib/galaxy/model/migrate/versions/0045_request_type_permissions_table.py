@@ -5,7 +5,15 @@ Migration script to add the request_type_permissions table.
 import datetime
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

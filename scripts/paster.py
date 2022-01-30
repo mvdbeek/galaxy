@@ -10,8 +10,9 @@ import sys
 
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'lib')))
 
-from galaxy.util.pastescript import serve
 from check_python import check_python  # noqa: I100, I201
+
+from galaxy.util.pastescript import serve
 
 # ensure supported version
 try:

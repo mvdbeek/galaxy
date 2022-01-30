@@ -3,7 +3,10 @@ Contains implementations of the authentication logic.
 """
 import logging
 
-from galaxy.auth.util import get_authenticators, parse_auth_results
+from galaxy.auth.util import (
+    get_authenticators,
+    parse_auth_results,
+)
 from galaxy.exceptions import Conflict
 from galaxy.util import string_as_bool
 

@@ -4,9 +4,16 @@ Migration script to allow invalidation of job external output metadata temp file
 
 import logging
 
-from sqlalchemy import Boolean, Column, MetaData
+from sqlalchemy import (
+    Boolean,
+    Column,
+    MetaData,
+)
 
-from galaxy.model.migrate.versions.util import add_column, drop_column
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    drop_column,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

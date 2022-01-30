@@ -2,9 +2,18 @@ import os
 from shutil import rmtree
 from tempfile import mkdtemp
 
-from galaxy.tool_util.loader import load_tool, template_macro_params
-from galaxy.tool_util.unittest_utils.sample_data import SIMPLE_MACRO, SIMPLE_TOOL_WITH_MACRO
-from galaxy.util import parse_xml, xml_to_string
+from galaxy.tool_util.loader import (
+    load_tool,
+    template_macro_params,
+)
+from galaxy.tool_util.unittest_utils.sample_data import (
+    SIMPLE_MACRO,
+    SIMPLE_TOOL_WITH_MACRO,
+)
+from galaxy.util import (
+    parse_xml,
+    xml_to_string,
+)
 
 
 class TestToolDirectory:

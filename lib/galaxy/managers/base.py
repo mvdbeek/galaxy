@@ -48,12 +48,17 @@ from sqlalchemy.orm import Query
 from sqlalchemy.orm.scoping import scoped_session
 from typing_extensions import Protocol
 
-from galaxy import exceptions
-from galaxy import model
+from galaxy import (
+    exceptions,
+    model,
+)
 from galaxy.model import tool_shed_install
 from galaxy.schema import FilterQueryParams
 from galaxy.security.idencoding import IdEncodingHelper
-from galaxy.structured_app import BasicSharedApp, MinimalManagerApp
+from galaxy.structured_app import (
+    BasicSharedApp,
+    MinimalManagerApp,
+)
 from galaxy.web import url_for as gx_url_for
 
 log = logging.getLogger(__name__)

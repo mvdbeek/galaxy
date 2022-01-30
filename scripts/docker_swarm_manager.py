@@ -33,7 +33,6 @@ from galaxy.containers.docker_model import (
     IMAGE_CONSTRAINT,
 )
 
-
 DESCRIPTION = "Daemon to manage a Docker Swarm (running in Docker Swarm mode)."
 SWARM_MANAGER_CONF_DEFAULTS = {
     'pid_file': '{xdg_data_home}/galaxy_swarm_manager.pid',

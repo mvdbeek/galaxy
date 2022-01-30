@@ -5,7 +5,14 @@ import json
 import logging
 import re
 from collections import defaultdict
-from typing import Any, cast, Dict, List, Optional, Union
+from typing import (
+    Any,
+    cast,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 import packaging.version
 from typing_extensions import TypedDict
@@ -13,11 +20,14 @@ from typing_extensions import TypedDict
 from galaxy import (
     exceptions,
     model,
-    web
+    web,
 )
 from galaxy.exceptions import ToolMissingException
 from galaxy.job_execution.actions.post import ActionBox
-from galaxy.model import PostJobAction, Workflow
+from galaxy.model import (
+    PostJobAction,
+    Workflow,
+)
 from galaxy.model.dataset_collections import matching
 from galaxy.tool_util.parser.output_objects import ToolExpressionOutput
 from galaxy.tools import (
@@ -27,11 +37,15 @@ from galaxy.tools import (
     WORKFLOW_SAFE_TOOL_VERSION_UPDATES,
 )
 from galaxy.tools.actions import filter_output
-from galaxy.tools.execute import execute, MappingParameters, PartialJobExecution
+from galaxy.tools.execute import (
+    execute,
+    MappingParameters,
+    PartialJobExecution,
+)
 from galaxy.tools.parameters import (
     check_param,
     params_to_incoming,
-    visit_input_values
+    visit_input_values,
 )
 from galaxy.tools.parameters.basic import (
     BaseDataToolParameter,
@@ -48,7 +62,7 @@ from galaxy.tools.parameters.basic import (
     runtime_to_json,
     SelectToolParameter,
     TextToolParameter,
-    workflow_building_modes
+    workflow_building_modes,
 )
 from galaxy.tools.parameters.grouping import (
     Conditional,
@@ -56,7 +70,10 @@ from galaxy.tools.parameters.grouping import (
 )
 from galaxy.tools.parameters.history_query import HistoryQuery
 from galaxy.tools.parameters.wrapped import make_dict_copy
-from galaxy.util import listify, unicodify
+from galaxy.util import (
+    listify,
+    unicodify,
+)
 from galaxy.util.bunch import Bunch
 from galaxy.util.json import safe_loads
 from galaxy.util.rules_dsl import RuleSet

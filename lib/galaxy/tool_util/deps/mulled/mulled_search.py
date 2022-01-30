@@ -21,9 +21,11 @@ except ImportError:
     run_command = None
 
 try:
-    from whoosh.fields import Schema
-    from whoosh.fields import TEXT
-    from whoosh.fields import STORED
+    from whoosh.fields import (
+        Schema,
+        STORED,
+        TEXT,
+    )
     from whoosh.index import create_in
     from whoosh.qparser import QueryParser
 except ImportError:

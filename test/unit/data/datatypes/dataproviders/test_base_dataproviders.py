@@ -9,7 +9,10 @@ import unittest
 from io import StringIO
 from typing import Type
 
-from galaxy.datatypes.dataproviders import base, exceptions
+from galaxy.datatypes.dataproviders import (
+    base,
+    exceptions,
+)
 from galaxy.util import clean_multiline_string
 
 log = logging.getLogger(__name__)

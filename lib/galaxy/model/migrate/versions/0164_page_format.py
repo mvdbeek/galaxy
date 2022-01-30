@@ -4,10 +4,16 @@ Adds page content format.
 import datetime
 import logging
 
-from sqlalchemy import Column, MetaData
+from sqlalchemy import (
+    Column,
+    MetaData,
+)
 
 from galaxy.model.custom_types import TrimmedString
-from galaxy.model.migrate.versions.util import add_column, drop_column
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    drop_column,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

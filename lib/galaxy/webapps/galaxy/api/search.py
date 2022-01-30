@@ -3,7 +3,10 @@ API for searching Galaxy Datasets
 """
 import logging
 
-from galaxy import model, web
+from galaxy import (
+    model,
+    web,
+)
 from galaxy.exceptions import ItemAccessibilityException
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.model.search import GalaxySearchEngine

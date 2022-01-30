@@ -5,7 +5,6 @@ import inspect
 from galaxy.tool_util.parser import get_tool_source
 from galaxy.util import submodules
 
-
 LEVEL_ALL = "all"
 LEVEL_WARN = "warn"
 LEVEL_ERROR = "error"

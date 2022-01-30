@@ -12,10 +12,15 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import joinedload
 
-from galaxy import util
-from galaxy import web
+from galaxy import (
+    util,
+    web,
+)
 from galaxy.tool_shed.util import basic_util
-from galaxy.util.tool_shed import common_util, encoding_util
+from galaxy.util.tool_shed import (
+    common_util,
+    encoding_util,
+)
 
 log = logging.getLogger(__name__)
 

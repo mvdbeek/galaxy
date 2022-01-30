@@ -4,7 +4,11 @@ from io import BytesIO
 from typing import List
 
 from galaxy_test.base.api_asserts import assert_object_id_error
-from galaxy_test.base.populators import DatasetCollectionPopulator, DatasetPopulator, skip_if_github_down
+from galaxy_test.base.populators import (
+    DatasetCollectionPopulator,
+    DatasetPopulator,
+    skip_if_github_down,
+)
 from ._framework import ApiTestCase
 
 

@@ -8,7 +8,7 @@ from . import (
     data,
     dataproviders,
     tabular,
-    xml
+    xml,
 )
 
 log = logging.getLogger(__name__)

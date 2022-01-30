@@ -6,11 +6,17 @@ import zipfile
 from io import BytesIO
 
 import pytest
-from requests import get, put
+from requests import (
+    get,
+    put,
+)
 
 from galaxy.util import galaxy_root_path
 from galaxy_test.base import rules_test_data
-from galaxy_test.base.api_asserts import assert_has_keys, assert_status_code_is
+from galaxy_test.base.api_asserts import (
+    assert_has_keys,
+    assert_status_code_is,
+)
 from galaxy_test.base.populators import (
     BaseDatasetCollectionPopulator,
     BaseDatasetPopulator,
@@ -23,7 +29,6 @@ from galaxy_test.base.populators import (
     uses_test_history,
 )
 from ._framework import ApiTestCase
-
 
 MINIMAL_TOOL = {
     'id': "minimal_tool",

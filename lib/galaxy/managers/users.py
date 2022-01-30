@@ -9,7 +9,13 @@ import time
 from datetime import datetime
 
 from markupsafe import escape
-from sqlalchemy import and_, desc, exc, func, true
+from sqlalchemy import (
+    and_,
+    desc,
+    exc,
+    func,
+    true,
+)
 from sqlalchemy.orm.exc import NoResultFound
 
 from galaxy import (
@@ -21,15 +27,18 @@ from galaxy import (
 from galaxy.managers import (
     api_keys,
     base,
-    deletable
+    deletable,
 )
 from galaxy.security.validate_user_input import (
     VALID_EMAIL_RE,
     validate_email,
     validate_password,
-    validate_publicname
+    validate_publicname,
 )
-from galaxy.structured_app import BasicSharedApp, MinimalManagerApp
+from galaxy.structured_app import (
+    BasicSharedApp,
+    MinimalManagerApp,
+)
 from galaxy.util.hash_util import new_secure_hash
 from galaxy.web import url_for
 

@@ -1,19 +1,22 @@
 import abc
 import os
 from contextlib import contextmanager
-from typing import Dict, Type
+from typing import (
+    Dict,
+    Type,
+)
 from unittest import TestCase
 
 from galaxy.app_unittest_utils.tools_support import UsesApp
 from galaxy.jobs import (
     JobWrapper,
-    TaskWrapper
+    TaskWrapper,
 )
 from galaxy.model import (
     Base,
     Job,
     Task,
-    User
+    User,
 )
 from galaxy.util.bunch import Bunch
 

@@ -6,7 +6,6 @@ import logging
 import os.path
 import time
 
-
 try:
     from watchdog.events import FileSystemEventHandler
     from watchdog.observers import Observer

@@ -12,7 +12,7 @@ from os import (
     extsep,
     makedirs,
     stat,
-    walk
+    walk,
 )
 from os.path import (
     abspath,
@@ -26,9 +26,10 @@ from os.path import (
     pardir,
     realpath,
     relpath,
-    sep as separator,
 )
+from os.path import sep as separator
 from pathlib import Path
+
 try:
     from grp import getgrgid
 except ImportError:

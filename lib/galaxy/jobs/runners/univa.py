@@ -37,7 +37,7 @@ from galaxy.jobs.runners.drmaa import DRMAAJobRunner
 from galaxy.util import (
     commands,
     size_to_bytes,
-    unicodify
+    unicodify,
 )
 
 log = logging.getLogger(__name__)

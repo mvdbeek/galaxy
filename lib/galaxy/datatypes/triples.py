@@ -12,7 +12,7 @@ from . import (
     binary,
     data,
     text,
-    xml
+    xml,
 )
 
 log = logging.getLogger(__name__)

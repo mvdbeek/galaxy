@@ -25,11 +25,13 @@ import re
 import shutil
 import tempfile
 import unittest
-from typing import Dict, TextIO, Union
-
-from galaxy_test.base.api_util import (
-    TEST_USER,
+from typing import (
+    Dict,
+    TextIO,
+    Union,
 )
+
+from galaxy_test.base.api_util import TEST_USER
 from galaxy_test.base.constants import (
     ONE_TO_SIX_ON_WINDOWS,
     ONE_TO_SIX_WITH_SPACES,
@@ -41,7 +43,6 @@ from galaxy_test.base.populators import (
     skip_without_datatype,
 )
 from galaxy_test.driver import integration_util
-
 
 SCRIPT_DIR = os.path.normpath(os.path.dirname(__file__))
 TEST_DATA_DIRECTORY = os.path.join(SCRIPT_DIR, os.pardir, os.pardir, "test-data")

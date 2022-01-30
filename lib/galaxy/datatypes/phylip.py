@@ -8,7 +8,10 @@ Created on January. 05, 2018
 Phylip datatype sniffer
 """
 from galaxy import util
-from galaxy.datatypes.data import get_file_peek, Text
+from galaxy.datatypes.data import (
+    get_file_peek,
+    Text,
+)
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,

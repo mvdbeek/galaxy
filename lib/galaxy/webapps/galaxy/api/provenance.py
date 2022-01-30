@@ -5,14 +5,15 @@ import logging
 
 from paste.httpexceptions import (
     HTTPBadRequest,
-    HTTPNotImplemented
+    HTTPNotImplemented,
 )
 
-from galaxy import (
-    web
-)
+from galaxy import web
 from galaxy.managers.hdas import HDAManager
-from . import BaseGalaxyAPIController, depends
+from . import (
+    BaseGalaxyAPIController,
+    depends,
+)
 
 log = logging.getLogger(__name__)
 

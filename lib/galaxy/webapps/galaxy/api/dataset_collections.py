@@ -1,7 +1,11 @@
 from logging import getLogger
 from typing import Optional
 
-from fastapi import Body, Path, Query
+from fastapi import (
+    Body,
+    Path,
+    Query,
+)
 
 from galaxy import exceptions
 from galaxy.managers.context import ProvidesHistoryContext
@@ -24,7 +28,7 @@ from . import (
     BaseGalaxyAPIController,
     depends,
     DependsOnTrans,
-    Router
+    Router,
 )
 
 log = getLogger(__name__)

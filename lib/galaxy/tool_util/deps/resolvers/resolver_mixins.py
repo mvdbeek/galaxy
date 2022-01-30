@@ -2,7 +2,7 @@ import os
 
 from . import (
     Dependency,
-    NullDependency
+    NullDependency,
 )
 from ..brew_exts import (
     build_env_statements,

@@ -7,19 +7,19 @@ import os
 import shutil
 
 try:
+    from kamaki.clients import astakos
+    from kamaki.clients import Client as KamakiClient
     from kamaki.clients import (
-        astakos,
-        Client as KamakiClient,
         ClientError,
         pithos,
-        utils
+        utils,
     )
 except ImportError:
     KamakiClient = None
 
 from galaxy.exceptions import (
     ObjectInvalid,
-    ObjectNotFound
+    ObjectNotFound,
 )
 from galaxy.util import (
     directory_hash_id,

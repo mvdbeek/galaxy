@@ -15,7 +15,10 @@ from galaxy.config import Configuration
 from galaxy.main_config import find_config
 from galaxy.util.custom_logging import get_logger
 from galaxy.util.properties import load_app_properties
-from ._serialization import schema_dumps, schema_loads
+from ._serialization import (
+    schema_dumps,
+    schema_loads,
+)
 
 log = get_logger(__name__)
 

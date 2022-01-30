@@ -1,9 +1,21 @@
 import logging
 import os
-from json import dumps, loads
-from typing import Any, cast, Dict, Optional
+from json import (
+    dumps,
+    loads,
+)
+from typing import (
+    Any,
+    cast,
+    Dict,
+    Optional,
+)
 
-from galaxy import exceptions, util, web
+from galaxy import (
+    exceptions,
+    util,
+    web,
+)
 from galaxy.datatypes.data import get_params_and_input_name
 from galaxy.managers.collections import DatasetCollectionManager
 from galaxy.managers.collections_util import dictify_dataset_collection_instance
@@ -21,7 +33,10 @@ from galaxy.web import (
 from galaxy.web.framework.decorators import expose_api_raw
 from galaxy.webapps.base.controller import UsesVisualizationMixin
 from galaxy.webapps.base.webapp import GalaxyWebTransaction
-from . import BaseGalaxyAPIController, depends
+from . import (
+    BaseGalaxyAPIController,
+    depends,
+)
 from ._fetch_util import validate_and_normalize_targets
 
 log = logging.getLogger(__name__)

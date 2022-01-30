@@ -17,7 +17,7 @@ from galaxy_test.base.populators import (
     uses_test_history,
     wait_on,
     wait_on_state,
-    WorkflowPopulator
+    WorkflowPopulator,
 )
 from ._framework import ApiTestCase
 

@@ -6,7 +6,6 @@ functionality shared between Galaxy and the Pulsar.
 from galaxy.util.bunch import Bunch
 from .kill import kill_pid
 
-
 runner_states = Bunch(
     WALLTIME_REACHED='walltime_reached',
     MEMORY_LIMIT_REACHED='memory_limit_reached',

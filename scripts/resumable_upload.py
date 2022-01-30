@@ -6,7 +6,6 @@ import requests
 from tusclient import client
 from tusclient.storage import filestorage
 
-
 UPLOAD_ENDPOINT = '/api/upload/resumable_upload'
 SUBMISSION_ENDPOINT = '/api/tools/fetch'
 CHUNK_SIZE = 10 ** 7

@@ -1,9 +1,11 @@
 import logging
 
 from galaxy import util
-from tool_shed.util import common_util
-from tool_shed.util import container_util
-from tool_shed.util import repository_util
+from tool_shed.util import (
+    common_util,
+    container_util,
+    repository_util,
+)
 
 log = logging.getLogger(__name__)
 

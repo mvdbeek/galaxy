@@ -4,9 +4,19 @@ import re
 
 from markupsafe import escape
 
-from galaxy import model, util
-from galaxy.web.framework.helpers import grids, iff, time_ago
-from galaxy.webapps.base.controller import BaseUIController, web
+from galaxy import (
+    model,
+    util,
+)
+from galaxy.web.framework.helpers import (
+    grids,
+    iff,
+    time_ago,
+)
+from galaxy.webapps.base.controller import (
+    BaseUIController,
+    web,
+)
 
 log = logging.getLogger(__name__)
 

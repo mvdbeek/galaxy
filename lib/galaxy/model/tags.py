@@ -1,6 +1,11 @@
 import logging
 import re
-from typing import Dict, List, Optional, Tuple
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker

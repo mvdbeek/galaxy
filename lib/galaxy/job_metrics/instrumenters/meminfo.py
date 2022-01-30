@@ -5,7 +5,6 @@ from galaxy import util
 from . import InstrumentPlugin
 from .. import formatting
 
-
 MEMINFO_LINE = re.compile(r"(\w+)\s*\:\s*(\d+) kB")
 
 # Important (non-verbose) meminfo property titles.

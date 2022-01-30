@@ -4,7 +4,16 @@ Migration script to add a new tables for CloudAuthz (tokens required to access c
 
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, String, Table, TEXT
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    TEXT,
+)
 
 from galaxy.model.custom_types import JSONType
 

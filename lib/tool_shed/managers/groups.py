@@ -3,16 +3,23 @@ Manager and Serializer for TS groups.
 """
 import logging
 
-from sqlalchemy import false, true
-from sqlalchemy.orm.exc import MultipleResultsFound
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy import (
+    false,
+    true,
+)
+from sqlalchemy.orm.exc import (
+    MultipleResultsFound,
+    NoResultFound,
+)
 
-from galaxy.exceptions import Conflict
-from galaxy.exceptions import InconsistentDatabase
-from galaxy.exceptions import InternalServerError
-from galaxy.exceptions import ItemAccessibilityException
-from galaxy.exceptions import ObjectNotFound
-from galaxy.exceptions import RequestParameterInvalidException
+from galaxy.exceptions import (
+    Conflict,
+    InconsistentDatabase,
+    InternalServerError,
+    ItemAccessibilityException,
+    ObjectNotFound,
+    RequestParameterInvalidException,
+)
 
 log = logging.getLogger(__name__)
 

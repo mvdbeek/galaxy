@@ -3,7 +3,10 @@ import json
 import os
 import unittest
 import uuid
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 from urllib.parse import (
     parse_qs,
     quote,
@@ -15,7 +18,10 @@ import requests
 
 from galaxy.app_unittest_utils.galaxy_mock import MockTrans
 from galaxy.authnz import custos_authnz
-from galaxy.model import CustosAuthnzToken, User
+from galaxy.model import (
+    CustosAuthnzToken,
+    User,
+)
 from galaxy.util import unicodify
 
 

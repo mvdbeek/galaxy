@@ -12,10 +12,12 @@ from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,
 )
-from galaxy.datatypes.tabular import Tabular, TabularData
+from galaxy.datatypes.tabular import (
+    Tabular,
+    TabularData,
+)
 from galaxy.datatypes.xml import GenericXml
 from galaxy.util import nice_size
-
 
 log = logging.getLogger(__name__)
 

@@ -1,7 +1,10 @@
 import logging
 import os
 import os.path
-from typing import List, Tuple
+from typing import (
+    List,
+    Tuple,
+)
 
 import galaxy.tools.parameters.basic
 import galaxy.tools.parameters.grouping

@@ -4,7 +4,12 @@ Adds 'active' and 'activation_token' columns to the galaxy_user table.
 
 import logging
 
-from sqlalchemy import Boolean, Column, MetaData, Table
+from sqlalchemy import (
+    Boolean,
+    Column,
+    MetaData,
+    Table,
+)
 
 from galaxy.model.custom_types import TrimmedString
 

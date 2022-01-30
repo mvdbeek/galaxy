@@ -3,7 +3,7 @@ import logging
 import galaxy.exceptions
 from galaxy import (
     model,
-    security
+    security,
 )
 from galaxy.managers import users
 

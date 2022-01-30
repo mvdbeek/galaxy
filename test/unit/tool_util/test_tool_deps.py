@@ -9,18 +9,33 @@ from os import (
 )
 from shutil import rmtree
 from stat import S_IXUSR
-from subprocess import PIPE, Popen
-from typing import Any, Dict
+from subprocess import (
+    PIPE,
+    Popen,
+)
+from typing import (
+    Any,
+    Dict,
+)
 
-from galaxy.tool_util.deps import build_dependency_manager, DependencyManager
+from galaxy.tool_util.deps import (
+    build_dependency_manager,
+    DependencyManager,
+)
 from galaxy.tool_util.deps.requirements import (
     ToolRequirement,
-    ToolRequirements
+    ToolRequirements,
 )
 from galaxy.tool_util.deps.resolvers import NullDependency
 from galaxy.tool_util.deps.resolvers.galaxy_packages import GalaxyPackageDependency
-from galaxy.tool_util.deps.resolvers.lmod import LmodDependency, LmodDependencyResolver
-from galaxy.tool_util.deps.resolvers.modules import ModuleDependency, ModuleDependencyResolver
+from galaxy.tool_util.deps.resolvers.lmod import (
+    LmodDependency,
+    LmodDependencyResolver,
+)
+from galaxy.tool_util.deps.resolvers.modules import (
+    ModuleDependency,
+    ModuleDependencyResolver,
+)
 from galaxy.util import unicodify
 from galaxy.util.bunch import Bunch
 from .util import modify_environ

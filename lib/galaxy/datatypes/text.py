@@ -12,8 +12,15 @@ import tempfile
 
 import yaml
 
-from galaxy.datatypes.data import get_file_peek, Headers, Text
-from galaxy.datatypes.metadata import MetadataElement, MetadataParameter
+from galaxy.datatypes.data import (
+    get_file_peek,
+    Headers,
+    Text,
+)
+from galaxy.datatypes.metadata import (
+    MetadataElement,
+    MetadataParameter,
+)
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,

@@ -4,10 +4,17 @@ Adds license and creator metadata to workflow.
 import datetime
 import logging
 
-from sqlalchemy import Column, MetaData, TEXT
+from sqlalchemy import (
+    Column,
+    MetaData,
+    TEXT,
+)
 
 from galaxy.model.custom_types import JSONType
-from galaxy.model.migrate.versions.util import add_column, drop_column
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    drop_column,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

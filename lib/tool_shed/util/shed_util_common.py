@@ -5,7 +5,11 @@ import socket
 import string
 
 import sqlalchemy.orm.exc
-from sqlalchemy import and_, false, true
+from sqlalchemy import (
+    and_,
+    false,
+    true,
+)
 
 import galaxy.tool_util.deps.requirements
 from galaxy import util
@@ -30,7 +34,7 @@ from tool_shed.util import (
     basic_util,
     common_util,
     hg_util,
-    repository_util
+    repository_util,
 )
 
 log = logging.getLogger(__name__)

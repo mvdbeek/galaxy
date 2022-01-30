@@ -5,7 +5,7 @@ import logging
 
 from sqlalchemy.orm.exc import (
     MultipleResultsFound,
-    NoResultFound
+    NoResultFound,
 )
 
 from galaxy import util

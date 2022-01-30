@@ -1,16 +1,19 @@
 import logging
 import os
 from enum import Enum
-from typing import Dict, List, Optional, Tuple
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Tuple,
+)
 
 from galaxy.tool_util.edam_util import (
     load_edam_tree,
     ROOT_OPERATION,
     ROOT_TOPIC,
 )
-from galaxy.util import (
-    ExecutionTimer,
-)
+from galaxy.util import ExecutionTimer
 from .interface import (
     ToolBoxRegistry,
     ToolPanelView,

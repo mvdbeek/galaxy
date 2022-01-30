@@ -6,12 +6,12 @@ from sqlalchemy import func
 
 from galaxy import (
     util,
-    web
+    web,
 )
 from galaxy.security.validate_user_input import (
     validate_email,
     validate_password,
-    validate_publicname
+    validate_publicname,
 )
 from galaxy.web import url_for
 from galaxy.web.form_builder import CheckboxField

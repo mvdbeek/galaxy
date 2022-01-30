@@ -5,7 +5,15 @@ file archives.
 
 import logging
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 
 from galaxy.model.migrate.versions.util import engine_false
 

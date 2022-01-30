@@ -7,7 +7,7 @@ import logging
 from sqlalchemy import (
     Boolean,
     Column,
-    MetaData
+    MetaData,
 )
 
 from galaxy.model.migrate.versions.util import (

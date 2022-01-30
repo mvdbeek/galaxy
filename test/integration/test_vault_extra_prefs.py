@@ -1,10 +1,13 @@
 import json
 import os
-from typing import Any, cast
+from typing import (
+    Any,
+    cast,
+)
 
 from requests import (
     get,
-    put
+    put,
 )
 
 from galaxy_test.driver import integration_util

@@ -1,13 +1,19 @@
 import logging
 
-from sqlalchemy import false, func
+from sqlalchemy import (
+    false,
+    func,
+)
 
 from galaxy import (
     model,
     util,
-    web
+    web,
 )
-from galaxy.exceptions import ActionInputError, MessageException
+from galaxy.exceptions import (
+    ActionInputError,
+    MessageException,
+)
 from galaxy.managers.quotas import QuotaManager
 from galaxy.model import tool_shed_install as install_model
 from galaxy.security.validate_user_input import validate_password
@@ -18,10 +24,12 @@ from galaxy.util import (
     sanitize_text,
 )
 from galaxy.web import url_for
-from galaxy.web.framework.helpers import grids, time_ago
+from galaxy.web.framework.helpers import (
+    grids,
+    time_ago,
+)
 from galaxy.webapps.base import controller
 from tool_shed.util.web_util import escape
-
 
 log = logging.getLogger(__name__)
 

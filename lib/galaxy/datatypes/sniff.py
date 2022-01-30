@@ -29,7 +29,7 @@ from galaxy.files import ConfiguredFileSources
 from galaxy.util import (
     compression_utils,
     file_reader,
-    stream_to_open_named_file
+    stream_to_open_named_file,
 )
 from galaxy.util.checkers import (
     check_binary,

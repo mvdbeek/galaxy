@@ -14,7 +14,7 @@ incompatible changes coming.
 
 from . import (
     DependencyResolver,
-    NullDependency
+    NullDependency,
 )
 from .resolver_mixins import UsesHomebrewMixin
 

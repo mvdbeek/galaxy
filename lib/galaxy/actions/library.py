@@ -22,7 +22,7 @@ from galaxy.tools.parameters import populate_state
 from galaxy.util.path import (
     safe_contains,
     safe_relpath,
-    unsafe_walk
+    unsafe_walk,
 )
 
 log = logging.getLogger(__name__)

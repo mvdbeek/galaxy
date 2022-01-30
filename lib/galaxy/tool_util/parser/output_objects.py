@@ -2,7 +2,10 @@ from typing import List
 
 from galaxy.util.dictifiable import Dictifiable
 from .output_actions import ToolOutputActionGroup
-from .output_collection_def import dataset_collector_descriptions_from_output_dict, DatasetCollectionDescription
+from .output_collection_def import (
+    dataset_collector_descriptions_from_output_dict,
+    DatasetCollectionDescription,
+)
 
 
 class ToolOutputBase(Dictifiable):

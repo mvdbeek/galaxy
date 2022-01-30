@@ -1,10 +1,8 @@
-from galaxy_test.base.workflow_fixtures import (
-    WORKFLOW_WITH_OUTPUT_COLLECTION,
-)
+from galaxy_test.base.workflow_fixtures import WORKFLOW_WITH_OUTPUT_COLLECTION
 from .framework import (
     retry_assertion_during_transitions,
     selenium_test,
-    SeleniumTestCase
+    SeleniumTestCase,
 )
 
 

@@ -29,8 +29,8 @@ def add_ui_controllers(webapp, app):
     Search for controllers in the 'galaxy.webapps.controllers' module and add
     them to the webapp.
     """
-    from galaxy.webapps.base.controller import BaseUIController
     import tool_shed.webapp.controllers
+    from galaxy.webapps.base.controller import BaseUIController
     controller_dir = tool_shed.webapp.controllers.__path__[0]
     for fname in os.listdir(controller_dir):
         if not fname.startswith("_") and fname.endswith(".py"):
@@ -62,8 +62,8 @@ def app_factory(global_conf, load_app_kwds=None, **kwargs):
             from tool_shed.webapp.app import UniverseApplication
             app = UniverseApplication(global_conf=global_conf, **kwargs)
         except Exception:
-            import traceback
             import sys
+            import traceback
             traceback.print_exc()
             sys.exit(1)
     atexit.register(app.shutdown)

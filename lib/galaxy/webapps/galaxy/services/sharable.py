@@ -6,21 +6,15 @@ from typing import (
     Tuple,
 )
 
-from sqlalchemy import (
-    false,
-)
+from sqlalchemy import false
 
 from galaxy import exceptions
-from galaxy.managers import (
-    base,
-)
+from galaxy.managers import base
 from galaxy.managers.sharable import (
     SharableModelManager,
     SharableModelSerializer,
 )
-from galaxy.model import (
-    User,
-)
+from galaxy.model import User
 from galaxy.schema.fields import EncodedDatabaseIdField
 from galaxy.schema.schema import (
     SetSlugPayload,

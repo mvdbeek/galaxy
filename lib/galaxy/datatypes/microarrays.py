@@ -7,7 +7,7 @@ from galaxy.datatypes.metadata import MetadataElement
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,
-    get_headers
+    get_headers,
 )
 
 log = logging.getLogger(__name__)

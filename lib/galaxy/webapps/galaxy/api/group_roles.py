@@ -9,7 +9,10 @@ from fastapi import Path
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.managers.group_roles import GroupRolesManager
 from galaxy.schema.fields import EncodedDatabaseIdField
-from galaxy.schema.schema import GroupRoleListModel, GroupRoleModel
+from galaxy.schema.schema import (
+    GroupRoleListModel,
+    GroupRoleModel,
+)
 from galaxy.web import (
     expose_api,
     require_admin,
@@ -18,9 +21,8 @@ from . import (
     BaseGalaxyAPIController,
     depends,
     DependsOnTrans,
-    Router
+    Router,
 )
-
 
 log = logging.getLogger(__name__)
 

@@ -5,7 +5,7 @@
 import logging
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
 from typing import Dict
 

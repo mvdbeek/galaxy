@@ -2,9 +2,12 @@ import logging
 
 from galaxy import (
     model,
-    util
+    util,
 )
-from galaxy.exceptions import ItemAccessibilityException, ObjectAttributeMissingException
+from galaxy.exceptions import (
+    ItemAccessibilityException,
+    ObjectAttributeMissingException,
+)
 
 log = logging.getLogger(__name__)
 

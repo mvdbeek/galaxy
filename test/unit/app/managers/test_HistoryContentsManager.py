@@ -4,12 +4,24 @@ import datetime
 import random
 import unittest
 
-from sqlalchemy import column, desc, false, true
+from sqlalchemy import (
+    column,
+    desc,
+    false,
+    true,
+)
 
-from galaxy.managers import base, collections, hdas, history_contents
+from galaxy.managers import (
+    base,
+    collections,
+    hdas,
+    history_contents,
+)
 from galaxy.managers.histories import HistoryManager
-from .base import BaseTestCase
-from .base import CreatesCollectionsMixin
+from .base import (
+    BaseTestCase,
+    CreatesCollectionsMixin,
+)
 
 default_password = '123456'
 user2_data = dict(email='user2@user2.user2', username='user2', password=default_password)

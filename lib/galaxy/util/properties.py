@@ -7,12 +7,19 @@ import os.path
 import sys
 from configparser import ConfigParser
 from functools import partial
-from itertools import product, starmap
+from itertools import (
+    product,
+    starmap,
+)
 
 import yaml
 
 from galaxy.exceptions import InvalidFileFormatError
-from galaxy.util.path import extensions, has_ext, joinext
+from galaxy.util.path import (
+    extensions,
+    has_ext,
+    joinext,
+)
 
 
 def find_config_file(names, exts=None, dirs=None, include_samples=False):

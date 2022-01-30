@@ -11,8 +11,10 @@ from galaxy.tool_util.verify.interactor import GalaxyInteractorApi
 from galaxy.util import unicodify
 from galaxy_test.base.api_asserts import assert_status_code_is
 from galaxy_test.base.populators import DEFAULT_TIMEOUT
-from galaxy_test.driver.driver_util import FRAMEWORK_UPLOAD_TOOL_CONF, GalaxyTestDriver
-
+from galaxy_test.driver.driver_util import (
+    FRAMEWORK_UPLOAD_TOOL_CONF,
+    GalaxyTestDriver,
+)
 
 # Needs a longer timeout because of the conda_auto_install.
 CONDA_AUTO_INSTALL_JOB_TIMEOUT = DEFAULT_TIMEOUT * 3

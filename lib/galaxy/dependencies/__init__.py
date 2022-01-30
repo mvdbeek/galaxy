@@ -4,7 +4,11 @@ Determine what optional dependencies are needed.
 
 import os
 import sys
-from os.path import dirname, exists, join
+from os.path import (
+    dirname,
+    exists,
+    join,
+)
 
 import pkg_resources
 import yaml
@@ -18,7 +22,7 @@ from galaxy.util import (
 )
 from galaxy.util.properties import (
     find_config_file,
-    load_app_properties
+    load_app_properties,
 )
 
 

@@ -5,7 +5,10 @@ Owned models can be modified and deleted.
 """
 from typing import Type
 
-from galaxy import exceptions, model
+from galaxy import (
+    exceptions,
+    model,
+)
 
 
 class AccessibleManagerMixin:

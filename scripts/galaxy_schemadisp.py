@@ -4,8 +4,12 @@ import sys
 from db_shell import *  # noqa
 from sqlalchemy import MetaData
 from sqlalchemy.orm import class_mapper
+
 try:
-    from sqlalchemy_schemadisplay import create_schema_graph, create_uml_graph
+    from sqlalchemy_schemadisplay import (
+        create_schema_graph,
+        create_uml_graph,
+    )
 except ImportError:
     print("please install sqlalchemy_schemadisplay to use this script (pip install sqlalchemy_schemadisplay)")
     raise

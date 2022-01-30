@@ -1,7 +1,7 @@
 from .framework import (
     selenium_test,
     SeleniumTestCase,
-    UsesLibraryAssertions
+    UsesLibraryAssertions,
 )
 
 

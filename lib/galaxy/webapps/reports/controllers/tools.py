@@ -8,10 +8,12 @@ from sqlalchemy import and_
 import galaxy.model
 from galaxy.util import (
     restore_text,
-    unicodify
+    unicodify,
 )
-from galaxy.webapps.base.controller import BaseUIController, web
-
+from galaxy.webapps.base.controller import (
+    BaseUIController,
+    web,
+)
 
 log = logging.getLogger(__name__)
 

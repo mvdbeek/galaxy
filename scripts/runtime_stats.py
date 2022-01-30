@@ -43,8 +43,10 @@ galaxy_root = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)
 sys.path.insert(1, os.path.join(galaxy_root, 'lib'))
 
 import galaxy.config
-from galaxy.util.script import app_properties_from_args, populate_config_args
-
+from galaxy.util.script import (
+    app_properties_from_args,
+    populate_config_args,
+)
 
 DATA_SOURCES = ('metrics', 'history')
 METRICS_SQL = """

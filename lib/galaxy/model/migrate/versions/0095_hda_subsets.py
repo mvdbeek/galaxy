@@ -4,7 +4,15 @@ Migration script to create table for tracking history_dataset_association subset
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, MetaData, Table, Unicode
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Table,
+    Unicode,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

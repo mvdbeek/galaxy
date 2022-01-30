@@ -1,10 +1,16 @@
 import logging
 import os
 import unittest
-from typing import Any, Optional
+from typing import (
+    Any,
+    Optional,
+)
 
 from galaxy.tool_util.verify.test_data import TestDataResolver
-from galaxy_test.base.env import setup_keep_outdir, target_url_parts
+from galaxy_test.base.env import (
+    setup_keep_outdir,
+    target_url_parts,
+)
 
 log = logging.getLogger(__name__)
 

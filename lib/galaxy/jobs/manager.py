@@ -6,8 +6,14 @@ from functools import partial
 
 from sqlalchemy.sql.expression import null
 
-from galaxy.exceptions import HandlerAssignmentError, ToolExecutionError
-from galaxy.jobs import handler, NoopQueue
+from galaxy.exceptions import (
+    HandlerAssignmentError,
+    ToolExecutionError,
+)
+from galaxy.jobs import (
+    handler,
+    NoopQueue,
+)
 from galaxy.model import Job
 from galaxy.structured_app import MinimalManagerApp
 from galaxy.web_stack.message import JobHandlerMessage

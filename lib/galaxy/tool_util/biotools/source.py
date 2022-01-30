@@ -1,7 +1,12 @@
 import functools
 import json
 import os
-from typing import Callable, Dict, List, Optional
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Optional,
+)
 
 import requests
 

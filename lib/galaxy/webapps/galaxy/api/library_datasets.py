@@ -6,21 +6,24 @@ import os.path
 import string
 from json import dumps
 
-from paste.httpexceptions import HTTPBadRequest, HTTPInternalServerError
+from paste.httpexceptions import (
+    HTTPBadRequest,
+    HTTPInternalServerError,
+)
 
 from galaxy import (
     exceptions,
     util,
-    web
+    web,
 )
 from galaxy.actions.library import LibraryActions
 from galaxy.exceptions import ObjectNotFound
+from galaxy.managers import base as managers_base
 from galaxy.managers import (
-    base as managers_base,
     folders,
     lddas,
     library_datasets,
-    roles
+    roles,
 )
 from galaxy.structured_app import StructuredApp
 from galaxy.tools.actions import upload_common
@@ -36,9 +39,7 @@ from galaxy.web import (
     expose_api,
     expose_api_anonymous,
 )
-from galaxy.webapps.base.controller import (
-    UsesVisualizationMixin,
-)
+from galaxy.webapps.base.controller import UsesVisualizationMixin
 from . import BaseGalaxyAPIController
 
 log = logging.getLogger(__name__)

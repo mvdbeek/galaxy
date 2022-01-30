@@ -1,6 +1,6 @@
 from .framework import (
     selenium_test,
-    SeleniumTestCase
+    SeleniumTestCase,
 )
 
 # Remove hack when submit_login works more consistently.

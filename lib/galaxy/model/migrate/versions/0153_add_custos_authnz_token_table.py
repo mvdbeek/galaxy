@@ -13,12 +13,12 @@ from sqlalchemy import (
     String,
     Table,
     Text,
-    UniqueConstraint
+    UniqueConstraint,
 )
 
 from galaxy.model.migrate.versions.util import (
     create_table,
-    drop_table
+    drop_table,
 )
 
 log = logging.getLogger(__name__)

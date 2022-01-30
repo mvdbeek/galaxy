@@ -1,6 +1,9 @@
 """This module contains a linting functions for tool inputs."""
 from galaxy.util import string_as_bool
-from ._util import is_datasource, is_valid_cheetah_placeholder
+from ._util import (
+    is_datasource,
+    is_valid_cheetah_placeholder,
+)
 from ..parser.util import _parse_name
 
 FILTER_TYPES = [

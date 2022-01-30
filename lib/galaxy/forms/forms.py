@@ -5,7 +5,7 @@ FormDefinition and field factories
 # Can this functionality be further abstracted and merged with form_builder?
 from galaxy.model import (
     FormDefinition,
-    FormDefinitionCurrent
+    FormDefinitionCurrent,
 )
 from galaxy.util import string_as_bool
 

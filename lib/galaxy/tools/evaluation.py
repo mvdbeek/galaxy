@@ -5,7 +5,13 @@ import shlex
 import string
 import tempfile
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+)
 
 from galaxy import model
 from galaxy.job_execution.compute_environment import ComputeEnvironment
@@ -24,7 +30,7 @@ from galaxy.tools.parameters.basic import (
 from galaxy.tools.parameters.grouping import (
     Conditional,
     Repeat,
-    Section
+    Section,
 )
 from galaxy.tools.wrappers import (
     DatasetCollectionWrapper,

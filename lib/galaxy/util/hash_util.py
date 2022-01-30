@@ -9,7 +9,6 @@ import logging
 
 from . import smart_str
 
-
 log = logging.getLogger(__name__)
 
 BLOCK_SIZE = 1024 * 1024

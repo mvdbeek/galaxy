@@ -9,21 +9,26 @@ import stat
 import tempfile
 import uuid
 from itertools import product
-from subprocess import PIPE, Popen
+from subprocess import (
+    PIPE,
+    Popen,
+)
 from sys import platform as _platform
 
 import yaml
 
-from galaxy import model, web
+from galaxy import (
+    model,
+    web,
+)
 from galaxy.containers import ContainerPort
 from galaxy.containers.docker_model import DockerVolume
 from galaxy.managers import api_keys
 from galaxy.util import (
     string_as_bool_or_none,
-    unicodify
+    unicodify,
 )
 from galaxy.util.bunch import Bunch
-
 
 IS_OS_X = _platform == "darwin"
 CONTAINER_NAME_PREFIX = 'gie_'

@@ -18,7 +18,7 @@ except Exception:
 
 from docutils.core import (
     default_description,
-    publish_cmdline
+    publish_cmdline,
 )
 
 description = ('Generates (X)HTML documents from standalone reStructuredText '

@@ -44,6 +44,7 @@ from boltons.iterutils import (
 )
 from requests.adapters import HTTPAdapter
 from requests.packages.urllib3.util.retry import Retry
+
 try:
     import grp
 except ImportError:
@@ -68,7 +69,11 @@ except ImportError:
 
 from .custom_logging import get_logger
 from .inflection import Inflector
-from .path import safe_contains, safe_makedirs, safe_relpath  # noqa: F401
+from .path import (  # noqa: F401
+    safe_contains,
+    safe_makedirs,
+    safe_relpath,
+)
 
 inflector = Inflector()
 

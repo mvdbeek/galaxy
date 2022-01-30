@@ -7,11 +7,22 @@ import datetime
 import logging
 from json import loads
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 from sqlalchemy.exc import NoSuchTableError
 
 from galaxy.model.custom_types import TrimmedString
-from galaxy.model.migrate.versions.util import localtimestamp, nextval
+from galaxy.model.migrate.versions.util import (
+    localtimestamp,
+    nextval,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

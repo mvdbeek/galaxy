@@ -13,7 +13,12 @@ import sys
 import time
 import traceback
 from json import loads
-from typing import Any, Dict, List, TYPE_CHECKING
+from typing import (
+    Any,
+    Dict,
+    List,
+    TYPE_CHECKING,
+)
 
 import packaging.version
 import yaml
@@ -36,11 +41,10 @@ from galaxy.job_execution.output_collect import (
     collect_extra_files,
     collect_shrinked_content_from_path,
 )
-from galaxy.job_execution.setup import (  # noqa: F401
+from galaxy.job_execution.setup import (  # noqa: F401; This is read by certain misbehaving tool wrappers that import Galaxy internals
     create_working_directory_for_job,
     ensure_configs_directory,
     JobIO,
-    # This is read by certain misbehaving tool wrappers that import Galaxy internals
     TOOL_PROVIDED_JOB_METADATA_FILE,
     TOOL_PROVIDED_JOB_METADATA_KEYS,
 )
@@ -48,7 +52,10 @@ from galaxy.jobs.mapper import (
     JobMappingException,
     JobRunnerMapper,
 )
-from galaxy.jobs.runners import BaseJobRunner, JobState
+from galaxy.jobs.runners import (
+    BaseJobRunner,
+    JobState,
+)
 from galaxy.metadata import get_metadata_compute_strategy
 from galaxy.model import store
 from galaxy.model.store.discover import MaxDiscoveredFilesExceededError
@@ -67,7 +74,7 @@ from galaxy.util import (
     parse_xml_string,
     RWXRWXRWX,
     safe_makedirs,
-    unicodify
+    unicodify,
 )
 from galaxy.util.bunch import Bunch
 from galaxy.util.expressions import ExpressionContext

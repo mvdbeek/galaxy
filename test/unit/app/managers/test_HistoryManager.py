@@ -8,17 +8,17 @@ from sqlalchemy import true
 
 from galaxy import (
     exceptions,
-    model
+    model,
 )
 from galaxy.managers import (
     base,
-    hdas
+    hdas,
 )
 from galaxy.managers.histories import (
     HistoryDeserializer,
     HistoryFilters,
     HistoryManager,
-    HistorySerializer
+    HistorySerializer,
 )
 from .base import BaseTestCase
 

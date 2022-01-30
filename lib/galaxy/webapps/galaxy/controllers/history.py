@@ -4,22 +4,24 @@ from markupsafe import escape
 from sqlalchemy import (
     false,
     null,
-    true
+    true,
 )
 from sqlalchemy.orm import (
     eagerload,
     joinedload,
-    undefer
+    undefer,
 )
 
-from galaxy import exceptions
-from galaxy import model
-from galaxy import web
+from galaxy import (
+    exceptions,
+    model,
+    web,
+)
 from galaxy.managers import histories
 from galaxy.managers.sharable import SlugBuilder
 from galaxy.model.item_attrs import (
     UsesAnnotations,
-    UsesItemRatings
+    UsesItemRatings,
 )
 from galaxy.structured_app import StructuredApp
 from galaxy.util import (
@@ -27,16 +29,16 @@ from galaxy.util import (
     parse_int,
     sanitize_text,
     string_as_bool,
-    unicodify
+    unicodify,
 )
 from galaxy.web import (
     expose_api_anonymous,
-    url_for
+    url_for,
 )
 from galaxy.web.framework.helpers import (
     grids,
     iff,
-    time_ago
+    time_ago,
 )
 from galaxy.webapps.base.controller import (
     BaseUIController,
@@ -48,7 +50,6 @@ from galaxy.webapps.base.controller import (
 )
 from ._create_history_template import render_item
 from ..api import depends
-
 
 log = logging.getLogger(__name__)
 

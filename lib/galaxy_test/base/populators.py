@@ -45,7 +45,10 @@ import string
 import time
 import unittest
 import urllib.parse
-from abc import ABCMeta, abstractmethod
+from abc import (
+    ABCMeta,
+    abstractmethod,
+)
 from functools import wraps
 from io import StringIO
 from operator import itemgetter
@@ -78,8 +81,8 @@ from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.tool_util.verify.wait import (
     timeout_type,
     TimeoutAssertionError,
-    wait_on as tool_util_wait_on,
 )
+from galaxy.tool_util.verify.wait import wait_on as tool_util_wait_on
 from galaxy.util import (
     DEFAULT_SOCKET_TIMEOUT,
     galaxy_root_path,
@@ -87,7 +90,6 @@ from galaxy.util import (
 )
 from . import api_asserts
 from .api import ApiTestInteractor
-
 
 CWL_TOOL_DIRECTORY = os.path.join(galaxy_root_path, "test", "functional", "tools", "cwl_tools")
 

@@ -5,7 +5,10 @@ import os
 import sys
 from configparser import ConfigParser
 
-from sqlalchemy.exc import OperationalError, ProgrammingError
+from sqlalchemy.exc import (
+    OperationalError,
+    ProgrammingError,
+)
 
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, 'lib'))
 

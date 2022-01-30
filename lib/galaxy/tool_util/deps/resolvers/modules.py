@@ -10,16 +10,16 @@ import logging
 from io import StringIO
 from os import (
     environ,
-    pathsep
+    pathsep,
 )
 from os.path import (
     exists,
     isdir,
-    join
+    join,
 )
 from subprocess import (
     PIPE,
-    Popen
+    Popen,
 )
 
 from . import (

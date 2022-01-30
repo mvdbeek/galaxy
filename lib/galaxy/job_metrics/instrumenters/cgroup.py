@@ -3,7 +3,10 @@ import logging
 import numbers
 from collections import namedtuple
 
-from galaxy.util import asbool, nice_size
+from galaxy.util import (
+    asbool,
+    nice_size,
+)
 from . import InstrumentPlugin
 from .. import formatting
 

@@ -10,9 +10,7 @@ from galaxy.web.framework.decorators import (
     expose_api_raw_anonymous,
     legacy_expose_api_anonymous,
 )
-from . import (
-    BaseGalaxyAPIController,
-)
+from . import BaseGalaxyAPIController
 
 log = logging.getLogger(__name__)
 

@@ -14,16 +14,19 @@ from galaxy import (
     managers,
     util,
 )
-from galaxy.actions.library import LibraryActions, validate_path_upload
+from galaxy.actions.library import (
+    LibraryActions,
+    validate_path_upload,
+)
 from galaxy.managers.collections_util import (
     api_payload_to_create_params,
-    dictify_dataset_collection_instance
+    dictify_dataset_collection_instance,
 )
 from galaxy.model import (
     ExtendedMetadata,
     ExtendedMetadataIndex,
     LibraryDataset,
-    tags
+    tags,
 )
 from galaxy.structured_app import StructuredApp
 from galaxy.web import expose_api
@@ -31,7 +34,7 @@ from galaxy.webapps.base.controller import (
     HTTPBadRequest,
     url_for,
     UsesFormDefinitionsMixin,
-    UsesLibraryMixinItems
+    UsesLibraryMixinItems,
 )
 from . import BaseGalaxyAPIController
 

@@ -4,7 +4,7 @@ import unittest
 
 from galaxy import (
     model,
-    util
+    util,
 )
 from galaxy.app_unittest_utils import tools_support
 from galaxy.tool_util.parser import output_collection_def

@@ -8,8 +8,10 @@ from sqlalchemy import false
 from sqlalchemy.sql import select
 
 import tool_shed.dependencies.repository
-from galaxy import util
-from galaxy import web
+from galaxy import (
+    util,
+    web,
+)
 from galaxy.tool_shed.util.repository_util import (
     check_for_updates,
     check_or_update_tool_shed_status_for_installed_repository,

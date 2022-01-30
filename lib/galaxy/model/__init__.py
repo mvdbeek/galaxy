@@ -17,7 +17,10 @@ import random
 import string
 from collections import defaultdict
 from collections.abc import Callable
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 from enum import Enum
 from string import Template
 from typing import (
@@ -32,11 +35,20 @@ from typing import (
     TYPE_CHECKING,
     Union,
 )
-from uuid import UUID, uuid4
+from uuid import (
+    UUID,
+    uuid4,
+)
 
 import sqlalchemy
 from boltons.iterutils import remap
-from social_core.storage import AssociationMixin, CodeMixin, NonceMixin, PartialMixin, UserMixin
+from social_core.storage import (
+    AssociationMixin,
+    CodeMixin,
+    NonceMixin,
+    PartialMixin,
+    UserMixin,
+)
 from sqlalchemy import (
     alias,
     and_,
@@ -102,7 +114,10 @@ from galaxy.model.custom_types import (
     TrimmedString,
     UUIDType,
 )
-from galaxy.model.item_attrs import get_item_annotation_str, UsesAnnotations
+from galaxy.model.item_attrs import (
+    get_item_annotation_str,
+    UsesAnnotations,
+)
 from galaxy.model.orm.now import now
 from galaxy.model.view import HistoryDatasetCollectionJobStateSummary
 from galaxy.security import get_permitted_actions
@@ -115,10 +130,21 @@ from galaxy.util import (
     unicodify,
     unique_id,
 )
-from galaxy.util.dictifiable import dict_for, Dictifiable
-from galaxy.util.form_builder import (AddressField, CheckboxField, HistoryField,
-                                      PasswordField, SelectField, TextArea, TextField, WorkflowField,
-                                      WorkflowMappingField)
+from galaxy.util.dictifiable import (
+    dict_for,
+    Dictifiable,
+)
+from galaxy.util.form_builder import (
+    AddressField,
+    CheckboxField,
+    HistoryField,
+    PasswordField,
+    SelectField,
+    TextArea,
+    TextField,
+    WorkflowField,
+    WorkflowMappingField,
+)
 from galaxy.util.hash_util import new_secure_hash
 from galaxy.util.json import safe_loads
 from galaxy.util.sanitize_html import sanitize_html

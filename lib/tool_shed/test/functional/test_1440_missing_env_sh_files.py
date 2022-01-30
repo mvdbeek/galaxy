@@ -1,6 +1,9 @@
 import logging
 
-from ..base.twilltestcase import common, ShedTwillTestCase
+from ..base.twilltestcase import (
+    common,
+    ShedTwillTestCase,
+)
 
 log = logging.getLogger(__name__)
 

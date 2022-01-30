@@ -1,6 +1,9 @@
 import logging
 import uuid
-from typing import List, Union
+from typing import (
+    List,
+    Union,
+)
 
 from galaxy import model
 from galaxy.util import ExecutionTimer
@@ -8,7 +11,7 @@ from galaxy.workflow import modules
 from galaxy.workflow.run_request import (
     workflow_request_to_run_config,
     workflow_run_config_to_request,
-    WorkflowRunConfig
+    WorkflowRunConfig,
 )
 
 log = logging.getLogger(__name__)

@@ -5,9 +5,7 @@ import logging
 
 from galaxy import exceptions
 from galaxy.web import expose_api
-from galaxy.webapps.base.controller import (
-    UsesTagsMixin
-)
+from galaxy.webapps.base.controller import UsesTagsMixin
 from . import BaseGalaxyAPIController
 
 log = logging.getLogger(__name__)

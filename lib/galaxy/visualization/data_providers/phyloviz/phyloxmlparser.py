@@ -2,7 +2,7 @@ from galaxy.util import parse_xml
 from .baseparser import (
     Base_Parser,
     Node,
-    PhyloTree
+    PhyloTree,
 )
 
 

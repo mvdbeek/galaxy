@@ -7,12 +7,12 @@ import logging
 from sqlalchemy import (
     Column,
     MetaData,
-    TEXT
+    TEXT,
 )
 
 from galaxy.model.migrate.versions.util import (
     add_column,
-    drop_column
+    drop_column,
 )
 
 log = logging.getLogger(__name__)

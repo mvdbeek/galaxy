@@ -19,7 +19,7 @@ from .framework import (
     retry_assertion_during_transitions,
     retry_during_transitions,
     selenium_test,
-    SeleniumTestCase
+    SeleniumTestCase,
 )
 
 

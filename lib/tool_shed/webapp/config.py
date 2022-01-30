@@ -15,7 +15,11 @@ from galaxy.config import (
 from galaxy.config.schema import AppSchema
 from galaxy.exceptions import ConfigurationError
 from galaxy.util import string_as_bool
-from galaxy.version import VERSION, VERSION_MAJOR, VERSION_MINOR
+from galaxy.version import (
+    VERSION,
+    VERSION_MAJOR,
+    VERSION_MINOR,
+)
 from galaxy.web.formatting import expand_pretty_datetime_format
 
 try:

@@ -11,7 +11,10 @@ from typing import (
     Union,
 )
 
-from galaxy import model, util
+from galaxy import (
+    model,
+    util,
+)
 from galaxy.app import StructuredApp
 from galaxy.exceptions import ActionInputError
 from galaxy.managers import base

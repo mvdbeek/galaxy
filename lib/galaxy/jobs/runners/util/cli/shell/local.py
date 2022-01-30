@@ -2,17 +2,16 @@ import os
 from logging import getLogger
 from subprocess import (
     PIPE,
-    Popen
+    Popen,
 )
 from tempfile import TemporaryFile
 from time import sleep
-
 
 from galaxy.util.bunch import Bunch
 from . import BaseShellExec
 from ....util.process_groups import (
     check_pg,
-    kill_pg
+    kill_pg,
 )
 
 log = getLogger(__name__)

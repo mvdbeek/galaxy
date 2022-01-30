@@ -15,13 +15,13 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
-    TEXT
+    TEXT,
 )
 
 from galaxy.model.custom_types import (
     JSONType,
     MetadataType,
-    TrimmedString
+    TrimmedString,
 )
 from galaxy.model.migrate.versions.util import (
     add_column,
@@ -31,7 +31,7 @@ from galaxy.model.migrate.versions.util import (
     drop_table,
     engine_false,
     localtimestamp,
-    nextval
+    nextval,
 )
 
 log = logging.getLogger(__name__)

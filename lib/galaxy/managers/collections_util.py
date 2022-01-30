@@ -1,7 +1,10 @@
 import logging
 import math
 
-from galaxy import exceptions, model
+from galaxy import (
+    exceptions,
+    model,
+)
 from galaxy.util import string_as_bool
 
 log = logging.getLogger(__name__)

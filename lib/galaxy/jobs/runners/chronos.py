@@ -3,7 +3,10 @@ import logging
 import os
 
 from galaxy import model
-from galaxy.jobs.runners import AsynchronousJobRunner, AsynchronousJobState
+from galaxy.jobs.runners import (
+    AsynchronousJobRunner,
+    AsynchronousJobState,
+)
 from galaxy.util import unicodify
 
 CHRONOS_IMPORT_MSG = ('The Python \'chronos\' package is required to use '

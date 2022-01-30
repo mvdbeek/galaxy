@@ -92,7 +92,10 @@ def handle_outputs(job_directory=None):
     tool_working_directory = os.path.join(job_directory, "working")
 
     job_id_tag = metadata_params["job_id_tag"]
-    from galaxy.job_execution.output_collect import default_exit_code_file, read_exit_code_from
+    from galaxy.job_execution.output_collect import (
+        default_exit_code_file,
+        read_exit_code_from,
+    )
     exit_code_file = default_exit_code_file(".", job_id_tag)
     tool_exit_code = read_exit_code_from(exit_code_file, job_id_tag)
 

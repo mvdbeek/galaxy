@@ -3,7 +3,10 @@ import os
 import subprocess
 import time
 from string import Template
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 from pkg_resources import resource_string
 

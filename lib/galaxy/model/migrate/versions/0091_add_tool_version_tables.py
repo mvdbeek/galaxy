@@ -15,16 +15,16 @@ from sqlalchemy import (
     MetaData,
     String,
     Table,
-    TEXT
+    TEXT,
 )
 
 from galaxy.model.custom_types import (
     _sniffnfix_pg9_hex,
-    TrimmedString
+    TrimmedString,
 )
 from galaxy.model.migrate.versions.util import (
     localtimestamp,
-    nextval
+    nextval,
 )
 
 log = logging.getLogger(__name__)

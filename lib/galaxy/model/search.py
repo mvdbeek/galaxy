@@ -53,7 +53,7 @@ from galaxy.model import (
     Page,
     PageRevision,
     StoredWorkflow,
-    StoredWorkflowTagAssociation
+    StoredWorkflowTagAssociation,
 )
 from galaxy.model.tool_shed_install import ToolVersion
 

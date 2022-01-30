@@ -21,7 +21,7 @@ from sqlalchemy.orm.decl_api import DeclarativeMeta
 
 from galaxy.model.custom_types import (
     MutableJSONType,
-    TrimmedString
+    TrimmedString,
 )
 from galaxy.model.orm.now import now
 from galaxy.util import asbool

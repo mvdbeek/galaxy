@@ -3,7 +3,10 @@ import hashlib
 import json
 import logging
 import os
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 from urllib.parse import quote
 
 import jwt
@@ -11,9 +14,14 @@ import requests
 from oauthlib.common import generate_nonce
 from requests_oauthlib import OAuth2Session
 
-from galaxy import exceptions
-from galaxy import util
-from galaxy.model import CustosAuthnzToken, User
+from galaxy import (
+    exceptions,
+    util,
+)
+from galaxy.model import (
+    CustosAuthnzToken,
+    User,
+)
 from ..authnz import IdentityProvider
 
 log = logging.getLogger(__name__)

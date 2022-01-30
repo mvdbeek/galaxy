@@ -9,7 +9,6 @@ from typing import Optional
 from galaxy.tool_util.parser.factory import get_tool_source
 from galaxy.util import galaxy_directory
 
-
 TOOL_XML_1 = """
 <tool name="BWA Mapper" id="bwa" version="1.0.1" display_interface="true" require_login="true" hidden="true">
     <description>The BWA Mapper</description>

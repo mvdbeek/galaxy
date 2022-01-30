@@ -7,7 +7,12 @@ through the library docs at https://whoosh.readthedocs.io.
 import logging
 import os
 import re
-from typing import Dict, List, Tuple, Union
+from typing import (
+    Dict,
+    List,
+    Tuple,
+    Union,
+)
 
 from whoosh import (
     analysis,
@@ -18,7 +23,7 @@ from whoosh.fields import (
     ID,
     KEYWORD,
     Schema,
-    TEXT
+    TEXT,
 )
 from whoosh.qparser import (
     MultifieldParser,

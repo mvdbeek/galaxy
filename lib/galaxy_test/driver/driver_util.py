@@ -29,13 +29,26 @@ from galaxy.app import UniverseApplication as GalaxyUniverseApplication
 from galaxy.app_unittest_utils.celery_helper import rebind_container_to_task
 from galaxy.config import LOGGING_CONFIG_DEFAULT
 from galaxy.model import mapping
-from galaxy.model.database_utils import create_database, database_exists
+from galaxy.model.database_utils import (
+    create_database,
+    database_exists,
+)
 from galaxy.model.tool_shed_install import mapping as toolshed_mapping
-from galaxy.tool_util.verify.interactor import GalaxyInteractorApi, verify_tool
-from galaxy.util import asbool, download_to_file, galaxy_directory
+from galaxy.tool_util.verify.interactor import (
+    GalaxyInteractorApi,
+    verify_tool,
+)
+from galaxy.util import (
+    asbool,
+    download_to_file,
+    galaxy_directory,
+)
 from galaxy.util.properties import load_app_properties
 from galaxy.webapps.galaxy import buildapp
-from galaxy_test.base.api_util import get_admin_api_key, get_user_api_key
+from galaxy_test.base.api_util import (
+    get_admin_api_key,
+    get_user_api_key,
+)
 from galaxy_test.base.env import (
     DEFAULT_WEB_HOST,
     target_url_parts,
@@ -570,8 +583,9 @@ def uvicorn_serve(app, port, host=None):
     Return the port the webapp is running on.
     """
     import asyncio
-    from uvicorn.server import Server
+
     from uvicorn.config import Config
+    from uvicorn.server import Server
 
     access_log = False if 'GALAXY_TEST_DISABLE_ACCESS_LOG' in os.environ else True
     config = Config(app, host=host, port=int(port), access_log=access_log)

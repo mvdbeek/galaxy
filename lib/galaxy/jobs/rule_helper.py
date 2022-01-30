@@ -7,7 +7,7 @@ from sqlalchemy import func
 
 from galaxy import (
     model,
-    util
+    util,
 )
 from galaxy.tool_util.deps.dependencies import ToolInfo
 

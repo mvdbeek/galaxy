@@ -7,7 +7,11 @@ import tempfile
 import zlib
 from collections import defaultdict
 from threading import Lock
-from typing import Dict, List, Tuple
+from typing import (
+    Dict,
+    List,
+    Tuple,
+)
 
 from sqlalchemy.orm import defer
 from sqlitedict import SqliteDict
@@ -17,7 +21,6 @@ from galaxy.model.tool_shed_install import ToolShedRepository
 from galaxy.tool_util.toolbox.base import ToolConfRepository
 from galaxy.util import unicodify
 from galaxy.util.hash_util import md5_hash_file
-
 
 log = logging.getLogger(__name__)
 

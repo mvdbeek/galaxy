@@ -2,7 +2,7 @@ import logging
 
 from galaxy.webapps.base.controller import (
     BaseUIController,
-    web
+    web,
 )
 
 log = logging.getLogger(__name__)

@@ -4,7 +4,7 @@ import unittest
 
 from galaxy.util.compression_utils import (
     CompressedFile,
-    get_fileobj_raw
+    get_fileobj_raw,
 )
 
 

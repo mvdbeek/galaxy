@@ -4,21 +4,24 @@ histories.
 import logging
 from typing import Optional
 
-from galaxy import exceptions, model
+from galaxy import (
+    exceptions,
+    model,
+)
 from galaxy.tool_util.parser import ToolOutputCollectionPart
 from galaxy.tools.parameters.basic import (
     DataCollectionToolParameter,
-    DataToolParameter
+    DataToolParameter,
 )
 from galaxy.tools.parameters.grouping import (
     Conditional,
     Repeat,
-    Section
+    Section,
 )
 from galaxy.util import listify
 from .steps import (
     attach_ordered_steps,
-    order_workflow_steps_with_levels
+    order_workflow_steps_with_levels,
 )
 
 log = logging.getLogger(__name__)

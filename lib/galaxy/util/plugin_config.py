@@ -5,7 +5,6 @@ import yaml
 from galaxy.util import parse_xml
 from galaxy.util.submodules import import_submodules
 
-
 PluginConfigSource = collections.namedtuple('PluginConfigSource', ['type', 'source'])
 
 

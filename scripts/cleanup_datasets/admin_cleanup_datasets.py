@@ -44,21 +44,30 @@ import shutil
 import sys
 import time
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 from time import strftime
 
 import sqlalchemy as sa
 from mako.template import Template
-from sqlalchemy import and_, false
+from sqlalchemy import (
+    and_,
+    false,
+)
 
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, 'lib')))
+
+from cleanup_datasets import CleanupDatasetsApplication  # noqa: I100
 
 import galaxy.config
 import galaxy.model.mapping
 import galaxy.util
-from galaxy.util.script import app_properties_from_args, populate_config_args
-
-from cleanup_datasets import CleanupDatasetsApplication  # noqa: I100
+from galaxy.util.script import (
+    app_properties_from_args,
+    populate_config_args,
+)
 
 log = logging.getLogger()
 log.setLevel(logging.INFO)

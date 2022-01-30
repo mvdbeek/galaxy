@@ -1,11 +1,17 @@
 import calendar
 import logging
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 
 import sqlalchemy as sa
 
 from galaxy import model
-from galaxy.webapps.base.controller import BaseUIController, web
+from galaxy.webapps.base.controller import (
+    BaseUIController,
+    web,
+)
 from galaxy.webapps.reports.controllers.query import ReportQueryBuilder
 
 log = logging.getLogger(__name__)

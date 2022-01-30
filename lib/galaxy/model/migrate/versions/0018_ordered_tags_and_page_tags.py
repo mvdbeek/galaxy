@@ -5,7 +5,14 @@ This migration script provides support for (a) ordering tags by recency and
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Index, Integer, MetaData, Table
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Table,
+)
 from sqlalchemy.exc import OperationalError
 
 # Need our custom types, but don't import anything else from model

@@ -3,7 +3,7 @@ import json
 from requests import (
     delete,
     get,
-    put
+    put,
 )
 
 from galaxy_test.base.api_asserts import assert_object_id_error

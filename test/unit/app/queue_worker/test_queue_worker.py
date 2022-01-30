@@ -1,5 +1,6 @@
 import datetime
 import time
+
 try:
     from math import inf
 except ImportError:

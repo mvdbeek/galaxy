@@ -7,10 +7,22 @@ from yaml import safe_load
 from galaxy.tool_util.loader import load_tool_with_refereces
 from galaxy.util import parse_xml_string_to_etree
 from galaxy.util.yaml_util import ordered_load
-from .cwl import CwlToolSource, tool_proxy
-from .interface import InputSource, ToolSource
-from .xml import XmlInputSource, XmlToolSource
-from .yaml import YamlInputSource, YamlToolSource
+from .cwl import (
+    CwlToolSource,
+    tool_proxy,
+)
+from .interface import (
+    InputSource,
+    ToolSource,
+)
+from .xml import (
+    XmlInputSource,
+    XmlToolSource,
+)
+from .yaml import (
+    YamlInputSource,
+    YamlToolSource,
+)
 from ..fetcher import ToolLocationFetcher
 
 log = logging.getLogger(__name__)

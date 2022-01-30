@@ -23,9 +23,7 @@ from pydantic.fields import Field
 from pydantic.main import BaseModel
 from starlette.responses import FileResponse
 
-from galaxy import (
-    util
-)
+from galaxy import util
 from galaxy.managers.context import (
     ProvidesHistoryContext,
     ProvidesUserContext,
@@ -52,9 +50,7 @@ from galaxy.schema.schema import (
     SharingStatus,
 )
 from galaxy.schema.types import LatestLiteral
-from galaxy.util import (
-    string_as_bool
-)
+from galaxy.util import string_as_bool
 from galaxy.web import (
     expose_api,
     expose_api_anonymous,
@@ -72,7 +68,7 @@ from . import (
     depends,
     DependsOnTrans,
     Router,
-    try_get_request_body_as_json
+    try_get_request_body_as_json,
 )
 
 log = logging.getLogger(__name__)

@@ -2,9 +2,11 @@ import logging
 
 from sqlalchemy import and_
 
-from tool_shed.util import hg_util
-from tool_shed.util import metadata_util
-from tool_shed.util import repository_util
+from tool_shed.util import (
+    hg_util,
+    metadata_util,
+    repository_util,
+)
 
 log = logging.getLogger(__name__)
 

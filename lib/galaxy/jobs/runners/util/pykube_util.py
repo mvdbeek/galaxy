@@ -6,14 +6,14 @@ from pathlib import PurePath
 
 try:
     from pykube.config import KubeConfig
+    from pykube.exceptions import HTTPError
     from pykube.http import HTTPClient
     from pykube.objects import (
+        Ingress,
         Job,
         Pod,
         Service,
-        Ingress,
     )
-    from pykube.exceptions import HTTPError
 except ImportError as exc:
     KubeConfig = None
     Ingress = None

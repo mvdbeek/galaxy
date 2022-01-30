@@ -1,7 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import (
+    FastAPI,
+    Request,
+)
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.responses import Response
+
 try:
     from starlette_context.middleware import RawContextMiddleware
     from starlette_context.plugins import RequestIdPlugin
@@ -12,7 +16,7 @@ from galaxy.exceptions import MessageException
 from galaxy.web.framework.base import walk_controller_modules
 from galaxy.web.framework.decorators import (
     api_error_message,
-    validation_error_to_message_exception
+    validation_error_to_message_exception,
 )
 
 

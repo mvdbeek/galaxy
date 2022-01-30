@@ -3,7 +3,10 @@
 import json
 import logging
 import types
-from typing import Optional, Tuple
+from typing import (
+    Optional,
+    Tuple,
+)
 
 log = logging.getLogger(__name__)
 

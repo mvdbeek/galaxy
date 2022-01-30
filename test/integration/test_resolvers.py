@@ -3,9 +3,7 @@ import os
 from tempfile import mkdtemp
 from typing import ClassVar
 
-from galaxy_test.base.populators import (
-    DatasetPopulator,
-)
+from galaxy_test.base.populators import DatasetPopulator
 from galaxy_test.driver import integration_util
 
 GNUPLOT = {'version': '4.6', 'type': 'package', 'name': 'gnuplot'}

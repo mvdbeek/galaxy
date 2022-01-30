@@ -8,7 +8,7 @@ import tempfile
 
 from galaxy.util import (
     unicodify,
-    which
+    which,
 )
 
 log = logging.getLogger(__name__)

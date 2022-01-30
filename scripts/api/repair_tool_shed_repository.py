@@ -8,7 +8,10 @@ Here is a working example of how to use this script to repair a repository insta
 
 import argparse
 
-from common import display, submit
+from common import (
+    display,
+    submit,
+)
 
 
 def clean_url(url):

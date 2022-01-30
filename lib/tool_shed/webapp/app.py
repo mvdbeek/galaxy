@@ -17,7 +17,10 @@ from galaxy.managers.citations import CitationsManager
 from galaxy.managers.users import UserManager
 from galaxy.model.base import SharedModelMapping
 from galaxy.model.tags import CommunityTagHandler
-from galaxy.quota import NoQuotaAgent, QuotaAgent
+from galaxy.quota import (
+    NoQuotaAgent,
+    QuotaAgent,
+)
 from galaxy.security import idencoding
 from galaxy.structured_app import BasicSharedApp
 from galaxy.util.dbkeys import GenomeBuilds

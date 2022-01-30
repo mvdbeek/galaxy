@@ -17,14 +17,14 @@ import subprocess
 from galaxy import model
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
-    AsynchronousJobState
+    AsynchronousJobState,
 )
 from galaxy.jobs.runners.util.condor import (
     build_submit_description,
     condor_stop,
     condor_submit,
     submission_params,
-    summarize_condor_log
+    summarize_condor_log,
 )
 from galaxy.util import asbool
 

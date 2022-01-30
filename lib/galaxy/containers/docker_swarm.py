@@ -6,7 +6,11 @@ import logging
 import os.path
 import subprocess
 from functools import partial
-from typing import Any, Dict, Optional
+from typing import (
+    Any,
+    Dict,
+    Optional,
+)
 
 try:
     import docker.types
@@ -22,15 +26,18 @@ except ImportError:
 from galaxy.containers.docker import (
     DockerAPIInterface,
     DockerCLIInterface,
-    DockerInterface
+    DockerInterface,
 )
-from galaxy.containers.docker_decorators import docker_columns, docker_json
+from galaxy.containers.docker_decorators import (
+    docker_columns,
+    docker_json,
+)
 from galaxy.containers.docker_model import (
     CPUS_CONSTRAINT,
     DockerNode,
     DockerService,
     DockerTask,
-    IMAGE_CONSTRAINT
+    IMAGE_CONSTRAINT,
 )
 from galaxy.exceptions import ContainerRunError
 from galaxy.util import unicodify

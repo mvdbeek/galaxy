@@ -1,9 +1,7 @@
 import abc
 from typing import Optional
 
-from galaxy.managers.context import (
-    ProvidesHistoryContext,
-)
+from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.model import History
 
 

@@ -10,7 +10,7 @@ import os
 
 from . import (
     base,
-    exceptions
+    exceptions,
 )
 
 log = logging.getLogger(__name__)

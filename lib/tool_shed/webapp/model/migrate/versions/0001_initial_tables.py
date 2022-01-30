@@ -6,7 +6,19 @@ import datetime
 import logging
 import sys
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Index, Integer, MetaData, String, Table, TEXT, UniqueConstraint
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    TEXT,
+    UniqueConstraint,
+)
 
 # Need our custom types, but don't import anything else from model
 from galaxy.model.custom_types import TrimmedString

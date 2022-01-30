@@ -5,7 +5,15 @@ This migration script adds a user actions table to Galaxy.
 import datetime
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, Table, Unicode
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    Unicode,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

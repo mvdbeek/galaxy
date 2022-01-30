@@ -3,13 +3,13 @@ import unittest
 from galaxy.managers import (
     collections,
     hdas,
-    hdcas
+    hdcas,
 )
 from galaxy.managers.datasets import DatasetManager
 from galaxy.managers.histories import HistoryManager
 from .base import (
     BaseTestCase,
-    CreatesCollectionsMixin
+    CreatesCollectionsMixin,
 )
 
 # =============================================================================

@@ -9,7 +9,7 @@ from typing import Optional
 from kombu import (
     Connection,
     Exchange,
-    Queue
+    Queue,
 )
 
 ALL_CONTROL = "control.*"

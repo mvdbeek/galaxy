@@ -3,7 +3,7 @@ import logging
 from . import (
     repository_suite_definition,
     tool_dependency_definition,
-    unrestricted
+    unrestricted,
 )
 
 log = logging.getLogger(__name__)

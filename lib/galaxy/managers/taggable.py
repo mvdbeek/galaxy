@@ -12,7 +12,10 @@ from sqlalchemy import sql
 from galaxy import model
 from galaxy.model.tags import GalaxyTagHandler
 from galaxy.util import unicodify
-from .base import ModelValidator, raise_filter_err
+from .base import (
+    ModelValidator,
+    raise_filter_err,
+)
 
 log = logging.getLogger(__name__)
 

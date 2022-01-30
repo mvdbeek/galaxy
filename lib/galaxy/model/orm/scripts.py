@@ -9,9 +9,12 @@ import sys
 from migrate.versioning.shell import main as migrate_main
 
 from galaxy.util.path import get_ext
-from galaxy.util.properties import find_config_file, get_data_dir, load_app_properties
+from galaxy.util.properties import (
+    find_config_file,
+    get_data_dir,
+    load_app_properties,
+)
 from galaxy.util.script import populate_config_args
-
 
 log = logging.getLogger(__name__)
 

@@ -8,7 +8,6 @@ import sys
 import jinja2
 from mir import html_report
 
-
 DESCRIPTION = "Script to generate (potentially merged) HTML summary of Galaxy Test Performance"
 templateLoader = jinja2.FileSystemLoader(searchpath="./scripts")
 template_env = jinja2.Environment(loader=templateLoader)

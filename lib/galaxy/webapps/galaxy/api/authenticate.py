@@ -22,7 +22,7 @@ from urllib.parse import unquote
 from galaxy import exceptions
 from galaxy.util import (
     smart_str,
-    unicodify
+    unicodify,
 )
 from galaxy.web import expose_api_anonymous_and_sessionless
 from galaxy.webapps.base.webapp import GalaxyWebTransaction

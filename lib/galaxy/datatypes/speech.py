@@ -1,4 +1,7 @@
-from galaxy.datatypes.metadata import ListParameter, MetadataElement
+from galaxy.datatypes.metadata import (
+    ListParameter,
+    MetadataElement,
+)
 from galaxy.datatypes.sniff import get_headers
 from galaxy.datatypes.text import Text
 

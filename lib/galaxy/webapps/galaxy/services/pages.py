@@ -4,12 +4,8 @@ from galaxy import (
     exceptions,
     model,
 )
-from galaxy.managers import (
-    base,
-)
-from galaxy.managers.markdown_util import (
-    internal_galaxy_markdown_to_pdf,
-)
+from galaxy.managers import base
+from galaxy.managers.markdown_util import internal_galaxy_markdown_to_pdf
 from galaxy.managers.pages import (
     PageManager,
     PageSerializer,

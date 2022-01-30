@@ -4,7 +4,10 @@ it simply schedules the whole workflow up front when offered.
 import logging
 
 from galaxy.work import context
-from galaxy.workflow import run, run_request
+from galaxy.workflow import (
+    run,
+    run_request,
+)
 from ..schedulers import ActiveWorkflowSchedulingPlugin
 
 log = logging.getLogger(__name__)

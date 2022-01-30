@@ -12,6 +12,7 @@ from ftplib import FTP
 from urllib.request import urlretrieve
 
 import requests
+
 try:
     from bs4 import BeautifulSoup
 except ImportError:
@@ -21,7 +22,7 @@ from util import (  # noqa: I202
     get_bed_from_genbank,
     get_bed_from_GeneMark,
     get_bed_from_GeneMarkHMM,
-    get_bed_from_glimmer3
+    get_bed_from_glimmer3,
 )
 
 assert sys.version_info[:2] >= (2, 6)

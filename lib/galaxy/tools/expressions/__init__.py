@@ -6,7 +6,6 @@ from .script import (
 )
 from .util import find_engine
 
-
 __all__ = (
     'evaluate',
     'EXPRESSION_SCRIPT_CALL',

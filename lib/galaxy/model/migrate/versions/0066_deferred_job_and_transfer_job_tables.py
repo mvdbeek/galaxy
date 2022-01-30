@@ -6,7 +6,14 @@ information.
 import datetime
 import logging
 
-from sqlalchemy import Column, DateTime, Integer, MetaData, String, Table
+from sqlalchemy import (
+    Column,
+    DateTime,
+    Integer,
+    MetaData,
+    String,
+    Table,
+)
 
 from galaxy.model.custom_types import JSONType
 

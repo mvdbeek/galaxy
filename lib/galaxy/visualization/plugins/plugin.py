@@ -5,7 +5,10 @@ from a query string and render a webpage based on those data.
 import copy
 import logging
 import os
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 import mako.lookup
 
@@ -13,7 +16,7 @@ from galaxy.managers import api_keys
 from galaxy.visualization.plugins import (
     interactive_environments,
     resource_parser,
-    utils
+    utils,
 )
 from galaxy.web import url_for
 

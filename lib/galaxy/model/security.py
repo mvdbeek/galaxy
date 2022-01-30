@@ -1,15 +1,26 @@
 import logging
 import socket
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 
-from sqlalchemy import and_, false, not_, or_
+from sqlalchemy import (
+    and_,
+    false,
+    not_,
+    or_,
+)
 from sqlalchemy.orm import joinedload
 
 import galaxy.model
-from galaxy.security import Action, get_permitted_actions, RBACAgent
+from galaxy.security import (
+    Action,
+    get_permitted_actions,
+    RBACAgent,
+)
 from galaxy.util import listify
 from galaxy.util.bunch import Bunch
-
 
 log = logging.getLogger(__name__)
 

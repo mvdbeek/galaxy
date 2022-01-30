@@ -7,9 +7,7 @@ from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,
 )
-from . import (
-    data,
-)
+from . import data
 
 log = logging.getLogger(__name__)
 

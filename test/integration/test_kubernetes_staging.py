@@ -25,7 +25,10 @@ from galaxy.jobs.runners.util.pykube_util import (
 )
 from galaxy_test.base.populators import skip_without_tool
 from galaxy_test.driver import integration_util
-from .test_containerized_jobs import EXTENDED_TIMEOUT, MulledJobTestCases
+from .test_containerized_jobs import (
+    EXTENDED_TIMEOUT,
+    MulledJobTestCases,
+)
 from .test_job_environments import BaseJobEnvironmentIntegrationTestCase
 from .test_kubernetes_runner import KubernetesDatasetPopulator
 from .test_local_job_cancellation import CancelsJob

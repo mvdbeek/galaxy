@@ -28,7 +28,7 @@ from galaxy.schema.schema import (
 from galaxy.web import (
     expose_api,
     expose_api_anonymous_and_sessionless,
-    expose_api_raw_anonymous_and_sessionless
+    expose_api_raw_anonymous_and_sessionless,
 )
 from galaxy.webapps.galaxy.services.pages import PagesService
 from . import (

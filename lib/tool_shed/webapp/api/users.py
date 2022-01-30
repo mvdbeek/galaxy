@@ -3,12 +3,12 @@ import logging
 import tool_shed.util.shed_util_common as suc
 from galaxy import (
     util,
-    web
+    web,
 )
 from galaxy.security.validate_user_input import (
     validate_email,
     validate_password,
-    validate_publicname
+    validate_publicname,
 )
 from galaxy.webapps.base.controller import BaseAPIController
 

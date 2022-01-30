@@ -1,6 +1,4 @@
-from galaxy_test.base.populators import (
-    LibraryPopulator
-)
+from galaxy_test.base.populators import LibraryPopulator
 from galaxy_test.driver import integration_util
 
 

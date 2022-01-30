@@ -1,9 +1,8 @@
 import logging
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
-
 
 from galaxy import exceptions
 

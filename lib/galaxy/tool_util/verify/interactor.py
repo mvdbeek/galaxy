@@ -13,7 +13,9 @@ from json import dumps
 from logging import getLogger
 
 import requests
-from packaging.version import parse as parse_version, Version
+from packaging.version import parse as parse_version
+from packaging.version import Version
+
 try:
     from nose.tools import nottest
 except ImportError:
@@ -21,7 +23,10 @@ except ImportError:
         return x
 
 from galaxy import util
-from galaxy.tool_util.parser.interface import TestCollectionDef, TestCollectionOutputDef
+from galaxy.tool_util.parser.interface import (
+    TestCollectionDef,
+    TestCollectionOutputDef,
+)
 from galaxy.util.bunch import Bunch
 from . import verify
 from .asserts import verify_assertions

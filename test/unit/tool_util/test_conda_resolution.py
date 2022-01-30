@@ -4,7 +4,7 @@ from tempfile import mkdtemp
 
 from galaxy.tool_util.deps import (
     conda_util,
-    DependencyManager
+    DependencyManager,
 )
 from galaxy.tool_util.deps.requirements import ToolRequirement
 from galaxy.tool_util.deps.resolvers.conda import CondaDependencyResolver

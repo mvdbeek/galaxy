@@ -4,10 +4,28 @@ Migration script to support subworkflows and workflow request input parameters
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, ForeignKeyConstraint, Index, Integer, MetaData, Table
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    MetaData,
+    Table,
+)
 
-from galaxy.model.custom_types import JSONType, TrimmedString, UUIDType
-from galaxy.model.migrate.versions.util import add_column, alter_column, create_table, drop_column, drop_table
+from galaxy.model.custom_types import (
+    JSONType,
+    TrimmedString,
+    UUIDType,
+)
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    alter_column,
+    create_table,
+    drop_column,
+    drop_table,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

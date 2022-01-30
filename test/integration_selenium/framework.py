@@ -1,7 +1,5 @@
 from galaxy_test.driver import integration_util
-from galaxy_test.selenium import (
-    framework
-)
+from galaxy_test.selenium import framework
 
 selenium_test = framework.selenium_test
 

@@ -6,12 +6,24 @@ from galaxy.tool_shed.galaxy_install.tool_dependencies.env_manager import EnvMan
 from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe.env_file_builder import EnvFileBuilder
 from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe.install_environment import InstallEnvironment
 from galaxy.tool_shed.util import tool_dependency_util
-from galaxy.tool_shed.util.basic_util import INSTALLATION_LOG, remove_dir
+from galaxy.tool_shed.util.basic_util import (
+    INSTALLATION_LOG,
+    remove_dir,
+)
 from galaxy.tool_shed.util.metadata_util import get_updated_changeset_revisions_from_tool_shed
-from galaxy.tool_shed.util.repository_util import get_absolute_path_to_file_in_repository, get_repository_for_dependency_relationship
+from galaxy.tool_shed.util.repository_util import (
+    get_absolute_path_to_file_in_repository,
+    get_repository_for_dependency_relationship,
+)
 from galaxy.tool_util.deps.resolvers import NullDependency
-from galaxy.util import listify, url_get
-from galaxy.util.tool_shed.common_util import get_tool_shed_url_from_tool_shed_registry, remove_protocol_from_tool_shed_url
+from galaxy.util import (
+    listify,
+    url_get,
+)
+from galaxy.util.tool_shed.common_util import (
+    get_tool_shed_url_from_tool_shed_registry,
+    remove_protocol_from_tool_shed_url,
+)
 from galaxy.util.tool_shed.xml_util import parse_xml
 
 log = logging.getLogger(__name__)

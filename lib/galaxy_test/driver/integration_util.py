@@ -6,7 +6,11 @@ testing configuration.
 """
 import os
 from typing import ClassVar
-from unittest import skip, SkipTest, TestCase
+from unittest import (
+    skip,
+    SkipTest,
+    TestCase,
+)
 
 import pytest
 

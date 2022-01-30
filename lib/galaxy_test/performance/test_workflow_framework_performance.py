@@ -1,8 +1,6 @@
 import os
 
-from galaxy_test.base.populators import (
-    WorkflowPopulator,
-)
+from galaxy_test.base.populators import WorkflowPopulator
 from ._framework import PerformanceTestCase
 
 GALAXY_TEST_PERFORMANCE_TIMEOUT_DEFAULT = 5000

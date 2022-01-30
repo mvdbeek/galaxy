@@ -1,7 +1,10 @@
 """Tool Shed Security"""
 import logging
 
-from sqlalchemy import and_, false
+from sqlalchemy import (
+    and_,
+    false,
+)
 
 from galaxy.util import listify
 from galaxy.util.bunch import Bunch

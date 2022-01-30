@@ -6,8 +6,15 @@ from abc import ABC
 
 from cryptography.fernet import InvalidToken
 
-from galaxy.model.unittest_utils.data_app import GalaxyDataTestApp, GalaxyDataTestConfig
-from galaxy.security.vault import InvalidVaultKeyException, Vault, VaultFactory
+from galaxy.model.unittest_utils.data_app import (
+    GalaxyDataTestApp,
+    GalaxyDataTestConfig,
+)
+from galaxy.security.vault import (
+    InvalidVaultKeyException,
+    Vault,
+    VaultFactory,
+)
 
 
 class VaultTestBase(ABC):

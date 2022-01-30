@@ -4,9 +4,18 @@ Migration script to add 'purged' column to the library_dataset table.
 
 import logging
 
-from sqlalchemy import Boolean, Column, MetaData
+from sqlalchemy import (
+    Boolean,
+    Column,
+    MetaData,
+)
 
-from galaxy.model.migrate.versions.util import add_column, drop_column, engine_false, engine_true
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    drop_column,
+    engine_false,
+    engine_true,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

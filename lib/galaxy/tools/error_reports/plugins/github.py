@@ -3,7 +3,10 @@
 import logging
 from urllib.parse import urlparse
 
-from galaxy.util import string_as_bool, unicodify
+from galaxy.util import (
+    string_as_bool,
+    unicodify,
+)
 from .base_git import BaseGitPlugin
 
 log = logging.getLogger(__name__)

@@ -5,17 +5,30 @@ from collections import namedtuple
 from datetime import (
     date,
     datetime,
-    timedelta
+    timedelta,
 )
-from math import ceil, floor
+from math import (
+    ceil,
+    floor,
+)
 
 import sqlalchemy as sa
 from markupsafe import escape
-from sqlalchemy import and_, not_, or_
+from sqlalchemy import (
+    and_,
+    not_,
+    or_,
+)
 
-from galaxy import model, util
+from galaxy import (
+    model,
+    util,
+)
 from galaxy.web.legacy_framework import grids
-from galaxy.webapps.base.controller import BaseUIController, web
+from galaxy.webapps.base.controller import (
+    BaseUIController,
+    web,
+)
 from galaxy.webapps.reports.controllers.query import ReportQueryBuilder
 
 log = logging.getLogger(__name__)

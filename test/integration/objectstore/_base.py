@@ -3,11 +3,8 @@ import re
 import string
 import subprocess
 
-from galaxy_test.base.populators import (
-    DatasetPopulator,
-)
+from galaxy_test.base.populators import DatasetPopulator
 from galaxy_test.driver import integration_util
-
 
 OBJECT_STORE_HOST = os.environ.get('GALAXY_INTEGRATION_OBJECT_STORE_HOST', '127.0.0.1')
 OBJECT_STORE_PORT = int(os.environ.get('GALAXY_INTEGRATION_OBJECT_STORE_PORT', 9000))

@@ -19,7 +19,10 @@ try:
 except ImportError:
     boto = None  # type: ignore[assignment]
 
-from galaxy.exceptions import ObjectInvalid, ObjectNotFound
+from galaxy.exceptions import (
+    ObjectInvalid,
+    ObjectNotFound,
+)
 from galaxy.util import (
     directory_hash_id,
     string_as_bool,
@@ -30,7 +33,10 @@ from galaxy.util import (
 from galaxy.util.path import safe_relpath
 from galaxy.util.sleeper import Sleeper
 from .s3_multipart_upload import multipart_upload
-from ..objectstore import ConcreteObjectStore, convert_bytes
+from ..objectstore import (
+    ConcreteObjectStore,
+    convert_bytes,
+)
 
 NO_BOTO_ERROR_MESSAGE = ("S3/Swift object store configured, but no boto dependency available."
                          "Please install and properly configure boto or modify object store configuration.")

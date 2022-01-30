@@ -5,9 +5,8 @@ These are responsible for collecting and formatting a coherent set of metrics.
 import os.path
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
-
 
 from .. import formatting
 

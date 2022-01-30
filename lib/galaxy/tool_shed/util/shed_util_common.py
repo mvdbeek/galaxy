@@ -6,7 +6,6 @@ from galaxy.tool_shed.util import repository_util
 from galaxy.util.tool_shed import common_util
 from galaxy.web import url_for
 
-
 log = logging.getLogger(__name__)
 
 MAX_CONTENT_SIZE = 1048576

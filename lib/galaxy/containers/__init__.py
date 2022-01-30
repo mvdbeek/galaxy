@@ -12,15 +12,20 @@ import uuid
 from abc import (
     ABCMeta,
     abstractmethod,
-    abstractproperty
+    abstractproperty,
 )
-from typing import Any, Dict, NamedTuple, Optional, Type
+from typing import (
+    Any,
+    Dict,
+    NamedTuple,
+    Optional,
+    Type,
+)
 
 import yaml
 
 from galaxy.exceptions import ContainerCLIError
 from galaxy.util.submodules import import_submodules
-
 
 DEFAULT_CONTAINER_TYPE = 'docker'
 DEFAULT_CONF = {'_default_': {'type': DEFAULT_CONTAINER_TYPE}}

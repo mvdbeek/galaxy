@@ -1,7 +1,11 @@
 import functools
 import os
 import shutil
-from typing import Any, Dict, List
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 
 from galaxy import exceptions
 from galaxy.util.path import (

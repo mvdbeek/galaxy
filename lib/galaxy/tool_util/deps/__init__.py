@@ -18,7 +18,7 @@ from .dependencies import ToolInfo
 from .requirements import (
     ContainerDescription,
     ToolRequirement,
-    ToolRequirements
+    ToolRequirements,
 )
 from .resolvers import (
     ContainerDependency,

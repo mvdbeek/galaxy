@@ -8,7 +8,11 @@ models have some backing/supporting resources that can be removed as well
 the supporting resources as well. These models also have the boolean
 attribute 'purged'.
 """
-from typing import Any, Dict, Set
+from typing import (
+    Any,
+    Dict,
+    Set,
+)
 
 from galaxy.model import _HasTable
 from .base import (

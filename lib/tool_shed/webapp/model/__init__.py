@@ -3,9 +3,13 @@ import os
 import weakref
 from datetime import (
     datetime,
-    timedelta
+    timedelta,
 )
-from typing import Any, Mapping, TYPE_CHECKING
+from typing import (
+    Any,
+    Mapping,
+    TYPE_CHECKING,
+)
 
 from sqlalchemy import (
     Boolean,
@@ -30,7 +34,10 @@ from sqlalchemy.orm.decl_api import DeclarativeMeta
 
 import tool_shed.repository_types.util as rt_util
 from galaxy import util
-from galaxy.model.custom_types import MutableJSONType, TrimmedString
+from galaxy.model.custom_types import (
+    MutableJSONType,
+    TrimmedString,
+)
 from galaxy.model.orm.now import now
 from galaxy.security.validate_user_input import validate_password_str
 from galaxy.util import unique_id
@@ -40,7 +47,7 @@ from galaxy.util.hash_util import new_secure_hash
 from tool_shed.dependencies.repository import relation_builder
 from tool_shed.util import (
     hg_util,
-    metadata_util
+    metadata_util,
 )
 from tool_shed.util.hgweb_config import hgweb_config_manager
 
@@ -377,7 +384,7 @@ class Repository(Base, Dictifiable, _HasTable):
     def hg_repo(self):
         from mercurial import (
             hg,
-            ui
+            ui,
         )
         if not WEAK_HG_REPO_CACHE.get(self):
             WEAK_HG_REPO_CACHE[self] = hg.cachedlocalrepo(hg.repository(ui.ui(), self.repo_path().encode('utf-8')))

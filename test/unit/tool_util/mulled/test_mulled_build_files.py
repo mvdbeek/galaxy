@@ -9,7 +9,6 @@ from galaxy.tool_util.deps.mulled.mulled_build_files import (
     generate_targets,
 )
 
-
 TESTCASES = yaml.safe_load(r"""
 - test_legacy_files_package_only:
     content: samtools

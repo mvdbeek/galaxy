@@ -37,7 +37,11 @@ A method that requires a user but not a history should declare its
 import abc
 import string
 from json import dumps
-from typing import Callable, List, Optional
+from typing import (
+    Callable,
+    List,
+    Optional,
+)
 
 from galaxy.exceptions import UserActivationRequiredException
 from galaxy.model import (

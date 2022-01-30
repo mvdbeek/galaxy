@@ -2,7 +2,10 @@ import logging
 import tarfile
 
 from galaxy.datatypes.binary import CompressedArchive
-from galaxy.datatypes.data import get_file_peek, Text
+from galaxy.datatypes.data import (
+    get_file_peek,
+    Text,
+)
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,

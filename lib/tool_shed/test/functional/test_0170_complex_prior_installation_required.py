@@ -1,6 +1,9 @@
 import os
 
-from ..base.twilltestcase import common, ShedTwillTestCase
+from ..base.twilltestcase import (
+    common,
+    ShedTwillTestCase,
+)
 
 matplotlib_repository_name = 'package_matplotlib_1_2_0170'
 matplotlib_repository_description = "Contains a tool dependency definition that downloads and compiles version 1.2.x of the the python matplotlib package."

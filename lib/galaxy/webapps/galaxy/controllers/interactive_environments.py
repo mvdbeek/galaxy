@@ -3,9 +3,11 @@ API check for whether the current session's interactive environment launch is re
 """
 import logging
 
-from galaxy.web import expose, json
+from galaxy.web import (
+    expose,
+    json,
+)
 from galaxy.webapps.base.controller import BaseUIController
-
 
 log = logging.getLogger(__name__)
 

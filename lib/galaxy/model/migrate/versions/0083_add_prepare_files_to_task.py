@@ -4,9 +4,18 @@ Migration script to add 'prepare_input_files_cmd' column to the task table and t
 
 import logging
 
-from sqlalchemy import Column, MetaData, String, Table, TEXT
+from sqlalchemy import (
+    Column,
+    MetaData,
+    String,
+    Table,
+    TEXT,
+)
 
-from galaxy.model.migrate.versions.util import add_column, drop_column
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    drop_column,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

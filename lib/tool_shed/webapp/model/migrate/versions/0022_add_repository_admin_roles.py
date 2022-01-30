@@ -8,7 +8,14 @@ import datetime
 import logging
 import sys
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, Table
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+)
 from sqlalchemy.exc import NoSuchTableError
 
 log = logging.getLogger(__name__)

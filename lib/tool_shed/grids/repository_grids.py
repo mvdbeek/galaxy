@@ -2,13 +2,22 @@ import json
 import logging
 
 from markupsafe import escape as escape_html
-from sqlalchemy import and_, false, or_, true
+from sqlalchemy import (
+    and_,
+    false,
+    or_,
+    true,
+)
 
 import tool_shed.grids.util as grids_util
 import tool_shed.repository_types.util as rt_util
 import tool_shed.util.shed_util_common as suc
 from galaxy.web.legacy_framework import grids
-from tool_shed.util import hg_util, metadata_util, repository_util
+from tool_shed.util import (
+    hg_util,
+    metadata_util,
+    repository_util,
+)
 from tool_shed.webapp import model
 
 log = logging.getLogger(__name__)

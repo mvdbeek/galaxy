@@ -1,15 +1,17 @@
 import logging
 
-from sqlalchemy import and_, false, true
+from sqlalchemy import (
+    and_,
+    false,
+    true,
+)
 
 import galaxy.model
 import galaxy.model.tool_shed_install
 import tool_shed.webapp.model as model
-from galaxy_test.driver.driver_util import (
-    galaxy_context as ga_session,
-    install_context as install_session,
-    tool_shed_context as sa_session
-)
+from galaxy_test.driver.driver_util import galaxy_context as ga_session
+from galaxy_test.driver.driver_util import install_context as install_session
+from galaxy_test.driver.driver_util import tool_shed_context as sa_session
 
 log = logging.getLogger('test.tool_shed.test_db_util')
 

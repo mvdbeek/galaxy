@@ -10,13 +10,18 @@ from pathlib import Path
 try:
     import irods
     import irods.keywords as kw
-    from irods.exception import CollectionDoesNotExist
-    from irods.exception import DataObjectDoesNotExist
+    from irods.exception import (
+        CollectionDoesNotExist,
+        DataObjectDoesNotExist,
+    )
     from irods.session import iRODSSession
 except ImportError:
     irods = None
 
-from galaxy.exceptions import ObjectInvalid, ObjectNotFound
+from galaxy.exceptions import (
+    ObjectInvalid,
+    ObjectNotFound,
+)
 from galaxy.util import (
     directory_hash_id,
     ExecutionTimer,

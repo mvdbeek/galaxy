@@ -25,12 +25,12 @@ from os import listdir
 from os.path import (
     exists,
     getmtime,
-    join
+    join,
 )
 
 from . import (
     Dependency,
-    NullDependency
+    NullDependency,
 )
 from .galaxy_packages import BaseGalaxyPackageDependencyResolver
 

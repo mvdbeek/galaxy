@@ -4,9 +4,7 @@ Classes for generating HTML forms
 
 import logging
 
-from galaxy.util import (
-    asbool
-)
+from galaxy.util import asbool
 
 log = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 from galaxy import model
 from galaxy.workflow.run_request import (
     _normalize_inputs,
-    _normalize_step_parameters
+    _normalize_step_parameters,
 )
 from .workflow_support import MockTrans
 

@@ -9,8 +9,10 @@ import os
 import re
 import sys
 
-from galaxy.datatypes import data
-from galaxy.datatypes import sequence
+from galaxy.datatypes import (
+    data,
+    sequence,
+)
 from galaxy.datatypes.metadata import MetadataElement
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,

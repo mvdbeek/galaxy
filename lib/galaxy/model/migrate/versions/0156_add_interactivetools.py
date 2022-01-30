@@ -4,7 +4,16 @@ Migration script to add new tables for InteractiveTools.
 
 import logging
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 
 from galaxy.model.custom_types import JSONType
 from galaxy.model.orm.now import now

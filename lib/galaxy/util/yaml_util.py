@@ -4,6 +4,7 @@ from collections import OrderedDict
 
 import yaml
 from yaml.constructor import ConstructorError
+
 try:
     from yaml import CSafeLoader as SafeLoader
 except ImportError:

@@ -5,7 +5,12 @@ library_info_association, library_folder_info_association, library_dataset_datas
 
 import logging
 
-from sqlalchemy import Boolean, Column, MetaData, Table
+from sqlalchemy import (
+    Boolean,
+    Column,
+    MetaData,
+    Table,
+)
 
 from galaxy.model.migrate.versions.util import engine_false
 

@@ -12,11 +12,19 @@ import random
 import shutil
 import threading
 import time
-from typing import Any, Dict, List, Type
+from typing import (
+    Any,
+    Dict,
+    List,
+    Type,
+)
 
 import yaml
 
-from galaxy.exceptions import ObjectInvalid, ObjectNotFound
+from galaxy.exceptions import (
+    ObjectInvalid,
+    ObjectNotFound,
+)
 from galaxy.util import (
     directory_hash_id,
     force_symlink,

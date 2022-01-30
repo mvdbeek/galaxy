@@ -2,7 +2,10 @@ import unittest
 
 from galaxy import model
 from galaxy.workflow.run import WorkflowProgress
-from .workflow_support import MockApp, yaml_to_model
+from .workflow_support import (
+    MockApp,
+    yaml_to_model,
+)
 
 TEST_WORKFLOW_YAML = """
 steps:

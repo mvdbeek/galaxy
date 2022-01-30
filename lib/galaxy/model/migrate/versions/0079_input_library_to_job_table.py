@@ -4,7 +4,14 @@ Migration script to add the job_to_input_library_dataset table.
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, String, Table
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    String,
+    Table,
+)
 
 log = logging.getLogger(__name__)
 

@@ -9,7 +9,10 @@ from galaxy.util import plugin_config
 from galaxy.util.custom_logging import get_logger
 from galaxy.util.monitors import Monitors
 from galaxy.util.xml_macros import load
-from galaxy.web_stack.handlers import ConfiguresHandlers, HANDLER_ASSIGNMENT_METHODS
+from galaxy.web_stack.handlers import (
+    ConfiguresHandlers,
+    HANDLER_ASSIGNMENT_METHODS,
+)
 from galaxy.web_stack.message import WorkflowSchedulingMessage
 
 log = get_logger(__name__)

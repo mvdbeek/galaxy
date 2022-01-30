@@ -4,11 +4,16 @@ Manager and Serializer for Datasets.
 import glob
 import logging
 import os
-from typing import Dict, List, Type, TypeVar
+from typing import (
+    Dict,
+    List,
+    Type,
+    TypeVar,
+)
 
 from galaxy import (
     exceptions,
-    model
+    model,
 )
 from galaxy.datatypes import sniff
 from galaxy.managers import (
@@ -16,7 +21,7 @@ from galaxy.managers import (
     deletable,
     rbac_secured,
     secured,
-    users
+    users,
 )
 from galaxy.structured_app import MinimalManagerApp
 from galaxy.util.checkers import check_binary

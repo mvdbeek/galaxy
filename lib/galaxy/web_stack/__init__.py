@@ -5,7 +5,15 @@ import json
 import logging
 import multiprocessing
 import os
-from typing import Callable, Dict, FrozenSet, List, Optional, Tuple, Type
+from typing import (
+    Callable,
+    Dict,
+    FrozenSet,
+    List,
+    Optional,
+    Tuple,
+    Type,
+)
 from urllib.request import install_opener
 
 # The uwsgi module is automatically injected by the parent uwsgi process and only exists that way.  If anything works,
@@ -22,9 +30,14 @@ from galaxy.util.facts import get_facts
 from galaxy.util.path import has_ext
 from galaxy.util.properties import nice_config_parser
 from .handlers import HANDLER_ASSIGNMENT_METHODS
-from .message import ApplicationStackMessage, ApplicationStackMessageDispatcher
-from .transport import ApplicationStackTransport, UWSGIFarmMessageTransport
-
+from .message import (
+    ApplicationStackMessage,
+    ApplicationStackMessageDispatcher,
+)
+from .transport import (
+    ApplicationStackTransport,
+    UWSGIFarmMessageTransport,
+)
 
 log = logging.getLogger(__name__)
 

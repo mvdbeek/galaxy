@@ -18,9 +18,7 @@ from typing import (
 from markupsafe import escape
 
 from galaxy import util
-from galaxy.datatypes.metadata import (
-    MetadataElement,  # import directly to maintain ease of use in Datatype class definitions
-)
+from galaxy.datatypes.metadata import MetadataElement  # import directly to maintain ease of use in Datatype class definitions
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,

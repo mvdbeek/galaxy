@@ -5,7 +5,6 @@ from tempfile import mkdtemp
 
 from galaxy.dependencies import ConditionalDependencies
 
-
 AZURE_BLOB_TEST_CONFIG = """<object_store type="azure_blob">
     blah...
 </object_store>

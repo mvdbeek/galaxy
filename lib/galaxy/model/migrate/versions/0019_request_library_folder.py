@@ -11,16 +11,14 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.custom_types import (
     JSONType,
-    TrimmedString
+    TrimmedString,
 )
-from galaxy.model.migrate.versions.util import (
-    add_column,
-)
+from galaxy.model.migrate.versions.util import add_column
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

@@ -8,14 +8,14 @@ from sqlalchemy import (
     Column,
     MetaData,
     Table,
-    TEXT
+    TEXT,
 )
 
 from galaxy.model.custom_types import JSONType
 from galaxy.model.migrate.versions.util import (
     add_column,
     alter_column,
-    drop_column
+    drop_column,
 )
 
 log = logging.getLogger(__name__)

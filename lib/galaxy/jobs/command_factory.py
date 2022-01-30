@@ -2,7 +2,7 @@ from logging import getLogger
 from os import getcwd
 from os.path import (
     abspath,
-    join
+    join,
 )
 
 from galaxy import util

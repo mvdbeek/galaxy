@@ -4,7 +4,10 @@ table (content json field) by migrate script 65.
 '''
 
 import logging
-from json import dumps, loads
+from json import (
+    dumps,
+    loads,
+)
 
 from sqlalchemy import MetaData
 

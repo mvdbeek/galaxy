@@ -1,4 +1,8 @@
-from typing import Any, Optional, Tuple
+from typing import (
+    Any,
+    Optional,
+    Tuple,
+)
 
 from galaxy import model
 from galaxy.app_unittest_utils import galaxy_mock

@@ -3,7 +3,10 @@ Galaxy sql view models
 """
 from sqlalchemy import Integer
 from sqlalchemy.orm import registry
-from sqlalchemy.sql import column, text
+from sqlalchemy.sql import (
+    column,
+    text,
+)
 
 from galaxy.model.view.utils import View
 

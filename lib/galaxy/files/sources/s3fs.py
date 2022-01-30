@@ -1,7 +1,11 @@
 import functools
 import logging
 import os
-from typing import Any, Dict, List
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 
 try:
     import s3fs

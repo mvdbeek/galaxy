@@ -12,7 +12,6 @@ from typing import (
 from galaxy.util.properties import find_config_file
 from galaxy.web_stack import get_app_kwds
 
-
 DEFAULT_INI_APP = "main"
 DEFAULT_CONFIG_SECTION = "galaxy"
 

@@ -16,7 +16,7 @@ from sqlalchemy import (
 
 from galaxy.model.migrate.versions.util import (
     create_table,
-    drop_table
+    drop_table,
 )
 from galaxy.model.orm.now import now
 

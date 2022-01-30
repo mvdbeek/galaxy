@@ -18,19 +18,15 @@ from pydantic import (
 )
 from typing_extensions import Literal
 
-from galaxy import (
-    exceptions,
-)
+from galaxy import exceptions
 from galaxy.managers import (
     folders,
     hdas,
     hdcas,
     histories,
-    history_contents
+    history_contents,
 )
-from galaxy.managers.base import (
-    ModelSerializer,
-)
+from galaxy.managers.base import ModelSerializer
 from galaxy.managers.collections import DatasetCollectionManager
 from galaxy.managers.collections_util import (
     api_payload_to_create_params,
@@ -52,9 +48,7 @@ from galaxy.schema import (
     FilterQueryParams,
     SerializationParams,
 )
-from galaxy.schema.fields import (
-    EncodedDatabaseIdField,
-)
+from galaxy.schema.fields import EncodedDatabaseIdField
 from galaxy.schema.schema import (
     AnyHistoryContentItem,
     AnyJobStateSummary,
@@ -76,7 +70,6 @@ from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.util.zipstream import ZipstreamWrapper
 from galaxy.webapps.galaxy.api.common import parse_serialization_params
 from galaxy.webapps.galaxy.services.base import ServiceBase
-
 
 log = logging.getLogger(__name__)
 

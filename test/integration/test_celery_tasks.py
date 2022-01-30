@@ -1,10 +1,19 @@
 from celery import shared_task
 
-from galaxy.celery.tasks import galaxy_task, purge_hda
+from galaxy.celery.tasks import (
+    galaxy_task,
+    purge_hda,
+)
 from galaxy.model import HistoryDatasetAssociation
 from galaxy.schema.schema import CreatePagePayload
-from galaxy_test.base.populators import DatasetPopulator, wait_on
-from galaxy_test.driver.integration_util import IntegrationTestCase, UsesCeleryTasks
+from galaxy_test.base.populators import (
+    DatasetPopulator,
+    wait_on,
+)
+from galaxy_test.driver.integration_util import (
+    IntegrationTestCase,
+    UsesCeleryTasks,
+)
 
 
 @shared_task

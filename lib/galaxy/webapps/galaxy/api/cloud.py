@@ -8,7 +8,7 @@ from galaxy import exceptions
 from galaxy.exceptions import ActionInputError
 from galaxy.managers import (
     cloud,
-    datasets
+    datasets,
 )
 from galaxy.structured_app import StructuredApp
 from galaxy.web import expose_api

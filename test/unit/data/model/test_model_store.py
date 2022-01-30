@@ -3,7 +3,10 @@ import json
 import os
 import pathlib
 import shutil
-from tempfile import mkdtemp, NamedTemporaryFile
+from tempfile import (
+    mkdtemp,
+    NamedTemporaryFile,
+)
 
 import pytest
 

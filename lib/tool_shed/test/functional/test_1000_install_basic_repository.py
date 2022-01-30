@@ -1,4 +1,7 @@
-from ..base.twilltestcase import common, ShedTwillTestCase
+from ..base.twilltestcase import (
+    common,
+    ShedTwillTestCase,
+)
 
 
 class BasicToolShedFeatures(ShedTwillTestCase):

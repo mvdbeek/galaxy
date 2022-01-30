@@ -2,7 +2,7 @@ from galaxy import exceptions
 from galaxy.util import bunch
 from .structure import (
     get_structure,
-    leaf
+    leaf,
 )
 
 CANNOT_MATCH_ERROR_MESSAGE = "Cannot match collection types."

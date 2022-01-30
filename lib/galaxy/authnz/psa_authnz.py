@@ -1,17 +1,29 @@
 import json
 
 import requests
-from social_core.actions import do_auth, do_complete, do_disconnect
+from social_core.actions import (
+    do_auth,
+    do_complete,
+    do_disconnect,
+)
 from social_core.backends.utils import get_backend
 from social_core.strategy import BaseStrategy
-from social_core.utils import module_member, setting_name
+from social_core.utils import (
+    module_member,
+    setting_name,
+)
 from sqlalchemy.exc import IntegrityError
 
 from galaxy.exceptions import MalformedContents
 from galaxy.util import DEFAULT_SOCKET_TIMEOUT
 from ..authnz import IdentityProvider
-from ..model import PSAAssociation, PSACode, PSANonce, PSAPartial, UserAuthnzToken
-
+from ..model import (
+    PSAAssociation,
+    PSACode,
+    PSANonce,
+    PSAPartial,
+    UserAuthnzToken,
+)
 
 # key: a component name which PSA requests.
 # value: is the name of a class associated with that key.

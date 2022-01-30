@@ -10,44 +10,50 @@ from markupsafe import escape
 from sqlalchemy import (
     false,
     or_,
-    true
+    true,
 )
 
 from galaxy import (
     exceptions,
     util,
-    web
+    web,
 )
 from galaxy.exceptions import ObjectInvalid
 from galaxy.managers import (
     api_keys,
-    users
+    users,
 )
 from galaxy.managers.context import ProvidesUserContext
-from galaxy.model import User, UserAddress
+from galaxy.model import (
+    User,
+    UserAddress,
+)
 from galaxy.security.validate_user_input import (
     validate_email,
     validate_password,
-    validate_publicname
+    validate_publicname,
 )
 from galaxy.security.vault import UserVaultWrapper
 from galaxy.tool_util.toolbox.filters import FilterFactory
 from galaxy.util import (
     docstring_trim,
-    listify
+    listify,
 )
 from galaxy.web import (
     expose_api,
-    expose_api_anonymous
+    expose_api_anonymous,
 )
 from galaxy.web.form_builder import AddressField
 from galaxy.webapps.base.controller import (
     BaseUIController,
     UsesFormDefinitionsMixin,
-    UsesTagsMixin
+    UsesTagsMixin,
 )
 from galaxy.webapps.base.webapp import GalaxyWebTransaction
-from . import BaseGalaxyAPIController, depends
+from . import (
+    BaseGalaxyAPIController,
+    depends,
+)
 
 log = logging.getLogger(__name__)
 

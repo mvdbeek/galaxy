@@ -5,7 +5,7 @@ from typing import Dict
 
 from galaxy import (
     exceptions,
-    model
+    model,
 )
 from galaxy.tools.parameters.meta import expand_workflow_inputs
 from galaxy.workflow.resources import get_resource_mapper_function

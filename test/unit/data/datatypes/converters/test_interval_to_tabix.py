@@ -3,7 +3,7 @@ import pysam
 from galaxy.datatypes.converters.interval_to_tabix_converter import to_tabix
 from ..util import (
     get_input_files,
-    get_tmp_path
+    get_tmp_path,
 )
 
 

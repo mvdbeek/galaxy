@@ -6,7 +6,10 @@ from abc import (
     abstractmethod,
     abstractproperty,
 )
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 import yaml
 

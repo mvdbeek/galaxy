@@ -1,6 +1,9 @@
 import re
 
-from .baseparser import Base_Parser, PhyloTree
+from .baseparser import (
+    Base_Parser,
+    PhyloTree,
+)
 
 
 class Newick_Parser(Base_Parser):

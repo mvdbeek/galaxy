@@ -5,9 +5,7 @@ from galaxy.actions.library import (
     validate_path_upload,
     validate_server_directory_upload,
 )
-from galaxy.exceptions import (
-    RequestParameterInvalidException
-)
+from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.model.store.discover import (
     get_required_item,
     replace_request_syntax_sugar,
@@ -16,9 +14,7 @@ from galaxy.tools.actions.upload_common import (
     validate_datatype_extension,
     validate_url,
 )
-from galaxy.util import (
-    relpath,
-)
+from galaxy.util import relpath
 
 log = logging.getLogger(__name__)
 

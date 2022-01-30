@@ -24,13 +24,14 @@ from fastapi_utils.cbv import cbv
 from fastapi_utils.inferring_router import InferringRouter
 from pydantic.main import BaseModel
 from starlette.routing import NoMatchFound
+
 try:
     from starlette_context import context as request_context
 except ImportError:
     request_context = None  # type: ignore[assignment]
 
+from galaxy import app as galaxy_app
 from galaxy import (
-    app as galaxy_app,
     model,
     web,
 )

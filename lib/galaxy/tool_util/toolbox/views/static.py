@@ -27,7 +27,6 @@ from ..panel import (
     ToolSectionLabel,
 )
 
-
 log = logging.getLogger(__name__)
 
 

@@ -25,17 +25,24 @@ from boltons.iterutils import remap
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import expression
 
-from galaxy.exceptions import MalformedContents, ObjectNotFound
+from galaxy.exceptions import (
+    MalformedContents,
+    ObjectNotFound,
+)
 from galaxy.model.metadata import MetadataCollection
 from galaxy.security.idencoding import IdEncodingHelper
-from galaxy.util import FILENAME_VALID_CHARS
-from galaxy.util import in_directory
+from galaxy.util import (
+    FILENAME_VALID_CHARS,
+    in_directory,
+)
 from galaxy.util.bunch import Bunch
 from galaxy.util.path import safe_walk
 from ..custom_types import json_encoder
-from ..item_attrs import add_item_annotation, get_item_annotation_str
+from ..item_attrs import (
+    add_item_annotation,
+    get_item_annotation_str,
+)
 from ... import model
-
 
 ObjectKeyType = Union[str, int]
 

@@ -22,6 +22,7 @@ from galaxy.managers.markdown_util import weasyprint_available
 from galaxy.schema import SerializationParams
 from galaxy.schema.fields import EncodedDatabaseIdField
 from galaxy.web.framework.base import server_starttime
+
 log = logging.getLogger(__name__)
 
 VERSION_JSON_FILE = 'version.json'

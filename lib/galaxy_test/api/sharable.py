@@ -1,4 +1,8 @@
-from typing import Any, Dict, List
+from typing import (
+    Any,
+    Dict,
+    List,
+)
 from unittest import SkipTest
 
 from galaxy_test.base.api import UsesApiTestCaseMixin

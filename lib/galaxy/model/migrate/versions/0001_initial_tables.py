@@ -11,14 +11,14 @@ from sqlalchemy import (
     Numeric,
     String,
     Table,
-    TEXT
+    TEXT,
 )
 
 # Need our custom types, but don't import anything else from model
 from galaxy.model.custom_types import (
     JSONType,
     MetadataType,
-    TrimmedString
+    TrimmedString,
 )
 
 log = logging.getLogger(__name__)

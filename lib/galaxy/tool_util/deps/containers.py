@@ -4,7 +4,7 @@ import os
 
 from galaxy.util import (
     asbool,
-    plugin_config
+    plugin_config,
 )
 from .container_classes import (
     CONTAINER_CLASSES,
@@ -25,9 +25,7 @@ from .container_resolvers.mulled import (
     MulledDockerContainerResolver,
     MulledSingularityContainerResolver,
 )
-from .requirements import (
-    ContainerDescription,
-)
+from .requirements import ContainerDescription
 
 log = logging.getLogger(__name__)
 

@@ -11,7 +11,6 @@ from galaxy.util import config_directories_from_setting
 from ._interface import ToursRegistry
 from ._schema import TourList
 
-
 log = logging.getLogger(__name__)
 
 

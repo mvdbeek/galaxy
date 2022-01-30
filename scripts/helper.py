@@ -13,7 +13,10 @@ sys.path.insert(1, os.path.join(os.path.dirname(__file__), os.pardir, 'lib'))
 
 import galaxy.config
 from galaxy.security import idencoding
-from galaxy.util.script import app_properties_from_args, populate_config_args
+from galaxy.util.script import (
+    app_properties_from_args,
+    populate_config_args,
+)
 
 parser = argparse.ArgumentParser()
 populate_config_args(parser)

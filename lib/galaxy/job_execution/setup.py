@@ -1,7 +1,15 @@
 """Utilities to help job and tool code setup jobs."""
 import json
 import os
-from typing import Any, cast, Dict, List, Optional, Tuple, Union
+from typing import (
+    Any,
+    cast,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from galaxy.files import (
     ConfiguredFileSources,

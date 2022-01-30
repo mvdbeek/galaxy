@@ -11,10 +11,13 @@ from sqlalchemy import (
     Index,
     Integer,
     select,
-    UniqueConstraint
+    UniqueConstraint,
 )
 from sqlalchemy.exc import NoResultFound
-from sqlalchemy.orm import registry, Session
+from sqlalchemy.orm import (
+    registry,
+    Session,
+)
 
 from galaxy.model import _HasTable
 from .common import (

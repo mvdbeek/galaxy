@@ -31,7 +31,7 @@ import webob.exc
 
 from galaxy.util import (
     smart_str,
-    unicodify
+    unicodify,
 )
 
 log = logging.getLogger(__name__)

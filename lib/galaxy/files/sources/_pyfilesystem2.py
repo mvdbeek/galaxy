@@ -2,7 +2,13 @@ import abc
 import functools
 import logging
 import os
-from typing import Any, Dict, List, Optional, Type
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Type,
+)
 
 import fs
 from fs.base import FS

@@ -2,7 +2,10 @@
 # non-submit host and using a Slurm cluster.
 from logging import getLogger
 
-from ..job import BaseJobExec, job_states
+from ..job import (
+    BaseJobExec,
+    job_states,
+)
 
 log = getLogger(__name__)
 

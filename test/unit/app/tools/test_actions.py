@@ -8,10 +8,9 @@ from galaxy.tool_util.parser.output_objects import ToolOutput
 from galaxy.tools.actions import (
     DefaultToolAction,
     determine_output_format,
-    on_text_for_names
+    on_text_for_names,
 )
 from galaxy.util import XML
-
 
 # I cannot think of a saner way to test if data is being wrapped than use a
 # data param in the output label - though you would probably never want to do

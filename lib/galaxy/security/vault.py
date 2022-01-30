@@ -2,10 +2,16 @@ import abc
 import logging
 import os
 import re
-from typing import List, Optional
+from typing import (
+    List,
+    Optional,
+)
 
 import yaml
-from cryptography.fernet import Fernet, MultiFernet
+from cryptography.fernet import (
+    Fernet,
+    MultiFernet,
+)
 
 try:
     from custos.clients.resource_secret_management_client import ResourceSecretManagementClient

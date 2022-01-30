@@ -1,6 +1,10 @@
 import logging
 
-from sqlalchemy import and_, false, true
+from sqlalchemy import (
+    and_,
+    false,
+    true,
+)
 
 log = logging.getLogger(__name__)
 

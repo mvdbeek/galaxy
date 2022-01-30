@@ -4,9 +4,7 @@ from sqlalchemy import (
     and_,
     true,
 )
-from sqlalchemy.orm import (
-    joinedload,
-)
+from sqlalchemy.orm import joinedload
 
 from galaxy.model.base import SharedModelMapping
 

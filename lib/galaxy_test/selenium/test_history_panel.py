@@ -1,14 +1,11 @@
 import pytest
 
-from galaxy.selenium.navigates_galaxy import (
-    edit_details
-)
+from galaxy.selenium.navigates_galaxy import edit_details
 from .framework import (
     retry_assertion_during_transitions,
     selenium_test,
     SeleniumTestCase,
 )
-
 
 NEW_HISTORY_NAME = "New History Name"
 

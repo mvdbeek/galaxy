@@ -21,16 +21,16 @@ from sqlalchemy import (
     Integer,
     MetaData,
     Table,
-    TEXT
+    TEXT,
 )
 
 from galaxy.model.custom_types import (
     JSONType,
-    TrimmedString
+    TrimmedString,
 )
 from galaxy.model.migrate.versions.util import (
     create_table,
-    drop_table
+    drop_table,
 )
 
 log = logging.getLogger(__name__)

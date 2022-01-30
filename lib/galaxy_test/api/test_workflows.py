@@ -4,11 +4,22 @@ import shutil
 import time
 from json import dumps
 from tempfile import mkdtemp
-from typing import Any, cast, Dict, Optional, Tuple, Union
+from typing import (
+    Any,
+    cast,
+    Dict,
+    Optional,
+    Tuple,
+    Union,
+)
 from uuid import uuid4
 
 import pytest
-from requests import delete, get, put
+from requests import (
+    delete,
+    get,
+    put,
+)
 
 from galaxy.exceptions import error_codes
 from galaxy_test.base import rules_test_data
@@ -18,7 +29,7 @@ from galaxy_test.base.populators import (
     RunJobsSummary,
     skip_without_tool,
     wait_on,
-    WorkflowPopulator
+    WorkflowPopulator,
 )
 from galaxy_test.base.workflow_fixtures import (
     WORKFLOW_NESTED_REPLACEMENT_PARAMETER,
@@ -42,7 +53,6 @@ from galaxy_test.base.workflow_fixtures import (
     WORKFLOW_WITH_RULES_1,
 )
 from ._framework import ApiTestCase
-
 
 WORKFLOW_SIMPLE = """
 class: GalaxyWorkflow

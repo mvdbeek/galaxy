@@ -13,7 +13,13 @@ import weakref
 from collections import OrderedDict
 from collections.abc import Mapping
 from os.path import abspath
-from typing import Any, Iterator, Optional, TYPE_CHECKING, Union
+from typing import (
+    Any,
+    Iterator,
+    Optional,
+    TYPE_CHECKING,
+    Union,
+)
 
 from sqlalchemy.orm import object_session
 from sqlalchemy.orm.attributes import flag_modified

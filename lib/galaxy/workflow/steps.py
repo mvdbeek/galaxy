@@ -6,7 +6,7 @@ import math
 from galaxy.util.topsort import (
     CycleError,
     topsort,
-    topsort_levels
+    topsort_levels,
 )
 
 

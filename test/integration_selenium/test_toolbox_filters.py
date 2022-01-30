@@ -2,7 +2,7 @@ from selenium.common.exceptions import NoSuchElementException
 
 from .framework import (
     selenium_test,
-    SeleniumIntegrationTestCase
+    SeleniumIntegrationTestCase,
 )
 
 TEST_FILTER_MODULES = 'galaxy.selenium.toolbox'

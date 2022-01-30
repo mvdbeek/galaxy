@@ -10,7 +10,7 @@ from galaxy.util import RW_R__R__
 from galaxy.util.renamed_temporary_file import RenamedTemporaryFile
 from .panel import (
     panel_item_types,
-    ToolPanelElements
+    ToolPanelElements,
 )
 
 log = logging.getLogger(__name__)

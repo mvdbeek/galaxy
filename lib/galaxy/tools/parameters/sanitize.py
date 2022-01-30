@@ -4,7 +4,6 @@ Tool Parameter specific sanitizing.
 import logging
 import string
 
-
 import galaxy.util
 
 log = logging.getLogger(__name__)

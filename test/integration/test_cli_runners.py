@@ -5,7 +5,10 @@ import subprocess
 import sys
 import tempfile
 import unittest
-from typing import ClassVar, NamedTuple
+from typing import (
+    ClassVar,
+    NamedTuple,
+)
 
 from galaxy.security.ssh_util import generate_ssh_keys
 from galaxy_test.base.populators import skip_without_tool

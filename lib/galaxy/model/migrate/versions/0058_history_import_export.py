@@ -4,7 +4,15 @@ Migration script to create table for exporting histories to archives.
 
 import logging
 
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

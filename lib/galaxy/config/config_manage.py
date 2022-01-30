@@ -7,7 +7,11 @@ import sys
 import tempfile
 from io import StringIO
 from textwrap import TextWrapper
-from typing import Any, List, NamedTuple
+from typing import (
+    Any,
+    List,
+    NamedTuple,
+)
 
 import requests
 import yaml
@@ -37,7 +41,6 @@ from galaxy.util.yaml_util import (
     ordered_dump,
     ordered_load,
 )
-
 
 DESCRIPTION = "Convert configuration files."
 

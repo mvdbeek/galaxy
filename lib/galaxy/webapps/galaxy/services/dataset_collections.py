@@ -1,7 +1,15 @@
 from logging import getLogger
-from typing import List, Optional, Set
+from typing import (
+    List,
+    Optional,
+    Set,
+)
 
-from pydantic import BaseModel, Extra, Field
+from pydantic import (
+    BaseModel,
+    Extra,
+    Field,
+)
 
 from galaxy import exceptions
 from galaxy.datatypes.registry import Registry
@@ -14,7 +22,10 @@ from galaxy.managers.collections_util import (
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.managers.hdcas import HDCAManager
 from galaxy.managers.histories import HistoryManager
-from galaxy.schema.fields import EncodedDatabaseIdField, ModelClassField
+from galaxy.schema.fields import (
+    EncodedDatabaseIdField,
+    ModelClassField,
+)
 from galaxy.schema.schema import (
     AnyHDCA,
     CreateNewCollectionPayload,
@@ -27,7 +38,6 @@ from galaxy.schema.schema import (
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.webapps.base.controller import UsesLibraryMixinItems
 from galaxy.webapps.galaxy.services.base import ServiceBase
-
 
 log = getLogger(__name__)
 

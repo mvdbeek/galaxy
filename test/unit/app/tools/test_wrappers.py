@@ -22,7 +22,7 @@ from galaxy.tools.wrappers import (
     DatasetFilenameWrapper,
     InputValueWrapper,
     RawObjectWrapper,
-    SelectToolParameterWrapper
+    SelectToolParameterWrapper,
 )
 from galaxy.util import XML
 

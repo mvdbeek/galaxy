@@ -4,7 +4,10 @@ import subprocess
 import wave
 
 from galaxy.datatypes.binary import Binary
-from galaxy.datatypes.metadata import ListParameter, MetadataElement
+from galaxy.datatypes.metadata import (
+    ListParameter,
+    MetadataElement,
+)
 from galaxy.util import which
 
 

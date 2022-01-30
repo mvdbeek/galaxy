@@ -15,7 +15,7 @@ from fastapi import (
 
 from galaxy import (
     exceptions,
-    util
+    util,
 )
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.schema.fields import EncodedDatabaseIdField

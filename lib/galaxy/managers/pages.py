@@ -9,12 +9,16 @@ import logging
 import re
 from html.entities import name2codepoint
 from html.parser import HTMLParser
-from typing import (
-    Callable,
-)
+from typing import Callable
 
-from galaxy import exceptions, model
-from galaxy.managers import base, sharable
+from galaxy import (
+    exceptions,
+    model,
+)
+from galaxy.managers import (
+    base,
+    sharable,
+)
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.managers.markdown_util import (
     ready_galaxy_markdown_for_export,

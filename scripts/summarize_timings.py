@@ -5,7 +5,6 @@ from argparse import ArgumentParser
 
 import numpy
 
-
 DESCRIPTION = ""
 
 TIMING_LINE_PATTERN = re.compile(r"\((\d+.\d+) ms\)")

@@ -3,7 +3,6 @@ import pytest
 from galaxy.config import BaseAppConfiguration
 from galaxy.config.schema import AppSchema
 
-
 MOCK_DEPRECATED_DIRS = {
     'my_config_dir': 'old-config',
     'my_data_dir': 'old-database',

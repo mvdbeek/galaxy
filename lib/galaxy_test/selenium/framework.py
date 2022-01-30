@@ -5,8 +5,15 @@ import json
 import os
 import traceback
 import unittest
-from functools import partial, wraps
-from typing import Any, Dict, TYPE_CHECKING
+from functools import (
+    partial,
+    wraps,
+)
+from typing import (
+    Any,
+    Dict,
+    TYPE_CHECKING,
+)
 
 import requests
 from gxformat2 import (
@@ -15,12 +22,8 @@ from gxformat2 import (
 )
 from requests.models import Response
 
-from galaxy.selenium import (
-    driver_factory,
-)
-from galaxy.selenium.context import (
-    GalaxySeleniumContext,
-)
+from galaxy.selenium import driver_factory
+from galaxy.selenium.context import GalaxySeleniumContext
 from galaxy.selenium.navigates_galaxy import (
     NavigatesGalaxy,
     retry_during_transitions,
@@ -33,8 +36,12 @@ from galaxy.util import (
 from galaxy_test.base import populators
 from galaxy_test.base.api import UsesApiTestCaseMixin
 from galaxy_test.base.api_util import get_admin_api_key
-from galaxy_test.base.env import DEFAULT_WEB_HOST, get_ip_address
+from galaxy_test.base.env import (
+    DEFAULT_WEB_HOST,
+    get_ip_address,
+)
 from galaxy_test.base.testcase import FunctionalTestCase
+
 try:
     from galaxy_test.driver.driver_util import GalaxyTestDriver
 except ImportError:

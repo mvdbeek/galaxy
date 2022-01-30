@@ -6,10 +6,9 @@ import logging
 import os.path
 import re
 
-
 from galaxy import (
     model,
-    util
+    util,
 )
 
 log = logging.getLogger(__name__)

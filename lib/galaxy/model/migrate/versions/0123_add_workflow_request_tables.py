@@ -12,19 +12,19 @@ from sqlalchemy import (
     String,
     Table,
     TEXT,
-    Unicode
+    Unicode,
 )
 
 from galaxy.model.custom_types import (
     JSONType,
     TrimmedString,
-    UUIDType
+    UUIDType,
 )
 from galaxy.model.migrate.versions.util import (
     add_column,
     create_table,
     drop_column,
-    drop_table
+    drop_table,
 )
 
 log = logging.getLogger(__name__)

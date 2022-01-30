@@ -1,5 +1,10 @@
 """Typed description of Galaxy's app object."""
-from typing import Any, Optional, TYPE_CHECKING, Union
+from typing import (
+    Any,
+    Optional,
+    TYPE_CHECKING,
+    Union,
+)
 
 from kombu import Connection
 
@@ -8,11 +13,16 @@ from galaxy.datatypes.registry import Registry
 from galaxy.di import Container
 from galaxy.files import ConfiguredFileSources
 from galaxy.job_metrics import JobMetrics
-from galaxy.model.base import ModelMapping, SharedModelMapping
+from galaxy.model.base import (
+    ModelMapping,
+    SharedModelMapping,
+)
 from galaxy.model.mapping import GalaxyModelMapping
 from galaxy.model.scoped_session import galaxy_scoped_session
-from galaxy.model.security import GalaxyRBACAgent
-from galaxy.model.security import HostAgent
+from galaxy.model.security import (
+    GalaxyRBACAgent,
+    HostAgent,
+)
 from galaxy.model.store import SessionlessContext
 from galaxy.model.tags import GalaxyTagHandler
 from galaxy.objectstore import ObjectStore

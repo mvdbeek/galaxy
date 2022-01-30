@@ -23,7 +23,7 @@ from galaxy.managers.datatypes import (
     view_index,
     view_mapping,
     view_sniffers,
-    view_types_and_mapping
+    view_types_and_mapping,
 )
 from galaxy.util import asbool
 from galaxy.web import expose_api_anonymous_and_sessionless

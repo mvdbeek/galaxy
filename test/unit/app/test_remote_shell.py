@@ -1,6 +1,9 @@
 import os
 import unittest
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 try:
     import mockssh
@@ -8,7 +11,10 @@ except ImportError:
     raise unittest.SkipTest("Skipping tests that require mockssh")
 
 from galaxy.jobs.runners.cli import CliInterface
-from galaxy.security.ssh_util import generate_ssh_keys, SSHKeys
+from galaxy.security.ssh_util import (
+    generate_ssh_keys,
+    SSHKeys,
+)
 
 
 class TestCliInterface(unittest.TestCase):

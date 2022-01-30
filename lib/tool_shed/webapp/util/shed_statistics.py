@@ -1,5 +1,7 @@
-from time import gmtime
-from time import strftime
+from time import (
+    gmtime,
+    strftime,
+)
 
 
 class ShedCounter:

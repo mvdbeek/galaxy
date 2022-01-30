@@ -11,12 +11,15 @@ from galaxy.tool_shed.repository_type import (
     TOOL_DEPENDENCY_DEFINITION_FILENAME,
 )
 from galaxy.tool_shed.tools.tool_validator import ToolValidator
+from galaxy.tool_shed.util import shed_util_common as suc
 from galaxy.tool_shed.util import (
-    shed_util_common as suc,
     tool_dependency_util,
     tool_util,
 )
-from galaxy.tool_shed.util.basic_util import remove_dir, strip_path
+from galaxy.tool_shed.util.basic_util import (
+    remove_dir,
+    strip_path,
+)
 from galaxy.tool_shed.util.hg_util import get_config_from_disk
 from galaxy.tool_shed.util.metadata_util import get_updated_changeset_revisions_from_tool_shed
 from galaxy.tool_shed.util.repository_util import get_repository_for_dependency_relationship

@@ -42,7 +42,7 @@ from galaxy.util import smart_str
 from .data import (
     Data,
     get_file_peek,
-    Text
+    Text,
 )
 from .xml import GenericXml
 

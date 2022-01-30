@@ -6,7 +6,7 @@ from sqlalchemy import (
     DDL,
     Index,
     Table,
-    Text
+    Text,
 )
 from sqlalchemy.dialects.mysql import MEDIUMBLOB
 

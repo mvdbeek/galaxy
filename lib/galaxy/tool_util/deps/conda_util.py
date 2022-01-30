@@ -14,7 +14,7 @@ import packaging.version
 from galaxy.util import (
     commands,
     smart_str,
-    unicodify
+    unicodify,
 )
 from . import installable
 

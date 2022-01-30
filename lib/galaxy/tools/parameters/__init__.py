@@ -17,7 +17,12 @@ from .basic import (
     runtime_to_json,
     SelectToolParameter,
 )
-from .grouping import Conditional, Repeat, Section, UploadDataset
+from .grouping import (
+    Conditional,
+    Repeat,
+    Section,
+    UploadDataset,
+)
 
 REPLACE_ON_TRUTHY = object()
 

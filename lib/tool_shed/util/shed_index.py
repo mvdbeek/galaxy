@@ -1,7 +1,10 @@
 import logging
 import os
 
-from mercurial import hg, ui
+from mercurial import (
+    hg,
+    ui,
+)
 from whoosh.writing import AsyncWriter
 
 import tool_shed.webapp.model.mapping as ts_mapping
@@ -11,7 +14,7 @@ from galaxy.util import (
     directory_hash_id,
     ExecutionTimer,
     pretty_print_time_interval,
-    unicodify
+    unicodify,
 )
 from tool_shed.util.hgweb_config import hgweb_config_manager
 from tool_shed.webapp import model

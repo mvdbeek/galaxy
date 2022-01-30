@@ -9,12 +9,12 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.migrate.versions.util import (
     add_column,
-    drop_column
+    drop_column,
 )
 
 log = logging.getLogger(__name__)

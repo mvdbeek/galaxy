@@ -1,4 +1,7 @@
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 from unittest import TestCase
 
 from galaxy.tools.parameters.meta import process_key

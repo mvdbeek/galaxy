@@ -20,7 +20,10 @@ import h5py
 import numpy as np
 import pysam
 import pysam.bcftools
-from bx.seq.twobit import TWOBIT_MAGIC_NUMBER, TWOBIT_MAGIC_NUMBER_SWAP
+from bx.seq.twobit import (
+    TWOBIT_MAGIC_NUMBER,
+    TWOBIT_MAGIC_NUMBER_SWAP,
+)
 
 from galaxy import util
 from galaxy.datatypes import metadata
@@ -38,9 +41,19 @@ from galaxy.datatypes.metadata import (
 )
 from galaxy.datatypes.sniff import build_sniff_from_prefix
 from galaxy.datatypes.text import Html
-from galaxy.util import compression_utils, nice_size, sqlite
-from galaxy.util.checkers import is_bz2, is_gzip
-from . import data, dataproviders
+from galaxy.util import (
+    compression_utils,
+    nice_size,
+    sqlite,
+)
+from galaxy.util.checkers import (
+    is_bz2,
+    is_gzip,
+)
+from . import (
+    data,
+    dataproviders,
+)
 
 log = logging.getLogger(__name__)
 # pysam 0.16.0.1 emits logs containing the word 'Error', this can confuse the stdout/stderr checkers.

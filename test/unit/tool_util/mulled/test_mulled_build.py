@@ -6,7 +6,7 @@ from galaxy.tool_util.deps.mulled.mulled_build import (
     DEFAULT_BASE_IMAGE,
     DEFAULT_EXTENDED_BASE_IMAGE,
     mull_targets,
-    target_str_to_targets
+    target_str_to_targets,
 )
 from ..util import external_dependency_management
 

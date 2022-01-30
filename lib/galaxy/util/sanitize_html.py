@@ -5,7 +5,6 @@ import bleach
 
 from galaxy.util import unicodify
 
-
 _acceptable_elements = ['a', 'abbr', 'acronym', 'address', 'area', 'article',
         'aside', 'audio', 'b', 'big', 'blockquote', 'br', 'button', 'canvas',
         'caption', 'center', 'cite', 'code', 'col', 'colgroup', 'command',

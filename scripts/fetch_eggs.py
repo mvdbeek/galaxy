@@ -4,7 +4,7 @@ from os import pardir
 from os.path import (
     abspath,
     dirname,
-    join
+    join,
 )
 from sys import exit
 

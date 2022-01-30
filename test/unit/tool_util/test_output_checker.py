@@ -1,8 +1,10 @@
 from unittest import TestCase
 from unittest.mock import Mock
 
-
-from galaxy.tool_util.output_checker import check_output, DETECTED_JOB_STATE
+from galaxy.tool_util.output_checker import (
+    check_output,
+    DETECTED_JOB_STATE,
+)
 from galaxy.tool_util.parser.stdio import (
     StdioErrorLevel,
     ToolStdioRegex,

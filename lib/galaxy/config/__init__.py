@@ -60,7 +60,10 @@ from galaxy.util.properties import (
 )
 from galaxy.web.formatting import expand_pretty_datetime_format
 from galaxy.web_stack import get_stack_facts
-from ..version import VERSION_MAJOR, VERSION_MINOR
+from ..version import (
+    VERSION_MAJOR,
+    VERSION_MINOR,
+)
 
 try:
     from importlib.resources import files  # type: ignore[attr-defined]
@@ -1241,12 +1244,12 @@ class ConfiguresGalaxyMixin:
             self.config.tool_configs.append(self.config.migrated_tools_config)
 
     def _configure_toolbox(self):
+        import galaxy.tools.search
         from galaxy import tools
-        from galaxy.tools.biotools import get_galaxy_biotools_metadata_source
         from galaxy.managers.citations import CitationsManager
         from galaxy.tool_util.deps import containers
         from galaxy.tool_util.deps.dependencies import AppInfo
-        import galaxy.tools.search
+        from galaxy.tools.biotools import get_galaxy_biotools_metadata_source
 
         if not isinstance(self, BasicSharedApp):
             raise Exception("Must inherit from BasicSharedApp")
@@ -1323,6 +1326,7 @@ class ConfiguresGalaxyMixin:
 
     def _configure_datatypes_registry(self, installed_repository_manager=None):
         from galaxy.datatypes import registry
+
         # Create an empty datatypes registry.
         self.datatypes_registry = registry.Registry(self.config)
         if installed_repository_manager:

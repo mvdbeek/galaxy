@@ -5,9 +5,20 @@ import io
 import logging
 import os
 import unicodedata
-from typing import Any, Callable, Dict, List, Mapping, Optional, TYPE_CHECKING
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    TYPE_CHECKING,
+)
 
-from galaxy.datatypes import data, sniff
+from galaxy.datatypes import (
+    data,
+    sniff,
+)
 from galaxy.exceptions import (
     AdminRequiredException,
     ConfigDoesNotAllowException,
@@ -16,15 +27,15 @@ from galaxy.util import (
     asbool,
     inflector,
     relpath,
-    sanitize_for_filename
+    sanitize_for_filename,
 )
 from galaxy.util.bunch import Bunch
 from galaxy.util.dictifiable import Dictifiable
 from galaxy.util.expressions import ExpressionContext
 
 if TYPE_CHECKING:
-    from galaxy.tools.parameter.basic import ToolParameter
     from galaxy.tools import Tool
+    from galaxy.tools.parameter.basic import ToolParameter
 
 log = logging.getLogger(__name__)
 URI_PREFIXES = [f"{x}://" for x in ["http", "https", "ftp", "file", "gxfiles", "gximport", "gxuserimport", "gxftp"]]

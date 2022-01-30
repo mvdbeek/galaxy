@@ -2,7 +2,7 @@ import logging
 
 from galaxy import (
     exceptions,
-    util
+    util,
 )
 from galaxy.managers import base as managers_base
 from galaxy.managers.folders import FolderManager

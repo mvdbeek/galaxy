@@ -8,7 +8,6 @@ from galaxy.tool_util.deps.container_resolvers.mulled import (
 from galaxy.tool_util.deps.dependencies import ToolInfo
 from galaxy.tool_util.deps.requirements import ToolRequirement
 
-
 SINGULARITY_IMAGES = ('foo:1.0--bar', 'baz:2.22', 'mulled-v2-fe8a3b846bc50d24e5df78fa0b562c43477fe9ce:9f946d13f673ab2903cb0da849ad42916d619d18-0')
 
 

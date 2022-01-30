@@ -13,11 +13,11 @@ import requests
 
 try:
     from cwltool import (
-        main,
-        workflow,
         job,
-        process,
+        main,
         pathmapper,
+        process,
+        workflow,
     )
 except ImportError:
     main = None  # type: ignore[assignment]

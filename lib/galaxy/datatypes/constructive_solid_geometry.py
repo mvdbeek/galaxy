@@ -10,8 +10,10 @@ from typing import List
 from galaxy import util
 from galaxy.datatypes import data
 from galaxy.datatypes.binary import Binary
-from galaxy.datatypes.data import get_file_peek
-from galaxy.datatypes.data import nice_size
+from galaxy.datatypes.data import (
+    get_file_peek,
+    nice_size,
+)
 from galaxy.datatypes.metadata import MetadataElement
 from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,

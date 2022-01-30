@@ -1,4 +1,7 @@
-from ..base.twilltestcase import common, ShedTwillTestCase
+from ..base.twilltestcase import (
+    common,
+    ShedTwillTestCase,
+)
 
 filter_repository_name = 'filtering_0160'
 filter_repository_description = "Galaxy's filtering tool for test 0160"

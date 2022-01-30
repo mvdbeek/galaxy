@@ -8,13 +8,14 @@ from unittest.mock import Mock
 from galaxy import model
 from galaxy.app_unittest_utils.galaxy_mock import MockApp
 from galaxy.exceptions import MalformedContents
-from galaxy.objectstore.unittest_utils import (
-    Config as TestConfig,
+from galaxy.objectstore.unittest_utils import Config as TestConfig
+from galaxy.tools.imp_exp import (
+    JobExportHistoryArchiveWrapper,
+    JobImportHistoryArchiveWrapper,
+    unpack_tar_gz_archive,
 )
-from galaxy.tools.imp_exp import JobExportHistoryArchiveWrapper, JobImportHistoryArchiveWrapper, unpack_tar_gz_archive
 from galaxy.tools.imp_exp.export_history import create_archive
 from galaxy.util import galaxy_directory
-
 
 # good enough for the very specific tests we're writing as of now...
 DATASETS_ATTRS = '''[{{"info": "\\nuploaded txt file", "peek": "foo\\n\\n\\n\\n\\n\\n", "update_time": "2016-02-08 18:39:22.937474", "name": "Pasted Entry", "extension": "txt", "tags": {{}}, "__HistoryDatasetAssociation__": true, "file_name": "{file_name}", "deleted": false, "designation": null, "visible": true, "create_time": "2016-02-08 18:38:38.682087", "hid": 1, "parent_id": null, "extra_files_path": "", "uuid": "406d913e-925d-4ccd-800d-06c9b32df309", "metadata": {{"dbkey": "?", "data_lines": 1}}, "annotation": null, "blurb": "1 line", "exported": true}}]'''

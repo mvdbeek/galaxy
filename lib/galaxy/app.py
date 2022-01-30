@@ -2,13 +2,22 @@ import logging
 import signal
 import sys
 import time
-from typing import Any, Callable, List, Tuple
+from typing import (
+    Any,
+    Callable,
+    List,
+    Tuple,
+)
 
 import galaxy.model
 import galaxy.model.security
 import galaxy.queues
 import galaxy.security
-from galaxy import auth, config, jobs
+from galaxy import (
+    auth,
+    config,
+    jobs,
+)
 from galaxy.config_watchers import ConfigWatchers
 from galaxy.containers import build_container_interfaces
 from galaxy.datatypes.registry import Registry
@@ -43,11 +52,14 @@ from galaxy.queue_worker import (
     GalaxyQueueWorker,
     send_local_control_task,
 )
-from galaxy.quota import get_quota_agent, QuotaAgent
+from galaxy.quota import (
+    get_quota_agent,
+    QuotaAgent,
+)
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.security.vault import (
     Vault,
-    VaultFactory
+    VaultFactory,
 )
 from galaxy.tool_shed.galaxy_install.installed_repository_manager import InstalledRepositoryManager
 from galaxy.tool_shed.galaxy_install.update_repository_manager import UpdateRepositoryManager
@@ -55,12 +67,15 @@ from galaxy.tool_util.deps.views import DependencyResolversView
 from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.tools.cache import (
     ToolCache,
-    ToolShedRepositoryCache
+    ToolShedRepositoryCache,
 )
 from galaxy.tools.data_manager.manager import DataManagers
 from galaxy.tools.error_reports import ErrorReports
 from galaxy.tools.special_tools import load_lib_tools
-from galaxy.tours import build_tours_registry, ToursRegistry
+from galaxy.tours import (
+    build_tours_registry,
+    ToursRegistry,
+)
 from galaxy.util import (
     ExecutionTimer,
     heartbeat,
@@ -72,11 +87,18 @@ from galaxy.visualization.genomes import Genomes
 from galaxy.visualization.plugins.registry import VisualizationsRegistry
 from galaxy.web import url_for
 from galaxy.web.proxy import ProxyManager
-from galaxy.web_stack import application_stack_instance, ApplicationStack
+from galaxy.web_stack import (
+    application_stack_instance,
+    ApplicationStack,
+)
 from galaxy.webhooks import WebhooksRegistry
 from galaxy.workflow.trs_proxy import TrsProxy
 from .di import Container
-from .structured_app import BasicSharedApp, MinimalManagerApp, StructuredApp
+from .structured_app import (
+    BasicSharedApp,
+    MinimalManagerApp,
+    StructuredApp,
+)
 
 log = logging.getLogger(__name__)
 app = None
@@ -355,6 +377,7 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication):
         self.proxy_manager = ProxyManager(self.config)
 
         from galaxy.workflow import scheduling_manager
+
         # Must be initialized after job_config.
         self.workflow_scheduling_manager = scheduling_manager.WorkflowSchedulingManager(self)
 

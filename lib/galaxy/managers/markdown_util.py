@@ -28,6 +28,7 @@ from typing import (
 
 import markdown
 import pkg_resources
+
 try:
     import weasyprint
 except Exception:
@@ -48,7 +49,10 @@ from galaxy.model.item_attrs import get_item_annotation_str
 from galaxy.model.orm.now import now
 from galaxy.schema import PdfDocumentType
 from galaxy.util.sanitize_html import sanitize_html
-from .markdown_parse import GALAXY_MARKDOWN_FUNCTION_CALL_LINE, validate_galaxy_markdown
+from .markdown_parse import (
+    GALAXY_MARKDOWN_FUNCTION_CALL_LINE,
+    validate_galaxy_markdown,
+)
 
 log = logging.getLogger(__name__)
 

@@ -4,7 +4,10 @@ import fcntl
 import os
 import socket
 import struct
-from typing import Optional, Tuple
+from typing import (
+    Optional,
+    Tuple,
+)
 
 DEFAULT_WEB_HOST = socket.gethostbyname('localhost')
 

@@ -27,8 +27,8 @@ def add_ui_controllers(webapp, app):
     Search for controllers in the 'galaxy.webapps.controllers' module and add
     them to the webapp.
     """
-    from galaxy.webapps.base.controller import BaseUIController
     import galaxy.webapps.reports.controllers
+    from galaxy.webapps.base.controller import BaseUIController
     controller_dir = galaxy.webapps.reports.controllers.__path__[0]
     for fname in os.listdir(controller_dir):
         if not fname.startswith("_") and fname.endswith(".py"):

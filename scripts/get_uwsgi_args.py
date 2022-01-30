@@ -5,9 +5,11 @@ import sys
 sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, 'lib')))
 
 from galaxy.util.path import get_ext
-from galaxy.util.properties import load_app_properties, nice_config_parser
+from galaxy.util.properties import (
+    load_app_properties,
+    nice_config_parser,
+)
 from galaxy.util.script import main_factory
-
 
 DESCRIPTION = "Script to determine uWSGI command line arguments"
 # socket is not an alias for http, but it is assumed that if you configure a socket in your uwsgi config you do not

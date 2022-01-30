@@ -4,16 +4,30 @@ import os
 import re
 from abc import abstractmethod
 from json import dumps
-from typing import Any, cast, Dict, List, Set, Union
+from typing import (
+    Any,
+    cast,
+    Dict,
+    List,
+    Set,
+    Union,
+)
 
 from galaxy import model
 from galaxy.exceptions import ItemAccessibilityException
 from galaxy.job_execution.actions.post import ActionBox
-from galaxy.model import LibraryDatasetDatasetAssociation, WorkflowRequestInputParameter
+from galaxy.model import (
+    LibraryDatasetDatasetAssociation,
+    WorkflowRequestInputParameter,
+)
 from galaxy.model.dataset_collections.builder import CollectionBuilder
 from galaxy.model.none_like import NoneDataset
 from galaxy.tools.parameters import update_dataset_ids
-from galaxy.tools.parameters.basic import DataCollectionToolParameter, DataToolParameter, RuntimeValue
+from galaxy.tools.parameters.basic import (
+    DataCollectionToolParameter,
+    DataToolParameter,
+    RuntimeValue,
+)
 from galaxy.tools.parameters.wrapped import WrappedParameters
 from galaxy.util import ExecutionTimer
 from galaxy.util.template import fill_template

@@ -8,7 +8,16 @@ import datetime
 import logging
 import sys
 
-from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 from sqlalchemy.exc import NoSuchTableError
 
 # Need our custom types, but don't import anything else from model

@@ -4,9 +4,7 @@ API operations on Role objects.
 import json
 import logging
 
-from fastapi import (
-    Body,
-)
+from fastapi import Body
 
 from galaxy import web
 from galaxy.managers.base import decode_id

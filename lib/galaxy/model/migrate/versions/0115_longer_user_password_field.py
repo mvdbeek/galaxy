@@ -3,7 +3,11 @@ Expand the length of the password fields in the galaxy_user table to allow for o
 """
 import logging
 
-from sqlalchemy import MetaData, String, Table
+from sqlalchemy import (
+    MetaData,
+    String,
+    Table,
+)
 
 log = logging.getLogger(__name__)
 

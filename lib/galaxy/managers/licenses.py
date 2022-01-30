@@ -6,7 +6,7 @@ from pkg_resources import resource_string
 from pydantic import (
     BaseModel,
     Field,
-    HttpUrl
+    HttpUrl,
 )
 
 from galaxy import exceptions

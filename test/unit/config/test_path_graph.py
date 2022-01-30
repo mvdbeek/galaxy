@@ -4,7 +4,6 @@ from galaxy.config import BaseAppConfiguration
 from galaxy.config.schema import AppSchema
 from galaxy.exceptions import ConfigurationError
 
-
 # When a config property 'foo' has an attribute 'path_resolves_to', that attribute is a reference to
 # another property 'bar'. Together, these two properties form a graph where 'foo' and 'bar are
 # vertices and the reference from 'foo' to 'bar' is a directed edge.

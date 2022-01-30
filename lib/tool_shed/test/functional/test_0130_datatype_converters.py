@@ -1,4 +1,7 @@
-from ..base.twilltestcase import common, ShedTwillTestCase
+from ..base.twilltestcase import (
+    common,
+    ShedTwillTestCase,
+)
 
 repository_name = 'bed_to_gff_0130'
 repository_description = "Converter: BED to GFF"

@@ -7,9 +7,7 @@ from collections import (
 from typing import Set
 
 from galaxy import exceptions
-from galaxy.util import (
-    plugin_config
-)
+from galaxy.util import plugin_config
 from galaxy.util.dictifiable import Dictifiable
 
 log = logging.getLogger(__name__)

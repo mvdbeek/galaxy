@@ -11,7 +11,6 @@ from galaxy.job_execution.setup import JobIO
 from galaxy.model import Job
 from galaxy.model.unittest_utils import GalaxyDataTestApp
 
-
 WORKING_DIRECTORY = '/tmp'
 VERSION_PATH = '/tmp/version'
 GALAXY_URL = 'http://galaxy'

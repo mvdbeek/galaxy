@@ -10,12 +10,12 @@ import logging
 
 from sqlalchemy import (
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.migrate.versions.util import (
     add_index,
-    drop_index
+    drop_index,
 )
 
 log = logging.getLogger(__name__)

@@ -1,6 +1,4 @@
-from ..locations import (
-    ToolLocationResolver,
-)
+from ..locations import ToolLocationResolver
 
 
 class HttpToolResolver(ToolLocationResolver):

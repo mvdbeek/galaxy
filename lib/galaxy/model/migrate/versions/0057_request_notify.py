@@ -10,7 +10,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.custom_types import JSONType

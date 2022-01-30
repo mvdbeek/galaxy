@@ -35,35 +35,36 @@ from webob.compat import cgi_FieldStorage
 
 from galaxy import (
     exceptions,
-    model
+    model,
 )
 from galaxy.exceptions import ToolInputsNotReadyException
 from galaxy.job_execution import output_collect
 from galaxy.metadata import get_metadata_compute_strategy
 from galaxy.tool_shed.util.repository_util import get_installed_repository
 from galaxy.tool_shed.util.shed_util_common import set_image_paths
-from galaxy.tool_util.deps import (
-    CachedDependencyManager,
-)
+from galaxy.tool_util.deps import CachedDependencyManager
 from galaxy.tool_util.fetcher import ToolLocationFetcher
 from galaxy.tool_util.loader import (
     imported_macro_paths,
     raw_tool_xml_tree,
-    template_macro_params
+    template_macro_params,
 )
 from galaxy.tool_util.output_checker import DETECTED_JOB_STATE
 from galaxy.tool_util.parser import (
     get_tool_source,
     get_tool_source_from_representation,
     RequiredFiles,
-    ToolOutputCollectionPart
+    ToolOutputCollectionPart,
 )
 from galaxy.tool_util.parser.xml import XmlPageSource
 from galaxy.tool_util.provided_metadata import parse_tool_provided_metadata
 from galaxy.tool_util.toolbox import BaseGalaxyToolBox
 from galaxy.tool_util.toolbox.views.sources import StaticToolBoxViewSources
 from galaxy.tools import expressions
-from galaxy.tools.actions import DefaultToolAction, ToolAction
+from galaxy.tools.actions import (
+    DefaultToolAction,
+    ToolAction,
+)
 from galaxy.tools.actions.data_manager import DataManagerToolAction
 from galaxy.tools.actions.data_source import DataSourceToolAction
 from galaxy.tools.actions.model_operations import ModelOperationToolAction
@@ -76,7 +77,7 @@ from galaxy.tools.parameters import (
     params_to_incoming,
     params_to_strings,
     populate_state,
-    visit_input_values
+    visit_input_values,
 )
 from galaxy.tools.parameters.basic import (
     BaseURLToolParameter,
@@ -92,7 +93,13 @@ from galaxy.tools.parameters.dataset_matcher import (
     set_dataset_matcher_factory,
     unset_dataset_matcher_factory,
 )
-from galaxy.tools.parameters.grouping import Conditional, ConditionalWhen, Repeat, Section, UploadDataset
+from galaxy.tools.parameters.grouping import (
+    Conditional,
+    ConditionalWhen,
+    Repeat,
+    Section,
+    UploadDataset,
+)
 from galaxy.tools.parameters.input_translation import ToolInputTranslator
 from galaxy.tools.parameters.meta import expand_meta_parameters
 from galaxy.tools.parameters.wrapped_json import json_wrap
@@ -123,14 +130,12 @@ from galaxy.util.tool_shed.common_util import (
 )
 from galaxy.version import VERSION_MAJOR
 from galaxy.work.context import proxy_work_context_for_history
-from .execute import (
-    execute as execute_job,
-    MappingParameters,
-)
+from .execute import execute as execute_job
+from .execute import MappingParameters
 
 if TYPE_CHECKING:
-    from galaxy.tools.actions.metadata import SetMetadataToolAction
     from galaxy.managers.jobs import JobSearch
+    from galaxy.tools.actions.metadata import SetMetadataToolAction
 
 log = logging.getLogger(__name__)
 

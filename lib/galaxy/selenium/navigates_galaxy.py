@@ -9,8 +9,14 @@ import random
 import string
 import time
 from abc import abstractmethod
-from functools import partial, wraps
-from typing import cast, Union
+from functools import (
+    partial,
+    wraps,
+)
+from typing import (
+    cast,
+    Union,
+)
 
 import requests
 import yaml
@@ -19,10 +25,11 @@ from selenium.webdriver.remote.webdriver import WebDriver
 
 from galaxy.util import DEFAULT_SOCKET_TIMEOUT
 from . import sizzle
-from .components import Component, HasText
-from .data import (
-    load_root_component,
+from .components import (
+    Component,
+    HasText,
 )
+from .data import load_root_component
 from .has_driver import (
     exception_indicates_not_clickable,
     exception_indicates_stale_element,

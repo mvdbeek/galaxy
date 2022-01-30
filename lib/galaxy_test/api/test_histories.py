@@ -1,8 +1,6 @@
 import time
 
-from requests import (
-    put
-)
+from requests import put
 
 from galaxy_test.api.sharable import SharingApiTests
 from galaxy_test.base.populators import (

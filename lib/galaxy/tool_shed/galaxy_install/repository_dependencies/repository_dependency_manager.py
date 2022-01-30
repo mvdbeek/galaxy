@@ -27,8 +27,10 @@ from galaxy.util import (
     unicodify,
     url_get,
 )
-from galaxy.util.tool_shed import common_util
-from galaxy.util.tool_shed import encoding_util
+from galaxy.util.tool_shed import (
+    common_util,
+    encoding_util,
+)
 
 log = logging.getLogger(__name__)
 

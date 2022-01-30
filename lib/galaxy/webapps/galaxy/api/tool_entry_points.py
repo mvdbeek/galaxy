@@ -3,7 +3,10 @@ related to running and queued jobs.
 """
 import logging
 
-from galaxy import exceptions, util
+from galaxy import (
+    exceptions,
+    util,
+)
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.model import (
     InteractiveToolEntryPoint,

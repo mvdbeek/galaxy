@@ -4,10 +4,16 @@ Plugins resource control over the API.
 import logging
 
 from galaxy import exceptions
-from galaxy.managers import hdas, histories
+from galaxy.managers import (
+    hdas,
+    histories,
+)
 from galaxy.util import asbool
 from galaxy.web import expose_api
-from . import BaseGalaxyAPIController, depends
+from . import (
+    BaseGalaxyAPIController,
+    depends,
+)
 
 log = logging.getLogger(__name__)
 

@@ -2,14 +2,23 @@ import logging
 import time
 from typing import Optional
 
-from sqlalchemy import false, func
+from sqlalchemy import (
+    false,
+    func,
+)
 
-from galaxy import util, web
+from galaxy import (
+    util,
+    web,
+)
 from galaxy.security.validate_user_input import validate_password
 from galaxy.util import inflector
 from galaxy.util.hash_util import new_secure_hash
 from galaxy.web.form_builder import CheckboxField
-from galaxy.web.legacy_framework.grids import Grid, GridOperation
+from galaxy.web.legacy_framework.grids import (
+    Grid,
+    GridOperation,
+)
 from tool_shed.util.web_util import escape
 
 log = logging.getLogger(__name__)

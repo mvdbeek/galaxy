@@ -29,7 +29,7 @@ from galaxy.managers import (
     ratable,
     secured,
     taggable,
-    users
+    users,
 )
 from galaxy.model import (
     User,

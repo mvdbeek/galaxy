@@ -2,17 +2,21 @@
 Manager and Serializer for libraries.
 """
 import logging
-from typing import (
-    Optional,
+from typing import Optional
+
+from sqlalchemy import (
+    and_,
+    false,
+    not_,
+    or_,
+    true,
+)
+from sqlalchemy.orm.exc import (
+    MultipleResultsFound,
+    NoResultFound,
 )
 
-from sqlalchemy import and_, false, not_, or_, true
-from sqlalchemy.orm.exc import MultipleResultsFound
-from sqlalchemy.orm.exc import NoResultFound
-
-from galaxy import (
-    exceptions,
-)
+from galaxy import exceptions
 from galaxy.managers.folders import FolderManager
 from galaxy.util import (
     pretty_print_time_interval,

@@ -6,7 +6,10 @@ from functools import wraps
 from sqlalchemy import or_
 
 import tool_shed.repository_types.util as rt_util
-from galaxy import util, web
+from galaxy import (
+    util,
+    web,
+)
 from galaxy.exceptions import ConfigDoesNotAllowException
 from galaxy.tool_shed.galaxy_install import install_manager
 from galaxy.tool_shed.galaxy_install.repository_dependencies import repository_dependency_manager
@@ -22,7 +25,9 @@ from tool_shed.util import (
     hg_util,
     readme_util,
     repository_util,
-    shed_util_common as suc,
+)
+from tool_shed.util import shed_util_common as suc
+from tool_shed.util import (
     tool_dependency_util,
     tool_util,
 )

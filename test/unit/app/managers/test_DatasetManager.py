@@ -6,12 +6,12 @@ import sqlalchemy
 
 from galaxy import (
     exceptions,
-    model
+    model,
 )
 from galaxy.managers.base import SkipAttribute
 from galaxy.managers.datasets import (
     DatasetManager,
-    DatasetSerializer
+    DatasetSerializer,
 )
 from galaxy.managers.roles import RoleManager
 from .base import BaseTestCase

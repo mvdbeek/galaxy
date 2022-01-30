@@ -18,9 +18,7 @@ from kombu import (
     uuid,
 )
 from kombu.mixins import ConsumerProducerMixin
-from kombu.pools import (
-    producers,
-)
+from kombu.pools import producers
 
 import galaxy.queues
 from galaxy import util

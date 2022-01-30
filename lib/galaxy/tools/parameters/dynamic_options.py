@@ -12,11 +12,11 @@ from galaxy.model import (
     HistoryDatasetAssociation,
     HistoryDatasetCollectionAssociation,
     MetadataFile,
-    User
+    User,
 )
 from galaxy.tools.wrappers import (
     DatasetFilenameWrapper,
-    DatasetListWrapper
+    DatasetListWrapper,
 )
 from galaxy.util import string_as_bool
 from . import validation

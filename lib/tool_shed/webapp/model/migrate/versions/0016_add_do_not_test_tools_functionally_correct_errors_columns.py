@@ -5,7 +5,13 @@ Migration script to add the tool_test_errors, do_not_test, tools_functionally_co
 import logging
 import sys
 
-from sqlalchemy import Boolean, Column, DateTime, MetaData, Table
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    MetaData,
+    Table,
+)
 
 # Need our custom types, but don't import anything else from model
 from galaxy.model.custom_types import JSONType

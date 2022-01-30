@@ -5,9 +5,18 @@ workflows, and pages. Script adds published column to histories and workflows an
 
 import logging
 
-from sqlalchemy import Boolean, Column, Index, MetaData, Table
+from sqlalchemy import (
+    Boolean,
+    Column,
+    Index,
+    MetaData,
+    Table,
+)
 
-from galaxy.model.migrate.versions.util import add_column, drop_column
+from galaxy.model.migrate.versions.util import (
+    add_column,
+    drop_column,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

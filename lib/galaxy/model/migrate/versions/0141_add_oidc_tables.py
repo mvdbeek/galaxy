@@ -4,7 +4,15 @@ Migration script to add a new tables for an OpenID Connect authentication and au
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, Table, TEXT, VARCHAR
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+    VARCHAR,
+)
 
 from galaxy.model.custom_types import JSONType
 

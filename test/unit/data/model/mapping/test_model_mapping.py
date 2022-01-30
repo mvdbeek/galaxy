@@ -60,11 +60,20 @@ class TestPlanet(BaseTest):  # BaseTest is a base class; we need it to get the t
 See other model tests in this module for examples of more complex setups.
 """
 
-from datetime import datetime, timedelta
-from uuid import UUID, uuid4
+from datetime import (
+    datetime,
+    timedelta,
+)
+from uuid import (
+    UUID,
+    uuid4,
+)
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import (
+    func,
+    select,
+)
 
 from galaxy import model
 from .common import (

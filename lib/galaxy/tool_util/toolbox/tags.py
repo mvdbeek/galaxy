@@ -3,9 +3,8 @@
 import logging
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
-
 
 log = logging.getLogger(__name__)
 

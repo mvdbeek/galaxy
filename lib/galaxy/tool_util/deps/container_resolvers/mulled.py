@@ -7,7 +7,10 @@ from abc import (
     ABCMeta,
     abstractmethod,
 )
-from typing import NamedTuple, Optional
+from typing import (
+    NamedTuple,
+    Optional,
+)
 
 from galaxy.util import (
     safe_makedirs,
@@ -17,9 +20,7 @@ from galaxy.util import (
 )
 from galaxy.util.commands import shell
 from ..container_classes import CONTAINER_CLASSES
-from ..container_resolvers import (
-    ContainerResolver,
-)
+from ..container_resolvers import ContainerResolver
 from ..docker_util import build_docker_images_command
 from ..mulled.mulled_build import (
     DEFAULT_CHANNELS,

@@ -4,7 +4,7 @@ Subsystems are essentially monitoring plugins available within collectl.
 """
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
 
 

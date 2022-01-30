@@ -10,11 +10,22 @@ import json
 import logging
 import os
 import pickle
-from abc import ABCMeta, abstractmethod
-from typing import Dict, List, overload, Union
+from abc import (
+    ABCMeta,
+    abstractmethod,
+)
+from typing import (
+    Dict,
+    List,
+    overload,
+    Union,
+)
 from uuid import uuid4
 
-from typing_extensions import Literal, TypedDict
+from typing_extensions import (
+    Literal,
+    TypedDict,
+)
 
 from galaxy.exceptions import MessageException
 from galaxy.util import (

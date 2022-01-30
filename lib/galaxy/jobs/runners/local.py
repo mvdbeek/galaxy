@@ -11,17 +11,15 @@ from time import sleep
 
 from galaxy import model
 from galaxy.job_execution.output_collect import default_exit_code_file
-from galaxy.util import (
-    asbool,
-)
+from galaxy.util import asbool
 from galaxy.util.commands import new_clean_env
 from . import (
     BaseJobRunner,
-    JobState
+    JobState,
 )
 from .util.process_groups import (
     check_pg,
-    kill_pg
+    kill_pg,
 )
 
 log = logging.getLogger(__name__)

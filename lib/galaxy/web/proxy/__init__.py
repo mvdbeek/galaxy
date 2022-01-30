@@ -9,10 +9,13 @@ import requests
 from galaxy.util import (
     sockets,
     sqlite,
-    unique_id
+    unique_id,
 )
 from galaxy.util.filelock import FileLock
-from galaxy.util.lazy_process import LazyProcess, NoOpLazyProcess
+from galaxy.util.lazy_process import (
+    LazyProcess,
+    NoOpLazyProcess,
+)
 from galaxy.web.framework import url_for
 
 log = logging.getLogger(__name__)

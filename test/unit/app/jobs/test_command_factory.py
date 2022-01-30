@@ -2,7 +2,10 @@ import os
 import shutil
 from os import getcwd
 from tempfile import mkdtemp
-from typing import List, Tuple
+from typing import (
+    List,
+    Tuple,
+)
 from unittest import TestCase
 
 from galaxy.jobs.command_factory import (

@@ -4,9 +4,10 @@ Contains OpenID provider functionality
 import logging
 import os
 
-
-from galaxy.util import parse_xml, string_as_bool
-
+from galaxy.util import (
+    parse_xml,
+    string_as_bool,
+)
 
 log = logging.getLogger(__name__)
 

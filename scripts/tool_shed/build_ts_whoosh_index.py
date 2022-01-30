@@ -20,7 +20,7 @@ sys.path.insert(1, os.path.abspath(os.path.join(os.path.dirname(__file__), os.pa
 
 from galaxy.util.script import (
     app_properties_from_args,
-    populate_config_args
+    populate_config_args,
 )
 from tool_shed.util.shed_index import build_index
 from tool_shed.webapp import config as ts_config

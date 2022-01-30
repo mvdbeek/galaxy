@@ -7,7 +7,7 @@ from urllib.request import (
     HTTPRedirectHandler,
     install_opener,
     Request,
-    urlopen
+    urlopen,
 )
 
 sys.path.insert(1, os.path.join(os.path.dirname(__file__), os.pardir, os.pardir, os.pardir, 'lib'))

@@ -6,7 +6,15 @@ import datetime
 import logging
 import sys
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

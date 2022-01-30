@@ -12,7 +12,6 @@ from galaxy.util import (
     string_as_bool,
 )
 
-
 log = logging.getLogger(__name__)
 
 AUTH_CONF_XML = """<?xml version="1.0"?>

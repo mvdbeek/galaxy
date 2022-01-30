@@ -5,7 +5,11 @@ Remove any OpenID entries with nonunique GenomeSpace Identifier
 
 import logging
 
-from sqlalchemy import Column, MetaData, Table
+from sqlalchemy import (
+    Column,
+    MetaData,
+    Table,
+)
 
 from galaxy.model.custom_types import TrimmedString
 

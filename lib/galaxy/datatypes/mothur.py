@@ -11,7 +11,7 @@ from galaxy.datatypes.sniff import (
     build_sniff_from_prefix,
     FilePrefix,
     get_headers,
-    iter_headers
+    iter_headers,
 )
 from galaxy.datatypes.tabular import Tabular
 from galaxy.util import unicodify

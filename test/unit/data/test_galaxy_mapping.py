@@ -7,7 +7,10 @@ from tempfile import NamedTemporaryFile
 from typing import List
 
 import pytest
-from sqlalchemy import inspect, select
+from sqlalchemy import (
+    inspect,
+    select,
+)
 
 import galaxy.datatypes.registry
 import galaxy.model

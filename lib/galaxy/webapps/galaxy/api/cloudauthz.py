@@ -15,14 +15,12 @@ from galaxy.exceptions import (
     InternalServerError,
     MalformedId,
     RequestParameterInvalidException,
-    RequestParameterMissingException
+    RequestParameterMissingException,
 )
 from galaxy.managers import cloudauthzs
 from galaxy.structured_app import StructuredApp
 from galaxy.util import unicodify
-from galaxy.web import (
-    expose_api
-)
+from galaxy.web import expose_api
 from . import BaseGalaxyAPIController
 
 log = logging.getLogger(__name__)

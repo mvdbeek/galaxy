@@ -4,7 +4,14 @@ Migration script to add a new job_to_input_dataset_collection_element table to t
 
 import logging
 
-from sqlalchemy import Column, ForeignKey, Integer, MetaData, Table, Unicode
+from sqlalchemy import (
+    Column,
+    ForeignKey,
+    Integer,
+    MetaData,
+    Table,
+    Unicode,
+)
 
 log = logging.getLogger(__name__)
 metadata = MetaData()

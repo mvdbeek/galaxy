@@ -12,7 +12,10 @@ import threading
 import time
 from datetime import datetime
 
-from galaxy.exceptions import ObjectInvalid, ObjectNotFound
+from galaxy.exceptions import (
+    ObjectInvalid,
+    ObjectNotFound,
+)
 from galaxy.util import (
     directory_hash_id,
     safe_relpath,
@@ -21,9 +24,16 @@ from galaxy.util import (
 )
 from galaxy.util.sleeper import Sleeper
 from .s3 import parse_config_xml
-from ..objectstore import ConcreteObjectStore, convert_bytes
+from ..objectstore import (
+    ConcreteObjectStore,
+    convert_bytes,
+)
+
 try:
-    from cloudbridge.factory import CloudProviderFactory, ProviderList
+    from cloudbridge.factory import (
+        CloudProviderFactory,
+        ProviderList,
+    )
     from cloudbridge.interfaces.exceptions import InvalidNameException
 except ImportError:
     CloudProviderFactory = None

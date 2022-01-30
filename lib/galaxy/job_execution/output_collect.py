@@ -5,7 +5,13 @@ import operator
 import os
 import re
 from tempfile import NamedTemporaryFile
-from typing import Callable, Dict, List, Optional, Union
+from typing import (
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Union,
+)
 
 from sqlalchemy.orm.scoping import ScopedSession
 
@@ -23,9 +29,11 @@ from galaxy.model.store.discover import (
     discover_target_directory,
     DiscoveredFile,
     JsonCollectedDatasetMatch,
-    MetadataSourceProvider as AbstractMetadataSourceProvider,
-    ModelPersistenceContext,
-    PermissionProvider as AbstractPermissionProvider,
+)
+from galaxy.model.store.discover import MetadataSourceProvider as AbstractMetadataSourceProvider
+from galaxy.model.store.discover import ModelPersistenceContext
+from galaxy.model.store.discover import PermissionProvider as AbstractPermissionProvider
+from galaxy.model.store.discover import (
     persist_elements_to_folder,
     persist_elements_to_hdca,
     persist_hdas,

@@ -6,7 +6,16 @@ OpenIDs.
 import datetime
 import logging
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, MetaData, Table, TEXT
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    MetaData,
+    Table,
+    TEXT,
+)
 
 now = datetime.datetime.utcnow
 log = logging.getLogger(__name__)

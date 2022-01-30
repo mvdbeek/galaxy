@@ -34,7 +34,6 @@ from ..conda_util import (
     USE_PATH_EXEC_DEFAULT,
 )
 
-
 DEFAULT_BASE_PATH_DIRECTORY = "_conda"
 DEFAULT_CONDARC_OVERRIDE = "_condarc"
 # Conda channel order from highest to lowest, following the one used in

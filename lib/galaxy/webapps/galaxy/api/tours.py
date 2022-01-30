@@ -11,7 +11,7 @@ from galaxy.tours import (
 from galaxy.web import (
     expose_api,
     expose_api_anonymous_and_sessionless,
-    require_admin
+    require_admin,
 )
 from . import (
     BaseGalaxyAPIController,

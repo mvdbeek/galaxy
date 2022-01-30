@@ -10,7 +10,6 @@ from collections.abc import (
     Sequence,
 )
 
-
 from ..util import unicodify
 
 __all__ = ("safe_dumps", "validate_jsonrpc_request", "validate_jsonrpc_response", "jsonrpc_request", "jsonrpc_response")

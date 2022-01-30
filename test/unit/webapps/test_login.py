@@ -1,5 +1,8 @@
 import json
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 from unittest import TestCase
 
 from galaxy import model

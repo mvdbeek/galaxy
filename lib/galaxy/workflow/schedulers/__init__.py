@@ -4,7 +4,7 @@ scheduling plugins will almost certainly change.
 """
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
 
 

@@ -4,7 +4,7 @@ from time import strftime
 
 from paste.httpexceptions import (
     HTTPBadRequest,
-    HTTPForbidden
+    HTTPForbidden,
 )
 from sqlalchemy import (
     and_,
@@ -14,7 +14,7 @@ from sqlalchemy import (
 
 from galaxy import (
     exceptions,
-    util
+    util,
 )
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.model.tool_shed_install import ToolShedRepository
@@ -32,10 +32,9 @@ from galaxy.tool_shed.util.tool_util import generate_message_for_invalid_tools
 from galaxy.web import (
     expose_api,
     require_admin,
-    url_for
+    url_for,
 )
 from . import BaseGalaxyAPIController
-
 
 log = logging.getLogger(__name__)
 

@@ -1,4 +1,7 @@
-from galaxy.model import DatasetCollectionElement, HistoryDatasetAssociation
+from galaxy.model import (
+    DatasetCollectionElement,
+    HistoryDatasetAssociation,
+)
 from ..types import BaseDatasetCollectionType
 
 FORWARD_IDENTIFIER = "forward"

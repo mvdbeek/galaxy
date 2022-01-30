@@ -5,7 +5,7 @@ from os import urandom
 from galaxy.util import (
     safe_str_cmp,
     smart_str,
-    unicodify
+    unicodify,
 )
 
 SALT_LENGTH = 12

@@ -8,12 +8,17 @@ from datetime import datetime
 
 from sqlalchemy import desc
 
-from galaxy import exceptions, model
+from galaxy import (
+    exceptions,
+    model,
+)
 from galaxy.managers import base as base_manager
-from galaxy.managers import histories, users
+from galaxy.managers import (
+    histories,
+    users,
+)
 from galaxy.security.passwords import check_password
 from .base import BaseTestCase
-
 
 # =============================================================================
 default_password = '123456'

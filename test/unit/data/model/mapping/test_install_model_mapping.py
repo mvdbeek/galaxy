@@ -2,7 +2,10 @@
 See documentation + annotated examples for these tests in test_model_mapping.py.
 """
 
-from datetime import datetime, timedelta
+from datetime import (
+    datetime,
+    timedelta,
+)
 
 import pytest
 

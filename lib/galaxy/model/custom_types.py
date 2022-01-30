@@ -15,12 +15,12 @@ from sqlalchemy.types import (
     CHAR,
     LargeBinary,
     String,
-    TypeDecorator
+    TypeDecorator,
 )
 
 from galaxy.util import (
     smart_str,
-    unicodify
+    unicodify,
 )
 from galaxy.util.aliaspickler import AliasPickleModule
 

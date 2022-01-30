@@ -7,12 +7,12 @@ table, the 'content' column is now a JSON dict instead of a list.
 import logging
 from json import (
     dumps,
-    loads
+    loads,
 )
 
 from sqlalchemy import (
     MetaData,
-    Table
+    Table,
 )
 
 from galaxy.model.custom_types import _sniffnfix_pg9_hex

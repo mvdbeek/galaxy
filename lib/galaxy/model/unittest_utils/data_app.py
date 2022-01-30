@@ -9,13 +9,18 @@ import os
 import shutil
 import tempfile
 
-from galaxy import model, objectstore
+from galaxy import (
+    model,
+    objectstore,
+)
 from galaxy.datatypes import registry
-from galaxy.model.mapping import GalaxyModelMapping, init
+from galaxy.model.mapping import (
+    GalaxyModelMapping,
+    init,
+)
 from galaxy.model.security import GalaxyRBACAgent
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.util.bunch import Bunch
-
 
 GALAXY_TEST_UNITTEST_SECRET = '6e46ed6483a833c100e68cc3f1d0dd76'
 GALAXY_TEST_IN_MEMORY_DB_CONNECTION = "sqlite:///:memory:"

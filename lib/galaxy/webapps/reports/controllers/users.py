@@ -4,7 +4,7 @@ import operator
 from datetime import (
     date,
     datetime,
-    timedelta
+    timedelta,
 )
 
 import sqlalchemy as sa
@@ -13,7 +13,10 @@ from sqlalchemy import false
 
 import galaxy.model
 from galaxy import util
-from galaxy.webapps.base.controller import BaseUIController, web
+from galaxy.webapps.base.controller import (
+    BaseUIController,
+    web,
+)
 from galaxy.webapps.reports.controllers.jobs import sorter
 from galaxy.webapps.reports.controllers.query import ReportQueryBuilder
 

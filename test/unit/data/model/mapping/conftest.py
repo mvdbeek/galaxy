@@ -1,6 +1,9 @@
 import pytest
 from sqlalchemy import create_engine
-from sqlalchemy.orm import scoped_session, sessionmaker
+from sqlalchemy.orm import (
+    scoped_session,
+    sessionmaker,
+)
 
 
 @pytest.fixture(scope='module')

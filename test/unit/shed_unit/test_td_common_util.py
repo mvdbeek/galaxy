@@ -1,6 +1,9 @@
 from contextlib import contextmanager
 from os.path import join
-from typing import Any, Dict
+from typing import (
+    Any,
+    Dict,
+)
 
 from galaxy.tool_shed.galaxy_install.tool_dependencies.env_manager import EnvManager
 from galaxy.tool_shed.galaxy_install.tool_dependencies.recipe.env_file_builder import EnvFileBuilder

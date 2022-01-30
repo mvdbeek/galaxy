@@ -4,7 +4,7 @@ These are responsible for collecting and formatting a coherent set of metrics.
 """
 from abc import (
     ABCMeta,
-    abstractmethod
+    abstractmethod,
 )
 
 

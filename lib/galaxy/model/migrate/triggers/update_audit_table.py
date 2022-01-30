@@ -1,6 +1,5 @@
 from galaxy.model.migrate.versions.util import execute_statements
 
-
 # function name prefix
 fn_prefix = "fn_audit_history_by"
 

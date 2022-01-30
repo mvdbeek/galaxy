@@ -9,7 +9,7 @@ from .. import formatting
 from ..collectl import (
     cli,
     processes,
-    subsystems
+    subsystems,
 )
 
 log = logging.getLogger(__name__)

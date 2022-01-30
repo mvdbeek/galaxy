@@ -14,12 +14,12 @@ from galaxy.jobs import JobDestination
 from galaxy.jobs.handler import DEFAULT_JOB_PUT_FAILURE_MESSAGE
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
-    AsynchronousJobState
+    AsynchronousJobState,
 )
 from galaxy.util import (
     asbool,
     commands,
-    unicodify
+    unicodify,
 )
 
 drmaa = None

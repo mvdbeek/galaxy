@@ -11,7 +11,7 @@ from galaxy_test.driver import integration_util
 from ..test_datatype_upload import (
     TEST_CASES,
     upload_datatype_helper,
-    UploadTestDatatypeDataTestCase
+    UploadTestDatatypeDataTestCase,
 )
 
 SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))

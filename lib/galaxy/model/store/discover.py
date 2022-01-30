@@ -8,9 +8,7 @@ corresponding to files in other contexts.
 import abc
 import logging
 import os
-from collections import (
-    namedtuple,
-)
+from collections import namedtuple
 from typing import (
     Any,
     Callable,
@@ -26,20 +24,21 @@ from sqlalchemy.orm.scoping import ScopedSession
 
 import galaxy.model
 from galaxy import util
-from galaxy.exceptions import (
-    RequestParameterInvalidException
-)
+from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.model.dataset_collections import builder
 from galaxy.model.tags import GalaxySessionlessTagHandler
 from galaxy.objectstore import ObjectStore
 from galaxy.util import (
     chunk_iterable,
-    ExecutionTimer
+    ExecutionTimer,
 )
 from galaxy.util.hash_util import HASH_NAME_MAP
 
 if TYPE_CHECKING:
-    from galaxy.job_execution.output_collect import JobContext, SessionlessJobContext
+    from galaxy.job_execution.output_collect import (
+        JobContext,
+        SessionlessJobContext,
+    )
 
 
 log = logging.getLogger(__name__)

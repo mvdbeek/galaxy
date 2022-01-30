@@ -7,7 +7,12 @@ from pydantic import (
     BaseModel,
     Field,
 )
-from sqlalchemy import and_, false, func, or_
+from sqlalchemy import (
+    and_,
+    false,
+    func,
+    or_,
+)
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql import select
 

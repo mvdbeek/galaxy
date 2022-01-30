@@ -6,7 +6,13 @@ import imp
 import logging
 import os
 from string import Template
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import (
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    TYPE_CHECKING,
+)
 
 import yaml
 
@@ -24,7 +30,7 @@ from . import (
     tabular,
     text,
     tracks,
-    xml
+    xml,
 )
 from .display_applications.application import DisplayApplication
 

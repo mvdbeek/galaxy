@@ -3,17 +3,15 @@ import logging
 
 from galaxy import (
     model,
-    util
+    util,
 )
 from galaxy.exceptions import (
     InsufficientPermissionsException,
     InternalServerError,
     ObjectNotFound,
-    RequestParameterInvalidException
+    RequestParameterInvalidException,
 )
-from galaxy.managers import (
-    datasets,
-)
+from galaxy.managers import datasets
 from galaxy.model import tags
 from galaxy.structured_app import MinimalManagerApp
 from galaxy.util import validation

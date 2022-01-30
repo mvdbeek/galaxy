@@ -6,9 +6,12 @@ from sqlalchemy import false
 
 from galaxy import (
     util,
-    web
+    web,
 )
-from galaxy.webapps.base.controller import BaseUIController, UsesFormDefinitionsMixin
+from galaxy.webapps.base.controller import (
+    BaseUIController,
+    UsesFormDefinitionsMixin,
+)
 
 
 class User(BaseUIController, UsesFormDefinitionsMixin):

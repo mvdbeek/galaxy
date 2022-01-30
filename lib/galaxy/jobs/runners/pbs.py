@@ -15,12 +15,12 @@ except ImportError as exc:
 
 from galaxy import (
     model,
-    util
+    util,
 )
 from galaxy.jobs import JobDestination
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
-    AsynchronousJobState
+    AsynchronousJobState,
 )
 from galaxy.util.bunch import Bunch
 

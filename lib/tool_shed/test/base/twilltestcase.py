@@ -13,7 +13,11 @@ from urllib.parse import (
 
 import requests
 import twill.commands as tc
-from mercurial import commands, hg, ui
+from mercurial import (
+    commands,
+    hg,
+    ui,
+)
 from twill.utils import ResultWrapper
 
 import galaxy.model.tool_shed_install as galaxy_model
@@ -31,7 +35,10 @@ from tool_shed.util import (
     hgweb_config,
     xml_util,
 )
-from . import common, test_db_util
+from . import (
+    common,
+    test_db_util,
+)
 
 # Set a 10 minute timeout for repository installation.
 repository_installation_timeout = 600

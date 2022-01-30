@@ -18,9 +18,16 @@ from galaxy.model import tags
 from galaxy.model.base import SharedModelMapping
 from galaxy.model.mapping import GalaxyModelMapping
 from galaxy.model.scoped_session import galaxy_scoped_session
-from galaxy.model.unittest_utils import GalaxyDataTestApp, GalaxyDataTestConfig
+from galaxy.model.unittest_utils import (
+    GalaxyDataTestApp,
+    GalaxyDataTestConfig,
+)
 from galaxy.security import idencoding
-from galaxy.structured_app import BasicSharedApp, MinimalManagerApp, StructuredApp
+from galaxy.structured_app import (
+    BasicSharedApp,
+    MinimalManagerApp,
+    StructuredApp,
+)
 from galaxy.tool_util.deps.containers import NullContainerFinder
 from galaxy.tools.data import ToolDataTableManager
 from galaxy.util import StructuredExecutionTimer

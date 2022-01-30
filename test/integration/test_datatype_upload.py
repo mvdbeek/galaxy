@@ -8,7 +8,7 @@ from galaxy.datatypes.registry import Registry
 from galaxy.util.checkers import (
     is_bz2,
     is_gzip,
-    is_zip
+    is_zip,
 )
 from galaxy.util.hash_util import md5_hash_file
 from galaxy_test.driver import integration_util

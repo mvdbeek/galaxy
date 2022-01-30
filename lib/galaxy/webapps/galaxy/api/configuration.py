@@ -7,24 +7,20 @@ from typing import (
     Any,
     Dict,
     List,
-    Optional
+    Optional,
 )
 
 from fastapi import Path
 
 from galaxy.managers.configuration import ConfigurationManager
-from galaxy.managers.context import (
-    ProvidesUserContext,
-)
-from galaxy.managers.users import (
-    UserManager,
-)
+from galaxy.managers.context import ProvidesUserContext
+from galaxy.managers.users import UserManager
 from galaxy.schema.fields import EncodedDatabaseIdField
 from galaxy.schema.schema import UserModel
 from galaxy.web import (
     expose_api,
     expose_api_anonymous_and_sessionless,
-    require_admin
+    require_admin,
 )
 from . import (
     BaseGalaxyAPIController,

@@ -8,7 +8,7 @@ import shutil
 from galaxy import (
     exceptions,
     model,
-    util
+    util,
 )
 from galaxy.web import (
     expose_api_anonymous_and_sessionless,

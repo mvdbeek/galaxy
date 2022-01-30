@@ -6,9 +6,15 @@ except ImportError:
     def nottest(x):
         return x
 
-from galaxy.tool_util.verify.interactor import GalaxyInteractorApi, verify_tool
+from galaxy.tool_util.verify.interactor import (
+    GalaxyInteractorApi,
+    verify_tool,
+)
 from galaxy.tools import DataManagerTool
-from galaxy_test.base.env import setup_keep_outdir, target_url_parts
+from galaxy_test.base.env import (
+    setup_keep_outdir,
+    target_url_parts,
+)
 from galaxy_test.base.instrument import register_job_data
 from galaxy_test.driver.testcase import DrivenFunctionalTestCase
 

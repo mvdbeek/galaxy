@@ -16,7 +16,7 @@ import tempfile
 logging.getLogger("isatools.isatab").setLevel(logging.ERROR)
 from isatools import (
     isajson,
-    isatab_meta
+    isatab_meta,
 )
 from markupsafe import escape
 
