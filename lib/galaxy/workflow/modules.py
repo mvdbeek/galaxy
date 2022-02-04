@@ -189,7 +189,7 @@ class WorkflowModule:
         """ This returns a step related error message as string or None """
         return None
 
-    def get_inputs(self):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
         """ This returns inputs displayed in the workflow editor """
         return {}
 
@@ -220,9 +220,10 @@ class WorkflowModule:
 
     def get_config_form(self, step=None):
         """ Serializes input parameters of a module into input dictionaries. """
+        connections = step and step.output_connections
         return {
             'title': self.name,
-            'inputs': [param.to_dict(self.trans) for param in self.get_inputs().values()]
+            'inputs': [param.to_dict(self.trans) for param in self.get_inputs(connections=connections).values()]
         }
 
     # ---- Run time ---------------------------------------------------------
@@ -741,7 +742,7 @@ class InputDataModule(InputModule):
         input_param = DataToolParameter(None, data_src, self.trans)
         return dict(input=input_param)
 
-    def get_inputs(self):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
         parameter_def = self._parse_state_into_dict()
         tag = parameter_def["tag"]
         tag_source = dict(name="tag", label="Tag filter", type="text", optional="true", value=tag, help="Tags to automatically filter inputs")
@@ -760,7 +761,7 @@ class InputDataCollectionModule(InputModule):
     default_collection_type = "list"
     collection_type = default_collection_type
 
-    def get_inputs(self):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
         parameter_def = self._parse_state_into_dict()
         collection_type = parameter_def["collection_type"]
         tag = parameter_def["tag"]
@@ -833,7 +834,7 @@ class InputParameterModule(WorkflowModule):
     optional = default_optional
     default_value = default_default_value
 
-    def get_inputs(self):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
         parameter_def = self._parse_state_into_dict()
         parameter_type = parameter_def["parameter_type"]
         optional = parameter_def["optional"]
@@ -955,6 +956,11 @@ class InputParameterModule(WorkflowModule):
                     restrict_how_value = "staticRestrictions"
                 elif parameter_def.get("restrictOnConnections") is True:
                     restrict_how_value = "onConnections"
+                    if connections:
+                        options = self.restrict_options(connections=connections, default_value=None)
+                        if options:
+                            default_source['options'] = options
+                            input_default_value = SelectToolParameter(None, default_source)
                 elif parameter_def.get("suggestions") is not None:
                     restrict_how_value = "staticSuggestions"
                 else:
@@ -1017,7 +1023,11 @@ class InputParameterModule(WorkflowModule):
             # Retrieve possible runtime options for 'select' type inputs
             for connection in connections:
                 # Well this isn't a great assumption...
-                module = connection.input_step.module  # type: ignore[union-attr]
+                input_step = connection.input_step
+                if hasattr(input_step, 'module'):
+                    module = input_step.module
+                else:
+                    module = module_factory.from_workflow_step(self.trans, input_step)
                 tool_inputs = module.tool.inputs  # may not be set, but we're catching the Exception below.
 
                 def callback(input, prefixed_name, context, **kwargs):
@@ -1442,7 +1452,7 @@ class ToolModule(WorkflowModule):
             else:
                 return "Tool is not installed"
 
-    def get_inputs(self):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
         return self.tool.inputs if self.tool else {}
 
     def get_all_inputs(self, data_only=False, connectable_only=False):
@@ -1932,7 +1942,7 @@ class WorkflowModuleFactory:
 
     def from_workflow_step(self, trans, step, **kwargs):
         """
-        Return module initializd from the WorkflowStep object `step`.
+        Return module initialized from the WorkflowStep object `step`.
         """
         type = step.type
         return self.module_types[type].from_workflow_step(trans, step, **kwargs)
