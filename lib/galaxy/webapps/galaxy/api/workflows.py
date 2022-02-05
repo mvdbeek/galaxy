@@ -602,11 +602,12 @@ class WorkflowsAPIController(BaseGalaxyAPIController, UsesStoredWorkflowMixin, U
         if payload is None:
             payload = {}
         inputs = payload.get('inputs', {})
+        restricted_options = payload.get('options', [])
         trans.workflow_building_mode = workflow_building_modes.ENABLED
         module = module_factory.from_dict(trans, payload, from_tool_form=True)
         if 'tool_state' not in payload:
             module_state: Dict[str, Any] = {}
-            populate_state(trans, module.get_inputs(), inputs, module_state, check=False)
+            populate_state(trans, module.get_inputs(restricted_options=restricted_options), inputs, module_state, check=False)
             module.recover_state(module_state, from_tool_form=True)
         return {
             'label': inputs.get('__label', ''),
@@ -616,7 +617,7 @@ class WorkflowsAPIController(BaseGalaxyAPIController, UsesStoredWorkflowMixin, U
             'content_id': module.get_content_id(),
             'inputs': module.get_all_inputs(connectable_only=True),
             'outputs': module.get_all_outputs(),
-            'config_form': module.get_config_form(),
+            'config_form': module.get_config_form(restricted_options=restricted_options),
             'post_job_actions': module.get_post_job_actions(inputs)
         }
 

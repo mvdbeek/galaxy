@@ -189,7 +189,7 @@ class WorkflowModule:
         """ This returns a step related error message as string or None """
         return None
 
-    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None, restricted_options: List[List[Any]] = None):
         """ This returns inputs displayed in the workflow editor """
         return {}
 
@@ -218,12 +218,12 @@ class WorkflowModule:
     def add_dummy_datasets(self, connections=None, steps=None):
         """ Replace connected inputs with placeholder/dummy values. """
 
-    def get_config_form(self, step=None):
+    def get_config_form(self, step=None, restricted_options=None):
         """ Serializes input parameters of a module into input dictionaries. """
         connections = step and step.output_connections
         return {
             'title': self.name,
-            'inputs': [param.to_dict(self.trans) for param in self.get_inputs(connections=connections).values()]
+            'inputs': [param.to_dict(self.trans) for param in self.get_inputs(connections=connections, restricted_options=restricted_options).values()]
         }
 
     # ---- Run time ---------------------------------------------------------
@@ -742,7 +742,7 @@ class InputDataModule(InputModule):
         input_param = DataToolParameter(None, data_src, self.trans)
         return dict(input=input_param)
 
-    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None, restricted_options: List[List[Any]] = None):
         parameter_def = self._parse_state_into_dict()
         tag = parameter_def["tag"]
         tag_source = dict(name="tag", label="Tag filter", type="text", optional="true", value=tag, help="Tags to automatically filter inputs")
@@ -761,7 +761,7 @@ class InputDataCollectionModule(InputModule):
     default_collection_type = "list"
     collection_type = default_collection_type
 
-    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None, restricted_options: List[List[Any]] = None):
         parameter_def = self._parse_state_into_dict()
         collection_type = parameter_def["collection_type"]
         tag = parameter_def["tag"]
@@ -834,7 +834,7 @@ class InputParameterModule(WorkflowModule):
     optional = default_optional
     default_value = default_default_value
 
-    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None, restricted_options: List[List[Any]] = None):
         parameter_def = self._parse_state_into_dict()
         parameter_type = parameter_def["parameter_type"]
         optional = parameter_def["optional"]
@@ -957,10 +957,15 @@ class InputParameterModule(WorkflowModule):
                 elif parameter_def.get("restrictOnConnections") is True:
                     restrict_how_value = "onConnections"
                     if connections:
-                        options = self.restrict_options(connections=connections, default_value=None)
+                        options = self.restrict_options(connections=connections, default_value=text_default)
                         if options:
                             default_source['options'] = options
-                            input_default_value = SelectToolParameter(None, default_source)
+                            default_source['type'] = "select"
+                            when_specify_default_true.inputs["default"] = SelectToolParameter(None, default_source)
+                    elif restricted_options:
+                        default_source['options'] = self.options_to_select_source(restricted_options, text_default)
+                        default_source['type'] = "select"
+                        when_specify_default_true.inputs["default"] = SelectToolParameter(None, default_source)
                 elif parameter_def.get("suggestions") is not None:
                     restrict_how_value = "staticSuggestions"
                 else:
@@ -1035,22 +1040,23 @@ class InputParameterModule(WorkflowModule):
                         static_options.append(input.get_options(self.trans, {}))
                 visit_input_values(tool_inputs, module.state.inputs, callback)
 
-            options = None
-            if static_options and len(static_options) == 1:
-                # If we are connected to a single option, just use it as is so order is preserved cleanly and such.
-                options = [{"label": o[0], "value": o[1], "selected": bool(default_value and o[1] == default_value)} for o in static_options[0]]
-            elif static_options:
-                # Intersection based on values of multiple option connections.
-                intxn_vals = set.intersection(*({option[1] for option in options} for options in static_options))
-                intxn_opts = {option for options in static_options for option in options if option[1] in intxn_vals}
-                d = defaultdict(set)  # Collapse labels with same values
-                for label, value, _ in intxn_opts:
-                    d[value].add(label)
-                options = [{"label": ', '.join(label), "value": value, "selected": bool(default_value and value == default_value)} for value, label in d.items()]
-
-            return options
+            return self.options_to_select_source(static_options, default_value)
         except Exception:
             log.debug("Failed to generate options for text parameter, falling back to free text.", exc_info=True)
+
+    @staticmethod
+    def options_to_select_source(static_options, default_value):
+        if static_options and len(static_options) == 1:
+            # If we are connected to a single option, just use it as is so order is preserved cleanly and such.
+            return [{"label": o[0], "value": o[1], "selected": bool(default_value and o[1] == default_value)} for o in static_options[0]]
+        elif static_options:
+            # Intersection based on values of multiple option connections.
+            intxn_vals = set.intersection(*({option[1] for option in options} for options in static_options))
+            intxn_opts = {option for options in static_options for option in options if option[1] in intxn_vals}
+            d = defaultdict(set)  # Collapse labels with same values
+            for label, value, _ in intxn_opts:
+                d[value].add(label)
+            return [{"label": ', '.join(label), "value": value, "selected": bool(default_value and value == default_value)} for value, label in d.items()]
 
     def get_runtime_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None, **kwds):
         parameter_def = self._parse_state_into_dict()
@@ -1452,7 +1458,7 @@ class ToolModule(WorkflowModule):
             else:
                 return "Tool is not installed"
 
-    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None):
+    def get_inputs(self, connections: Optional[Iterable[WorkflowStepConnection]] = None, restricted_options: List[List[Any]] = None):
         return self.tool.inputs if self.tool else {}
 
     def get_all_inputs(self, data_only=False, connectable_only=False):
@@ -1561,7 +1567,7 @@ class ToolModule(WorkflowModule):
                 )
         return data_outputs
 
-    def get_config_form(self, step=None):
+    def get_config_form(self, step=None, restricted_options=None):
         if self.tool:
             self.add_dummy_datasets(connections=step and step.input_connections)
             incoming: Dict[str, str] = {}

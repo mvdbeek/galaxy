@@ -381,6 +381,26 @@ export default {
         onAdd(node) {
             this.nodes[node.id] = node;
         },
+        getRestrictedOptions(node, newData) {
+            if (
+                node.type === "parameter_input" &&
+                newData.inputs?.["parameter_definition|restrictions|how"] == "onConnections"
+            ) {
+                const restrictedOptions = [];
+                node.outputTerminals.output.connectors.map((connector) => {
+                    if (connector.inputHandle.type === "select") {
+                        connector.inputHandle.node.config_form.inputs.map((input) => {
+                            if (input.name === connector.inputHandle.name) {
+                                restrictedOptions.push(input.options);
+                                // can only have a single match
+                                return;
+                            }
+                        });
+                    }
+                });
+                return restrictedOptions;
+            }
+        },
         onUpdate(node) {
             getModule({
                 type: node.type,
@@ -468,6 +488,8 @@ export default {
         },
         onSetData(nodeId, newData) {
             const node = this.nodes[nodeId];
+            const restrictedOptions = this.getRestrictedOptions(node, newData);
+            newData.options = restrictedOptions;
             this.lastQueue.enqueue(getModule, newData).then((data) => {
                 node.setData(data);
             });
