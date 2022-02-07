@@ -13,9 +13,7 @@ from fastapi import (
     status,
 )
 
-from galaxy import (
-    util
-)
+from galaxy import util
 from galaxy.managers import (
     histories,
     sharable,
@@ -30,9 +28,7 @@ from galaxy.schema.schema import (
     CreateHistoryPayload,
     ExportHistoryArchivePayload,
 )
-from galaxy.util import (
-    string_as_bool
-)
+from galaxy.util import string_as_bool
 from galaxy.web import (
     expose_api,
     expose_api_anonymous,
@@ -49,12 +45,12 @@ from . import (
 
 log = logging.getLogger(__name__)
 
-router = Router(tags=['histories'])
+router = Router(tags=["histories"])
 
 HistoryIdPathParam: EncodedDatabaseIdField = Path(
     ...,
     title="History ID",
-    description="The encoded database identifier of the History."
+    description="The encoded database identifier of the History.",
 )
 
 
@@ -63,7 +59,7 @@ class FastAPIHistories:
     service: histories.HistoriesService = depends(histories.HistoriesService)
 
     @router.get(
-        '/api/histories/{id}/sharing',
+        "/api/histories/{id}/sharing",
         summary="Get the current sharing status of the given item.",
     )
     def sharing(
@@ -75,7 +71,7 @@ class FastAPIHistories:
         return self.service.shareable_service.sharing(trans, id)
 
     @router.put(
-        '/api/histories/{id}/enable_link_access',
+        "/api/histories/{id}/enable_link_access",
         summary="Makes this item accessible by a URL link.",
     )
     def enable_link_access(
@@ -87,7 +83,7 @@ class FastAPIHistories:
         return self.service.shareable_service.enable_link_access(trans, id)
 
     @router.put(
-        '/api/histories/{id}/disable_link_access',
+        "/api/histories/{id}/disable_link_access",
         summary="Makes this item inaccessible by a URL link.",
     )
     def disable_link_access(
@@ -99,7 +95,7 @@ class FastAPIHistories:
         return self.service.shareable_service.disable_link_access(trans, id)
 
     @router.put(
-        '/api/histories/{id}/publish',
+        "/api/histories/{id}/publish",
         summary="Makes this item public and accessible by a URL link.",
     )
     def publish(
@@ -111,7 +107,7 @@ class FastAPIHistories:
         return self.service.shareable_service.publish(trans, id)
 
     @router.put(
-        '/api/histories/{id}/unpublish',
+        "/api/histories/{id}/unpublish",
         summary="Removes this item from the published list.",
     )
     def unpublish(
@@ -123,20 +119,20 @@ class FastAPIHistories:
         return self.service.shareable_service.unpublish(trans, id)
 
     @router.put(
-        '/api/histories/{id}/share_with_users',
+        "/api/histories/{id}/share_with_users",
         summary="Share this item with specific users.",
     )
     def share_with_users(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
         id: EncodedDatabaseIdField = HistoryIdPathParam,
-        payload: sharable.ShareWithPayload = Body(...)
+        payload: sharable.ShareWithPayload = Body(...),
     ) -> sharable.ShareWithStatus:
         """Shares this item with specific users and return the current sharing status."""
         return self.service.shareable_service.share_with_users(trans, id, payload)
 
     @router.put(
-        '/api/histories/{id}/slug',
+        "/api/histories/{id}/slug",
         summary="Set a new slug for this shared item.",
         status_code=status.HTTP_204_NO_CONTENT,
     )
@@ -159,7 +155,7 @@ class HistoriesController(BaseGalaxyAPIController):
     service: histories.HistoriesService = depends(histories.HistoriesService)
 
     @expose_api_anonymous
-    def index(self, trans, deleted='False', **kwd):
+    def index(self, trans, deleted="False", **kwd):
         """
         GET /api/histories
 
@@ -251,13 +247,15 @@ class HistoriesController(BaseGalaxyAPIController):
         'order' defaults to 'create_time-dsc'
         """
         deleted_only = util.string_as_bool(deleted)
-        all_histories = util.string_as_bool(kwd.get('all', False))
+        all_histories = util.string_as_bool(kwd.get("all", False))
         serialization_params = parse_serialization_params(**kwd)
         filter_parameters = HistoryFilterQueryParams(**kwd)
-        return self.service.index(trans, serialization_params, filter_parameters, deleted_only, all_histories)
+        return self.service.index(
+            trans, serialization_params, filter_parameters, deleted_only, all_histories
+        )
 
     @expose_api_anonymous
-    def show(self, trans, id, deleted='False', **kwd):
+    def show(self, trans, id, deleted="False", **kwd):
         """
         show( trans, id, deleted='False' )
         * GET /api/histories/{id}:
@@ -323,7 +321,9 @@ class HistoriesController(BaseGalaxyAPIController):
         """
         serialization_params = parse_serialization_params(**kwd)
         filter_parameters = HistoryFilterQueryParams(**kwd)
-        return self.service.shared_with_me(trans, serialization_params, filter_parameters)
+        return self.service.shared_with_me(
+            trans, serialization_params, filter_parameters
+        )
 
     @expose_api_anonymous
     def create(self, trans, payload, **kwd):
@@ -375,10 +375,10 @@ class HistoriesController(BaseGalaxyAPIController):
         """
         history_id = id
         # a request body is optional here
-        purge = string_as_bool(kwd.get('purge', False))
+        purge = string_as_bool(kwd.get("purge", False))
         # for backwards compat, keep the payload sub-dictionary
-        if kwd.get('payload', None):
-            purge = string_as_bool(kwd['payload'].get('purge', purge))
+        if kwd.get("payload", None):
+            purge = string_as_bool(kwd["payload"].get("purge", purge))
 
         serialization_params = parse_serialization_params(**kwd)
         return self.service.delete(trans, history_id, serialization_params, purge)

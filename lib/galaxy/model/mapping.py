@@ -17,7 +17,9 @@ from sqlalchemy.orm import class_mapper, object_session, relation
 from galaxy import model
 from galaxy.model import mapper_registry
 from galaxy.model.base import SharedModelMapping
-from galaxy.model.migrate.triggers.update_audit_table import install as install_timestamp_triggers
+from galaxy.model.migrate.triggers.update_audit_table import (
+    install as install_timestamp_triggers,
+)
 from galaxy.model.orm.engine_factory import build_engine
 from galaxy.model.orm.now import now
 from galaxy.model.security import GalaxyRBACAgent
@@ -28,7 +30,9 @@ log = logging.getLogger(__name__)
 metadata = mapper_registry.metadata
 
 class_mapper(model.HistoryDatasetCollectionAssociation).add_property(
-    "creating_job_associations", relation(model.JobToOutputDatasetCollectionAssociation, viewonly=True))
+    "creating_job_associations",
+    relation(model.JobToOutputDatasetCollectionAssociation, viewonly=True),
+)
 
 
 # Helper methods.
@@ -46,10 +50,19 @@ def db_next_hid(self, n=1):
     session = object_session(self)
     table = self.table
     if "postgres" not in session.bind.dialect.name:
-        next_hid = select([table.c.hid_counter], table.c.id == model.cached_id(self)).with_for_update().scalar()
+        next_hid = (
+            select([table.c.hid_counter], table.c.id == model.cached_id(self))
+            .with_for_update()
+            .scalar()
+        )
         table.update(table.c.id == self.id).execute(hid_counter=(next_hid + n))
     else:
-        stmt = table.update().where(table.c.id == model.cached_id(self)).values(hid_counter=(table.c.hid_counter + n)).returning(table.c.hid_counter)
+        stmt = (
+            table.update()
+            .where(table.c.id == model.cached_id(self))
+            .values(hid_counter=(table.c.hid_counter + n))
+            .returning(table.c.hid_counter)
+        )
         next_hid = session.execute(stmt).scalar() - n
     return next_hid
 
@@ -61,7 +74,11 @@ def _workflow_invocation_update(self):
     session = object_session(self)
     table = self.table
     now_val = now()
-    stmt = table.update().values(update_time=now_val).where(and_(table.c.id == self.id, table.c.update_time < now_val))
+    stmt = (
+        table.update()
+        .values(update_time=now_val)
+        .where(and_(table.c.id == self.id, table.c.update_time < now_val))
+    )
     session.execute(stmt)
 
 
@@ -76,9 +93,20 @@ class GalaxyModelMapping(SharedModelMapping):
     GalaxySession: Type
 
 
-def init(file_path, url, engine_options=None, create_tables=False, map_install_models=False,
-        database_query_profiling_proxy=False, object_store=None, trace_logger=None, use_pbkdf2=True,
-        slow_query_log_threshold=0, thread_local_log: Optional[local] = None, log_query_counts=False) -> GalaxyModelMapping:
+def init(
+    file_path,
+    url,
+    engine_options=None,
+    create_tables=False,
+    map_install_models=False,
+    database_query_profiling_proxy=False,
+    object_store=None,
+    trace_logger=None,
+    use_pbkdf2=True,
+    slow_query_log_threshold=0,
+    thread_local_log: Optional[local] = None,
+    log_query_counts=False,
+) -> GalaxyModelMapping:
     """Connect mappings to the database"""
     if engine_options is None:
         engine_options = {}
@@ -89,7 +117,15 @@ def init(file_path, url, engine_options=None, create_tables=False, map_install_m
     # Use PBKDF2 password hashing?
     model.User.use_pbkdf2 = use_pbkdf2
     # Load the appropriate db module
-    engine = build_engine(url, engine_options, database_query_profiling_proxy, trace_logger, slow_query_log_threshold, thread_local_log=thread_local_log, log_query_counts=log_query_counts)
+    engine = build_engine(
+        url,
+        engine_options,
+        database_query_profiling_proxy,
+        trace_logger,
+        slow_query_log_threshold,
+        thread_local_log=thread_local_log,
+        log_query_counts=log_query_counts,
+    )
 
     # Connect the metadata to the database.
     metadata.bind = engine
@@ -98,7 +134,10 @@ def init(file_path, url, engine_options=None, create_tables=False, map_install_m
     if map_install_models:
         import galaxy.model.tool_shed_install.mapping  # noqa: F401
         from galaxy.model import tool_shed_install
-        galaxy.model.tool_shed_install.mapping.init(url=url, engine_options=engine_options, create_tables=create_tables)
+
+        galaxy.model.tool_shed_install.mapping.init(
+            url=url, engine_options=engine_options, create_tables=create_tables
+        )
         model_modules.append(tool_shed_install)
 
     result = GalaxyModelMapping(model_modules, engine=engine)
