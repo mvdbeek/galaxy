@@ -183,7 +183,7 @@ class ToolParameter(Dictifiable):
         Convert a value from an HTML POST into the parameters preferred value
         format.
         """
-        return value
+        return json.loads(value)
 
     def get_initial_value(self, trans, other_values):
         """
@@ -207,11 +207,11 @@ class ToolParameter(Dictifiable):
 
     def to_json(self, value, app, use_security):
         """Convert a value to a string representation suitable for persisting"""
-        return unicodify(value)
+        return json.dumps(value)
 
     def to_python(self, value, app):
         """Convert a value created with to_json back to an object representation"""
-        return value
+        return json.loads(value)
 
     def value_to_basic(self, value, app, use_security=False):
         if is_runtime_value(value):
@@ -323,10 +323,6 @@ class SimpleTextToolParameter(ToolParameter):
             self.value = None
         else:
             self.value = ''
-
-    def to_json(self, value, app, use_security):
-        """Convert a value to a string representation suitable for persisting"""
-        return unicodify(value)
 
     def get_initial_value(self, trans, other_values):
         return self.value
