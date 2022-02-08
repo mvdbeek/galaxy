@@ -105,6 +105,13 @@ class DatasetInheritanceChainEntry(Model):
     )
 
 
+class DatasetInheritanceChain(Model):
+    __root__: List[DatasetInheritanceChainEntry] = Field(
+        default=[],
+        title="Dataset inheritance chain",
+    )
+
+
 class ExtraFilesEntryClass(str, Enum):
     Directory = "Directory"
     File = "File"
@@ -330,7 +337,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
         trans: ProvidesHistoryContext,
         dataset_id: EncodedDatabaseIdField,
         hda_ldda: DatasetSourceType = DatasetSourceType.hda,
-    ) -> List[DatasetInheritanceChainEntry]:
+    ) -> DatasetInheritanceChain:
         """
         Display inheritance chain for the given dataset.
         """
@@ -345,7 +352,7 @@ class DatasetsService(ServiceBase, UsesVisualizationMixin):
                 DatasetInheritanceChainEntry(name=f"{dep[0].name}", dep=dep[1])
             )
 
-        return result
+        return DatasetInheritanceChain(__root__=result)
 
     def update_permissions(
         self,
