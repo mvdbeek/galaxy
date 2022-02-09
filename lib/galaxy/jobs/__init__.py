@@ -1050,6 +1050,7 @@ class JobWrapper(HasResourceParameters):
         self.environment_variables: List[Dict[str, str]] = []
         self.interactivetools: List[Dict[str, Any]] = []
         self.command_line = None
+        self.version_command_line = None
         self._dependency_shell_commands = None
         # Tool versioning variables
         self.version_string = ""
@@ -1357,6 +1358,7 @@ class JobWrapper(HasResourceParameters):
         )
         (
             self.command_line,
+            self.version_command_line,
             self.extra_filenames,
             self.environment_variables,
         ) = tool_evaluator.build()
@@ -2386,7 +2388,10 @@ class JobWrapper(HasResourceParameters):
         return has_output_limit or has_walltime_limit
 
     def get_command_line(self):
-        return self.command_line
+        """Return complete command line, including possible version command."""
+        if self.remote_command_line:
+            return None
+        return f'{self.version_command_line or ""}{self.command_line}'
 
     def get_session_id(self):
         return self.session_id
@@ -2811,6 +2816,7 @@ class TaskWrapper(JobWrapper):
         if not self.remote_command_line:
             (
                 self.command_line,
+                self.version_command_line,
                 extra_filenames,
                 self.environment_variables,
             ) = tool_evaluator.build()
