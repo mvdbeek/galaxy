@@ -503,7 +503,6 @@ class ImportExportTests(BaseHistories):
             history_name,
             wait_on_history_length=wait_on_history_length,
             export_kwds=export_kwds,
-            api_key=self.galaxy_interactor.api_key,
         )
 
     def _import_history_and_wait(
