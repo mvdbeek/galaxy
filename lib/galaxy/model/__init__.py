@@ -110,6 +110,7 @@ import galaxy.security.passwords
 import galaxy.util
 from galaxy.model.custom_types import (
     JSONType,
+    MetadataType,
     MutableJSONType,
     TrimmedString,
     UUIDType,
@@ -4607,7 +4608,7 @@ class HistoryDatasetAssociationHistory(Base, Serializable):
     version = Column(Integer)
     name = Column(TrimmedString(255))
     extension = Column(TrimmedString(64))
-    _metadata = Column("metadata", JSONType)
+    _metadata = Column("metadata", MetadataType)
     extended_metadata_id = Column(Integer, ForeignKey("extended_metadata.id"), index=True)
 
     def __init__(
@@ -9273,90 +9274,69 @@ Dataset.table = Table(
 )
 
 HistoryDatasetAssociation.table = Table(
-    "history_dataset_association",
-    mapper_registry.metadata,
-    Column("id", Integer, primary_key=True),
-    Column("history_id", Integer, ForeignKey("history.id"), index=True),
-    Column("dataset_id", Integer, ForeignKey("dataset.id"), index=True),
-    Column("create_time", DateTime, default=now),
-    Column("update_time", DateTime, default=now, onupdate=now, index=True),
-    Column("state", TrimmedString(64), index=True, key="_state"),
-    Column(
-        "copied_from_history_dataset_association_id",
-        Integer,
-        ForeignKey("history_dataset_association.id"),
-        nullable=True,
-    ),
-    Column(
-        "copied_from_library_dataset_dataset_association_id",
-        Integer,
-        ForeignKey("library_dataset_dataset_association.id"),
-        nullable=True,
-    ),
-    Column("name", TrimmedString(255)),
-    Column("info", TrimmedString(255)),
-    Column("blurb", TrimmedString(255)),
-    Column("peek", TEXT, key="_peek"),
-    Column("tool_version", TEXT),
-    Column("extension", TrimmedString(64)),
-    Column("metadata", JSONType, key="_metadata"),
-    Column("parent_id", Integer, ForeignKey("history_dataset_association.id"), nullable=True),
-    Column("designation", TrimmedString(255)),
-    Column("deleted", Boolean, index=True, default=False),
-    Column("visible", Boolean),
-    Column("extended_metadata_id", Integer, ForeignKey("extended_metadata.id"), index=True),
-    Column("version", Integer, default=1, nullable=True, index=True),
-    Column("hid", Integer),
-    Column("purged", Boolean, index=True, default=False),
-    Column("validated_state", TrimmedString(64), default="unvalidated", nullable=False),
-    Column("validated_state_message", TEXT),
-    Column(
-        "hidden_beneath_collection_instance_id", ForeignKey("history_dataset_collection_association.id"), nullable=True
-    ),
-)
+    'history_dataset_association', mapper_registry.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('history_id', Integer, ForeignKey('history.id'), index=True),
+    Column('dataset_id', Integer, ForeignKey('dataset.id'), index=True),
+    Column('create_time', DateTime, default=now),
+    Column('update_time', DateTime, default=now, onupdate=now, index=True),
+    Column('state', TrimmedString(64), index=True, key='_state'),
+    Column('copied_from_history_dataset_association_id', Integer,
+           ForeignKey('history_dataset_association.id'), nullable=True),
+    Column('copied_from_library_dataset_dataset_association_id', Integer,
+           ForeignKey('library_dataset_dataset_association.id'), nullable=True),
+    Column('name', TrimmedString(255)),
+    Column('info', TrimmedString(255)),
+    Column('blurb', TrimmedString(255)),
+    Column('peek', TEXT, key='_peek'),
+    Column('tool_version', TEXT),
+    Column('extension', TrimmedString(64)),
+    Column("metadata", MetadataType, key="_metadata"),
+    Column('parent_id', Integer, ForeignKey('history_dataset_association.id'), nullable=True),
+    Column('designation', TrimmedString(255)),
+    Column('deleted', Boolean, index=True, default=False),
+    Column('visible', Boolean),
+    Column('extended_metadata_id', Integer, ForeignKey('extended_metadata.id'), index=True),
+    Column('version', Integer, default=1, nullable=True, index=True),
+    Column('hid', Integer),
+    Column('purged', Boolean, index=True, default=False),
+    Column('validated_state', TrimmedString(64), default='unvalidated', nullable=False),
+    Column('validated_state_message', TEXT),
+    Column('hidden_beneath_collection_instance_id',
+           ForeignKey('history_dataset_collection_association.id'), nullable=True))
 
 LibraryDatasetDatasetAssociation.table = Table(
-    "library_dataset_dataset_association",
-    mapper_registry.metadata,
-    Column("id", Integer, primary_key=True),
-    Column("library_dataset_id", Integer, ForeignKey("library_dataset.id"), index=True),
-    Column("dataset_id", Integer, ForeignKey("dataset.id"), index=True),
-    Column("create_time", DateTime, default=now),
-    Column("update_time", DateTime, default=now, onupdate=now, index=True),
-    Column("state", TrimmedString(64), index=True, key="_state"),
-    Column(
-        "copied_from_history_dataset_association_id",
-        Integer,
-        ForeignKey(
-            "history_dataset_association.id", use_alter=True, name="history_dataset_association_dataset_id_fkey"
-        ),
-        nullable=True,
-    ),
-    Column(
-        "copied_from_library_dataset_dataset_association_id",
-        Integer,
-        ForeignKey(
-            "library_dataset_dataset_association.id", use_alter=True, name="library_dataset_dataset_association_id_fkey"
-        ),
-        nullable=True,
-    ),
-    Column("name", TrimmedString(255), index=True),
-    Column("info", TrimmedString(255)),
-    Column("blurb", TrimmedString(255)),
-    Column("peek", TEXT, key="_peek"),
-    Column("tool_version", TEXT),
-    Column("extension", TrimmedString(64)),
-    Column("metadata", JSONType, key="_metadata"),
-    Column("parent_id", Integer, ForeignKey("library_dataset_dataset_association.id"), nullable=True),
-    Column("designation", TrimmedString(255)),
-    Column("deleted", Boolean, index=True, default=False),
-    Column("validated_state", TrimmedString(64), default="unvalidated", nullable=False),
-    Column("validated_state_message", TEXT),
-    Column("visible", Boolean),
-    Column("extended_metadata_id", Integer, ForeignKey("extended_metadata.id"), index=True),
-    Column("user_id", Integer, ForeignKey("galaxy_user.id"), index=True),
-    Column("message", TrimmedString(255)),
-)
+    'library_dataset_dataset_association', mapper_registry.metadata,
+    Column('id', Integer, primary_key=True),
+    Column('library_dataset_id', Integer, ForeignKey('library_dataset.id'), index=True),
+    Column('dataset_id', Integer, ForeignKey('dataset.id'), index=True),
+    Column('create_time', DateTime, default=now),
+    Column('update_time', DateTime, default=now, onupdate=now, index=True),
+    Column('state', TrimmedString(64), index=True, key='_state'),
+    Column('copied_from_history_dataset_association_id', Integer,
+        ForeignKey('history_dataset_association.id',
+            use_alter=True, name='history_dataset_association_dataset_id_fkey'),
+        nullable=True),
+    Column('copied_from_library_dataset_dataset_association_id', Integer,
+        ForeignKey('library_dataset_dataset_association.id',
+            use_alter=True, name='library_dataset_dataset_association_id_fkey'),
+        nullable=True),
+    Column('name', TrimmedString(255), index=True),
+    Column('info', TrimmedString(255)),
+    Column('blurb', TrimmedString(255)),
+    Column('peek', TEXT, key='_peek'),
+    Column('tool_version', TEXT),
+    Column('extension', TrimmedString(64)),
+    Column("metadata", MetadataType, key="_metadata"),
+    Column('parent_id', Integer, ForeignKey('library_dataset_dataset_association.id'), nullable=True),
+    Column('designation', TrimmedString(255)),
+    Column('deleted', Boolean, index=True, default=False),
+    Column('validated_state', TrimmedString(64), default='unvalidated', nullable=False),
+    Column('validated_state_message', TEXT),
+    Column('visible', Boolean),
+    Column('extended_metadata_id', Integer, ForeignKey('extended_metadata.id'), index=True),
+    Column('user_id', Integer, ForeignKey('galaxy_user.id'), index=True),
+    Column('message', TrimmedString(255)))
 
 mapper_registry.map_imperatively(
     Dataset,

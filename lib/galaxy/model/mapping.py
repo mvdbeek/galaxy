@@ -14,7 +14,9 @@ from typing import (
 from galaxy import model
 from galaxy.model import mapper_registry
 from galaxy.model.base import SharedModelMapping
-from galaxy.model.migrate.triggers.update_audit_table import install as install_timestamp_triggers
+from galaxy.model.migrate.triggers.update_audit_table import (
+    install as install_timestamp_triggers,
+)
 from galaxy.model.orm.engine_factory import build_engine
 from galaxy.model.security import GalaxyRBACAgent
 from galaxy.model.view.utils import install_views
@@ -71,7 +73,9 @@ def init(
         import galaxy.model.tool_shed_install.mapping  # noqa: F401
         from galaxy.model import tool_shed_install
 
-        galaxy.model.tool_shed_install.mapping.init(url=url, engine_options=engine_options, create_tables=create_tables)
+        galaxy.model.tool_shed_install.mapping.init(
+            url=url, engine_options=engine_options, create_tables=create_tables
+        )
         model_modules.append(tool_shed_install)
 
     result = GalaxyModelMapping(model_modules, engine=engine)

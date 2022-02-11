@@ -1,10 +1,7 @@
 import functools
 import operator
 from collections import namedtuple
-from json import (
-    dumps,
-    loads,
-)
+from json import dumps, loads
 
 from galaxy_test.base.populators import (
     skip_without_tool,
@@ -56,7 +53,11 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
         cat1_job_id = self.__job_id(self.history_id, new_contents[(offset + 2)]["id"])
 
         def reimport_jobs_ids(new_history_id):
-            return [j["id"] for j in self.dataset_populator.history_jobs(new_history_id) if j["tool_id"] == "cat1"]
+            return [
+                j["id"]
+                for j in self.dataset_populator.history_jobs(new_history_id)
+                if j["tool_id"] == "cat1"
+            ]
 
         downloaded_workflow = self._extract_and_download_workflow(
             dataset_ids=input_hids,
@@ -78,7 +79,11 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
         input_hids = [c["hid"] for c in new_contents[(offset + 0) : (offset + 2)]]
 
         def reimport_jobs_ids(new_history_id):
-            return [j["id"] for j in self.dataset_populator.history_jobs(new_history_id) if j["tool_id"] == "cat1"]
+            return [
+                j["id"]
+                for j in self.dataset_populator.history_jobs(new_history_id)
+                if j["tool_id"] == "cat1"
+            ]
 
         downloaded_workflow = self._extract_and_download_workflow(
             reimport_as="test_extract_with_copied_inputs",
@@ -90,7 +95,9 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
     @skip_without_tool("random_lines1")
     @summarize_instance_history_on_error
     def test_extract_mapping_workflow_from_history(self):
-        hdca, job_id1, job_id2 = self.__run_random_lines_mapped_over_pair(self.history_id)
+        hdca, job_id1, job_id2 = self.__run_random_lines_mapped_over_pair(
+            self.history_id
+        )
         downloaded_workflow = self._extract_and_download_workflow(
             reimport_as="extract_from_history_with_mapping",
             dataset_collection_ids=[hdca["hid"]],
@@ -100,7 +107,9 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
 
     def test_extract_copied_mapping_from_history(self):
         old_history_id = self.dataset_populator.new_history()
-        hdca, job_id1, job_id2 = self.__run_random_lines_mapped_over_pair(old_history_id)
+        hdca, job_id1, job_id2 = self.__run_random_lines_mapped_over_pair(
+            old_history_id
+        )
 
         old_contents = self._history_contents(old_history_id)
         for old_content in old_contents:
@@ -122,7 +131,9 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
         )
 
         old_history_id = self.dataset_populator.new_history()
-        hdca, job_id1, job_id2 = self.__run_random_lines_mapped_over_singleton(old_history_id)
+        hdca, job_id1, job_id2 = self.__run_random_lines_mapped_over_singleton(
+            old_history_id
+        )
 
         old_contents = self._history_contents(old_history_id)
         for old_content in old_contents:
@@ -130,7 +141,9 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
 
         def reimport_jobs_ids(new_history_id):
             rval = [
-                j["id"] for j in self.dataset_populator.history_jobs(new_history_id) if j["tool_id"] == "random_lines1"
+                j["id"]
+                for j in self.dataset_populator.history_jobs(new_history_id)
+                if j["tool_id"] == "random_lines1"
             ]
             assert len(rval) == 2
             print(rval)
@@ -154,8 +167,13 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
             self.history_id, contents=["1 2 3\n4 5 6", "7 8 9\n10 11 10"]
         ).json()
         hdca_id = hdca["id"]
-        inputs1 = {"input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]}, "num_lines": 2}
-        implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(self.history_id, "random_lines1", inputs1)
+        inputs1 = {
+            "input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]},
+            "num_lines": 2,
+        }
+        implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(
+            self.history_id, "random_lines1", inputs1
+        )
         inputs2 = {
             "f1": {"src": "hdca", "id": implicit_hdca1["id"]},
             "f2": {"src": "hdca", "id": implicit_hdca1["id"]},
@@ -175,11 +193,15 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
         )
         assert len(downloaded_workflow["steps"]) == 3
         collect_step_idx = self._assert_first_step_is_paired_input(downloaded_workflow)
-        tool_steps = self._get_steps_of_type(downloaded_workflow, "tool", expected_len=2)
+        tool_steps = self._get_steps_of_type(
+            downloaded_workflow, "tool", expected_len=2
+        )
         random_lines_map_step = tool_steps[0]
         reduction_step = tool_steps[1]
         assert "tool_id" in random_lines_map_step, random_lines_map_step
-        assert random_lines_map_step["tool_id"] == "random_lines1", random_lines_map_step
+        assert (
+            random_lines_map_step["tool_id"] == "random_lines1"
+        ), random_lines_map_step
         assert "input_connections" in random_lines_map_step, random_lines_map_step
         random_lines_input_connections = random_lines_map_step["input_connections"]
         assert "input" in random_lines_input_connections, random_lines_map_step
@@ -220,7 +242,9 @@ test_data:
             tool_ids=["collection_paired_test"],
         )
 
-        collection_step = self._get_steps_of_type(downloaded_workflow, "data_collection_input", expected_len=1)[0]
+        collection_step = self._get_steps_of_type(
+            downloaded_workflow, "data_collection_input", expected_len=1
+        )[0]
         collection_step_state = loads(collection_step["tool_state"])
         self.assertEqual(collection_step_state["collection_type"], "paired")
 
@@ -262,7 +286,9 @@ test_data:
             tool_ids=["cat_collection", "cat1"],
         )
 
-        collection_step = self._get_steps_of_type(downloaded_workflow, "data_collection_input", expected_len=1)[0]
+        collection_step = self._get_steps_of_type(
+            downloaded_workflow, "data_collection_input", expected_len=1
+        )[0]
         collection_step_state = loads(collection_step["tool_state"])
         self.assertEqual(collection_step_state["collection_type"], "list:paired")
 
@@ -282,7 +308,9 @@ steps:
 """
         )
         job1_id = self._job_id_for_tool(jobs_summary.jobs, "cat_list")
-        job2_id = self._job_id_for_tool(jobs_summary.jobs, "collection_creates_dynamic_nested")
+        job2_id = self._job_id_for_tool(
+            jobs_summary.jobs, "collection_creates_dynamic_nested"
+        )
         self._extract_and_download_workflow(
             reimport_as="test_extract_workflows_with_subcollection_reduction",
             dataset_collection_ids=["1"],
@@ -324,7 +352,10 @@ test_data:
 """
         )
         tool_ids = ["cat1", "collection_split_on_column", "cat_list"]
-        job_ids = [functools.partial(self._job_id_for_tool, jobs_summary.jobs)(_) for _ in tool_ids]
+        job_ids = [
+            functools.partial(self._job_id_for_tool, jobs_summary.jobs)(_)
+            for _ in tool_ids
+        ]
         downloaded_workflow = self._extract_and_download_workflow(
             reimport_as="test_extract_workflows_with_output_collections",
             dataset_ids=["1", "2"],
@@ -378,7 +409,10 @@ test_data:
 """
         )
         tool_ids = ["cat1", "collection_creates_pair", "cat_collection", "cat_list"]
-        job_ids = [functools.partial(self._job_id_for_tool, jobs_summary.jobs)(_) for _ in tool_ids]
+        job_ids = [
+            functools.partial(self._job_id_for_tool, jobs_summary.jobs)(_)
+            for _ in tool_ids
+        ]
         downloaded_workflow = self._extract_and_download_workflow(
             reimport_as="test_extract_workflows_with_mapped_output_collections",
             dataset_collection_ids=["1"],
@@ -409,19 +443,47 @@ test_data:
             history_id, contents=["1 2 3\n4 5 6", "7 8 9\n10 11 10"]
         ).json()
         hdca_id = hdca["id"]
-        inputs1 = {"input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]}, "num_lines": 2}
-        implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(history_id, "random_lines1", inputs1)
-        inputs2 = {"input": {"batch": True, "values": [{"src": "hdca", "id": implicit_hdca1["id"]}]}, "num_lines": 1}
-        _, job_id2 = self._run_tool_get_collection_and_job_id(history_id, "random_lines1", inputs2)
+        inputs1 = {
+            "input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]},
+            "num_lines": 2,
+        }
+        implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(
+            history_id, "random_lines1", inputs1
+        )
+        inputs2 = {
+            "input": {
+                "batch": True,
+                "values": [{"src": "hdca", "id": implicit_hdca1["id"]}],
+            },
+            "num_lines": 1,
+        }
+        _, job_id2 = self._run_tool_get_collection_and_job_id(
+            history_id, "random_lines1", inputs2
+        )
         return hdca, job_id1, job_id2
 
     def __run_random_lines_mapped_over_singleton(self, history_id):
-        hdca = self.dataset_collection_populator.create_list_in_history(history_id, contents=["1 2 3\n4 5 6"]).json()
+        hdca = self.dataset_collection_populator.create_list_in_history(
+            history_id, contents=["1 2 3\n4 5 6"]
+        ).json()
         hdca_id = hdca["id"]
-        inputs1 = {"input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]}, "num_lines": 2}
-        implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(history_id, "random_lines1", inputs1)
-        inputs2 = {"input": {"batch": True, "values": [{"src": "hdca", "id": implicit_hdca1["id"]}]}, "num_lines": 1}
-        _, job_id2 = self._run_tool_get_collection_and_job_id(history_id, "random_lines1", inputs2)
+        inputs1 = {
+            "input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]},
+            "num_lines": 2,
+        }
+        implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(
+            history_id, "random_lines1", inputs1
+        )
+        inputs2 = {
+            "input": {
+                "batch": True,
+                "values": [{"src": "hdca", "id": implicit_hdca1["id"]}],
+            },
+            "num_lines": 1,
+        }
+        _, job_id2 = self._run_tool_get_collection_and_job_id(
+            history_id, "random_lines1", inputs2
+        )
         return hdca, job_id1, job_id2
 
     def __assert_looks_like_randomlines_mapping_workflow(self, downloaded_workflow):
@@ -429,7 +491,9 @@ test_data:
         # connected to another tool step.
         assert len(downloaded_workflow["steps"]) == 3
         collect_step_idx = self._assert_first_step_is_paired_input(downloaded_workflow)
-        tool_steps = self._get_steps_of_type(downloaded_workflow, "tool", expected_len=2)
+        tool_steps = self._get_steps_of_type(
+            downloaded_workflow, "tool", expected_len=2
+        )
         tool_step_idxs = []
         tool_input_step_idxs = []
         for tool_step in tool_steps:
@@ -444,8 +508,12 @@ test_data:
 
     def __assert_looks_like_cat1_example_workflow(self, downloaded_workflow):
         assert len(downloaded_workflow["steps"]) == 3
-        input_steps = self._get_steps_of_type(downloaded_workflow, "data_input", expected_len=2)
-        tool_step = self._get_steps_of_type(downloaded_workflow, "tool", expected_len=1)[0]
+        input_steps = self._get_steps_of_type(
+            downloaded_workflow, "data_input", expected_len=2
+        )
+        tool_step = self._get_steps_of_type(
+            downloaded_workflow, "tool", expected_len=1
+        )[0]
 
         input1 = tool_step["input_connections"]["input1"]
         input2 = tool_step["input_connections"]["queries_0|input2"]
@@ -461,25 +529,37 @@ test_data:
     def __copy_content_to_history(self, history_id, content):
         if content["history_content_type"] == "dataset":
             payload = dict(source="hda", content=content["id"])
-            response = self._post(f"histories/{history_id}/contents/datasets", payload, json=True)
+            response = self._post(
+                f"histories/{history_id}/contents/datasets", payload, json=True
+            )
 
         else:
             payload = dict(source="hdca", content=content["id"])
-            response = self._post(f"histories/{history_id}/contents/dataset_collections", payload, json=True)
+            response = self._post(
+                f"histories/{history_id}/contents/dataset_collections",
+                payload,
+                json=True,
+            )
         self._assert_status_code_is(response, 200)
         return response.json()
 
     def __setup_and_run_cat1_workflow(self, history_id):
         workflow = self.workflow_populator.load_workflow(name="test_for_extract")
-        workflow_request, history_id, workflow_id = self._setup_workflow_run(workflow, history_id=history_id)
-        run_workflow_response = self._post(f"workflows/{workflow_id}/invocations", data=workflow_request)
+        workflow_request, history_id, workflow_id = self._setup_workflow_run(
+            workflow, history_id=history_id
+        )
+        run_workflow_response = self._post(
+            f"workflows/{workflow_id}/invocations", data=workflow_request
+        )
         self._assert_status_code_is(run_workflow_response, 200)
 
         self.dataset_populator.wait_for_history(history_id, assert_ok=True)
         return self.__cat_job_id(history_id)
 
     def _assert_first_step_is_paired_input(self, downloaded_workflow):
-        collection_steps = self._get_steps_of_type(downloaded_workflow, "data_collection_input", expected_len=1)
+        collection_steps = self._get_steps_of_type(
+            downloaded_workflow, "data_collection_input", expected_len=1
+        )
         collection_step = collection_steps[0]
         collection_step_state = loads(collection_step["tool_state"])
         self.assertEqual(collection_step_state["collection_type"], "paired")
@@ -507,7 +587,6 @@ test_data:
                 history_name,
                 wait_on_history_length=history_length,
                 export_kwds={},
-                api_key=self.galaxy_interactor.api_key,
             )
             # wait a little more for those jobs, todo fix to wait for history imported false or
             # for a specific number of jobs...
@@ -516,14 +595,18 @@ test_data:
             time.sleep(1)
 
             if "reimport_jobs_ids" in extract_payload:
-                new_history_job_ids = extract_payload["reimport_jobs_ids"](new_history_id)
+                new_history_job_ids = extract_payload["reimport_jobs_ids"](
+                    new_history_id
+                )
                 extract_payload["job_ids"] = new_history_job_ids
             else:
                 # Assume no copying or anything so just straight map job ids by index.
 
                 # Jobs are created after datasets, need to also wait on those...
                 history_jobs = [
-                    j for j in self.dataset_populator.history_jobs(history_id) if j["tool_id"] != "__EXPORT_HISTORY__"
+                    j
+                    for j in self.dataset_populator.history_jobs(history_id)
+                    if j["tool_id"] != "__EXPORT_HISTORY__"
                 ]
                 new_history_jobs = [
                     j
@@ -540,7 +623,9 @@ test_data:
                     job_ids = extract_payload["job_ids"]
                     new_job_ids = []
                     for job_id in job_ids:
-                        new_job_ids.append(new_history_job_ids[history_job_ids.index(job_id)])
+                        new_job_ids.append(
+                            new_history_job_ids[history_job_ids.index(job_id)]
+                        )
 
                     extract_payload["job_ids"] = new_job_ids
 
@@ -571,7 +656,11 @@ test_data:
         steps = [s for s in downloaded_workflow["steps"].values() if s["type"] == type]
         if expected_len is not None:
             n = len(steps)
-            assert n == expected_len, "Expected %d steps of type %s, found %d" % (expected_len, type, n)
+            assert n == expected_len, "Expected %d steps of type %s, found %d" % (
+                expected_len,
+                type,
+                n,
+            )
         return sorted(steps, key=operator.itemgetter("id"))
 
     def __job_id(self, history_id, dataset_id):
@@ -619,9 +708,15 @@ test_data:
             expected_steps = set(tool_ids)
             assert found_steps == expected_steps
         if data_input_count is not None:
-            self._get_steps_of_type(workflow, "data_input", expected_len=data_input_count)
+            self._get_steps_of_type(
+                workflow, "data_input", expected_len=data_input_count
+            )
         if data_collection_input_count is not None:
-            self._get_steps_of_type(workflow, "data_collection_input", expected_len=data_collection_input_count)
+            self._get_steps_of_type(
+                workflow,
+                "data_collection_input",
+                expected_len=data_collection_input_count,
+            )
 
     def __assert_connected(self, workflow, steps):
         disconnected_inputs = []
@@ -634,8 +729,14 @@ test_data:
 
         if disconnected_inputs:
             template = "%d steps disconnected in extracted workflow - disconnectect steps are %s - workflow is %s"
-            message = template % (len(disconnected_inputs), disconnected_inputs, workflow)
+            message = template % (
+                len(disconnected_inputs),
+                disconnected_inputs,
+                workflow,
+            )
             raise AssertionError(message)
 
 
-RunJobsSummary = namedtuple("RunJobsSummary", ["history_id", "workflow_id", "inputs", "jobs"])
+RunJobsSummary = namedtuple(
+    "RunJobsSummary", ["history_id", "workflow_id", "inputs", "jobs"]
+)

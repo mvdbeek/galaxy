@@ -47,7 +47,7 @@ from galaxy.webapps.galaxy.api.common import (
 )
 from galaxy.webapps.galaxy.services.datasets import (
     ConvertedDatasetsMap,
-    DatasetInheritanceChainEntry,
+    DatasetInheritanceChain,
     DatasetsService,
     DatasetStorageDetails,
     DatasetTextContentDetails,
@@ -64,9 +64,13 @@ log = logging.getLogger(__name__)
 
 router = Router(tags=["datasets"])
 
-DatasetIDPathParam: EncodedDatabaseIdField = Path(..., description="The encoded database identifier of the dataset.")
+DatasetIDPathParam: EncodedDatabaseIdField = Path(
+    ..., description="The encoded database identifier of the dataset."
+)
 
-HistoryIDPathParam: EncodedDatabaseIdField = Path(..., description="The encoded database identifier of the History.")
+HistoryIDPathParam: EncodedDatabaseIdField = Path(
+    ..., description="The encoded database identifier of the History."
+)
 
 DatasetSourceQueryParam: DatasetSourceType = Query(
     default=DatasetSourceType.hda,
@@ -92,7 +96,9 @@ class FastAPIDatasets:
         serialization_params: SerializationParams = Depends(query_serialization_params),
         filter_query_params: FilterQueryParams = Depends(get_filter_query_params),
     ) -> List[AnyHistoryContentItem]:
-        return self.service.index(trans, history_id, serialization_params, filter_query_params)
+        return self.service.index(
+            trans, history_id, serialization_params, filter_query_params
+        )
 
     @router.get(
         "/api/datasets/{dataset_id}/storage",
@@ -116,7 +122,7 @@ class FastAPIDatasets:
         trans=DependsOnTrans,
         dataset_id: EncodedDatabaseIdField = DatasetIDPathParam,
         hda_ldda: DatasetSourceType = DatasetSourceQueryParam,
-    ) -> List[DatasetInheritanceChainEntry]:
+    ) -> DatasetInheritanceChain:
         return self.service.show_inheritance_chain(trans, dataset_id, hda_ldda)
 
     @router.get(
@@ -155,7 +161,9 @@ class FastAPIDatasets:
 
     @router.get(
         "/api/datasets/{dataset_id}/converted",
-        summary=("Return a a map with all the existing converted datasets associated with this instance."),
+        summary=(
+            "Return a a map with all the existing converted datasets associated with this instance."
+        ),
     )
     def converted(
         self,
@@ -239,9 +247,18 @@ class FastAPIDatasets:
         ),
     ):
         """Streams the preview contents of a dataset to be displayed in a browser."""
-        extra_params = get_query_parameters_from_request_excluding(request, {"preview", "filename", "to_ext", "raw"})
+        extra_params = get_query_parameters_from_request_excluding(
+            request, {"preview", "filename", "to_ext", "raw"}
+        )
         display_data, headers = self.service.display(
-            trans, history_content_id, history_id, preview, filename, to_ext, raw, **extra_params
+            trans,
+            history_content_id,
+            history_id,
+            preview,
+            filename,
+            to_ext,
+            raw,
+            **extra_params
         )
         return StreamingResponse(display_data, headers=headers)
 
@@ -261,7 +278,9 @@ class FastAPIDatasets:
             description="The name of the metadata file to retrieve.",
         ),
     ):
-        metadata_file_path, headers = self.service.get_metadata_file(trans, history_content_id, metadata_file)
+        metadata_file_path, headers = self.service.get_metadata_file(
+            trans, history_content_id, metadata_file
+        )
         return FileResponse(path=cast(str, metadata_file_path), headers=headers)
 
     @router.get(
@@ -294,9 +313,13 @@ class FastAPIDatasets:
         """
         exclude_params = set(["hda_ldda", "data_type"])
         exclude_params.update(SerializationParams.__fields__.keys())
-        extra_params = get_query_parameters_from_request_excluding(request, exclude_params)
+        extra_params = get_query_parameters_from_request_excluding(
+            request, exclude_params
+        )
 
-        return self.service.show(trans, dataset_id, hda_ldda, serialization_params, data_type, **extra_params)
+        return self.service.show(
+            trans, dataset_id, hda_ldda, serialization_params, data_type, **extra_params
+        )
 
 
 class DatasetsController(BaseGalaxyAPIController):
@@ -374,7 +397,9 @@ class DatasetsController(BaseGalaxyAPIController):
                 "provider": provider,
             }
         )
-        rval = self.service.show(trans, id, hda_ldda, serialization_params, data_type, **kwd)
+        rval = self.service.show(
+            trans, id, hda_ldda, serialization_params, data_type, **kwd
+        )
         return rval
 
     @web.expose_api_anonymous
@@ -411,7 +436,9 @@ class DatasetsController(BaseGalaxyAPIController):
         if payload:
             kwd.update(payload)
         update_payload = get_update_permission_payload(kwd)
-        return self.service.update_permissions(trans, dataset_id, update_payload, hda_ldda)
+        return self.service.update_permissions(
+            trans, dataset_id, update_payload, hda_ldda
+        )
 
     @web.expose_api_anonymous_and_sessionless
     def extra_files(self, trans, history_content_id, history_id, **kwd):
@@ -423,7 +450,15 @@ class DatasetsController(BaseGalaxyAPIController):
 
     @web.expose_api_raw_anonymous_and_sessionless
     def display(
-        self, trans, history_content_id, history_id, preview=False, filename=None, to_ext=None, raw=False, **kwd
+        self,
+        trans,
+        history_content_id,
+        history_id,
+        preview=False,
+        filename=None,
+        to_ext=None,
+        raw=False,
+        **kwd
     ):
         """
         GET /api/histories/{encoded_history_id}/contents/{encoded_content_id}/display
@@ -446,7 +481,9 @@ class DatasetsController(BaseGalaxyAPIController):
         return self.service.get_content_as_text(trans, dataset_id)
 
     @web.expose_api_raw_anonymous_and_sessionless
-    def get_metadata_file(self, trans, history_content_id, history_id, metadata_file, **kwd):
+    def get_metadata_file(
+        self, trans, history_content_id, history_id, metadata_file=None, **kwd
+    ):
         """
         GET /api/histories/{history_id}/contents/{history_content_id}/metadata_file
         """
@@ -486,5 +523,7 @@ class DatasetsController(BaseGalaxyAPIController):
         """
         if ext:
             serialization_params = parse_serialization_params(**kwargs)
-            return self.service.converted_ext(trans, dataset_id, ext, serialization_params)
+            return self.service.converted_ext(
+                trans, dataset_id, ext, serialization_params
+            )
         return self.service.converted(trans, dataset_id)

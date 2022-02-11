@@ -76,7 +76,10 @@ def main(TMPDIR, WORKING_DIRECTORY, IMPORT_STORE_DIRECTORY):
     object_store = get_object_store(WORKING_DIRECTORY)
     import_store = store.imported_store_for_metadata(IMPORT_STORE_DIRECTORY)
     # TODO: clean up random places from which we read files in the working directory
-    job_io = JobIO.from_json(os.path.join(IMPORT_STORE_DIRECTORY, "job_io.json"), sa_session=import_store.sa_session)
+    job_io = JobIO.from_json(
+        os.path.join(IMPORT_STORE_DIRECTORY, "job_io.json"),
+        sa_session=import_store.sa_session,
+    )
     tool_app_config = ToolAppConfig(
         name="tool_app",
         tool_data_path=job_io.tool_data_path,
@@ -87,7 +90,9 @@ def main(TMPDIR, WORKING_DIRECTORY, IMPORT_STORE_DIRECTORY):
         root=TMPDIR,
         is_admin_user=lambda _: job_io.user_context.is_admin,
     )
-    with open(os.path.join(IMPORT_STORE_DIRECTORY, "tool_data_tables.json")) as data_tables_json:
+    with open(
+        os.path.join(IMPORT_STORE_DIRECTORY, "tool_data_tables.json")
+    ) as data_tables_json:
         tdtm = ToolDataTableManager.from_dict(json.load(data_tables_json))
     app = ToolApp(
         sa_session=import_store.sa_session,
@@ -98,22 +103,35 @@ def main(TMPDIR, WORKING_DIRECTORY, IMPORT_STORE_DIRECTORY):
         file_sources=job_io.file_sources,
     )
     # TODO: could try to serialize just a minimal tool variant instead of the whole thing ?
-    tool_source = get_tool_source(tool_source_class=job_io.tool_source_class, raw_tool_source=job_io.tool_source)
-    tool = create_tool_from_source(app, tool_source=tool_source, tool_dir=job_io.tool_dir)
+    tool_source = get_tool_source(
+        tool_source_class=job_io.tool_source_class, raw_tool_source=job_io.tool_source
+    )
+    tool = create_tool_from_source(
+        app, tool_source=tool_source, tool_dir=job_io.tool_dir
+    )
     tool_evaluator = evaluation.RemoteToolEvaluator(
         app=app, tool=tool, job=job_io.job, local_working_directory=WORKING_DIRECTORY
     )
-    tool_evaluator.set_compute_environment(compute_environment=SharedComputeEnvironment(job_io=job_io, job=job_io.job))
+    tool_evaluator.set_compute_environment(
+        compute_environment=SharedComputeEnvironment(job_io=job_io, job=job_io.job)
+    )
     with open(os.path.join(WORKING_DIRECTORY, "tool_script.sh"), "a") as out:
-        command_line, extra_filenames, environment_variables = tool_evaluator.build()
-        out.write(command_line)
+        (
+            command_line,
+            version_command_line,
+            extra_filenames,
+            environment_variables,
+        ) = tool_evaluator.build()
+        out.write(f'{version_command_line or ""}{command_line}')
 
 
 if __name__ == "__main__":
     TMPDIR = tempfile.mkdtemp()
     WORKING_DIRECTORY = os.getcwd()
     WORKING_PARENT = os.path.join(WORKING_DIRECTORY, os.path.pardir)
-    if not os.path.isdir("working") and os.path.isdir(os.path.join(WORKING_PARENT, "working")):
+    if not os.path.isdir("working") and os.path.isdir(
+        os.path.join(WORKING_PARENT, "working")
+    ):
         # We're probably in pulsar
         WORKING_DIRECTORY = WORKING_PARENT
     METADATA_DIRECTORY = os.path.join(WORKING_DIRECTORY, "metadata")

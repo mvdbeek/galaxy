@@ -21,7 +21,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
     def setUp(self):
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
-        self.dataset_collection_populator = DatasetCollectionPopulator(self.galaxy_interactor)
+        self.dataset_collection_populator = DatasetCollectionPopulator(
+            self.galaxy_interactor
+        )
         self.library_populator = LibraryPopulator(self.galaxy_interactor)
         self.history_id = self.dataset_populator.new_history()
 
@@ -97,7 +99,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
         self._assert_other_user_cannot_access(hda_id)
 
         # But they do for the original user.
-        contents_response = self._get(f"histories/{self.history_id}/contents/{hda_id}").json()
+        contents_response = self._get(
+            f"histories/{self.history_id}/contents/{hda_id}"
+        ).json()
         assert "name" in contents_response
 
         update_response = self._update_permissions(update_url, payload)
@@ -148,13 +152,17 @@ class HistoryContentsApiTestCase(ApiTestCase):
 
     def test_index_hda_all_details(self):
         hda1 = self.dataset_populator.new_dataset(self.history_id)
-        contents_response = self._get(f"histories/{self.history_id}/contents?details=all")
+        contents_response = self._get(
+            f"histories/{self.history_id}/contents?details=all"
+        )
         hda_details = self.__check_for_hda(contents_response, hda1)
         self.__assert_hda_has_full_details(hda_details)
 
     def test_index_hda_detail_by_id(self):
         hda1 = self.dataset_populator.new_dataset(self.history_id)
-        contents_response = self._get(f"histories/{self.history_id}/contents?details={hda1['id']}")
+        contents_response = self._get(
+            f"histories/{self.history_id}/contents?details={hda1['id']}"
+        )
         hda_details = self.__check_for_hda(contents_response, hda1)
         self.__assert_hda_has_full_details(hda_details)
 
@@ -164,7 +172,7 @@ class HistoryContentsApiTestCase(ApiTestCase):
         self._assert_status_code_is(show_response, 200)
         self.__assert_matches_hda(hda1, show_response.json())
 
-    def test_hda_copy(self):
+    def _create_copy(self):
         hda1 = self.dataset_populator.new_dataset(self.history_id)
         create_data = dict(
             source="hda",
@@ -172,9 +180,24 @@ class HistoryContentsApiTestCase(ApiTestCase):
         )
         second_history_id = self.dataset_populator.new_history()
         assert self.__count_contents(second_history_id) == 0
-        create_response = self._post(f"histories/{second_history_id}/contents", create_data, json=True)
+        create_response = self._post(
+            f"histories/{second_history_id}/contents", create_data, json=True
+        )
         self._assert_status_code_is(create_response, 200)
-        assert self.__count_contents(second_history_id) == 1
+        return create_response.json()
+
+    def test_hda_copy(self):
+        response = self._create_copy()
+        assert self.__count_contents(response["history_id"]) == 1
+
+    def test_inheritance_chain(self):
+        response = self._create_copy()
+        inheritance_chain_response = self._get(
+            f"datasets/{response['id']}/inheritance_chain"
+        )
+        self._assert_status_code_is_ok(inheritance_chain_response)
+        inheritance_chain = inheritance_chain_response.json()
+        assert len(inheritance_chain) == 1
 
     def test_library_copy(self):
         ld = self.library_populator.new_library_dataset("lda_test_library")
@@ -183,7 +206,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
             content=ld["id"],
         )
         assert self.__count_contents(self.history_id) == 0
-        create_response = self._post(f"histories/{self.history_id}/contents", create_data, json=True)
+        create_response = self._post(
+            f"histories/{self.history_id}/contents", create_data, json=True
+        )
         self._assert_status_code_is(create_response, 200)
         assert self.__count_contents(self.history_id) == 1
 
@@ -232,21 +257,29 @@ class HistoryContentsApiTestCase(ApiTestCase):
         assert str(hda1["visible"]).lower() == "true"
 
         # update deleted flag => true
-        payload = dict(items=[{"history_content_type": "dataset", "id": hda1["id"]}], deleted=True)
+        payload = dict(
+            items=[{"history_content_type": "dataset", "id": hda1["id"]}], deleted=True
+        )
         update_response = self._update_batch(payload)
         objects = update_response.json()
         assert objects[0]["deleted"] is True
         assert objects[0]["visible"] is True
 
         # update visibility flag => false
-        payload = dict(items=[{"history_content_type": "dataset", "id": hda1["id"]}], visible=False)
+        payload = dict(
+            items=[{"history_content_type": "dataset", "id": hda1["id"]}], visible=False
+        )
         update_response = self._update_batch(payload)
         objects = update_response.json()
         assert objects[0]["deleted"] is True
         assert objects[0]["visible"] is False
 
         # update both flags
-        payload = dict(items=[{"history_content_type": "dataset", "id": hda1["id"]}], deleted=False, visible=True)
+        payload = dict(
+            items=[{"history_content_type": "dataset", "id": hda1["id"]}],
+            deleted=False,
+            visible=True,
+        )
         update_response = self._update_batch(payload)
         objects = update_response.json()
         assert objects[0]["deleted"] is False
@@ -258,14 +291,20 @@ class HistoryContentsApiTestCase(ApiTestCase):
         assert hdca["visible"] is True
 
         # update deleted flag => true
-        payload = dict(items=[{"history_content_type": "dataset_collection", "id": hdca["id"]}], deleted=True)
+        payload = dict(
+            items=[{"history_content_type": "dataset_collection", "id": hdca["id"]}],
+            deleted=True,
+        )
         update_response = self._update_batch(payload)
         objects = update_response.json()
         assert objects[0]["deleted"] is True
         assert objects[0]["visible"] is True
 
         # update visibility flag => false
-        payload = dict(items=[{"history_content_type": "dataset_collection", "id": hdca["id"]}], visible=False)
+        payload = dict(
+            items=[{"history_content_type": "dataset_collection", "id": hdca["id"]}],
+            visible=False,
+        )
         update_response = self._update_batch(payload)
         objects = update_response.json()
         assert objects[0]["deleted"] is True
@@ -273,7 +312,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
 
         # update both flags
         payload = dict(
-            items=[{"history_content_type": "dataset_collection", "id": hdca["id"]}], deleted=False, visible=True
+            items=[{"history_content_type": "dataset_collection", "id": hdca["id"]}],
+            deleted=False,
+            visible=True,
         )
         update_response = self._update_batch(payload)
         objects = update_response.json()
@@ -291,12 +332,19 @@ class HistoryContentsApiTestCase(ApiTestCase):
         return hda1
 
     def _set_edit_update(self, data):
-        update_response = self._put(urllib.parse.urljoin(self.url, "dataset/set_edit"), data=data, json=True)
+        update_response = self._put(
+            urllib.parse.urljoin(self.url, "dataset/set_edit"), data=data, json=True
+        )
         return update_response
 
     def _update(self, item_id, data, admin=False, history_id=None):
         history_id = history_id or self.history_id
-        update_response = self._put(f"histories/{history_id}/contents/{item_id}", data=data, json=True, admin=admin)
+        update_response = self._put(
+            f"histories/{history_id}/contents/{item_id}",
+            data=data,
+            json=True,
+            admin=admin,
+        )
         return update_response
 
     def _update_permissions(self, url, data, admin=False):
@@ -304,33 +352,46 @@ class HistoryContentsApiTestCase(ApiTestCase):
         return update_response
 
     def _update_batch(self, data):
-        update_response = self._put(f"histories/{self.history_id}/contents", data=data, json=True)
+        update_response = self._put(
+            f"histories/{self.history_id}/contents", data=data, json=True
+        )
         return update_response
 
     def test_delete(self):
         hda1 = self.dataset_populator.new_dataset(self.history_id)
         self.dataset_populator.wait_for_history(self.history_id)
         assert str(self.__show(hda1).json()["deleted"]).lower() == "false"
-        delete_response = self._delete(f"histories/{self.history_id}/contents/{hda1['id']}")
+        delete_response = self._delete(
+            f"histories/{self.history_id}/contents/{hda1['id']}"
+        )
         assert delete_response.status_code < 300  # Something in the 200s :).
         assert str(self.__show(hda1).json()["deleted"]).lower() == "true"
 
     def test_delete_anon(self):
         with self._different_user(anon=True):
-            history_id = self._get(urllib.parse.urljoin(self.url, "history/current_history_json")).json()["id"]
+            history_id = self._get(
+                urllib.parse.urljoin(self.url, "history/current_history_json")
+            ).json()["id"]
             hda1 = self.dataset_populator.new_dataset(history_id)
             self.dataset_populator.wait_for_history(history_id)
             assert str(self.__show(hda1).json()["deleted"]).lower() == "false"
-            delete_response = self._delete(f"histories/{history_id}/contents/{hda1['id']}")
+            delete_response = self._delete(
+                f"histories/{history_id}/contents/{hda1['id']}"
+            )
             assert delete_response.status_code < 300  # Something in the 200s :).
             assert str(self.__show(hda1).json()["deleted"]).lower() == "true"
 
     def test_delete_permission_denied(self):
         hda1 = self.dataset_populator.new_dataset(self.history_id)
         with self._different_user(anon=True):
-            delete_response = self._delete(f"histories/{self.history_id}/contents/{hda1['id']}")
+            delete_response = self._delete(
+                f"histories/{self.history_id}/contents/{hda1['id']}"
+            )
             assert delete_response.status_code == 403
-            assert delete_response.json()["err_msg"] == "HistoryDatasetAssociation is not owned by user"
+            assert (
+                delete_response.json()["err_msg"]
+                == "HistoryDatasetAssociation is not owned by user"
+            )
 
     def test_purge(self):
         hda1 = self.dataset_populator.new_dataset(self.history_id)
@@ -338,13 +399,17 @@ class HistoryContentsApiTestCase(ApiTestCase):
         assert str(self.__show(hda1).json()["deleted"]).lower() == "false"
         assert str(self.__show(hda1).json()["purged"]).lower() == "false"
         data = {"purge": True}
-        delete_response = self._delete(f"histories/{self.history_id}/contents/{hda1['id']}", data=data, json=True)
+        delete_response = self._delete(
+            f"histories/{self.history_id}/contents/{hda1['id']}", data=data, json=True
+        )
         assert delete_response.status_code < 300  # Something in the 200s :).
         assert str(self.__show(hda1).json()["deleted"]).lower() == "true"
         assert str(self.__show(hda1).json()["purged"]).lower() == "true"
 
     def test_dataset_collection_creation_on_contents(self):
-        payload = self.dataset_collection_populator.create_pair_payload(self.history_id, type="dataset_collection")
+        payload = self.dataset_collection_populator.create_pair_payload(
+            self.history_id, type="dataset_collection"
+        )
         endpoint = f"histories/{self.history_id}/contents"
         self._check_pair_creation(endpoint, payload)
 
@@ -357,26 +422,48 @@ class HistoryContentsApiTestCase(ApiTestCase):
 
     def test_dataset_collection_create_from_exisiting_datasets_with_new_tags(self):
         with self.dataset_populator.test_history() as history_id:
-            hda_id = self.dataset_populator.new_dataset(history_id, content="1 2 3")["id"]
-            hda2_id = self.dataset_populator.new_dataset(history_id, content="1 2 3")["id"]
-            update_response = self._update(hda2_id, dict(tags=["existing:tag"]), history_id=history_id).json()
+            hda_id = self.dataset_populator.new_dataset(history_id, content="1 2 3")[
+                "id"
+            ]
+            hda2_id = self.dataset_populator.new_dataset(history_id, content="1 2 3")[
+                "id"
+            ]
+            update_response = self._update(
+                hda2_id, dict(tags=["existing:tag"]), history_id=history_id
+            ).json()
             assert update_response["tags"] == ["existing:tag"]
             creation_payload = {
                 "collection_type": "list",
                 "history_id": history_id,
                 "element_identifiers": [
-                    {"id": hda_id, "src": "hda", "name": "element_id1", "tags": ["my_new_tag"]},
-                    {"id": hda2_id, "src": "hda", "name": "element_id2", "tags": ["another_new_tag"]},
+                    {
+                        "id": hda_id,
+                        "src": "hda",
+                        "name": "element_id1",
+                        "tags": ["my_new_tag"],
+                    },
+                    {
+                        "id": hda2_id,
+                        "src": "hda",
+                        "name": "element_id2",
+                        "tags": ["another_new_tag"],
+                    },
                 ],
                 "type": "dataset_collection",
                 "copy_elements": True,
             }
-            r = self._post(f"histories/{self.history_id}/contents", creation_payload, json=True).json()
+            r = self._post(
+                f"histories/{self.history_id}/contents", creation_payload, json=True
+            ).json()
             assert r["elements"][0]["object"]["id"] != hda_id, "HDA has not been copied"
             assert len(r["elements"][0]["object"]["tags"]) == 1
             assert r["elements"][0]["object"]["tags"][0] == "my_new_tag"
-            assert len(r["elements"][1]["object"]["tags"]) == 2, r["elements"][1]["object"]["tags"]
-            original_hda = self.dataset_populator.get_history_dataset_details(history_id=history_id, dataset_id=hda_id)
+            assert len(r["elements"][1]["object"]["tags"]) == 2, r["elements"][1][
+                "object"
+            ]["tags"]
+            original_hda = self.dataset_populator.get_history_dataset_details(
+                history_id=history_id, dataset_id=hda_id
+            )
             assert len(original_hda["tags"]) == 0, original_hda["tags"]
 
     def _check_pair_creation(self, endpoint, payload):
@@ -386,7 +473,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
 
         dataset_collection_response = self._post(endpoint, payload, json=True)
 
-        dataset_collection = self.__check_create_collection_response(dataset_collection_response)
+        dataset_collection = self.__check_create_collection_response(
+            dataset_collection_response
+        )
 
         post_collection_count = self.__count_contents(type="dataset_collection")
         post_dataset_count = self.__count_contents(type="dataset")
@@ -421,7 +510,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
             self.history_id, contents=["a\nb\nc\nd", "e\nf\ng\nh"]
         )
         hdca_id = create_response.json()["id"]
-        run = self.dataset_populator.run_collection_creates_list(self.history_id, hdca_id)
+        run = self.dataset_populator.run_collection_creates_list(
+            self.history_id, hdca_id
+        )
         collections = run["output_collections"]
         collection = collections[0]
         jobs_summary_url = f"histories/{self.history_id}/contents/dataset_collections/{collection['id']}/jobs_summary"
@@ -439,7 +530,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
         inputs = {
             "input1": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]},
         }
-        run = self.dataset_populator.run_tool("cat1", inputs=inputs, history_id=self.history_id)
+        run = self.dataset_populator.run_tool(
+            "cat1", inputs=inputs, history_id=self.history_id
+        )
         self.dataset_populator.wait_for_history_jobs(self.history_id)
         collections = run["implicit_collections"]
         collection = collections[0]
@@ -452,15 +545,21 @@ class HistoryContentsApiTestCase(ApiTestCase):
         assert states.get("ok") == 2, states
 
     def test_dataset_collection_hide_originals(self):
-        payload = self.dataset_collection_populator.create_pair_payload(self.history_id, type="dataset_collection")
+        payload = self.dataset_collection_populator.create_pair_payload(
+            self.history_id, type="dataset_collection"
+        )
 
         payload["hide_source_items"] = True
-        dataset_collection_response = self._post(f"histories/{self.history_id}/contents", payload, json=True)
+        dataset_collection_response = self._post(
+            f"histories/{self.history_id}/contents", payload, json=True
+        )
         self.__check_create_collection_response(dataset_collection_response)
 
         contents_response = self._get(f"histories/{self.history_id}/contents")
         datasets = [
-            d for d in contents_response.json() if d["history_content_type"] == "dataset" and d["hid"] in [1, 2]
+            d
+            for d in contents_response.json()
+            if d["history_content_type"] == "dataset" and d["hid"] in [1, 2]
         ]
         # Assert two datasets in source were hidden.
         assert len(datasets) == 2
@@ -471,7 +570,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
         hdca = self._create_pair_collection()
         body = dict(name="newnameforpair")
         update_response = self._put(
-            f"histories/{self.history_id}/contents/dataset_collections/{hdca['id']}", data=body, json=True
+            f"histories/{self.history_id}/contents/dataset_collections/{hdca['id']}",
+            data=body,
+            json=True,
         )
         self._assert_status_code_is(update_response, 200)
         show_response = self.__show(hdca)
@@ -479,46 +580,72 @@ class HistoryContentsApiTestCase(ApiTestCase):
 
     def test_update_batch_dataset_collection(self):
         hdca = self._create_pair_collection()
-        body = {"items": [{"history_content_type": "dataset_collection", "id": hdca["id"]}], "name": "newnameforpair"}
-        update_response = self._put(f"histories/{self.history_id}/contents", data=body, json=True)
+        body = {
+            "items": [{"history_content_type": "dataset_collection", "id": hdca["id"]}],
+            "name": "newnameforpair",
+        }
+        update_response = self._put(
+            f"histories/{self.history_id}/contents", data=body, json=True
+        )
         self._assert_status_code_is(update_response, 200)
         show_response = self.__show(hdca)
         assert str(show_response.json()["name"]) == "newnameforpair"
 
     def _create_pair_collection(self):
-        payload = self.dataset_collection_populator.create_pair_payload(self.history_id, type="dataset_collection")
-        dataset_collection_response = self._post(f"histories/{self.history_id}/contents", payload, json=True)
+        payload = self.dataset_collection_populator.create_pair_payload(
+            self.history_id, type="dataset_collection"
+        )
+        dataset_collection_response = self._post(
+            f"histories/{self.history_id}/contents", payload, json=True
+        )
         self._assert_status_code_is(dataset_collection_response, 200)
         hdca = dataset_collection_response.json()
         return hdca
 
     def test_hdca_copy(self):
-        hdca = self.dataset_collection_populator.create_pair_in_history(self.history_id).json()
+        hdca = self.dataset_collection_populator.create_pair_in_history(
+            self.history_id
+        ).json()
         hdca_id = hdca["id"]
         second_history_id = self.dataset_populator.new_history()
         create_data = dict(
             source="hdca",
             content=hdca_id,
         )
-        assert len(self._get(f"histories/{second_history_id}/contents/dataset_collections").json()) == 0
+        assert (
+            len(
+                self._get(
+                    f"histories/{second_history_id}/contents/dataset_collections"
+                ).json()
+            )
+            == 0
+        )
         create_response = self._post(
-            f"histories/{second_history_id}/contents/dataset_collections", create_data, json=True
+            f"histories/{second_history_id}/contents/dataset_collections",
+            create_data,
+            json=True,
         )
         self.__check_create_collection_response(create_response)
-        contents = self._get(f"histories/{second_history_id}/contents/dataset_collections").json()
+        contents = self._get(
+            f"histories/{second_history_id}/contents/dataset_collections"
+        ).json()
         assert len(contents) == 1
         new_forward, _ = self.__get_paired_response_elements(contents[0])
         self._assert_has_keys(new_forward, "history_id")
         assert new_forward["history_id"] == self.history_id
 
     def test_hdca_copy_with_new_dbkey(self):
-        hdca = self.dataset_collection_populator.create_pair_in_history(self.history_id).json()
+        hdca = self.dataset_collection_populator.create_pair_in_history(
+            self.history_id
+        ).json()
         hdca_id = hdca["id"]
         assert hdca["elements"][0]["object"]["metadata_dbkey"] == "?"
         assert hdca["elements"][0]["object"]["genome_build"] == "?"
         create_data = {"source": "hdca", "content": hdca_id, "dbkey": "hg19"}
         create_response = self._post(
-            f"histories/{self.history_id}/contents/dataset_collections", create_data, json=True
+            f"histories/{self.history_id}/contents/dataset_collections",
+            create_data,
+            json=True,
         )
         collection = self.__check_create_collection_response(create_response)
         new_forward = collection["elements"][0]["object"]
@@ -526,7 +653,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
         assert new_forward["genome_build"] == "hg19"
 
     def test_hdca_copy_and_elements(self):
-        hdca = self.dataset_collection_populator.create_pair_in_history(self.history_id).json()
+        hdca = self.dataset_collection_populator.create_pair_in_history(
+            self.history_id
+        ).json()
         hdca_id = hdca["id"]
         second_history_id = self.dataset_populator.new_history()
         create_data = dict(
@@ -534,13 +663,24 @@ class HistoryContentsApiTestCase(ApiTestCase):
             content=hdca_id,
             copy_elements=True,
         )
-        assert len(self._get(f"histories/{second_history_id}/contents/dataset_collections").json()) == 0
+        assert (
+            len(
+                self._get(
+                    f"histories/{second_history_id}/contents/dataset_collections"
+                ).json()
+            )
+            == 0
+        )
         create_response = self._post(
-            f"histories/{second_history_id}/contents/dataset_collections", create_data, json=True
+            f"histories/{second_history_id}/contents/dataset_collections",
+            create_data,
+            json=True,
         )
         self.__check_create_collection_response(create_response)
 
-        contents = self._get(f"histories/{second_history_id}/contents/dataset_collections").json()
+        contents = self._get(
+            f"histories/{second_history_id}/contents/dataset_collections"
+        ).json()
         assert len(contents) == 1
         new_forward, _ = self.__get_paired_response_elements(contents[0])
         self._assert_has_keys(new_forward, "history_id")
@@ -570,7 +710,11 @@ class HistoryContentsApiTestCase(ApiTestCase):
             element_identifiers=element_identifiers,
             collection_type="list",
         )
-        create_response = self._post(f"histories/{history_id}/contents/dataset_collections", create_data, json=True)
+        create_response = self._post(
+            f"histories/{history_id}/contents/dataset_collections",
+            create_data,
+            json=True,
+        )
         hdca = self.__check_create_collection_response(create_response)
         elements = hdca["elements"]
         assert len(elements) == 1
@@ -581,7 +725,10 @@ class HistoryContentsApiTestCase(ApiTestCase):
         assert hda["history_id"] == history_id
 
     def test_hdca_from_inaccessible_library_datasets(self):
-        library, library_dataset = self.library_populator.new_library_dataset_in_private_library(
+        (
+            library,
+            library_dataset,
+        ) = self.library_populator.new_library_dataset_in_private_library(
             "HDCACreateInaccesibleLibrary"
         )
         ldda_id = library_dataset["id"]
@@ -596,14 +743,18 @@ class HistoryContentsApiTestCase(ApiTestCase):
         with self._different_user():
             second_history_id = self.dataset_populator.new_history()
             create_response = self._post(
-                f"histories/{second_history_id}/contents/dataset_collections", create_data, json=True
+                f"histories/{second_history_id}/contents/dataset_collections",
+                create_data,
+                json=True,
             )
             self._assert_status_code_is(create_response, 403)
 
     def __check_create_collection_response(self, response):
         self._assert_status_code_is(response, 200)
         dataset_collection = response.json()
-        self._assert_has_keys(dataset_collection, "url", "name", "deleted", "visible", "elements")
+        self._assert_has_keys(
+            dataset_collection, "url", "name", "deleted", "visible", "elements"
+        )
         return dataset_collection
 
     def __show(self, contents):
@@ -639,26 +790,39 @@ class HistoryContentsApiTestCase(ApiTestCase):
             self.history_id, contents=["123", "456"]
         )
         self._assert_status_code_is(create_response, 200)
-        contents_response = self._get(f"histories/{self.history_id}/contents?v=dev&keys=job_state_summary&view=summary")
+        contents_response = self._get(
+            f"histories/{self.history_id}/contents?v=dev&keys=job_state_summary&view=summary"
+        )
         self._assert_status_code_is(contents_response, 200)
         contents = contents_response.json()
-        for c in filter(lambda c: c["history_content_type"] == "dataset_collection", contents):
+        for c in filter(
+            lambda c: c["history_content_type"] == "dataset_collection", contents
+        ):
             assert isinstance(c, dict)
             assert "job_state_summary" in c
             assert isinstance(c["job_state_summary"], dict)
 
     def _get_content(self, history_id, update_time):
-        return self._get(f"/api/histories/{history_id}/contents/near/100/100?update_time-gt={update_time}").json()
+        return self._get(
+            f"/api/histories/{history_id}/contents/near/100/100?update_time-gt={update_time}"
+        ).json()
 
     def test_history_contents_near_with_update_time(self):
         with self.dataset_populator.test_history() as history_id:
             first_time = datetime.utcnow().isoformat()
             assert len(self._get_content(history_id, update_time=first_time)) == 0
-            self.dataset_collection_populator.create_list_in_history(history_id=history_id)
-            assert len(self._get_content(history_id, update_time=first_time)) == 4  # 3 datasets
+            self.dataset_collection_populator.create_list_in_history(
+                history_id=history_id
+            )
+            assert (
+                len(self._get_content(history_id, update_time=first_time)) == 4
+            )  # 3 datasets
             self.dataset_populator.wait_for_history(history_id)
             all_datasets_finished = first_time = datetime.utcnow().isoformat()
-            assert len(self._get_content(history_id, update_time=all_datasets_finished)) == 0
+            assert (
+                len(self._get_content(history_id, update_time=all_datasets_finished))
+                == 0
+            )
 
     def test_history_contents_near_with_since(self):
         with self.dataset_populator.test_history() as history_id:
@@ -666,7 +830,9 @@ class HistoryContentsApiTestCase(ApiTestCase):
             original_history_stamp = original_history["update_time"]
 
             # check empty contents, with no since flag, should return an empty 200 result
-            history_contents = self._get(f"/api/histories/{history_id}/contents/near/100/100")
+            history_contents = self._get(
+                f"/api/histories/{history_id}/contents/near/100/100"
+            )
             assert history_contents.status_code == 200
             assert len(history_contents.json()) == 0
 
@@ -677,11 +843,15 @@ class HistoryContentsApiTestCase(ApiTestCase):
             assert history_contents.status_code == 204
 
             # add some stuff
-            self.dataset_collection_populator.create_list_in_history(history_id=history_id)
+            self.dataset_collection_populator.create_list_in_history(
+                history_id=history_id
+            )
             self.dataset_populator.wait_for_history(history_id)
 
             # check to make sure the added stuff is there
-            changed_history_contents = self._get(f"/api/histories/{history_id}/contents/near/100/100")
+            changed_history_contents = self._get(
+                f"/api/histories/{history_id}/contents/near/100/100"
+            )
             assert changed_history_contents.status_code == 200
             assert len(changed_history_contents.json()) == 4
 
@@ -717,16 +887,26 @@ class HistoryContentsApiTestCase(ApiTestCase):
             assert history_contents.status_code == 204
 
             # test parsing for other standard is08601 formats
-            sample_formats = ["2021-08-26T15:53:02+00:00", "2021-08-26T15:53:02Z", "2002-10-10T12:00:00-05:00"]
+            sample_formats = [
+                "2021-08-26T15:53:02+00:00",
+                "2021-08-26T15:53:02Z",
+                "2002-10-10T12:00:00-05:00",
+            ]
             for date_str in sample_formats:
-                encoded_date = urllib.parse.quote_plus(date_str)  # handles pluses, minuses
-                history_contents = self._get(f"/api/histories/{history_id}/contents/near/100/100?since={encoded_date}")
+                encoded_date = urllib.parse.quote_plus(
+                    date_str
+                )  # handles pluses, minuses
+                history_contents = self._get(
+                    f"/api/histories/{history_id}/contents/near/100/100?since={encoded_date}"
+                )
                 self._assert_status_code_is_ok(history_contents)
 
     @skip_without_tool("cat_data_and_sleep")
     def test_history_contents_near_with_update_time_implicit_collection(self):
         with self.dataset_populator.test_history() as history_id:
-            hdca_id = self.dataset_collection_populator.create_list_in_history(history_id=history_id).json()["id"]
+            hdca_id = self.dataset_collection_populator.create_list_in_history(
+                history_id=history_id
+            ).json()["id"]
             self.dataset_populator.wait_for_history(history_id)
             inputs = {
                 "input1": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]},
@@ -745,7 +925,8 @@ class HistoryContentsApiTestCase(ApiTestCase):
                 if any(
                     c
                     for c in update
-                    if c["history_content_type"] == "dataset_collection" and c["job_state_summary"]["ok"] == 3
+                    if c["history_content_type"] == "dataset_collection"
+                    and c["job_state_summary"]["ok"] == 3
                 ):
                     return
             raise Exception(
@@ -769,7 +950,8 @@ class HistoryContentsApiTestCase(ApiTestCase):
                 if any(
                     c
                     for c in update
-                    if c["history_content_type"] == "dataset_collection" and c["populated_state"] == "ok"
+                    if c["history_content_type"] == "dataset_collection"
+                    and c["populated_state"] == "ok"
                 ):
                     return
             raise Exception(
@@ -786,9 +968,13 @@ class HistoryContentsApiTestCase(ApiTestCase):
         expected_num_collections = 1
         expected_num_datasets = num_items - expected_num_collections
 
-        contents_response = self._get(f"histories/{history_id}/contents?types=dataset").json()
+        contents_response = self._get(
+            f"histories/{history_id}/contents?types=dataset"
+        ).json()
         assert len(contents_response) == expected_num_datasets
-        contents_response = self._get(f"histories/{history_id}/contents?types=dataset_collection").json()
+        contents_response = self._get(
+            f"histories/{history_id}/contents?types=dataset_collection"
+        ).json()
         assert len(contents_response) == expected_num_collections
 
     def test_elements_datatypes_field(self):
@@ -799,25 +985,44 @@ class HistoryContentsApiTestCase(ApiTestCase):
             {"name": "test1", "src": "pasted", "paste_content": "abc", "ext": "txt"},
             {"name": "test2", "src": "pasted", "paste_content": "abc", "ext": "txt"},
         ]
-        self._upload_collection_list_with_elements(history_id, collection_name, elements)
-        self._assert_collection_has_expected_elements_datatypes(history_id, collection_name, expected_datatypes)
+        self._upload_collection_list_with_elements(
+            history_id, collection_name, elements
+        )
+        self._assert_collection_has_expected_elements_datatypes(
+            history_id, collection_name, expected_datatypes
+        )
 
         collection_name = "heterogeneous"
         expected_datatypes = ["txt", "tabular"]
         elements = [  # List with txt and tabular datatype (heterogeneous)
             {"name": "test2", "src": "pasted", "paste_content": "abc", "ext": "txt"},
-            {"name": "test3", "src": "pasted", "paste_content": "a,b,c\n", "ext": "tabular"},
+            {
+                "name": "test3",
+                "src": "pasted",
+                "paste_content": "a,b,c\n",
+                "ext": "tabular",
+            },
         ]
-        self._upload_collection_list_with_elements(history_id, collection_name, elements)
-        self._assert_collection_has_expected_elements_datatypes(history_id, collection_name, expected_datatypes)
+        self._upload_collection_list_with_elements(
+            history_id, collection_name, elements
+        )
+        self._assert_collection_has_expected_elements_datatypes(
+            history_id, collection_name, expected_datatypes
+        )
 
-    def _upload_collection_list_with_elements(self, history_id: str, collection_name: str, elements: List[Any]):
-        create_homogeneous_response = self.dataset_collection_populator.upload_collection(
-            history_id, "list", elements=elements, name=collection_name
+    def _upload_collection_list_with_elements(
+        self, history_id: str, collection_name: str, elements: List[Any]
+    ):
+        create_homogeneous_response = (
+            self.dataset_collection_populator.upload_collection(
+                history_id, "list", elements=elements, name=collection_name
+            )
         )
         self._assert_status_code_is_ok(create_homogeneous_response)
 
-    def _assert_collection_has_expected_elements_datatypes(self, history_id, collection_name, expected_datatypes):
+    def _assert_collection_has_expected_elements_datatypes(
+        self, history_id, collection_name, expected_datatypes
+    ):
         contents_response = self._get(
             f"histories/{history_id}/contents?v=dev&view=betawebclient&q=name-eq&qv={collection_name}"
         )
@@ -838,15 +1043,21 @@ class HistoryContentsApiNearTestCase(ApiTestCase):
     def setUp(self):
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
-        self.dataset_collection_populator = DatasetCollectionPopulator(self.galaxy_interactor)
+        self.dataset_collection_populator = DatasetCollectionPopulator(
+            self.galaxy_interactor
+        )
 
     def _create_list_in_history(self, history_id, n=2):
         # Creates list of size n*4 (n collections with 3 items each)
         for _ in range(n):
-            self.dataset_collection_populator.create_list_in_history(history_id=history_id)
+            self.dataset_collection_populator.create_list_in_history(
+                history_id=history_id
+            )
 
     def _get_content(self, history_id, direction, *, hid, limit=1000):
-        return self._get(f"/api/histories/{history_id}/contents/{direction}/{hid}/{limit}").json()
+        return self._get(
+            f"/api/histories/{history_id}/contents/{direction}/{hid}/{limit}"
+        ).json()
 
     def test_returned_hid_sequence_in_base_case(self):
         with self.dataset_populator.test_history() as history_id:
@@ -928,7 +1139,9 @@ class HistoryContentsApiNearTestCase(ApiTestCase):
             self._create_list_in_history(history_id)
             result = self._get_content(history_id, self.AFTER, hid=5, limit=2)
             assert len(result) == 2
-            assert result[0]["hid"] == 7  # hid + 2 (hid + 3 not included: tests reversed order)
+            assert (
+                result[0]["hid"] == 7
+            )  # hid + 2 (hid + 3 not included: tests reversed order)
             assert result[1]["hid"] == 6  # hid + 1
 
     def test_after_less_than_limit(self):

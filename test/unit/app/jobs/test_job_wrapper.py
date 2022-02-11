@@ -8,16 +8,8 @@ from typing import (
 from unittest import TestCase
 
 from galaxy.app_unittest_utils.tools_support import UsesApp
-from galaxy.jobs import (
-    JobWrapper,
-    TaskWrapper,
-)
-from galaxy.model import (
-    Base,
-    Job,
-    Task,
-    User,
-)
+from galaxy.jobs import JobWrapper, TaskWrapper
+from galaxy.model import Base, Job, Task, User
 from galaxy.util.bunch import Bunch
 
 TEST_TOOL_ID = "cufftest"
@@ -104,7 +96,7 @@ class MockEvaluator:
         pass
 
     def build(self):
-        return TEST_COMMAND, [], []
+        return TEST_COMMAND, "", [], []
 
 
 class MockJobQueue:

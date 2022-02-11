@@ -55,7 +55,7 @@ from galaxy.web import (
     expose_api,
     expose_api_anonymous,
     expose_api_anonymous_and_sessionless,
-    expose_api_raw,
+    expose_api_raw_anonymous_and_sessionless,
 )
 from galaxy.webapps.galaxy.api.common import (
     parse_serialization_params,
@@ -76,7 +76,9 @@ log = logging.getLogger(__name__)
 router = Router(tags=["histories"])
 
 HistoryIDPathParam: EncodedDatabaseIdField = Path(
-    ..., title="History ID", description="The encoded database identifier of the History."
+    ...,
+    title="History ID",
+    description="The encoded database identifier of the History.",
 )
 
 JehaIDPathParam: Union[EncodedDatabaseIdField, LatestLiteral] = Path(
@@ -100,7 +102,9 @@ class HistoryIndexParams(HistoryFilterQueryParams):
 
 class DeleteHistoryPayload(BaseModel):
     purge: bool = Field(
-        default=False, title="Purge", description="Whether to definitely remove this history from disk."
+        default=False,
+        title="Purge",
+        description="Whether to definitely remove this history from disk.",
     )
 
 
@@ -129,7 +133,13 @@ class FastAPIHistories:
             deprecated=True,  # Marked as deprecated as it seems just like '/api/histories/deleted'
         ),
     ) -> List[AnyHistoryView]:
-        return self.service.index(trans, serialization_params, params, deleted_only=deleted, all_histories=params.all)
+        return self.service.index(
+            trans,
+            serialization_params,
+            params,
+            deleted_only=deleted,
+            all_histories=params.all,
+        )
 
     @router.get(
         "/api/histories/deleted",
@@ -141,7 +151,13 @@ class FastAPIHistories:
         params: HistoryIndexParams = Depends(HistoryIndexParams),
         serialization_params: SerializationParams = Depends(query_serialization_params),
     ) -> List[AnyHistoryView]:
-        return self.service.index(trans, serialization_params, params, deleted_only=True, all_histories=params.all)
+        return self.service.index(
+            trans,
+            serialization_params,
+            params,
+            deleted_only=True,
+            all_histories=params.all,
+        )
 
     @router.get(
         "/api/histories/published",
@@ -269,7 +285,9 @@ class FastAPIHistories:
 
     @router.get(
         "/api/histories/{id}/exports",
-        summary=("Get previous history exports (to links). Effectively returns serialized JEHA objects."),
+        summary=(
+            "Get previous history exports (to links). Effectively returns serialized JEHA objects."
+        ),
     )
     def index_exports(
         self,
@@ -281,7 +299,9 @@ class FastAPIHistories:
 
     @router.put(  # PUT instead of POST because multiple requests should just result in one object being created.
         "/api/histories/{id}/exports",
-        summary=("Start job (if needed) to create history export for corresponding history."),
+        summary=(
+            "Start job (if needed) to create history export for corresponding history."
+        ),
         responses={
             200: {
                 "description": "Object containing url to fetch export from.",
@@ -543,7 +563,9 @@ class HistoriesController(BaseGalaxyAPIController):
         all_histories = util.string_as_bool(kwd.get("all", False))
         serialization_params = parse_serialization_params(**kwd)
         filter_parameters = HistoryFilterQueryParams(**kwd)
-        return self.service.index(trans, serialization_params, filter_parameters, deleted_only, all_histories)
+        return self.service.index(
+            trans, serialization_params, filter_parameters, deleted_only, all_histories
+        )
 
     @expose_api_anonymous
     def show(self, trans, id, deleted="False", **kwd):
@@ -612,7 +634,9 @@ class HistoriesController(BaseGalaxyAPIController):
         """
         serialization_params = parse_serialization_params(**kwd)
         filter_parameters = HistoryFilterQueryParams(**kwd)
-        return self.service.shared_with_me(trans, serialization_params, filter_parameters)
+        return self.service.shared_with_me(
+            trans, serialization_params, filter_parameters
+        )
 
     @expose_api_anonymous
     def create(self, trans, payload, **kwd):
@@ -751,7 +775,7 @@ class HistoriesController(BaseGalaxyAPIController):
             trans.response.status = 202
         return export_result
 
-    @expose_api_raw
+    @expose_api_raw_anonymous_and_sessionless
     def archive_download(self, trans, id, jeha_id, **kwds):
         """
         GET /api/histories/{id}/exports/{jeha_id}
