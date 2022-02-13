@@ -406,7 +406,7 @@ class HDASerializer(  # datasets._UnflattenedMetadataDatasetAssociationSerialize
             # TODO: backwards compat: need to go away
             "download_url": lambda item, key, **context: self.url_for(
                 "history_contents_display",
-                history_id=self.app.security.encode_id(item.history.id),
+                history_id=self.app.security.encode_id(item.history_id),
                 history_content_id=self.app.security.encode_id(item.id),
             ),
             "parent_id": self.serialize_id,
