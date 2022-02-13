@@ -424,16 +424,10 @@ class HistoryContentsManager(base.SortableManager):
             .filter(component_class.id.in_(id_list))
             .options(eagerload("collection"))
             .options(eagerload("tags"))
+            .options(eagerload("job"))
+            .options(eagerload("implicit_collection_jobs"))
             .options(eagerload("annotations"))
         )
-
-        # This will conditionally join a potentially costly job_state summary
-        # All the paranoia if-checking makes me wonder if serialization_params
-        # should really be a property of the manager class instance
-        if serialization_params and serialization_params.keys:
-            if "job_state_summary" in serialization_params.keys:
-                query = query.options(eagerload("job_state_summary"))
-
         return {row.id: row for row in query.all()}
 
 

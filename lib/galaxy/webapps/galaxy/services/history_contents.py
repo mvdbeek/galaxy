@@ -770,6 +770,8 @@ class HistoriesContentsService(ServiceBase):
                 collection = self.hdca_serializer.serialize_to_view(
                     content, user=trans.user, trans=trans, **serialization_params.dict()
                 )
+                job_dict = summarize_jobs_to_dict(trans.sa_session, content.job or content.implicit_collection_jobs)
+                collection['job_state_summary'] = job_dict and job_dict['states']
                 rval.append(collection)
         return rval
 

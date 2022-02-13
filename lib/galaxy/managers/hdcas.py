@@ -265,7 +265,6 @@ class HDCASerializer(DCASerializer, taggable.TaggableSerializerMixin, annotatabl
                 "element_count",
                 "job_source_id",
                 "job_source_type",
-                "job_state_summary",
                 "name",
                 "type_id",
                 "deleted",
@@ -308,7 +307,6 @@ class HDCASerializer(DCASerializer, taggable.TaggableSerializerMixin, annotatabl
                 type=self.hdca_manager.model_class.content_type,
             ),
             "contents_url": self.generate_contents_url,
-            "job_state_summary": self.serialize_job_state_summary,
             "elements_datatypes": self.serialize_elements_datatypes,
         }
         self.serializers.update(serializers)
@@ -321,9 +319,6 @@ class HDCASerializer(DCASerializer, taggable.TaggableSerializerMixin, annotatabl
             "contents_dataset_collection", hdca_id=encode_id(item.id), parent_id=encode_id(item.collection_id)
         )
         return contents_url
-
-    def serialize_job_state_summary(self, item, key, **context):
-        return item.job_state_summary_dict
 
     def serialize_elements_datatypes(self, item, key, **context):
         extensions_set = item.dataset_dbkeys_and_extensions_summary[1]
