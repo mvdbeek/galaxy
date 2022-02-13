@@ -667,7 +667,6 @@ class HistoriesContentsService(ServiceBase):
 
         elif direction == DirectionOptions.before:  # seek down: contents <= hid (older)
             _hid_params = self._hid_less_than(hid)
-            serialization_params.keys = ['job_state_summary']
             matches = self._get_matches(history, filter_params, _hid_params, order_by_dsc, limit, serialization_params)
             expanded = self._expand_contents(trans, matches, serialization_params)
             item_counts = self._set_item_counts(
