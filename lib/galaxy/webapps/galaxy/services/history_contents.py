@@ -667,6 +667,7 @@ class HistoriesContentsService(ServiceBase):
 
         elif direction == DirectionOptions.before:  # seek down: contents <= hid (older)
             _hid_params = self._hid_less_than(hid)
+            serialization_params.keys = ['job_state_summary']
             matches = self._get_matches(history, filter_params, _hid_params, order_by_dsc, limit, serialization_params)
             expanded = self._expand_contents(trans, matches, serialization_params)
             item_counts = self._set_item_counts(
@@ -779,17 +780,14 @@ class HistoriesContentsService(ServiceBase):
         extrema_filters = self.history_contents_filters.parse_filters(extrema_filter_params)
 
         max_row_result = self.history_contents_manager.contents(
-            history, limit=1, filters=extrema_filters, order_by=order_by_dsc, serialization_params=extrema_params
+            history, limit=1, filters=extrema_filters, order_by=order_by_dsc, serialization_params=extrema_params, expand_models=False
         )
-        max_row = max_row_result.pop() if len(max_row_result) else None
+        max_hid = max_row_result[0]['hid'] if len(max_row_result) else None
 
         min_row_result = self.history_contents_manager.contents(
-            history, limit=1, filters=extrema_filters, order_by=order_by_asc, serialization_params=extrema_params
+            history, limit=1, filters=extrema_filters, order_by=order_by_asc, serialization_params=extrema_params, expand_models=False
         )
-        min_row = min_row_result.pop() if len(min_row_result) else None
-
-        max_hid = max_row.hid if max_row else None
-        min_hid = min_row.hid if min_row else None
+        min_hid = min_row_result[0]['hid'] if len(min_row_result) else None
 
         return min_hid, max_hid
 
