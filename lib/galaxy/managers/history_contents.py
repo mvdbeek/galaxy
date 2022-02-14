@@ -35,6 +35,7 @@ from galaxy.managers import (
     tools,
 )
 from galaxy.structured_app import MinimalManagerApp
+from galaxy.util import ExecutionTimer
 from .base import (
     parse_bool,
     raise_filter_err,
@@ -113,6 +114,27 @@ class HistoryContentsManager(base.SortableManager):
         return self._union_of_contents(
             container, filters=filters, limit=limit, offset=offset, order_by=order_by, **kwargs
         )
+
+    def min_max(self, container, filters):
+        session = self.app.model.session
+        contained_query = session.query(func.MIN(self.contained_class.hid), func.MAX(self.contained_class.hid)).filter(self.contained_class.history_id == container.id)
+        subcontainer_query = session.query(func.MIN(self.subcontainer_class.hid), func.MAX(self.subcontainer_class.hid)).filter(self.subcontainer_class.history_id == container.id)
+        contained_query, subcontainer_query = self.apply_filter(contained_query, subcontainer_query, filters)
+        hda_min, hda_max = contained_query.one_or_none() or (None, None)
+        hdca_min, hdca_max = subcontainer_query.one_or_none() or (None, None)
+        if hda_min:
+            return min(hda_min, hdca_min), max(hda_max, hdca_max)
+        return None, None
+
+    def apply_filter(self, contained_query, subcontainer_query, orm_filters):
+        for orm_filter in orm_filters:
+            if orm_filter.filter_type == "orm_function":
+                contained_query = contained_query.filter(orm_filter.filter(self.contained_class))
+                subcontainer_query = subcontainer_query.filter(orm_filter.filter(self.subcontainer_class))
+            elif orm_filter.filter_type == "orm":
+                contained_query = self._apply_orm_filter(contained_query, orm_filter.filter)
+                subcontainer_query = self._apply_orm_filter(subcontainer_query, orm_filter.filter)
+        return contained_query, subcontainer_query
 
     def contents_count(self, container, filters=None, limit=None, offset=None, order_by=None, **kwargs):
         """
@@ -228,7 +250,11 @@ class HistoryContentsManager(base.SortableManager):
         Returns a limited and offset list of both types of contents, filtered
         and in some order.
         """
+        measure = kwargs.get('measure') and ExecutionTimer()
         contents_results = self._union_of_contents_query(container, **kwargs).all()
+        if measure:
+            log.debug("_union_of_contents_query %s", measure)
+
         if not expand_models:
             return contents_results
 
@@ -245,6 +271,7 @@ class HistoryContentsManager(base.SortableManager):
                 raise TypeError("Unknown contents type:", result_type)
 
         # query 2 & 3: use the ids to query each component_class, returning an id->full component model map
+        measure = kwargs.get('measure') and ExecutionTimer()
         contained_ids = id_map[self.contained_class_type_name]
         id_map[self.contained_class_type_name] = self._contained_id_map(contained_ids)
         subcontainer_ids = id_map[self.subcontainer_class_type_name]
@@ -252,6 +279,8 @@ class HistoryContentsManager(base.SortableManager):
         id_map[self.subcontainer_class_type_name] = self._subcontainer_id_map(
             subcontainer_ids, serialization_params=serialization_params
         )
+        if measure:
+            log.debug("q2 and q3 %s", measure)
 
         # cycle back over the union query to create an ordered list of the objects returned in queries 2 & 3 above
         contents = []
@@ -294,10 +323,10 @@ class HistoryContentsManager(base.SortableManager):
 
         # query 1: create a union of common columns for which the component_classes can be filtered/limited
         contained_query = self._contents_common_query_for_contained(
-            history_id=container.id if container else None, user_id=user_id
+            history_id=container.id if container else None, user_id=user_id, columns=kwargs.get('columns')
         )
         subcontainer_query = self._contents_common_query_for_subcontainer(
-            history_id=container.id if container else None, user_id=user_id
+            history_id=container.id if container else None, user_id=user_id, columns=kwargs.get('columns')
         )
 
         filters = filters or []
@@ -311,7 +340,8 @@ class HistoryContentsManager(base.SortableManager):
                 subcontainer_query = self._apply_orm_filter(subcontainer_query, orm_filter.filter)
 
         contents_query = contained_query.union_all(subcontainer_query)
-        contents_query = contents_query.order_by(*order_by)
+        if not kwargs.get('no_order_by'):
+            contents_query = contents_query.order_by(*order_by)
 
         if limit is not None:
             contents_query = contents_query.limit(limit)
@@ -342,16 +372,19 @@ class HistoryContentsManager(base.SortableManager):
             columns.append(column)
         return columns
 
-    def _contents_common_query_for_contained(self, history_id, user_id):
+    def _contents_common_query_for_contained(self, history_id, user_id, columns=None):
         component_class = self.contained_class
         # TODO: and now a join with Dataset - this is getting sad
-        columns = self._contents_common_columns(
-            component_class,
-            history_content_type=literal("dataset"),
-            state=model.Dataset.state,
-            # do not have inner collections
-            collection_id=literal(None),
-        )
+        if not columns:
+            columns = self._contents_common_columns(
+                component_class,
+                history_content_type=literal("dataset"),
+                state=model.Dataset.state,
+                # do not have inner collections
+                collection_id=literal(None),
+            )
+        else:
+            columns = [getattr(self.contained_class, c) for c in columns]
         subquery = self._session().query(*columns)
         # for the HDA's we need to join the Dataset since it has an actual state column
         subquery = subquery.join(model.Dataset, model.Dataset.id == component_class.table.c.dataset_id)
@@ -366,18 +399,21 @@ class HistoryContentsManager(base.SortableManager):
             )
         return subquery
 
-    def _contents_common_query_for_subcontainer(self, history_id, user_id):
+    def _contents_common_query_for_subcontainer(self, history_id, user_id, columns=None):
         component_class = self.subcontainer_class
-        columns = self._contents_common_columns(
-            component_class,
-            history_content_type=literal("dataset_collection"),
-            # do not have datasets
-            dataset_id=literal(None),
-            state=model.DatasetCollection.populated_state,
-            # TODO: should be purgable? fix
-            purged=literal(False),
-            extension=literal(None),
-        )
+        if not columns:
+            columns = self._contents_common_columns(
+                component_class,
+                history_content_type=literal("dataset_collection"),
+                # do not have datasets
+                dataset_id=literal(None),
+                state=model.DatasetCollection.populated_state,
+                # TODO: should be purgable? fix
+                purged=literal(False),
+                extension=literal(None),
+            )
+        else:
+            columns = [getattr(self.subcontainer_class, c) for c in columns]
         subquery = self._session().query(*columns)
         # for the HDCA's we need to join the DatasetCollection since it has the populated_state
         subquery = subquery.join(model.DatasetCollection, model.DatasetCollection.id == component_class.collection_id)

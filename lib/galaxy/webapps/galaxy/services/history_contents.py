@@ -638,6 +638,7 @@ class HistoriesContentsService(ServiceBase):
 
         Additional counts provided in the HTTP headers.
         """
+        request_timer = ExecutionTimer()
         history_load_timer = ExecutionTimer()
         history: History = self.history_manager.get_accessible(
             self.decode_id(history_id), trans.user, current_history=trans.history
@@ -657,8 +658,13 @@ class HistoriesContentsService(ServiceBase):
         min_max_timer = ExecutionTimer()
         order_by_dsc = self.build_order_by(self.history_contents_manager, "hid-dsc")
         order_by_asc = self.build_order_by(self.history_contents_manager, "hid-asc")
+
+        extrema_timer = ExecutionTimer()
         min_hid, max_hid = self._get_filtered_extrema(history, filter_params, order_by_dsc, order_by_asc)
+        log.debug("filtering extrema %s", extrema_timer)
+        total_count_timer = ExecutionTimer()
         up_total_count, down_total_count = self._get_total_counts(history, filter_params, hid)
+        log.debug("total_count_timer took: %s", total_count_timer)
         log.debug("mix/max/total load took: %s", min_max_timer)
 
         if direction == DirectionOptions.after:  # seek up: contents > hid (newer)
@@ -715,8 +721,10 @@ class HistoriesContentsService(ServiceBase):
         )
         log.debug('stats took %s', stats_timer)
         validation = ExecutionTimer()
-        contents_near_result = ContentsNearResult(contents=expanded, stats=stats)
+        # skip validation via .construct, we know values are ok
+        contents_near_result = ContentsNearResult.construct(contents=expanded, stats=stats)
         log.debug('validation took %s', validation)
+        log.debug('whole request took %s', request_timer)
         return contents_near_result
 
     def _get_limits(self, limit):
@@ -746,7 +754,7 @@ class HistoriesContentsService(ServiceBase):
         def get_count(params, hid_params):
             params = params + hid_params
             count_filters = self.history_contents_filters.parse_filters(params)
-            return self.history_contents_manager.contents_count(history, count_filters)
+            return self.history_contents_manager.contents_count(history, count_filters, columns=['id'], no_order_by=True)
 
         params = self._copy_excluding_update_time(filter_params)
         total_up = get_count(params, self._hid_greater_than(hid))
@@ -763,6 +771,7 @@ class HistoriesContentsService(ServiceBase):
             offset=0,
             order_by=order_by,
             serialization_params=serialization_params,
+            measure=True
         )
         return contents
 
@@ -792,6 +801,7 @@ class HistoriesContentsService(ServiceBase):
         extrema_params = parse_serialization_params(keys="hid", default_view="summary")
         extrema_filter_params = self._copy_excluding_update_time(filter_params)
         extrema_filters = self.history_contents_filters.parse_filters(extrema_filter_params)
+        return self.history_contents_manager.min_max(history, extrema_filters)
 
         max_row_result = self.history_contents_manager.contents(
             history, limit=1, filters=extrema_filters, order_by=order_by_dsc, serialization_params=extrema_params, expand_models=False
