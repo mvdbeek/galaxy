@@ -2,6 +2,7 @@
 This module *does not* contain API routes. It exclusively contains dependencies to be used in FastAPI routes
 """
 import inspect
+from functools import lru_cache
 from typing import (
     Any,
     AsyncGenerator,
@@ -95,6 +96,7 @@ def get_session_manager(app: StructuredApp = DependsOnApp) -> GalaxySessionManag
     return GalaxySessionManager(app.model)
 
 
+@lru_cache()
 def get_session(
     session_manager: GalaxySessionManager = Depends(get_session_manager),
     security: IdEncodingHelper = depends(IdEncodingHelper),
@@ -108,6 +110,7 @@ def get_session(
     return None
 
 
+@lru_cache()
 def get_api_user(
     security: IdEncodingHelper = depends(IdEncodingHelper),
     user_manager: UserManager = depends(UserManager),
@@ -138,6 +141,7 @@ def get_api_user(
     return user
 
 
+@lru_cache()
 def get_user(
     galaxy_session: Optional[model.GalaxySession] = Depends(get_session),
     api_user: Optional[User] = Depends(get_api_user),
@@ -197,12 +201,14 @@ class GalaxyASGIResponse(GalaxyAbstractResponse):
 DependsOnUser = Depends(get_user)
 
 
+@lru_cache()
 def get_current_history_from_session(galaxy_session: Optional[model.GalaxySession]) -> Optional[model.History]:
     if galaxy_session:
         return galaxy_session.current_history
     return None
 
 
+@lru_cache()
 def get_trans(
     request: Request,
     response: Response,
