@@ -506,3 +506,8 @@ class DatasetsController(BaseGalaxyAPIController):
             serialization_params = parse_serialization_params(**kwargs)
             return self.service.converted_ext(trans, dataset_id, ext, serialization_params)
         return self.service.converted(trans, dataset_id)
+
+    @web.expose_api
+    def delete_batch(self, trans, payload, **kwd):
+        delete_payload = DeleteDatasetBatchPayload(**payload)
+        return self.service.delete_batch(trans, delete_payload)

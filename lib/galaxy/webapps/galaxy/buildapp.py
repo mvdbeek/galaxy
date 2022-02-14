@@ -374,6 +374,12 @@ def populate_api_routes(webapp, app):
         conditions=dict(method=["GET"]),
     )
     webapp.mapper.connect(
+        "/api/datasets",
+        controller="datasets",
+        action="delete_batch",
+        conditions=dict(method=["DELETE"]),
+    )
+    webapp.mapper.connect(
         "get_metadata_file",
         "/api/histories/{history_id}/contents/{history_content_id}/metadata_file",
         controller="datasets",
