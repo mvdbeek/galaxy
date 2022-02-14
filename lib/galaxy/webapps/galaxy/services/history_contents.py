@@ -67,6 +67,7 @@ from galaxy.schema.schema import (
     UpdateHistoryContentsBatchPayload,
 )
 from galaxy.security.idencoding import IdEncodingHelper
+from galaxy.util import ExecutionTimer
 from galaxy.util.zipstream import ZipstreamWrapper
 from galaxy.webapps.galaxy.api.common import parse_serialization_params
 from galaxy.webapps.galaxy.services.base import ServiceBase
@@ -637,9 +638,11 @@ class HistoriesContentsService(ServiceBase):
 
         Additional counts provided in the HTTP headers.
         """
+        history_load_timer = ExecutionTimer()
         history: History = self.history_manager.get_accessible(
             self.decode_id(history_id), trans.user, current_history=trans.history
         )
+        log.debug("history load took: %s", history_load_timer)
 
         # while polling, check to see if the history has changed
         # if it hasn't then we can short-circuit the poll request
@@ -651,10 +654,12 @@ class HistoriesContentsService(ServiceBase):
             if history.update_time <= since:
                 return None
 
+        min_max_timer = ExecutionTimer()
         order_by_dsc = self.build_order_by(self.history_contents_manager, "hid-dsc")
         order_by_asc = self.build_order_by(self.history_contents_manager, "hid-asc")
         min_hid, max_hid = self._get_filtered_extrema(history, filter_params, order_by_dsc, order_by_asc)
         up_total_count, down_total_count = self._get_total_counts(history, filter_params, hid)
+        log.debug("mix/max/total load took: %s", min_max_timer)
 
         if direction == DirectionOptions.after:  # seek up: contents > hid (newer)
             _hid_params = self._hid_greater_than(hid)
@@ -666,9 +671,13 @@ class HistoriesContentsService(ServiceBase):
             )
 
         elif direction == DirectionOptions.before:  # seek down: contents <= hid (older)
+            matches_timer = ExecutionTimer()
             _hid_params = self._hid_less_than(hid)
             matches = self._get_matches(history, filter_params, _hid_params, order_by_dsc, limit, serialization_params)
+            log.debug("matching took: %s", matches_timer)
+            expanded_timer = ExecutionTimer()
             expanded = self._expand_contents(trans, matches, serialization_params)
+            log.debug("expanded took: %s", expanded_timer)
             item_counts = self._set_item_counts(
                 matches_down=len(matches), total_matches_up=up_total_count, total_matches_down=down_total_count
             )
@@ -696,7 +705,7 @@ class HistoriesContentsService(ServiceBase):
                 total_matches_up=up_total_count,
                 total_matches_down=down_total_count,
             )
-
+        stats_timer = ExecutionTimer()
         stats = ContentsNearStats(
             max_hid=max_hid,
             min_hid=min_hid,
@@ -704,7 +713,11 @@ class HistoriesContentsService(ServiceBase):
             history_empty=history.empty,
             **item_counts,
         )
-        return ContentsNearResult(contents=expanded, stats=stats)
+        log.debug('stats took %s', stats_timer)
+        validation = ExecutionTimer()
+        contents_near_result = ContentsNearResult(contents=expanded, stats=stats)
+        log.debug('validation took %s', validation)
+        return contents_near_result
 
     def _get_limits(self, limit):
         q, r = divmod(limit, 2)
