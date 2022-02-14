@@ -8,12 +8,15 @@ import json
 import logging
 import os
 import sys
+from functools import lru_cache
 from typing import (
     Any,
     cast,
     Dict,
     List,
 )
+
+from importlib_metadata import version
 
 from galaxy.app import StructuredApp
 from galaxy.managers import base
@@ -26,6 +29,15 @@ from galaxy.web.framework.base import server_starttime
 log = logging.getLogger(__name__)
 
 VERSION_JSON_FILE = "version.json"
+
+
+@lru_cache
+def get_version_json(json_file):
+    try:
+        with open(json_file) as f:
+            return json.load(f)
+    except OSError:
+        log.info("Galaxy extra version JSON file %s not loaded.", json_file)
 
 
 class ConfigurationManager:
@@ -51,13 +63,9 @@ class ConfigurationManager:
         # Try loading extra version info
         json_file = os.path.join(self._app.config.root, VERSION_JSON_FILE)  # TODO: add this to schema
         json_file = os.environ.get("GALAXY_VERSION_JSON_FILE", json_file)
-        try:
-            with open(json_file) as f:
-                extra_info = json.load(f)
-        except OSError:
-            log.info("Galaxy extra version JSON file %s not loaded.", json_file)
-        else:
-            version_info["extra"] = extra_info
+        extra_info = get_version_json(json_file)
+        if extra_info:
+            version_info['extra_info'] = extra_info
         return version_info
 
     def decode_id(
