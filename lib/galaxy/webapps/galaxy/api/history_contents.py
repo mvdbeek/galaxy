@@ -22,6 +22,7 @@ from fastapi import (
 from starlette import status
 from starlette.responses import (
     Response,
+    JSONResponse,
     StreamingResponse,
 )
 
@@ -651,6 +652,7 @@ class FastAPIHistoryContents:
     @router.get(
         "/api/histories/{history_id}/contents/{direction}/{hid}/{limit}",
         summary="Get content items around a particular `HID`.",
+        response_model=HistoryContentsResult,
     )
     def contents_near(
         self,
@@ -679,7 +681,7 @@ class FastAPIHistoryContents:
             ),
         ),
         serialization_params: SerializationParams = Depends(query_serialization_params),
-    ) -> HistoryContentsResult:
+    ):
         """
         **Warning**: For internal use to support the scroller functionality.
 
@@ -732,7 +734,7 @@ class FastAPIHistoryContents:
         if result is None:
             return Response(status_code=status.HTTP_204_NO_CONTENT)
         response.headers.update(result.stats.to_headers())
-        return result.contents
+        return JSONResponse(result.contents)
 
 
 class HistoryContentsController(BaseGalaxyAPIController, UsesLibraryMixinItems, UsesTagsMixin):
