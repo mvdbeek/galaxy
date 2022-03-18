@@ -56,9 +56,7 @@ jobs:
           echo "GALAXY_CONFIG_OVERRIDE_OUTPUTS_TO_WORKING_DIRECTORY=true" >> $GITHUB_ENV
       - if: github.event_name == 'workflow_dispatch'
         run: |
-          echo "$COMMAND_ENV" | tr " " "\n" >> $GITHUB_ENV
-        env:
-          COMMAND_ENV: ${{ github.event.inputs.env_vars }}
+          echo "${{ github.event.inputs.env_vars }}" | tr " " "\n" >> $GITHUB_ENV
       - uses: actions/checkout@v2
         if: github.event_name != 'workflow_dispatch'
         with:
