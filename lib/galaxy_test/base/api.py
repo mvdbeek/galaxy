@@ -50,12 +50,12 @@ class UsesCeleryTasks:
         config["celery_backend"] = CELERY_BACKEND
 
     @pytest.fixture(autouse=True)
-    def _request_celery_app(self, celery_app, celery_config):
-        self._celery_app = celery_app
+    def _request_celery_app(self, celery_session_app, celery_config):
+        self._celery_app = celery_session_app
 
     @pytest.fixture(autouse=True)
-    def _request_celery_worker(self, celery_worker, celery_config):
-        self._celery_worker = celery_worker
+    def _request_celery_worker(self, celery_session_worker, celery_config):
+        self._celery_worker = celery_session_worker
 
 
 class UsesApiTestCaseMixin:
