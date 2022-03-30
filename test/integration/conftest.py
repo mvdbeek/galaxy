@@ -5,6 +5,11 @@ import pytest
 from galaxy_test.conftest import pytest_configure  # noqa: F401
 
 
+@pytest.fixture(scope="session")
+def celery_includes():
+    return ["galaxy.celery.tasks"]
+
+
 def pytest_collection_finish(session):
     try:
         # This needs to be run after test collection

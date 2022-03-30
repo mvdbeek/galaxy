@@ -157,15 +157,6 @@ class IntegrationInstance(UsesApiTestCaseMixin, UsesCeleryTasks):
         if not self._app.config.database_connection.startswith("post"):
             raise SkipTest("Test only valid for postgres")
 
-    @classmethod
-    def handle_galaxy_config_kwds(cls, galaxy_config_kwds):
-        """Extension point for subclasses to modify arguments used to configure Galaxy.
-
-        This method will be passed the keyword argument pairs used to call
-        Galaxy Config object and can modify the Galaxy instance created for
-        the test as needed.
-        """
-
     def _run_tool_test(self, *args, **kwargs):
         return self._test_driver.run_tool_test(*args, **kwargs)
 
