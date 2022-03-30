@@ -352,8 +352,12 @@ class HistoryContentsApiTestCase(ApiTestCase):
         data = {"purge": True}
         delete_response = self._delete(f"histories/{self.history_id}/contents/{hda1['id']}", data=data, json=True)
         assert delete_response.status_code < 300  # Something in the 200s :).
-        assert str(self.__show(hda1).json()["deleted"]).lower() == "true"
-        assert str(self.__show(hda1).json()["purged"]).lower() == "true"
+        # Purging and deleting the dataset may or may not happen asynchronously.
+        # On 202 the request was accepted and purging will happen later.
+        if not delete_response.status_code == 202:
+            assert self.__show(hda1).json()["deleted"] == "true"
+            # We'll just trust celery is set up correctly
+            assert self.__show(hda1).json()["purged"] == "true"
 
     def test_dataset_collection_creation_on_contents(self):
         payload = self.dataset_collection_populator.create_pair_payload(self.history_id, type="dataset_collection")
