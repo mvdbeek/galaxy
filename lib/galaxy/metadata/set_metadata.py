@@ -380,7 +380,9 @@ def set_metadata_portable(
             external_filename = unnamed_id_to_path.get(dataset_instance_id, dataset_filename_override)
             if not os.path.exists(external_filename):
                 matches = glob.glob(external_filename)
-                assert len(matches) == 1, f"More than one file matched by output glob '{external_filename}'"
+                assert (
+                    len(matches) == 1
+                ), f"{len(matches)} file(s) matched by output glob '{external_filename}', expected 1 match"
                 external_filename = matches[0]
                 assert safe_contains(
                     tool_job_working_directory, external_filename
@@ -416,7 +418,9 @@ def set_metadata_portable(
                 set_meta(dataset, file_dict)
                 if extended_metadata_collection:
                     collect_extra_files(object_store, dataset, ".")
-                    dataset.state = dataset.dataset.state = final_job_state
+                    if not dataset.state == dataset.states.ERROR:
+                        # Don't overwrite failed state (for invalid content) here
+                        dataset.state = dataset.dataset.state = final_job_state
 
             if extended_metadata_collection:
                 if not object_store or not export_store:
