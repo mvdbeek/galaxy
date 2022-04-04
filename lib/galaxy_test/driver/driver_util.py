@@ -254,6 +254,9 @@ def setup_galaxy_config(
         logging=LOGGING_CONFIG_DEFAULT,
         monitor_thread_join_timeout=5,
         object_store_store_by="uuid",
+        job_handler_monitor_sleep=0.2,
+        job_runner_monitor_sleep=0.2,
+        workflow_monitor_sleep=0.2,
     )
     if default_shed_tool_data_table_config:
         config["shed_tool_data_table_config"] = default_shed_tool_data_table_config
