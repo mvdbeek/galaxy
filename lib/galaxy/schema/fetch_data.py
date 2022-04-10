@@ -17,7 +17,9 @@ from galaxy.schema.fields import EncodedDatabaseIdField
 from .schema import HistoryIdField
 
 
-ELEMENTS_FROM_TYPE = ["archive", "bagit", "bagit_archive", "directory"]
+class FetchBaseModel(BaseModel):
+    class Config:
+        allow_population_by_field_name = True
 
 
 class ElementsFromType(str, Enum):
@@ -30,11 +32,8 @@ class ElementsFromType(str, Enum):
 AutoDecompressField = Field(False, description="Decompress compressed data before sniffing?")
 
 
-class BaseFetchDataTarget(BaseModel):
+class BaseFetchDataTarget(FetchBaseModel):
     auto_decompress: bool = AutoDecompressField
-
-    class Config:
-        allow_population_by_field_name = True
 
 
 class ItemsFromSrc(str, Enum):
@@ -62,15 +61,15 @@ class DestinationType(str, Enum):
     hdas = "hdas"
 
 
-class HdaDestination(BaseModel):
+class HdaDestination(FetchBaseModel):
     type: Literal["hdas"]
 
 
-class HdcaDestination(BaseModel):
+class HdcaDestination(FetchBaseModel):
     type: Literal["hdca"]
 
 
-class LibraryFolderDestination(BaseModel):
+class LibraryFolderDestination(FetchBaseModel):
     type: Literal["library_folder"]
     library_folder_id: EncodedDatabaseIdField
 
@@ -82,14 +81,14 @@ class BaseCollectionTarget(BaseFetchDataTarget):
     name: Optional[str]
 
 
-class LibraryDestination(BaseModel):
+class LibraryDestination(FetchBaseModel):
     type: Literal["library"]
     name: str = Field(..., description="Must specify a library name")
     description: Optional[str] = Field(None, description="Description for library to create")
     synopsis: Optional[str] = Field(None, description="Description for library to create")
 
 
-class ExtraFiles(BaseModel):
+class ExtraFiles(FetchBaseModel):
     items_from: Optional[str]
     src: Src
     fuzzy_root: Optional[bool] = Field(
@@ -98,13 +97,13 @@ class ExtraFiles(BaseModel):
     )
 
 
-class BaseDataElement(BaseModel):
-    name: Optional[str] = Field(None)
+class BaseDataElement(FetchBaseModel):
+    name: Optional[str]
     dbkey: str = Field("?")
-    info: Optional[str] = Field(None)
+    info: Optional[str]
     ext: str = Field("auto")
-    space_to_tab: bool = Field(False)
-    to_posix_lines: bool = Field(False)
+    space_to_tab: bool = False
+    to_posix_lines: bool = False
     tags: Optional[List[str]]
     extra_files: Optional[ExtraFiles]
     auto_decompress: bool = AutoDecompressField
@@ -137,6 +136,9 @@ class ServerDirElement(BaseDataElement):
 class FtpImportElement(BaseDataElement):
     src: Literal["ftp_import"]
     ftp_path: str
+    items_from: Optional[ElementsFromType] = Field(alias="elements_from")
+    name: Optional[str]
+    collection_type: Optional[str]
 
 
 class ItemsFromModel(BaseModel):
@@ -165,10 +167,10 @@ class CompositeDataElement(BaseDataElement):
     composite: "CompositeItems"
 
 
-class CompositeItems(BaseModel):
+class CompositeItems(FetchBaseModel):
     items: List[
         Union[FileDataElement, PastedDataElement, UrlDataElement, PathDataElement, ServerDirElement, FtpImportElement]
-    ]
+    ] = Field(..., alias="elements")
 
 
 CompositeDataElement.update_forward_refs()
@@ -229,7 +231,7 @@ class HdcaDataItemsFromTarget(BaseCollectionTarget, ItemsFromModel):
     items_from: ElementsFromType = Field(..., alias="elements_from")
 
 
-class FetchDataPayload(BaseModel):
+class FetchDataPayload(FetchBaseModel):
     history_id: EncodedDatabaseIdField = HistoryIdField
     targets: List[
         Union[
