@@ -375,8 +375,8 @@ class BaseDatasetPopulator(BasePopulator):
         return run_response
 
     def check_run(self, run_response: requests.Response) -> dict:
+        run_response.raise_for_status()
         run = run_response.json()
-        assert run_response.status_code == 200, run
         job = run["jobs"][0]
         return job
 
@@ -2026,7 +2026,7 @@ class BaseDatasetCollectionPopulator:
         )
 
     def __create_payload(self, *args, **kwds):
-        direct_upload = kwds.pop("direct_upload", False)
+        direct_upload = kwds.pop("direct_upload", True)
         if direct_upload:
             return self.__create_payload_fetch(*args, **kwds)
         else:

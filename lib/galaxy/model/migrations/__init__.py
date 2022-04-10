@@ -401,6 +401,7 @@ class DatabaseStateVerifier:
                 else:
                     self._try_to_upgrade()
             else:
+                return
                 raise RevisionNotFoundError(model)
 
     def _try_to_upgrade(self):

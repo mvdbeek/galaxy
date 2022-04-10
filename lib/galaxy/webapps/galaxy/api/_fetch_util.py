@@ -19,7 +19,6 @@ from galaxy.util import relpath
 log = logging.getLogger(__name__)
 
 VALID_DESTINATION_TYPES = ["library", "library_folder", "hdca", "hdas"]
-ELEMENTS_FROM_TYPE = ["archive", "bagit", "bagit_archive", "directory"]
 # These elements_from cannot be sym linked to because they only exist during upload.
 ELEMENTS_FROM_TRANSIENT_TYPES = ["archive", "bagit_archive"]
 
@@ -104,9 +103,6 @@ def validate_and_normalize_targets(trans, payload):
         _handle_invalid_link_data_only_elements_type(item)
         if src not in ["path", "server_dir"]:
             _handle_invalid_link_data_only_type(item)
-        elements_from = item.get("elements_from", None)
-        if elements_from and elements_from not in ELEMENTS_FROM_TYPE:
-            raise RequestParameterInvalidException("Invalid elements_from/items_from found in request")
 
         if src == "path" or (src == "url" and item["url"].startswith("file:")):
             # Validate is admin, leave alone.

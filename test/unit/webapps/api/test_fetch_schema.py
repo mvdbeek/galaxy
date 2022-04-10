@@ -1,6 +1,7 @@
 from galaxy.schema.fetch_data import (
     FetchDataPayload,
     FileDataElement,
+    FtpImportElement,
     NestedElement,
     PastedDataElement,
     UrlDataElement,
@@ -57,10 +58,30 @@ nested_collection_payload = {
     "history_id": HISTORY_ID,
 }
 
+ftp_hdca_target = {
+    "destination": {"type": "hdca"},
+    "elements_from": "directory",
+    "src": "ftp_import",
+    "ftp_path": "subdir",
+    "collection_type": "list",
+}
+
+recursive_archive_payload = {
+    "history_id": "f3f73e481f432006",
+    "targets": [
+        {
+            "destination": {"type": "library", "name": "My Cool Library"},
+            "items_from": "archive",
+            "src": "path",
+            "path": "/Users/mvandenb/src/metadata_embed/test-data/testdir1.zip",
+        }
+    ],
+}
+
 
 def test_fetch_data_schema():
     payload = FetchDataPayload(**example_payload)
-    elements = payload.targets[0].elements
+    elements = payload.targets[0].items
     assert len(elements) == 3
     assert isinstance(elements[0], PastedDataElement)
     assert isinstance(elements[1], UrlDataElement)
@@ -73,6 +94,14 @@ def test_data_items():
 
 def test_nested_collection():
     payload = FetchDataPayload(**nested_collection_payload)
-    collection_element = payload.targets[0].elements[0]
+    collection_element = payload.targets[0].items[0]
     assert isinstance(collection_element, NestedElement)
-    assert isinstance(collection_element.elements[0], FileDataElement)
+    assert isinstance(collection_element.items[0], FileDataElement)
+
+
+def test_ftp_hdca_target():
+    FtpImportElement(**ftp_hdca_target)
+
+
+def test_recursive_archive():
+    FetchDataPayload(**recursive_archive_payload)
