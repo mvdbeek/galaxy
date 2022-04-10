@@ -109,6 +109,10 @@ class BaseDataElement(BaseModel):
     extra_files: Optional[ExtraFiles]
     auto_decompress: bool = AutoDecompressField
 
+    class Config:
+        # reject unknown extra attributes
+        extra = Extra.forbid
+
 
 class FileDataElement(BaseDataElement):
     src: Literal["files"]
@@ -127,6 +131,7 @@ class UrlDataElement(BaseDataElement):
 class ServerDirElement(BaseDataElement):
     src: Literal["server_dir"]
     server_dir: str
+    link_data_only: Optional[bool]
 
 
 class FtpImportElement(BaseDataElement):
