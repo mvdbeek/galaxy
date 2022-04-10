@@ -1,7 +1,6 @@
 from enum import Enum
 from typing import (
     List,
-    Literal,
     Optional,
     Union,
 )
@@ -11,7 +10,10 @@ from pydantic import (
     Extra,
     Field,
 )
-from typing_extensions import Annotated
+from typing_extensions import (
+    Annotated,
+    Literal,
+)
 
 from galaxy.schema.fields import EncodedDatabaseIdField
 from .schema import HistoryIdField
