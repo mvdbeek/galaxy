@@ -2200,7 +2200,7 @@ def load_data_dict(
 
     def open_test_data(test_dict, mode="rb"):
         test_data_resolver = TestDataResolver()
-        filename = test_data_resolver.get_filename(test_dict["value"])
+        filename = test_data_resolver.get_filename(test_dict.pop("value"))
         return open(filename, mode)
 
     def read_test_data(test_dict):
@@ -2218,9 +2218,9 @@ def load_data_dict(
             for element_data in elements_data:
                 # Adapt differences between test_data dict and fetch API description.
                 if "name" not in element_data:
-                    identifier = element_data["identifier"]
+                    identifier = element_data.pop("identifier")
                     element_data["name"] = identifier
-                input_type = element_data.get("type", "raw")
+                input_type = element_data.pop("type", "raw")
                 content = None
                 if input_type == "File":
                     content = read_test_data(element_data)
@@ -2261,7 +2261,7 @@ def load_data_dict(
             inputs[key] = hdca
             has_uploads = True
         elif is_dict and "type" in value:
-            input_type = value["type"]
+            input_type = value.pop("type")
             if input_type == "File":
                 content = open_test_data(value)
                 new_dataset_kwds = {"content": content}

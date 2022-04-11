@@ -109,6 +109,9 @@ class BaseDataElement(FetchBaseModel):
     tags: Optional[List[str]]
     extra_files: Optional[ExtraFiles]
     auto_decompress: bool = AutoDecompressField
+    items_from: Optional[ElementsFromType] = Field(alias="elements_from")
+    collection_type: Optional[str]
+    MD5: Optional[str]
 
     class Config:
         # reject unknown extra attributes
