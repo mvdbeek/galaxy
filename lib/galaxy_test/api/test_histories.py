@@ -279,7 +279,7 @@ class ImportExportTests(BaseHistories):
         imported_history_id = self._reimport_history(history_id, history_name, wait_on_history_length=2)
 
         def upload_job_check(job):
-            assert job["tool_id"] == "upload1"
+            assert job["tool_id"] == "__DATA_FETCH__"
 
         def check_discarded(hda):
             assert hda["deleted"]
@@ -319,7 +319,7 @@ class ImportExportTests(BaseHistories):
         self._assert_history_length(imported_history_id, 2)
 
         def upload_job_check(job):
-            assert job["tool_id"] == "upload1"
+            assert job["tool_id"] == "__DATA_FETCH__"
 
         def check_deleted_not_purged(hda):
             assert hda["state"] == "ok", hda

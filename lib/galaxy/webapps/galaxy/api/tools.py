@@ -532,7 +532,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         return tool.tool_source.to_string()
 
     # @router.post("/api/fetch", summary="Post content to upload into History Dataset")
-    @expose_api
+    @expose_api_anonymous
     def fetch(self, trans: GalaxyWebTransaction, payload: FetchDataPayload, **kwd):
         """Adapt clean API to tool-constrained API."""
         payload = FetchDataPayload(**payload).dict(exclude_unset=True)

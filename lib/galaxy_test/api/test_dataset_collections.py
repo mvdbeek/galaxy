@@ -152,8 +152,9 @@ class DatasetCollectionApiTestCase(ApiTestCase):
             )
 
     def test_list_list_download(self):
-        dataset_collection = self.dataset_collection_populator.create_list_of_list_in_history(self.history_id).json()
-        self.dataset_collection_populator.wait_for_dataset_collection(dataset_collection, assert_ok=True)
+        dataset_collection = self.dataset_collection_populator.create_list_of_list_in_history(
+            self.history_id, wait=True
+        ).json()
         returned_dce = dataset_collection["elements"]
         assert len(returned_dce) == 1, dataset_collection
         create_response = self._download_dataset_collection(
@@ -166,9 +167,10 @@ class DatasetCollectionApiTestCase(ApiTestCase):
 
     def test_list_list_list_download(self):
         dataset_collection = self.dataset_collection_populator.create_list_of_list_in_history(
-            self.history_id, collection_type="list:list:list"
+            self.history_id,
+            collection_type="list:list:list",
+            wait=True,
         ).json()
-        self.dataset_collection_populator.wait_for_dataset_collection(dataset_collection, assert_ok=True)
         returned_dce = dataset_collection["elements"]
         assert len(returned_dce) == 1, dataset_collection
         create_response = self._download_dataset_collection(
@@ -421,6 +423,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
                     ],
                 },
             ],
+            wait=True,
         )
         self._assert_status_code_is(response, 200)
         hdca_list_id = response.json()["outputs"][0]["id"]
@@ -464,6 +467,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
                     ],
                 },
             ],
+            wait=True,
         )
         self._assert_status_code_is(response, 200)
         hdca_list_id = response.json()["outputs"][0]["id"]
@@ -494,6 +498,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
                     ],
                 },
             ],
+            wait=True,
         )
         self._assert_status_code_is(response, 200)
         hdca_list_id = response.json()["outputs"][0]["id"]

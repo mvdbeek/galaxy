@@ -295,12 +295,16 @@ class BaseDatasetPopulator(BasePopulator):
     Galaxy - implementations must implement _get, _post and _delete.
     """
 
-    def new_dataset(self, history_id: str, content=None, wait: bool = False, fetch_data=True, **kwds) -> dict:
+    def new_dataset(
+        self, history_id: str, content=None, wait: bool = False, fetch_data=True, to_posix_lines=True, **kwds
+    ) -> dict:
         """Create a new history dataset instance (HDA) and return its ID.
 
         :returns: the HDA id of the new object
         """
-        run_response = self.new_dataset_request(history_id, content=content, wait=wait, fetch_data=fetch_data, **kwds)
+        run_response = self.new_dataset_request(
+            history_id, content=content, wait=wait, fetch_data=fetch_data, to_posix_lines=to_posix_lines, **kwds
+        )
         assert run_response.status_code == 200, f"Failed to create new dataset with response: {run_response.text}"
         if fetch_data and wait:
             return self.get_history_dataset_details_raw(
@@ -2043,17 +2047,17 @@ class BaseDatasetCollectionPopulator:
             list = response.json()
         return response
 
-    def create_pair_in_history(self, history_id, **kwds):
+    def create_pair_in_history(self, history_id, wait=False, **kwds):
         payload = self.create_pair_payload(history_id, instance_type="history", **kwds)
-        return self.__create(payload)
+        return self.__create(payload, wait=wait)
 
     def create_list_in_history(self, history_id, wait=False, **kwds):
         payload = self.create_list_payload(history_id, instance_type="history", **kwds)
         return self.__create(payload, wait=wait)
 
-    def upload_collection(self, history_id, collection_type, elements, **kwds):
+    def upload_collection(self, history_id, collection_type, elements, wait=False, **kwds):
         payload = self.__create_payload_fetch(history_id, collection_type, contents=elements, **kwds)
-        return self.__create(payload)
+        return self.__create(payload, wait=wait)
 
     def create_list_payload(self, history_id, **kwds):
         return self.__create_payload(history_id, identifiers_func=self.list_identifiers, collection_type="list", **kwds)
@@ -2109,6 +2113,7 @@ class BaseDatasetCollectionPopulator:
                         element_identifier = "reverse"
                 element["name"] = element_identifier
                 element["paste_content"] = dataset_contents
+                element["to_posix_lines"] = kwds.get("to_posix_lines", True)
                 elements.append(element)
 
         name = kwds.get("name", "Test Dataset Collection")

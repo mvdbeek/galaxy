@@ -293,7 +293,7 @@ class HistoryPanelCollectionsTestCase(SeleniumTestCase):
 
     def _populated_paired_and_wait_for_it(self):
         history_id = self.current_history_id()
-        input_collection = self.dataset_collection_populator.create_pair_in_history(history_id).json()
+        input_collection = self.dataset_collection_populator.create_pair_in_history(history_id).json()["outputs"][0]
         collection_hid = input_collection["hid"]
         if not self.is_beta_history():
             self.home()

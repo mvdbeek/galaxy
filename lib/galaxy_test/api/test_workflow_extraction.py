@@ -152,7 +152,7 @@ class WorkflowExtractionApiTestCase(BaseWorkflowsApiTestCase):
     def test_extract_reduction_from_history(self):
         hdca = self.dataset_collection_populator.create_pair_in_history(
             self.history_id, contents=["1 2 3\n4 5 6", "7 8 9\n10 11 10"]
-        ).json()
+        ).json()["outputs"][0]
         hdca_id = hdca["id"]
         inputs1 = {"input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]}, "num_lines": 2}
         implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(self.history_id, "random_lines1", inputs1)
@@ -407,7 +407,7 @@ test_data:
     def __run_random_lines_mapped_over_pair(self, history_id):
         hdca = self.dataset_collection_populator.create_pair_in_history(
             history_id, contents=["1 2 3\n4 5 6", "7 8 9\n10 11 10"]
-        ).json()
+        ).json()["outputs"][0]
         hdca_id = hdca["id"]
         inputs1 = {"input": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]}, "num_lines": 2}
         implicit_hdca1, job_id1 = self._run_tool_get_collection_and_job_id(history_id, "random_lines1", inputs1)

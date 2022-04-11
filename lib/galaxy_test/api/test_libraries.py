@@ -224,7 +224,7 @@ class LibrariesApiTestCase(ApiTestCase):
             "targets": targets,
             "__files": {"files_0|file_data": open(self.test_data_resolver.get_filename("4.bed"))},
         }
-        self.dataset_populator.fetch(payload)
+        self.dataset_populator.fetch(payload, wait=True)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
         assert dataset["file_size"] == 61, dataset
         assert dataset["genome_build"] == "hg19", dataset
@@ -519,7 +519,7 @@ class LibrariesApiTestCase(ApiTestCase):
         folder_id = folder_response.json()[0]["id"]
         history_id = self.dataset_populator.new_history()
         hdca_id = self.dataset_collection_populator.create_list_in_history(
-            history_id, contents=["xxx", "yyy"], direct_upload=True
+            history_id, contents=["xxx", "yyy"], direct_upload=True, wait=True
         ).json()["outputs"][0]["id"]
         payload = {"from_hdca_id": hdca_id, "create_type": "file", "folder_id": folder_id}
         create_response = self._post(f"libraries/{library['id']}/contents", payload)
@@ -529,7 +529,7 @@ class LibrariesApiTestCase(ApiTestCase):
         library = self.library_populator.new_private_library("ForCreateDatasetsFromCollection")
         history_id = self.dataset_populator.new_history()
         hdca_id = self.dataset_collection_populator.create_list_in_history(
-            history_id, contents=["xxx", "yyy"], direct_upload=True
+            history_id, contents=["xxx", "yyy"], direct_upload=True, wait=True
         ).json()["outputs"][0]["id"]
         folder_response = self._create_folder(library)
         self._assert_status_code_is(folder_response, 200)
@@ -540,9 +540,9 @@ class LibrariesApiTestCase(ApiTestCase):
         assert len(create_response.json()) == 2
         # Also test that anything different from a flat dataset collection list
         # is refused
-        hdca_pair_id = self.dataset_collection_populator.create_list_of_pairs_in_history(history_id).json()["outputs"][
-            0
-        ]["id"]
+        hdca_pair_id = self.dataset_collection_populator.create_list_of_pairs_in_history(history_id, wait=True).json()[
+            "outputs"
+        ][0]["id"]
         payload = {"from_hdca_id": hdca_pair_id}
         create_response = self._post(f"folders/{folder_id}/contents", payload)
         self._assert_status_code_is(create_response, 501)
