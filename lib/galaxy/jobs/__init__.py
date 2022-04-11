@@ -1824,6 +1824,12 @@ class MinimalJobWrapper(HasResourceParameters):
 
         if not extended_metadata:
             # importing metadata will discover outputs if extended metadata
+            try:
+                self.discover_outputs(job, inp_data, out_data, out_collections, final_job_state=final_job_state)
+            except MaxDiscoveredFilesExceededError as e:
+                final_job_state = job.states.ERROR
+                job.job_messages = [str(e)]
+
             for dataset_assoc in output_dataset_associations:
                 context = self.get_dataset_finish_context(job_context, dataset_assoc)
                 # should this also be checking library associations? - can a library item be added from a history before the job has ended? -
@@ -1839,11 +1845,6 @@ class MinimalJobWrapper(HasResourceParameters):
                     self._finish_dataset(output_name, dataset, job, context, final_job_state, remote_metadata_directory)
                 if not final_job_state == job.states.ERROR:
                     dataset_assoc.dataset.dataset.state = model.Dataset.states.OK
-            try:
-                self.discover_outputs(job, inp_data, out_data, out_collections, final_job_state=final_job_state)
-            except MaxDiscoveredFilesExceededError as e:
-                final_job_state = job.states.ERROR
-                job.job_messages = [str(e)]
 
         if job.states.ERROR == final_job_state:
             for dataset_assoc in output_dataset_associations:
