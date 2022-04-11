@@ -535,7 +535,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
     @expose_api
     def fetch(self, trans: GalaxyWebTransaction, payload: FetchDataPayload, **kwd):
         """Adapt clean API to tool-constrained API."""
-        payload = FetchDataPayload(**payload).dict()
+        payload = FetchDataPayload(**payload).dict(exclude_unset=True)
         request_version = "1"
         if "history_id" not in payload:
             raise exceptions.RequestParameterMissingException("history_id must be specified")
