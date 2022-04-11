@@ -664,9 +664,10 @@ class ToolsTestCase(ApiTestCase, TestsTools):
             hdca1_id = self.dataset_collection_populator.create_list_in_history(
                 history_id, contents=["a\nb\nc\nd", "e\nf\ng\nh"]
             ).json()["id"]
+
             hdca2_id = self.dataset_collection_populator.create_list_in_history(
                 history_id, contents=["1\n2\n3\n4", "5\n6\n7\n8"]
-            ).json()["id"]
+            ).json()["output"]["id"]
             inputs = {
                 "input_forward": {"batch": True, "values": [{"src": "hdca", "id": hdca1_id}]},
                 "input_reverse": {"batch": True, "values": [{"src": "hdca", "id": hdca2_id}]},

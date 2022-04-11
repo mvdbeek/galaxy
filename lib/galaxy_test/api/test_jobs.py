@@ -280,9 +280,10 @@ steps:
             assert dataset["visible"]
 
     def _run_map_over_error(self, history_id):
-        hdca1 = self.dataset_collection_populator.create_list_in_history(
+        fetch_response = self.dataset_collection_populator.create_list_in_history(
             history_id, contents=[("sample1-1", "1 2 3")]
         ).json()
+        hdca1 = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
         inputs = {
             "error_bool": "true",
             "dataset": {

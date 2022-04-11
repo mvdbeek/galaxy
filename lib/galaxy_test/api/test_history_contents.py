@@ -433,10 +433,10 @@ class HistoryContentsApiTestCase(ApiTestCase):
 
     @skip_without_tool("collection_creates_list")
     def test_jobs_summary_simple_hdca(self):
-        create_response = self.dataset_collection_populator.create_list_in_history(
+        fetch_response = self.dataset_collection_populator.create_list_in_history(
             self.history_id, contents=["a\nb\nc\nd", "e\nf\ng\nh"]
-        )
-        hdca_id = create_response.json()["id"]
+        ).json()
+        hdca_id = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)["id"]
         run = self.dataset_populator.run_collection_creates_list(self.history_id, hdca_id)
         collections = run["output_collections"]
         collection = collections[0]
@@ -671,7 +671,7 @@ class HistoryContentsApiTestCase(ApiTestCase):
         with self.dataset_populator.test_history() as history_id:
             first_time = datetime.utcnow().isoformat()
             assert len(self._get_content(history_id, update_time=first_time)) == 0
-            self.dataset_collection_populator.create_list_in_history(history_id=history_id)
+            self.dataset_collection_populator.create_list_in_history(history_id=history_id, wait=True)
             assert len(self._get_content(history_id, update_time=first_time)) == 4  # 3 datasets
             self.dataset_populator.wait_for_history(history_id)
             all_datasets_finished = first_time = datetime.utcnow().isoformat()
@@ -694,7 +694,7 @@ class HistoryContentsApiTestCase(ApiTestCase):
             assert history_contents.status_code == 204
 
             # add some stuff
-            self.dataset_collection_populator.create_list_in_history(history_id=history_id)
+            self.dataset_collection_populator.create_list_in_history(history_id=history_id, wait=True)
             self.dataset_populator.wait_for_history(history_id)
 
             # check to make sure the added stuff is there
@@ -743,7 +743,8 @@ class HistoryContentsApiTestCase(ApiTestCase):
     @skip_without_tool("cat_data_and_sleep")
     def test_history_contents_near_with_update_time_implicit_collection(self):
         with self.dataset_populator.test_history() as history_id:
-            hdca_id = self.dataset_collection_populator.create_list_in_history(history_id=history_id).json()["id"]
+            fetch_response = self.dataset_collection_populator.create_list_in_history(history_id=history_id).json()
+            hdca_id = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)["id"]
             self.dataset_populator.wait_for_history(history_id)
             inputs = {
                 "input1": {"batch": True, "values": [{"src": "hdca", "id": hdca_id}]},
@@ -796,7 +797,7 @@ class HistoryContentsApiTestCase(ApiTestCase):
     def test_index_filter_by_type(self):
         history_id = self.dataset_populator.new_history()
         self.dataset_populator.new_dataset(history_id)
-        self.dataset_collection_populator.create_list_in_history(history_id=history_id)
+        self.dataset_collection_populator.create_list_in_history(history_id=history_id, wait=True)
 
         contents_response = self._get(f"histories/{history_id}/contents").json()
         num_items = len(contents_response)
@@ -864,7 +865,7 @@ class HistoryContentsApiNearTestCase(ApiTestCase):
     def _create_list_in_history(self, history_id, n=2):
         # Creates list of size n*4 (n collections with 3 items each)
         for _ in range(n):
-            self.dataset_collection_populator.create_list_in_history(history_id=history_id)
+            self.dataset_collection_populator.create_list_in_history(history_id=history_id, wait=True)
 
     def _get_content(self, history_id, direction, *, hid, limit=1000):
         return self._get(f"/api/histories/{history_id}/contents/{direction}/{hid}/{limit}").json()

@@ -2047,9 +2047,9 @@ class BaseDatasetCollectionPopulator:
         payload = self.create_pair_payload(history_id, instance_type="history", **kwds)
         return self.__create(payload)
 
-    def create_list_in_history(self, history_id, **kwds):
+    def create_list_in_history(self, history_id, wait=False, **kwds):
         payload = self.create_list_payload(history_id, instance_type="history", **kwds)
-        return self.__create(payload)
+        return self.__create(payload, wait=wait)
 
     def upload_collection(self, history_id, collection_type, elements, **kwds):
         payload = self.__create_payload_fetch(history_id, collection_type, contents=elements, **kwds)
@@ -2129,7 +2129,7 @@ class BaseDatasetCollectionPopulator:
 
     def wait_for_fetched_collection(self, fetch_response):
         self.dataset_populator.wait_for_job(fetch_response["jobs"][0]["id"], assert_ok=True)
-        initial_dataset_collection = fetch_response["outputs"][0]
+        initial_dataset_collection = fetch_response["output_collections"][0]
         dataset_collection = self.dataset_populator.get_history_collection_details(
             initial_dataset_collection["history_id"], hid=initial_dataset_collection["hid"]
         )
@@ -2178,14 +2178,14 @@ class BaseDatasetCollectionPopulator:
         element_identifiers = [hda_to_identifier(i, hda) for (i, hda) in enumerate(hdas)]
         return element_identifiers
 
-    def __create(self, payload):
+    def __create(self, payload, wait=False):
         # Create a colleciton - either from existing datasets using collection creation API
         # or from direct uploads with the fetch API. Dispatch on "targets" keyword in payload
         # to decide which to use.
         if "targets" not in payload:
             return self._create_collection(payload)
         else:
-            return self.dataset_populator.fetch(payload)
+            return self.dataset_populator.fetch(payload, wait=wait)
 
     def __datasets(self, history_id, count, contents=None):
         datasets = []
