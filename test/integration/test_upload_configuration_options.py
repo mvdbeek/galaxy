@@ -794,7 +794,7 @@ class FetchByPathTestCase(BaseUploadContentConfigurationTestCase):
         targets = [{"destination": destination, "items": items}]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
@@ -809,7 +809,7 @@ class FetchByPathTestCase(BaseUploadContentConfigurationTestCase):
         targets = [{"destination": destination, "items": items}]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
@@ -830,7 +830,7 @@ class FetchByPathTestCase(BaseUploadContentConfigurationTestCase):
         ]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/file1")
@@ -853,7 +853,7 @@ class FetchByPathTestCase(BaseUploadContentConfigurationTestCase):
         ]
         payload = {
             "history_id": self.history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         fetch_response = self.dataset_populator.fetch(payload)
         self._assert_status_code_is(fetch_response, 200)
@@ -882,7 +882,7 @@ class FetchByPathTestCase(BaseUploadContentConfigurationTestCase):
         ]
         payload = {
             "history_id": self.history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         contents_response = self.dataset_populator._get_contents_request(self.history_id)
@@ -902,7 +902,7 @@ class FetchByPathTestCase(BaseUploadContentConfigurationTestCase):
         ]
         payload = {
             "history_id": self.history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         libraries = self.library_populator.get_libraries()

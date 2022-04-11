@@ -321,7 +321,7 @@ class BaseDatasetPopulator(BasePopulator):
         timeout: timeout_type = DEFAULT_TIMEOUT,
         wait: Optional[bool] = None,
     ):
-        tool_response = self._post("tools/fetch", data=payload)
+        tool_response = self._post("tools/fetch", data=payload, json=True)
         if wait is None:
             wait = assert_ok
         if wait:
@@ -344,7 +344,7 @@ class BaseDatasetPopulator(BasePopulator):
         ]
         payload = {
             "history_id": history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         fetch_response = self.fetch(payload, wait=wait)
         api_asserts.assert_status_code_is(fetch_response, 200)
@@ -1992,7 +1992,7 @@ class BaseDatasetCollectionPopulator:
         # this function uses recursive generation of history hdcas.
         collection_type = kwds.pop("collection_type", "list:list")
         collection_types = collection_type.split(":")
-        list = self.create_list_in_history(history_id, **kwds).json()["id"]
+        list = self.create_list_in_history(history_id, **kwds).json()["output_collections"][0]
         current_collection_type = "list"
         for collection_type in collection_types[1:]:
             current_collection_type = f"{current_collection_type}:{collection_type}"
@@ -2000,9 +2000,9 @@ class BaseDatasetCollectionPopulator:
                 history_id=history_id,
                 collection_type=current_collection_type,
                 name=current_collection_type,
-                collection=[list],
+                collection=[list["id"]],
             )
-            list = response.json()["id"]
+            list = response.json()
         return response
 
     def create_pair_in_history(self, history_id, **kwds):
@@ -2085,7 +2085,7 @@ class BaseDatasetCollectionPopulator:
         ]
         payload = dict(
             history_id=history_id,
-            targets=json.dumps(targets),
+            targets=targets,
         )
         return payload
 

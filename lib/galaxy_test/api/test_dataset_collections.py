@@ -1,4 +1,3 @@
-import json
 import zipfile
 from io import BytesIO
 from typing import List
@@ -26,7 +25,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
             self.history_id,
             instance_type="history",
         )
-        create_response = self._post("dataset_collections", payload, json=True)
+        create_response = self.dataset_populator.fetch(payload, wait=True)
         dataset_collection = self._check_create_response(create_response)
         returned_datasets = dataset_collection["elements"]
         assert len(returned_datasets) == 2, dataset_collection
@@ -51,7 +50,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
             self.history_id,
             instance_type="history",
         )
-        pair_create_response = self._post("dataset_collections", pair_payload, json=True)
+        pair_create_response = self._post("tools/fetch", pair_payload, json=True)
         dataset_collection = self._check_create_response(pair_create_response)
         hdca_id = dataset_collection["id"]
 
@@ -227,7 +226,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": self.history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
             "__files": {"files_0|file_data": open(self.test_data_resolver.get_filename("4.bed"))},
         }
         self.dataset_populator.fetch(payload)
@@ -256,7 +255,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": self.history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
             "__files": {"files_0|file_data": open(self.test_data_resolver.get_filename("4.bed"))},
         }
         self.dataset_populator.fetch(payload)
@@ -284,7 +283,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": self.history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         hdca = self._assert_one_collection_created_in_history()
@@ -306,7 +305,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": self.history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload, assert_ok=False, wait=True)
         hdca = self._assert_one_collection_created_in_history()
@@ -328,6 +327,10 @@ class DatasetCollectionApiTestCase(ApiTestCase):
     def _check_create_response(self, create_response):
         self._assert_status_code_is(create_response, 200)
         dataset_collection = create_response.json()
+        if "output_collections" in dataset_collection:
+            # fetch data response, we'll have to check the final response
+            dataset_collection = dataset_collection["output_collections"][0]
+            dataset_collection = self._get(f"dataset_collections/{dataset_collection['id']}").json()
         self._assert_has_keys(dataset_collection, "elements", "url", "name", "collection_type", "element_count")
         return dataset_collection
 
@@ -513,7 +516,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": self.history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
             "__files": {"files_0|file_data": open(self.test_data_resolver.get_filename("4.bed"))},
         }
         hdca_id = self.dataset_populator.fetch(payload).json()["output_collections"][0]["id"]
@@ -545,7 +548,7 @@ class DatasetCollectionApiTestCase(ApiTestCase):
     def _create_collection_contents_pair(self):
         # Create a simple collection, return hdca and contents_url
         payload = self.dataset_collection_populator.create_pair_payload(self.history_id, instance_type="history")
-        create_response = self._post("dataset_collections", payload, json=True)
+        create_response = self.dataset_populator.fetch(payload=payload, wait=True)
         hdca = self._check_create_response(create_response)
         root_contents_url = self._get_contents_url_for_hdca(hdca)
         return hdca, root_contents_url

@@ -1,4 +1,3 @@
-import json
 import unittest
 
 import pytest
@@ -222,7 +221,7 @@ class LibrariesApiTestCase(ApiTestCase):
         targets = [{"destination": destination, "items": items}]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
             "__files": {"files_0|file_data": open(self.test_data_resolver.get_filename("4.bed"))},
         }
         self.dataset_populator.fetch(payload)
@@ -245,7 +244,7 @@ class LibrariesApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
             "__files": {"files_0|file_data": open(bed_test_data_path, "rb")},
         }
         self.dataset_populator.fetch(payload)
@@ -280,7 +279,7 @@ class LibrariesApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
             "validate_hashes": True,
         }
         return library, self.dataset_populator.fetch(payload, assert_ok=assert_ok)
@@ -322,7 +321,7 @@ class LibrariesApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
             "validate_hashes": True,
         }
         tool_response = self.dataset_populator.fetch(payload, assert_ok=False)
@@ -349,7 +348,7 @@ class LibrariesApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         self.dataset_populator.fetch(payload)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
@@ -368,7 +367,7 @@ class LibrariesApiTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,  # TODO: Shouldn't be needed :(
-            "targets": json.dumps(targets),
+            "targets": targets,
             "__files": {"files_0|file_data": open(example_bag_path)},
         }
         self.dataset_populator.fetch(payload)

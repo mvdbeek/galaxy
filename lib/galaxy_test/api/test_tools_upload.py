@@ -299,7 +299,7 @@ class ToolsUploadTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         fetch_response = self.dataset_populator.fetch(payload)
         self._assert_status_code_is(fetch_response, 200)
@@ -340,7 +340,7 @@ class ToolsUploadTestCase(ApiTestCase):
         ]
         payload = {
             "history_id": history_id,
-            "targets": json.dumps(targets),
+            "targets": targets,
         }
         fetch_response = self.dataset_populator.fetch(payload)
         self._assert_status_code_is(fetch_response, 200)
@@ -511,7 +511,7 @@ class ToolsUploadTestCase(ApiTestCase):
             ]
             payload = {
                 "history_id": history_id,
-                "targets": json.dumps(targets),
+                "targets": targets,
             }
             payload["__files"] = {"files_0|file_data": tar_f}
             fetch_response = self.dataset_populator.fetch(payload)
