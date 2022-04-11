@@ -295,21 +295,31 @@ class BaseDatasetPopulator(BasePopulator):
     Galaxy - implementations must implement _get, _post and _delete.
     """
 
-    def new_dataset(self, history_id: str, content=None, wait: bool = False, **kwds) -> dict:
+    def new_dataset(self, history_id: str, content=None, wait: bool = False, fetch_data=True, **kwds) -> dict:
         """Create a new history dataset instance (HDA) and return its ID.
 
         :returns: the HDA id of the new object
         """
-        run_response = self.new_dataset_request(history_id, content=content, wait=wait, **kwds)
+        run_response = self.new_dataset_request(history_id, content=content, wait=wait, fetch_data=fetch_data, **kwds)
         assert run_response.status_code == 200, f"Failed to create new dataset with response: {run_response.text}"
+        if fetch_data and wait:
+            return self.get_history_dataset_details_raw(
+                history_id=history_id, dataset_id=run_response.json()["outputs"][0]["id"]
+            ).json()
         return run_response.json()["outputs"][0]
 
-    def new_dataset_request(self, history_id: str, content=None, wait: bool = False, **kwds) -> requests.Response:
+    def new_dataset_request(
+        self, history_id: str, content=None, wait: bool = False, fetch_data=True, **kwds
+    ) -> requests.Response:
         """Lower-level dataset creation that returns the upload tool response object."""
         if content is None and "ftp_files" not in kwds:
             content = "TestData123"
-        payload = self.upload_payload(history_id, content=content, **kwds)
-        run_response = self.tools_post(payload)
+        if not fetch_data:
+            payload = self.upload_payload(history_id, content=content, **kwds)
+            run_response = self.tools_post(payload)
+        else:
+            payload = self.fetch_payload(history_id, content=content, **kwds)
+            run_response = self.fetch(payload)
         if wait:
             self.wait_for_tool_run(history_id, run_response, assert_ok=kwds.get("assert_ok", True))
         return run_response
@@ -517,6 +527,34 @@ class BaseDatasetPopulator(BasePopulator):
 
     def copy_history(self, history_id, name="API Test Copied History", **kwds) -> Response:
         return self._post("histories", data={"name": name, "history_id": history_id, **kwds})
+
+    def fetch_payload(self, history_id: str, content: str, **kwds) -> dict:
+        __files = {}
+        element = {
+            "ext": kwds.get("file_type", "txt"),
+            "dbkey": kwds.get("dbkey", "?"),
+            "name": kwds.get("name", "Test_Dataset"),
+        }
+        for arg in ["to_posix_lines", "space_to_tab", "auto_decompress"]:
+            if arg in kwds:
+                element[arg] = kwds[arg]
+        target = {
+            "destination": {"type": "hdas"},
+            "elements": [element],
+            "auto_decompress": False,
+        }
+        if hasattr(content, "read"):
+            element["src"] = "files"
+            __files["files_0|file_data"] = content
+        elif "://" in content:
+            element["src"] = "url"
+            element["url"] = content
+        else:
+            element["src"] = "pasted"
+            element["paste_content"] = content
+        targets = [target]
+        payload = {"history_id": history_id, "targets": targets, "__files": __files}
+        return payload
 
     def upload_payload(self, history_id: str, content: Optional[str] = None, **kwds) -> dict:
         name = kwds.get("name", "Test_Dataset")
