@@ -2284,7 +2284,7 @@ def load_data_dict(
                 if input_type == "File":
                     content = read_test_data(element_data)
                 else:
-                    content = element_data["content"]
+                    content = element_data.pop("content")
                 if content is not None:
                     element_data["src"] = "pasted"
                     element_data["paste_content"] = content
