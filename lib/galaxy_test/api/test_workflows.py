@@ -2769,14 +2769,16 @@ steps:
 """
             )
             DELETED = 0
-            PAUSED_1 = 3
-            PAUSED_2 = 5
-            hdca1 = self.dataset_collection_populator.create_list_in_history(
-                history_id, contents=[("sample1-1", "1 2 3")]
+            PAUSED_1 = 1
+            PAUSED_2 = 2
+            fetch_response = self.dataset_collection_populator.create_list_in_history(
+                history_id, contents=[("sample1-1", "1 2 3")], wait=True
             ).json()
-            self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+            hdca1 = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
             deleted_id = hdca1["elements"][DELETED]["object"]["id"]
-            r = self._delete(f"histories/{history_id}/contents/{deleted_id}?purge={purge}")
+            self.dataset_populator.delete_dataset(
+                history_id=history_id, content_id=deleted_id, purge=purge, wait_for_purge=True
+            )
             label_map = {"input1": self._ds_entry(hdca1)}
             workflow_request = dict(
                 history=f"hist_id={history_id}",
@@ -2790,14 +2792,12 @@ steps:
             self.workflow_populator.wait_for_invocation_and_jobs(
                 workflow_id, history_id, invocation_id, assert_ok=False
             )
-            # Why is this sleep needed? -John
-            if not purge:
-                time.sleep(5)
             contents = self.__history_contents(history_id)
-            assert contents[DELETED]["deleted"]
+            datasets = [content for content in contents if content["history_content_type"] == "dataset"]
+            assert datasets[DELETED]["deleted"]
             state = "error" if purge else "paused"
-            assert contents[PAUSED_1]["state"] == state
-            assert contents[PAUSED_2]["state"] == "paused"
+            assert datasets[PAUSED_1]["state"] == state
+            assert datasets[PAUSED_2]["state"] == "paused"
 
     def test_run_with_implicit_connection(self):
         with self.dataset_populator.test_history() as history_id:

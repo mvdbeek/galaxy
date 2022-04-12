@@ -454,9 +454,25 @@ class BaseDatasetPopulator(BasePopulator):
         delete_response = self._delete(f"histories/{history_id}")
         delete_response.raise_for_status()
 
-    def delete_dataset(self, history_id: str, content_id: str, purge: bool = False) -> Response:
-        delete_response = self._delete(f"histories/{history_id}/contents/{content_id}", {"purge": purge}, json=True)
+    def delete_dataset(
+        self, history_id: str, content_id: str, purge: bool = False, wait_for_purge: bool = False
+    ) -> Response:
+        dataset_url = f"histories/{history_id}/contents/{content_id}"
+        delete_response = self._delete(dataset_url, {"purge": purge}, json=True)
+        delete_response.raise_for_status()
+        if wait_for_purge and delete_response.status_code == 202:
+            return self.wait_for_purge(history_id, content_id)
         return delete_response
+
+    def wait_for_purge(self, history_id, content_id):
+        dataset_url = f"histories/{history_id}/contents/{content_id}"
+
+        def _wait_for_purge():
+            dataset = self._get(dataset_url).json()
+            return dataset["purged"] or None
+
+        wait_on(_wait_for_purge, "dataset to become purged", timeout=2)
+        return self._get(dataset_url)
 
     def create_tool_from_path(self, tool_path: str) -> Dict[str, Any]:
         tool_directory = os.path.dirname(os.path.abspath(tool_path))

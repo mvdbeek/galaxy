@@ -8,7 +8,6 @@ from galaxy_test.base.populators import (
     DatasetCollectionPopulator,
     DatasetPopulator,
     skip_without_tool,
-    wait_on,
 )
 from ._framework import ApiTestCase
 
@@ -319,12 +318,8 @@ class DatasetsApiTestCase(ApiTestCase):
 
         assert deleted_result["success_count"] == len(expected_purged_source_ids)
 
-        def wait_for_purge():
-            for purged_source_id in expected_purged_source_ids:
-                dataset = self._get(f"histories/{history_id}/contents/{purged_source_id['id']}").json()
-                return dataset["purged"] or None
-
-        wait_on(wait_for_purge, "dataset to become purged", timeout=2)
+        for purged_source_id in expected_purged_source_ids:
+            self.dataset_populator.wait_for_purge(history_id, purged_source_id["id"])
 
     def test_delete_batch_error(self):
         num_datasets = 4
