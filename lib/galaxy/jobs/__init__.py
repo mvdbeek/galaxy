@@ -1843,7 +1843,11 @@ class MinimalJobWrapper(HasResourceParameters):
 
                     # Handles retry internally on error for instance...
                     self._finish_dataset(output_name, dataset, job, context, final_job_state, remote_metadata_directory)
-                if not final_job_state == job.states.ERROR:
+                if (
+                    not final_job_state == job.states.ERROR
+                    and not dataset_assoc.dataset.dataset.state == job.states.ERROR
+                ):
+                    # We don't set datsets in error state to OK because discover_outputs may have already set the state to error
                     dataset_assoc.dataset.dataset.state = model.Dataset.states.OK
 
         if job.states.ERROR == final_job_state:
