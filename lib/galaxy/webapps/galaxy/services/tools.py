@@ -9,7 +9,7 @@ from galaxy import (
     exceptions,
     util,
 )
-from galaxy.app import UniverseApplication
+from galaxy.config import GalaxyAppConfiguration
 from galaxy.managers.collections_util import dictify_dataset_collection_instance
 from galaxy.managers.context import (
     ProvidesHistoryContext,
@@ -19,7 +19,10 @@ from galaxy.managers.histories import HistoryManager
 from galaxy.model import PostJobAction
 from galaxy.schema.fetch_data import FetchDataPayload
 from galaxy.security.idencoding import IdEncodingHelper
-from galaxy.tools import Tool
+from galaxy.tools import (
+    Tool,
+    ToolBox,
+)
 from galaxy.webapps.galaxy.services.base import ServiceBase
 from ._fetch_util import validate_and_normalize_targets
 
@@ -27,9 +30,16 @@ log = logging.getLogger(__name__)
 
 
 class ToolsService(ServiceBase):
-    def __init__(self, app: UniverseApplication, security: IdEncodingHelper, history_manager: HistoryManager):
+    def __init__(
+        self,
+        config: GalaxyAppConfiguration,
+        toolbox: ToolBox,
+        security: IdEncodingHelper,
+        history_manager: HistoryManager,
+    ):
         super().__init__(security)
-        self.app = app
+        self.config = config
+        self.toolbox = toolbox
         self.history_manager = history_manager
 
     def _create_fetch(self, trans: ProvidesHistoryContext, fetch_payload: FetchDataPayload):
@@ -209,20 +219,20 @@ class ToolsService(ServiceBase):
         :return:      Dictionary containing the tools' ids of the best hits.
         :return type: dict
         """
-        panel_view = view or self.app.config.default_panel_view
-        tool_name_boost = self.app.config.get("tool_name_boost", 9)
-        tool_id_boost = self.app.config.get("tool_id_boost", 9)
-        tool_section_boost = self.app.config.get("tool_section_boost", 3)
-        tool_description_boost = self.app.config.get("tool_description_boost", 2)
-        tool_label_boost = self.app.config.get("tool_label_boost", 1)
-        tool_stub_boost = self.app.config.get("tool_stub_boost", 5)
-        tool_help_boost = self.app.config.get("tool_help_boost", 0.5)
-        tool_search_limit = self.app.config.get("tool_search_limit", 20)
-        tool_enable_ngram_search = self.app.config.get("tool_enable_ngram_search", False)
-        tool_ngram_minsize = self.app.config.get("tool_ngram_minsize", 3)
-        tool_ngram_maxsize = self.app.config.get("tool_ngram_maxsize", 4)
+        panel_view = view or self.config.default_panel_view
+        tool_name_boost = self.config.get("tool_name_boost", 9)
+        tool_id_boost = self.config.get("tool_id_boost", 9)
+        tool_section_boost = self.config.get("tool_section_boost", 3)
+        tool_description_boost = self.config.get("tool_description_boost", 2)
+        tool_label_boost = self.config.get("tool_label_boost", 1)
+        tool_stub_boost = self.config.get("tool_stub_boost", 5)
+        tool_help_boost = self.config.get("tool_help_boost", 0.5)
+        tool_search_limit = self.config.get("tool_search_limit", 20)
+        tool_enable_ngram_search = self.config.get("tool_enable_ngram_search", False)
+        tool_ngram_minsize = self.config.get("tool_ngram_minsize", 3)
+        tool_ngram_maxsize = self.config.get("tool_ngram_maxsize", 4)
 
-        results = self.app.toolbox_search.search(
+        results = self.toolbox_search.search(
             q=q,
             panel_view=panel_view,
             tool_name_boost=tool_name_boost,
@@ -266,7 +276,7 @@ class ToolsService(ServiceBase):
     # -- Helper methods --
     #
     def _get_tool(self, id, tool_version=None, user=None) -> Tool:
-        tool = self.app.toolbox.get_tool(id, tool_version)
+        tool = self.toolbox.get_tool(id, tool_version)
         if not tool:
             raise exceptions.ObjectNotFound(f"Could not find tool with id '{id}'.")
         if not tool.allow_user_access(user):
@@ -283,7 +293,7 @@ class ToolsService(ServiceBase):
         :return:      list with available versions
         "return type: list
         """
-        tools = self.app.toolbox.get_tool(tool_id, get_all_versions=True)
+        tools = self.toolbox.get_tool(tool_id, get_all_versions=True)
         detected_versions = []
         if tools:
             for tool in tools:
