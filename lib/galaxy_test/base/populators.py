@@ -1494,7 +1494,6 @@ class BaseWorkflowPopulator(BasePopulator):
             assert state == "scheduled", state
         time.sleep(0.5)
         self.dataset_populator.wait_for_history_jobs(history_id, assert_ok=assert_ok)
-        time.sleep(0.5)
 
 
 class RunJobsSummary(NamedTuple):

@@ -114,7 +114,7 @@ class BaseWorkflowHandlerConfigurationTestCase(integration_util.IntegrationTestC
     def _invoke_n_workflows(self, n):
         workflow_id = self.workflow_populator.upload_yaml_workflow(PAUSE_WORKFLOW)
         history_id = self.history_id
-        hda1 = self.dataset_populator.new_dataset(history_id, content="1 2 3")
+        hda1 = self.dataset_populator.new_dataset(history_id, content="1 2 3", wait=True)
         index_map = {"0": dict(src="hda", id=hda1["id"])}
         request = {}
         request["history"] = "hist_id=%s" % history_id

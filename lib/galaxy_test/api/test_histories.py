@@ -417,7 +417,7 @@ class ImportExportTests(BaseHistories):
     def test_import_export_nested_collection(self):
         history_name = f"for_export_with_nested_collections_{uuid4()}"
         history_id = self.dataset_populator.new_history(name=history_name)
-        self.dataset_collection_populator.create_list_of_pairs_in_history(history_id)
+        self.dataset_collection_populator.create_list_of_pairs_in_history(history_id, wait=True)
 
         imported_history_id = self._reimport_history(history_id, history_name, wait_on_history_length=3)
         self._assert_history_length(imported_history_id, 3)
