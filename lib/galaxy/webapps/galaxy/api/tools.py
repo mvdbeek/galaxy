@@ -9,6 +9,8 @@ from typing import (
 )
 
 from fastapi import Request
+from fastapi.exceptions import RequestValidationError
+from pydantic import ValidationError
 
 from galaxy import (
     exceptions,
@@ -76,7 +78,10 @@ class FastAPITools:
             data = await request.form()
         else:
             raise exceptions.MessageException(f"Invalid content-type {content_type} for request")
-        return self.service._create_fetch(trans, FetchDataPayload(**data))
+        try:
+            return self.service._create_fetch(trans, FetchDataPayload(**data))
+        except ValidationError as e:
+            raise RequestValidationError(e.raw_errors)
 
 
 class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
