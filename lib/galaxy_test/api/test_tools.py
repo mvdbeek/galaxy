@@ -59,7 +59,10 @@ class TestsTools:
 
     def _build_pair(self, history_id, contents):
         create_response = self.dataset_collection_populator.create_pair_in_history(
-            history_id, contents=contents, direct_upload=True
+            history_id,
+            contents=contents,
+            direct_upload=True,
+            wait=True,
         )
         hdca_id = create_response.json()["outputs"][0]["id"]
         return hdca_id

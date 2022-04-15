@@ -982,10 +982,6 @@ class HistoryContentsApiBulkOperationTestCase(ApiTestCase):
         with self.dataset_populator.test_history() as history_id:
             datasets_ids, collection_ids, history_contents = self._create_test_history_contents(history_id)
 
-            # All items are visible
-            for item in history_contents:
-                assert item["visible"]
-
             # Hide 2 collections and 3 datasets, 5 in total
             payload = {
                 "operation": "hide",
@@ -1026,10 +1022,6 @@ class HistoryContentsApiBulkOperationTestCase(ApiTestCase):
     def test_dynamic_query_selection(self):
         with self.dataset_populator.test_history() as history_id:
             _, collection_ids, history_contents = self._create_test_history_contents(history_id)
-
-            # All items are visible
-            for item in history_contents:
-                assert item["visible"]
 
             # Hide all collections using query
             payload = {"operation": "hide"}
@@ -1178,12 +1170,20 @@ class HistoryContentsApiBulkOperationTestCase(ApiTestCase):
         datasets_ids = list(map(lambda dataset: dataset["id"], datasets))
         assert len(history_contents) == num_expected_datasets + num_expected_collections
         assert len(datasets_ids) == num_expected_datasets
+        for dataset_id in datasets_ids:
+            self._put(f"histories/{history_id}/contents/{dataset_id}", {"visible": True}, json=True).json()
+        # All items are visible
+        history_contents = self._get_history_contents(history_id)
+        for item in history_contents:
+            assert item["visible"]
         return datasets_ids, collection_ids, history_contents
 
     def _create_collection_in_history(self, history_id, num_collections=1) -> List[str]:
         collection_ids = []
         for _ in range(num_collections):
-            collection_id = self.dataset_collection_populator.create_pair_in_history(history_id=history_id).json()["id"]
+            collection_id = self.dataset_collection_populator.create_pair_in_history(
+                history_id=history_id, wait=True
+            ).json()["outputs"][0]["id"]
             collection_ids.append(collection_id)
         return collection_ids
 
@@ -1191,7 +1191,7 @@ class HistoryContentsApiBulkOperationTestCase(ApiTestCase):
         return self._get(f"histories/{history_id}/contents").json()
 
     def _get_hidden_items_from_history_contents(self, history_contents) -> List[Any]:
-        return list(filter(lambda item: item["visible"] is False, history_contents))
+        return [content for content in history_contents if not content["visible"]]
 
     def _apply_bulk_operation(self, history_id: str, payload, query: str = ""):
         if query:

@@ -566,7 +566,7 @@ class BaseDatasetPopulator(BasePopulator):
         if hasattr(content, "read"):
             element["src"] = "files"
             __files["files_0|file_data"] = content
-        elif "://" in content:
+        elif content and "://" in content:
             element["src"] = "url"
             element["url"] = content
         else:
