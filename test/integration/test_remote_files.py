@@ -216,7 +216,10 @@ class RemoteFilesIntegrationTestCase(ConfiguresRemoteFilesIntegrationTestCase):
         assert "test0" not in os.listdir(ftp_dir)
         _write_file_fixtures(self.root, ftp_dir)
         with dataset_populator.test_history() as history_id:
-            hdca = self.dataset_collection_populator.create_list_of_list_in_history(history_id).json()
+            fetch_response = self.dataset_collection_populator.create_list_of_list_in_history(
+                history_id, wait=True
+            ).json()
+            hdca = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
             outer_elements = hdca["elements"][0]
             assert outer_elements["element_identifier"] == "test0"
             for i in range(2):
