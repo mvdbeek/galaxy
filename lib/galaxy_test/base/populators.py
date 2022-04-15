@@ -296,14 +296,27 @@ class BaseDatasetPopulator(BasePopulator):
     """
 
     def new_dataset(
-        self, history_id: str, content=None, wait: bool = False, fetch_data=True, to_posix_lines=True, **kwds
+        self,
+        history_id: str,
+        content=None,
+        wait: bool = False,
+        fetch_data=True,
+        to_posix_lines=True,
+        auto_decompress=True,
+        **kwds,
     ) -> dict:
         """Create a new history dataset instance (HDA) and return its ID.
 
         :returns: the HDA id of the new object
         """
         run_response = self.new_dataset_request(
-            history_id, content=content, wait=wait, fetch_data=fetch_data, to_posix_lines=to_posix_lines, **kwds
+            history_id,
+            content=content,
+            wait=wait,
+            fetch_data=fetch_data,
+            to_posix_lines=to_posix_lines,
+            auto_decompress=auto_decompress,
+            **kwds,
         )
         assert run_response.status_code == 200, f"Failed to create new dataset with response: {run_response.text}"
         if fetch_data and wait:
@@ -389,8 +402,14 @@ class BaseDatasetPopulator(BasePopulator):
         return run_response
 
     def check_run(self, run_response: requests.Response) -> dict:
-        run_response.raise_for_status()
-        run = run_response.json()
+        run = None
+        try:
+            run = run_response.json()
+            run_response.raise_for_status()
+        except Exception:
+            if run and run["err_msg"]:
+                raise Exception(run["err_msg"])
+            raise
         job = run["jobs"][0]
         return job
 
@@ -548,22 +567,35 @@ class BaseDatasetPopulator(BasePopulator):
     def copy_history(self, history_id, name="API Test Copied History", **kwds) -> Response:
         return self._post("histories", data={"name": name, "history_id": history_id, **kwds})
 
-    def fetch_payload(self, history_id: str, content: str, **kwds) -> dict:
+    def fetch_payload(
+        self,
+        history_id: str,
+        content: str,
+        auto_decompress: bool = False,
+        file_type: str = "txt",
+        dbkey: str = "?",
+        name: str = "Test_Dataset",
+        **kwds,
+    ) -> dict:
         __files = {}
         element = {
-            "ext": kwds.get("file_type", "txt"),
-            "dbkey": kwds.get("dbkey", "?"),
-            "name": kwds.get("name", "Test_Dataset"),
+            "ext": file_type,
+            "dbkey": dbkey,
+            "name": name,
+            "auto_decompress": auto_decompress,
         }
-        for arg in ["to_posix_lines", "space_to_tab", "auto_decompress"]:
-            if arg in kwds:
-                element[arg] = kwds[arg]
+        for arg in ["to_posix_lines", "space_to_tab"]:
+            val = kwds.get(arg)
+            if val:
+                element[arg] = val
         target = {
             "destination": {"type": "hdas"},
             "elements": [element],
-            "auto_decompress": False,
         }
-        if hasattr(content, "read"):
+        if "ftp_files" in kwds:
+            element["src"] = "ftp_import"
+            element["ftp_path"] = kwds["ftp_files"]
+        elif hasattr(content, "read"):
             element["src"] = "files"
             __files["files_0|file_data"] = content
         elif content and "://" in content:

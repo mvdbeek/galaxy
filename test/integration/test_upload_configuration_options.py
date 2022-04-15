@@ -419,10 +419,10 @@ class SimpleFtpUploadConfigurationTestCase(BaseFtpUploadConfigurationTestCase):
         assert len(ftp_files) == 1, ftp_files
         assert ftp_files[0]["path"] == "test"
         assert os.path.exists(ftp_path)
-        # set to_posix_lines to None to exercise purging - by default this file type wouldn't
+        # set to_posix_lines to False to exercise purging - by default this file type wouldn't
         # be purged.
         dataset = self.dataset_populator.new_dataset(
-            self.history_id, ftp_files="test", file_type="txt", to_posix_lines=None, wait=True
+            self.history_id, ftp_files="test", file_type="txt", to_posix_lines=False, wait=True
         )
         self._check_content(dataset, content)
 
@@ -433,7 +433,7 @@ class SimpleFtpUploadConfigurationTestCase(BaseFtpUploadConfigurationTestCase):
         assert len(ftp_files) == 1, ftp_files
         assert ftp_files[0]["path"] == "test"
         assert os.path.exists(ftp_path)
-        elements = [{"src": "ftp_import", "ftp_path": ftp_files[0]["path"]}]
+        elements = [{"src": "ftp_import", "ftp_path": ftp_files[0]["ftp_path"]}]
         target = {
             "destination": {"type": "hdca"},
             "elements": elements,
