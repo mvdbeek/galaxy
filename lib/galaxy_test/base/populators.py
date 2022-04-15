@@ -323,7 +323,7 @@ class BaseDatasetPopulator(BasePopulator):
             run_response = self.tools_post(payload)
         else:
             payload = self.fetch_payload(history_id, content=content, **kwds)
-            run_response = self.fetch(payload)
+            run_response = self.fetch(payload, wait=wait)
         if wait:
             self.wait_for_tool_run(history_id, run_response, assert_ok=kwds.get("assert_ok", True))
         return run_response
