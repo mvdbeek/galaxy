@@ -23,6 +23,7 @@ from galaxy.tools import (
     Tool,
     ToolBox,
 )
+from galaxy.tools.search import ToolBoxSearch
 from galaxy.webapps.galaxy.services.base import ServiceBase
 from ._fetch_util import validate_and_normalize_targets
 
@@ -34,12 +35,14 @@ class ToolsService(ServiceBase):
         self,
         config: GalaxyAppConfiguration,
         toolbox: ToolBox,
+        toolbox_search: ToolBoxSearch,
         security: IdEncodingHelper,
         history_manager: HistoryManager,
     ):
         super().__init__(security)
         self.config = config
         self.toolbox = toolbox
+        self.toolbox_search = toolbox_search
         self.history_manager = history_manager
 
     def _create_fetch(self, trans: ProvidesHistoryContext, fetch_payload: FetchDataPayload):
