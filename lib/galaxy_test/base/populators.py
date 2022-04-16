@@ -2344,7 +2344,7 @@ def load_data_dict(
                 fetch_response = dataset_collection_populator.create_pair_in_history(
                     history_id, contents=elements or None, direct_upload=True, **new_collection_kwds
                 ).json()
-            hdca_output = dataset_collection_populator.wait_for_fetched_collection(fetch_response)
+            hdca_output = fetch_response["outputs"][0]
             hdca = dataset_populator.ds_entry(hdca_output)
             hdca["hid"] = hdca_output["hid"]
             label_map[key] = hdca
