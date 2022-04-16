@@ -1490,8 +1490,8 @@ class BaseWorkflowPopulator(BasePopulator):
             workflow_id = self.create_workflow(workflow)
         if not history_id:
             history_id = self.dataset_populator.new_history()
-        hda1 = self.dataset_populator.new_dataset(history_id, content="1 2 3")
-        hda2 = self.dataset_populator.new_dataset(history_id, content="4 5 6")
+        hda1 = self.dataset_populator.new_dataset(history_id, content="1 2 3", wait=True)
+        hda2 = self.dataset_populator.new_dataset(history_id, content="4 5 6", wait=True)
         workflow_request = dict(
             history=f"hist_id={history_id}",
         )
@@ -2344,7 +2344,7 @@ def load_data_dict(
                 fetch_response = dataset_collection_populator.create_pair_in_history(
                     history_id, contents=elements or None, direct_upload=True, **new_collection_kwds
                 ).json()
-            hdca_output = fetch_response["outputs"][0]
+            hdca_output = dataset_collection_populator.wait_for_fetched_collection(fetch_response)
             hdca = dataset_populator.ds_entry(hdca_output)
             hdca["hid"] = hdca_output["hid"]
             label_map[key] = hdca
@@ -2359,7 +2359,7 @@ def load_data_dict(
                     new_dataset_kwds["name"] = value["name"]
                 if "file_type" in value:
                     new_dataset_kwds["file_type"] = value["file_type"]
-                hda = dataset_populator.new_dataset(history_id, **new_dataset_kwds)
+                hda = dataset_populator.new_dataset(history_id, wait=True, **new_dataset_kwds)
                 label_map[key] = dataset_populator.ds_entry(hda)
                 has_uploads = True
             elif input_type == "raw":
