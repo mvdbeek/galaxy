@@ -433,7 +433,7 @@ class SimpleFtpUploadConfigurationTestCase(BaseFtpUploadConfigurationTestCase):
         assert len(ftp_files) == 1, ftp_files
         assert ftp_files[0]["path"] == "test"
         assert os.path.exists(ftp_path)
-        elements = [{"src": "ftp_import", "ftp_path": ftp_files[0]["ftp_path"]}]
+        elements = [{"src": "ftp_import", "ftp_path": ftp_files[0]["path"]}]
         target = {
             "destination": {"type": "hdca"},
             "elements": elements,
