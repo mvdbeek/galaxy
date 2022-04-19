@@ -220,7 +220,7 @@ class RemoteFilesIntegrationTestCase(ConfiguresRemoteFilesIntegrationTestCase):
             outer_elements = hdca["elements"][0]
             assert outer_elements["element_identifier"] == "test0"
             for i in range(2):
-                assert outer_elements["object"]["elements"][i]["element_identifier"] == f"data{i + 1}"
+                assert outer_elements["object"]["elements"][i]["element_identifier"] == f"data{i}"
                 assert outer_elements["object"]["elements"][i]["object"]["file_ext"] == "txt"
             incollection = {"src": "hdca", "id": hdca["id"]}
             inputs = {
@@ -232,7 +232,7 @@ class RemoteFilesIntegrationTestCase(ConfiguresRemoteFilesIntegrationTestCase):
             dataset_populator.wait_for_job(response["jobs"][0]["id"], assert_ok=True)
             assert "test0" in os.listdir(ftp_dir)
             subdir_content = os.listdir(os.path.join(ftp_dir, "test0"))
-            assert sorted(subdir_content) == ["data1.txt", "data2.txt", "data3.txt"]
+            assert sorted(subdir_content) == ["data0.txt", "data1.txt", "data2.txt"]
 
     def _assert_index_empty(self, index):
         assert len(index) == 0
