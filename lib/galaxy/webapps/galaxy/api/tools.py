@@ -133,7 +133,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
             if hits:
                 for hit in hits:
                     try:
-                        tool = self.service._get_tool(hit, user=trans.user)
+                        tool = self.service._get_tool(trans, hit, user=trans.user)
                         if tool:
                             results.append(tool.id)
                     except exceptions.AuthenticationFailed:
@@ -173,7 +173,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         io_details = util.string_as_bool(kwd.get("io_details", False))
         link_details = util.string_as_bool(kwd.get("link_details", False))
         tool_version = kwd.get("tool_version")
-        tool = self.service._get_tool(id, user=trans.user, tool_version=tool_version)
+        tool = self.service._get_tool(trans, id, user=trans.user, tool_version=tool_version)
         return tool.to_dict(trans, io_details=io_details, link_details=link_details)
 
     @expose_api_anonymous
@@ -190,7 +190,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
             history = self.history_manager.get_owned(
                 self.decode_id(history_id), trans.user, current_history=trans.history
             )
-        tool = self.service._get_tool(id, tool_version=tool_version, user=trans.user)
+        tool = self.service._get_tool(trans, id, tool_version=tool_version, user=trans.user)
         return tool.to_json(trans, kwd.get("inputs", kwd), history=history)
 
     @web.require_admin
@@ -201,7 +201,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         """
         kwd = _kwd_or_payload(kwd)
         tool_version = kwd.get("tool_version", None)
-        tool = self.service._get_tool(id, tool_version=tool_version, user=trans.user)
+        tool = self.service._get_tool(trans, id, tool_version=tool_version, user=trans.user)
         path = tool.test_data_path(kwd.get("filename"))
         if path:
             return path
@@ -214,7 +214,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         GET /api/tools/{tool_id}/test_data_download?tool_version={tool_version}&filename={filename}
         """
         tool_version = kwd.get("tool_version", None)
-        tool = self.service._get_tool(id, tool_version=tool_version, user=trans.user)
+        tool = self.service._get_tool(trans, id, tool_version=tool_version, user=trans.user)
         filename = kwd.get("filename")
         if filename is None:
             raise exceptions.ObjectNotFound("Test data filename not specified.")
@@ -282,7 +282,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
                 if not tool.allow_user_access(trans.user):
                     raise exceptions.AuthenticationFailed(f"Access denied, please login for tool with id '{id}'.")
         else:
-            tools = [self.service._get_tool(id, tool_version=tool_version, user=trans.user)]
+            tools = [self.service._get_tool(trans, id, tool_version=tool_version, user=trans.user)]
 
         test_defs = []
         for tool in tools:
@@ -320,7 +320,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         Return the resolver status for a specific tool id.
         [{"status": "installed", "name": "hisat2", "versionless": false, "resolver_type": "conda", "version": "2.0.3", "type": "package"}]
         """
-        tool = self.service._get_tool(id, user=trans.user)
+        tool = self.service._get_tool(trans, id, user=trans.user)
         return tool.tool_requirements_status
 
     @web.require_admin
@@ -343,7 +343,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
             build_dependency_cache:  If true, attempts to cache dependencies for this tool
             force_rebuild:           If true and cache dir exists, attempts to delete cache dir
         """
-        tool = self.service._get_tool(id, user=trans.user)
+        tool = self.service._get_tool(trans, id, user=trans.user)
         tool._view.install_dependencies(tool.requirements, **kwds)
         if kwds.get("build_dependency_cache"):
             tool.build_dependency_cache(**kwds)
@@ -368,7 +368,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
 
             resolver_type: Use the dependency resolver of this resolver_type to install dependency
         """
-        tool = self.service._get_tool(id, user=trans.user)
+        tool = self.service._get_tool(trans, id, user=trans.user)
         tool._view.uninstall_dependencies(requirements=tool.requirements, **kwds)
         # TODO: rework resolver install system to log and report what has been done.
         return tool.tool_requirements_status
@@ -383,7 +383,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         parameters:
             force_rebuild:           If true and chache dir exists, attempts to delete cache dir
         """
-        tool = self.service._get_tool(id)
+        tool = self.service._get_tool(trans, id)
         tool.build_dependency_cache(**kwds)
         # TODO: Should also have a more meaningful return.
         return tool.tool_requirements_status
@@ -400,7 +400,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         def to_dict(x):
             return x.to_dict()
 
-        tool = self.service._get_tool(id, user=trans.user)
+        tool = self.service._get_tool(trans, id, user=trans.user)
         if hasattr(tool, "lineage"):
             lineage_dict = tool.lineage.to_dict()
         else:
@@ -426,7 +426,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
 
     @expose_api_anonymous_and_sessionless
     def citations(self, trans: GalaxyWebTransaction, id, **kwds):
-        tool = self.service._get_tool(id, user=trans.user)
+        tool = self.service._get_tool(trans, id, user=trans.user)
         rval = []
         for citation in tool.citations:
             rval.append(citation.to_dict("bibtex"))
@@ -434,7 +434,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
 
     @expose_api
     def conversion(self, trans: GalaxyWebTransaction, tool_id, payload, **kwd):
-        converter = self.service._get_tool(tool_id, user=trans.user)
+        converter = self.service._get_tool(trans, tool_id, user=trans.user)
         target_type = payload.get("target_type")
         source_type = payload.get("source_type")
         input_src = payload.get("src")
@@ -481,7 +481,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
 
     @expose_api_anonymous_and_sessionless
     def xrefs(self, trans: GalaxyWebTransaction, id, **kwds):
-        tool = self.service._get_tool(id, user=trans.user)
+        tool = self.service._get_tool(trans, id, user=trans.user)
         return tool.xrefs
 
     @web.require_admin
@@ -500,7 +500,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
             raise exceptions.InsufficientPermissionsException(
                 "Only administrators may display tool sources on this Galaxy server."
             )
-        tool = self.service._get_tool(id, user=trans.user, tool_version=kwds.get("tool_version"))
+        tool = self.service._get_tool(trans, id, user=trans.user, tool_version=kwds.get("tool_version"))
         trans.response.headers["language"] = tool.tool_source.language
         return tool.tool_source.to_string()
 

@@ -19,10 +19,7 @@ from galaxy.managers.histories import HistoryManager
 from galaxy.model import PostJobAction
 from galaxy.schema.fetch_data import FetchDataPayload
 from galaxy.security.idencoding import IdEncodingHelper
-from galaxy.tools import (
-    Tool,
-    ToolBox,
-)
+from galaxy.tools import Tool
 from galaxy.tools.search import ToolBoxSearch
 from galaxy.webapps.galaxy.services.base import ServiceBase
 from ._fetch_util import validate_and_normalize_targets
@@ -34,14 +31,12 @@ class ToolsService(ServiceBase):
     def __init__(
         self,
         config: GalaxyAppConfiguration,
-        toolbox: ToolBox,
         toolbox_search: ToolBoxSearch,
         security: IdEncodingHelper,
         history_manager: HistoryManager,
     ):
         super().__init__(security)
         self.config = config
-        self.toolbox = toolbox
         self.toolbox_search = toolbox_search
         self.history_manager = history_manager
 
@@ -59,7 +54,7 @@ class ToolsService(ServiceBase):
                 continue
             clean_payload[key] = value
         validate_and_normalize_targets(trans, clean_payload)
-        clean_payload["check_content"] = trans.app.config.check_upload_content
+        clean_payload["check_content"] = self.config.check_upload_content
         request = dumps(clean_payload)
         create_payload = {
             "tool_id": "__DATA_FETCH__",
@@ -98,7 +93,7 @@ class ToolsService(ServiceBase):
             raise exceptions.ToolMissingException("Tool not found.")
         if not tool.allow_user_access(trans.user):
             raise exceptions.ItemAccessibilityException("Tool not accessible.")
-        if trans.app.config.user_activation_on:
+        if self.config.user_activation_on:
             if not trans.user:
                 log.warning("Anonymous user attempts to execute tool, but account activation is turned on.")
             elif not trans.user.active:
@@ -278,8 +273,8 @@ class ToolsService(ServiceBase):
     #
     # -- Helper methods --
     #
-    def _get_tool(self, id, tool_version=None, user=None) -> Tool:
-        tool = self.toolbox.get_tool(id, tool_version)
+    def _get_tool(self, trans, id, tool_version=None, user=None) -> Tool:
+        tool = trans.app.toolbox.get_tool(id, tool_version)
         if not tool:
             raise exceptions.ObjectNotFound(f"Could not find tool with id '{id}'.")
         if not tool.allow_user_access(user):
@@ -296,7 +291,7 @@ class ToolsService(ServiceBase):
         :return:      list with available versions
         "return type: list
         """
-        tools = self.toolbox.get_tool(tool_id, get_all_versions=True)
+        tools = trans.app.toolbox.get_tool(tool_id, get_all_versions=True)
         detected_versions = []
         if tools:
             for tool in tools:

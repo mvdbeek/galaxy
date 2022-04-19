@@ -619,7 +619,6 @@ class UniverseApplication(StructuredApp, GalaxyManagerApplication):
         # Watch various config files for immediate reload
         self.watchers = self._register_singleton(ConfigWatchers)
         self._configure_toolbox()
-        self._register_singleton(tools.ToolBox, self.toolbox)
         # Load Data Manager
         self.data_managers = self._register_singleton(DataManagers)
         # Load the update repository manager.
