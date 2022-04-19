@@ -285,7 +285,7 @@ class HistoryPanelCollectionsTestCase(SeleniumTestCase):
     def _generate_partially_failed_collection_with_input(self):
         history_id = self.current_history_id()
         input_collection = self.dataset_collection_populator.create_list_in_history(
-            history_id, contents=["0", "1", "0", "1"]
+            history_id, contents=["0", "1", "0", "1"], wait=True
         ).json()["outputs"][0]
         failed_response = self.dataset_populator.run_exit_code_from_file(history_id, input_collection["id"])
         failed_collection = failed_response["implicit_collections"][0]
