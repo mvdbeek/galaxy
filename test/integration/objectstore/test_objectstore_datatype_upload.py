@@ -2,11 +2,11 @@
 import os
 import string
 import subprocess
-import time
 from typing import Optional
 
 import pytest
 
+from galaxy.tool_util.verify.wait import wait_on
 from galaxy_test.driver import integration_util
 from ..test_datatype_upload import (
     TEST_CASES,
@@ -97,8 +97,13 @@ def start_irods(container_name):
         ]
         subprocess.check_call(irods_start_args)
 
-        # Sleep so integration test's iRODS instance is up and running
-        time.sleep(20)
+        def is_irods_running():
+            return (
+                "iRODS is installed and running" in subprocess.check_output(["docker", "logs", container_name]).decode()
+                or None
+            )
+
+        wait_on(is_irods_running, desc="iRODS startup", timeout=20)
 
 
 def stop_irods(container_name):
@@ -141,8 +146,8 @@ class IrodsUploadTestDatatypeDataTestCase(BaseObjectstoreUploadTest):
 
     @classmethod
     def tearDownClass(cls):
-        stop_irods(cls.container_name)
         super(UploadTestDatatypeDataTestCase, cls).tearDownClass()
+        stop_irods(cls.container_name)
 
     @classmethod
     def get_object_store_kwargs(cls):
