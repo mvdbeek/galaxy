@@ -2429,7 +2429,7 @@ def wait_on_state(
             return state
 
     if skip_states is None:
-        skip_states = ["running", "queued", "new", "ready", "stop", "stopped", "setting_metadata"]
+        skip_states = ["running", "queued", "new", "ready", "stop", "stopped", "setting_metadata", "waiting"]
     if ok_states is None:
         ok_states = ["ok", "scheduled"]
     try:
