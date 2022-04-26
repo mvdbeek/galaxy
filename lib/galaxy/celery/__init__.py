@@ -13,7 +13,9 @@ from celery import (
     Celery,
     shared_task,
 )
+from celery.contrib.abortable import AbortableTask
 from kombu import serialization
+from pebble import ProcessPool
 
 from galaxy.config import Configuration
 from galaxy.main_config import find_config
@@ -167,13 +169,17 @@ def galaxy_task(*args, action=None, **celery_task_kwd):
                 timer = app.execution_timer_factory.get_timer("internals.tasks.{func.__name__}", desc)
             except AttributeError:
                 timer = ExecutionTimer()
-
             try:
-                rval = app.magic_partial(func)(*args, **kwds)
+                if isinstance(args[0], AbortableTask):
+                    pool = ProcessPool()
+                    future = pool.schedule(app.magic_partial(func), args=args, kwargs=kwds)
+                    rval = future.result()
+                else:
+                    rval = app.magic_partial(func)(*args, **kwds)
                 message = f"Successfully executed Celery task {desc} {timer}"
                 log.info(message)
                 return rval
-            except Exception:
+            except Exception as e:
                 log.warning(f"Celery task execution failed for {desc} {timer}")
                 raise
 

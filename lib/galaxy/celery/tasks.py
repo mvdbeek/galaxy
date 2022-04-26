@@ -2,6 +2,8 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
+from celery.contrib.abortable import AbortableTask
+
 from galaxy import model
 from galaxy.celery import galaxy_task
 from galaxy.config import GalaxyAppConfiguration
@@ -115,8 +117,9 @@ def finish_job(job_id: int, raw_tool_source: str, app: MinimalManagerApp, sa_ses
     mini_job_wrapper.finish("", "")
 
 
-@galaxy_task(action="Run fetch_data")
+@galaxy_task(action="Run fetch_data", bind=True, base=AbortableTask)
 def fetch_data(
+    self,
     setup_return,
     datatypes_registry: DatatypesRegistry,
 ):
