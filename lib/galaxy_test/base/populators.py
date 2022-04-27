@@ -442,9 +442,15 @@ class BaseDatasetPopulator(BasePopulator):
         if assert_ok:
             self.wait_for_history(history_id, assert_ok=True, timeout=timeout)
 
-    def wait_for_job(self, job_id: str, assert_ok: bool = False, timeout: timeout_type = DEFAULT_TIMEOUT):
+    def wait_for_job(
+        self, job_id: str, assert_ok: bool = False, timeout: timeout_type = DEFAULT_TIMEOUT, ok_states=None
+    ):
         return wait_on_state(
-            lambda: self.get_job_details(job_id, full=True), desc="job state", assert_ok=assert_ok, timeout=timeout
+            lambda: self.get_job_details(job_id, full=True),
+            desc="job state",
+            assert_ok=assert_ok,
+            timeout=timeout,
+            ok_states=ok_states,
         )
 
     def get_job_details(self, job_id: str, full: bool = False) -> Response:
@@ -2451,6 +2457,8 @@ def wait_on_state(
         skip_states = ["running", "queued", "new", "ready", "stop", "stopped", "setting_metadata", "waiting"]
     if ok_states is None:
         ok_states = ["ok", "scheduled"]
+    # Remove ok_states from skip_states, so we can wait for a state to becoming running
+    skip_states = [s for s in skip_states if s not in ok_states]
     try:
         return wait_on(get_state, desc=desc, timeout=timeout)
     except TimeoutAssertionError as e:
