@@ -64,6 +64,14 @@ def sniff_with_cls(cls, fname):
 
 
 def stream_url_to_file(path: str, file_sources: Optional[ConfiguredFileSources] = None):
+    from concurrent.futures import ProcessPoolExecutor
+
+    pool = ProcessPoolExecutor()
+    fut = pool.submit(_stream_url_to_file, path, file_sources)
+    return fut.result()
+
+
+def _stream_url_to_file(path: str, file_sources: Optional[ConfiguredFileSources] = None):
     prefix = "url_paste"
     if file_sources and file_sources.looks_like_uri(path):
         file_source_path = file_sources.get_file_source_path(path)
