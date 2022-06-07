@@ -2419,7 +2419,6 @@ class Notification(Base, Dictifiable, RepresentById):
     update_time = Column(DateTime, default=now, onupdate=now)
     message_text = Column(String, index=True, unique=True)
     deleted = Column(Boolean, index=True, default=False)
-    users = relationship("UserNotificationAssociation", back_populates="notification")
 
     dict_collection_visible_keys = ["id", "message_text"]
     dict_element_visible_keys = ["id", "message_text"]
@@ -2437,25 +2436,24 @@ class UserNotificationAssociation(Base, RepresentById):
     notification_id = Column(Integer, ForeignKey("notification_push.id"), index=True)
     create_time = Column(DateTime, default=now)
     update_time = Column(DateTime, default=now, onupdate=now)
-    # user = relationship("User", back_populates="Notification")
-    notification = relationship("Notification", back_populates="users")
-
-    def __init__(self, user):
-        self.notification = notification
-
-
-class NotificationStatus(Base, RepresentById):
-    __tablename__ = "notification_status"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("galaxy_user.id"), index=True)
-    notification_id = Column(Integer, ForeignKey("notification_push.id"), index=True)
-    create_time = Column(DateTime, default=now)
-    update_time = Column(DateTime, default=now, onupdate=now)
+    user = relationship("User")
+    notification = relationship("Notification", backref="user_notification_associations")
     status_seen = Column(Boolean, index=True, default=False)
 
-    def __init__(self, status_seen=False):
-        self.status_seen = status_seen
+
+# class NotificationStatus(Base, RepresentById):
+#     __tablename__ = "notification_status"
+#
+#     id = Column(Integer, primary_key=True)
+#     user_id = Column(Integer, ForeignKey("galaxy_user.id"), index=True)
+#     notification_id = Column(Integer, ForeignKey("notification_push.id"), index=True)
+#     create_time = Column(DateTime, default=now)
+#     update_time = Column(DateTime, default=now, onupdate=now)
+#     status_seen = Column(Boolean, index=True, default=False)
+#
+#     def __init__(self, status_seen=False):
+#         self.status_seen = status_seen
+
 
 def is_hda(d):
     return isinstance(d, HistoryDatasetAssociation)
