@@ -5,10 +5,12 @@ from typing import (
     List,
 )
 
-from galaxy.util import (
-    Element,
-    parse_xml,
-)
+from galaxy.util import parse_xml
+
+try:
+    from lxml.etree import _Element
+except ImportError:
+    pass
 
 REQUIRED_PARAMETER = object()
 
@@ -26,7 +28,7 @@ def load_with_references(path):
     if macros_el is None:
         return tree, []
 
-    macros: Dict[str, List[Element]] = {}
+    macros: Dict[str, List[_Element]] = {}
     macro_paths = _import_macros(macros_el, path, macros)
     macros_el.clear()
 
