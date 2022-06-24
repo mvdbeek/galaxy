@@ -25,6 +25,7 @@ from galaxy.model import (
 )
 from galaxy.tool_util.parser import get_input_source as ensure_input_source
 from galaxy.util import (
+    ExecutionTimer,
     dbkeys,
     sanitize_param,
     string_as_bool,
@@ -2132,8 +2133,10 @@ class DataToolParameter(BaseDataToolParameter):
 
         # add dataset collections
         dataset_collection_matcher = dataset_matcher_factory.dataset_collection_matcher(dataset_matcher)
-        for hdca in history.active_visible_dataset_collections:
+        for hdca_index, hdca in enumerate(history.active_visible_dataset_collections):
+            match_timer = ExecutionTimer()
             match = dataset_collection_matcher.hdca_match(hdca)
+            log.debug(f"hdca_match for hdca {hdca_index}, id: {hdca.id}. history id: {history.id}, {match_timer}")
             if match:
                 subcollection_type = None
                 if multiple and hdca.collection.collection_type != 'list':
