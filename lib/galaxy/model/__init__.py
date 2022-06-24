@@ -5262,7 +5262,7 @@ class DatasetCollection(Base, Dictifiable, UsesAnnotations, Serializable):
             q = q.add_entity(entity)
             if entity == DatasetCollectionElement:
                 q = q.filter(entity.id == dce.c.id)
-        return q.distinct().order_by(*order_by_columns)
+        return q.order_by(*order_by_columns)
 
     @property
     def dataset_states_and_extensions_summary(self):
