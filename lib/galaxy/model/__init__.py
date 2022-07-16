@@ -3570,12 +3570,13 @@ class Dataset(Base, StorableObject, Serializable, _HasTable):
 
     def get_size(self, nice_size=False):
         """Returns the size of the data on disk"""
-        if self.file_size:
+        if self.file_size is not None:
             if nice_size:
                 return galaxy.util.nice_size(self.file_size)
             else:
                 return self.file_size
         else:
+            # Hopefully we only reach this branch in sessionless mode
             if nice_size:
                 return galaxy.util.nice_size(self._calculate_size())
             else:
