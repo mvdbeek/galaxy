@@ -3575,6 +3575,8 @@ class Dataset(Base, StorableObject, Serializable, _HasTable):
                 return galaxy.util.nice_size(self.file_size)
             else:
                 return self.file_size
+        elif self.file_size == 0 and object_session(self) and self._calculate_size():
+            raise Exception("File size is not up to date")
         else:
             # Hopefully we only reach this branch in sessionless mode
             if nice_size:
