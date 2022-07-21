@@ -607,6 +607,7 @@ class WorkflowContentsManager(UsesAnnotations):
         source=None,
         add_to_menu=False,
         hidden=False,
+        filename=None,
     ):
         data = raw_workflow_description.as_dict
         # Put parameters in workflow mode
@@ -616,6 +617,9 @@ class WorkflowContentsManager(UsesAnnotations):
             raise exceptions.RequestParameterInvalidException(f"Invalid workflow format detected [{data}]")
 
         workflow_input_name = data["name"]
+        workflow_path = raw_workflow_description.workflow_path
+        if filename and workflow_path and os.path.basename(workflow_path) == workflow_input_name:
+            workflow_input_name = filename
         imported_sufix = f"(imported from {source})"
         if source and imported_sufix not in workflow_input_name:
             name = f"{workflow_input_name} {imported_sufix}"

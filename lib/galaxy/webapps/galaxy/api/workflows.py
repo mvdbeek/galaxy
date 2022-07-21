@@ -13,6 +13,7 @@ from typing import (
     Optional,
 )
 
+import yaml
 from fastapi import (
     Body,
     Path,
@@ -705,6 +706,7 @@ class WorkflowsAPIController(
         self, trans: GalaxyWebTransaction, archive_data, source=None, payload=None, from_path=None
     ):
         payload = payload or {}
+        filename = None
         try:
             data = json.loads(archive_data)
             if from_path is not None:
@@ -712,6 +714,10 @@ class WorkflowsAPIController(
         except Exception:
             if "GalaxyWorkflow" in archive_data:
                 data = {"yaml_content": archive_data}
+            elif "class: Workflow" in archive_data:
+                data = yaml.safe_load(archive_data)
+                if not data.get("label") and payload.get("archive_file") is not None:
+                    filename = payload["archive_file"].filename
             else:
                 raise exceptions.MessageException("The data content does not appear to be a valid workflow.")
         if not data:
@@ -719,7 +725,7 @@ class WorkflowsAPIController(
         raw_workflow_description = self.__normalize_workflow(trans, data)
         workflow_create_options = WorkflowCreateOptions(**payload)
         workflow, missing_tool_tups = self._workflow_from_dict(
-            trans, raw_workflow_description, workflow_create_options, source=source
+            trans, raw_workflow_description, workflow_create_options, source=source, filename=filename
         )
         workflow_id = workflow.id
         workflow = workflow.latest_workflow
@@ -1378,7 +1384,7 @@ class WorkflowsAPIController(
         )
         return self.__encode_invocation_step(trans, invocation_step)
 
-    def _workflow_from_dict(self, trans, data, workflow_create_options, source=None):
+    def _workflow_from_dict(self, trans, data, workflow_create_options, source=None, filename=None):
         """Creates a workflow from a dict.
 
         Created workflow is stored in the database and returned.
@@ -1395,6 +1401,7 @@ class WorkflowsAPIController(
             raw_workflow_description,
             workflow_create_options,
             source=source,
+            filename=filename,
         )
         if importable:
             self._make_item_accessible(trans.sa_session, created_workflow.stored_workflow)

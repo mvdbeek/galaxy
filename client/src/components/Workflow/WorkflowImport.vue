@@ -50,7 +50,7 @@ export default {
             sourceURL: null,
             errorMessage: null,
             myexperiment_target_url: `http://${Galaxy.config.myexperiment_target_url}/galaxy?galaxy_url=${window.location.protocol}//${window.location.host}`,
-            acceptedWorkflowFormats: ".ga, .yml",
+            acceptedWorkflowFormats: ".ga, .yml, .cwl",
         };
     },
     computed: {
