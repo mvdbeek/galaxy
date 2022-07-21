@@ -18,12 +18,14 @@
             <p>TODO: Insert readonly version of workflow editor here</p>
         </b-tab> -->
         <b-tab title="Export">
-            <div v-if="invocationAndJobTerminal">
-                <workflow-invocation-export-options :invocation-id="invocation.id" />
-            </div>
-            <div v-else>
-                <p v-localize>Waiting for invocation to complete...</p>
-            </div>
+            <CurrentUser v-slot="{ user }">
+                <div v-if="invocationAndJobTerminal">
+                    <workflow-invocation-export-options :invocation-id="invocation.id" :user="user" />
+                </div>
+                <div v-else>
+                    <p v-localize>Waiting for invocation to complete...</p>
+                </div>
+            </CurrentUser>
         </b-tab>
     </b-tabs>
     <div v-else>
@@ -32,6 +34,7 @@
 </template>
 <script>
 import { cancelWorkflowScheduling } from "./services";
+import CurrentUser from "components/providers/CurrentUser";
 import WorkflowInvocationSummary from "./WorkflowInvocationSummary.vue";
 import WorkflowInvocationDetails from "./WorkflowInvocationDetails.vue";
 import WorkflowInvocationExportOptions from "./WorkflowInvocationExportOptions.vue";
@@ -42,6 +45,7 @@ import { mapGetters, mapActions } from "vuex";
 
 export default {
     components: {
+        CurrentUser,
         WorkflowInvocationSummary,
         WorkflowInvocationDetails,
         WorkflowInvocationExportOptions,

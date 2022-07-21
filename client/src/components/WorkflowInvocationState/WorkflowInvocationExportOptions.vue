@@ -2,6 +2,7 @@
     <b-card-group deck>
         <b-card title="BioCompute Object" class="export-plugin-card">
             <p>
+                {{ userPreferences }}
                 A BioCompute Object (BCO) is the unofficial name for a JSON object that adheres to the
                 <a href="https://standards.ieee.org/ieee/2791/7337/">IEEE-2791-2020 standard</a>. A BCO is designed to
                 communicate High-throughput Sequencing (HTS) analysis results, data set creation, data curation, and
@@ -16,16 +17,28 @@
 
 <script>
 import { getAppRoot } from "onload/loadConfig";
+
 export default {
     props: {
         invocationId: {
             type: String,
             required: true,
         },
+        user: {
+            type: Object,
+            required: false,
+        },
     },
     computed: {
         bcoDownloadLink: function () {
             return `${getAppRoot()}api/invocations/${this.invocationId}/biocompute/download`;
+        },
+        userPreferences: function () {
+            console.log(this.user);
+            const extraPreferences = this.user?.preferences?.extra_user_preferences;
+            if (extraPreferences) {
+                return JSON.parse(extraPreferences)["biocompute|server URL"];
+            }
         },
     },
 };
