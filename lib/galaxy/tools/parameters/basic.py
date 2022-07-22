@@ -12,11 +12,17 @@ from typing import (
     Any,
     Dict,
     List,
+    NamedTuple,
     Optional,
     Tuple,
     Union,
 )
 
+from pydantic import (
+    BaseModel,
+    Field,
+)
+from typing_extensions import Literal
 from webob.compat import cgi_FieldStorage
 
 from galaxy import util
@@ -158,15 +164,31 @@ class ToolParameter(Dictifiable):
     def __init__(self, tool, input_source, context=None):
         input_source = ensure_input_source(input_source)
         self.tool = tool
-        self.argument = input_source.get("argument")
-        self.name = self.__class__.parse_name(input_source)
-        self.type = input_source.get("type")
-        self.hidden = input_source.get_bool("hidden", False)
-        self.refresh_on_change = input_source.get_bool("refresh_on_change", False)
-        self.optional = input_source.parse_optional()
+        argument = input_source.get("argument")
+        name = self.__class__.parse_name(input_source)
+        type = input_source.get("type")
+        hidden = input_source.get_bool("hidden", False)
+        refresh_on_change = input_source.get_bool("refresh_on_change", False)
+        optional = input_source.parse_optional()
+        label = input_source.parse_label()
+        help = input_source.parse_help()
+        value = input_source.get("value")
+        self.parameter_definition = ToolParameterModel(
+            __root__={
+                "argument": argument,
+                "name": name,
+                "type": type,
+                "hidden": hidden,
+                "refresh_on_change": refresh_on_change,
+                "optional": optional,
+                "value": value,
+                "label": label,
+                "help": help,
+            }
+        )
+        for key, value in self.parameter_definition.dict()["__root__"].items():
+            setattr(self, key, value)
         self.is_dynamic = False
-        self.label = input_source.parse_label()
-        self.help = input_source.parse_help()
         sanitizer_elem = input_source.parse_sanitizer_elem()
         if sanitizer_elem is not None:
             self.sanitizer = ToolParameterSanitizer.from_element(sanitizer_elem)
@@ -381,6 +403,102 @@ class TextToolParameter(SimpleTextToolParameter):
         d["datalist"] = self.datalist
         d["optional"] = self.optional
         return d
+
+
+# We probably need incoming (parameter def) and outgoing (parameter value as transmitted) models,
+# where value in the incoming model means "default value" and value in the outgoing model is the actual
+# value a user has set. (incoming/outgoing from the client perspective).
+class BaseToolParameterModelDefinition(BaseModel):
+    argument: Optional[str]
+    name: str
+    type: str
+    hidden: bool = False
+    refresh_on_change: bool = False
+    optional: bool = False
+    is_dynamic = False
+    label: Optional[str] = None
+    help: Optional[str] = None
+
+
+class LabelValue(NamedTuple):
+    label: str
+    value: str
+
+
+class TextParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["text"]
+    area: bool = False
+    default_value: Optional[str] = Field(alias="value")
+    default_options: List[LabelValue] = []
+
+
+class IntegerParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["integer"]
+    value: Optional[int]
+    min: Optional[int]
+    max: Optional[int]
+
+
+class FloatParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["float"]
+    value: Optional[float]
+    min: Optional[float]
+    max: Optional[float]
+
+
+class DataParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["data"]
+    extensions: List[str] = ["data"]
+    multiple: bool = False
+    min: Optional[int]
+    max: Optional[int]
+
+
+class DataCollectionParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["data_collection"]
+    collection_type: Optional[str]
+    extensions: List[str] = ["data"]
+
+
+class HiddenParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["hidden"]
+
+
+class BooleanParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["boolean"]
+    value: Optional[bool] = False
+    truevalue: Optional[Any]
+    falsevalue: Optional[Any]
+
+
+class DirectoryUriParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["directory_uri"]
+    value: Optional[str]
+
+
+class FileParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["file"]
+    value: Optional[str]
+
+
+class SelectParameterModel(BaseToolParameterModelDefinition):
+    type: Literal["select"]
+    options: Optional[List[LabelValue]] = []
+
+
+class ToolParameterModel(BaseModel):
+    __root__: Union[
+        TextParameterModel,
+        IntegerParameterModel,
+        FloatParameterModel,
+        BooleanParameterModel,
+        HiddenParameterModel,
+        FileParameterModel,
+        SelectParameterModel,
+        DataParameterModel,
+        DataCollectionParameterModel,
+        DirectoryUriParameterModel,
+    ] = Field(..., discriminator="type")
 
 
 class IntegerToolParameter(TextToolParameter):
