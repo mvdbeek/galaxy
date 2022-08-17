@@ -206,7 +206,7 @@ def app_pair(global_conf, load_app_kwds=None, wsgi_preflight=True, **kwargs):
     webapp.add_client_route("/admin/quotas", "admin")
     webapp.add_client_route("/admin/form/{form_id}", "admin")
     webapp.add_client_route("/admin/api_keys", "admin")
-    webapp.add_client_route("/available_datatypes")
+    webapp.add_client_route("/datatypes")
     webapp.add_client_route("/login/confirm")
     webapp.add_client_route("/tools/view")
     webapp.add_client_route("/tools/json")
