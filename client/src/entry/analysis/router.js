@@ -49,6 +49,7 @@ import { CloudAuth } from "components/User/CloudAuth";
 import { ExternalIdentities } from "components/User/ExternalIdentities";
 import { HistoryExport } from "components/HistoryExport/index";
 import { StorageDashboardRouter } from "components/User/DiskUsage";
+import Datatypes from "components/Datatypes";
 
 Vue.use(VueRouter);
 
@@ -410,6 +411,10 @@ export function getRouter(Galaxy) {
                         path: "workflows/:storedWorkflowId/invocations",
                         component: StoredWorkflowInvocations,
                         props: true,
+                    },
+                    {
+                        path: "datatypes",
+                        component: Datatypes,
                     },
                 ],
             },
