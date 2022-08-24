@@ -2,6 +2,7 @@
 API operations allowing clients to determine datatype supported by Galaxy.
 """
 import logging
+from enum import Enum
 from typing import (
     Dict,
     List,
@@ -9,7 +10,10 @@ from typing import (
     Union,
 )
 
-from fastapi import Query
+from fastapi import (
+    Query,
+    Request,
+)
 
 from galaxy.datatypes.registry import Registry
 from galaxy.managers.datatypes import (
@@ -51,6 +55,10 @@ IdentifierOnly: Optional[bool] = Query(
     title="prefixIRI only",
     description="Whether to return only the EDAM prefixIRI rather than the EDAM details",
 )
+
+
+class ModelName(str, Enum):
+    detailed = "detailed"
 
 
 @router.cbv
@@ -117,24 +125,40 @@ class FastAPIDatatypes:
 
     @router.get(
         "/api/datatypes/edam_formats",
-        summary="Returns a dictionary/map of datatypes and EDAM formats",
-        response_description="Dictionary/map of datatypes and EDAM formats",
+        summary="Returns a map of datatypes and EDAM ids",
+        response_description="Map of datatypes and EDAM ids",
+        response_model=Dict[str, str],
+    )
+    @router.get(
+        "/api/datatypes/edam_formats/detailed",
+        summary="Returns a Map of datatypes and EDAM formats",
+        response_description="Map of datatypes and EDAM formats",
+        response_model=DatatypesEDAMDetailsDict,
     )
     async def edam_formats(
         self,
-        id_only: Optional[bool] = IdentifierOnly,
+        request: Request,
     ) -> Union[DatatypesEDAMDetailsDict, Dict[str, str]]:
         """Gets a map of datatypes and their corresponding EDAM formats."""
+        id_only = request.url.path.startswith("/api/datatypes/edam_data/detailed")
         return view_edam_formats(self.datatypes_registry, id_only)
 
     @router.get(
         "/api/datatypes/edam_data",
-        summary="Returns a dictionary/map of datatypes and EDAM data",
-        response_description="Dictionary/map of datatypes and EDAM data",
+        summary="Returns a map datatypes and EDAM ids",
+        response_description="Dictionary of datatypes and EDAM ids",
+        response_model=Dict[str, str],
+    )
+    @router.get(
+        "/api/datatypes/edam_data/detailed",
+        summary="Returns a map of datatypes and EDAM data",
+        response_description="Map of datatypes and EDAM data",
+        response_model=DatatypesEDAMDetailsDict,
     )
     async def edam_data(
         self,
-        id_only: Optional[bool] = IdentifierOnly,
-    ) -> Union[DatatypesEDAMDetailsDict, Dict[str, str]]:
+        request: Request,
+    ):
         """Gets a map of datatypes and their corresponding EDAM data."""
+        id_only = request.url.path.startswith("/api/datatypes/edam_data/detailed")
         return view_edam_data(self.datatypes_registry, id_only)
