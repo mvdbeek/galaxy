@@ -696,14 +696,15 @@ class WorkflowProgress:
             if not connections and not input_subworkflow_step.input_optional:
                 raise Exception("Could not find connections for all subworkflow inputs.")
 
-            replacement = self.replacement_for_input_connections(
-                step,
-                dict(
-                    name=input_subworkflow_step.label,  # TODO: only module knows this unfortunately
-                    input_type=input_subworkflow_step.input_type,
-                ),
-                connections,
-            )
+            if connections:
+                replacement = self.replacement_for_input_connections(
+                    step,
+                    dict(
+                        name=input_subworkflow_step.label,  # TODO: only module knows this unfortunately
+                        input_type=input_subworkflow_step.input_type,
+                    ),
+                    connections,
+                )
             subworkflow_inputs[subworkflow_step_id] = replacement
 
         return WorkflowProgress(
