@@ -90,7 +90,7 @@ jobs:
       - name: Run tests
         run: |
           . .ci/minikube-test-setup/start_services.sh
-          ./run_tests.sh --coverage -integration test/integration -- --num-shards=4 --shard-id=${{ matrix.chunk }} -s
+          ./run_tests.sh --coverage -integration test/integration -- --num-shards=4 --shard-id=${{ matrix.chunk }} -s -k "not conda and not data_manager"
         working-directory: 'galaxy root'
       - uses: codecov/codecov-action@v3
         with:
