@@ -10,7 +10,7 @@ from galaxy.util import DEFAULT_SOCKET_TIMEOUT
 from galaxy.web import statsd_client as statsd
 
 try:
-    from galaxy_test.api._framework import ApiTestCase
+    from galaxy_test.api.test_tools_cwl import TestCwlTools
     from galaxy_test.driver.driver_util import GalaxyTestDriver
 except ImportError:
     # Galaxy libraries and galaxy test driver not available, just assume we're
@@ -22,7 +22,7 @@ except ImportError:
 def galaxy_test_driver():
     if not os.environ.get("GALAXY_TEST_ENVIRONMENT_CONFIGURED"):
         driver = GalaxyTestDriver()
-        driver.setup(ApiTestCase)
+        driver.setup(TestCwlTools)
         try:
             yield driver
         finally:
