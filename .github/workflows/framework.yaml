@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [${{ inputs.python-version }}]
+        python-version: ["3.7"]
     services:
       postgres:
         image: postgres:13
@@ -50,7 +50,7 @@ jobs:
           path: 'galaxy root'
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ inputs.python-version || matrix.python-version }}
       - name: Get full Python version
         id: full-python-version
         shell: bash
