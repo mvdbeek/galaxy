@@ -30,7 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [ ${{ inputs.python-version }} ]
+        python-version: ${{ inputs.python-version }}
     services:
       postgres:
         image: postgres:13
