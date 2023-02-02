@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ${{ fromJson(inputs.python-version) }}
+        python-version: ${{ fromJson(inputs.python-version || "['3.7']") }}
     services:
       postgres:
         image: postgres:13
