@@ -16,7 +16,8 @@ on:
   workflow_call:
     inputs:
       python-version:
-        required: true
+        default: "['3.7']"
+        required: false
         type: string
 env:
   GALAXY_TEST_DBURI: 'postgresql://postgres:postgres@localhost:5432/galaxy?client_encoding=utf8'
@@ -30,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.7"]
+        python-version: ${{ fromJson(inputs.python-version) }}
     services:
       postgres:
         image: postgres:13
@@ -50,7 +51,7 @@ jobs:
           path: 'galaxy root'
       - uses: actions/setup-python@v4
         with:
-          python-version: ${{ inputs.python-version || matrix.python-version }}
+          python-version: ${{ matrix.python-version }}
       - name: Get full Python version
         id: full-python-version
         shell: bash
