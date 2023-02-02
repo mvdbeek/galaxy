@@ -5,6 +5,11 @@ on:
       - 'client/**'
       - 'doc/**'
       - 'lib/galaxy_test/selenium/**'
+    inputs:
+      python-version:
+        default: "['3.7']"
+        required: false
+        type: string
   pull_request:
     paths-ignore:
       - 'client/**'
