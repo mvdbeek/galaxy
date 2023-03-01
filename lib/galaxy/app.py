@@ -193,8 +193,6 @@ class SentryClientMixin:
             import sentry_sdk
             from sentry_sdk.integrations.logging import LoggingIntegration
 
-            log.error("setting up sentry now")
-
             sentry_logging = LoggingIntegration(
                 level=logging.INFO,  # Capture info and above as breadcrumbs
                 event_level=getattr(logging, event_level),  # Send errors as events
@@ -204,7 +202,6 @@ class SentryClientMixin:
                 release=f"{self.config.version_major}.{self.config.version_minor}",
                 integrations=[sentry_logging],
                 traces_sample_rate=self.config.sentry_traces_sample_rate,
-                debug=True
             )
 
 
