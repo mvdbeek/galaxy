@@ -77,7 +77,7 @@
                 :input="input"
                 :step-id="id"
                 :datatypes-mapper="datatypesMapper"
-                :step-position="step.position"
+                :step-position="stepPosition"
                 :root-offset="rootOffset"
                 :scroll="scroll"
                 :scale="scale"
@@ -92,7 +92,7 @@
                 :post-job-actions="postJobActions"
                 :step-id="id"
                 :step-type="step.type"
-                :step-position="step.position"
+                :step-position="stepPosition"
                 :root-offset="rootOffset"
                 :scroll="scroll"
                 :scale="scale"
@@ -176,6 +176,7 @@ const connectionStore = useConnectionStore();
 const stateStore = useWorkflowStateStore();
 const stepStore = useWorkflowStepStore();
 const isLoading = computed(() => Boolean(stateStore.getStepLoadingState(props.id)?.loading));
+const stepPosition = computed(() => stateStore.relativeStepPosition[props.step.id]);
 useNodePosition(
     el,
     props.id,
@@ -199,7 +200,7 @@ const classes = computed(() => {
     };
 });
 const style = computed(() => {
-    return { top: props.step.position!.top + "px", left: props.step.position!.left + "px" };
+    return { top: stepPosition.value!.top + "px", left: stepPosition.value!.left + "px" };
 });
 const errors = computed(() => props.step.errors || stateStore.getStepLoadingState(props.id)?.error);
 const inputs = computed(() => {
@@ -241,6 +242,7 @@ const outputs = computed(() => {
 });
 
 function onMoveTo(position: XYPosition) {
+    console.log("updating step Position");
     emit("onUpdateStepPosition", props.id, {
         top: position.y + props.scroll.y.value / props.scale,
         left: position.x + props.scroll.x.value / props.scale,

@@ -3,6 +3,7 @@ import type { UnwrapRef } from "vue";
 import { defineStore } from "pinia";
 import type { OutputTerminals } from "@/components/Workflow/Editor/modules/terminals";
 import type { UseElementBoundingReturn } from "@vueuse/core";
+import type { Step } from "./workflowStepStore";
 
 export interface TerminalPosition {
     startX: number;
@@ -23,6 +24,7 @@ interface State {
     draggingTerminal: OutputTerminals | null;
     activeNodeId: number | null;
     scale: number;
+    relativeStepPosition: { [index: number]: Step["position"] };
     stepPosition: { [index: number]: UnwrapRef<UseElementBoundingReturn> };
     stepLoadingState: { [index: number]: { loading?: boolean; error?: string } };
 }
@@ -35,6 +37,7 @@ export const useWorkflowStateStore = defineStore("workflowStateStore", {
         draggingTerminal: null,
         activeNodeId: null,
         scale: 1,
+        relativeStepPosition: {},
         stepPosition: {},
         stepLoadingState: {},
     }),
@@ -75,6 +78,10 @@ export const useWorkflowStateStore = defineStore("workflowStateStore", {
         },
         setScale(scale: number) {
             this.scale = scale;
+        },
+        setRelativeStepPosition(stepId: number, position: Step["position"]) {
+            console.log("setting relative step position");
+            Vue.set(this.relativeStepPosition, stepId, position);
         },
         setStepPosition(stepId: number, position: UnwrapRef<UseElementBoundingReturn>) {
             Vue.set(this.stepPosition, stepId, position);

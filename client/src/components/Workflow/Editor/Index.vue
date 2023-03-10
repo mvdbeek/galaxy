@@ -360,8 +360,8 @@ export default {
             this.stepStore.updateStep(step);
         },
         onUpdateStepPosition(stepId, position) {
-            const step = { ...this.steps[stepId], position };
-            this.onUpdateStep(step);
+            console.log("onPositionHandler");
+            this.stateStore.setRelativeStepPosition(stepId, position);
         },
         onConnect(connection) {
             this.connectionsStore.addConnection(connection);

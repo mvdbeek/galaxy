@@ -3,6 +3,7 @@ import { defineStore } from "pinia";
 import { useConnectionStore } from "@/stores/workflowConnectionStore";
 import { Connection } from "@/stores/workflowConnectionStore";
 import type { CollectionTypeDescriptor } from "@/components/Workflow/Editor/modules/collectionTypeDescription";
+import { useWorkflowStateStore } from "./workflowEditorStateStore";
 
 interface State {
     steps: { [index: string]: Step };
@@ -210,6 +211,8 @@ export const useWorkflowStepStore = defineStore("workflowStepStore", {
             Vue.set(this.steps, stepId.toString(), step);
             const connectionStore = useConnectionStore();
             stepToConnections(step).map((connection) => connectionStore.addConnection(connection));
+            const stateStore = useWorkflowStateStore();
+            stateStore.setRelativeStepPosition(step.id, step.position!);
             return step;
         },
         updateStep(this: State, step: Step) {
