@@ -2,6 +2,7 @@
 Base classes for job runner plugins.
 """
 import datetime
+import json
 import os
 import string
 import subprocess
@@ -336,6 +337,8 @@ class BaseJobRunner:
             path = dataset_path.real_path
             if job_wrapper.get_destination_configuration("outputs_to_working_directory", False):
                 path = dataset_path.false_path
+                if not path:
+                    log.error("dataset_path.false_path not populated, but outputs to working directory is True. job destination params: %s, JobIO.outputs_to_working_directory: %s", json.dumps(job_wrapper.job_destination.params), job_wrapper.job_io.outputs_to_working_directory)
             output_paths[dataset_path.dataset_id] = path
 
         output_pairs = []
