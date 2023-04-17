@@ -2710,3 +2710,7 @@ galaxy:
   # integration.
   #enable_beacon_integration: false
 
+  # Optional bool to display a different message on the export citations
+  # tool page, used by Galaxy Australia
+  #citations_export_message_australia: false
+
