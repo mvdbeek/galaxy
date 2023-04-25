@@ -1,6 +1,6 @@
-import store from "@/store";
 import { computed, ref } from "vue";
 import { defineStore } from "pinia";
+import { useHistoryStore } from "@/stores/historyStore";
 import {
     addFavoriteToolQuery,
     removeFavoriteToolQuery,
@@ -23,7 +23,7 @@ export const useUserStore = defineStore(
     "userStore",
     () => {
         const toggledSideBar = ref("search");
-        const toggledActivityBar = ref(false);
+        const showActivityBar = ref(false);
         const currentUser = ref<User | null>(null);
         const currentPreferences = ref<Preferences | null>(null);
 
@@ -53,6 +53,7 @@ export const useUserStore = defineStore(
             if (!loadPromise) {
                 loadPromise = getCurrentUser()
                     .then((user) => {
+                        const historyStore = useHistoryStore();
                         currentUser.value = { ...user, isAnonymous: !user.email };
                         currentPreferences.value = user?.preferences ?? null;
                         // TODO: This is a hack to get around the fact that the API returns a string
@@ -61,8 +62,8 @@ export const useUserStore = defineStore(
                                 user?.preferences?.favorites ?? { tools: [] }
                             );
                         }
-                        store.dispatch("history/loadCurrentHistory");
-                        store.dispatch("history/loadHistories");
+                        historyStore.loadCurrentHistory();
+                        historyStore.loadHistories();
                     })
                     .catch((e) => {
                         console.error("Failed to load user", e);
@@ -105,7 +106,7 @@ export const useUserStore = defineStore(
         }
 
         function toggleActivityBar() {
-            toggledActivityBar.value = !toggledActivityBar.value;
+            showActivityBar.value = !showActivityBar.value;
         }
         function toggleSideBar(currentOpen: string) {
             toggledSideBar.value = toggledSideBar.value === currentOpen ? "" : currentOpen;
@@ -117,6 +118,8 @@ export const useUserStore = defineStore(
             isAnonymous,
             currentTheme,
             currentFavorites,
+            showActivityBar,
+            toggledSideBar,
             loadUser,
             setCurrentUser,
             setCurrentTheme,
@@ -128,7 +131,7 @@ export const useUserStore = defineStore(
     },
     {
         persist: {
-            paths: ["toggledActivityBar", "toggledSideBar"],
+            paths: ["showActivityBar", "toggledSideBar"],
         },
     }
 );
