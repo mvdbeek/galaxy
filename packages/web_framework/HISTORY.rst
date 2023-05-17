@@ -4,10 +4,10 @@ History
 .. to_doc
 
 ---------------------
-22.5.0.dev0
+23.0.1 (2023-05-17)
 ---------------------
 
-
+* [23.0] Various fixes to path prefix handling by @mvdbeek in https://github.com/galaxyproject/galaxy/pull/16033
 
 ---------------------
 20.9.0 (2020-10-15)

@@ -4,10 +4,10 @@ History
 .. to_doc
 
 ---------------------
-22.5.0.dev0
+23.0.1 (2023-05-17)
 ---------------------
 
-
+* [23.0] Replace httpbin service with pytest-httpserver by @mvdbeek in https://github.com/galaxyproject/galaxy/pull/16042
 
 ---------------------
 22.1.2 (2022-12-08)
@@ -31,6 +31,7 @@ History
 ---------------------
 20.9.1 (2020-10-28)
 ---------------------
+
 
 
 ---------------------

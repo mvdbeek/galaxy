@@ -3,38 +3,43 @@ History
 
 .. to_doc
 
--------------------
-22.5.0.dev0
--------------------
+---------------------
+23.0.1 (2023-05-17)
+---------------------
 
+* [22.05] fix linter for assertions (which need to allow for byte suffixes) by @bernt-matthias in https://github.com/galaxyproject/galaxy/pull/15873
+* [23.0] Allow setting auto_decompress property in staging interface by @mvdbeek in https://github.com/galaxyproject/galaxy/pull/16014
 
-
--------------------
+---------------------
 22.1.5 (2022-11-14)
--------------------
+---------------------
 
 * Set test status to success on expected failure
 
+---------------------
 22.1.4 (2022-10-28)
--------------------
+---------------------
 
 * Add missing unittest_utils package to galaxy-tool-util
 
+---------------------
 22.1.3 (2022-10-27)
--------------------
+---------------------
 
 * Pin minimum pyopenssl version when installing Conda
 * Add ``--strict-channel-priority`` to conda create/install commands if using conda >=4.7.5
 
+---------------------
 22.1.2 (2022-08-29)
--------------------
+---------------------
 
 * Fix lint context error level
 * Pin galaxy-util to >= 22.1
 * Fix biocontainer resolution without beaker cache
 
+---------------------
 22.1.1 (2022-08-22)
---------------------
+---------------------
 
 * First release from the 22.01 branch of Galaxy
 
@@ -86,9 +91,9 @@ History
 
 * First release from the 20.09 branch of Galaxy.
 
---------------------------
+---------------------
 20.9.0.dev2 (2020-08-02)
---------------------------
+---------------------
 
 * First release from the 20.09 branch of Galaxy.
 
