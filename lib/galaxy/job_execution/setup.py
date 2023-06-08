@@ -55,9 +55,6 @@ class JobIO(Dictifiable):
         "len_file_path",
         "builds_file_path",
         "file_sources_dict",
-        "check_job_script_integrity",
-        "check_job_script_integrity_count",
-        "check_job_script_integrity_sleep",
         "tool_source",
         "tool_source_class",
         "tool_dir",
@@ -81,9 +78,6 @@ class JobIO(Dictifiable):
         new_file_path: str,
         len_file_path: str,
         builds_file_path: str,
-        check_job_script_integrity: bool,
-        check_job_script_integrity_count: int,
-        check_job_script_integrity_sleep: float,
         file_sources_dict: Dict[str, Any],
         user_context: Union[ProvidesUserFileSourcesUserContext, Dict["str", Any]],
         tool_source: Optional[str] = None,
@@ -114,9 +108,6 @@ class JobIO(Dictifiable):
         self.new_file_path = new_file_path
         self.len_file_path = len_file_path
         self.builds_file_path = builds_file_path
-        self.check_job_script_integrity = check_job_script_integrity
-        self.check_job_script_integrity_count = check_job_script_integrity_count
-        self.check_job_script_integrity_sleep = check_job_script_integrity_sleep
         self.tool_dir = tool_dir
         self.is_task = is_task
         self.tool_source = tool_source

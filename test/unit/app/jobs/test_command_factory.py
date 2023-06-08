@@ -225,11 +225,6 @@ class MockJobWrapper:
         self.working_directory = job_dir
         self.prepare_input_files_cmds = None
         self.commands_in_new_shell = False
-        self.app = Bunch(
-            config=Bunch(
-                check_job_script_integrity=False,
-            )
-        )
         self.shell = "/bin/sh"
         self.use_metadata_binary = False
         self.job_id = 1
@@ -253,7 +248,6 @@ class MockJobWrapper:
     def job_io(self):
         return Bunch(
             get_output_fnames=lambda: ["output1"],
-            check_job_script_integrity=False,
             version_path=None,
         )
 

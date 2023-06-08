@@ -25,7 +25,6 @@ _galaxy_setup_environment() {
     fi
 }
 
-$integrity_injection
 $slots_statement
 export PYTHONWARNINGS="ignore"
 GALAXY_VIRTUAL_ENV="$galaxy_virtual_env"
