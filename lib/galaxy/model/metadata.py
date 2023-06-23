@@ -177,7 +177,7 @@ class MetadataCollection(Mapping):
         - if its value differs from no_value
 
         :param name: the name of the metadata element
-        :returns: True if the value differes from the no_value
+        :returns: True if the value differs from the no_value
                   False if its equal of if no metadata with the name is specified
         """
         meta_val = self[name]
