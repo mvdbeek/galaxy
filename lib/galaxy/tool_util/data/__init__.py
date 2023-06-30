@@ -250,6 +250,12 @@ class ToolDataTable(Dictifiable):
                 self.add_entry(
                     entry, allow_duplicates=allow_duplicates, persist=persist, entry_source=entry_source, **kwd
                 )
+            except MessageException as e:
+                msg = str(e)
+                if "this entry already exists" in msg:
+                    log.warning(msg)
+                else:
+                    log.error(msg)
             except Exception as e:
                 log.error(str(e))
         return self._loaded_content_version
