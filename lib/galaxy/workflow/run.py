@@ -447,12 +447,12 @@ class WorkflowProgress:
                     else:
                         if input_collection_type is None:
                             if input_history_content_type != "dataset":
-                                raise Exception("Cannot map over a combination of datasets and collections.")
+                                raise MessageException("Cannot map over a combination of datasets and collections.")
                         else:
                             if input_history_content_type != "dataset_collection":
-                                raise Exception("Cannot merge over combinations of datasets and collections.")
+                                raise MessageException("Cannot merge over combinations of datasets and collections.")
                             elif input_from_connection.collection.collection_type != input_collection_type:
-                                raise Exception("Cannot merge collections of different collection types.")
+                                raise MessageException("Cannot merge collections of different collection types.")
 
                 inputs.append(input_from_connection)
 
@@ -603,7 +603,6 @@ class WorkflowProgress:
         if not is_data and isinstance(
             replacement, (model.HistoryDatasetAssociation, model.HistoryDatasetCollectionAssociation)
         ):
-            dataset_instances = []
             if isinstance(replacement, model.HistoryDatasetAssociation):
                 if replacement.is_pending:
                     raise modules.DelayedWorkflowEvaluation()
