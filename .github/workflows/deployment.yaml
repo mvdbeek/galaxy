@@ -23,12 +23,14 @@ on:
       branch:
         description: 'Branch of code to run from'
         default: 'dev'
-        type: string        
+        type: string
       debug:
         required: true
         description: 'Run deployment tests with debug mode on'
         type: boolean
 jobs:
+  setup-selenium:
+    uses: ./.github/workflows/setup_selenium.yaml
   testdeployment:
     runs-on: ubuntu-latest
     strategy:
@@ -47,7 +49,6 @@ jobs:
         with:
           path: ~/.cache/pip
           key: pip-cache-${{ matrix.python-version }}-${{ hashFiles('requirements.txt') }}
-      - uses: nanasess/setup-chromedriver@v1
       - name: Run tests
         run: bash ./test/deployment/usegalaxystar.bash
         env:
