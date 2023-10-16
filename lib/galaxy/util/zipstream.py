@@ -61,7 +61,8 @@ class ZipstreamWrapper:
                     crc32 = hex(zlib.crc32(contents.read()))[2:]
             line = f"{crc32} {size} {quote(path)} {archive_name}"
             head, tail = os.path.split(archive_name)
-            if head:
+            if head and not tail:
+                # only add empty directories
                 self.directories.add(head)
             self.files.append(line)
         else:
