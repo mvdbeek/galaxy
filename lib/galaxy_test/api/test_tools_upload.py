@@ -7,6 +7,7 @@ from tusclient import client
 
 from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.util import UNKNOWN
+from galaxy.util.compression_utils import decompress_bytes_to_directory
 from galaxy.util.unittest_utils import (
     skip_if_github_down,
     skip_if_site_down,
@@ -24,6 +25,14 @@ from galaxy_test.base.populators import (
     stage_inputs,
 )
 from ._framework import ApiTestCase
+
+EXPECTED_CONTENTS = {
+    "testdir": "Directory",
+    "testdir/c": "Directory",
+    "testdir/a": "File",
+    "testdir/b": "File",
+    "testdir/c/d": "File",
+}
 
 
 class TestToolsUpload(ApiTestCase):
@@ -600,18 +609,11 @@ class TestToolsUpload(ApiTestCase):
         assert content.strip() == "Test123"
         extra_files = self.dataset_populator.get_history_dataset_extra_files(history_id, dataset_id=dataset["id"])
         assert len(extra_files) == 5, extra_files
-        expected_contents = {
-            "testdir": "Directory",
-            "testdir/c": "Directory",
-            "testdir/a": "File",
-            "testdir/b": "File",
-            "testdir/c/d": "File",
-        }
         found_files = set()
         for extra_file in extra_files:
             path = extra_file["path"]
-            assert path in expected_contents
-            assert extra_file["class"] == expected_contents[path]
+            assert path in EXPECTED_CONTENTS
+            assert extra_file["class"] == EXPECTED_CONTENTS[path]
             found_files.add(path)
 
         assert len(found_files) == 5, found_files
@@ -656,6 +658,26 @@ class TestToolsUpload(ApiTestCase):
             details = self._upload_and_get_details(fh, file_type="auto")
         assert details["state"] == "ok"
         assert details["file_ext"] == "bam", details
+
+    def test_fetch_directory(self, history_id):
+        testdir = TestDataResolver().get_filename("testdir.tar")
+        with open(testdir, "rb") as fh:
+            details = self._upload_and_get_details(
+                fh, api="fetch", history_id=history_id, ext="directory", assert_ok=True
+            )
+        assert details["file_ext"] == "directory"
+        # assert details["file_size"] == something
+        content = self.dataset_populator.get_history_dataset_content(
+            history_id, dataset=details, to_ext="directory", type="bytes"
+        )
+        dir_path = decompress_bytes_to_directory(content)
+        assert dir_path.endswith("testdir")
+        for path, entry_class in EXPECTED_CONTENTS.items():
+            path = os.path.join(dir_path, os.path.pardir, path)
+            if entry_class == "Directory":
+                assert os.path.isdir(path)
+            else:
+                assert os.path.isfile(path)
 
     def test_fetch_metadata(self):
         table = ONE_TO_SIX_WITH_SPACES
