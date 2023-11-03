@@ -636,6 +636,7 @@ class WorkflowModule:
 
 
 def build_extra_step_state(
+    trans,
     step: WorkflowStep,
     progress: "WorkflowProgress",
     iteration_elements,
@@ -654,7 +655,7 @@ def build_extra_step_state(
             if step_input_name in all_inputs_by_name:
                 # extra state value comes from input state
                 extra_step_state[step_input_name] = progress.replacement_for_input(
-                    step, all_inputs_by_name[step_input_name]
+                    trans, step, all_inputs_by_name[step_input_name]
                 )
                 continue
             # Might be needed someday...
@@ -857,7 +858,7 @@ class SubWorkflowModule(WorkflowModule):
                 # Got a conditional step and we could potentially run it,
                 # so we have to build the step state and evaluate the expression
                 extra_step_state = build_extra_step_state(
-                    step, progress=progress, iteration_elements=iteration_elements
+                    trans, step, progress=progress, iteration_elements=iteration_elements
                 )
                 when_values.append(
                     evaluate_value_from_expressions(
@@ -1003,7 +1004,7 @@ class InputModule(WorkflowModule):
         if input_value is None:
             default_value = step.get_input_default_value(NO_REPLACEMENT)
             if default_value is not NO_REPLACEMENT:
-                input_value = raw_to_galaxy(trans, default_value)
+                input_value = raw_to_galaxy(trans.app, trans.history, default_value)
 
         step_outputs = dict(output=input_value)
 
@@ -2355,6 +2356,7 @@ class ToolModule(WorkflowModule):
                 raise exceptions.MessageException(message)
 
             extra_step_state = build_extra_step_state(
+                trans,
                 step,
                 progress=progress,
                 iteration_elements=iteration_elements,
