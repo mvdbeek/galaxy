@@ -2700,7 +2700,8 @@ def raw_to_galaxy(app, history, as_dict_value):
     object_class = as_dict_value["class"]
     if object_class == "File":
         # TODO: relative_to = "/"
-        location = as_dict_value.get("location")
+        location = as_dict_value.get("location") or as_dict_value.get("path")
+        assert os.path.exists(location[len("file://")])
         name = (
             as_dict_value.get("identifier")
             or as_dict_value.get("basename")
@@ -2771,8 +2772,8 @@ def raw_to_galaxy(app, history, as_dict_value):
         collection_builder = builder.BoundCollectionBuilder(collection)
         write_elements_to_collection(as_dict_value, collection_builder)
         collection_builder.populate()
-        trans.sa_session.add(hdca)
-        trans.sa_session.flush()
+        app.model.session.add(hdca)
+        app.model.session.flush()
         return hdca
 
 
