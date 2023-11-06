@@ -159,7 +159,7 @@ class StagingInterface(metaclass=abc.ABCMeta):
                     fetch_payload["targets"][0]["elements"][0]["tags"] = tags
             else:
                 raise ValueError(f"Unsupported type for upload_target: {type(upload_target)}")
-            return self._fetch_post(fetch_payload)
+            return self._fetch_post(fetch_payload)[0]
 
         # Save legacy upload_func to target older Galaxy servers
         def upload_func(upload_target: UploadTarget) -> Dict[str, Any]:

@@ -139,7 +139,7 @@ def path_or_uri_to_uri(path_or_uri: str) -> str:
 def galactic_job_json(
     job: Dict[str, Any],
     test_data_directory: str,
-    upload_func: Callable[["UploadTarget"], List[Dict[str, Any]]],
+    upload_func: Callable[["UploadTarget"], Dict[str, Any]],
     collection_create_func: Callable[[List[Dict[str, Any]], str], Dict[str, Any]],
     tool_or_workflow: Literal["tool", "workflow"] = "workflow",
 ) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
@@ -155,10 +155,8 @@ def galactic_job_json(
     datasets: List[Dict[str, Any]] = []
     dataset_collections: List[Dict[str, Any]] = []
 
-    def response_to_hda(target: UploadTarget, upload_response: List[Dict[str, Any]]) -> Dict[str, str]:
-        assert isinstance(upload_response, list), upload_response
-        assert len(upload_response) > 0, upload_response
-        dataset = next(iter(upload_response[0]["outputs"].values()))
+    def response_to_hda(target: UploadTarget, upload_response: Dict[str, Any]) -> Dict[str, str]:
+        dataset = next(iter(upload_response["outputs"].values()))
         datasets.append(dataset)
         dataset_id = dataset["id"]
         return {"src": "hda", "id": dataset_id}
