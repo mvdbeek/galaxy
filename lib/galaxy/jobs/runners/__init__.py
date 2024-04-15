@@ -28,6 +28,7 @@ from galaxy.job_execution.output_collect import (
     read_exit_code_from,
 )
 from galaxy.jobs.command_factory import build_command
+from galaxy.jobs.exceptions import ParameterValueError
 from galaxy.jobs.runners.util import runner_states
 from galaxy.jobs.runners.util.env import env_to_statement
 from galaxy.jobs.runners.util.job_script import (
@@ -303,7 +304,10 @@ class BaseJobRunner:
                 stream_stdout_stderr=stream_stdout_stderr,
             )
         except Exception as e:
-            log.exception("(%s) Failure preparing job", job_id)
+            if isinstance(e, ParameterValueError):
+                log.warning("(%s) Failure preparing job: %s", job_id, e)
+            else:
+                log.exception("(%s) Failure preparing job", job_id)
             job_wrapper.fail(unicodify(e), exception=True)
             return False
 
