@@ -26,6 +26,7 @@ from webob.compat import cgi_FieldStorage
 
 from galaxy import util
 from galaxy.files import ProvidesUserFileSourcesUserContext
+from galaxy.jobs.exceptions import ParameterValueError
 from galaxy.managers.dbkeys import read_dbnames
 from galaxy.model import (
     cached_id,
@@ -113,11 +114,6 @@ def parse_dynamic_options(param, input_source):
     return None
 
 
-# Describe a parameter value error where there is no actual supplied
-# parameter - e.g. just a specification issue.
-NO_PARAMETER_VALUE = object()
-
-
 @contextlib.contextmanager
 def assert_throws_param_value_error(message):
     exception_thrown = False
@@ -127,26 +123,6 @@ def assert_throws_param_value_error(message):
         exception_thrown = True
         assert str(e) == message
     assert exception_thrown
-
-
-class ParameterValueError(ValueError):
-    def __init__(self, message_suffix, parameter_name, parameter_value=NO_PARAMETER_VALUE, is_dynamic=None):
-        message = f"parameter '{parameter_name}': {message_suffix}"
-        super().__init__(message)
-        self.message_suffix = message_suffix
-        self.parameter_name = parameter_name
-        self.parameter_value = parameter_value
-        self.is_dynamic = is_dynamic
-
-    def to_dict(self):
-        as_dict = {"message": unicodify(self)}
-        as_dict["message_suffix"] = self.message_suffix
-        as_dict["parameter_name"] = self.parameter_name
-        if self.parameter_value is not NO_PARAMETER_VALUE:
-            as_dict["parameter_value"] = self.parameter_value
-        if self.is_dynamic is not None:
-            as_dict["is_dynamic"] = self.is_dynamic
-        return as_dict
 
 
 class ToolParameter(Dictifiable):
