@@ -6,6 +6,7 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin");
 const CssMinimizerPlugin = require("css-minimizer-webpack-plugin");
 const DuplicatePackageCheckerPlugin = require("@cerner/duplicate-package-checker-webpack-plugin");
 const { DumpMetaPlugin } = require("dumpmeta-webpack-plugin");
+const { sentryWebpackPlugin } = require("@sentry/webpack-plugin");
 const TsconfigPathsPlugin = require("tsconfig-paths-webpack-plugin");
 const TerserPlugin = require("terser-webpack-plugin");
 
@@ -238,6 +239,12 @@ module.exports = (env = {}, argv = {}) => {
                     hash: stats.hash,
                     epoch: Date.parse(buildDate),
                 }),
+            }),
+            sentryWebpackPlugin({
+                authToken: process.env.SENTRY_AUTH_TOKEN,
+                org: "galaxy",
+                project: "galaxy-main",
+                url: "https://sentry.galaxyproject.org/",
             }),
         ],
         devServer: {
