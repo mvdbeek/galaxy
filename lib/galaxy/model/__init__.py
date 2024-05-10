@@ -1428,6 +1428,10 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
         self._init_metrics()
         self.state_history.append(JobStateHistory(self))
 
+    def __strict_check_before_flush__(self):
+        if not self.history and not getattr(self, "history_id", None):
+            raise Exception(f"Job {self} without history detected, this is not valid")
+
     @property
     def running(self):
         return self.state == Job.states.RUNNING
