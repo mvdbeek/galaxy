@@ -21,6 +21,7 @@ from galaxy.datatypes.display_applications.util import (
 from galaxy.datatypes.sniff import guess_ext
 from galaxy.exceptions import (
     InsufficientPermissionsException,
+    MessageException,
     RequestParameterInvalidException,
 )
 from galaxy.managers.hdas import (
@@ -141,7 +142,7 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
         trans.response.headers.update(headers)
         return display_data
 
-    @web.legacy_expose_api_anonymous
+    @web.expose_api_anonymous
     def get_edit(self, trans, dataset_id=None, **kwd):
         """Produces the input definitions available to modify dataset attributes"""
         status = None
@@ -151,8 +152,8 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
 
         if self._can_access_dataset(trans, data):
             if data.state == trans.model.Dataset.states.UPLOAD:
-                return self.message_exception(
-                    trans, "Please wait until this dataset finishes uploading before attempting to edit its metadata."
+                raise MessageException(
+                    "Please wait until this dataset finishes uploading before attempting to edit its metadata."
                 )
             # let's not overwrite the imported datatypes module with the variable datatypes?
             # the built-in 'id' is overwritten in lots of places as well
@@ -314,8 +315,8 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
                 "permission_disable": permission_disable,
             }
         else:
-            return self.message_exception(
-                trans, f"You do not have permission to edit this dataset's ( id: {dataset_id} ) information."
+            raise MessageException(
+                "You do not have permission to edit this dataset's ( id: {dataset_id} ) information."
             )
 
     @web.expose_api_anonymous
@@ -361,9 +362,8 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
             if data.datatype.is_datatype_change_allowed():
                 # prevent modifying datatype when dataset is queued or running as input/output
                 if not data.ok_to_edit_metadata():
-                    return self.message_exception(
-                        trans,
-                        "This dataset is currently being used as input or output.  You cannot change datatype until the jobs have completed or you have canceled them.",
+                    raise MessageException(
+                        "This dataset is currently being used as input or output.  You cannot change datatype until the jobs have completed or you have canceled them."
                     )
                 else:
                     path = data.dataset.get_file_name()
@@ -380,7 +380,7 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
                     trans.app.job_manager.enqueue(job, tool=trans.app.datatypes_registry.set_external_metadata_tool)
                     message = f"Detection was finished and changed the datatype to {datatype}."
             else:
-                return self.message_exception(trans, f'Changing datatype "{data.extension}" is not allowed.')
+                raise MessageException(f'Changing datatype "{data.extension}" is not allowed.')
         elif operation == "autodetect":
             # The user clicked the Auto-detect button on the 'Edit Attributes' form
             self.hda_manager.set_metadata(trans, data, overwrite=True)
@@ -391,7 +391,7 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
                 try:
                     message = data.datatype.convert_dataset(trans, data, target_type)
                 except DatatypeConverterNotFoundException as e:
-                    return self.message_exception(trans, str(e))
+                    raise MessageException(str(e))
         elif operation == "permission":
             # Adapt form request to API - style.
             payload_permissions = {}
@@ -408,7 +408,7 @@ class DatasetInterface(BaseUIController, UsesAnnotations, UsesItemRatings, UsesE
             )
             message = "Your changes completed successfully."
         else:
-            return self.message_exception(trans, f"Invalid operation identifier ({operation}).")
+            raise MessageException(f"Invalid operation identifier ({operation}).")
         return {"status": status, "message": sanitize_text(message)}
 
     def _get_dataset_for_edit(self, trans, dataset_id):
