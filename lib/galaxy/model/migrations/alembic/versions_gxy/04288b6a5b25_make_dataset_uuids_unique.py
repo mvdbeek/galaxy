@@ -43,8 +43,8 @@ def upgrade():
     op.execute("DROP VIEW IF EXISTS temp_duplicate_datasets_active")
     op.execute("DROP TABLE IF EXISTS temp_latest_active_duplicate")
     op.execute("DROP TABLE IF EXISTS temp_active_mapping")
-    op.execute("DROP TABLE IF EXISTS hda_datasaet_mapping_pre_uuid_condense")
-    op.execute("DROP TABLE IF EXISTS ldda_datasaet_mapping_pre_uuid_condense")
+    op.execute("DROP TABLE IF EXISTS hda_dataset_mapping_pre_uuid_condense")
+    op.execute("DROP TABLE IF EXISTS ldda_dataset_mapping_pre_uuid_condense")
 
     # Find and store duplicate UUIDs - create table temp_duplicates_counts
     _setup_duplicate_counts(connection)
@@ -69,7 +69,7 @@ def upgrade():
     _update_dataset_associations_to_point_to_latest_active_datasets(connection)
 
     # cleanup all working tables except backups required to undo migration prcoess - these backups are
-    # duplicate_datasets_by_uuid, ldda_datasaet_mapping_pre_uuid_condense, hda_datasaet_mapping_pre_uuid_condense
+    # duplicate_datasets_by_uuid, ldda_dataset_mapping_pre_uuid_condense, hda_dataset_mapping_pre_uuid_condense
     op.execute("DROP VIEW IF EXISTS temp_duplicate_datasets_purged")
     op.execute("DROP VIEW IF EXISTS temp_duplicate_datasets_active")
     op.execute("DROP TABLE IF EXISTS temp_active_mapping")
@@ -88,14 +88,14 @@ def downgrade():
     # restoring the old uuids requires untracked tables left by previous upgrade
     # the unit tests do not set these up - so lets verify the tables we need exist
     # before restoring the UUIDs.
-    if table_exists("hda_datasaet_mapping_pre_uuid_condense", True):
+    if table_exists("hda_dataset_mapping_pre_uuid_condense", True):
         _restore_old_mappings(connection)
         _restore_dataset_uuids(connection)
 
-    # cleanup left behind untracked tables duplicate_datasets_by_uuid, ldda_datasaet_mapping_pre_uuid_condense, hda_datasaet_mapping_pre_uuid_condense
+    # cleanup left behind untracked tables duplicate_datasets_by_uuid, ldda_dataset_mapping_pre_uuid_condense, hda_dataset_mapping_pre_uuid_condense
     op.execute("DROP TABLE IF EXISTS duplicate_datasets_by_uuid")
-    op.execute("DROP TABLE IF EXISTS ldda_datasaet_mapping_pre_uuid_condense")
-    op.execute("DROP TABLE IF EXISTS hda_datasaet_mapping_pre_uuid_condense")
+    op.execute("DROP TABLE IF EXISTS ldda_dataset_mapping_pre_uuid_condense")
+    op.execute("DROP TABLE IF EXISTS hda_dataset_mapping_pre_uuid_condense")
 
 
 def _restore_old_mappings(connection):
@@ -103,7 +103,7 @@ def _restore_old_mappings(connection):
         """
         UPDATE history_dataset_association
         SET dataset_id=mapping.old_dataset_id
-        FROM hda_datasaet_mapping_pre_uuid_condense AS mapping
+        FROM hda_dataset_mapping_pre_uuid_condense AS mapping
         WHERE mapping.id = history_dataset_association.id
         """
     )
@@ -112,7 +112,7 @@ def _restore_old_mappings(connection):
         """
         UPDATE library_dataset_dataset_association
         SET dataset_id=mapping.old_dataset_id
-        FROM ldda_datasaet_mapping_pre_uuid_condense as mapping
+        FROM ldda_dataset_mapping_pre_uuid_condense as mapping
         WHERE mapping.id = library_dataset_dataset_association.id
         """
     )
@@ -300,7 +300,7 @@ def _update_dataset_associations_to_point_to_latest_active_datasets(connection):
 def _preserve_old_dataset_association_mappings(connection):
     old_hda_mappings = text(
         f"""
-        CREATE TABLE hda_datasaet_mapping_pre_uuid_condense AS
+        CREATE TABLE hda_dataset_mapping_pre_uuid_condense AS
         SELECT h.id as id, d.id as old_dataset_id
          FROM history_dataset_association AS h
          INNER JOIN dataset AS d ON h.dataset_id = d.id
@@ -310,7 +310,7 @@ def _preserve_old_dataset_association_mappings(connection):
     connection.execute(old_hda_mappings)
     old_ldda_mappings = text(
         f"""
-        CREATE TABLE ldda_datasaet_mapping_pre_uuid_condense AS
+        CREATE TABLE ldda_dataset_mapping_pre_uuid_condense AS
          SELECT l.id as id, d.id as old_dataset_id
          FROM library_dataset_dataset_association aS l
          INNER JOIN dataset AS d ON l.dataset_id = d.id
