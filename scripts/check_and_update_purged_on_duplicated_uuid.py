@@ -3,6 +3,8 @@ This script will inspect non-purged datasets that have been re-assigned to HDAs 
 If the file does not exist on disk anymore we mark the dataset and corresponding HDAs as deleted and purged.
 Activate Galaxy's virtualenv and run this script from galaxy's root directory with
 `GALAXY_CONFIG_FILE=path/to/galaxy.yml python scripts/check_and_update_purged_on_duplicated_uuid.py`
+
+This script assumes that the hda_dataset_mapping_pre_uuid_condense table created by migration 04288b6a5b25.
 """
 
 import logging
@@ -41,10 +43,9 @@ SELECT distinct d.id FROM hda_dataset_mapping_pre_uuid_condense as hda_pre_conde
 """
 
     updated_hda_ids = []
-    r = session.execute(text(SQL))
-    for i, (row) in enumerate(r):
-        dataset_id = row[0]
-        d = session.query(Dataset).where(Dataset.id == dataset_id).one()
+    dataset_ids = session.scalars(text(SQL)).all()
+    for i, dataset_id in enumerate(dataset_ids):
+        d = session.get(Dataset, dataset_id)
         if not object_store.exists(d):
             d.deleted = True
             d.purged = True
@@ -52,7 +53,8 @@ SELECT distinct d.id FROM hda_dataset_mapping_pre_uuid_condense as hda_pre_conde
                 dataset_instance.deleted = True
                 dataset_instance.purged = True
                 updated_hda_ids.append(dataset_instance.id)
-        if i % 100:
+        if i % 100 == 0:
+            log.info(f"processed {i} of {len(dataset_ids)} datasets")
             session.commit()
     session.commit()
     if updated_hda_ids:
