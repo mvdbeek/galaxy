@@ -246,7 +246,7 @@ def _randomize_uuids_for_older_active_datasets_with_duplicated_uuids(connection)
             (
                 SELECT *
                 FROM temp_active_mapping as m
-                where m.from_dataset_id = ID and m.from_dataset_id != m.to_dataset_id
+                where m.from_dataset_id = {dataset_table_name}.id and m.from_dataset_id != m.to_dataset_id
             )
         """
     )
@@ -301,7 +301,7 @@ def _preserve_old_dataset_association_mappings(connection):
     old_hda_mappings = text(
         f"""
         CREATE TABLE hda_dataset_mapping_pre_uuid_condense AS
-        SELECT h.id as id, d.id as old_dataset_id
+        SELECT DISTINCT h.id as id, d.id as old_dataset_id
          FROM history_dataset_association AS h
          INNER JOIN dataset AS d ON h.dataset_id = d.id
          INNER JOIN duplicate_datasets_by_uuid AS duplicates ON d.{uuid_column} = duplicates.{uuid_column}
