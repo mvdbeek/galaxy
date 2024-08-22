@@ -3,6 +3,10 @@
 Revision ID: 04288b6a5b25
 Revises: c63848676caf
 Create Date: 2024-07-24 10:43:48.162813
+
+NOTE ON NAMING: In this script, the term "latest" refers to a dataset that has
+the smallest primary key in a group of datasets with duplicate UUIDs and,
+therefore, is the oldest/original dataset in this group.
 """
 
 from alembic import op
