@@ -23,6 +23,7 @@ from galaxy.model.orm.util import (
     get_object_session,
 )
 from galaxy.model.security import GalaxyRBACAgent
+from galaxy.model.unittest_utils.utils import random_email
 from galaxy.objectstore import QuotaSourceMap
 from galaxy.util.unittest import TestCase
 
@@ -262,7 +263,7 @@ class TestMappings(BaseModelTestCase):
             assert c1[i] == dces[i]
 
     def test_dataset_instance_order(self) -> None:
-        u = model.User(email="mary@example.com", password="password")
+        u = model.User(email=random_email(), password="password")
         h1 = model.History(name="History 1", user=u)
         elements = []
         list_pair = model.DatasetCollection(collection_type="list:paired")
@@ -669,7 +670,7 @@ class TestMappings(BaseModelTestCase):
         assert contents_iter_names(ids=[d1.id, d3.id]) == ["1", "3"]
 
     def test_history_audit(self):
-        u = model.User(email="contents@foo.bar.baz", password="password")
+        u = model.User(email=random_email(), password="password")
         h1 = model.History(name="HistoryAuditHistory", user=u)
         h2 = model.History(name="HistoryAuditHistory", user=u)
 
@@ -739,7 +740,7 @@ class TestMappings(BaseModelTestCase):
         # states and flushing in SQL Alchemy is very subtle and it is good to have a executable
         # reference for how it behaves in the context of Galaxy objects.
         model = self.model
-        user = model.User(email="testworkflows@bx.psu.edu", password="password")
+        user = model.User(email=random_email(), password="password")
         galaxy_session = model.GalaxySession()
         galaxy_session_other = model.GalaxySession()
         galaxy_session.user = user
@@ -812,7 +813,7 @@ class TestMappings(BaseModelTestCase):
         assert "id" not in inspect(galaxy_model_object_new).unloaded
 
     def test_workflows(self):
-        user = model.User(email="testworkflows@bx.psu.edu", password="password")
+        user = model.User(email=random_email(), password="password")
 
         child_workflow = _workflow_from_steps(user, [])
         self.persist(child_workflow)
