@@ -247,7 +247,9 @@ class PulsarJobRunner(AsynchronousJobRunner):
         for kwd in self.runner_params.keys():
             if kwd.startswith("amqp_") or kwd.startswith("transport_"):
                 client_manager_kwargs[kwd] = self.runner_params[kwd]
-        self.client_manager = build_client_manager(**client_manager_kwargs)
+        # FIXME: should of course not force local_sequential here, but I don't get how any
+        # of the parameters are passed (k8s_enabled or tes_url).
+        self.client_manager = build_client_manager(local_sequential=True, **client_manager_kwargs)
 
     def __init_pulsar_app(self, conf, pulsar_conf_path):
         if conf is None and pulsar_conf_path is None and not self.default_build_pulsar_app:
@@ -1057,6 +1059,18 @@ TES_DESTINATION_DEFAULTS: Dict[str, Any] = {
 
 class PulsarTesJobRunner(PulsarCoexecutionJobRunner):
     destination_defaults = TES_DESTINATION_DEFAULTS
+
+
+LOCAL_SEQUENTIAL_DEFAULTS = {
+    "local_sequential": True,
+    **COEXECUTION_DESTINATION_DEFAULTS,
+    "default_file_action": "json_transfer",
+}
+
+
+class PulsarLocalSequentialJobRunner(PulsarJobRunner):
+    default_build_pulsar_app = True
+    destination_defaults = LOCAL_SEQUENTIAL_DEFAULTS
 
 
 class PulsarRESTJobRunner(PulsarJobRunner):

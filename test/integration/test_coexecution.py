@@ -129,6 +129,36 @@ def job_config(template_str: str, jobs_directory: str) -> str:
     return job_conf.name
 
 
+LOCAL_SEQUENTIAL_CONTAINERIZED_TEMPLATE = """
+runners:
+  local:
+    load: galaxy.jobs.runners.local:LocalJobRunner
+    workers: 1
+  pulsar_local_sequential:
+    load: galaxy.jobs.runners.pulsar:PulsarLocalSequentialJobRunner
+    # amqp_url: ${amqp_url}
+
+execution:
+  default: pulsar_local_sequential_environment
+  environments:
+    pulsar_local_sequential_environment:
+      runner: pulsar_local_sequential
+      docker_enabled: true
+      docker_default_container_id: busybox:1.36.1-glibc
+      local_sequential: true
+      # pulsar_app_config:
+      #   message_queue_url: '${container_amqp_url}'
+      env:
+        - name: SOME_ENV_VAR
+          value: '42'
+    local_environment:
+      runner: local
+tools:
+  - id: __DATA_FETCH__
+    environment: local_environment
+"""
+
+
 TES_CONTAINERIZED_TEMPLATE = """
 runners:
   local:
@@ -337,6 +367,19 @@ class TestTesCoexecutionContainerIntegration(TestCoexecution):
         config["jobs_directory"] = cls.jobs_directory
         config["file_path"] = cls.jobs_directory
         config["job_config_file"] = tes_job_config(TES_CONTAINERIZED_TEMPLATE, cls.jobs_directory)
+
+        config["default_job_shell"] = "/bin/sh"
+        # Disable tool dependency resolution.
+        config["tool_dependency_dir"] = "none"
+        set_infrastucture_url(config)
+
+
+class TestLocalSequentialCoexecutionContainerIntegration(TestCoexecution):
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config) -> None:
+        config["jobs_directory"] = cls.jobs_directory
+        config["file_path"] = cls.jobs_directory
+        config["job_config_file"] = tes_job_config(LOCAL_SEQUENTIAL_CONTAINERIZED_TEMPLATE, cls.jobs_directory)
 
         config["default_job_shell"] = "/bin/sh"
         # Disable tool dependency resolution.
