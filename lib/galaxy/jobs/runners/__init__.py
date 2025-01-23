@@ -3,6 +3,7 @@ Base classes for job runner plugins.
 """
 
 import datetime
+import json
 import os
 import string
 import subprocess
@@ -578,6 +579,16 @@ class BaseJobRunner:
         if container:
             job_wrapper.set_container(container)
         return container
+
+    def _set_container_metric(self, container, working_directory, for_pulsar=False):
+        if core_job_metric_plugin := self.app.job_metrics.default_job_instrumenter.get_configured_plugin("core"):
+            directory = os.path.join(working_directory, "metadata") if for_pulsar else working_directory
+            os.makedirs(directory, exist_ok=True)
+            container_file_path = core_job_metric_plugin.get_container_file_path(directory)
+            with open(container_file_path, "w") as container_file:
+                container_file.write(
+                    json.dumps({"container_id": container.container_id, "container_type": container.container_type})
+                )
 
     def _handle_runner_state(self, runner_state, job_state: "JobState"):
         try:

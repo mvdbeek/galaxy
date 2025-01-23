@@ -1,10 +1,7 @@
 import json
 import typing
 from logging import getLogger
-from os import (
-    getcwd,
-    makedirs,
-)
+from os import getcwd
 from os.path import (
     abspath,
     join,
@@ -86,14 +83,7 @@ def build_command(
     __handle_task_splitting(commands_builder, job_wrapper)
     for_pulsar = "pulsar_version" in remote_command_params
     if container:
-        if core_job_metric_plugin := runner.app.job_metrics.default_job_instrumenter.get_configured_plugin("core"):
-            directory = join(job_wrapper.working_directory, "metadata") if for_pulsar else job_wrapper.working_directory
-            makedirs(directory, exist_ok=True)
-            container_file_path = core_job_metric_plugin.get_container_file_path(directory)
-            with open(container_file_path, "w") as container_file:
-                container_file.write(
-                    json.dumps({"container_id": container.container_id, "container_type": container.container_type})
-                )
+        runner._set_container_metric(container, job_wrapper.working_directory, for_pulsar=for_pulsar)
     if (container and modify_command_for_container) or job_wrapper.commands_in_new_shell:
         if container and modify_command_for_container:
             # Many Docker containers do not have /bin/bash.

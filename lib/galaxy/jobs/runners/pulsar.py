@@ -491,6 +491,8 @@ class PulsarJobRunner(AsynchronousJobRunner):
                 remote_container = self._find_container(
                     job_wrapper,
                 )
+                if remote_container:
+                    self._set_container_metric(remote_container, job_wrapper.working_directory, for_pulsar=True)
 
             needed_features = self.__needed_features(client)
             PulsarJobRunner.check_job_config(remote_job_config, check_features=needed_features)
