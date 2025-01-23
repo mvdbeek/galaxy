@@ -38,6 +38,7 @@ from .test_containerized_jobs import (
     EXTENDED_TIMEOUT,
     MulledJobTestCases,
 )
+from .test_extended_metadata import TEST_TOOL_IDS
 from .test_job_environments import BaseJobEnvironmentIntegrationTestCase
 from .test_kubernetes_runner import KubernetesDatasetPopulator
 from .test_local_job_cancellation import CancelsJob
@@ -145,6 +146,7 @@ execution:
       runner: pulsar_local_sequential
       docker_enabled: true
       docker_default_container_id: busybox:1.36.1-glibc
+      pulsar_container_image: pulsar-pod
       local_sequential: true
       # pulsar_app_config:
       #   message_queue_url: '${container_amqp_url}'
@@ -155,6 +157,8 @@ execution:
       runner: local
 tools:
   - id: __DATA_FETCH__
+    environment: local_environment
+  - id: upload1
     environment: local_environment
 """
 
@@ -375,6 +379,9 @@ class TestTesCoexecutionContainerIntegration(TestCoexecution):
 
 
 class TestLocalSequentialCoexecutionContainerIntegration(TestCoexecution):
+
+    container_type = "docker"
+
     @classmethod
     def handle_galaxy_config_kwds(cls, config) -> None:
         config["jobs_directory"] = cls.jobs_directory
@@ -385,6 +392,32 @@ class TestLocalSequentialCoexecutionContainerIntegration(TestCoexecution):
         # Disable tool dependency resolution.
         config["tool_dependency_dir"] = "none"
         set_infrastucture_url(config)
+
+
+class LocalSequentualIntegrationInstance(integration_util.IntegrationInstance):
+    framework_tool_and_types = True
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        # realpath for docker deployed in a VM on Mac, also done in driver_util.
+        cls.jobs_directory = os.path.realpath(tempfile.mkdtemp())
+        super().setUpClass()
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config) -> None:
+        config["jobs_directory"] = cls.jobs_directory
+        config["file_path"] = cls.jobs_directory
+        config["job_config_file"] = tes_job_config(LOCAL_SEQUENTIAL_CONTAINERIZED_TEMPLATE, cls.jobs_directory)
+
+        config["default_job_shell"] = "/bin/sh"
+        # Disable tool dependency resolution.
+        config["tool_dependency_dir"] = "none"
+        set_infrastucture_url(config)
+
+
+instance = integration_util.integration_module_instance(LocalSequentualIntegrationInstance)
+
+test_tools = integration_util.integration_tool_runner(TEST_TOOL_IDS)
 
 
 @integration_util.skip_unless_environ("FUNNEL_SERVER_TARGET")
