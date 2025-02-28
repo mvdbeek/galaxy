@@ -2613,7 +2613,7 @@ class WorkflowModuleInjector:
         self.trans = trans
         self.allow_tool_state_corrections = allow_tool_state_corrections
 
-    def inject(self, step: WorkflowStep, step_args=None, steps=None, **kwargs):
+    def inject(self, step: WorkflowStep, step_args=None, steps=None, allow_tool_state_corrections=False, **kwargs):
         """Pre-condition: `step` is an ORM object coming from the database, if
         supplied `step_args` is the representation of the inputs for that step
         supplied via web form.
@@ -2646,7 +2646,12 @@ class WorkflowModuleInjector:
 
             subworkflow = step.subworkflow
             assert subworkflow
-            populate_module_and_state(self.trans, subworkflow, param_map=unjsonified_subworkflow_param_map)
+            populate_module_and_state(
+                self.trans,
+                subworkflow,
+                param_map=unjsonified_subworkflow_param_map,
+                allow_tool_state_corrections=allow_tool_state_corrections,
+            )
 
     def inject_all(self, workflow: Workflow, param_map=None, ignore_tool_missing_exception=False, **kwargs):
         param_map = param_map or {}

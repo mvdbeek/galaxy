@@ -5,6 +5,7 @@ from typing import (
 )
 
 from galaxy.exceptions import RequestParameterInvalidException
+from galaxy.managers.workflows import WorkflowModuleInjector
 from galaxy.tools.parameters import visit_input_values
 from galaxy.tools.parameters.basic import contains_workflow_parameter
 from galaxy.tools.parameters.workflow_utils import (
@@ -48,13 +49,17 @@ log = logging.getLogger(__name__)
 
 
 class WorkflowRefactorExecutor:
-    def __init__(self, raw_workflow_description, workflow, module_injector):
+    def __init__(self, raw_workflow_description, workflow, module_injector: WorkflowModuleInjector):
         # we mostly use the ga representation, but there may be cases where the
         # models/modules of existing workflow are more usable.
         self.raw_workflow_description = raw_workflow_description
         self.workflow = workflow
         self.module_injector = module_injector
-        self.module_injector.inject_all(workflow, ignore_tool_missing_exception=True)
+        self.module_injector.inject_all(
+            workflow,
+            ignore_tool_missing_exception=True,
+            allow_tool_state_corrections=module_injector.allow_tool_state_corrections,
+        )
 
     def refactor(self, refactor_request: RefactorActions):
         action_executions = []
