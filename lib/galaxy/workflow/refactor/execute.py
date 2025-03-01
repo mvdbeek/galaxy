@@ -465,18 +465,30 @@ class WorkflowRefactorExecutor:
     def _inject(self, step, execution):
         # compute runtime state, capture upgrade messages that result
         if not hasattr(step, "module"):
-            self.module_injector.inject(step)
+            self.module_injector.inject(step, allow_tool_state_corrections=True)
         self.module_injector.compute_runtime_state(step)
         if getattr(step, "upgrade_messages", None):
             for key, value in step.upgrade_messages.items():
-                message = RefactorActionExecutionMessage(
-                    message=value,
-                    message_type=RefactorActionExecutionMessageTypeEnum.tool_state_adjustment,
-                    input_name=key,
-                    step_label=step.label,
-                    order_index=step.order_index,
-                )
-                execution.messages.append(message)
+                if isinstance(value, dict):
+                    for input_name, message in value.items():
+                        execution.messages.append(
+                            RefactorActionExecutionMessage(
+                                message=message,
+                                message_type=RefactorActionExecutionMessageTypeEnum.tool_state_adjustment,
+                                input_name=input_name,
+                                step_label=step.label,
+                                order_index=step.order_index,
+                            )
+                        )
+                else:
+                    message = RefactorActionExecutionMessage(
+                        message=value,
+                        message_type=RefactorActionExecutionMessageTypeEnum.tool_state_adjustment,
+                        input_name=key,
+                        step_label=step.label,
+                        order_index=step.order_index,
+                    )
+                    execution.messages.append(message)
         if getattr(step.module, "version_changes", None):
             for version_change in step.module.version_changes:
                 message = RefactorActionExecutionMessage(

@@ -1052,7 +1052,7 @@ steps:
       steps:
         multiple_versions_changes:
           tool_id: multiple_versions_changes
-          tool_version: "0.1"
+          tool_version: "0.2"
           state:
             cond:
               bool_to_select: false
