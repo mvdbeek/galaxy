@@ -31,7 +31,6 @@ from galaxy.objectstore import (
     ObjectStore,
     persist_extra_files,
 )
-from galaxy.tool_util.parser.stdio import StdioErrorLevel
 from galaxy.util import (
     chunk_iterable,
     ExecutionTimer,
@@ -547,17 +546,9 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
     def increment_discovered_file_count(self):
         self.discovered_file_count += 1
         if self.discovered_file_count > self.max_discovered_files:
-            msg = f"Job generated more than maximum number ({self.max_discovered_files}) of output datasets"
-            if self.job and self.job.job_messages is not None:
-                self.job.job_messages.append(
-                    {
-                        "type": "max_discovered_files",
-                        "desc": msg,
-                        "code_desc": None,
-                        "error_level": StdioErrorLevel.FATAL,
-                    }
-                )
-            raise MaxDiscoveredFilesExceededError(msg)
+            raise MaxDiscoveredFilesExceededError(
+                f"Job generated more than maximum number ({self.max_discovered_files}) of output datasets"
+            )
 
 
 class PermissionProvider(metaclass=abc.ABCMeta):
