@@ -32,6 +32,7 @@ from galaxy.model.store.discover import (
     discover_target_directory,
     DiscoveredFile,
     JsonCollectedDatasetMatch,
+    MaxDiscoveredFilesExceededError,
     MetadataSourceProvider as AbstractMetadataSourceProvider,
     ModelPersistenceContext,
     PermissionProvider as AbstractPermissionProvider,
@@ -169,6 +170,7 @@ def collect_dynamic_outputs(
 
         # We are adding dynamic collections, which may be precreated, but their actually state is still new!
         collection.populated_state = collection.populated_states.NEW
+        max_discovered_exceeded_exception = None
 
         try:
             collection_builder = builder.BoundCollectionBuilder(collection)
@@ -187,11 +189,16 @@ def collect_dynamic_outputs(
                 change_datatype_actions=job_context.change_datatype_actions,
             )
             collection_builder.populate()
-        except Exception:
+        except Exception as e:
             log.exception("Problem gathering output collection.")
             collection.handle_population_failed("Problem building datasets for collection.")
+            if isinstance(e, MaxDiscoveredFilesExceededError):
+                max_discovered_exceeded_exception = e
 
         job_context.add_dataset_collection(has_collection)
+
+    if max_discovered_exceeded_exception:
+        raise max_discovered_exceeded_exception
 
 
 class BaseJobContext(ModelPersistenceContext):

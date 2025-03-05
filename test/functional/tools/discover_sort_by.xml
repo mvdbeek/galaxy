@@ -9,7 +9,9 @@ done
 ## leads to an error https://github.com/galaxyproject/galaxy/pull/11307
 ## && mkdir blah.txt
 ]]></command>
-  <inputs/>
+  <inputs>
+    <param name="create_data" type="boolean" checked="true" />
+  </inputs>
   <outputs>
     <collection name="collection_numeric_name" type="list" label="num">
       <discover_datasets pattern="__name_and_ext__" sort_by="numeric_name"/>
@@ -21,6 +23,7 @@ done
       <discover_datasets pattern="__name_and_ext__" sort_by="lexical_name" />
     </collection>
     <data name="data_reverse_lexical_name">
+      <filter>create_data</filter>
       <discover_datasets pattern="__name_and_ext__" format="txt" assign_primary_output="true" sort_by="reverse_lexical_name" visible="true"/>
     </data>
   </outputs>
