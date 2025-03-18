@@ -42,6 +42,7 @@ class UserFtpFilesSource(PosixFilesSource):
 class LibraryImportFilesSource(PosixFilesSource):
     plugin_type = "gximport"
     plugin_kind = PluginKind.stock
+    requires_admin = True
 
     def __init__(self, **kwd: Unpack[PosixFilesSourceProperties]):
         posix_kwds: PosixFilesSourceProperties = dict(

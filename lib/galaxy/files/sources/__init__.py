@@ -333,6 +333,7 @@ class BaseFilesSource(FilesSource):
     supports_pagination: ClassVar[bool] = False
     supports_search: ClassVar[bool] = False
     supports_sorting: ClassVar[bool] = False
+    requires_admin: ClassVar[bool] = False
 
     def get_browsable(self) -> bool:
         return file_source_type_is_browsable(type(self))
@@ -349,6 +350,8 @@ class BaseFilesSource(FilesSource):
     def user_has_access(self, user_context: "OptionalUserContext") -> bool:
         if user_context is None and self.user_context_required:
             return False
+        if self.requires_admin:
+            return user_context is not None and user_context.is_admin
         return (
             user_context is None
             or user_context.is_admin
@@ -360,7 +363,7 @@ class BaseFilesSource(FilesSource):
 
     @property
     def user_context_required(self) -> bool:
-        return self.requires_roles is not None or self.requires_groups is not None
+        return self.requires_roles is not None or self.requires_groups is not None or self.requires_admin
 
     def get_uri_root(self) -> str:
         prefix = self.get_prefix()

@@ -231,6 +231,8 @@ class ConfiguredFileSources:
                 raise exceptions.ConfigDoesNotAllowException(
                     "The configuration of this Galaxy instance does not allow usage of import directory."
                 )
+            if not user_context.is_admin:
+                raise exceptions.AdminRequiredException("Only admins can use this feature.")
         elif uri.startswith("gxftp://"):
             user_ftp_base_dir = self._file_sources_config.ftp_upload_dir
             if user_ftp_base_dir is None:
