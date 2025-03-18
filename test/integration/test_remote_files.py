@@ -72,32 +72,27 @@ class ConfiguresRemoteFilesIntegrationTestCase(integration_util.IntegrationTestC
         return ftp_dir
 
 
-class TestRemoteFilesIntegration(ConfiguresRemoteFilesIntegrationTestCase):
+def assert_index_empty(index):
+    assert len(index) == 0
+
+
+def assert_index_matches_fixtures(index):
+    paths = map(operator.itemgetter("path"), index)
+    assert "a" in paths
+    assert "subdir1/c" in paths
+
+
+class TestAdminRemoteFilesIntegration(ConfiguresRemoteFilesIntegrationTestCase):
+
+    require_admin_user = True
+
     def test_index(self):
         index = self.galaxy_interactor.get("remote_files?target=importdir").json()
-        self._assert_index_empty(index)
+        assert_index_empty(index)
 
         _write_file_fixtures(self.root, self.library_dir)
         index = self.galaxy_interactor.get("remote_files?target=importdir").json()
-        self._assert_index_matches_fixtures(index)
-
-        # Get a 404 if the directory doesn't exist.
-        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
-        assert_error_code_is(index, error_codes.error_codes_by_name["USER_OBJECT_NOT_FOUND"])
-
-        users_dir = os.path.join(self.user_library_dir, USER_EMAIL)
-        os.mkdir(users_dir)
-
-        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
-        self._assert_index_empty(index)
-
-        _write_file_fixtures(self.root, users_dir)
-
-        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
-        self._assert_index_matches_fixtures(index)
-
-        index = self.galaxy_interactor.get("remote_files?target=userdir&format=jstree").json()
-        self._assert_index_matches_fixtures_jstree(index)
+        assert_index_matches_fixtures(index)
 
     def test_fetch_from_import(self):
         _write_file_fixtures(self.root, self.library_dir)
@@ -117,6 +112,57 @@ class TestRemoteFilesIntegration(ConfiguresRemoteFilesIntegrationTestCase):
             assert content == "a\n", content
 
         assert os.path.exists(os.path.join(self.library_dir, "a"))
+
+
+class TestRemoteFilesIntegration(ConfiguresRemoteFilesIntegrationTestCase):
+    def test_index(self):
+        index = self.galaxy_interactor.get("remote_files?target=importdir").json()
+        assert index["err_msg"] == "Only admins can use this feature."
+
+        _write_file_fixtures(self.root, self.library_dir)
+        index = self.galaxy_interactor.get("remote_files?target=importdir").json()
+        assert index["err_msg"] == "Only admins can use this feature."
+
+        # Get a 404 if the directory doesn't exist.
+        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
+        assert_error_code_is(index, error_codes.error_codes_by_name["USER_OBJECT_NOT_FOUND"])
+
+        users_dir = os.path.join(self.user_library_dir, USER_EMAIL)
+        os.mkdir(users_dir)
+
+        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
+        assert_index_empty(index)
+
+        _write_file_fixtures(self.root, users_dir)
+
+        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
+        assert_index_matches_fixtures(index)
+
+        index = self.galaxy_interactor.get("remote_files?target=userdir&format=jstree").json()
+        self._assert_index_matches_fixtures_jstree(index)
+
+    def test_fetch_from_import(self):
+        _write_file_fixtures(self.root, self.library_dir)
+        with self.dataset_populator.test_history() as history_id:
+            element = dict(src="url", url="gximport://a")
+            target = {
+                "destination": {"type": "hdas"},
+                "elements": [element],
+            }
+            targets = [target]
+            payload = {
+                "history_id": history_id,
+                "targets": targets,
+            }
+            response = self.dataset_populator.fetch(payload, assert_ok=False).json()
+            job = response["jobs"][0]
+            self.dataset_populator.wait_for_job(job_id=job["id"], assert_ok=False)
+            output_dataset = response["outputs"][0]
+            dataset_details = self.dataset_populator.get_history_dataset_details(
+                history_id, dataset=output_dataset, assert_ok=False
+            )
+            assert dataset_details["state"] == "error"
+            assert dataset_details["misc_info"] == "Could not find handler for URI [gximport://a]"
 
     def test_fetch_from_drs(self):
         CONTENT = "a\n"
@@ -272,14 +318,6 @@ class TestRemoteFilesIntegration(ConfiguresRemoteFilesIntegrationTestCase):
             assert "test0" in os.listdir(ftp_dir)
             subdir_content = os.listdir(os.path.join(ftp_dir, "test0"))
             assert sorted(subdir_content) == ["data0.txt", "data1.txt", "data2.txt"]
-
-    def _assert_index_empty(self, index):
-        assert len(index) == 0
-
-    def _assert_index_matches_fixtures(self, index):
-        paths = map(operator.itemgetter("path"), index)
-        assert "a" in paths
-        assert "subdir1/c" in paths
 
     def _assert_index_matches_fixtures_jstree(self, index):
         a_file = index[0]
