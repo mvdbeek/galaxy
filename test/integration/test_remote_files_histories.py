@@ -5,8 +5,12 @@ import os
 from .test_remote_files import ConfiguresRemoteFilesIntegrationTestCase
 
 
-class TestRemoteFilesHistoryImportExportIntegration(ConfiguresRemoteFilesIntegrationTestCase):
+class TestAdminRemoteFilesHistoryImportExportIntegration(ConfiguresRemoteFilesIntegrationTestCase):
+
+    # gximport:// requires admin user
+
     framework_tool_and_types = True
+    require_admin_user = True
 
     def test_history_import_from_library_dir(self):
         f = open(self.test_data_resolver.get_filename("exports/1901_two_datasets.tgz"), "rb")
@@ -18,6 +22,13 @@ class TestRemoteFilesHistoryImportExportIntegration(ConfiguresRemoteFilesIntegra
         imported_history_id = self.dataset_populator.import_history_and_wait_for_name(import_data, "API Test History")
         self.dataset_populator.wait_on_history_length(imported_history_id, 2)
         self.dataset_populator.delete_history(imported_history_id)
+        imported_history_id = self.dataset_populator.import_history_and_wait_for_name(import_data, "API Test History")
+        self.dataset_populator.wait_on_history_length(imported_history_id, 2)
+        self.dataset_populator.delete_history(imported_history_id)
+
+
+class TestRemoteFilesHistoryImportExportIntegration(ConfiguresRemoteFilesIntegrationTestCase):
+    framework_tool_and_types = True
 
     def test_history_import_from_ftp_dir(self):
         f = open(self.test_data_resolver.get_filename("exports/1901_two_datasets.tgz"), "rb")
