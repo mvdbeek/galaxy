@@ -26,7 +26,7 @@ jobs:
             TWINE_REPOSITORY_URL: ${{ github.event.release.prerelease && 'https://test.pypi.org/legacy/' || 'https://upload.pypi.org/legacy/' }}
 
   build-and-publish-npm:
-    if: github.repository_owner == 'galaxyproject'
+    if: github.repository_owner == 'mvdbeek'
     name: Build and Publish to NPM
     runs-on: ubuntu-latest
     steps:
