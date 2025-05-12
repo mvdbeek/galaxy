@@ -1,1 +1,71 @@
-../package-pyproject.toml
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build]
+include = ["LICENSE", "galaxy/**", "frontend/dist/**/*"]
+packages = ["galaxy"]
+
+[tool.hatch.metadata]
+long-description = { file = "README.rst", content-type = "text/x-rst" }
+license = { text = "MIT" }
+
+
+[tool.hatch.build.hooks.jupyter-builder]
+dependencies = ["hatch-jupyter-builder>=0.3.2"]
+build-function = "hatch_jupyter_builder.npm_builder"
+ensured-targets = [
+    "frontend/package.json",
+]
+install-pre-commit-hook = true
+
+[tool.hatch.build.hooks.jupyter-builder.editable-build-kwargs]
+build_cmd = "build"
+source_dir = "frontend"
+build_dir = "dev_mode/static"
+npm = ["npx", "yarn"]
+
+[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
+build_cmd = "build-production"
+path = "frontend"
+source_dir = "frontend"
+build_dir = "frontend/static"
+npm = ["npx", "yarn"]
+
+[project]
+authors = [{name = "Galaxy Project and Community", email = "galaxy-committers@lists.galaxyproject.org"}]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Academic Free License (AFL)",
+    "Natural Language :: English",
+    "Operating System :: POSIX",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development",
+    "Topic :: Software Development :: Code Generators",
+    "Topic :: Software Development :: Testing",
+]
+description = "Galaxy web client (frontend)"
+keywords = ["Galaxy"]
+license = {text = "AFL"}
+name = "galaxy-web-client"
+version = "25.0.dev0"
+urls = {Homepage = "https://github.com/galaxyproject/galaxy"}
+dynamic = ["readme"]
+requires-python = ">=3.9"
+
+[project.scripts]
+galaxy-web-client-install = "galaxy.web_client.install:main"
+
+[tool.setuptools]
+include-package-data = true
+packages = ["galaxy", "galaxy.web_client"]
+
+[tool.setuptools.dynamic]
+readme = {file = ["README.rst", "HISTORY.rst"], content-type = "text/x-rst"}
