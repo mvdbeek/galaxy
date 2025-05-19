@@ -97,7 +97,7 @@ jobs:
       - name: Run tests
         run: |
           . .ci/minikube-test-setup/start_services.sh
-          ./run_tests.sh --coverage -integration test/integration -- -k test_slots_and_memory
+          ./run_tests.sh --coverage -integration test/integration -- -k test_slots_and_memory -s
         working-directory: 'galaxy root'
       - uses: codecov/codecov-action@v3
         with:
