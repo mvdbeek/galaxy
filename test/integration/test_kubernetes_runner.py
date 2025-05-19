@@ -400,6 +400,10 @@ class TestKubernetesIntegration(BaseJobEnvironmentIntegrationTestCase, MulledJob
             {},
             history_id,
         )
+        time.sleep(20)
+        output = unicodify(subprocess.check_output(["kubectl", "get", "job", external_id, "-o", "json"]))
+        raise Exception(output)
+        self.dataset_populator.wait_for_job(running_response["jobs"][0]["id"], assert_ok=True)
         dataset_content = self.dataset_populator.get_history_dataset_content(history_id, hid=1).strip()
         CPU = "2"
         MEM = "100"
