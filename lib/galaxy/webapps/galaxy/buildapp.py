@@ -1102,6 +1102,19 @@ def wrap_in_middleware(app, global_conf, application_stack, **local_conf):
             "max_size": application_stack.config.maximum_upload_file_size,
         },
     )
+    # TUS upload middleware for invocation archives....
+    app = wrap_if_allowed(
+        app,
+        stack,
+        TusMiddleware,
+        kwargs={
+            "upload_path": urljoin(f"{application_stack.config.galaxy_url_prefix}/", "api/invocations/resumable_upload"),
+            "tmp_dir": application_stack.config.tus_upload_store_invocation_archive_files
+            or application_stack.config.tus_upload_store
+            or application_stack.config.new_file_path,
+            "max_size": application_stack.config.maximum_upload_file_size,
+        },
+    )
     # X-Forwarded-Host handling
     app = wrap_if_allowed(app, stack, XForwardedHostMiddleware)
     # Request ID middleware

@@ -2116,8 +2116,7 @@ class BaseWorkflowPopulator(BasePopulator):
         archive_path: Optional[str] = None,
     ) -> Response:
         if archive_path is not None:
-
-            tus_session_id = self.galaxy_interactor.tus_upload(archive_path, "upload/resumable_upload")
+            tus_session_id = self.galaxy_interactor.tus_upload(archive_path, "upload/invocations/resumable_upload")
             store_path = f"tus://{tus_session_id}"
         url = "invocations/from_store"
         payload = _store_payload(store_dict=store_dict, store_path=store_path, model_store_format=model_store_format)

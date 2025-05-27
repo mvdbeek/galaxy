@@ -2748,6 +2748,18 @@
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``tus_upload_store_invocation_archive_files``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    The upload store is a temporary directory in which invocation archive
+    files uploaded by the tus middleware or server for remote job files
+    (Pulsar) will be placed. Defaults to tus_upload_store if not set.
+:Default: ``None``
+:Type: str
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 ``tus_upload_store_job_files``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

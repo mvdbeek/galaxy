@@ -2049,6 +2049,15 @@ mapping:
           tus middleware or server for user uploads will be placed.
           Defaults to new_file_path if not set.
 
+      tus_upload_store_invocation_archive_files:
+        type: str
+        required: False
+        desc: |
+          The upload store is a temporary directory in which invocation archive files
+          uploaded by the tus middleware or server for remote job files (Pulsar) will
+          be placed.
+          Defaults to tus_upload_store if not set.
+
       tus_upload_store_job_files:
         type: str
         required: False

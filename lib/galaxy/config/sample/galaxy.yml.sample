@@ -1650,6 +1650,11 @@ galaxy:
   # Defaults to new_file_path if not set.
   #tus_upload_store: null
 
+  # The upload store is a temporary directory in which invocation archive
+  # files uploaded by the tus middleware or server for remote job files
+  # (Pulsar) will be placed. Defaults to tus_upload_store if not set.
+  #tus_upload_store_invocation_archive_files: null
+
   # The upload store is a temporary directory in which files uploaded by
   # the tus middleware or server for remote job files (Pulsar) will be
   # placed. Defaults to tus_upload_store if not set.
