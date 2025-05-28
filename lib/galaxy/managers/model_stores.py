@@ -338,7 +338,11 @@ def create_objects_from_store(
     source = payload.store_content_uri or payload.store_dict
     if isinstance(source, str) and source.startswith("tus://"):
         session_id = source.split("tus://", 1)[-1]
-        upload_store = app.config.tus_upload_store_invocation_archive_files or app.config.tus_upload_store or app.config.new_file_path
+        upload_store = (
+            app.config.tus_upload_store_invocation_archive_files
+            or app.config.tus_upload_store
+            or app.config.new_file_path
+        )
         source = f"file://{os.path.abspath(os.path.join(upload_store, session_id))}"
     model_import_store = source_to_import_store(
         source=source,
