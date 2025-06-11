@@ -243,7 +243,7 @@ def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
                 raise Exception(f"Non-composite datatype [{datatype}] attempting to be created with composite data.")
             return _resolve_item_with_primary(item)
 
-    def _resolve_item_with_primary(item):
+    def _resolve_item_with_primary(item, prefer_replacement=True):
         error_message = None
         converted_path = None
 
@@ -258,13 +258,21 @@ def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
         name: str
         path: Optional[str]
         default_in_place = False
+        uses_replacement = False
+        replacement_transform = []
         if not deferred:
-            name, path, is_link = _has_src_to_path(
-                upload_config, item, is_dataset=True, link_data_only_explicitly_set=link_data_only_explicit
-            )
-            if is_link:
-                link_data_only = True
-                default_in_place = True
+            if prefer_replacement and (replacement := item.get("replacement")) and not item.get("extra_files"):
+                name = _has_src_to_name(item) or "Unnamed Dataset"  # or branch should be unreachable
+                path = replacement["path"]
+                uses_replacement = True
+                replacement_transform = replacement.get("transform") or []
+            else:
+                name, path, is_link = _has_src_to_path(
+                    upload_config, item, is_dataset=True, link_data_only_explicitly_set=link_data_only_explicit
+                )
+                if is_link:
+                    link_data_only = True
+                    default_in_place = True
         else:
             name, path = _has_src_to_name(item) or "Deferred Dataset", None
         sources = []
@@ -300,8 +308,12 @@ def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
 
         effective_state = "ok"
         if not deferred and not error_message:
-            in_place = item.get("in_place", default_in_place)
-            purge_source = item.get("purge_source", True)
+            if uses_replacement:
+                in_place = False
+                purge_source = False
+            else:
+                in_place = item.get("in_place", default_in_place)
+                purge_source = item.get("purge_source", True)
 
             registry = upload_config.registry
             check_content = upload_config.check_content
@@ -322,9 +334,16 @@ def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
             )
             transform = []
             if converted_newlines:
-                transform.append({"action": "to_posix_lines"})
+                transform_action = {"action": "to_posix_lines"}
+                transform.append(transform_action)
             if converted_spaces:
-                transform.append({"action": "spaces_to_tabs"})
+                transform_action = {"action": "spaces_to_tabs"}
+                transform.append(transform_action)
+            if uses_replacement and not set(transform).issubset(set(replacement_transform)):
+                # A transform was used that wasn't recorded for the replacement.
+                # The final uploaded dataset will be different.
+                return _resolve_item_with_primary(item, prefer_replacement=False)
+
             if link_data_only:
                 # Never alter a file that will not be copied to Galaxy's local file store.
                 if datatype.dataset_content_needs_grooming(path):
@@ -377,6 +396,9 @@ def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
 
             needs_grooming = not link_data_only and datatype and datatype.dataset_content_needs_grooming(path)
             if needs_grooming:
+                if uses_replacement:
+                    # all grooming should have happened already and this is likely unreachable, but just in case.
+                    return _resolve_item_with_primary(item, prefer_replacement=False)
                 # Groom the dataset content if necessary
                 transform.append(
                     {"action": "datatype_groom", "datatype_ext": ext, "datatype_class": datatype.__class__.__name__}
@@ -387,6 +409,7 @@ def _fetch_target(upload_config: "UploadConfig", target: Dict[str, Any]):
             if len(transform) > 0:
                 source_dict["transform"] = transform
         elif not error_message:
+            # deferred, we have to attach the requested transform
             transform = []
             if to_posix_lines:
                 transform.append({"action": "to_posix_lines"})
