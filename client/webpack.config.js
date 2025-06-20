@@ -43,7 +43,12 @@ module.exports = (env = {}, argv = {}) => {
     if (targetEnv == "production") {
         minimizations = {
             minimize: true,
-            minimizer: [new TerserPlugin(), new CssMinimizerPlugin()],
+            minimizer: [
+                new TerserPlugin({
+                    parallel: false, // Disable parallel processing to reduce memory usage
+                }),
+                new CssMinimizerPlugin(),
+            ],
         };
     } else {
         minimizations = {
