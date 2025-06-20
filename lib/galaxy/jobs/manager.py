@@ -36,6 +36,7 @@ class JobManager:
             self.__check_jobs_at_startup()
 
     def start(self):
+        log.debug("Is job job handler?", self.app.is_job_handler)
         if self.app.is_job_handler:
             log.debug("Initializing job handler")
             self.job_handler = handler.JobHandler(self.app)

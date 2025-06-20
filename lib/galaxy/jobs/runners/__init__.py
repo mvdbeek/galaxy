@@ -117,6 +117,7 @@ class BaseJobRunner:
         self._should_stop = False
 
     def start(self):
+        log.debug("starting %s", self)
         for start_method in self.start_methods:
             getattr(self, start_method, lambda: None)()
 
@@ -837,6 +838,7 @@ class AsynchronousJobRunner(BaseJobRunner, Monitors):
         self.monitor_queue = Queue()
 
     def _init_monitor_thread(self):
+        log.debug("Staring job runner monitor thread")
         name = f"{self.runner_name}.monitor_thread"
         super()._init_monitor_thread(name=name, target=self.monitor, start=True, config=self.app.config)
 

@@ -258,7 +258,11 @@ class ConfiguresHandlers:
                 or HANDLER_ASSIGNMENT_METHODS.DB_SKIP_LOCKED in self.handler_assignment_methods
             )
         ):
+            log.debug("is handler")
             return True
+        log.debug(
+            "%s - %s - %s", self.handlers, self.handler_assignment_methods_configured, self.handler_assignment_methods
+        )
         return False
 
     def _set_is_handler(self, value):
