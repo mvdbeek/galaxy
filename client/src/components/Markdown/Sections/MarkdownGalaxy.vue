@@ -21,6 +21,7 @@ import HistoryDatasetDetails from "./Elements/HistoryDatasetDetails.vue";
 import HistoryDatasetDisplay from "./Elements/HistoryDatasetDisplay.vue";
 import HistoryDatasetIndex from "./Elements/HistoryDatasetIndex.vue";
 import HistoryDatasetLink from "./Elements/HistoryDatasetLink.vue";
+import DatasetCollectionElementPicker from "./Elements/DatasetCollectionElementPicker.vue";
 import HistoryLink from "./Elements/HistoryLink.vue";
 import InstanceUrl from "./Elements/InstanceUrl.vue";
 import InvocationTime from "./Elements/InvocationTime.vue";
@@ -235,7 +236,19 @@ watch(
                 :job-id="args.job_id"
                 :implicit-collection-jobs-id="args.implicit_collection_jobs_id"
                 :name="name" />
-            <VisualizationFrame v-else-if="name == 'visualization'" :args="args" />
+            <VisualizationWrapper
+                v-else-if="name == 'visualization' && (!args.history_dataset_collection_id)"
+                :name="args.visualization_id"
+                :config="{ dataset_id: args.history_dataset_id }"
+                :height="args.height && parseInt(args.height)" />
+            <DatasetCollectionElementPicker v-else-if="name == 'visualization'" :hdca-id="args.history_dataset_collection_id">
+                <template v-slot:element="{ element }">
+                    <VisualizationWrapper v-if="element"
+                        :name="args.visualization_id"
+                        :config="{ dataset_id: element }"
+                        :height="args.height && parseInt(args.height)" />
+                </template>
+            </DatasetCollectionElementPicker>
             <WorkflowDisplay
                 v-else-if="name == 'workflow_display'"
                 :workflow-id="args.workflow_id"
