@@ -23,6 +23,7 @@ try:
     import boto3
     from boto3.s3.transfer import TransferConfig
     from botocore.client import ClientError
+    from botocore.config import Config as BotoConfig
 except ImportError:
     boto3 = None  # type: ignore[assignment,unused-ignore]
     TransferConfig = None  # type: ignore[assignment,unused-ignore,misc]
@@ -143,6 +144,8 @@ class S3ClientConstructorKwds(TypedDict):
     region_name: NotRequired[str]
     aws_access_key_id: NotRequired[str]
     aws_secret_access_key: NotRequired[str]
+    request_checksum_calculation: NotRequired[str]
+    response_checksum_validation: NotRequired[str]
 
 
 class S3ObjectStore(CachingConcreteObjectStore):
@@ -238,6 +241,7 @@ class S3ObjectStore(CachingConcreteObjectStore):
         kwds: S3ClientConstructorKwds = {
             "service_name": "s3",
         }
+        config = BotoConfig(request_checksum_calculation="when_required", response_checksum_validation="when_required")
         if self.endpoint_url:
             kwds["endpoint_url"] = self.endpoint_url
         if self.region:
@@ -245,7 +249,7 @@ class S3ObjectStore(CachingConcreteObjectStore):
         if self.access_key:
             kwds["aws_access_key_id"] = self.access_key
             kwds["aws_secret_access_key"] = self.secret_key
-        self._client = boto3.client(**kwds)
+        self._client = boto3.client(config=config, **kwds)
 
     @property
     def _bucket_exists(self) -> bool:
