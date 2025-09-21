@@ -44,18 +44,18 @@ class SetEnvironmentRequirement(Requirement):
 
 class ResourceRequirement(BaseModel):
     type: Literal["resource"]
-    cores_min: Optional[Union[int, float]]
-    cores_max: Optional[Union[int, float]]
-    ram_min: Optional[Union[int, float]]
-    ram_max: Optional[Union[int, float]]
-    tmpdir_min: Optional[Union[int, float]]
-    tmpdir_max: Optional[Union[int, float]]
-    cuda_version_min: Optional[Union[int, float]]
-    cuda_compute_capability: Optional[Union[int, float]]
-    gpu_memory_min: Optional[Union[int, float]]
-    cuda_device_count_min: Optional[Union[int, float]]
-    cuda_device_count_max: Optional[Union[int, float]]
-    shm_size: Optional[Union[int, float]]
+    cores_min: Optional[Union[int, float]] = None
+    cores_max: Optional[Union[int, float]] = None
+    ram_min: Optional[Union[int, float]] = None
+    ram_max: Optional[Union[int, float]] = None
+    tmpdir_min: Optional[Union[int, float]] = None
+    tmpdir_max: Optional[Union[int, float]] = None
+    cuda_version_min: Optional[Union[int, float]] = None
+    cuda_compute_capability: Optional[Union[int, float]] = None
+    gpu_memory_min: Optional[Union[int, float]] = None
+    cuda_device_count_min: Optional[Union[int, float]] = None
+    cuda_device_count_max: Optional[Union[int, float]] = None
+    shm_size: Optional[Union[int, float]] = None
 
 
 class JavascriptRequirement(BaseModel):
