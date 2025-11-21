@@ -18,6 +18,7 @@ export const URI_PREFIXES = [
     "http://",
     "https://",
     "ftp://",
+    "gridftp://",
     "file://",
     "gxfiles://",
     "gximport://",

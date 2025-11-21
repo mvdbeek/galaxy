@@ -532,10 +532,7 @@ def _has_src_to_path(
                 is_link = True
                 return name, path, is_link
 
-        try:
-            path = stream_url_to_file(url, file_sources=upload_config.file_sources, dir=upload_config.working_directory)
-        except Exception as e:
-            raise Exception(f"Failed to fetch url {url}. {str(e)}")
+        path = stream_url_to_file(url, file_sources=upload_config.file_sources, dir=upload_config.working_directory)
 
         if not is_dataset:
             # Actual target dataset will validate and put results in dict
