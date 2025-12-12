@@ -331,6 +331,7 @@ class WorkflowRequestMonitor(Monitors):
     def ready_to_schedule_more(self, invocation: model.WorkflowInvocation):
         # Improve reactivity of scheduling using the history update_time as a heuristic.
         # If there wasn't a change in the history we're unlikely to be able to make more progress.
+        return True
         if invocation.id not in self.update_time_tracking_dict:
             return True
         else:
