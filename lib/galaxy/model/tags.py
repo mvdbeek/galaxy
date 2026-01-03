@@ -493,6 +493,11 @@ class GalaxyTagHandler(TagHandler):
                 model.VisualizationTagAssociation,
                 model.VisualizationTagAssociation.visualization_id,
             ),
+            "WorkflowInvocation": ItemTagAssocInfo(
+                model.WorkflowInvocation,
+                model.WorkflowInvocationTagAssociation,
+                model.WorkflowInvocationTagAssociation.workflow_invocation_id,
+            ),
         }
         return cls._item_tag_assoc_info
 

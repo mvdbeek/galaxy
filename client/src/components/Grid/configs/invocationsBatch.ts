@@ -1,7 +1,9 @@
 import { faEye } from "@fortawesome/free-solid-svg-icons";
 
 import type { WorkflowInvocation } from "@/api/invocations";
+import { updateTags } from "@/api/tags";
 import { getAppRoot } from "@/onload";
+import { rethrowSimple } from "@/utils/simple-error";
 
 import type { FieldArray, GridConfig } from "./types";
 
@@ -51,6 +53,19 @@ const fields: FieldArray = [
         key: "create_time",
         title: "Invoked",
         type: "date",
+    },
+    {
+        key: "tags",
+        title: "Tags",
+        type: "tags",
+        handler: async (data) => {
+            const invocation = data as WorkflowInvocation;
+            try {
+                await updateTags(invocation.id, "WorkflowInvocation", invocation.tags ?? undefined);
+            } catch (e) {
+                rethrowSimple(e);
+            }
+        },
     },
     {
         key: "state",

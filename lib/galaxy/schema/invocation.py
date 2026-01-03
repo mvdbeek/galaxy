@@ -42,6 +42,7 @@ from galaxy.schema.schema import (
     JobState,
     Model,
     StoreContentSource,
+    TagCollection,
     UpdateTimeField,
     WithModelClass,
 )
@@ -595,6 +596,11 @@ class WorkflowInvocationCollectionView(Model, WithModelClass):
         default=None,
         title="Landing UUID",
         description="The UUID of the workflow landing request associated with this invocation.",
+    )
+    tags: Optional[TagCollection] = Field(
+        default=None,
+        title="Tags",
+        description="Tags associated with the workflow invocation.",
     )
     model_class: INVOCATION_MODEL_CLASS = ModelClassField(INVOCATION_MODEL_CLASS)
 

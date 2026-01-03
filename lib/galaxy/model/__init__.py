@@ -9297,7 +9297,7 @@ class InputToMaterialize:
     ]
 
 
-class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializable):
+class WorkflowInvocation(Base, HasTags, UsesCreateAndUpdateTime, Dictifiable, Serializable):
     __tablename__ = "workflow_invocation"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -9347,6 +9347,10 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         back_populates="workflow_invocation",
         uselist=False,
     )
+    tags: Mapped[list["WorkflowInvocationTagAssociation"]] = relationship(
+        order_by=lambda: WorkflowInvocationTagAssociation.id,
+        back_populates="workflow_invocation",
+    )
 
     dict_collection_visible_keys = [
         "id",
@@ -9356,6 +9360,7 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         "history_id",
         "uuid",
         "state",
+        "tags",
     ]
     dict_element_visible_keys = [
         "id",
@@ -9365,6 +9370,7 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         "history_id",
         "uuid",
         "state",
+        "tags",
     ]
 
     states = InvocationState
@@ -11493,6 +11499,20 @@ class VisualizationTagAssociation(Base, ItemTagAssociation, RepresentById):
     user_tname: Mapped[Optional[str]] = mapped_column(TrimmedString(255), index=True)
     value: Mapped[Optional[str]] = mapped_column(TrimmedString(255), index=True)
     visualization: Mapped["Visualization"] = relationship(back_populates="tags")
+    tag: Mapped["Tag"] = relationship()
+    user: Mapped[Optional["User"]] = relationship()
+
+
+class WorkflowInvocationTagAssociation(Base, ItemTagAssociation, RepresentById):
+    __tablename__ = "workflow_invocation_tag_association"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    workflow_invocation_id: Mapped[int] = mapped_column(ForeignKey("workflow_invocation.id"), index=True, nullable=True)
+    tag_id: Mapped[int] = mapped_column(ForeignKey("tag.id"), index=True, nullable=True)
+    user_id: Mapped[Optional[int]] = mapped_column(ForeignKey("galaxy_user.id"), index=True)
+    user_tname: Mapped[Optional[str]] = mapped_column(TrimmedString(255), index=True)
+    value: Mapped[Optional[str]] = mapped_column(TrimmedString(255), index=True)
+    workflow_invocation: Mapped["WorkflowInvocation"] = relationship(back_populates="tags")
     tag: Mapped["Tag"] = relationship()
     user: Mapped[Optional["User"]] = relationship()
 

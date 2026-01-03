@@ -3,6 +3,7 @@ import { useEventBus } from "@vueuse/core";
 
 import { GalaxyApi } from "@/api";
 import type { WorkflowInvocation } from "@/api/invocations";
+import { updateTags } from "@/api/tags";
 import type { StoredWorkflowDetailed } from "@/api/workflows";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useWorkflowStore } from "@/stores/workflowStore";
@@ -119,6 +120,19 @@ const fields: FieldArray = [
         key: "create_time",
         title: "Invoked",
         type: "date",
+    },
+    {
+        key: "tags",
+        title: "Tags",
+        type: "tags",
+        handler: async (data) => {
+            const invocation = data as WorkflowInvocation;
+            try {
+                await updateTags(invocation.id, "WorkflowInvocation", invocation.tags ?? undefined);
+            } catch (e) {
+                rethrowSimple(e);
+            }
+        },
     },
     {
         key: "state",

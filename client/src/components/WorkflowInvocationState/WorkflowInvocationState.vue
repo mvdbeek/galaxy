@@ -5,9 +5,10 @@ import { BAlert, BBadge, BNav, BNavItem } from "bootstrap-vue";
 import { computed, onUnmounted, ref, watch } from "vue";
 
 import { type InvocationStep, isWorkflowInvocationElementView } from "@/api/invocations";
+import { updateTags } from "@/api/tags";
 import { useInvocationStore } from "@/stores/invocationStore";
 import { useWorkflowStore } from "@/stores/workflowStore";
-import { errorMessageAsString } from "@/utils/simple-error";
+import { errorMessageAsString, rethrowSimple } from "@/utils/simple-error";
 
 import {
     errorCount as jobStatesSummaryErrorCount,
@@ -32,6 +33,7 @@ import WorkflowInvocationMetrics from "./WorkflowInvocationMetrics.vue";
 import WorkflowInvocationOverview from "./WorkflowInvocationOverview.vue";
 import WorkflowInvocationShare from "./WorkflowInvocationShare.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
+import StatelessTags from "@/components/TagsMultiselect/StatelessTags.vue";
 
 interface Props {
     invocationId: string;
@@ -271,6 +273,21 @@ async function onCancel() {
         cancellingInvocation.value = false;
     }
 }
+
+const invocationTags = computed(() => invocation.value?.tags ?? []);
+
+async function onTagsUpdate(newTags: string[]) {
+    if (!invocation.value) {
+        return;
+    }
+    try {
+        await updateTags(invocation.value.id, "WorkflowInvocation", newTags);
+        // Refresh the invocation to get updated tags
+        await invocationStore.fetchInvocationById({ id: props.invocationId });
+    } catch (e) {
+        rethrowSimple(e);
+    }
+}
 </script>
 
 <template>
@@ -343,6 +360,11 @@ async function onCancel() {
                 </div>
             </template>
         </WorkflowAnnotation>
+
+        <div v-if="props.isFullPage" class="invocation-tags-section px-2 pb-2">
+            <span class="font-weight-bold mr-2">Invocation Tags:</span>
+            <StatelessTags :value="invocationTags" @input="onTagsUpdate" />
+        </div>
 
         <BNav v-if="props.isFullPage" pills class="mb-2 p-2 bg-light border-bottom">
             <BNavItem title="Overview" :active="onOverviewTab" :to="`/workflows/invocations/${props.invocationId}`">

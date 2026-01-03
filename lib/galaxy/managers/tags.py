@@ -20,6 +20,7 @@ class TaggableItemClass(Enum):
     Page = "Page"
     StoredWorkflow = "StoredWorkflow"
     Visualization = "Visualization"
+    WorkflowInvocation = "WorkflowInvocation"
 
 
 class ItemTagsPayload(Model):

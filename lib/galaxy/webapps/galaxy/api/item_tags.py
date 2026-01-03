@@ -116,6 +116,7 @@ prefixes = {
     "histories": ["History", "history_id", "histories"],
     "histories/{history_id}/contents": ["HistoryDatasetAssociation", "history_content_id", "histories"],
     "workflows": ["StoredWorkflow", "workflow_id", "workflows"],
+    "invocations": ["WorkflowInvocation", "invocation_id", "invocations"],
 }
 for prefix, tagged_item in prefixes.items():
     tagged_item_class, tagged_item_id, api_docs_tag = tagged_item
