@@ -1,6 +1,7 @@
 from galaxy_test.base.workflow_fixtures import (
     WORKFLOW_KEEP_SUCCESSFUL_DATASETS,
     WORKFLOW_KEEP_SUCCESSFUL_DATASETS_TEST_DATA,
+    WORKFLOW_SIMPLE_CAT_TWICE,
     WORKFLOW_WITH_OUTPUT_COLLECTION,
 )
 from .framework import (
@@ -140,3 +141,59 @@ class TestWorkflowInvocationDetails(SeleniumTestCase):
 
         # close invocations panel
         self.components.invocations.activity.wait_for_and_click()
+
+    @selenium_test
+    @managed_history
+    def test_invocation_tags(self):
+        """Test that workflow invocation tags can be viewed and edited.
+
+        This test verifies:
+        - Tags section is displayed on the invocation panel view
+        - Tags can be added to an invocation
+        - Added tags are displayed correctly
+        """
+        gx_selenium_context = self
+        history_id = gx_selenium_context.current_history_id()
+
+        # Run a simple workflow
+        gx_selenium_context.workflow_populator.run_workflow(
+            WORKFLOW_SIMPLE_CAT_TWICE,
+            test_data={"input1": "hello world"},
+            history_id=history_id,
+            assert_ok=True,
+            wait=True,
+        )
+
+        # Open the invocation via the invocations panel
+        self.invocation_open_latest()
+        invocations = self.components.invocations
+
+        # Verify tags section is present
+        invocations.tags_section.wait_for_visible()
+        self.screenshot("invocation_tags_section_visible")
+
+        # Click the tags toggle button to add tags
+        invocations.tags_toggle.wait_for_and_click()
+        self.sleep_for(self.wait_types.UX_RENDER)
+
+        # Add a tag using the tags input
+        from selenium.webdriver.common.keys import Keys
+
+        invocations.tags_input.wait_for_visible()
+        invocations.tags_input.wait_for_and_send_keys("selenium-test-tag")
+        self.sleep_for(self.wait_types.UX_TRANSITION)
+
+        # Press enter to confirm the tag
+        invocations.tags_input.wait_for_visible().send_keys(Keys.ENTER)
+        self.sleep_for(self.wait_types.UX_RENDER)
+
+        # Verify the tag appears
+        @retry_assertion_during_transitions
+        def assert_tag_visible():
+            tags = invocations.tags_display.all()
+            assert len(tags) > 0
+            tag_texts = [tag.text for tag in tags]
+            assert any("selenium-test-tag" in text for text in tag_texts)
+
+        assert_tag_visible()
+        self.screenshot("invocation_tag_added")

@@ -1077,6 +1077,10 @@ invocations:
     wizard_next_button: '.wizard-actions .go-next-btn'
     wizard_export_button: '.wizard-actions .go-next-btn.btn-primary'
     export_download_link: '.download-link'
+    tags_section: '.invocation-tags-section'
+    tags_toggle: '.invocation-tags-section .stateless-tags .toggle-button'
+    tags_input: '.invocation-tags-section .stateless-tags .headless-multiselect input'
+    tags_display: '.invocation-tags-section .stateless-tags .tag'
 
 tour:
   popover:
