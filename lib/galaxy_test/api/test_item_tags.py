@@ -83,10 +83,48 @@ class TestItemTagsApi(ApiTestCase):
         response = self._test_delete_tag(self._create_prefix("histories_content"))
         self._assert_status_code_is(response, 200)
 
+    def test_get_tags_invocations(self):
+        response = self._test_get_tags(self._create_prefix("invocations"))
+        self._assert_status_code_is(response, 200)
+
+    def test_create_tag_invocations(self):
+        response = self._test_create_tag(self._create_prefix("invocations"))
+        self._assert_status_code_is(response, 200)
+
+    def test_update_tag_invocations(self):
+        response = self._test_update_tag(self._create_prefix("invocations"))
+        self._assert_status_code_is(response, 200)
+
+    def test_get_tag_invocations(self):
+        response = self._test_get_tag(self._create_prefix("invocations"))
+        self._assert_status_code_is(response, 200)
+
+    def test_delete_tag_invocations(self):
+        response = self._test_delete_tag(self._create_prefix("invocations"))
+        self._assert_status_code_is(response, 200)
+
+    def test_invocation_tags_in_response(self):
+        """Test that tags appear in invocation response after being set."""
+        prefix = self._create_prefix("invocations")
+        invocation_id = prefix.split("/")[1]
+
+        # Create a tag
+        self._create_valid_tag(prefix)
+
+        # Verify tag appears in invocation response
+        response = self._get(f"invocations/{invocation_id}")
+        self._assert_status_code_is(response, 200)
+        invocation = response.json()
+        assert "tags" in invocation
+        assert "awesometagname" in invocation["tags"]
+
     def _create_prefix(self, type_: str) -> str:
         if type_ == "workflows":
             workflow_id = self._create_workflow()
             return f"workflows/{workflow_id}"
+        if type_ == "invocations":
+            invocation_id = self._create_invocation()
+            return f"invocations/{invocation_id}"
         history_id = self._create_history()
         if type_ == "histories":
             return f"histories/{history_id}"
@@ -147,3 +185,25 @@ class TestItemTagsApi(ApiTestCase):
         workflow = self.workflow_populator.load_workflow_from_resource(name="test_workflow_with_input_tags")
         workflow_id = self.workflow_populator.create_workflow(workflow)
         return workflow_id
+
+    def _create_invocation(self):
+        history_id = self._create_history()
+        summary = self.workflow_populator.run_workflow(
+            """
+class: GalaxyWorkflow
+name: Simple Workflow
+inputs:
+  input1: data
+outputs:
+  wf_output_1:
+    outputSource: first_cat/out_file1
+steps:
+  first_cat:
+    tool_id: cat1
+    in:
+      input1: input1
+""",
+            test_data={"input1": "hello world"},
+            history_id=history_id,
+        )
+        return summary.invocation_id

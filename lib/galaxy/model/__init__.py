@@ -9427,6 +9427,11 @@ class WorkflowInvocation(Base, HasTags, UsesCreateAndUpdateTime, Dictifiable, Se
         states = WorkflowInvocation.states
         return self.state in [states.NEW, states.READY]
 
+    @property
+    def user(self):
+        """Returns the user who owns this invocation (via the history)."""
+        return self.history.user if self.history else None
+
     def set_state(self, state: InvocationState):
         session = object_session(self)
         priority_states = (WorkflowInvocation.states.CANCELLING, WorkflowInvocation.states.CANCELLED)
