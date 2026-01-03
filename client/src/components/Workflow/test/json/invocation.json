@@ -7,6 +7,7 @@
     "history_id": "78ea7964263eadc1",
     "uuid": "01127b40-4eb4-11eb-baba-acde48001122",
     "state": "scheduled",
+    "tags": ["tag1", "tag2"],
     "steps": [
         {
             "model_class": "WorkflowInvocationStep",

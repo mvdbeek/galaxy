@@ -20,6 +20,8 @@ const selectors = {
     invocationReportTab: ".invocation-report-tab",
     invocationExportTab: ".invocation-export-tab",
     fullPageHeading: "anonymous-stub[h1='true']",
+    invocationTagsSection: ".invocation-tags-section",
+    statelessTagsStub: "statelesstags-stub",
 };
 
 /** Invocation data to be expected in the store */
@@ -92,6 +94,12 @@ const mockFetchInvocationById = vi.fn().mockImplementation((fetchParams) => {
     }
 });
 const mockFetchInvocationJobsSummaryForId = vi.fn();
+const mockUpdateTags = vi.fn().mockResolvedValue(undefined);
+
+// Mock the updateTags function
+vi.mock("@/api/tags", () => ({
+    updateTags: (...args: unknown[]) => mockUpdateTags(...args),
+}));
 
 // Mock the invocation store to return the expected invocation data given the invocation ID
 vi.mock("@/stores/invocationStore", async () => {
@@ -264,6 +272,38 @@ describe("WorkflowInvocationState check 'Debug' tab", () => {
         const wrapper = await mountWorkflowInvocationState("terminal-error-jobs", true);
         expect(isInvocationAndJobTerminal(wrapper)).toBe(true);
         expect(wrapper.find(selectors.invocationDebugTab).exists()).toBe(true);
+    });
+});
+
+describe("WorkflowInvocationState tags section", () => {
+    beforeEach(() => {
+        mockUpdateTags.mockClear();
+        mockFetchInvocationById.mockClear();
+    });
+
+    it("displays tags section on full page view", async () => {
+        const wrapper = await mountWorkflowInvocationState(invocationData.id, true);
+        const tagsSection = wrapper.find(selectors.invocationTagsSection);
+        expect(tagsSection.exists()).toBe(true);
+    });
+
+    it("does not display tags section when not full page", async () => {
+        const wrapper = await mountWorkflowInvocationState(invocationData.id, false);
+        const tagsSection = wrapper.find(selectors.invocationTagsSection);
+        expect(tagsSection.exists()).toBe(false);
+    });
+
+    it("includes invocation tags label", async () => {
+        const wrapper = await mountWorkflowInvocationState(invocationData.id, true);
+        const tagsSection = wrapper.find(selectors.invocationTagsSection);
+        expect(tagsSection.text()).toContain("Invocation Tags:");
+    });
+
+    it("passes invocation tags to StatelessTags component", async () => {
+        const wrapper = await mountWorkflowInvocationState(invocationData.id, true);
+        const tagsSection = wrapper.find(selectors.invocationTagsSection);
+        // Verify the tags are passed to the component (value attribute contains the tags)
+        expect(tagsSection.html()).toContain('value="tag1,tag2"');
     });
 });
 
