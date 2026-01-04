@@ -218,13 +218,10 @@ lint-api-schema: build-api-schema
 PYTHON_CLIENT_DIR = lib/galaxy_test/api/client
 
 update-python-api-client: build-api-schema ## Generate Python API client from OpenAPI schema
-	$(IN_VENV) openapi-python-client generate \
-		--path _schema.yaml \
-		--output-path $(PYTHON_CLIENT_DIR) \
-		--config openapi-python-client-config.yaml \
-		--overwrite
-	$(IN_VENV) ruff check --fix $(PYTHON_CLIENT_DIR) || true
-	$(IN_VENV) ruff format $(PYTHON_CLIENT_DIR)
+	rm -rf $(PYTHON_CLIENT_DIR)/galaxy_api_client
+	$(IN_VENV) openapi-to-httpx _schema.yaml -o $(PYTHON_CLIENT_DIR)/galaxy_api_client --mode sync
+	$(IN_VENV) ruff check --fix $(PYTHON_CLIENT_DIR)/galaxy_api_client || true
+	$(IN_VENV) ruff format $(PYTHON_CLIENT_DIR)/galaxy_api_client
 	$(MAKE) remove-api-schema
 
 update-navigation-schema: client-node-deps

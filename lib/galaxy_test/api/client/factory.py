@@ -2,20 +2,19 @@
 
 This module provides a factory function for creating typed API clients
 for testing purposes. The client is generated from the Galaxy OpenAPI
-schema using openapi-python-client.
+schema using openapi-to-httpx.
 
 To generate the client, run: make update-python-api-client
 """
 
 # Import the generated client (will be available after running make update-python-api-client)
 try:
-    from galaxy_test.api.client.galaxy_api_client import AuthenticatedClient, Client
+    from galaxy_test.api.client.galaxy_api_client import APIClient
 
     CLIENT_AVAILABLE = True
 except ImportError:
     CLIENT_AVAILABLE = False
-    AuthenticatedClient = None  # type: ignore[misc, assignment]
-    Client = None  # type: ignore[misc, assignment]
+    APIClient = None  # type: ignore[misc, assignment]
 
 
 class ClientNotGeneratedError(Exception):
@@ -40,27 +39,25 @@ def create_client(
         timeout: Request timeout in seconds
 
     Returns:
-        An authenticated or anonymous client instance
+        An APIClient instance
 
     Raises:
         ClientNotGeneratedError: If the client hasn't been generated yet
 
     Example:
         >>> client = create_client("http://localhost:8080", api_key="...")
-        >>> from galaxy_test.api.client.galaxy_api_client.api.histories import create
-        >>> from galaxy_test.api.client.galaxy_api_client.models import CreateHistoryPayload
-        >>> history = create.sync(client=client, body=CreateHistoryPayload(name="Test"))
+        >>> response = client.histories__index()
+        >>> for history in response.data:
+        ...     print(history.name)
     """
     if not CLIENT_AVAILABLE:
         raise ClientNotGeneratedError()
 
-    if api_key:
-        return AuthenticatedClient(
-            base_url=base_url,
-            headers={"x-api-key": api_key},
-            timeout=timeout,
-        )
-    return Client(base_url=base_url, timeout=timeout)
+    return APIClient(
+        base_url=base_url,
+        api_key=api_key,
+        timeout=timeout,
+    )
 
 
 def is_client_available() -> bool:
