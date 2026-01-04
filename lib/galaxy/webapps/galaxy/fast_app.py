@@ -9,6 +9,7 @@ from fastapi import (
     Request,
 )
 from fastapi.openapi.constants import REF_TEMPLATE
+from fastapi.routing import APIRoute
 from starlette.middleware.cors import CORSMiddleware
 from tuspyserver import create_tus_router
 
@@ -147,6 +148,44 @@ def include_legacy_openapi(app, gx_app):
     return app.openapi_schema
 
 
+def generate_operation_id(route: APIRoute) -> str:
+    """Generate clean operation IDs for OpenAPI schema.
+
+    Produces IDs in the format: {tag}__{path_context}__{function_name}
+
+    Examples:
+        - histories__create (POST /api/histories)
+        - histories__tags__create (POST /api/histories/{history_id}/tags/{tag_name})
+        - datasets__show (GET /api/datasets/{dataset_id})
+
+    This function is used by FastAPI's generate_unique_id_function parameter
+    to create cleaner operation IDs that result in better method names when
+    generating API clients with tools like openapi-python-client.
+    """
+    # Use the first tag, or 'default' if no tags
+    tag = route.tags[0] if route.tags else "default"
+    # Normalize tag: lowercase, replace spaces with underscores
+    tag = str(tag).lower().replace(" ", "_")
+    # Use the endpoint function name
+    operation = route.endpoint.__name__
+
+    # Extract path context to disambiguate endpoints with the same function name
+    # e.g., /api/histories/{history_id}/tags/{tag_name} -> "tags"
+    path = route.path
+    path_parts = [p for p in path.split("/") if p and not p.startswith("{") and p != "api"]
+
+    # If the path has more than just the tag segment, add context
+    # e.g., ["histories", "tags"] -> add "tags" as context
+    if len(path_parts) > 1:
+        # Get the last non-parameter segment that's different from the tag
+        context_parts = [p for p in path_parts[1:] if p.lower().replace("_", "") != tag.replace("_", "")]
+        if context_parts:
+            context = "_".join(context_parts)
+            return f"{tag}__{context}__{operation}"
+
+    return f"{tag}__{operation}"
+
+
 def get_fastapi_instance(root_path="") -> FastAPI:
     return FastAPI(
         title="Galaxy API",
@@ -155,6 +194,7 @@ def get_fastapi_instance(root_path="") -> FastAPI:
         openapi_tags=api_tags_metadata,
         license_info={"name": "MIT", "url": "https://github.com/galaxyproject/galaxy/blob/dev/LICENSE.txt"},
         root_path=root_path,
+        generate_unique_id_function=generate_operation_id,
     )
 
 

@@ -1,0 +1,12 @@
+# Configuration for openapi-python-client
+# Used by: make update-python-api-client
+# Documentation: https://github.com/openapi-generators/openapi-python-client
+
+project_name_override: galaxy-api-client
+package_name_override: galaxy_api_client
+
+# Avoid verbose class names from path prefixes
+use_path_prefixes_for_title_model_names: false
+
+# Post-generation hooks are handled by Makefile instead
+# to ensure consistent formatting with project standards

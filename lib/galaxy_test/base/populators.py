@@ -91,6 +91,7 @@ from galaxy.schema.fetch_data import (
     CreateDataLandingPayload,
     CreateFileLandingPayload,
 )
+from galaxy_test.api.client.factory import is_client_available
 from galaxy.schema.schema import (
     CreateToolLandingRequestPayload,
     CreateWorkflowLandingRequestPayload,
@@ -464,6 +465,16 @@ class BaseDatasetPopulator(BasePopulator):
     """Abstract description of API operations optimized for testing
     Galaxy - implementations must implement _get, _post and _delete.
     """
+
+    @property
+    def _api_client(self):
+        """Return the typed API client for this populator.
+
+        Override in subclasses to provide the actual client instance.
+        This is used by methods that support typed API calls when
+        the generated client is available.
+        """
+        raise NotImplementedError("Subclass must implement _api_client property")
 
     def new_dataset(
         self,
@@ -1101,6 +1112,20 @@ class BaseDatasetPopulator(BasePopulator):
             cleanup_callback and cleanup_callback(history_id)
 
     def new_history(self, name="API Test History", **kwds) -> str:
+        if is_client_available():
+            # Use typed API client for type-safe requests
+            from galaxy_test.api.client.galaxy_api_client.api.histories import histories_create
+            from galaxy_test.api.client.galaxy_api_client.models import BodyHistoriesCreate
+
+            payload = BodyHistoriesCreate(name=name)
+            response = histories_create.sync_detailed(client=self._api_client, body=payload)
+            assert response.status_code.value == 200, f"Failed to create history: {response.content}"
+            history_data = response.parsed
+            if hasattr(history_data, "id"):
+                return history_data.id
+            # Response may be a dict-like object
+            return response.content.decode() if isinstance(response.content, bytes) else str(response.content)
+        # Fallback to direct HTTP calls
         create_history_response = self._post("histories", data=dict(name=name))
         assert "id" in create_history_response.json(), create_history_response.text
         history_id = create_history_response.json()["id"]
@@ -2055,6 +2080,22 @@ class GalaxyInteractorHttpMixin:
 class DatasetPopulator(GalaxyInteractorHttpMixin, BaseDatasetPopulator):
     def __init__(self, galaxy_interactor: ApiTestInteractor) -> None:
         self.galaxy_interactor = galaxy_interactor
+        self._cached_api_client = None
+
+    @property
+    def _api_client(self):
+        """Return the typed API client for this populator."""
+        if self._cached_api_client is None:
+            from galaxy_test.api.client.factory import create_client
+
+            # Extract base URL from the interactor's API URL
+            api_url = self.galaxy_interactor.api_url
+            base_url = api_url.rstrip("/api").rstrip("/")
+            self._cached_api_client = create_client(
+                base_url=base_url,
+                api_key=self.galaxy_interactor.api_key,
+            )
+        return self._cached_api_client
 
     def _summarize_history(self, history_id):
         self.galaxy_interactor._summarize_history(history_id)

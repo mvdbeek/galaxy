@@ -214,6 +214,19 @@ lint-api-schema: build-api-schema
 	$(IN_VENV) codespell -I .ci/ignore-spelling.txt _shed_schema.yaml
 	$(MAKE) remove-api-schema
 
+# Python API client generation
+PYTHON_CLIENT_DIR = lib/galaxy_test/api/client
+
+update-python-api-client: build-api-schema ## Generate Python API client from OpenAPI schema
+	$(IN_VENV) openapi-python-client generate \
+		--path _schema.yaml \
+		--output-path $(PYTHON_CLIENT_DIR) \
+		--config openapi-python-client-config.yaml \
+		--overwrite
+	$(IN_VENV) ruff check --fix $(PYTHON_CLIENT_DIR) || true
+	$(IN_VENV) ruff format $(PYTHON_CLIENT_DIR)
+	$(MAKE) remove-api-schema
+
 update-navigation-schema: client-node-deps
 	$(IN_VENV) cd client && node navigation_to_schema.mjs
 
