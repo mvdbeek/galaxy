@@ -148,6 +148,21 @@ This configuration:
 - Avoids verbose class names from path prefixes
 - Runs ruff for linting/formatting after generation
 
+**Tag-Based Organization**: The generator automatically organizes endpoints by their OpenAPI tags. Galaxy's routers already define tags consistently:
+
+```python
+# lib/galaxy/webapps/galaxy/api/histories.py
+router = Router(tags=["histories"])
+
+# lib/galaxy/webapps/galaxy/api/datasets.py
+router = Router(tags=["datasets"])
+
+# lib/galaxy/webapps/galaxy/api/jobs.py
+router = Router(tags=["jobs"])
+```
+
+This produces a clean, intuitive API structure organized by resource type.
+
 ---
 
 ### Step 5: Generate the Initial Client
@@ -164,23 +179,54 @@ This will generate a client in `lib/galaxy_test/api_client/` with:
   - `client.py` - HTTP client with authentication support
   - `types.py` - type definitions
 
-**Generated API Structure** (with improved operation IDs):
+**Generated API Structure** (organized by router tags):
 ```
 galaxy_api_client/
 ├── api/
-│   ├── histories/
-│   │   ├── create.py      # histories__create
-│   │   ├── index.py       # histories__index
-│   │   ├── show.py        # histories__show
-│   │   └── delete.py      # histories__delete
-│   ├── datasets/
-│   │   ├── index.py       # datasets__index
-│   │   └── show.py        # datasets__show
-│   └── jobs/
-│       ├── index.py       # jobs__index
-│       └── show.py        # jobs__show
+│   ├── histories/              # From Router(tags=["histories"])
+│   │   ├── __init__.py
+│   │   ├── create.py           # histories__create  -> POST /api/histories
+│   │   ├── index.py            # histories__index   -> GET /api/histories
+│   │   ├── show.py             # histories__show    -> GET /api/histories/{id}
+│   │   └── delete.py           # histories__delete  -> DELETE /api/histories/{id}
+│   ├── datasets/               # From Router(tags=["datasets"])
+│   │   ├── __init__.py
+│   │   ├── index.py            # datasets__index    -> GET /api/datasets
+│   │   └── show.py             # datasets__show     -> GET /api/datasets/{id}
+│   ├── jobs/                   # From Router(tags=["jobs"])
+│   │   ├── __init__.py
+│   │   ├── index.py            # jobs__index        -> GET /api/jobs
+│   │   └── show.py             # jobs__show         -> GET /api/jobs/{id}
+│   ├── workflows/              # From Router(tags=["workflows"])
+│   ├── tools/                  # From Router(tags=["tools"])
+│   ├── dataset_collections/    # From Router(tags=["dataset collections"])
+│   └── ...                     # Other tags
 ├── models/
-└── client.py
+│   ├── __init__.py
+│   ├── create_history_payload.py
+│   ├── history_detailed_model.py
+│   └── ...                     # Pydantic models from schemas
+└── client.py                   # Client and AuthenticatedClient classes
+```
+
+**Usage Example** (tag-based imports):
+```python
+from galaxy_api_client import AuthenticatedClient
+from galaxy_api_client.api.histories import create, index, show, delete
+from galaxy_api_client.api.jobs import show as show_job
+from galaxy_api_client.models import CreateHistoryPayload
+
+client = AuthenticatedClient(base_url="http://localhost:8080", headers={"x-api-key": "..."})
+
+# Create a history
+payload = CreateHistoryPayload(name="My History")
+history = create.sync(client=client, body=payload)
+
+# List all histories
+histories = index.sync(client=client)
+
+# Get job details
+job = show_job.sync(client=client, job_id="abc123")
 ```
 
 ---
