@@ -18,6 +18,13 @@ The populator classes use a mixin pattern:
 - `DatasetPopulator`: Concrete implementation using `ApiTestInteractor`
 - `GiDatasetPopulator`: Implementation using bioblend's `GalaxyClient`
 
+### Current Operation ID Problem
+FastAPI auto-generates verbose operation IDs when not explicitly set, resulting in names like:
+- `create_api_histories_post` instead of `histories__create`
+- `show_api_datasets_dataset_id_get` instead of `datasets__show`
+
+These verbose names produce ugly generated method names in Python clients.
+
 ---
 
 ## Implementation Steps
@@ -39,7 +46,66 @@ dev = [
 
 ---
 
-### Step 2: Create Makefile Target for Python Client Generation
+### Step 2: Improve Operation ID Generation in FastAPI
+
+**File**: `lib/galaxy/webapps/galaxy/fast_app.py`
+
+Add a custom `generate_unique_id_function` to produce clean, consistent operation IDs:
+
+```python
+from fastapi.routing import APIRoute
+
+
+def generate_operation_id(route: APIRoute) -> str:
+    """Generate clean operation IDs for OpenAPI schema.
+
+    Produces IDs in the format: {tag}__{function_name}
+    Examples:
+        - histories__create (instead of create_api_histories_post)
+        - datasets__show (instead of show_api_datasets_dataset_id_get)
+        - jobs__index (instead of index_api_jobs_get)
+    """
+    # Use the first tag, or 'default' if no tags
+    tag = route.tags[0] if route.tags else "default"
+    # Normalize tag: lowercase, replace spaces with underscores
+    tag = tag.lower().replace(" ", "_")
+    # Use the endpoint function name
+    operation = route.endpoint.__name__
+    return f"{tag}__{operation}"
+
+
+def get_fastapi_instance(root_path="") -> FastAPI:
+    return FastAPI(
+        title="Galaxy API",
+        docs_url="/api/docs",
+        redoc_url="/api/redoc",
+        openapi_tags=api_tags_metadata,
+        license_info={"name": "MIT", "url": "https://github.com/galaxyproject/galaxy/blob/dev/LICENSE.txt"},
+        root_path=root_path,
+        generate_unique_id_function=generate_operation_id,  # <-- Add this
+    )
+```
+
+**Benefits**:
+- All endpoints get consistent, clean operation IDs automatically
+- Existing explicit `operation_id` values in route decorators take precedence
+- Benefits both Python and TypeScript clients
+- No need to modify hundreds of route decorators
+
+**Generated Method Names Comparison**:
+
+| Before | After |
+|--------|-------|
+| `create_api_histories_post` | `histories__create` |
+| `index_api_histories_get` | `histories__index` |
+| `show_api_histories_history_id_get` | `histories__show` |
+| `delete_api_histories_history_id_delete` | `histories__delete` |
+| `show_api_jobs_job_id_get` | `jobs__show` |
+| `index_api_datasets_get` | `datasets__index` |
+
+---
+
+### Step 3: Create Makefile Target for Python Client Generation
 
 **File**: `Makefile`
 
@@ -64,14 +130,14 @@ update-python-api-client: build-python-api-client
 
 ---
 
-### Step 3: Create openapi-python-client Configuration
+### Step 4: Create openapi-python-client Configuration
 
 **File**: `openapi-python-client-config.yaml` (new file in repo root)
 
 ```yaml
 project_name_override: galaxy-api-client
 package_name_override: galaxy_api_client
-use_path_prefix_for_tags: false
+use_path_prefixes_for_title_model_names: false
 post_hooks:
   - ruff check --fix .
   - ruff format .
@@ -79,12 +145,12 @@ post_hooks:
 
 This configuration:
 - Sets a sensible package name
-- Disables path prefix for cleaner tag-based organization
+- Avoids verbose class names from path prefixes
 - Runs ruff for linting/formatting after generation
 
 ---
 
-### Step 4: Generate the Initial Client
+### Step 5: Generate the Initial Client
 
 Run the new Makefile target:
 ```bash
@@ -98,9 +164,28 @@ This will generate a client in `lib/galaxy_test/api_client/` with:
   - `client.py` - HTTP client with authentication support
   - `types.py` - type definitions
 
+**Generated API Structure** (with improved operation IDs):
+```
+galaxy_api_client/
+├── api/
+│   ├── histories/
+│   │   ├── create.py      # histories__create
+│   │   ├── index.py       # histories__index
+│   │   ├── show.py        # histories__show
+│   │   └── delete.py      # histories__delete
+│   ├── datasets/
+│   │   ├── index.py       # datasets__index
+│   │   └── show.py        # datasets__show
+│   └── jobs/
+│       ├── index.py       # jobs__index
+│       └── show.py        # jobs__show
+├── models/
+└── client.py
+```
+
 ---
 
-### Step 5: Create a Client Factory for Populators
+### Step 6: Create a Client Factory for Populators
 
 **File**: `lib/galaxy_test/base/api_client_factory.py` (new file)
 
@@ -138,28 +223,19 @@ def create_api_client(
 
 ---
 
-### Step 6: Replace API Calls in Dataset Populator
+### Step 7: Replace API Calls in Dataset Populator
 
 **File**: `lib/galaxy_test/base/populators.py`
 
 Replace selected methods in `BaseDatasetPopulator` to use the new typed client. Start with a few simple methods:
 
-#### 6.1: Add client property to BaseDatasetPopulator
+#### 7.1: Add client property to BaseDatasetPopulator
 
 ```python
 from galaxy_api_client import AuthenticatedClient
-from galaxy_api_client.api.histories import (
-    create_history_api_histories_post,
-    show_history_api_histories_history_id_get,
-)
-from galaxy_api_client.api.datasets import (
-    show_api_datasets_dataset_id_get,
-)
-from galaxy_api_client.models import (
-    CreateHistoryPayload,
-    HistoryDetailedModel,
-    DatasetSourceType,
-)
+from galaxy_api_client.api.histories import create, show, delete
+from galaxy_api_client.api.jobs import show as show_job
+from galaxy_api_client.models import CreateHistoryPayload
 
 class BaseDatasetPopulator(BasePopulator):
 
@@ -170,7 +246,7 @@ class BaseDatasetPopulator(BasePopulator):
         ...
 ```
 
-#### 6.2: Replace `new_history` method (line 1103)
+#### 7.2: Replace `new_history` method (line 1103)
 
 **Before**:
 ```python
@@ -180,45 +256,18 @@ def new_history(self, name="API Test History", **kwds) -> str:
     return create_history_response.json()["id"]
 ```
 
-**After**:
+**After** (with clean method names):
 ```python
 def new_history(self, name="API Test History", **kwds) -> str:
+    from galaxy_api_client.api.histories import create
+
     payload = CreateHistoryPayload(name=name)
-    response = create_history_api_histories_post.sync(
-        client=self._api_client,
-        body=payload,
-    )
+    response = create.sync(client=self._api_client, body=payload)
     assert response is not None and response.id
     return response.id
 ```
 
-#### 6.3: Replace `get_history_dataset_details_raw` method (line 1307)
-
-**Before**:
-```python
-def get_history_dataset_details_raw(self, history_id: str, dataset_id: str, keys: Optional[str] = None) -> Response:
-    data = None
-    if keys:
-        data = {"keys": keys}
-    details_response = self._get(f"histories/{history_id}/contents/{dataset_id}", data=data)
-    return details_response
-```
-
-**After**:
-```python
-def get_history_dataset_details(self, history_id: str, dataset_id: str, keys: Optional[str] = None) -> HDADetailed:
-    response = show_api_histories_history_id_contents_history_content_id_get.sync(
-        client=self._api_client,
-        history_id=history_id,
-        history_content_id=dataset_id,
-        keys=keys,
-    )
-    if response is None:
-        raise ValueError(f"Dataset {dataset_id} not found in history {history_id}")
-    return response
-```
-
-#### 6.4: Replace `get_job_details` method (line 793)
+#### 7.3: Replace `get_job_details` method (line 793)
 
 **Before**:
 ```python
@@ -229,23 +278,39 @@ def get_job_details(self, job_id: str, full: bool = False) -> Response:
 **After**:
 ```python
 def get_job_details(self, job_id: str, full: bool = False) -> ShowFullJobResponse:
-    response = show_job_api_jobs_job_id_get.sync(
-        client=self._api_client,
-        job_id=job_id,
-        full=full,
-    )
+    from galaxy_api_client.api.jobs import show
+
+    response = show.sync(client=self._api_client, job_id=job_id, full=full)
     if response is None:
         raise ValueError(f"Job {job_id} not found")
     return response
 ```
 
+#### 7.4: Replace `delete_history` method (line 850)
+
+**Before**:
+```python
+def delete_history(self, history_id: str) -> None:
+    delete_response = self._delete(f"histories/{history_id}")
+    delete_response.raise_for_status()
+```
+
+**After**:
+```python
+def delete_history(self, history_id: str) -> None:
+    from galaxy_api_client.api.histories import delete
+
+    response = delete.sync(client=self._api_client, history_id=history_id)
+    # Response validation is handled by the typed client
+```
+
 ---
 
-### Step 7: Update Concrete Populator Implementations
+### Step 8: Update Concrete Populator Implementations
 
 **File**: `lib/galaxy_test/base/populators.py`
 
-#### 7.1: Update `DatasetPopulator` class
+#### 8.1: Update `DatasetPopulator` class
 
 ```python
 class DatasetPopulator(GalaxyInteractorHttpMixin, BaseDatasetPopulator):
@@ -263,7 +328,7 @@ class DatasetPopulator(GalaxyInteractorHttpMixin, BaseDatasetPopulator):
         return self._client
 ```
 
-#### 7.2: Update `GiDatasetPopulator` class
+#### 8.2: Update `GiDatasetPopulator` class
 
 ```python
 class GiDatasetPopulator(GiHttpMixin, BaseDatasetPopulator):
@@ -283,7 +348,7 @@ class GiDatasetPopulator(GiHttpMixin, BaseDatasetPopulator):
 
 ---
 
-### Step 8: Add Tests for the New Client
+### Step 9: Add Tests for the New Client
 
 **File**: `test/unit/test_api_client.py` (new file)
 
@@ -331,6 +396,7 @@ Start with these simple, frequently-used methods:
 4. **Maintainability**: Client regenerated automatically when API changes
 5. **Consistency**: Single source of truth (OpenAPI schema)
 6. **Gradual Migration**: Can replace methods incrementally while keeping old interface
+7. **Clean Method Names**: `histories.create()` instead of `histories.create_api_histories_post()`
 
 ---
 
@@ -342,23 +408,35 @@ Start with these simple, frequently-used methods:
 | Breaking test changes | Keep `_raw` methods returning `Response` for backward compat |
 | Large generated code | Add to `.gitignore` or commit only essential parts |
 | httpx vs requests differences | Client uses httpx; may need adapter for some edge cases |
+| Operation ID conflicts | Explicit `operation_id` in decorators takes precedence |
 
 ---
 
 ## Success Criteria
 
 1. `make update-python-api-client` generates a working client
-2. Unit tests pass for basic client operations
-3. At least 3 populator methods successfully migrated
-4. Existing API tests continue to pass
-5. Type checking passes with mypy
+2. Generated method names are clean (e.g., `histories.create`, not `histories.create_api_histories_post`)
+3. Unit tests pass for basic client operations
+4. At least 3 populator methods successfully migrated
+5. Existing API tests continue to pass
+6. Type checking passes with mypy
 
 ---
 
-## Timeline Estimate
+## Implementation Phases
 
-This is a multi-phase effort:
-- Phase 1: Infrastructure setup (Steps 1-4)
-- Phase 2: Initial method replacements (Steps 5-7)
-- Phase 3: Test coverage and validation (Step 8)
-- Future: Gradual migration of remaining methods
+- **Phase 1**: Infrastructure setup (Steps 1-5)
+  - Add dependency
+  - Implement `generate_operation_id` function
+  - Add Makefile targets
+  - Generate initial client
+
+- **Phase 2**: Initial method replacements (Steps 6-8)
+  - Create client factory
+  - Replace 3-5 populator methods
+  - Update concrete implementations
+
+- **Phase 3**: Test coverage and validation (Step 9)
+  - Add unit tests
+  - Run full test suite
+  - Future: Gradual migration of remaining methods
