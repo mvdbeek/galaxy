@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["LibraryPermissionAction"]
 
 
+@unique
 class LibraryPermissionAction(str, Enum):
-    REMOVE_RESTRICTIONS = "remove_restrictions"
-    SET_PERMISSIONS = "set_permissions"
+    """
+    LibraryPermissionAction Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        set_permissions (str)    : Value for SET_PERMISSIONS
+        remove_restrictions (str): Value for REMOVE_RESTRICTIONS
+    """
+
+    SET_PERMISSIONS = "set_permissions"
+    REMOVE_RESTRICTIONS = "remove_restrictions"

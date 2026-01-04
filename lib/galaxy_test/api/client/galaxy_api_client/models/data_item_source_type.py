@@ -1,12 +1,23 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["DataItemSourceType"]
 
 
+@unique
 class DataItemSourceType(str, Enum):
-    DC = "dc"
-    DCE = "dce"
-    HDA = "hda"
-    HDCA = "hdca"
-    LDDA = "ldda"
+    """
+    DataItemSourceType Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        hda (str)                : Value for HDA
+        ldda (str)               : Value for LDDA
+        hdca (str)               : Value for HDCA
+        dce (str)                : Value for DCE
+        dc (str)                 : Value for DC
+    """
+
+    HDA = "hda"
+    LDDA = "ldda"
+    HDCA = "hdca"
+    DCE = "dce"
+    DC = "dc"

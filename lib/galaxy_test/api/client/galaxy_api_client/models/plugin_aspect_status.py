@@ -1,52 +1,19 @@
-from __future__ import annotations
+from dataclasses import dataclass
 
-from collections.abc import Mapping
-from typing import Any, TypeVar
+from .state import State
 
-from attrs import define as _attrs_define
-
-from ..models.plugin_aspect_status_state import PluginAspectStatusState
-
-T = TypeVar("T", bound="PluginAspectStatus")
+__all__ = ["PluginAspectStatus"]
 
 
-@_attrs_define
+@dataclass
 class PluginAspectStatus:
     """
-    Attributes:
-        message (str):
-        state (PluginAspectStatusState):
+    PluginAspectStatus dataclass.
+
+    Args:
+        message (str)            :
+        state (Optional[State])  : Current state of the job.
     """
 
     message: str
-    state: PluginAspectStatusState
-
-    def to_dict(self) -> dict[str, Any]:
-        message = self.message
-
-        state = self.state.value
-
-        field_dict: dict[str, Any] = {}
-
-        field_dict.update(
-            {
-                "message": message,
-                "state": state,
-            }
-        )
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        message = d.pop("message")
-
-        state = PluginAspectStatusState(d.pop("state"))
-
-        plugin_aspect_status = cls(
-            message=message,
-            state=state,
-        )
-
-        return plugin_aspect_status
+    state: State | None  # Current state of the job.

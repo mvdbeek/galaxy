@@ -1,0 +1,11 @@
+from typing import TypeAlias
+
+from .update_dataset_permissions_payload import UpdateDatasetPermissionsPayload
+from .update_dataset_permissions_payload_alias_b import UpdateDatasetPermissionsPayloadAliasB
+from .update_dataset_permissions_payload_alias_c import UpdateDatasetPermissionsPayloadAliasC
+
+__all__ = ["DatasetsPermissionsUpdatePermissionsRequestBody2"]
+
+DatasetsPermissionsUpdatePermissionsRequestBody2: TypeAlias = (
+    UpdateDatasetPermissionsPayload | UpdateDatasetPermissionsPayloadAliasB | UpdateDatasetPermissionsPayloadAliasC
+)

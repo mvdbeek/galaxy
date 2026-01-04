@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .user_service_credentials_with_definition_response import UserServiceCredentialsWithDefinitionResponse
+
+__all__ = ["ExtendedUserCredentialsListResponse"]
+
+ExtendedUserCredentialsListResponse: TypeAlias = list[UserServiceCredentialsWithDefinitionResponse]

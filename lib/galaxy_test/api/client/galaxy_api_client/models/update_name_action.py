@@ -1,71 +1,17 @@
-from __future__ import annotations
+from dataclasses import dataclass
 
-from collections.abc import Mapping
-from typing import Any, Literal, TypeVar, cast
-
-from attrs import define as _attrs_define
-from attrs import field as _attrs_field
-
-T = TypeVar("T", bound="UpdateNameAction")
+__all__ = ["UpdateNameAction"]
 
 
-@_attrs_define
+@dataclass
 class UpdateNameAction:
     """
-    Attributes:
-        action_type (Literal['update_name']):
-        name (str):
+    UpdateNameAction dataclass.
+
+    Args:
+        action_type (str)        :
+        name (str)               :
     """
 
-    action_type: Literal["update_name"]
+    action_type: str
     name: str
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        action_type = self.action_type
-
-        name = self.name
-
-        field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "action_type": action_type,
-                "name": name,
-            }
-        )
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        action_type = cast(Literal["update_name"], d.pop("action_type"))
-        if action_type != "update_name":
-            raise ValueError(f"action_type must match const 'update_name', got '{action_type}'")
-
-        name = d.pop("name")
-
-        update_name_action = cls(
-            action_type=action_type,
-            name=name,
-        )
-
-        update_name_action.additional_properties = d
-        return update_name_action
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> Any:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties

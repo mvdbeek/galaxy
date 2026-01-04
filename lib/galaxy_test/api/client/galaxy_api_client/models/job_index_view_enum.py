@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["JobIndexViewEnum"]
 
 
+@unique
 class JobIndexViewEnum(str, Enum):
-    ADMIN_JOB_LIST = "admin_job_list"
-    COLLECTION = "collection"
+    """
+    JobIndexViewEnum Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        collection (str)         : Value for COLLECTION
+        admin_job_list (str)     : Value for ADMIN_JOB_LIST
+    """
+
+    COLLECTION = "collection"
+    ADMIN_JOB_LIST = "admin_job_list"

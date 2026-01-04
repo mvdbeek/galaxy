@@ -1,0 +1,6146 @@
+components:
+  schemas:
+    APIKeyResponse:
+      properties:
+        api_key:
+          title: Api Key
+          type: string
+      required:
+      - api_key
+      title: APIKeyResponse
+      type: object
+    BaseUrlParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_baseurl
+          default: gx_baseurl
+          title: parameter_type
+          type: string
+        type:
+          const: baseurl
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      title: BaseUrlParameterModel
+      type: object
+    Body_repositories__create_revision:
+      properties:
+        commit_message:
+          title: Commit Message
+        files:
+          anyOf:
+          - items:
+              format: binary
+              type: string
+            type: array
+          - type: 'null'
+          title: Files
+      title: Body_repositories__create_revision
+      type: object
+    BooleanParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        falsevalue:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: falsevalue
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_boolean
+          default: gx_boolean
+          title: parameter_type
+          type: string
+        truevalue:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: truevalue
+        type:
+          const: boolean
+          title: type
+          type: string
+        value:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: false
+          title: value
+      required:
+      - name
+      - type
+      title: BooleanParameterModel
+      type: object
+    BuildSearchIndexResponse:
+      properties:
+        repositories_indexed:
+          title: Repositories Indexed
+          type: integer
+        tools_indexed:
+          title: Tools Indexed
+          type: integer
+      required:
+      - repositories_indexed
+      - tools_indexed
+      title: BuildSearchIndexResponse
+      type: object
+    Category:
+      properties:
+        deleted:
+          title: Deleted
+          type: boolean
+        description:
+          title: Description
+          type: string
+        id:
+          title: Id
+          type: string
+        name:
+          title: Name
+          type: string
+        repositories:
+          title: Repositories
+          type: integer
+      required:
+      - id
+      - name
+      - description
+      - deleted
+      - repositories
+      title: Category
+      type: object
+    Checksum:
+      properties:
+        checksum:
+          description: 'The hex-string encoded checksum for the data. '
+          title: Checksum
+          type: string
+        type:
+          description: 'The digest method used to create the checksum.
+
+            The value (e.g. `sha-256`) SHOULD be listed as `Hash Name String` in the
+            https://github.com/ga4gh-discovery/ga4gh-checksum/blob/master/hash-alg.csv[GA4GH
+            Checksum Hash Algorithm Registry].
+
+            Other values MAY be used, as long as implementers are aware of the issues
+            discussed in https://tools.ietf.org/html/rfc6920#section-9.4[RFC6920].
+
+            GA4GH may provide more explicit guidance for use of non-IANA-registered
+            algorithms in the future.'
+          title: Type
+          type: string
+      required:
+      - checksum
+      - type
+      title: Checksum
+      type: object
+    Citation:
+      properties:
+        content:
+          title: content
+          type: string
+        type:
+          title: type
+          type: string
+      required:
+      - type
+      - content
+      title: Citation
+      type: object
+    ColorParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_color
+          default: gx_color
+          title: parameter_type
+          type: string
+        type:
+          const: color
+          title: type
+          type: string
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: value
+      required:
+      - name
+      - type
+      title: ColorParameterModel
+      type: object
+    ConditionalParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_conditional
+          default: gx_conditional
+          title: parameter_type
+          type: string
+        test_parameter:
+          anyOf:
+          - $ref: '#/components/schemas/BooleanParameterModel'
+          - $ref: '#/components/schemas/SelectParameterModel'
+          title: test_parameter
+        type:
+          const: conditional
+          title: type
+          type: string
+        whens:
+          items:
+            $ref: '#/components/schemas/ConditionalWhen'
+          title: whens
+          type: array
+      required:
+      - name
+      - type
+      - test_parameter
+      - whens
+      title: ConditionalParameterModel
+      type: object
+    ConditionalWhen:
+      additionalProperties: false
+      properties:
+        discriminator:
+          anyOf:
+          - type: boolean
+          - type: string
+          title: Discriminator
+        is_default_when:
+          title: Is Default When
+          type: boolean
+        parameters:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CwlIntegerParameterModel'
+            - $ref: '#/components/schemas/CwlFloatParameterModel'
+            - $ref: '#/components/schemas/CwlStringParameterModel'
+            - $ref: '#/components/schemas/CwlBooleanParameterModel'
+            - $ref: '#/components/schemas/CwlNullParameterModel'
+            - $ref: '#/components/schemas/CwlFileParameterModel'
+            - $ref: '#/components/schemas/CwlDirectoryParameterModel'
+            - $ref: '#/components/schemas/CwlUnionParameterModel'
+            - $ref: '#/components/schemas/TextParameterModel'
+            - $ref: '#/components/schemas/IntegerParameterModel'
+            - $ref: '#/components/schemas/FloatParameterModel'
+            - $ref: '#/components/schemas/BooleanParameterModel'
+            - $ref: '#/components/schemas/HiddenParameterModel'
+            - $ref: '#/components/schemas/SelectParameterModel'
+            - $ref: '#/components/schemas/DataParameterModel'
+            - $ref: '#/components/schemas/DataCollectionParameterModel'
+            - $ref: '#/components/schemas/DataColumnParameterModel'
+            - $ref: '#/components/schemas/DirectoryUriParameterModel'
+            - $ref: '#/components/schemas/RulesParameterModel'
+            - $ref: '#/components/schemas/DrillDownParameterModel'
+            - $ref: '#/components/schemas/GroupTagParameterModel'
+            - $ref: '#/components/schemas/BaseUrlParameterModel'
+            - $ref: '#/components/schemas/GenomeBuildParameterModel'
+            - $ref: '#/components/schemas/ColorParameterModel'
+            - $ref: '#/components/schemas/ConditionalParameterModel'
+            - $ref: '#/components/schemas/RepeatParameterModel'
+            - $ref: '#/components/schemas/SectionParameterModel'
+          title: Parameters
+          type: array
+      required:
+      - discriminator
+      - parameters
+      - is_default_when
+      title: ConditionalWhen
+      type: object
+    CreateCategoryRequest:
+      properties:
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        name:
+          title: Name
+          type: string
+      required:
+      - name
+      title: CreateCategoryRequest
+      type: object
+    CreateRepositoryRequest:
+      properties:
+        category_ids[]:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: string
+          - type: 'null'
+          title: Category IDs
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        homepage_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Homepage Url
+        name:
+          title: Name
+          type: string
+        remote_repository_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Repository Url
+        synopsis:
+          title: Synopsis
+          type: string
+        type:
+          default: unrestricted
+          enum:
+          - repository_suite_definition
+          - tool_dependency_definition
+          - unrestricted
+          title: Type
+          type: string
+      required:
+      - name
+      - synopsis
+      - category_ids[]
+      title: CreateRepositoryRequest
+      type: object
+    CreateUserRequest:
+      properties:
+        email:
+          title: Email
+          type: string
+        password:
+          title: Password
+          type: string
+        username:
+          title: Username
+          type: string
+      required:
+      - username
+      - email
+      - password
+      title: CreateUserRequest
+      type: object
+    CwlBooleanParameterModel:
+      properties:
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        parameter_type:
+          const: cwl_boolean
+          default: cwl_boolean
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlBooleanParameterModel
+      type: object
+    CwlDirectoryParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: cwl_directory
+          default: cwl_directory
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlDirectoryParameterModel
+      type: object
+    CwlFileParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: cwl_file
+          default: cwl_file
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlFileParameterModel
+      type: object
+    CwlFloatParameterModel:
+      properties:
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        parameter_type:
+          const: cwl_float
+          default: cwl_float
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlFloatParameterModel
+      type: object
+    CwlIntegerParameterModel:
+      properties:
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        parameter_type:
+          const: cwl_integer
+          default: cwl_integer
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlIntegerParameterModel
+      type: object
+    CwlNullParameterModel:
+      properties:
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        parameter_type:
+          const: cwl_null
+          default: cwl_null
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlNullParameterModel
+      type: object
+    CwlStringParameterModel:
+      properties:
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        parameter_type:
+          const: cwl_string
+          default: cwl_string
+          title: parameter_type
+          type: string
+      required:
+      - name
+      title: CwlStringParameterModel
+      type: object
+    CwlUnionParameterModel:
+      properties:
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        parameter_type:
+          const: cwl_union
+          default: cwl_union
+          title: parameter_type
+          type: string
+        parameters:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CwlIntegerParameterModel'
+            - $ref: '#/components/schemas/CwlFloatParameterModel'
+            - $ref: '#/components/schemas/CwlStringParameterModel'
+            - $ref: '#/components/schemas/CwlBooleanParameterModel'
+            - $ref: '#/components/schemas/CwlNullParameterModel'
+            - $ref: '#/components/schemas/CwlFileParameterModel'
+            - $ref: '#/components/schemas/CwlDirectoryParameterModel'
+            - $ref: '#/components/schemas/CwlUnionParameterModel'
+          title: parameters
+          type: array
+      required:
+      - name
+      - parameters
+      title: CwlUnionParameterModel
+      type: object
+    DataCollectionParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        collection_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: collection_type
+        extensions:
+          default:
+          - data
+          items:
+            type: string
+          title: extensions
+          type: array
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_data_collection
+          default: gx_data_collection
+          title: parameter_type
+          type: string
+        type:
+          const: data_collection
+          title: type
+          type: string
+        value:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: value
+      required:
+      - name
+      - type
+      - value
+      title: DataCollectionParameterModel
+      type: object
+    DataColumnParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        multiple:
+          title: multiple
+          type: boolean
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_data_column
+          default: gx_data_column
+          title: parameter_type
+          type: string
+        type:
+          const: data_column
+          title: type
+          type: string
+        value:
+          anyOf:
+          - type: integer
+          - items:
+              type: integer
+            type: array
+          - type: 'null'
+          title: value
+      required:
+      - name
+      - type
+      - multiple
+      title: DataColumnParameterModel
+      type: object
+    DataParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        extensions:
+          default:
+          - data
+          description: Limit inputs to datasets with these extensions. Use 'data'
+            to allow all input datasets.
+          examples:
+          - txt
+          - tabular
+          - tiff
+          items:
+            type: string
+          title: extensions
+          type: array
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        max:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: max
+        min:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: min
+        multiple:
+          default: false
+          description: Allow multiple values to be selected.
+          title: multiple
+          type: boolean
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_data
+          default: gx_data
+          title: parameter_type
+          type: string
+        type:
+          const: data
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      title: DataParameterModel
+      type: object
+    DescriptorType:
+      enum:
+      - CWL
+      - WDL
+      - NFL
+      - GALAXY
+      - SMK
+      title: DescriptorType
+      type: string
+    DescriptorTypeVersion:
+      description: The language version for a given descriptor type. The version should
+        correspond to the actual declared version of the descriptor. For example,
+        tools defined in CWL could have a version of `v1.0.2` whereas WDL tools may
+        have a version of `1.0` or `draft-2`
+      title: DescriptorTypeVersion
+      type: string
+    DetailedRepository:
+      properties:
+        create_time:
+          title: Create Time
+          type: string
+        deleted:
+          title: Deleted
+          type: boolean
+        deprecated:
+          title: Deprecated
+          type: boolean
+        description:
+          title: Description
+          type: string
+        homepage_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Homepage Url
+        id:
+          title: Id
+          type: string
+        long_description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Long Description
+        name:
+          title: Name
+          type: string
+        owner:
+          title: Owner
+          type: string
+        private:
+          title: Private
+          type: boolean
+        remote_repository_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Repository Url
+        times_downloaded:
+          title: Times Downloaded
+          type: integer
+        type:
+          title: Type
+          type: string
+        update_time:
+          title: Update Time
+          type: string
+        user_id:
+          title: User Id
+          type: string
+      required:
+      - id
+      - name
+      - owner
+      - type
+      - description
+      - user_id
+      - private
+      - deleted
+      - times_downloaded
+      - deprecated
+      - create_time
+      - update_time
+      - long_description
+      title: DetailedRepository
+      type: object
+    DirectoryUriParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_directory_uri
+          default: gx_directory_uri
+          title: parameter_type
+          type: string
+        type:
+          const: directory
+          title: type
+          type: string
+        validators:
+          default: []
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/LengthParameterValidatorModel'
+            - $ref: '#/components/schemas/RegexParameterValidatorModel'
+            - $ref: '#/components/schemas/ExpressionParameterValidatorModel'
+            - $ref: '#/components/schemas/EmptyFieldParameterValidatorModel'
+          title: validators
+          type: array
+      required:
+      - name
+      - type
+      title: DirectoryUriParameterModel
+      type: object
+    DrillDownOptionsDict:
+      properties:
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: name
+        options:
+          items:
+            $ref: '#/components/schemas/DrillDownOptionsDict'
+          title: options
+          type: array
+        selected:
+          title: selected
+          type: boolean
+        value:
+          title: value
+          type: string
+      required:
+      - name
+      - value
+      - options
+      - selected
+      title: DrillDownOptionsDict
+      type: object
+    DrillDownParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        hierarchy:
+          enum:
+          - recurse
+          - exact
+          title: hierarchy
+          type: string
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        multiple:
+          title: multiple
+          type: boolean
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        options:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DrillDownOptionsDict'
+            type: array
+          - type: 'null'
+          title: options
+        parameter_type:
+          const: gx_drill_down
+          default: gx_drill_down
+          title: parameter_type
+          type: string
+        type:
+          const: drill_down
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      - multiple
+      - hierarchy
+      title: DrillDownParameterModel
+      type: object
+    EmptyFieldParameterValidatorModel:
+      additionalProperties: false
+      properties:
+        implicit:
+          default: false
+          title: Implicit
+          type: boolean
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        negate:
+          default: false
+          title: Negate
+          type: boolean
+        type:
+          const: empty_field
+          default: empty_field
+          title: Type
+          type: string
+      title: EmptyFieldParameterValidatorModel
+      type: object
+    ExpressionParameterValidatorModel:
+      additionalProperties: false
+      description: 'Check if a one line python expression given expression evaluates
+        to True.
+
+
+        The expression is given is the content of the validator tag.'
+      properties:
+        expression:
+          title: Expression
+          type: string
+        implicit:
+          default: false
+          title: Implicit
+          type: boolean
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        negate:
+          default: false
+          title: Negate
+          type: boolean
+        type:
+          const: expression
+          default: expression
+          title: Type
+          type: string
+      required:
+      - expression
+      title: ExpressionParameterValidatorModel
+      type: object
+    FailedRepositoryUpdateMessage:
+      properties:
+        err_msg:
+          title: Err Msg
+          type: string
+      required:
+      - err_msg
+      title: FailedRepositoryUpdateMessage
+      type: object
+    FilePatternDatasetCollectionDescription:
+      properties:
+        assign_primary_output:
+          title: assign_primary_output
+          type: boolean
+        directory:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: directory
+        discover_via:
+          const: pattern
+          title: discover_via
+          type: string
+        format:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: format
+        match_relative_path:
+          title: match_relative_path
+          type: boolean
+        pattern:
+          title: pattern
+          type: string
+        recurse:
+          title: recurse
+          type: boolean
+        sort_comp:
+          enum:
+          - lexical
+          - numeric
+          title: sort_comp
+          type: string
+        sort_key:
+          enum:
+          - filename
+          - name
+          - designation
+          - dbkey
+          title: sort_key
+          type: string
+        sort_reverse:
+          default: false
+          title: sort_reverse
+          type: boolean
+        visible:
+          title: visible
+          type: boolean
+      required:
+      - discover_via
+      - format
+      - visible
+      - assign_primary_output
+      - directory
+      - recurse
+      - match_relative_path
+      - sort_key
+      - sort_comp
+      - pattern
+      title: FilePatternDatasetCollectionDescription
+      type: object
+    FloatParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        max:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: max
+        min:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: min
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_float
+          default: gx_float
+          title: parameter_type
+          type: string
+        type:
+          const: float
+          title: type
+          type: string
+        validators:
+          default: []
+          items:
+            $ref: '#/components/schemas/InRangeParameterValidatorModel'
+          title: validators
+          type: array
+        value:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: value
+      required:
+      - name
+      - type
+      title: FloatParameterModel
+      type: object
+    GenomeBuildParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        multiple:
+          title: multiple
+          type: boolean
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_genomebuild
+          default: gx_genomebuild
+          title: parameter_type
+          type: string
+        type:
+          const: genomebuild
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      - multiple
+      title: GenomeBuildParameterModel
+      type: object
+    GroupTagParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        multiple:
+          title: multiple
+          type: boolean
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_group_tag
+          default: gx_group_tag
+          title: parameter_type
+          type: string
+        type:
+          const: group_tag
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      - multiple
+      title: GroupTagParameterModel
+      type: object
+    HelpContent:
+      properties:
+        content:
+          title: content
+          type: string
+        format:
+          enum:
+          - restructuredtext
+          - plain_text
+          - markdown
+          title: format
+          type: string
+      required:
+      - format
+      - content
+      title: HelpContent
+      type: object
+    HiddenParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_hidden
+          default: gx_hidden
+          title: parameter_type
+          type: string
+        type:
+          const: hidden
+          title: type
+          type: string
+        validators:
+          default: []
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/LengthParameterValidatorModel'
+            - $ref: '#/components/schemas/RegexParameterValidatorModel'
+            - $ref: '#/components/schemas/ExpressionParameterValidatorModel'
+            - $ref: '#/components/schemas/EmptyFieldParameterValidatorModel'
+          title: validators
+          type: array
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: value
+      required:
+      - name
+      - type
+      - value
+      title: HiddenParameterModel
+      type: object
+    ImageData:
+      properties:
+        checksum:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/Checksum'
+            type: array
+          - type: 'null'
+          description: A production (immutable) tool version is required to have a
+            hashcode. Not required otherwise, but might be useful to detect changes.  This
+            exposes the hashcode for specific image versions to verify that the container
+            version pulled is actually the version that was indexed by the registry.
+          examples:
+          - checksum: 77af4d6b9913e693e8d0b4b294fa62ade6054e6b2f1ffb617ac955dd63fb0182
+            type: sha256
+          title: Checksum
+        image_name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Used in conjunction with a registry_url if provided to locate
+            images.
+          examples:
+          - quay.io/seqware/seqware_full/1.1
+          - ubuntu:latest
+          title: Image Name
+        image_type:
+          anyOf:
+          - $ref: '#/components/schemas/ImageType'
+          - type: 'null'
+        registry_host:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: A docker registry or a URL to a Singularity registry. Used
+            along with image_name to locate a specific image.
+          examples:
+          - registry.hub.docker.com
+          title: Registry Host
+        size:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: Size of the container in bytes.
+          title: Size
+        updated:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Last time the container was updated.
+          title: Updated
+      title: ImageData
+      type: object
+    ImageType:
+      enum:
+      - Docker
+      - Singularity
+      - Conda
+      title: ImageType
+      type: string
+    InRangeParameterValidatorModel:
+      additionalProperties: false
+      properties:
+        exclude_max:
+          default: false
+          title: Exclude Max
+          type: boolean
+        exclude_min:
+          default: false
+          title: Exclude Min
+          type: boolean
+        implicit:
+          default: false
+          title: Implicit
+          type: boolean
+        max:
+          anyOf:
+          - type: number
+          - type: integer
+          - type: 'null'
+          title: Max
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        min:
+          anyOf:
+          - type: number
+          - type: integer
+          - type: 'null'
+          title: Min
+        negate:
+          default: false
+          title: Negate
+          type: boolean
+        type:
+          const: in_range
+          default: in_range
+          title: Type
+          type: string
+      title: InRangeParameterValidatorModel
+      type: object
+    InstallInfo:
+      properties:
+        metadata_info:
+          anyOf:
+          - $ref: '#/components/schemas/RepositoryMetadataInstallInfo'
+          - type: 'null'
+        repo_info:
+          anyOf:
+          - $ref: '#/components/schemas/RepositoryExtraInstallInfo'
+          - type: 'null'
+      title: InstallInfo
+      type: object
+    IntegerParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        max:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: max
+        min:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: min
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_integer
+          default: gx_integer
+          title: parameter_type
+          type: string
+        type:
+          const: integer
+          title: type
+          type: string
+        validators:
+          default: []
+          items:
+            $ref: '#/components/schemas/InRangeParameterValidatorModel'
+          title: validators
+          type: array
+        value:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: value
+      required:
+      - name
+      - type
+      title: IntegerParameterModel
+      type: object
+    LabelValue:
+      properties:
+        label:
+          title: Label
+          type: string
+        selected:
+          title: Selected
+          type: boolean
+        value:
+          title: Value
+          type: string
+      required:
+      - label
+      - value
+      - selected
+      title: LabelValue
+      type: object
+    LengthParameterValidatorModel:
+      additionalProperties: false
+      properties:
+        implicit:
+          default: false
+          title: Implicit
+          type: boolean
+        max:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Max
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        min:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Min
+        negate:
+          default: false
+          title: Negate
+          type: boolean
+        type:
+          const: length
+          default: length
+          title: Type
+          type: string
+      title: LengthParameterValidatorModel
+      type: object
+    MessageExceptionModel:
+      properties:
+        err_code:
+          title: Err Code
+          type: integer
+        err_msg:
+          title: Err Msg
+          type: string
+      required:
+      - err_msg
+      - err_code
+      title: MessageExceptionModel
+      type: object
+    NoOptionsParameterValidatorModel:
+      additionalProperties: false
+      properties:
+        implicit:
+          default: false
+          title: Implicit
+          type: boolean
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        negate:
+          default: false
+          title: Negate
+          type: boolean
+        type:
+          const: no_options
+          default: no_options
+          title: Type
+          type: string
+      title: NoOptionsParameterValidatorModel
+      type: object
+    Organization:
+      properties:
+        name:
+          description: Name of the organization responsible for the service
+          examples:
+          - My organization
+          title: Name
+          type: string
+        url:
+          description: URL of the website of the organization (RFC 3986 format)
+          examples:
+          - https://example.com
+          format: uri
+          minLength: 1
+          title: Url
+          type: string
+      required:
+      - name
+      - url
+      title: Organization
+      type: object
+    PaginatedRepositoryIndexResults:
+      properties:
+        hits:
+          items:
+            $ref: '#/components/schemas/Repository'
+          title: Hits
+          type: array
+        hostname:
+          title: Hostname
+          type: string
+        page:
+          title: Page
+          type: integer
+        page_size:
+          title: Page Size
+          type: integer
+        total_results:
+          title: Total Results
+          type: integer
+      required:
+      - total_results
+      - page
+      - page_size
+      - hostname
+      - hits
+      title: PaginatedRepositoryIndexResults
+      type: object
+    RegexParameterValidatorModel:
+      additionalProperties: false
+      description: 'Check if a regular expression **matches** the value, i.e. appears
+
+        at the beginning of the value. To enforce a match of the complete value use
+
+        ``$`` at the end of the expression. The expression is given is the content
+
+        of the validator tag. Note that for ``selects`` each option is checked
+
+        separately.'
+      properties:
+        expression:
+          title: Expression
+          type: string
+        implicit:
+          default: false
+          title: Implicit
+          type: boolean
+        message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Message
+        negate:
+          default: false
+          title: Negate
+          type: boolean
+        type:
+          const: regex
+          default: regex
+          title: Type
+          type: string
+      required:
+      - expression
+      title: RegexParameterValidatorModel
+      type: object
+    RepeatParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        max:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: max
+        min:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: min
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_repeat
+          default: gx_repeat
+          title: parameter_type
+          type: string
+        parameters:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CwlIntegerParameterModel'
+            - $ref: '#/components/schemas/CwlFloatParameterModel'
+            - $ref: '#/components/schemas/CwlStringParameterModel'
+            - $ref: '#/components/schemas/CwlBooleanParameterModel'
+            - $ref: '#/components/schemas/CwlNullParameterModel'
+            - $ref: '#/components/schemas/CwlFileParameterModel'
+            - $ref: '#/components/schemas/CwlDirectoryParameterModel'
+            - $ref: '#/components/schemas/CwlUnionParameterModel'
+            - $ref: '#/components/schemas/TextParameterModel'
+            - $ref: '#/components/schemas/IntegerParameterModel'
+            - $ref: '#/components/schemas/FloatParameterModel'
+            - $ref: '#/components/schemas/BooleanParameterModel'
+            - $ref: '#/components/schemas/HiddenParameterModel'
+            - $ref: '#/components/schemas/SelectParameterModel'
+            - $ref: '#/components/schemas/DataParameterModel'
+            - $ref: '#/components/schemas/DataCollectionParameterModel'
+            - $ref: '#/components/schemas/DataColumnParameterModel'
+            - $ref: '#/components/schemas/DirectoryUriParameterModel'
+            - $ref: '#/components/schemas/RulesParameterModel'
+            - $ref: '#/components/schemas/DrillDownParameterModel'
+            - $ref: '#/components/schemas/GroupTagParameterModel'
+            - $ref: '#/components/schemas/BaseUrlParameterModel'
+            - $ref: '#/components/schemas/GenomeBuildParameterModel'
+            - $ref: '#/components/schemas/ColorParameterModel'
+            - $ref: '#/components/schemas/ConditionalParameterModel'
+            - $ref: '#/components/schemas/RepeatParameterModel'
+            - $ref: '#/components/schemas/SectionParameterModel'
+          title: parameters
+          type: array
+        type:
+          const: repeat
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      - parameters
+      title: RepeatParameterModel
+      type: object
+    RepositoriesByCategory:
+      properties:
+        description:
+          title: Description
+          type: string
+        id:
+          title: Id
+          type: string
+        name:
+          title: Name
+          type: string
+        repositories:
+          items:
+            $ref: '#/components/schemas/Repository'
+          title: Repositories
+          type: array
+        repository_count:
+          title: Repository Count
+          type: integer
+      required:
+      - id
+      - name
+      - description
+      - repository_count
+      - repositories
+      title: RepositoriesByCategory
+      type: object
+    Repository:
+      properties:
+        create_time:
+          title: Create Time
+          type: string
+        deleted:
+          title: Deleted
+          type: boolean
+        deprecated:
+          title: Deprecated
+          type: boolean
+        description:
+          title: Description
+          type: string
+        homepage_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Homepage Url
+        id:
+          title: Id
+          type: string
+        name:
+          title: Name
+          type: string
+        owner:
+          title: Owner
+          type: string
+        private:
+          title: Private
+          type: boolean
+        remote_repository_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Repository Url
+        times_downloaded:
+          title: Times Downloaded
+          type: integer
+        type:
+          title: Type
+          type: string
+        update_time:
+          title: Update Time
+          type: string
+        user_id:
+          title: User Id
+          type: string
+      required:
+      - id
+      - name
+      - owner
+      - type
+      - description
+      - user_id
+      - private
+      - deleted
+      - times_downloaded
+      - deprecated
+      - create_time
+      - update_time
+      title: Repository
+      type: object
+    RepositoryDependency:
+      properties:
+        changeset_revision:
+          title: Changeset Revision
+          type: string
+        downloadable:
+          title: Downloadable
+          type: boolean
+        has_repository_dependencies:
+          title: Has Repository Dependencies
+          type: boolean
+        id:
+          title: Id
+          type: string
+        includes_datatypes:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Includes Datatypes
+        includes_tool_dependencies:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Includes Tool Dependencies
+        includes_tools:
+          title: Includes Tools
+          type: boolean
+        includes_tools_for_display_in_tool_panel:
+          title: Includes Tools For Display In Tool Panel
+          type: boolean
+        includes_workflows:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Includes Workflows
+        invalid_tools:
+          items:
+            type: string
+          title: Invalid Tools
+          type: array
+        malicious:
+          title: Malicious
+          type: boolean
+        missing_test_components:
+          title: Missing Test Components
+          type: boolean
+        numeric_revision:
+          title: Numeric Revision
+          type: integer
+        repository:
+          $ref: '#/components/schemas/Repository'
+        repository_dependencies:
+          items:
+            $ref: '#/components/schemas/RepositoryDependency'
+          title: Repository Dependencies
+          type: array
+        repository_id:
+          title: Repository Id
+          type: string
+        tools:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/RepositoryTool'
+            type: array
+          - type: 'null'
+          title: Tools
+      required:
+      - id
+      - repository
+      - repository_dependencies
+      - invalid_tools
+      - repository_id
+      - numeric_revision
+      - changeset_revision
+      - malicious
+      - downloadable
+      - missing_test_components
+      - has_repository_dependencies
+      - includes_tools
+      - includes_tools_for_display_in_tool_panel
+      title: RepositoryDependency
+      type: object
+    RepositoryExtraInstallInfo:
+      properties:
+        changeset_revision:
+          title: Changeset Revision
+          type: string
+        ctx_rev:
+          title: Ctx Rev
+          type: string
+        description:
+          title: Description
+          type: string
+        name:
+          title: Name
+          type: string
+        repository_clone_url:
+          title: Repository Clone Url
+          type: string
+        repository_dependencies:
+          anyOf:
+          - additionalProperties: true
+            type: object
+          - type: 'null'
+          title: Repository Dependencies
+        repository_owner:
+          title: Repository Owner
+          type: string
+      required:
+      - name
+      - description
+      - repository_clone_url
+      - changeset_revision
+      - ctx_rev
+      - repository_owner
+      title: RepositoryExtraInstallInfo
+      type: object
+    RepositoryMetadata:
+      additionalProperties:
+        $ref: '#/components/schemas/RepositoryRevisionMetadata'
+      title: RepositoryMetadata
+      type: object
+    RepositoryMetadataInstallInfo:
+      properties:
+        changeset_revision:
+          title: Changeset Revision
+          type: string
+        downloadable:
+          title: Downloadable
+          type: boolean
+        has_repository_dependencies:
+          title: Has Repository Dependencies
+          type: boolean
+        id:
+          title: Id
+          type: string
+        includes_tools:
+          title: Includes Tools
+          type: boolean
+        includes_tools_for_display_in_tool_panel:
+          title: Includes Tools For Display In Tool Panel
+          type: boolean
+        malicious:
+          title: Malicious
+          type: boolean
+        repository_id:
+          title: Repository Id
+          type: string
+        url:
+          title: Url
+          type: string
+        valid_tools:
+          items:
+            $ref: '#/components/schemas/ValidTool'
+          title: Valid Tools
+          type: array
+      required:
+      - id
+      - changeset_revision
+      - downloadable
+      - has_repository_dependencies
+      - includes_tools
+      - includes_tools_for_display_in_tool_panel
+      - malicious
+      - repository_id
+      - url
+      - valid_tools
+      title: RepositoryMetadataInstallInfo
+      type: object
+    RepositoryPermissions:
+      properties:
+        allow_push:
+          items:
+            type: string
+          title: Allow Push
+          type: array
+        can_manage:
+          title: Can Manage
+          type: boolean
+        can_push:
+          title: Can Push
+          type: boolean
+      required:
+      - allow_push
+      - can_manage
+      - can_push
+      title: RepositoryPermissions
+      type: object
+    RepositoryRevisionMetadata:
+      properties:
+        changeset_revision:
+          title: Changeset Revision
+          type: string
+        downloadable:
+          title: Downloadable
+          type: boolean
+        has_repository_dependencies:
+          title: Has Repository Dependencies
+          type: boolean
+        id:
+          title: Id
+          type: string
+        includes_datatypes:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Includes Datatypes
+        includes_tool_dependencies:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Includes Tool Dependencies
+        includes_tools:
+          title: Includes Tools
+          type: boolean
+        includes_tools_for_display_in_tool_panel:
+          title: Includes Tools For Display In Tool Panel
+          type: boolean
+        includes_workflows:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          title: Includes Workflows
+        invalid_tools:
+          items:
+            type: string
+          title: Invalid Tools
+          type: array
+        malicious:
+          title: Malicious
+          type: boolean
+        missing_test_components:
+          title: Missing Test Components
+          type: boolean
+        numeric_revision:
+          title: Numeric Revision
+          type: integer
+        repository:
+          $ref: '#/components/schemas/Repository'
+        repository_dependencies:
+          items:
+            $ref: '#/components/schemas/RepositoryDependency'
+          title: Repository Dependencies
+          type: array
+        repository_id:
+          title: Repository Id
+          type: string
+        tools:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/RepositoryTool'
+            type: array
+          - type: 'null'
+          title: Tools
+      required:
+      - id
+      - repository
+      - repository_dependencies
+      - invalid_tools
+      - repository_id
+      - numeric_revision
+      - changeset_revision
+      - malicious
+      - downloadable
+      - missing_test_components
+      - has_repository_dependencies
+      - includes_tools
+      - includes_tools_for_display_in_tool_panel
+      title: RepositoryRevisionMetadata
+      type: object
+    RepositoryRevisionReadmes:
+      additionalProperties:
+        type: string
+      title: RepositoryRevisionReadmes
+      type: object
+    RepositorySearchHit:
+      properties:
+        repository:
+          $ref: '#/components/schemas/RepositorySearchResult'
+        score:
+          title: Score
+          type: number
+      required:
+      - score
+      - repository
+      title: RepositorySearchHit
+      type: object
+    RepositorySearchResult:
+      properties:
+        approved:
+          title: Approved
+          type: boolean
+        categories:
+          title: Categories
+          type: string
+        description:
+          title: Description
+          type: string
+        full_last_updated:
+          title: Full Last Updated
+          type: string
+        homepage_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Homepage Url
+        id:
+          title: Id
+          type: string
+        last_update:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Last Update
+        long_description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Long Description
+        name:
+          title: Name
+          type: string
+        remote_repository_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Repository Url
+        repo_lineage:
+          title: Repo Lineage
+          type: string
+        repo_owner_username:
+          title: Repo Owner Username
+          type: string
+        times_downloaded:
+          title: Times Downloaded
+          type: integer
+      required:
+      - id
+      - name
+      - repo_owner_username
+      - description
+      - full_last_updated
+      - repo_lineage
+      - approved
+      - times_downloaded
+      - categories
+      title: RepositorySearchResult
+      type: object
+    RepositorySearchResults:
+      properties:
+        hits:
+          items:
+            $ref: '#/components/schemas/RepositorySearchHit'
+          title: Hits
+          type: array
+        hostname:
+          title: Hostname
+          type: string
+        page:
+          title: Page
+          type: string
+        page_size:
+          title: Page Size
+          type: string
+        total_results:
+          title: Total Results
+          type: string
+      required:
+      - total_results
+      - page
+      - page_size
+      - hostname
+      - hits
+      title: RepositorySearchResults
+      type: object
+    RepositoryTool:
+      properties:
+        description:
+          title: Description
+          type: string
+        guid:
+          title: Guid
+          type: string
+        id:
+          title: Id
+          type: string
+        name:
+          title: Name
+          type: string
+        requirements:
+          items: {}
+          title: Requirements
+          type: array
+        tool_config:
+          title: Tool Config
+          type: string
+        tool_type:
+          title: Tool Type
+          type: string
+        version:
+          title: Version
+          type: string
+      required:
+      - description
+      - guid
+      - id
+      - name
+      - requirements
+      - tool_config
+      - tool_type
+      - version
+      title: RepositoryTool
+      type: object
+    RepositoryUpdate:
+      anyOf:
+      - $ref: '#/components/schemas/ValidRepostiroyUpdateMessage'
+      - $ref: '#/components/schemas/FailedRepositoryUpdateMessage'
+      title: RepositoryUpdate
+    ResetMetadataOnRepositoriesResponse:
+      properties:
+        repository_status:
+          items:
+            type: string
+          title: Repository Status
+          type: array
+        start_time:
+          title: Start Time
+          type: string
+        stop_time:
+          title: Stop Time
+          type: string
+      required:
+      - repository_status
+      - start_time
+      - stop_time
+      title: ResetMetadataOnRepositoriesResponse
+      type: object
+    ResetMetadataOnRepositoryResponse:
+      properties:
+        repository_status:
+          items:
+            type: string
+          title: Repository Status
+          type: array
+        start_time:
+          title: Start Time
+          type: string
+        status:
+          title: Status
+          type: string
+        stop_time:
+          title: Stop Time
+          type: string
+      required:
+      - status
+      - repository_status
+      - start_time
+      - stop_time
+      title: ResetMetadataOnRepositoryResponse
+      type: object
+    RulesParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_rules
+          default: gx_rules
+          title: parameter_type
+          type: string
+        type:
+          const: rules
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      title: RulesParameterModel
+      type: object
+    SectionParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_section
+          default: gx_section
+          title: parameter_type
+          type: string
+        parameters:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CwlIntegerParameterModel'
+            - $ref: '#/components/schemas/CwlFloatParameterModel'
+            - $ref: '#/components/schemas/CwlStringParameterModel'
+            - $ref: '#/components/schemas/CwlBooleanParameterModel'
+            - $ref: '#/components/schemas/CwlNullParameterModel'
+            - $ref: '#/components/schemas/CwlFileParameterModel'
+            - $ref: '#/components/schemas/CwlDirectoryParameterModel'
+            - $ref: '#/components/schemas/CwlUnionParameterModel'
+            - $ref: '#/components/schemas/TextParameterModel'
+            - $ref: '#/components/schemas/IntegerParameterModel'
+            - $ref: '#/components/schemas/FloatParameterModel'
+            - $ref: '#/components/schemas/BooleanParameterModel'
+            - $ref: '#/components/schemas/HiddenParameterModel'
+            - $ref: '#/components/schemas/SelectParameterModel'
+            - $ref: '#/components/schemas/DataParameterModel'
+            - $ref: '#/components/schemas/DataCollectionParameterModel'
+            - $ref: '#/components/schemas/DataColumnParameterModel'
+            - $ref: '#/components/schemas/DirectoryUriParameterModel'
+            - $ref: '#/components/schemas/RulesParameterModel'
+            - $ref: '#/components/schemas/DrillDownParameterModel'
+            - $ref: '#/components/schemas/GroupTagParameterModel'
+            - $ref: '#/components/schemas/BaseUrlParameterModel'
+            - $ref: '#/components/schemas/GenomeBuildParameterModel'
+            - $ref: '#/components/schemas/ColorParameterModel'
+            - $ref: '#/components/schemas/ConditionalParameterModel'
+            - $ref: '#/components/schemas/RepeatParameterModel'
+            - $ref: '#/components/schemas/SectionParameterModel'
+          title: parameters
+          type: array
+        type:
+          const: section
+          title: type
+          type: string
+      required:
+      - name
+      - type
+      - parameters
+      title: SectionParameterModel
+      type: object
+    SelectParameterModel:
+      properties:
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        multiple:
+          default: false
+          title: multiple
+          type: boolean
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        options:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/LabelValue'
+            type: array
+          - type: 'null'
+          title: options
+        parameter_type:
+          const: gx_select
+          default: gx_select
+          title: parameter_type
+          type: string
+        type:
+          const: select
+          title: type
+          type: string
+        validators:
+          default: []
+          items:
+            $ref: '#/components/schemas/NoOptionsParameterValidatorModel'
+          title: validators
+          type: array
+      required:
+      - name
+      - type
+      title: SelectParameterModel
+      type: object
+    Service:
+      properties:
+        contactUrl:
+          anyOf:
+          - format: uri
+            minLength: 1
+            type: string
+          - type: 'null'
+          description: URL of the contact for the provider of this service, e.g. a
+            link to a contact form (RFC 3986 format), or an email (RFC 2368 format).
+          examples:
+          - mailto:support@example.com
+          title: Contacturl
+        createdAt:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          description: Timestamp describing when the service was first deployed and
+            available (RFC 3339 format)
+          examples:
+          - '2019-06-04T12:58:19Z'
+          title: Createdat
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Description of the service. Should be human readable and provide
+            information about the service.
+          examples:
+          - This service provides...
+          title: Description
+        documentationUrl:
+          anyOf:
+          - format: uri
+            minLength: 1
+            type: string
+          - type: 'null'
+          description: URL of the documentation of this service (RFC 3986 format).
+            This should help someone learn how to use your service, including any
+            specifics required to access data, e.g. authentication.
+          examples:
+          - https://docs.myservice.example.com
+          title: Documentationurl
+        environment:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Environment the service is running in. Use this to distinguish
+            between production, development and testing/staging deployments. Suggested
+            values are prod, test, dev, staging. However this is advised and not enforced.
+          examples:
+          - test
+          title: Environment
+        id:
+          description: Unique ID of this service. Reverse domain name notation is
+            recommended, though not required. The identifier should attempt to be
+            globally unique so it can be used in downstream aggregator services e.g.
+            Service Registry.
+          examples:
+          - org.ga4gh.myservice
+          title: Id
+          type: string
+        name:
+          description: Name of this service. Should be human readable.
+          examples:
+          - My project
+          title: Name
+          type: string
+        organization:
+          $ref: '#/components/schemas/Organization'
+          description: Organization providing the service
+        type:
+          $ref: '#/components/schemas/ServiceType'
+        updatedAt:
+          anyOf:
+          - format: date-time
+            type: string
+          - type: 'null'
+          description: Timestamp describing when the service was last updated (RFC
+            3339 format)
+          examples:
+          - '2019-06-04T12:58:19Z'
+          title: Updatedat
+        version:
+          description: Version of the service being described. Semantic versioning
+            is recommended, but other identifiers, such as dates or commit hashes,
+            are also allowed. The version should be changed whenever the service is
+            updated.
+          examples:
+          - 1.0.0
+          title: Version
+          type: string
+      required:
+      - id
+      - name
+      - type
+      - organization
+      - version
+      title: Service
+      type: object
+    ServiceType:
+      properties:
+        artifact:
+          description: Name of the API or GA4GH specification implemented. Official
+            GA4GH types should be assigned as part of standards approval process.
+            Custom artifacts are supported.
+          examples:
+          - beacon
+          title: Artifact
+          type: string
+        group:
+          description: Namespace in reverse domain name format. Use `org.ga4gh` for
+            implementations compliant with official GA4GH specifications. For services
+            with custom APIs not standardized by GA4GH, or implementations diverging
+            from official GA4GH specifications, use a different namespace (e.g. your
+            organization's reverse domain name).
+          examples:
+          - org.ga4gh
+          title: Group
+          type: string
+        version:
+          description: Version of the API or specification. GA4GH specifications use
+            semantic versioning.
+          examples:
+          - 1.0.0
+          title: Version
+          type: string
+      required:
+      - group
+      - artifact
+      - version
+      title: ServiceType
+      type: object
+    ShedParsedTool:
+      properties:
+        citations:
+          items:
+            $ref: '#/components/schemas/Citation'
+          title: citations
+          type: array
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: description
+        edam_operations:
+          items:
+            type: string
+          title: edam_operations
+          type: array
+        edam_topics:
+          items:
+            type: string
+          title: edam_topics
+          type: array
+        help:
+          anyOf:
+          - $ref: '#/components/schemas/HelpContent'
+          - type: 'null'
+          title: help
+        id:
+          title: id
+          type: string
+        inputs:
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/CwlIntegerParameterModel'
+            - $ref: '#/components/schemas/CwlFloatParameterModel'
+            - $ref: '#/components/schemas/CwlStringParameterModel'
+            - $ref: '#/components/schemas/CwlBooleanParameterModel'
+            - $ref: '#/components/schemas/CwlNullParameterModel'
+            - $ref: '#/components/schemas/CwlFileParameterModel'
+            - $ref: '#/components/schemas/CwlDirectoryParameterModel'
+            - $ref: '#/components/schemas/CwlUnionParameterModel'
+            - $ref: '#/components/schemas/TextParameterModel'
+            - $ref: '#/components/schemas/IntegerParameterModel'
+            - $ref: '#/components/schemas/FloatParameterModel'
+            - $ref: '#/components/schemas/BooleanParameterModel'
+            - $ref: '#/components/schemas/HiddenParameterModel'
+            - $ref: '#/components/schemas/SelectParameterModel'
+            - $ref: '#/components/schemas/DataParameterModel'
+            - $ref: '#/components/schemas/DataCollectionParameterModel'
+            - $ref: '#/components/schemas/DataColumnParameterModel'
+            - $ref: '#/components/schemas/DirectoryUriParameterModel'
+            - $ref: '#/components/schemas/RulesParameterModel'
+            - $ref: '#/components/schemas/DrillDownParameterModel'
+            - $ref: '#/components/schemas/GroupTagParameterModel'
+            - $ref: '#/components/schemas/BaseUrlParameterModel'
+            - $ref: '#/components/schemas/GenomeBuildParameterModel'
+            - $ref: '#/components/schemas/ColorParameterModel'
+            - $ref: '#/components/schemas/ConditionalParameterModel'
+            - $ref: '#/components/schemas/RepeatParameterModel'
+            - $ref: '#/components/schemas/SectionParameterModel'
+          title: inputs
+          type: array
+        license:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: license
+        name:
+          title: name
+          type: string
+        outputs:
+          items:
+            discriminator:
+              mapping:
+                boolean: '#/components/schemas/ToolOutputBoolean'
+                collection: '#/components/schemas/ToolOutputCollection'
+                data: '#/components/schemas/ToolOutputDataset'
+                float: '#/components/schemas/ToolOutputFloat'
+                integer: '#/components/schemas/ToolOutputInteger'
+                text: '#/components/schemas/ToolOutputText'
+              propertyName: type
+            oneOf:
+            - $ref: '#/components/schemas/ToolOutputDataset'
+            - $ref: '#/components/schemas/ToolOutputCollection'
+            - $ref: '#/components/schemas/ToolOutputText'
+            - $ref: '#/components/schemas/ToolOutputInteger'
+            - $ref: '#/components/schemas/ToolOutputFloat'
+            - $ref: '#/components/schemas/ToolOutputBoolean'
+          title: outputs
+          type: array
+        profile:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: profile
+        repository_revision:
+          anyOf:
+          - $ref: '#/components/schemas/RepositoryRevisionMetadata'
+          - type: 'null'
+          title: repository_revision
+        version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: version
+        xrefs:
+          items:
+            $ref: '#/components/schemas/XrefDict'
+          title: xrefs
+          type: array
+      required:
+      - id
+      - version
+      - name
+      - description
+      - inputs
+      - outputs
+      - citations
+      - license
+      - profile
+      - edam_operations
+      - edam_topics
+      - xrefs
+      - help
+      title: ShedParsedTool
+      type: object
+    TextParameterModel:
+      properties:
+        area:
+          default: false
+          title: area
+          type: boolean
+        argument:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: If the parameter reflects just one command line argument of
+            a certain tool, this tag should be set to that particular argument. It
+            is rendered in parenthesis after the help section, and it will create
+            the name attribute (if not given explicitly) from the argument attribute
+            by stripping leading dashes and replacing all remaining dashes by underscores
+            (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+          title: argument
+        default_options:
+          default: []
+          items:
+            $ref: '#/components/schemas/LabelValue'
+          title: default_options
+          type: array
+        help:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Short bit of text, rendered on the tool form just below the
+            associated field to provide information about the field.
+          title: help
+        hidden:
+          default: false
+          title: hidden
+          type: boolean
+        is_dynamic:
+          default: false
+          title: is_dynamic
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Will be displayed on the tool page as the label of the parameter.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows
+            or inside command templating.
+          title: name
+          type: string
+        optional:
+          default: false
+          description: If `false`, parameter must have a value.
+          title: optional
+          type: boolean
+        parameter_type:
+          const: gx_text
+          default: gx_text
+          title: parameter_type
+          type: string
+        type:
+          const: text
+          title: type
+          type: string
+        validators:
+          default: []
+          items:
+            anyOf:
+            - $ref: '#/components/schemas/LengthParameterValidatorModel'
+            - $ref: '#/components/schemas/RegexParameterValidatorModel'
+            - $ref: '#/components/schemas/ExpressionParameterValidatorModel'
+            - $ref: '#/components/schemas/EmptyFieldParameterValidatorModel'
+          title: validators
+          type: array
+        value:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: default_value
+      required:
+      - name
+      - type
+      title: TextParameterModel
+      type: object
+    Tool:
+      properties:
+        aliases:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: "Support for this parameter is optional for tool registries\
+            \ that support aliases.\nA list of strings that can be used to identify\
+            \ this tool which could be  straight up URLs. \nThis can be used to expose\
+            \ alternative ids (such as GUIDs) for a tool\nfor registries. Can be used\
+            \ to match tools across registries."
+          title: Aliases
+        checker_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Optional url to the checker tool that will exit successfully
+            if this tool produced the expected result given test data.
+          title: Checker Url
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The description of the tool.
+          title: Description
+        has_checker:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Whether this tool has a checker tool associated with it.
+          title: Has Checker
+        id:
+          description: A unique identifier of the tool, scoped to this registry.
+          examples:
+          - 123456
+          title: Id
+          type: string
+        meta_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The version of this tool in the registry. Iterates when fields
+            like the description, author, etc. are updated.
+          title: Meta Version
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The name of the tool.
+          title: Name
+        organization:
+          description: The organization that published the image.
+          title: Organization
+          type: string
+        toolclass:
+          $ref: '#/components/schemas/ToolClass'
+        url:
+          description: The URL for this tool in this registry.
+          examples:
+          - http://agora.broadinstitute.org/tools/123456
+          title: Url
+          type: string
+        versions:
+          description: A list of versions for this tool.
+          items:
+            $ref: '#/components/schemas/ToolVersion'
+          title: Versions
+          type: array
+      required:
+      - url
+      - id
+      - organization
+      - toolclass
+      - versions
+      title: Tool
+      type: object
+    ToolClass:
+      properties:
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: A longer explanation of what this class is and what it can
+            accomplish.
+          title: Description
+        id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The unique identifier for the class.
+          title: Id
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: A short friendly name for the class.
+          title: Name
+      title: ToolClass
+      type: object
+    ToolOutputBoolean:
+      properties:
+        hidden:
+          description: If true, the output will not be shown in the history.
+          title: hidden
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Output label. Will be used as dataset name in history.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows.
+          title: name
+        type:
+          const: boolean
+          title: type
+          type: string
+      required:
+      - name
+      - hidden
+      - type
+      title: ToolOutputBoolean
+      type: object
+    ToolOutputCollection:
+      properties:
+        hidden:
+          description: If true, the output will not be shown in the history.
+          title: hidden
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Output label. Will be used as dataset name in history.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows.
+          title: name
+          type: string
+        structure:
+          $ref: '#/components/schemas/ToolOutputCollectionStructure'
+          title: structure
+        type:
+          const: collection
+          title: type
+          type: string
+      required:
+      - name
+      - hidden
+      - type
+      - structure
+      title: ToolOutputCollection
+      type: object
+    ToolOutputCollectionStructure:
+      properties:
+        collection_type:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: collection_type
+        collection_type_from_rules:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: collection_type_from_rules
+        collection_type_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: collection_type_source
+        discover_datasets:
+          anyOf:
+          - items:
+              anyOf:
+              - $ref: '#/components/schemas/FilePatternDatasetCollectionDescription'
+              - $ref: '#/components/schemas/ToolProvidedMetadataDatasetCollection'
+            type: array
+          - type: 'null'
+          title: discover_datasets
+        structured_like:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: structured_like
+      title: ToolOutputCollectionStructure
+      type: object
+    ToolOutputDataset:
+      properties:
+        discover_datasets:
+          anyOf:
+          - items:
+              anyOf:
+              - $ref: '#/components/schemas/FilePatternDatasetCollectionDescription'
+              - $ref: '#/components/schemas/ToolProvidedMetadataDatasetCollection'
+            type: array
+          - type: 'null'
+          title: discover_datasets
+        format:
+          description: The short name for the output datatype.
+          title: format
+          type: string
+        format_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: This sets the data type of the output dataset(s) to be the
+            same format as that of the specified tool input.
+          title: format_source
+        from_work_dir:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: "Relative path to a file produced by the tool in its working\
+            \ directory. Output\u2019s contents are set to this file\u2019s contents."
+          title: from_work_dir
+        hidden:
+          description: If true, the output will not be shown in the history.
+          title: hidden
+          type: boolean
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Output label. Will be used as dataset name in history.
+          title: label
+        metadata_source:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: "This copies the metadata information from the tool\u2019s\
+            \ input dataset to serve as default for information that cannot be detected\
+            \ from the output. One prominent use case is interval data with a non-standard\
+            \ column order that cannot be deduced from a header line, but which is\
+            \ known to be identical in the input and output datasets."
+          title: metadata_source
+        name:
+          description: Parameter name. Used when referencing parameter in workflows.
+          title: name
+          type: string
+        precreate_directory:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: false
+          title: precreate_directory
+        type:
+          const: data
+          title: type
+          type: string
+      required:
+      - name
+      - hidden
+      - type
+      - format
+      title: ToolOutputDataset
+      type: object
+    ToolOutputFloat:
+      properties:
+        hidden:
+          description: If true, the output will not be shown in the history.
+          title: hidden
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Output label. Will be used as dataset name in history.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows.
+          title: name
+        type:
+          const: float
+          title: type
+          type: string
+      required:
+      - name
+      - hidden
+      - type
+      title: ToolOutputFloat
+      type: object
+    ToolOutputInteger:
+      properties:
+        hidden:
+          description: If true, the output will not be shown in the history.
+          title: hidden
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Output label. Will be used as dataset name in history.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows.
+          title: name
+        type:
+          const: integer
+          title: type
+          type: string
+      required:
+      - name
+      - hidden
+      - type
+      title: ToolOutputInteger
+      type: object
+    ToolOutputText:
+      properties:
+        hidden:
+          description: If true, the output will not be shown in the history.
+          title: hidden
+        label:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Output label. Will be used as dataset name in history.
+          title: label
+        name:
+          description: Parameter name. Used when referencing parameter in workflows.
+          title: name
+        type:
+          const: text
+          title: type
+          type: string
+      required:
+      - name
+      - hidden
+      - type
+      title: ToolOutputText
+      type: object
+    ToolProvidedMetadataDatasetCollection:
+      properties:
+        assign_primary_output:
+          title: assign_primary_output
+          type: boolean
+        directory:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: directory
+        discover_via:
+          const: tool_provided_metadata
+          title: discover_via
+          type: string
+        format:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: format
+        match_relative_path:
+          title: match_relative_path
+          type: boolean
+        recurse:
+          title: recurse
+          type: boolean
+        visible:
+          title: visible
+          type: boolean
+      required:
+      - discover_via
+      - format
+      - visible
+      - assign_primary_output
+      - directory
+      - recurse
+      - match_relative_path
+      title: ToolProvidedMetadataDatasetCollection
+      type: object
+    ToolVersion:
+      properties:
+        author:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: Contact information for the author of this version of the tool
+            in the registry. (More complex authorship information is handled by the
+            descriptor).
+          title: Author
+        containerfile:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Reports if this tool has a containerfile available. (For Docker-based
+            tools, this would indicate the presence of a Dockerfile)
+          title: Containerfile
+        descriptor_type:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/DescriptorType'
+            type: array
+          - type: 'null'
+          description: The type (or types) of descriptors available.
+          title: Descriptor Type
+        descriptor_type_version:
+          anyOf:
+          - additionalProperties:
+              items:
+                $ref: '#/components/schemas/DescriptorTypeVersion'
+              type: array
+            type: object
+          - type: 'null'
+          description: A map providing information about the language versions used
+            in this tool. The keys should be the same values used in the `descriptor_type`
+            field, and the value should be an array of all the language versions used
+            for the given `descriptor_type`. Depending on the `descriptor_type` (e.g.
+            CWL) multiple version values may be used in a single tool.
+          examples:
+          - "{\n  \"WDL\": [\"1.0\", \"1.0\"],\n  \"CWL\": [\"v1.0.2\"],\n  \"NFL\"\
+            : [\"DSL2\"]\n}\n"
+          title: Descriptor Type Version
+        id:
+          description: An identifier of the version of this tool for this particular
+            tool registry.
+          examples:
+          - v1
+          title: Id
+          type: string
+        images:
+          anyOf:
+          - items:
+              $ref: '#/components/schemas/ImageData'
+            type: array
+          - type: 'null'
+          description: All known docker images (and versions/hashes) used by this
+            tool. If the tool has to evaluate any of the docker images strings at
+            runtime, those ones cannot be reported here.
+          title: Images
+        included_apps:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: An array of IDs for the applications that are stored inside
+            this tool.
+          examples:
+          - https://bio.tools/tool/mytum.de/SNAP2/1
+          - https://bio.tools/bioexcel_seqqc
+          title: Included Apps
+        is_production:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: This version of a tool is guaranteed to not change over time
+            (for example, a  tool built from a tag in git as opposed to a branch).
+            A production quality tool  is required to have a checksum
+          title: Is Production
+        meta_version:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The version of this tool version in the registry. Iterates
+            when fields like the description, author, etc. are updated.
+          title: Meta Version
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: The name of the version.
+          title: Name
+        signed:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Reports whether this version of the tool has been signed.
+          title: Signed
+        url:
+          description: The URL for this tool version in this registry.
+          examples:
+          - http://agora.broadinstitute.org/tools/123456/versions/1
+          title: Url
+          type: string
+        verified:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          description: Reports whether this tool has been verified by a specific organization
+            or individual.
+          title: Verified
+        verified_source:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          description: Source of metadata that can support a verified tool, such as
+            an email or URL.
+          title: Verified Source
+      required:
+      - url
+      - id
+      title: ToolVersion
+      type: object
+    UiChangePasswordRequest:
+      properties:
+        current:
+          title: Current
+          type: string
+        password:
+          title: Password
+          type: string
+      required:
+      - current
+      - password
+      title: UiChangePasswordRequest
+      type: object
+    UiLoginRequest:
+      properties:
+        login:
+          title: Login
+          type: string
+        password:
+          title: Password
+          type: string
+        session_csrf_token:
+          title: Session Csrf Token
+          type: string
+      required:
+      - session_csrf_token
+      - login
+      - password
+      title: UiLoginRequest
+      type: object
+    UiLoginResponse:
+      properties: {}
+      title: UiLoginResponse
+      type: object
+    UiLogoutRequest:
+      properties:
+        logout_all:
+          default: false
+          title: Logout All
+          type: boolean
+        session_csrf_token:
+          title: Session Csrf Token
+          type: string
+      required:
+      - session_csrf_token
+      title: UiLogoutRequest
+      type: object
+    UiLogoutResponse:
+      properties: {}
+      title: UiLogoutResponse
+      type: object
+    UiRegisterRequest:
+      properties:
+        bear_field:
+          title: Bear Field
+          type: string
+        email:
+          title: Email
+          type: string
+        password:
+          title: Password
+          type: string
+        username:
+          title: Username
+          type: string
+      required:
+      - email
+      - username
+      - password
+      - bear_field
+      title: UiRegisterRequest
+      type: object
+    UiRegisterResponse:
+      properties:
+        activation_error:
+          default: false
+          title: Activation Error
+          type: boolean
+        activation_sent:
+          default: false
+          title: Activation Sent
+          type: boolean
+        contact_email:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Contact Email
+        email:
+          title: Email
+          type: string
+      required:
+      - email
+      title: UiRegisterResponse
+      type: object
+    UpdateRepositoryRequest:
+      properties:
+        category_ids:
+          anyOf:
+          - items:
+              type: string
+            type: array
+          - type: 'null'
+          title: Category IDs
+        description:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Description
+        homepage_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Homepage Url
+        name:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+        remote_repository_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Remote Repository Url
+        synopsis:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Synopsis
+        type:
+          anyOf:
+          - enum:
+            - repository_suite_definition
+            - tool_dependency_definition
+            - unrestricted
+            type: string
+          - type: 'null'
+          title: Type
+      title: UpdateRepositoryRequest
+      type: object
+    UserV2:
+      properties:
+        id:
+          title: Id
+          type: string
+        is_admin:
+          title: Is Admin
+          type: boolean
+        username:
+          title: Username
+          type: string
+      required:
+      - id
+      - username
+      - is_admin
+      title: UserV2
+      type: object
+    ValidRepostiroyUpdateMessage:
+      properties:
+        message:
+          title: Message
+          type: string
+      required:
+      - message
+      title: ValidRepostiroyUpdateMessage
+      type: object
+    ValidTool:
+      properties:
+        add_to_tool_panel:
+          title: Add To Tool Panel
+          type: boolean
+        description:
+          title: Description
+          type: string
+        guid:
+          title: Guid
+          type: string
+        id:
+          title: Id
+          type: string
+        name:
+          title: Name
+          type: string
+        requirements:
+          items: {}
+          title: Requirements
+          type: array
+        tests:
+          items: {}
+          title: Tests
+          type: array
+        tool_config:
+          title: Tool Config
+          type: string
+        tool_type:
+          title: Tool Type
+          type: string
+        version:
+          title: Version
+          type: string
+        version_string_cmd:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Version String Cmd
+      required:
+      - add_to_tool_panel
+      - description
+      - guid
+      - id
+      - name
+      - requirements
+      - tests
+      - tool_config
+      - tool_type
+      - version
+      title: ValidTool
+      type: object
+    Version:
+      properties:
+        api_version:
+          default: v1
+          title: Api Version
+          type: string
+        version:
+          title: Version
+          type: string
+        version_major:
+          title: Version Major
+          type: string
+      required:
+      - version_major
+      - version
+      title: Version
+      type: object
+    XrefDict:
+      properties:
+        type:
+          title: type
+          type: string
+        value:
+          title: value
+          type: string
+      required:
+      - value
+      - type
+      title: XrefDict
+      type: object
+  securitySchemes:
+    APIKeyCookie:
+      in: cookie
+      name: galaxycommunitysession
+      type: apiKey
+    APIKeyHeader:
+      in: header
+      name: x-api-key
+      type: apiKey
+    APIKeyQuery:
+      in: query
+      name: key
+      type: apiKey
+info:
+  description: This API allows you to manage the Tool Shed repositories.
+  license:
+    name: MIT
+    url: https://github.com/galaxyproject/galaxy/blob/dev/LICENSE.txt
+  title: Galaxy Tool Shed API
+  version: 0.1.0
+openapi: 3.1.0
+paths:
+  /api/authenticate/baseauth:
+    get:
+      operationId: authenticate__baseauth
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIKeyResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Returns returns an API key for authenticated user based on BaseAuth
+        headers.
+      tags:
+      - authenticate
+      - authenticate
+  /api/categories:
+    get:
+      description: index category
+      operationId: categories__index
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/Category'
+                title: Response Categories  Index
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Index
+      tags:
+      - categories
+      - categories
+    post:
+      description: create a category
+      operationId: categories__create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Create
+      tags:
+      - categories
+      - categories
+  /api/categories/{encoded_category_id}:
+    get:
+      description: show category
+      operationId: categories__show
+      parameters:
+      - description: The encoded database identifier of the category.
+        in: path
+        name: encoded_category_id
+        required: true
+        schema:
+          description: The encoded database identifier of the category.
+          title: Category ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Show
+      tags:
+      - categories
+      - categories
+  /api/categories/{encoded_category_id}/repositories:
+    get:
+      description: display repositories by category
+      operationId: categories__repositories
+      parameters:
+      - description: The encoded database identifier of the category.
+        in: path
+        name: encoded_category_id
+        required: true
+        schema:
+          description: The encoded database identifier of the category.
+          title: Category ID
+          type: string
+      - in: query
+        name: installable
+        required: false
+        schema:
+          default: false
+          title: Installable?
+          type: boolean
+      - in: query
+        name: sort_key
+        required: false
+        schema:
+          default: name
+          title: Sort Key
+          type: string
+      - in: query
+        name: sort_order
+        required: false
+        schema:
+          default: asc
+          title: Sort Order
+          type: string
+      - in: query
+        name: page
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Page
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoriesByCategory'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Repositories
+      tags:
+      - categories
+      - categories
+  /api/ga4gh/trs/v2/service-info:
+    get:
+      operationId: tools_trs_service_info
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Service'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Service Info
+      tags:
+      - tools
+      - tools
+  /api/ga4gh/trs/v2/toolClasses:
+    get:
+      operationId: tools__trs_tool_classes
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ToolClass'
+                title: Response Tools  Trs Tool Classes
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Tool Classes
+      tags:
+      - tools
+      - tools
+  /api/ga4gh/trs/v2/tools:
+    get:
+      operationId: tools__trs_index
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Trs Index
+      tags:
+      - tools
+      - tools
+  /api/ga4gh/trs/v2/tools/{tool_id}:
+    get:
+      operationId: tools__trs_get
+      parameters:
+      - description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+        in: path
+        name: tool_id
+        required: true
+        schema:
+          description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+          title: GA4GH TRS Tool ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Tool'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Trs Get
+      tags:
+      - tools
+      - tools
+  /api/ga4gh/trs/v2/tools/{tool_id}/versions:
+    get:
+      operationId: tools__trs_get_versions
+      parameters:
+      - description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+        in: path
+        name: tool_id
+        required: true
+        schema:
+          description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+          title: GA4GH TRS Tool ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/ToolVersion'
+                title: Response Tools  Trs Get Versions
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Trs Get Versions
+      tags:
+      - tools
+      - tools
+  /api/repositories:
+    get:
+      description: Get a list of repositories or perform a search.
+      operationId: repositories__index
+      parameters:
+      - description: This will perform a full search with whoosh on the backend and
+          will cause the API endpoint to return a RepositorySearchResult. This should
+          not be used with the 'filter' parameter.
+        in: query
+        name: q
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: This will perform a full search with whoosh on the backend
+            and will cause the API endpoint to return a RepositorySearchResult. This
+            should not be used with the 'filter' parameter.
+          title: Search Query
+      - description: This will perform a quick search using database operators. This
+          should not be used with the 'q' parameter.
+        in: query
+        name: filter
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: This will perform a quick search using database operators.
+            This should not be used with the 'q' parameter.
+          title: Filter Text
+      - in: query
+        name: page
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          description: ''
+          title: Page
+      - in: query
+        name: page_size
+        required: false
+        schema:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          default: 10
+          title: Page Size
+      - in: query
+        name: deleted
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: false
+          title: Deleted?
+      - in: query
+        name: owner
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      - in: query
+        name: name
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+      - in: query
+        name: category_id
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Category ID
+      - description: Direction of sort. This defaults to False and causes an ascending
+          sort on the field specified by sort_on. This field is ignored if 'q' is
+          specified an whoosh search is used.
+        in: query
+        name: sort_desc
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: false
+          description: Direction of sort. This defaults to False and causes an ascending
+            sort on the field specified by sort_on. This field is ignored if 'q' is
+            specified an whoosh search is used.
+          title: Sort Descending
+      - description: Sort by the this repository field - direction is controlled by
+          sort_desc that defaults to False and causes an ascending sort on this field.
+          This field is ignored if 'q' is specified an whoosh search is used.
+        in: query
+        name: sort_by
+        required: false
+        schema:
+          anyOf:
+          - enum:
+            - name
+            - create_time
+            type: string
+          - type: 'null'
+          default: name
+          description: Sort by the this repository field - direction is controlled
+            by sort_desc that defaults to False and causes an ascending sort on this
+            field. This field is ignored if 'q' is specified an whoosh search is used.
+          title: Sort by
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/RepositorySearchResults'
+                - items:
+                    $ref: '#/components/schemas/Repository'
+                  type: array
+                - $ref: '#/components/schemas/PaginatedRepositoryIndexResults'
+                title: Response Repositories  Index
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Index
+      tags:
+      - repositories
+      - repositories
+    post:
+      description: create a new repository
+      operationId: repositories__create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRepositoryRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Repository'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Create
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/get_ordered_installable_revisions:
+    get:
+      description: Get an ordered list of the repository changeset revisions that
+        are installable
+      operationId: repositories__get_ordered_installable_revisions
+      parameters:
+      - in: query
+        name: owner
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      - in: query
+        name: name
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+      - in: query
+        name: tsr_id
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: TSR ID
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                title: Response Repositories  Get Ordered Installable Revisions
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Get Ordered Installable Revisions
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/get_repository_revision_install_info:
+    get:
+      description: Get information used by the install client to install this repository.
+      operationId: repositories__legacy_install_info
+      parameters:
+      - description: Name of the target repository.
+        in: query
+        name: name
+        required: true
+        schema:
+          description: Name of the target repository.
+          title: Name
+          type: string
+      - description: Owner of the target repository.
+        in: query
+        name: owner
+        required: true
+        schema:
+          description: Owner of the target repository.
+          title: owner
+          type: string
+      - description: Changeset of the target repository.
+        in: query
+        name: changeset_revision
+        required: true
+        schema:
+          description: Changeset of the target repository.
+          title: changeset
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items: {}
+                title: Response Repositories  Legacy Install Info
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Legacy Install Info
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/install_info:
+    get:
+      description: Get information used by the install client to install this repository.
+      operationId: repositories__install_info
+      parameters:
+      - description: Name of the target repository.
+        in: query
+        name: name
+        required: true
+        schema:
+          description: Name of the target repository.
+          title: Name
+          type: string
+      - description: Owner of the target repository.
+        in: query
+        name: owner
+        required: true
+        schema:
+          description: Owner of the target repository.
+          title: owner
+          type: string
+      - description: Changeset of the target repository.
+        in: query
+        name: changeset_revision
+        required: true
+        schema:
+          description: Changeset of the target repository.
+          title: changeset
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstallInfo'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Install Info
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/reset_metadata_on_repositories:
+    post:
+      description: reset metadata on all of your repositories
+      operationId: repositories__reset_all
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetMetadataOnRepositoriesResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Reset Metadata On Repositories
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/reset_metadata_on_repository:
+    post:
+      description: reset metadata on a repository
+      operationId: repositories__reset_legacy
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetMetadataOnRepositoryResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Reset Metadata On Repository Legacy
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/updates:
+    get:
+      operationId: repositories__update
+      parameters:
+      - in: query
+        name: owner
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Owner
+      - in: query
+        name: name
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Name
+      - in: query
+        name: changeset_revision
+        required: true
+        schema:
+          title: Changeset Revision
+          type: string
+      - in: query
+        name: hexlify
+        required: false
+        schema:
+          anyOf:
+          - type: boolean
+          - type: 'null'
+          default: true
+          title: Hexlify response
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Updates
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}:
+    get:
+      operationId: repositories__show
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedRepository'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Show
+      tags:
+      - repositories
+      - repositories
+    put:
+      operationId: repositories__update_repository
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRepositoryRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DetailedRepository'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Update Repository
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/allow_push:
+    get:
+      operationId: repositories__show_allow_push
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                title: Response Repositories  Show Allow Push
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Show Allow Push
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/allow_push/{username}:
+    delete:
+      operationId: repositories__remove_allow_push
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: The target username.
+        in: path
+        name: username
+        required: true
+        schema:
+          description: The target username.
+          title: Username
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                title: Response Repositories  Remove Allow Push
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Remove Allow Push
+      tags:
+      - repositories
+      - repositories
+    post:
+      operationId: repositories__add_allow_push
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: The target username.
+        in: path
+        name: username
+        required: true
+        schema:
+          description: The target username.
+          title: Username
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  type: string
+                title: Response Repositories  Add Allow Push
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Add Allow Push
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/changeset_revision:
+    post:
+      description: upload new revision to the repository
+      operationId: repositories__create_revision
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: Set commit message as a query parameter.
+        in: query
+        name: commit_message
+        required: false
+        schema:
+          anyOf:
+          - type: string
+          - type: 'null'
+          description: Set commit message as a query parameter.
+          title: Commit Message
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/Body_repositories__create_revision'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryUpdate'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Create Changeset Revision
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/deprecated:
+    delete:
+      operationId: repositories__unset_deprecated
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      responses:
+        '204':
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Unset Deprecated
+      tags:
+      - repositories
+      - repositories
+    put:
+      operationId: repositories__set_deprecated
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      responses:
+        '204':
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Set Deprecated
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/metadata:
+    get:
+      description: Get information about repository metadata
+      operationId: repositories__metadata
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: Include only downloadable repositories.
+        in: query
+        name: downloadable_only
+        required: false
+        schema:
+          default: true
+          description: Include only downloadable repositories.
+          title: downloadable_only
+          type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                title: Response Repositories  Metadata
+                type: object
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Metadata
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/permissions:
+    get:
+      operationId: repositories__permissions
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryPermissions'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Permissions
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/reset_metadata:
+    post:
+      description: reset metadata on a repository
+      operationId: repositories__reset
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResetMetadataOnRepositoryResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Reset Metadata On Repository
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/revisions/{changeset_revision}/malicious:
+    delete:
+      operationId: repositories__unset_malicious
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: The changeset revision corresponding to the target revision of
+          the target repository.
+        in: path
+        name: changeset_revision
+        required: true
+        schema:
+          description: The changeset revision corresponding to the target revision
+            of the target repository.
+          title: Change Revision
+          type: string
+      responses:
+        '204':
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Unset Malicious
+      tags:
+      - repositories
+      - repositories
+    put:
+      operationId: repositories__set_malicious
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: The changeset revision corresponding to the target revision of
+          the target repository.
+        in: path
+        name: changeset_revision
+        required: true
+        schema:
+          description: The changeset revision corresponding to the target revision
+            of the target repository.
+          title: Change Revision
+          type: string
+      responses:
+        '204':
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Set Malicious
+      tags:
+      - repositories
+      - repositories
+  /api/repositories/{encoded_repository_id}/revisions/{changeset_revision}/readmes:
+    get:
+      description: fetch readmes for repository revision
+      operationId: repositories__readmes
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: The changeset revision corresponding to the target revision of
+          the target repository.
+        in: path
+        name: changeset_revision
+        required: true
+        schema:
+          description: The changeset revision corresponding to the target revision
+            of the target repository.
+          title: Change Revision
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryRevisionReadmes'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Get Readmes
+      tags:
+      - repositories
+      - repositories
+  /api/tools:
+    get:
+      operationId: tools__index
+      parameters:
+      - in: query
+        name: q
+        required: true
+        schema:
+          title: Search Query
+          type: string
+      - in: query
+        name: page
+        required: false
+        schema:
+          default: 1
+          description: ''
+          title: Page
+          type: integer
+      - in: query
+        name: page_size
+        required: false
+        schema:
+          default: 10
+          title: Page Size
+          type: integer
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Index
+      tags:
+      - tools
+      - tools
+  /api/tools/build_search_index:
+    put:
+      description: 'Not part of the stable API, just something to simplify
+
+        bootstrapping tool sheds, scripting, testing, etc...'
+      operationId: tools__build_search_index
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BuildSearchIndexResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Build Search Index
+      tags:
+      - tools
+      - tools
+  /api/tools/{tool_id}/versions/{tool_version}:
+    get:
+      operationId: tools__parameter_model
+      parameters:
+      - description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+        in: path
+        name: tool_id
+        required: true
+        schema:
+          description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+          title: GA4GH TRS Tool ID
+          type: string
+      - description: The full version string defined on the Galaxy tool wrapper.
+        in: path
+        name: tool_version
+        required: true
+        schema:
+          description: The full version string defined on the Galaxy tool wrapper.
+          title: Galaxy Tool Wrapper Version
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShedParsedTool'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Return Galaxy's meta model description of the tool's inputs
+      tags:
+      - tools
+      - tools
+  /api/tools/{tool_id}/versions/{tool_version}/parameter_landing_request_schema:
+    get:
+      operationId: tools__parameter_landing_request_schema
+      parameters:
+      - description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+        in: path
+        name: tool_id
+        required: true
+        schema:
+          description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+          title: GA4GH TRS Tool ID
+          type: string
+      - description: The full version string defined on the Galaxy tool wrapper.
+        in: path
+        name: tool_version
+        required: true
+        schema:
+          description: The full version string defined on the Galaxy tool wrapper.
+          title: Galaxy Tool Wrapper Version
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Return a JSON schema description of the tool's inputs for the tool
+        landing request API.
+      tags:
+      - tools
+      - tools
+  /api/tools/{tool_id}/versions/{tool_version}/parameter_request_schema:
+    get:
+      description: The tool request schema includes validation of map/reduce concepts
+        that can be consumed by the tool execution API and not just the request for
+        a single execution.
+      operationId: tools__parameter_request_schema
+      parameters:
+      - description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+        in: path
+        name: tool_id
+        required: true
+        schema:
+          description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+          title: GA4GH TRS Tool ID
+          type: string
+      - description: The full version string defined on the Galaxy tool wrapper.
+        in: path
+        name: tool_version
+        required: true
+        schema:
+          description: The full version string defined on the Galaxy tool wrapper.
+          title: Galaxy Tool Wrapper Version
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Return a JSON schema description of the tool's inputs for the tool
+        request API that will be added to Galaxy at some point
+      tags:
+      - tools
+      - tools
+  /api/tools/{tool_id}/versions/{tool_version}/parameter_test_case_xml_schema:
+    get:
+      operationId: tools__parameter_test_case_xml_schema
+      parameters:
+      - description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+        in: path
+        name: tool_id
+        required: true
+        schema:
+          description: See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids
+          title: GA4GH TRS Tool ID
+          type: string
+      - description: The full version string defined on the Galaxy tool wrapper.
+        in: path
+        name: tool_version
+        required: true
+        schema:
+          description: The full version string defined on the Galaxy tool wrapper.
+          title: Galaxy Tool Wrapper Version
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema: {}
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Return a JSON schema description of the tool's inputs for test case
+        construction.
+      tags:
+      - tools
+      - tools
+  /api/users:
+    get:
+      description: index users
+      operationId: users__index
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: '#/components/schemas/UserV2'
+                title: Response Users  Index
+                type: array
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Index
+      tags:
+      - users
+      - users
+    post:
+      description: create a user
+      operationId: users__create
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserV2'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Create
+      tags:
+      - users
+      - users
+  /api/users/current:
+    get:
+      description: show current user
+      operationId: users__current
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserV2'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Current
+      tags:
+      - users
+      - users
+  /api/users/{encoded_user_id}:
+    get:
+      description: show a user
+      operationId: users__show
+      parameters:
+      - description: The encoded database identifier of the user.
+        in: path
+        name: encoded_user_id
+        required: true
+        schema:
+          description: The encoded database identifier of the user.
+          title: User ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserV2'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Show
+      tags:
+      - users
+      - users
+  /api/users/{encoded_user_id}/api_key:
+    delete:
+      operationId: users__delete_api_key
+      parameters:
+      - description: The encoded database identifier of the user.
+        in: path
+        name: encoded_user_id
+        required: true
+        schema:
+          description: The encoded database identifier of the user.
+          title: User ID
+          type: string
+      responses:
+        '204':
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Delete the current API key of the user
+      tags:
+      - users
+      - users
+    get:
+      operationId: users__get_or_create_api_key
+      parameters:
+      - description: The encoded database identifier of the user.
+        in: path
+        name: encoded_user_id
+        required: true
+        schema:
+          description: The encoded database identifier of the user.
+          title: User ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                title: Response Users  Get Or Create Api Key
+                type: string
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Return the user's API key
+      tags:
+      - users
+      - users
+    post:
+      operationId: users__create_api_key
+      parameters:
+      - description: The encoded database identifier of the user.
+        in: path
+        name: encoded_user_id
+        required: true
+        schema:
+          description: The encoded database identifier of the user.
+          title: User ID
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                title: Response Users  Create Api Key
+                type: string
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Creates a new API key for the user
+      tags:
+      - users
+      - users
+  /api/version:
+    get:
+      operationId: configuration__version
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Version'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Version
+      tags:
+      - configuration
+      - configuration
+  /api_internal/change_password:
+    put:
+      description: reset a user
+      operationId: users__internal_change_password
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiChangePasswordRequest'
+        required: true
+      responses:
+        '204':
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Change Password
+      tags:
+      - users
+      - users
+  /api_internal/login:
+    put:
+      description: login to web UI
+      operationId: users__internal_login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiLoginRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiLoginResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Internal Login
+      tags:
+      - users
+      - users
+  /api_internal/logout:
+    put:
+      description: logout of web UI
+      operationId: users__internal_logout
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiLogoutRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiLogoutResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Internal Logout
+      tags:
+      - users
+      - users
+  /api_internal/register:
+    post:
+      description: register a user
+      operationId: users__internal_register
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UiRegisterRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UiRegisterResponse'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      security:
+      - APIKeyCookie: []
+      - APIKeyQuery: []
+      - APIKeyHeader: []
+      summary: Register
+      tags:
+      - users
+      - users
+  /api_internal/repositories/{encoded_repository_id}/metadata:
+    get:
+      description: Get information about repository metadata
+      operationId: repositories__internal_metadata
+      parameters:
+      - description: The encoded database identifier of the repository.
+        in: path
+        name: encoded_repository_id
+        required: true
+        schema:
+          description: The encoded database identifier of the repository.
+          title: Repository ID
+          type: string
+      - description: Include only downloadable repositories.
+        in: query
+        name: downloadable_only
+        required: false
+        schema:
+          default: true
+          description: Include only downloadable repositories.
+          title: downloadable_only
+          type: boolean
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RepositoryMetadata'
+          description: Successful Response
+        4XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Request Error
+        5XX:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageExceptionModel'
+          description: Server Error
+      summary: Metadata Internal
+      tags:
+      - repositories
+      - repositories

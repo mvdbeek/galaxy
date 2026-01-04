@@ -1,10 +1,19 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["DatasetCollectionPopulatedState"]
 
 
+@unique
 class DatasetCollectionPopulatedState(str, Enum):
-    FAILED = "failed"
+    """
+    DatasetCollectionPopulatedState Enum
+
+    Args:
+        new (str)                : Value for NEW
+        ok (str)                 : Value for OK
+        failed (str)             : Value for FAILED
+    """
+
     NEW = "new"
     OK = "ok"
-
-    def __str__(self) -> str:
-        return str(self.value)
+    FAILED = "failed"

@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["LandingRequestState"]
 
 
+@unique
 class LandingRequestState(str, Enum):
-    CLAIMED = "claimed"
-    UNCLAIMED = "unclaimed"
+    """
+    LandingRequestState Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        unclaimed (str)          : Value for UNCLAIMED
+        claimed (str)            : Value for CLAIMED
+    """
+
+    UNCLAIMED = "unclaimed"
+    CLAIMED = "claimed"

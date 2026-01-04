@@ -1,12 +1,23 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["TaskState"]
 
 
+@unique
 class TaskState(str, Enum):
-    FAILURE = "FAILURE"
-    PENDING = "PENDING"
-    RETRY = "RETRY"
-    STARTED = "STARTED"
-    SUCCESS = "SUCCESS"
+    """
+    Enum representing the possible states of a task.
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        PENDING (str)            : Value for PENDING
+        STARTED (str)            : Value for STARTED
+        RETRY (str)              : Value for RETRY
+        FAILURE (str)            : Value for FAILURE
+        SUCCESS (str)            : Value for SUCCESS
+    """
+
+    PENDING = "PENDING"
+    STARTED = "STARTED"
+    RETRY = "RETRY"
+    FAILURE = "FAILURE"
+    SUCCESS = "SUCCESS"

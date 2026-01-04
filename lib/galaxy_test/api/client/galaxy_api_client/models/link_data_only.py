@@ -1,9 +1,5 @@
-from enum import Enum
+from typing import Any, TypeAlias
 
+__all__ = ["LinkDataOnly"]
 
-class LinkDataOnly(str, Enum):
-    COPY_FILES = "copy_files"
-    LINK_TO_FILES = "link_to_files"
-
-    def __str__(self) -> str:
-        return str(self.value)
+LinkDataOnly: TypeAlias = Any

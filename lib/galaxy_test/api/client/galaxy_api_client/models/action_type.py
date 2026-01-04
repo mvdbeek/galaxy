@@ -1,13 +1,25 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["ActionType"]
 
 
+@unique
 class ActionType(str, Enum):
-    CONTACT_SUPPORT = "contact_support"
-    DOCUMENTATION = "documentation"
-    REFINE_QUERY = "refine_query"
-    SAVE_TOOL = "save_tool"
-    TOOL_RUN = "tool_run"
-    VIEW_EXTERNAL = "view_external"
+    """
+    Types of actions agents can suggest.
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        tool_run (str)           : Value for TOOL_RUN
+        documentation (str)      : Value for DOCUMENTATION
+        contact_support (str)    : Value for CONTACT_SUPPORT
+        view_external (str)      : Value for VIEW_EXTERNAL
+        save_tool (str)          : Value for SAVE_TOOL
+        refine_query (str)       : Value for REFINE_QUERY
+    """
+
+    TOOL_RUN = "tool_run"
+    DOCUMENTATION = "documentation"
+    CONTACT_SUPPORT = "contact_support"
+    VIEW_EXTERNAL = "view_external"
+    SAVE_TOOL = "save_tool"
+    REFINE_QUERY = "refine_query"

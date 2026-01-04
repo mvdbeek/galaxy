@@ -1,46 +1,7 @@
-from __future__ import annotations
+from typing import TypeAlias
 
-from collections.abc import Mapping
-from typing import Any, TypeVar
+from .anonymous_array_item_21 import AnonymousArrayItem21
 
-from attrs import define as _attrs_define
-from attrs import field as _attrs_field
+__all__ = ["Files"]
 
-T = TypeVar("T", bound="Files")
-
-
-@_attrs_define
-class Files:
-    """A dictionary of file names and their size in bytes"""
-
-    additional_properties: dict[str, int] = _attrs_field(init=False, factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        files = cls()
-
-        files.additional_properties = d
-        return files
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> int:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: int) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties
+Files: TypeAlias = list[AnonymousArrayItem21] | None

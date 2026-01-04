@@ -1,10 +1,5 @@
-from enum import Enum
+from typing import Any, TypeAlias
 
+__all__ = ["CreateType"]
 
-class CreateType(str, Enum):
-    COLLECTION = "collection"
-    FILE = "file"
-    FOLDER = "folder"
-
-    def __str__(self) -> str:
-        return str(self.value)
+CreateType: TypeAlias = Any

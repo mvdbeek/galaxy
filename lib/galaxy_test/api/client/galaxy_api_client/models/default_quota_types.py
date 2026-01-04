@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["DefaultQuotaTypes"]
 
 
+@unique
 class DefaultQuotaTypes(str, Enum):
-    REGISTERED = "registered"
-    UNREGISTERED = "unregistered"
+    """
+    DefaultQuotaTypes Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        unregistered (str)       : Value for UNREGISTERED
+        registered (str)         : Value for REGISTERED
+    """
+
+    UNREGISTERED = "unregistered"
+    REGISTERED = "registered"

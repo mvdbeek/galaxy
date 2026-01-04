@@ -1,8 +1,15 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["FavoriteObjectType"]
 
 
+@unique
 class FavoriteObjectType(str, Enum):
-    TOOLS = "tools"
+    """
+    FavoriteObjectType Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        tools (str)              : Value for TOOLS
+    """
+
+    TOOLS = "tools"

@@ -1,75 +1,20 @@
-from __future__ import annotations
+from dataclasses import dataclass
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from .encoded_dataset_source_id import EncodedDatasetSourceId
 
-from attrs import define as _attrs_define
-from attrs import field as _attrs_field
-
-if TYPE_CHECKING:
-    from ..models.encoded_dataset_source_id import EncodedDatasetSourceId
+__all__ = ["DatasetErrorMessage"]
 
 
-T = TypeVar("T", bound="DatasetErrorMessage")
-
-
-@_attrs_define
+@dataclass
 class DatasetErrorMessage:
     """
-    Attributes:
-        dataset (EncodedDatasetSourceId):
-        error_message (str): The error message returned while processing this dataset.
+    DatasetErrorMessage dataclass.
+
+    Args:
+        dataset (EncodedDatasetSourceId)
+                                 :
+        error_message (str)      : The error message returned while processing this dataset.
     """
 
     dataset: EncodedDatasetSourceId
-    error_message: str
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        dataset = self.dataset.to_dict()
-
-        error_message = self.error_message
-
-        field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "dataset": dataset,
-                "error_message": error_message,
-            }
-        )
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.encoded_dataset_source_id import EncodedDatasetSourceId
-
-        d = dict(src_dict)
-        dataset = EncodedDatasetSourceId.from_dict(d.pop("dataset"))
-
-        error_message = d.pop("error_message")
-
-        dataset_error_message = cls(
-            dataset=dataset,
-            error_message=error_message,
-        )
-
-        dataset_error_message.additional_properties = d
-        return dataset_error_message
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> Any:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties
+    error_message: str  # The error message returned while processing this dataset.

@@ -1,10 +1,19 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["QuotaOperation"]
 
 
+@unique
 class QuotaOperation(str, Enum):
-    VALUE_0 = "="
-    VALUE_1 = "+"
-    VALUE_2 = "-"
+    """
+    QuotaOperation Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        = (str)                  : Value for MEMBER_EMPTY_STRING
+        + (str)                  : Value for MEMBER_EMPTY_STRING_1
+        - (str)                  : Value for _
+    """
+
+    MEMBER_EMPTY_STRING = "="
+    MEMBER_EMPTY_STRING_1 = "+"
+    _ = "-"

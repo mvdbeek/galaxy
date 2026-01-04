@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["ExtraFilesEntryClass"]
 
 
+@unique
 class ExtraFilesEntryClass(str, Enum):
+    """
+    ExtraFilesEntryClass Enum
+
+    Args:
+        Directory (str)          : Value for DIRECTORY
+        File (str)               : Value for FILE
+    """
+
     DIRECTORY = "Directory"
     FILE = "File"
-
-    def __str__(self) -> str:
-        return str(self.value)

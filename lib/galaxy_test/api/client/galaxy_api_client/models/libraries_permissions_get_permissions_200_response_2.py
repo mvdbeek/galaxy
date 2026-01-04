@@ -1,0 +1,8 @@
+from typing import TypeAlias
+
+from .library_available_permissions import LibraryAvailablePermissions
+from .library_current_permissions import LibraryCurrentPermissions
+
+__all__ = ["LibrariesPermissionsGetPermissions200Response2"]
+
+LibrariesPermissionsGetPermissions200Response2: TypeAlias = LibraryAvailablePermissions | LibraryCurrentPermissions

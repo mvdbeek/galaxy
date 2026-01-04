@@ -1,8 +1,16 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["MandatoryNotificationCategory"]
 
 
+@unique
 class MandatoryNotificationCategory(str, Enum):
-    BROADCAST = "broadcast"
+    """
+    These notification categories cannot be opt-out by the user.  The user will always
+    receive notifications from these categories.
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        broadcast (str)          : Value for BROADCAST
+    """
+
+    BROADCAST = "broadcast"
