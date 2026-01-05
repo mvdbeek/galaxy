@@ -8,6 +8,18 @@ export interface UploadFile {
     url?: string | null;
 }
 
+/** A secondary file (e.g., index) to be imported alongside the primary file */
+export interface SecondaryFileSelection {
+    /** Path/URI to the secondary file */
+    path: string;
+    /** The metadata key this file should be stored under (e.g., "bam_index") */
+    metadataKey: string;
+    /** Human-readable description of the file type */
+    description: string;
+    /** Whether this secondary file should be imported */
+    selected: boolean;
+}
+
 export function isLocalFile(file: unknown): file is File {
     return file !== null && typeof file === "object" && "name" in file && "size" in file;
 }
@@ -36,6 +48,8 @@ export interface UploadItem {
     optional: boolean;
     outputs: object | null;
     percentage: number;
+    /** Secondary files (e.g., indexes) detected and selected for import */
+    secondaryFiles?: SecondaryFileSelection[];
     spaceToTab: boolean;
     status: string;
     targetHistoryId?: string;
@@ -59,6 +73,7 @@ export const defaultModel: UploadItem = {
     optional: false,
     outputs: null,
     percentage: 0,
+    secondaryFiles: undefined,
     spaceToTab: false,
     status: "init",
     toPosixLines: true,

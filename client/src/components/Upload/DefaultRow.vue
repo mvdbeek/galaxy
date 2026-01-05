@@ -19,9 +19,10 @@ import { type ArchiveSource, isLocalZipFile, isRemoteZipFile } from "@/composabl
 import { useUserStore } from "@/stores/userStore";
 import { bytesToString } from "@/utils/utils";
 
-import { isLocalFile, type UploadItem } from "./model";
+import { isLocalFile, type SecondaryFileSelection, type UploadItem } from "./model";
 
 import GButton from "../BaseComponents/GButton.vue";
+import SecondaryFilesPanel from "./SecondaryFilesPanel.vue";
 import UploadExtension from "./UploadExtension.vue";
 import UploadSelect from "./UploadSelect.vue";
 import UploadSettings from "./UploadSettings.vue";
@@ -44,6 +45,7 @@ interface Props {
     listDbKeys?: DbKey[];
     listExtensions?: ExtensionDetails[];
     percentage: number;
+    secondaryFiles?: SecondaryFileSelection[];
     spaceToTab: boolean;
     status: string;
     toPosixLines: boolean;
@@ -55,6 +57,7 @@ const props = withDefaults(defineProps<Props>(), {
     listDbKeys: undefined,
     listExtensions: undefined,
     fileData: undefined,
+    secondaryFiles: undefined,
 });
 
 const emit = defineEmits<{
@@ -87,6 +90,18 @@ function inputSettings(settingId: string) {
     const newSettings: Record<string, any> = {};
     newSettings[settingId] = !(props as any)[settingId];
     emit("input", props.index, newSettings);
+}
+
+function toggleSecondaryFile(fileIndex: number) {
+    if (props.secondaryFiles) {
+        const updatedFiles = props.secondaryFiles.map((file, idx) => {
+            if (idx === fileIndex) {
+                return { ...file, selected: !file.selected };
+            }
+            return file;
+        });
+        emit("input", props.index, { secondaryFiles: updatedFiles });
+    }
 }
 
 function removeUpload() {
@@ -174,6 +189,12 @@ initializeExplorableArchive();
                 :to-posix-lines="toPosixLines"
                 :space-to-tab="spaceToTab"
                 @input="inputSettings" />
+            <SecondaryFilesPanel
+                v-if="secondaryFiles && secondaryFiles.length > 0"
+                class="upload-secondary-files"
+                :secondary-files="secondaryFiles"
+                :disabled="isDisabled"
+                @toggle="toggleSecondaryFile" />
             <div class="upload-progress">
                 <div class="progress">
                     <div

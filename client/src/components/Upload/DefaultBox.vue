@@ -5,6 +5,7 @@ import Vue, { computed, type Ref, ref } from "vue";
 import { useRouter } from "vue-router/composables";
 
 import type { HDASummary } from "@/api";
+import { detectSecondaryFiles, type DetectedSecondaryFile } from "@/api/remoteFiles";
 import type { CollectionBuilderType } from "@/components/Collections/common/buildCollectionModal";
 import type { SelectionItem } from "@/components/SelectionDialog/selectionTypes";
 import { monitorUploadedHistoryItems } from "@/composables/monitorUploadedHistoryItems";
@@ -14,7 +15,7 @@ import { filesDialog } from "@/utils/dataModals";
 import { UploadQueue } from "@/utils/upload-queue.js";
 
 import type { ComponentSize } from "../BaseComponents/componentVariants";
-import type { UploadFile, UploadItem } from "./model";
+import type { SecondaryFileSelection, UploadFile, UploadItem } from "./model";
 import { defaultModel, isLocalFile } from "./model";
 import { COLLECTION_TYPES, DEFAULT_FILE_NAME, hasBrowserSupport } from "./utils";
 
@@ -250,22 +251,51 @@ async function eventExplore(archiveSource: ArchiveSource) {
     emit("dismiss");
 }
 
+/** Convert detected secondary files from the API to the selection model */
+function toSecondaryFileSelections(detected: DetectedSecondaryFile[]): SecondaryFileSelection[] {
+    return detected.map((file) => ({
+        path: file.path,
+        metadataKey: file.metadata_key,
+        description: file.description,
+        selected: file.suggested, // Pre-select files that are suggested
+    }));
+}
+
 /** Show remote files dialog or FTP files */
 function eventRemoteFiles() {
     filesDialog(
-        (items: SelectionItem[]) => {
-            queue.value.add(
-                items.map((item) => {
-                    const rval = {
-                        mode: "url",
-                        name: item.label,
-                        size: item.entry.size,
-                        path: item.url,
-                        hashes: item.entry.hashes,
-                    };
-                    return rval;
-                }),
-            );
+        async (items: SelectionItem[]) => {
+            // First, add all files to queue immediately for responsiveness
+            const filesWithPaths = items.map((item) => ({
+                mode: "url",
+                name: item.label,
+                size: item.entry.size,
+                path: item.url,
+                hashes: item.entry.hashes,
+            }));
+            queue.value.add(filesWithPaths);
+
+            // Then, detect secondary files in the background for each selected file
+            // and update the items as detection completes
+            for (const item of items) {
+                try {
+                    const detectedFiles = await detectSecondaryFiles(item.url);
+                    if (detectedFiles.length > 0) {
+                        // Find the upload item by its path and update with secondary files
+                        const uploadItem = Object.values(uploadItems.value).find(
+                            (u) => u.filePath === item.url || u.fileUri === item.url,
+                        );
+                        if (uploadItem && uploadItem.id && uploadItem.status === "init") {
+                            eventInput(uploadItem.id, {
+                                secondaryFiles: toSecondaryFileSelections(detectedFiles),
+                            });
+                        }
+                    }
+                } catch (e) {
+                    // Secondary file detection is optional, don't block on errors
+                    console.warn("Failed to detect secondary files for", item.url, e);
+                }
+            }
         },
         { multiple: true },
         (route: string) => {
@@ -420,6 +450,7 @@ defineExpose({
                     :list-extensions="!isCollection && listExtensions.length > 1 ? listExtensions : undefined"
                     :list-db-keys="!isCollection && listDbKeys.length > 1 ? listDbKeys : undefined"
                     :percentage="uploadItem.percentage"
+                    :secondary-files="uploadItem.secondaryFiles"
                     :space-to-tab="uploadItem.spaceToTab"
                     :status="uploadItem.status"
                     :to-posix-lines="uploadItem.toPosixLines"

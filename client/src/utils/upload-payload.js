@@ -83,6 +83,15 @@ export function uploadPayload(items, historyId, composite = false) {
                             if (hashes) {
                                 elem["hashes"] = hashes;
                             }
+                            // Include selected secondary files (e.g., pre-existing indexes)
+                            const secondaryFiles = item.secondaryFiles?.filter((f) => f.selected);
+                            if (secondaryFiles && secondaryFiles.length > 0) {
+                                elem["secondary_files"] = secondaryFiles.map((f) => ({
+                                    src: "url",
+                                    url: f.path,
+                                    metadata_key: f.metadataKey,
+                                }));
+                            }
                             return {
                                 src: "url",
                                 url: urlContent,

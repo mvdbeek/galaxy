@@ -1,4 +1,5 @@
 import { type components, GalaxyApi } from "@/api";
+import { getAppRoot } from "@/onload/loadConfig";
 import { rethrowSimple } from "@/utils/simple-error";
 
 /** The browsing mode:
@@ -57,6 +58,18 @@ export interface BrowseRemoteFilesResult {
     totalMatches: number;
 }
 
+/** A detected secondary file (e.g., an index file) that can be imported alongside a primary file */
+export interface DetectedSecondaryFile {
+    /** Path/URI to the secondary file */
+    path: string;
+    /** The metadata key this file should be stored under (e.g., "bam_index") */
+    metadata_key: string;
+    /** Human-readable description of the file type */
+    description: string;
+    /** Whether this secondary file is suggested for import */
+    suggested: boolean;
+}
+
 /**
  * Get the list of files and directories from the server for the given file source URI.
  * @param uri The file source URI to browse.
@@ -101,4 +114,37 @@ export async function browseRemoteFiles(
     // Since we specified format=uri in the query, we can safely cast the data to the expected type.
     const entries = data as RemoteEntry[];
     return { entries, totalMatches };
+}
+
+/**
+ * Detect secondary files (e.g., index files) that exist alongside a primary file.
+ * @param target The URI/path of the primary file to check for secondary files.
+ * @param extension Optional file extension hint to help identify file type.
+ * @returns A list of detected secondary files that can be imported.
+ */
+export async function detectSecondaryFiles(
+    target: string,
+    extension?: string,
+): Promise<DetectedSecondaryFile[]> {
+    try {
+        const params = new URLSearchParams({ target });
+        if (extension) {
+            params.append("extension", extension);
+        }
+        const url = `${getAppRoot()}api/remote_files/secondary_files?${params.toString()}`;
+        const response = await fetch(url);
+
+        if (!response.ok) {
+            // Don't throw - secondary file detection is optional and shouldn't block the upload
+            console.warn("Failed to detect secondary files:", response.statusText);
+            return [];
+        }
+
+        const data = await response.json();
+        return (data as DetectedSecondaryFile[]) ?? [];
+    } catch (e) {
+        // Don't throw - secondary file detection is optional and shouldn't block the upload
+        console.warn("Failed to detect secondary files:", e);
+        return [];
+    }
 }
