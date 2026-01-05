@@ -412,6 +412,16 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
             rval["filename"] = path
         if staged_extra_files:
             rval["extra_files"] = os.path.abspath(staged_extra_files)
+
+        # Handle secondary files (e.g., indexes like .bai for BAM)
+        secondary_files_specs = item.get("secondary_files")
+        if secondary_files_specs and not deferred and not error_message:
+            fetched_secondary_files = _fetch_secondary_files(
+                upload_config, secondary_files_specs, link_data_only
+            )
+            if fetched_secondary_files:
+                rval["secondary_files"] = fetched_secondary_files
+
         return _copy_and_validate_simple_attributes(item, rval)
 
     def _resolve_item_capture_error(item):
@@ -560,6 +570,94 @@ def _has_src_to_path(
 
 def _handle_hash_validation(hash_function: HashFunctionNameEnum, hash_value: str, path: str):
     verify_hash(path, hash_func_name=hash_function, hash_value=hash_value, what="upload")
+
+
+def _fetch_secondary_files(
+    upload_config: "UploadConfig",
+    secondary_files_specs: list[dict[str, Any]],
+    link_data_only: bool,
+) -> dict[str, str]:
+    """
+    Fetch secondary files (e.g., index files) specified in the upload request.
+
+    Args:
+        upload_config: The upload configuration
+        secondary_files_specs: List of secondary file specifications, each containing:
+            - src: Source type ('path', 'url', 'ftp_import', 'server_dir')
+            - path/url/ftp_path: Location of the secondary file
+            - metadata_key: The metadata key to store this file (e.g., 'bam_index')
+        link_data_only: Whether to link rather than copy files
+
+    Returns:
+        Dict mapping metadata_key to the local path of the fetched secondary file
+    """
+    result = {}
+
+    for spec in secondary_files_specs:
+        metadata_key = spec.get("metadata_key")
+        if not metadata_key:
+            continue
+
+        src = spec.get("src")
+        try:
+            if src == "path" or src == "server_dir":
+                # Local path - either copy or link
+                source_path = spec.get("path")
+                if not source_path or not os.path.exists(source_path):
+                    continue
+
+                if link_data_only:
+                    # Just store the path for linking
+                    result[metadata_key] = source_path
+                else:
+                    # Copy to working directory
+                    dest_path = os.path.join(
+                        upload_config.working_directory,
+                        f"secondary_{metadata_key}_{os.path.basename(source_path)}",
+                    )
+                    shutil.copy(source_path, dest_path)
+                    result[metadata_key] = dest_path
+
+            elif src == "url":
+                # Remote URL - fetch to working directory
+                url = spec.get("url")
+                if not url:
+                    continue
+
+                dest_path = stream_url_to_file(
+                    url,
+                    file_sources=upload_config.file_sources,
+                    dir=upload_config.working_directory,
+                    prefix=f"secondary_{metadata_key}_",
+                )
+                result[metadata_key] = dest_path
+
+            elif src == "ftp_import":
+                # FTP path - treat similar to URL
+                ftp_path = spec.get("ftp_path")
+                if not ftp_path:
+                    continue
+
+                # Construct FTP URL and fetch
+                ftp_url = f"gxftp://{ftp_path}"
+                dest_path = stream_url_to_file(
+                    ftp_url,
+                    file_sources=upload_config.file_sources,
+                    dir=upload_config.working_directory,
+                    prefix=f"secondary_{metadata_key}_",
+                )
+                result[metadata_key] = dest_path
+
+        except Exception as e:
+            # Log but don't fail - Galaxy will regenerate the index if needed
+            import logging
+
+            logging.getLogger(__name__).warning(
+                f"Failed to fetch secondary file for {metadata_key}: {e}"
+            )
+            continue
+
+    return result
 
 
 def _arg_parser():

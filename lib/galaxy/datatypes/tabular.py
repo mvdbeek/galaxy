@@ -1105,14 +1105,40 @@ class VcfGz(BaseVcf, binary.Binary):
             return binascii.hexlify(last28) == b"1f8b08040000000000ff0600424302001b0003000000000000000000"
 
     def set_meta(
-        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: Optional[str] = None, **kwd
+        self,
+        dataset: DatasetProtocol,
+        overwrite: bool = True,
+        metadata_tmp_files_dir: Optional[str] = None,
+        secondary_files: Optional[dict[str, str]] = None,
+        **kwd,
     ) -> None:
         super().set_meta(dataset, overwrite=overwrite, **kwd)
         # Creates the index for the VCF file.
         # These metadata values are not accessible by users, always overwrite
+
+        spec_key = "tabix_index"
+
+        # Check if a pre-loaded tabix index was provided via secondary_files
+        if secondary_files and spec_key in secondary_files:
+            preloaded_path = secondary_files[spec_key]
+            if os.path.exists(preloaded_path) and self._validate_tabix_index(
+                dataset.get_file_name(), preloaded_path
+            ):
+                # Use the pre-loaded index instead of regenerating
+                log.info(f"Using pre-loaded {spec_key} for VCF file: {preloaded_path}")
+                index_file = dataset.metadata.tabix_index
+                if not index_file:
+                    index_file = dataset.metadata.spec[spec_key].param.new_file(
+                        dataset=dataset, metadata_tmp_files_dir=metadata_tmp_files_dir
+                    )
+                shutil.copy(preloaded_path, index_file.get_file_name())
+                dataset.metadata.tabix_index = index_file
+                return
+
+        # No valid pre-loaded index, generate one
         index_file = dataset.metadata.tabix_index
         if not index_file:
-            index_file = dataset.metadata.spec["tabix_index"].param.new_file(
+            index_file = dataset.metadata.spec[spec_key].param.new_file(
                 dataset=dataset, metadata_tmp_files_dir=metadata_tmp_files_dir
             )
 
@@ -1123,6 +1149,22 @@ class VcfGz(BaseVcf, binary.Binary):
         except Exception as e:
             raise Exception(f"Error setting VCF.gz metadata: {util.unicodify(e)}")
         dataset.metadata.tabix_index = index_file
+
+    def _validate_tabix_index(self, vcf_path: str, index_path: str) -> bool:
+        """Validate that a tabix index file is valid for the given VCF."""
+        try:
+            # Quick validation: try to open the VCF with the tabix index
+            tbx = pysam.TabixFile(vcf_path, index=index_path)
+            # Try to fetch from a contig to validate index works
+            contigs = tbx.contigs
+            if contigs:
+                # Just check that we can iterate, don't actually read much
+                next(iter(tbx.fetch(contigs[0])), None)
+            tbx.close()
+            return True
+        except Exception as e:
+            log.warning(f"Pre-loaded tabix index validation failed: {e}")
+            return False
 
 
 @build_sniff_from_prefix

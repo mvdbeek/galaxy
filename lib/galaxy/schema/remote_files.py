@@ -207,3 +207,42 @@ class CreatedEntryResponse(Model):
         title="External link",
         description="An optional external link to the created entry if available.",
     )
+
+
+class DetectedSecondaryFile(Model):
+    """Information about a detected secondary file (e.g., index) for a primary file."""
+
+    path: str = Field(
+        ...,
+        title="Path",
+        description="The path or URI to the detected secondary file.",
+        examples=["/data/sample.bam.bai"],
+    )
+    metadata_key: str = Field(
+        ...,
+        title="Metadata Key",
+        description="The metadata key used to store this file (e.g., 'bam_index').",
+        examples=["bam_index"],
+    )
+    description: str = Field(
+        ...,
+        title="Description",
+        description="Human-readable description of the secondary file type.",
+        examples=["BAM Index (.bai)"],
+    )
+    suggested: bool = Field(
+        True,
+        title="Suggested",
+        description="Whether this secondary file is suggested for import. "
+        "Frontend can use this to pre-select the option.",
+    )
+
+
+class DetectedSecondaryFilesResponse(RootModel):
+    """Response containing detected secondary files for a primary file."""
+
+    root: list[DetectedSecondaryFile] = Field(
+        default=[],
+        title="Detected Secondary Files",
+        description="List of secondary files (e.g., indexes) detected for the primary file.",
+    )

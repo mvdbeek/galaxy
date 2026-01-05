@@ -918,7 +918,12 @@ class Bam(BamNative):
         return needs_sorting
 
     def set_meta(
-        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: Optional[str] = None, **kwd
+        self,
+        dataset: DatasetProtocol,
+        overwrite: bool = True,
+        metadata_tmp_files_dir: Optional[str] = None,
+        secondary_files: Optional[dict[str, str]] = None,
+        **kwd,
     ) -> None:
         # These metadata values are not accessible by users, always overwrite
         super().set_meta(dataset=dataset, overwrite=overwrite, **kwd)
@@ -929,6 +934,27 @@ class Bam(BamNative):
         else:
             spec_key = "bam_csi_index"
             index_file = dataset.metadata.bam_csi_index
+
+        # Check if a pre-loaded index was provided via secondary_files
+        if secondary_files and spec_key in secondary_files:
+            preloaded_path = secondary_files[spec_key]
+            if os.path.exists(preloaded_path) and self._validate_bam_index(
+                dataset.get_file_name(), preloaded_path
+            ):
+                # Use the pre-loaded index instead of regenerating
+                log.info(f"Using pre-loaded {spec_key} for BAM file: {preloaded_path}")
+                if not index_file:
+                    index_file = dataset.metadata.spec[spec_key].param.new_file(
+                        dataset=dataset, metadata_tmp_files_dir=metadata_tmp_files_dir
+                    )
+                shutil.copy(preloaded_path, index_file.get_file_name())
+                if index_flag == "-b":
+                    dataset.metadata.bam_index = index_file
+                else:
+                    dataset.metadata.bam_csi_index = index_file
+                return
+
+        # No valid pre-loaded index, generate one
         if not index_file:
             index_file = dataset.metadata.spec[spec_key].param.new_file(
                 dataset=dataset, metadata_tmp_files_dir=metadata_tmp_files_dir
@@ -940,6 +966,20 @@ class Bam(BamNative):
         else:
             pysam.index(index_flag, "-o", index_file.get_file_name(), f"-@{extra_threads}", dataset.get_file_name())
         dataset.metadata.bam_index = index_file
+
+    def _validate_bam_index(self, bam_path: str, index_path: str) -> bool:
+        """Validate that an index file is valid for the given BAM."""
+        try:
+            # Quick validation: try to open the BAM with the index
+            with pysam.AlignmentFile(bam_path, "rb", index_filename=index_path) as f:
+                # Try to fetch from first reference to validate index works
+                if f.references:
+                    # Just check that we can iterate, don't actually read
+                    next(iter(f.fetch(f.references[0], 0, min(1, f.get_reference_length(f.references[0])))), None)
+            return True
+        except Exception as e:
+            log.warning(f"Pre-loaded BAM index validation failed: {e}")
+            return False
 
     def sniff(self, filename: str) -> bool:
         return super().sniff(filename) and not self.dataset_content_needs_grooming(filename)

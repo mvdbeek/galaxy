@@ -3,6 +3,8 @@ Interval datatypes
 """
 
 import logging
+import os
+import shutil
 import sys
 import tempfile
 from typing import (
@@ -1782,15 +1784,37 @@ class IntervalTabix(Interval):
         overwrite: bool = True,
         first_line_is_header: bool = False,
         metadata_tmp_files_dir: Optional[str] = None,
+        secondary_files: Optional[dict[str, str]] = None,
         **kwd,
     ) -> None:
         # We don't use the method Interval.set_meta as we don't want to guess the columns for chr start end
         Tabular.set_meta(self, dataset, overwrite=overwrite, skip=0)
         # Try to create the index for the Tabix file.
         # These metadata values are not accessible by users, always overwrite
+
+        spec_key = "tabix_index"
+
+        # Check if a pre-loaded tabix index was provided via secondary_files
+        if secondary_files and spec_key in secondary_files:
+            preloaded_path = secondary_files[spec_key]
+            if os.path.exists(preloaded_path) and self._validate_tabix_index(
+                dataset.get_file_name(), preloaded_path
+            ):
+                # Use the pre-loaded index instead of regenerating
+                log.info(f"Using pre-loaded {spec_key} for tabix file: {preloaded_path}")
+                index_file = dataset.metadata.tabix_index
+                if not index_file:
+                    index_file = dataset.metadata.spec[spec_key].param.new_file(
+                        dataset=dataset, metadata_tmp_files_dir=metadata_tmp_files_dir
+                    )
+                shutil.copy(preloaded_path, index_file.get_file_name())
+                dataset.metadata.tabix_index = index_file
+                return
+
+        # No valid pre-loaded index, generate one
         index_file = dataset.metadata.tabix_index
         if not index_file:
-            index_file = dataset.metadata.spec["tabix_index"].param.new_file(
+            index_file = dataset.metadata.spec[spec_key].param.new_file(
                 dataset=dataset, metadata_tmp_files_dir=metadata_tmp_files_dir
             )
 
@@ -1809,6 +1833,22 @@ class IntervalTabix(Interval):
             raise Exception(f"Error setting tabix metadata: {util.unicodify(e)}")
         else:
             dataset.metadata.tabix_index = index_file
+
+    def _validate_tabix_index(self, file_path: str, index_path: str) -> bool:
+        """Validate that a tabix index file is valid for the given file."""
+        try:
+            # Quick validation: try to open the file with the tabix index
+            tbx = pysam.TabixFile(file_path, index=index_path)
+            # Try to fetch from a contig to validate index works
+            contigs = tbx.contigs
+            if contigs:
+                # Just check that we can iterate, don't actually read much
+                next(iter(tbx.fetch(contigs[0])), None)
+            tbx.close()
+            return True
+        except Exception as e:
+            log.warning(f"Pre-loaded tabix index validation failed: {e}")
+            return False
 
 
 class JuicerMediumTabix(IntervalTabix):

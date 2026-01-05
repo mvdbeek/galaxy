@@ -87,6 +87,7 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
         name,
         filename=None,
         extra_files=None,
+        secondary_files=None,
         metadata=None,
         metadata_source_name=None,
         info=None,
@@ -215,17 +216,21 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
                     primary_data=primary_data,
                     dataset_attributes=dataset_attributes,
                     extra_files=extra_files,
+                    secondary_files=secondary_files,
                     filename=filename,
                     link_data=link_data,
                     output_name=output_name,
                     init_from=init_from,
                 )
             else:
+                # Capture secondary_files in closure
+                _secondary_files = secondary_files
                 storage_callbacks.append(
                     lambda: self.finalize_storage(
                         primary_data=primary_data,
                         dataset_attributes=dataset_attributes,
                         extra_files=extra_files,
+                        secondary_files=_secondary_files,
                         filename=filename,
                         link_data=link_data,
                         output_name=output_name,
@@ -243,6 +248,7 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
         link_data: bool,
         output_name,
         init_from,
+        secondary_files=None,
     ):
         if primary_data.dataset.purged:
             # metadata won't be set, maybe we should do that, then purge ?
@@ -273,12 +279,19 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
             self.permission_provider.set_default_hda_permissions(primary_data)
 
         # TODO: this might run set_meta after copying the file to the object store, which could be inefficient if job working directory is closer to the node.
-        self.set_datasets_metadata(datasets=[primary_data], datasets_attributes=[dataset_attributes])
+        self.set_datasets_metadata(
+            datasets=[primary_data],
+            datasets_attributes=[dataset_attributes],
+            secondary_files_list=[secondary_files] if secondary_files else None,
+        )
 
     @staticmethod
-    def set_datasets_metadata(datasets, datasets_attributes=None):
+    def set_datasets_metadata(datasets, datasets_attributes=None, secondary_files_list=None):
         datasets_attributes = datasets_attributes or [{} for _ in datasets]
-        for primary_data, dataset_attributes in zip(datasets, datasets_attributes):
+        secondary_files_list = secondary_files_list or [None] * len(datasets)
+        for primary_data, dataset_attributes, secondary_files in zip(
+            datasets, datasets_attributes, secondary_files_list
+        ):
             # add tool/metadata provided information
             if dataset_attributes:
                 # TODO: discover_files should produce a match that encorporates this -
@@ -301,7 +314,8 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
                     # branch tested with tool_provided_metadata_3 / tool_provided_metadata_10
                     primary_data.metadata.from_JSON_dict(json_dict=metadata_dict)
                 else:
-                    primary_data.set_meta()
+                    # Pass secondary_files (pre-loaded indexes) to set_meta if available
+                    primary_data.set_meta(secondary_files=secondary_files)
             except Exception:
                 if primary_data.state == galaxy.model.HistoryDatasetAssociation.states.OK:
                     primary_data.state = galaxy.model.HistoryDatasetAssociation.states.FAILED_METADATA
@@ -910,6 +924,7 @@ def persist_hdas(elements, model_persistence_context: ModelPersistenceContext, f
                 hashes = fields_match.hashes
                 created_from_basename = fields_match.created_from_basename
                 extra_files = fields_match.extra_files
+                secondary_files = fields_match.secondary_files
                 visible = fields_match.visible
 
                 info, state = discovered_file.discovered_state(element, final_job_state)
@@ -921,6 +936,7 @@ def persist_hdas(elements, model_persistence_context: ModelPersistenceContext, f
                     name=name,
                     filename=discovered_file.path,
                     extra_files=extra_files,
+                    secondary_files=secondary_files,
                     metadata=element.get("metadata"),
                     info=info,
                     tag_list=tag_list,
@@ -1172,6 +1188,11 @@ class JsonCollectedDatasetMatch:
     @property
     def extra_files(self):
         return self.as_dict.get("extra_files")
+
+    @property
+    def secondary_files(self):
+        """Pre-loaded secondary files (e.g., indexes) mapping metadata_key to file path."""
+        return self.as_dict.get("secondary_files")
 
     @property
     def effective_state(self):
