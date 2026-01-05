@@ -140,6 +140,7 @@ from typing_extensions import (
 )
 
 import galaxy.exceptions
+from galaxy.exceptions import ObjectNotFound
 import galaxy.model.metadata
 import galaxy.security.passwords
 import galaxy.util
@@ -4526,9 +4527,9 @@ class Dataset(Base, StorableObject, Serializable):
             return ""
         if not self.external_filename:
             object_store = self._assert_object_store_set()
-            if object_store.exists(self):
+            try:
                 file_name = object_store.get_filename(self, sync_cache=sync_cache)
-            else:
+            except ObjectNotFound:
                 file_name = ""
             if not file_name and self.state not in (self.states.NEW, self.states.QUEUED):
                 # Queued datasets can be assigned an object store and have a filename, but they aren't guaranteed to.
