@@ -1,101 +1,60 @@
-import re
 from typing import (
     Optional,
     Union,
 )
 
-from pydantic import (
-    BaseModel,
-    ConfigDict,
-    model_validator,
-    RootModel,
-    ValidationError,
-)
-from typing_extensions import Self
+from pydantic import ValidationError
 
 from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.schema.schema import (
+    _has_special_characters as has_special_characters,
     SampleSheetColumnDefinition,
     SampleSheetColumnDefinitions,
-    SampleSheetColumnType,
+    SampleSheetColumnDefinitionsModel,
     SampleSheetColumnValueT,
     SampleSheetRow,
 )
-from galaxy.tool_util_models.parameter_validators import AnySafeValidatorModel
 
 SampleSheetRows = dict[str, SampleSheetRow]
 OptionalSampleSheetRows = Optional[SampleSheetRows]
 
+# Backwards compatibility aliases - the model is now defined in schema.py
+SampleSheetColumnDefinitionModel = SampleSheetColumnDefinition
 
-class SampleSheetColumnDefinitionModel(BaseModel):
-    model_config = ConfigDict(extra="forbid", strict=True)
-    name: str
-    type: SampleSheetColumnType
-    description: Optional[str] = None
-    optional: bool
-    validators: Optional[list[AnySafeValidatorModel]] = None
-    restrictions: Optional[list[SampleSheetColumnValueT]] = None
-    suggestions: Optional[list[SampleSheetColumnValueT]] = None
-    default_value: Optional[SampleSheetColumnValueT] = None
-
-    @model_validator(mode="after")
-    def check_nature_of_default(self) -> Self:
-        default_val = self.default_value
-        if default_val is None:
-            return self
-        # otherwise just check the types line up between type and default_value
-        elif self.type == "string" and not isinstance(default_val, str):
-            raise ValueError("Mismatch between column type and default value type")
-        elif self.type == "int" and not isinstance(default_val, int):
-            raise ValueError("Mismatch between column type and default value type")
-        elif self.type == "float" and not isinstance(default_val, (int, float)):
-            raise ValueError("Mismatch between column type and default value type")
-        elif self.type == "boolean" and not isinstance(default_val, bool):
-            raise ValueError("Mismatch between column type and default value type")
-        return self
-
-    @model_validator(mode="after")
-    def check_column_name_contains_not_special_characters(self) -> Self:
-        name = self.name
-        if has_special_characters(name):
-            raise ValueError(f"Column name '{name}' contains special characters that are not allowed.")
-        return self
-
-
-SampleSheetColumnDefinitionsModel = RootModel[list[SampleSheetColumnDefinitionModel]]
-SampleSheetColumnDefinitionDictOrModel = Union[SampleSheetColumnDefinition, SampleSheetColumnDefinitionModel]
+# Union type to accept either dict (for backwards compat) or model
+SampleSheetColumnDefinitionDictOrModel = Union[dict, SampleSheetColumnDefinition]
 
 
 def sample_sheet_column_definition_to_model(
     column_definition: SampleSheetColumnDefinitionDictOrModel,
 ) -> SampleSheetColumnDefinitionModel:
-    if isinstance(column_definition, SampleSheetColumnDefinitionModel):
+    """Convert a dict or model to a validated SampleSheetColumnDefinition model."""
+    if isinstance(column_definition, SampleSheetColumnDefinition):
         return column_definition
     else:
-        return SampleSheetColumnDefinitionModel.model_validate(column_definition)
+        return SampleSheetColumnDefinition.model_validate(column_definition)
 
 
 def validate_column_definitions(column_definitions: Optional[SampleSheetColumnDefinitions]):
+    """Validate all column definitions in a list."""
     for column_definition in column_definitions or []:
         _validate_column_definition(column_definition)
 
 
-def _validate_column_definition(column_definition: SampleSheetColumnDefinition):
-    # we should do most of this with pydantic but I just wanted to especially make sure
-    # we were only using safe validators
+def _validate_column_definition(column_definition: SampleSheetColumnDefinitionDictOrModel):
+    """Validate a single column definition, converting errors to RequestParameterInvalidException."""
     try:
-        return SampleSheetColumnDefinitionModel.model_validate(column_definition)
+        return SampleSheetColumnDefinition.model_validate(column_definition)
     except ValueError as e:
         raise RequestParameterInvalidException(str(e))
     except ValidationError as e:
-        # reuse code to convert this until we have ported the API endpoint to expect this
-        # and then just pass through the ValidationError as-is
         raise RequestParameterInvalidException(str(e))
 
 
 def validate_row(
     row: SampleSheetRow, column_definitions: Optional[SampleSheetColumnDefinitions], element_identifiers: list[str]
 ):
+    """Validate a sample sheet row against column definitions."""
     if column_definitions is None:
         return
     if len(row) != len(column_definitions):
@@ -106,16 +65,12 @@ def validate_row(
         validate_column_value(column_value, column_definition, element_identifiers)
 
 
-def has_special_characters(str_value: str) -> bool:
-    if not re.match(r"^[\w\-_ \?]*$", str_value):
-        return True
-    return False
-
-
 def validate_no_special_characters(column_value: str) -> None:
-    # lets disallow a bunch of stuff to ensure element identifiers are safe and that
-    # there are no control characters that would cause issues with serializing to various
-    # tabular formats (raw TSV/CSV, etc..)
+    """Validate that a column value doesn't contain special characters.
+
+    Disallow characters that would cause issues with serializing to various
+    tabular formats (raw TSV/CSV, etc..)
+    """
     if has_special_characters(column_value):
         raise RequestParameterInvalidException(
             f"Column value '{column_value}' contains special characters that are not allowed."
@@ -127,6 +82,7 @@ def validate_column_value(
     column_definition: SampleSheetColumnDefinitionDictOrModel,
     element_identifiers: list[str],
 ):
+    """Validate a single column value against its definition."""
     column_definition_model = sample_sheet_column_definition_to_model(column_definition)
     column_type = column_definition_model.type
     if column_value is None and column_definition_model.optional:

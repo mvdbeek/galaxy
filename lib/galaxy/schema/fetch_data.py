@@ -14,19 +14,25 @@ from pydantic import (
     field_validator,
     HttpUrl,
     Json,
+    model_validator,
     TypeAdapter,
     UUID4,
 )
-from typing_extensions import Literal
+from typing_extensions import (
+    Literal,
+    Self,
+)
 
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.schema.schema import (
     Model,
+    RecordFields,
     SampleSheetColumnDefinitions,
     SampleSheetRow,
 )
 from galaxy.schema.terms import HelpTerms
 from galaxy.schema.types import CoercedStringType
+from galaxy.tool_util_models import CollectionType
 from galaxy.tool_util_models.parameters import FileOrCollectionRequest
 from galaxy.util.hash_util import HashFunctionNames
 
@@ -91,10 +97,26 @@ class LibraryFolderDestination(FetchBaseModel):
 
 class BaseCollectionTarget(BaseFetchDataTarget):
     destination: HdcaDestination
-    collection_type: Optional[str] = None
+    collection_type: CollectionType = None
     tags: Optional[list[str]] = None
     name: Optional[str] = None
+    # For sample_sheet collections
     column_definitions: Optional[SampleSheetColumnDefinitions] = None
+    # For record collections
+    fields: Optional[RecordFields] = None
+
+    @model_validator(mode="after")
+    def validate_collection_metadata(self) -> Self:
+        """Validate that appropriate metadata is provided for special collection types.
+
+        - record collections require 'fields'
+        - sample_sheet collections require 'column_definitions'
+        """
+        if self.collection_type == "record" and not self.fields:
+            raise ValueError("Record collections require 'fields' to be specified")
+        if self.collection_type == "sample_sheet" and not self.column_definitions:
+            raise ValueError("Sample sheet collections require 'column_definitions' to be specified")
+        return self
 
 
 class LibraryDestination(FetchBaseModel):
@@ -133,7 +155,7 @@ class BaseDataElement(FetchBaseModel):
     extra_files: Optional[ExtraFiles] = None
     auto_decompress: bool = AutoDecompressField
     items_from: Optional[ElementsFromType] = Field(None, validation_alias=AliasChoices("items_from", "elements_from"))
-    collection_type: Optional[str] = None
+    collection_type: CollectionType = None
     MD5: Optional[str] = Field(None, description=HELP_TERMS.get_term("galaxy.dataFetch.MD5"))
     SHA1: Optional[str] = Field(None, alias="SHA-1", description=HELP_TERMS.get_term("galaxy.dataFetch.SHA1"))
     SHA256: Optional[str] = Field(None, alias="SHA-256", description=HELP_TERMS.get_term("galaxy.dataFetch.SHA256"))
@@ -168,7 +190,7 @@ class ServerDirElement(BaseDataElement):
 class FtpImportElement(BaseDataElement):
     src: Literal["ftp_import"]
     ftp_path: str
-    collection_type: Optional[str] = None
+    collection_type: CollectionType = None
 
 
 class ItemsFromModel(Model):

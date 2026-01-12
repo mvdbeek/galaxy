@@ -28,9 +28,7 @@ from galaxy.managers.hdas import HDAManager
 from galaxy.managers.hdcas import HDCAManager
 from galaxy.managers.histories import HistoryManager
 from galaxy.model import DatasetCollectionElement
-from galaxy.model.dataset_collections.types.sample_sheet_util import (
-    SampleSheetColumnDefinitionModel,
-)
+from galaxy.schema.schema import SampleSheetColumnDefinition as SampleSheetColumnDefinitionModel
 from galaxy.model.dataset_collections.types.sample_sheet_workbook import (
     ColumnDefinitionsField,
     CreateWorkbookRequest,

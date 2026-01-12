@@ -213,13 +213,42 @@ TestCollectionElementAssertion = Union[
 TestCollectionCollectionElementAssertions.model_rebuild()
 
 
-def _check_collection_type(v: str) -> str:
+# Collection types that can be nested (e.g., list:paired)
+NESTABLE_COLLECTION_TYPES = frozenset({"list", "paired", "paired_or_unpaired"})
+
+# Collection types that cannot be nested and must be used alone
+FLAT_COLLECTION_TYPES = frozenset({"sample_sheet", "record"})
+
+# All valid collection types
+VALID_COLLECTION_TYPES = NESTABLE_COLLECTION_TYPES | FLAT_COLLECTION_TYPES
+
+
+def _check_collection_type(v: Optional[str]) -> Optional[str]:
+    """Validate a collection type string.
+
+    Valid collection types:
+    - Simple types: 'list', 'paired', 'paired_or_unpaired', 'sample_sheet', 'record'
+    - Nested types: 'list:paired', 'list:list', 'list:paired_or_unpaired', etc.
+
+    Note that 'sample_sheet' and 'record' cannot be nested.
+    """
+    if v is None:
+        return v
     if len(v) == 0:
         raise ValueError("Invalid empty collection_type specified.")
     collection_levels = v.split(":")
-    for collection_level in collection_levels:
-        if collection_level not in ["list", "paired"]:
+
+    # Check if any level is a flat-only type
+    for level in collection_levels:
+        if level in FLAT_COLLECTION_TYPES:
+            # Flat types cannot be nested - must be used alone
+            if len(collection_levels) > 1:
+                raise ValueError(
+                    f"Invalid collection_type specified [{v}]: '{level}' cannot be nested with other types"
+                )
+        elif level not in NESTABLE_COLLECTION_TYPES:
             raise ValueError(f"Invalid collection_type specified [{v}]")
+
     return v
 
 

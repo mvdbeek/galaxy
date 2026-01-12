@@ -68,6 +68,7 @@ from .tool_source import (
     JsonTestCollectionDefDict,
     JsonTestDatasetDefDict,
 )
+from . import _check_collection_type
 
 # TODO:
 # - implement data_ref on rules and implement some cross model validation
@@ -460,6 +461,10 @@ class CollectionElementDataRequestUri(FileRequestUri):
     )
 
 
+# Validated collection type for request URIs (required, not optional)
+ValidatedCollectionType = Annotated[str, AfterValidator(_check_collection_type)]
+
+
 class CollectionElementCollectionRequestUri(StrictModel):
     class_: Literal["Collection"] = Field(..., alias="class")
     identifier: StrictStr = Field(
@@ -467,7 +472,7 @@ class CollectionElementCollectionRequestUri(StrictModel):
         description="A unique identifier for this element within the collection.",
         validation_alias=AliasChoices("identifier", "name"),
     )
-    collection_type: StrictStr
+    collection_type: ValidatedCollectionType
     elements: List[
         Annotated[
             Union["CollectionElementCollectionRequestUri", CollectionElementDataRequestUri],
@@ -489,7 +494,7 @@ class CollectionElementCollectionRequestUri(StrictModel):
 
 class DataRequestCollectionUri(StrictModel):
     class_: Literal["Collection"] = Field(..., alias="class")
-    collection_type: str
+    collection_type: ValidatedCollectionType
     elements: List[
         Annotated[
             Union[CollectionElementCollectionRequestUri, CollectionElementDataRequestUri], Field(discriminator="class_")

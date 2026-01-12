@@ -15,6 +15,7 @@ from galaxy.exceptions import (
     ItemAlreadyClaimedException,
     ItemMustBeClaimed,
     ObjectNotFound,
+    RequestParameterInvalidException,
     RequestParameterMissingException,
 )
 from galaxy.managers.workflows import WorkflowContentsManager
@@ -117,7 +118,14 @@ class LandingRequestManager:
         return self._workflow_response(model)
 
     def validate_workflow_request_state(self, request_state: Optional[dict]) -> Optional[dict]:
-        # This would ideally be run in the context of a workflow input definition
+        """Validate and normalize workflow request state.
+
+        This validates each value in the request_state dict against the
+        DataOrCollectionRequest model, applying validators and aliases.
+
+        Raises:
+            RequestParameterInvalidException: If validation fails for any value
+        """
         if isinstance(request_state, dict):
             for key, value in request_state.items():
                 if isinstance(value, dict):
@@ -126,8 +134,11 @@ class LandingRequestManager:
                         request_state[key] = DataOrCollectionRequestAdapter.validate_python(value).model_dump(
                             by_alias=True, exclude_unset=True, mode="json"
                         )
-                    except ValidationError:
-                        pass
+                    except ValidationError as e:
+                        # Convert pydantic ValidationError to Galaxy exception
+                        raise RequestParameterInvalidException(
+                            f"Invalid request state for input '{key}': {e}"
+                        )
         return request_state
 
     def claim_tool_landing_request(

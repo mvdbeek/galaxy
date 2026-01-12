@@ -1,6 +1,7 @@
 """This module contains general pydantic models and common schema field annotations for them."""
 
 import base64
+import re
 from datetime import (
     date,
     datetime,
@@ -31,6 +32,7 @@ from pydantic_core import core_schema
 from typing_extensions import (
     Literal,
     NotRequired,
+    Self,
     TypeAlias,
     TypedDict,
 )
@@ -50,10 +52,14 @@ from galaxy.schema.types import (
     OffsetNaiveDatetime,
     RelativeUrl,
 )
+from galaxy.tool_util_models.parameter_validators import AnySafeValidatorModel
 from galaxy.tool_util_models.tool_source import FieldDict
 from galaxy.util.config_templates import partial_model
 from galaxy.util.hash_util import HashFunctionNameEnum
 from galaxy.util.sanitize_html import sanitize_html
+
+# Valid collection types - used for validation
+VALID_COLLECTION_TYPES = frozenset({"list", "paired", "paired_or_unpaired", "sample_sheet", "record"})
 
 USER_MODEL_CLASS = Literal["User"]
 GROUP_MODEL_CLASS = Literal["Group"]
@@ -387,22 +393,113 @@ SampleSheetColumnType = Literal[
 NoneType = type(None)
 SampleSheetColumnValueT = Union[int, float, bool, str, NoneType]
 
-
-# type ignore because mypy can't handle closed TypedDicts yet
-class SampleSheetColumnDefinition(TypedDict, closed=True):  # type: ignore[call-arg]
-    name: str
-    description: NotRequired[Optional[str]]
-    type: SampleSheetColumnType
-    optional: bool
-    default_value: NotRequired[Optional[SampleSheetColumnValueT]]
-    validators: NotRequired[Optional[list[dict[str, Any]]]]
-    restrictions: NotRequired[Optional[list[SampleSheetColumnValueT]]]
-    suggestions: NotRequired[Optional[list[SampleSheetColumnValueT]]]
+SPECIAL_CHARS_PATTERN = re.compile(r"^[\w\-_ \?]*$")
 
 
+def _has_special_characters(str_value: str) -> bool:
+    """Check if a string contains special characters not allowed in sample sheet names/values."""
+    return not SPECIAL_CHARS_PATTERN.match(str_value)
+
+
+class SampleSheetColumnDefinition(BaseModel):
+    """Pydantic model for sample sheet column definitions with full validation.
+
+    Replaces the previous TypedDict to enable runtime validation at API boundaries.
+    """
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    name: str = Field(..., description="Column name (no special characters allowed)")
+    type: SampleSheetColumnType = Field(..., description="Data type for the column")
+    optional: bool = Field(..., description="Whether the column value can be null")
+    description: Optional[str] = Field(None, description="Human-readable description of the column")
+    default_value: Optional[SampleSheetColumnValueT] = Field(None, description="Default value for optional columns")
+    validators: Optional[list[AnySafeValidatorModel]] = Field(
+        None, description="List of validators to apply to column values"
+    )
+    restrictions: Optional[list[SampleSheetColumnValueT]] = Field(
+        None, description="Allowed values (enumeration)"
+    )
+    suggestions: Optional[list[SampleSheetColumnValueT]] = Field(
+        None, description="Suggested values (for UI hints)"
+    )
+
+    @model_validator(mode="after")
+    def check_nature_of_default(self) -> Self:
+        """Validate that default_value type matches the column type."""
+        default_val = self.default_value
+        if default_val is None:
+            return self
+        # Check the types line up between type and default_value
+        if self.type == "string" and not isinstance(default_val, str):
+            raise ValueError("Mismatch between column type and default value type")
+        elif self.type == "int" and not isinstance(default_val, int):
+            raise ValueError("Mismatch between column type and default value type")
+        elif self.type == "float" and not isinstance(default_val, (int, float)):
+            raise ValueError("Mismatch between column type and default value type")
+        elif self.type == "boolean" and not isinstance(default_val, bool):
+            raise ValueError("Mismatch between column type and default value type")
+        return self
+
+    @model_validator(mode="after")
+    def check_column_name_contains_no_special_characters(self) -> Self:
+        """Validate that column name doesn't contain special characters."""
+        if _has_special_characters(self.name):
+            raise ValueError(f"Column name '{self.name}' contains special characters that are not allowed.")
+        return self
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-like access for backwards compatibility."""
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support dict-like get() for backwards compatibility."""
+        return getattr(self, key, default)
+
+
+# Type aliases for backwards compatibility and clarity
 SampleSheetColumnDefinitions = list[SampleSheetColumnDefinition]
 SampleSheetRow = list[SampleSheetColumnValueT]
 SampleSheetRows = dict[str, SampleSheetRow]
+
+# RootModel for validating lists of column definitions
+SampleSheetColumnDefinitionsModel = RootModel[list[SampleSheetColumnDefinition]]
+
+
+# Record collection field types (CWL-style)
+RecordFieldType = Literal["File", "Collection"]
+
+
+class RecordField(BaseModel):
+    """Pydantic model for record collection field definitions.
+
+    Record collections are CWL-style collections where each element has a
+    specific field name and type.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str = Field(..., description="Field name (element identifier)")
+    type: RecordFieldType = Field("File", description="Field type: 'File' or 'Collection'")
+
+    @model_validator(mode="after")
+    def check_name_not_empty(self) -> Self:
+        """Validate that field name is not empty."""
+        if not self.name or not self.name.strip():
+            raise ValueError("Record field name cannot be empty")
+        return self
+
+    def __getitem__(self, key: str) -> Any:
+        """Support dict-like access for backwards compatibility."""
+        return getattr(self, key)
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """Support dict-like get() for backwards compatibility."""
+        return getattr(self, key, default)
+
+
+# Type alias for a list of record fields
+RecordFields = list[RecordField]
 
 
 class DiskUsageUserModel(Model):
