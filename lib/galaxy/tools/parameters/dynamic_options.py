@@ -947,6 +947,8 @@ class DynamicOptions:
 
         if from_url_options := self.from_url_options:
             context = User.user_template_environment(trans.user)
+            if from_url_options.inject_global_vault:
+                context["__vault__"] = trans.app.vault
             url = fill_template(from_url_options.from_url, context)
             request_body = template_or_none(from_url_options.request_body, context)
             request_headers = template_or_none(from_url_options.request_headers, context)
@@ -1022,6 +1024,7 @@ class FromUrlOptions:
     request_body: Optional[str]
     request_headers: Optional[str]
     postprocess_expression: Optional[str]
+    inject_global_vault: bool = False
 
 
 def strip_or_none(maybe_string: Optional[Element]) -> Optional[str]:
@@ -1038,12 +1041,14 @@ def parse_from_url_options(elem: Element) -> Optional[FromUrlOptions]:
         request_headers = strip_or_none(elem.find("request_headers"))
         request_body = strip_or_none(elem.find("request_body"))
         postprocess_expression = strip_or_none(elem.find("postprocess_expression"))
+        inject_global_vault = string_as_bool(elem.get("inject_global_vault"))
         return FromUrlOptions(
             from_url,
             request_method=request_method,
             request_headers=request_headers,
             request_body=request_body,
             postprocess_expression=postprocess_expression,
+            inject_global_vault=inject_global_vault,
         )
     return None
 

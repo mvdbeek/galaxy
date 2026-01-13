@@ -5139,6 +5139,11 @@ used to generate dynamic options.
         <xs:documentation xml:lang="en">Set the request method to use for options provided using 'from_url'. </xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="inject_global_vault" type="xs:boolean" default="false">
+      <xs:annotation>
+        <xs:documentation xml:lang="en">Allow access global vault when using 'from_url'.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
     <xs:attribute name="from_parameter" type="xs:string">
       <xs:annotation>
         <xs:documentation xml:lang="en">Deprecated.</xs:documentation>
