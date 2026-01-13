@@ -38,7 +38,21 @@ from pulsar.client import (
 
 # TODO: Perform pulsar release with this included in the client package
 from pulsar.client.staging import DEFAULT_DYNAMIC_COLLECTION_PATTERN
+from pulsar.client.action_mapper import NoneAction
 from sqlalchemy import select
+
+
+# Workaround for https://github.com/galaxyproject/galaxy/issues/21566
+# NoneAction is used when default_file_action: none is configured for shared filesystems
+# but it was missing the write_from_path method needed during result collection.
+# This can be removed once pulsar-galaxy-lib includes the fix.
+if not hasattr(NoneAction, "write_from_path"):
+
+    def _none_action_write_from_path(self, pulsar_path):
+        # No-op: files are already in place on shared filesystem
+        pass
+
+    NoneAction.write_from_path = _none_action_write_from_path
 
 from galaxy import model
 from galaxy.job_execution.compute_environment import (
