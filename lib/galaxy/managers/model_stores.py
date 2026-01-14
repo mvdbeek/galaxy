@@ -13,7 +13,6 @@ from galaxy.managers.users import UserManager
 from galaxy.model.scoped_session import galaxy_scoped_session
 from galaxy.model.store import (
     DirectoryModelExportStore,
-    ImportDiscardedDataType,
     ImportOptions,
     ObjectImportTracker,
     source_to_import_store,
@@ -330,7 +329,6 @@ def create_objects_from_store(
     for_library: bool = False,
 ) -> ObjectImportTracker:
     import_options = ImportOptions(
-        discarded_data=ImportDiscardedDataType.FORCE,
         allow_library_creation=for_library,
     )
     user_context = ModelStoreUserContext(app, galaxy_user) if galaxy_user is not None else None
