@@ -6,8 +6,6 @@ import tempfile
 from datetime import date
 
 from mercurial import (
-    cmdutil,
-    commands,
     mdiff,
     patch,
 )
@@ -75,14 +73,12 @@ malicious_error_can_push = "  Correct this changeset as soon as possible, it pot
 
 
 def get_mercurial_default_options_dict(command):
-    """Borrowed from repoman - get default parameters for a mercurial command."""
-    possible = cmdutil.findpossible(command, commands.table)
-    # Mercurial >= 3.4 returns a tuple whose first element is the old return dict
-    if type(possible) is tuple:
-        possible = possible[0]
-    if len(possible) != 1:
-        raise Exception(f'unable to find mercurial command "{command}"')
-    return {r[1].replace(b"-", b"_"): r[2] for r in next(iter(possible.values()))[1][1]}
+    """Get default parameters for a mercurial command."""
+    # Use mdiff.diffopts defaults directly instead of introspecting command table
+    # (the old cmdutil.findpossible API was removed in Mercurial 7.2)
+    if command == b"diff":
+        return dict(mdiff.diffopts.defaults)
+    raise Exception(f'unable to find mercurial command "{command}"')
 
 
 class RepositoryController(BaseUIController, ratings_util.ItemRatings):
