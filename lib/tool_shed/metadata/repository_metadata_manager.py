@@ -799,14 +799,24 @@ class RepositoryMetadataManager(ToolShedMetadataGenerator):
         metadata_dict = None
         ancestor_changeset_revision = None
         ancestor_metadata_dict = None
-        for changeset in self.repository.get_changesets_for_setting_metadata(self.app):
-            work_dir = tempfile.mkdtemp(prefix="tmp-toolshed-ramorits")
-            ctx = repo[changeset]
-            log.debug("Cloning repository changeset revision: %s", str(ctx.rev()))
-            assert self.repository_clone_url
-            repository_clone_url = repository_clone_url or self.repository_clone_url
-            cloned_ok, error_message = hg_util.clone_repository(repository_clone_url, work_dir, str(ctx.rev()))
-            if cloned_ok:
+
+        # Clone repository once instead of for each changeset - much faster over HTTP
+        work_dir = tempfile.mkdtemp(prefix="tmp-toolshed-ramorits")
+        assert self.repository_clone_url
+        repository_clone_url = repository_clone_url or self.repository_clone_url
+        log.debug("Cloning repository for metadata reset")
+        cloned_ok, error_message = hg_util.clone_repository(repository_clone_url, work_dir)
+        if not cloned_ok:
+            log.error(f"Failed to clone repository: {error_message}")
+            basic_util.remove_dir(work_dir)
+            self._clean_repository_metadata(changeset_revisions)
+            return
+
+        try:
+            for changeset in self.repository.get_changesets_for_setting_metadata(self.app):
+                ctx = repo[changeset]
+                log.debug("Updating to changeset revision: %s", str(ctx.rev()))
+                hg_util.update_repository(work_dir, str(ctx.rev()))
                 log.debug("Generating metadata for changeset revision: %s", str(ctx.rev()))
                 self.set_changeset_revision(str(ctx))
                 self.set_repository_files_dir(work_dir)
@@ -858,6 +868,7 @@ class RepositoryMetadataManager(ToolShedMetadataGenerator):
                         changeset_revisions.append(metadata_changeset_revision)
                         ancestor_changeset_revision = None
                         ancestor_metadata_dict = None
+        finally:
             basic_util.remove_dir(work_dir)
         # Delete all repository_metadata records for this repository that do not have a changeset_revision
         # value in changeset_revisions.
