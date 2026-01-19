@@ -823,11 +823,11 @@ class RepositoryMetadataManager(ToolShedMetadataGenerator):
                         # self.SUBSET - ancestor metadata is a subset of current metadata, so continue from current
                         # self.NOT_EQUAL_AND_NOT_SUBSET - ancestor metadata is neither equal to nor a subset of current
                         # metadata, so persist ancestor metadata.
-                        log.info(f"amd {ancestor_metadata_dict}")
+                        log.debug(f"amd {ancestor_metadata_dict}")
                         comparison = self.compare_changeset_revisions(
                             ancestor_changeset_revision, ancestor_metadata_dict
                         )
-                        log.info(f"comparison {comparison}")
+                        log.debug(f"comparison {comparison}")
                         if comparison in [self.NO_METADATA, self.EQUAL, self.SUBSET]:
                             ancestor_changeset_revision = self.changeset_revision
                             ancestor_metadata_dict = self.metadata_dict
