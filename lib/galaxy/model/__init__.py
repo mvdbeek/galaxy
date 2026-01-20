@@ -5526,11 +5526,12 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         )
         session.add(new_dataset)
         session.add(assoc)
-        # Flush to make the ICDA visible to concurrent requests that query the database.
-        # This helps prevent duplicate conversions when multiple requests try to create
-        # the same implicit conversion simultaneously.
+        # Flush and expire the relationship so subsequent queries in the same session
+        # see the new ICDA. This prevents duplicate conversions when chained conversions
+        # check for existing converted files.
         # See: https://github.com/galaxyproject/galaxy/issues/21573
         session.flush()
+        session.expire(self, ["implicitly_converted_datasets"])
 
     def copy_attributes(self, new_dataset):
         """

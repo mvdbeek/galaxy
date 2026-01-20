@@ -110,28 +110,27 @@ class TestDisplayApplicationsApi(ApiTestCase):
         rval = random.sample(collection, half_num_items)
         return rval
 
-    def test_rapid_create_link_does_not_create_excessive_duplicate_conversions(self):
-        """Test that rapid create_link requests don't create excessive duplicate implicit conversions.
+    def test_sequential_requests_do_not_create_duplicate_conversions(self):
+        """Test that sequential display application requests don't create duplicate conversions.
 
         Regression test for: https://github.com/galaxyproject/galaxy/issues/21573
 
         The issue was that without flushing the session after creating an ICDA
-        (ImplicitlyConvertedDatasetAssociation), requests would not see the pending
-        conversion and would trigger duplicate conversions.
+        (ImplicitlyConvertedDatasetAssociation), the implicitly_converted_datasets
+        relationship could be cached and subsequent checks might not see the newly
+        created ICDA, causing duplicate conversions.
 
-        The fix adds a session.flush() after ICDA creation. This helps reduce but may
-        not completely eliminate duplicates with SQLite (which doesn't support row-level
-        locking). With PostgreSQL in production, the fix should be more effective.
+        The fix adds session.flush() and session.expire() after ICDA creation to ensure
+        subsequent queries in the same session see the new ICDA.
 
-        This test makes rapid sequential requests and verifies that we don't see excessive
-        duplicates (the original issue reported "hundreds" of duplicate conversions).
+        This test uses interval→bedstrict conversion which doesn't require external tools.
         """
         test_file = self.get_filename("1.interval")
         with self.dataset_populator.test_history() as history_id:
             ds = self.dataset_populator.new_dataset(
                 history_id,
                 content=open(test_file, "rb"),
-                file_type="auto",
+                file_type="interval",
                 wait=True,
             )
             payload = {
@@ -140,20 +139,12 @@ class TestDisplayApplicationsApi(ApiTestCase):
                 "link_name": "local_default",
             }
 
-            # Make rapid sequential requests to simulate user clicking multiple times
-            num_requests = 5
-            responses = []
-            for _ in range(num_requests):
-                response = self._post("display_applications/create_link", data=payload, json=True)
-                responses.append(response)
-                # Small delay to allow flush to take effect
-                time.sleep(0.1)
+            # Make the initial request to trigger conversion
+            response = self._post("display_applications/create_link", data=payload, json=True)
+            self._assert_status_code_is(response, 200)
 
-            # All requests should succeed
-            for response in responses:
-                self._assert_status_code_is(response, 200)
-
-            # Wait for conversion to complete
+            # Wait for conversion to complete, polling with multiple requests
+            # Each request should detect the in-progress conversion and NOT create a duplicate
             for _ in range(20):
                 response = self._post("display_applications/create_link", data=payload, json=True)
                 self._assert_status_code_is(response, 200)
@@ -161,30 +152,26 @@ class TestDisplayApplicationsApi(ApiTestCase):
                     break
                 time.sleep(1)
 
-            # Get all datasets in the history
-            # First get all visible datasets
+            # Get all datasets in the history including hidden ones
             visible_contents = self.dataset_populator.get_history_contents(history_id)
-
-            # Then get hidden datasets by filtering for visible=False
             hidden_contents = self.dataset_populator.get_history_contents(
                 history_id, data={"visible": "false"}
             )
-
-            # Combine both lists to get all datasets
             all_contents = visible_contents + hidden_contents
 
-            # Filter to get only the converted datasets (bedstrict files - interval->bed conversion produces bedstrict)
-            converted_datasets = [
+            # Check for bedstrict conversions (interval→bed produces bedstrict)
+            bedstrict_datasets = [
                 item for item in all_contents
                 if item.get("history_content_type") == "dataset"
                 and item.get("extension") == "bedstrict"
                 and not item.get("deleted", False)
             ]
 
-            # With the flush fix, we should ideally have just 1 conversion.
-            # Allow up to 2 due to potential race conditions with the test server's thread pool.
-            assert len(converted_datasets) <= 2, (
-                f"Expected at most 2 BED conversions but found {len(converted_datasets)}. "
-                f"This indicates the race condition fix is not working effectively. "
-                f"Converted datasets: {[{'id': c.get('id'), 'create_time': c.get('create_time')} for c in converted_datasets]}"
+            # There should be exactly ONE bedstrict conversion
+            # With the fix (flush + expire), subsequent requests should see the existing
+            # conversion and not create duplicates
+            assert len(bedstrict_datasets) == 1, (
+                f"Expected exactly 1 bedstrict conversion but found {len(bedstrict_datasets)}. "
+                f"This indicates duplicate conversions are being created. "
+                f"bedstrict datasets: {[{'id': c.get('id'), 'create_time': c.get('create_time')} for c in bedstrict_datasets]}"
             )
