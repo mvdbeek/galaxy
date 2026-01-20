@@ -5526,6 +5526,11 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         )
         session.add(new_dataset)
         session.add(assoc)
+        # Flush to make the ICDA visible to concurrent requests that query the database.
+        # This helps prevent duplicate conversions when multiple requests try to create
+        # the same implicit conversion simultaneously.
+        # See: https://github.com/galaxyproject/galaxy/issues/21573
+        session.flush()
 
     def copy_attributes(self, new_dataset):
         """
