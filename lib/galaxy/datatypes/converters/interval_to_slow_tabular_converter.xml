@@ -1,0 +1,20 @@
+<tool id="CONVERTER_interval_to_slow_tabular" name="Slow Interval to Tabular converter" version="1.0.0" profile="16.04" hidden="true">
+    <description>for testing implicit conversion caching (chained)</description>
+    <command><![CDATA[
+        ## This converter depends on slow_bed - the actual conversion is done by slow_bed_to_slow_tabular
+        ## Sleep to simulate a slow conversion - allows testing race conditions
+        sleep 2 &&
+        cp '$input1' '$output1'
+    ]]></command>
+    <inputs>
+        <param format="slow_bed" name="input1" type="data" label="Slow BED file"/>
+    </inputs>
+    <outputs>
+        <data format="slow_tabular" name="output1"/>
+    </outputs>
+    <help>
+    Slow converter for testing implicit conversion caching fix (chained conversion).
+    Sleeps for 2 seconds before converting to simulate a slow conversion.
+    This is the second step in the chain: interval -> slow_bed -> slow_tabular
+    </help>
+</tool>

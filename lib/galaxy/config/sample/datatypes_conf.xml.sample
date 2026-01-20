@@ -268,11 +268,20 @@
       <converter file="interval_to_bgzip_converter.xml" target_datatype="bgzip"/>
       <converter file="interval_to_tabix_converter.xml" target_datatype="tabix" depends_on="bgzip"/>
       <converter file="interval_to_bigwig_converter.xml" target_datatype="bigwig"/>
+      <converter file="interval_to_slow_bed_converter.xml" target_datatype="slow_bed"/>
+      <converter file="interval_to_slow_tabular_converter.xml" target_datatype="slow_tabular" depends_on="slow_bed"/>
       <!-- <display file="ucsc/interval_as_bed.xml" inherit="true" /> -->
       <display file="ensembl/ensembl_interval_as_bed.xml" inherit="true"/>
       <display file="gbrowse/gbrowse_interval_as_bed.xml" inherit="true"/>
       <display file="rviewer/bed.xml" inherit="true"/>
       <display file="igv/interval_as_bed.xml" inherit="true"/>
+      <display file="test/slow_conversion.xml"/>
+    </datatype>
+    <!-- Test datatypes for slow conversion testing (https://github.com/galaxyproject/galaxy/issues/21573) -->
+    <datatype extension="slow_bed" type="galaxy.datatypes.interval:Bed" subclass="true" display_in_upload="false">
+      <converter file="slow_bed_to_slow_tabular_converter.xml" target_datatype="slow_tabular"/>
+    </datatype>
+    <datatype extension="slow_tabular" type="galaxy.datatypes.tabular:Tabular" subclass="true" display_in_upload="false">
     </datatype>
     <datatype extension="jellyfish" type="galaxy.datatypes.binary:Binary" subclass="true" display_in_upload="true" description="Jellyfish database files are k-mer counts in binary format with a readable head. They are operated on and converted to human-readable text through jellyfish commands." />
     <datatype extension="fastk_ktab" type="galaxy.datatypes.binary:Binary" subclass="true" description="A table of canonical k‑mers and their counts for the fastk toolkit." display_in_upload="true" description_url="https://github.com/thegenemyers/FASTK?tab=readme-ov-file#file-encodings"/>

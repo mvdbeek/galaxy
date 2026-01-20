@@ -1,0 +1,9 @@
+<?xml version="1.0"?>
+<display id="test_slow_conversion" version="1.0.0" name="Test Slow Conversion Display App">
+    <!-- Display app for testing slow chained conversions and duplicate prevention -->
+    <!-- This triggers: interval -> slow_bed -> slow_tabular (chained conversion) -->
+    <link id="local_default" name="Local">
+        <url>http://localhost:60151/test?file=${tabular_file.qp}</url>
+        <param type="data" name="tabular_file" url="galaxy_${DATASET_HASH}.tabular" format="slow_tabular" />
+    </link>
+</display>

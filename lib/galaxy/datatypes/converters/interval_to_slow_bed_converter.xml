@@ -1,0 +1,24 @@
+<tool id="CONVERTER_interval_to_slow_bed" name="Slow Interval to BED converter" version="1.0.0" profile="16.04" hidden="true">
+    <description>for testing implicit conversion caching</description>
+    <command><![CDATA[
+        ## Sleep to simulate a slow conversion - allows testing race conditions
+        sleep 2 &&
+        awk 'BEGIN{FS="\t"; OFS="\t"} !/^#/ && NF>=3 {
+            chrom=$1; start=$2; end=$3;
+            name=(NF>=4 ? $4 : ".");
+            score=(NF>=5 ? $5 : "0");
+            strand=(NF>=6 ? $6 : ".");
+            print chrom, start, end, name, score, strand
+        }' '$input1' > '$output1'
+    ]]></command>
+    <inputs>
+        <param format="interval" name="input1" type="data" label="Interval file"/>
+    </inputs>
+    <outputs>
+        <data format="slow_bed" name="output1"/>
+    </outputs>
+    <help>
+    Slow converter for testing implicit conversion caching fix.
+    Sleeps for 2 seconds before converting to simulate a slow conversion.
+    </help>
+</tool>
