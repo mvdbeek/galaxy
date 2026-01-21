@@ -5539,6 +5539,34 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         )
         new_dataset.name = self.name
         self.copy_attributes(new_dataset)
+
+        # Lock the parent row to serialize ICDA creation for this dataset.
+        # This prevents race conditions where multiple concurrent requests create
+        # duplicate conversions because they all check before any has committed.
+        # See: https://github.com/galaxyproject/galaxy/issues/21573
+        stmt = select(self.__class__).where(self.__class__.id == self.id).with_for_update()
+        session.execute(stmt)
+
+        # Re-check for existing valid conversion after acquiring lock
+        # (another request may have created one while we were waiting)
+        session.expire(self, ["implicitly_converted_datasets"])
+        for assoc in self.implicitly_converted_datasets:
+            if not assoc.deleted and assoc.type == target_ext:
+                item = assoc.dataset
+                if item and not item.deleted and item.state in Dataset.valid_input_states:
+                    log.debug(
+                        "attach_implicitly_converted_dataset: found existing valid conversion %s (state=%s) "
+                        "after lock, marking new_dataset %s as deleted",
+                        item.id,
+                        item.state,
+                        new_dataset.id,
+                    )
+                    new_dataset.deleted = True
+                    session.add(new_dataset)
+                    session.flush()
+                    return
+
+        # No valid conversion exists - create the ICDA
         assoc = ImplicitlyConvertedDatasetAssociation(
             parent=self, file_type=target_ext, dataset=new_dataset, metadata_safe=False
         )
@@ -5547,7 +5575,6 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         # Flush and expire the relationship so subsequent queries in the same session
         # see the new ICDA. This prevents duplicate conversions when chained conversions
         # check for existing converted files.
-        # See: https://github.com/galaxyproject/galaxy/issues/21573
         session.flush()
         session.expire(self, ["implicitly_converted_datasets"])
         log.debug(
