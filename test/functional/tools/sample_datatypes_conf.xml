@@ -10,6 +10,7 @@
     </datatype>
     <datatype extension="interval" type="galaxy.datatypes.interval:Interval" display_in_upload="true" description="File must start with definition line in the following format (columns may be in any order)." >
       <converter file="interval_to_slow_bed_converter.xml" target_datatype="slow_bed"/>
+      <converter file="interval_to_slow_tabular_converter.xml" target_datatype="slow_tabular" depends_on="slow_bed"/>
       <display file="test/slow_conversion.xml"/>
     </datatype>
     <datatype extension="slow_bed" type="galaxy.datatypes.interval:Bed" subclass="true" display_in_upload="false">

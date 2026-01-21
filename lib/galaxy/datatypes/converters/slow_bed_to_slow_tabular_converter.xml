@@ -2,7 +2,7 @@
     <description>for testing implicit conversion caching (chained)</description>
     <command><![CDATA[
         ## Sleep to simulate a slow conversion - allows testing race conditions
-        sleep 2 &&
+        sleep 10 &&
         cp '$input1' '$output1'
     ]]></command>
     <inputs>

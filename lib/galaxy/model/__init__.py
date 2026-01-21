@@ -5438,6 +5438,15 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         return self.datatype.display_info(self)
 
     def get_converted_files_by_type(self, file_type, include_errored=False):
+        log.debug(
+            "get_converted_files_by_type: checking for %s on dataset %s (id=%s), "
+            "implicitly_converted_datasets has %d items: %s",
+            file_type,
+            self.name,
+            self.id,
+            len(self.implicitly_converted_datasets),
+            [(a.type, a.dataset.id if a.dataset else None, a.dataset.state if a.dataset else None) for a in self.implicitly_converted_datasets],
+        )
         for assoc in self.implicitly_converted_datasets:
             if not assoc.deleted and assoc.type == file_type:
                 item = assoc.dataset or assoc.dataset_ldda
@@ -5447,7 +5456,9 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
                     else Dataset.valid_input_states
                 )
                 if not item.deleted and item.state in valid_states:
+                    log.debug("get_converted_files_by_type: found existing conversion %s (state=%s)", item.id, item.state)
                     return item
+        log.debug("get_converted_files_by_type: no conversion found for %s", file_type)
         return None
 
     def get_converted_dataset_deps(self, trans, target_ext, use_cached_job=False):
@@ -5519,6 +5530,13 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         )
 
     def attach_implicitly_converted_dataset(self, session, new_dataset, target_ext: str):
+        log.debug(
+            "attach_implicitly_converted_dataset: attaching %s conversion (new_dataset.id=%s) to parent %s (id=%s)",
+            target_ext,
+            new_dataset.id,
+            self.name,
+            self.id,
+        )
         new_dataset.name = self.name
         self.copy_attributes(new_dataset)
         assoc = ImplicitlyConvertedDatasetAssociation(
@@ -5532,6 +5550,10 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
         # See: https://github.com/galaxyproject/galaxy/issues/21573
         session.flush()
         session.expire(self, ["implicitly_converted_datasets"])
+        log.debug(
+            "attach_implicitly_converted_dataset: after flush/expire, implicitly_converted_datasets has %d items",
+            len(self.implicitly_converted_datasets),
+        )
 
     def copy_attributes(self, new_dataset):
         """

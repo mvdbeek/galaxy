@@ -1,4 +1,5 @@
 # Contains parameters that are used in Display Applications
+import logging
 import mimetypes
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from galaxy.util.template import fill_template
 
 if TYPE_CHECKING:
     from galaxy.datatypes.registry import Registry
+
+log = logging.getLogger(__name__)
 DEFAULT_DATASET_NAME = "dataset"
 
 
@@ -165,6 +168,12 @@ class DisplayApplicationDataParameter(DisplayApplicationParameter):
 
     def prepare(self, other_values, dataset_hash, user_hash, trans):
         data = self._get_dataset_like_object(other_values)
+        log.debug(
+            "DisplayApplicationDataParameter.prepare: param=%s, data=%s, formats=%s",
+            self.name,
+            data,
+            self.extensions,
+        )
         if not data and self.formats:
             data = other_values.get(self.dataset, None)
             # start conversion
@@ -172,6 +181,12 @@ class DisplayApplicationDataParameter(DisplayApplicationParameter):
             # find target ext
             if isinstance(data, DisplayDataValueWrapper):
                 data = data.value
+            log.debug(
+                "DisplayApplicationDataParameter.prepare: need conversion for dataset %s (id=%s, ext=%s)",
+                data.name,
+                data.id,
+                data.extension,
+            )
             (
                 direct_match,
                 target_ext,
@@ -179,8 +194,19 @@ class DisplayApplicationDataParameter(DisplayApplicationParameter):
             ) = self.datatypes_registry.find_conversion_destination_for_dataset_by_extensions(
                 data.extension, self.extensions
             )
+            log.debug(
+                "DisplayApplicationDataParameter.prepare: find_conversion result: direct_match=%s, target_ext=%s, converted_dataset=%s",
+                direct_match,
+                target_ext,
+                converted_dataset,
+            )
             if not direct_match:
                 if target_ext and not converted_dataset:
+                    log.debug(
+                        "DisplayApplicationDataParameter.prepare: starting conversion to %s for dataset %s",
+                        target_ext,
+                        data.id,
+                    )
                     data.datatype.convert_dataset(
                         trans, data, target_ext, return_output=True, visible=False, history=data.history
                     )
