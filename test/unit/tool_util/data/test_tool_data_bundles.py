@@ -10,6 +10,7 @@ from galaxy.tool_util.data import (
 from galaxy.tool_util.data.bundles.models import (
     convert_data_tables_xml,
     DataTableBundleProcessorDescription,
+    RepoInfo,
 )
 from galaxy.util import (
     galaxy_directory,
@@ -254,3 +255,87 @@ def _last_row(loc_file):
         for row in rows:
             last_row = row
         return last_row
+
+
+def test_versioned_data_manager_writes_to_correct_loc_file(versioned_tdt_manager, tmp_path):
+    """
+    Test for issue #20151: Data managers should write to the .loc file
+    matching their repository version, not the first .loc file listed.
+
+    This test verifies that when processing a bundle with repo_info from 'revision2',
+    the entry is written to testversioned2.loc and NOT to testversioned1.loc.
+    """
+    # Create a simple output dataset
+    output = {"data_tables": {"testversioned": [{"value": "newentry", "name": "newname", "path": "/some/path"}]}}
+    output_dataset_path = tmp_path / "output.dat"
+    output_dataset_path.write_text(json.dumps(output))
+    extra_files_path = tmp_path / "extra"
+    extra_files_path.mkdir()
+    output_dataset = OutputDataset(
+        output_dataset_path,
+        extra_files_path,
+    )
+    out_data = {"out1": output_dataset}
+
+    # Simple process description with no moves or translations
+    process_description = DataTableBundleProcessorDescription(
+        undeclared_tables=False,
+        data_tables=[
+            {
+                "name": "testversioned",
+                "output": {
+                    "columns": [
+                        {"name": "value"},
+                        {"name": "name"},
+                        {"name": "path"},
+                    ]
+                },
+            }
+        ],
+    )
+
+    options = BundleProcessingOptions(
+        what="data manager 'test_versioned'",
+        data_manager_path=str(tmp_path),
+        target_config_file=str(tmp_path / "sample_data_managers_conf.xml"),
+    )
+
+    # Use repo_info matching the second version (revision2)
+    repo_info = RepoInfo(
+        tool_shed="toolshed.g2.bx.psu.edu",
+        name="test_data_manager",
+        owner="testowner",
+        installed_changeset_revision="revision2",
+    )
+
+    versioned_tdt_manager.process_bundle(
+        out_data,
+        process_description,
+        repo_info,
+        options,
+    )
+
+    # Verify entry was written to the SECOND loc file (revision2), not the first
+    loc1 = tmp_path / "testversioned1.loc"
+    loc2 = tmp_path / "testversioned2.loc"
+
+    loc1_content = loc1.read_text()
+    loc2_content = loc2.read_text()
+
+    # Entry should NOT be in the first loc file
+    assert "newentry" not in loc1_content, (
+        "Entry was incorrectly written to the first .loc file (testversioned1.loc). "
+        "This is the bug described in issue #20151."
+    )
+
+    # Entry SHOULD be in the second loc file (matching revision2)
+    assert "newentry" in loc2_content, (
+        "Entry was not written to the correct .loc file (testversioned2.loc) "
+        "that matches the data manager's repository version."
+    )
+
+    # Verify the full row is correct
+    new_row = _last_row(loc2)
+    assert new_row[0] == "newentry"
+    assert new_row[1] == "newname"
+    assert new_row[2] == "/some/path"

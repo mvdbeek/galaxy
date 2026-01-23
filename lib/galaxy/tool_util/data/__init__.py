@@ -1319,7 +1319,6 @@ def _process_bundle(
                 persist=True,
                 entry_source=bundle.repo_info,
                 tool_data_file_path=options.tool_data_file_path,
-                use_first_file_path=True,
             )
         # Removes data table entries
         for data_table_row in data_table_remove_values:
