@@ -17,7 +17,10 @@ from typing import (
     Optional,
 )
 
-from sqlalchemy import select
+from sqlalchemy import (
+    func,
+    select,
+)
 from sqlalchemy.orm import Session
 
 from galaxy.model import (
@@ -184,9 +187,6 @@ class DatabaseToolSourceStore(ToolSourceStore):
     def count(self) -> int:
         """Return the total number of stored tool sources."""
         session = self._get_session()
-
-        from sqlalchemy import func
-
         result = session.execute(select(func.count(ToolSourceModel.id)))
         return result.scalar() or 0
 

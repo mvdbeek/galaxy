@@ -28,6 +28,8 @@ from galaxy.tool_source_store.index import (
     ToolIndex,
     ToolIndexEntry,
 )
+from galaxy.tool_util.parser import get_tool_source
+from galaxy.tools import create_tool_from_source
 
 if TYPE_CHECKING:
     from galaxy.app import StructuredApp
@@ -125,8 +127,6 @@ class LazyToolBox:
 
         This uses lightweight parsing to extract only metadata.
         """
-        from galaxy.tool_util.parser import get_tool_source
-
         tool_source = get_tool_source(
             raw_tool_source=stored.raw_source,
             tool_source_class=stored.tool_source_class,
@@ -316,9 +316,6 @@ class LazyToolBox:
 
     def _create_tool_from_source(self, stored: StoredToolSource) -> "Tool":
         """Create a Tool object from stored source."""
-        from galaxy.tool_util.parser import get_tool_source
-        from galaxy.tools import create_tool_from_source
-
         tool_source = get_tool_source(
             raw_tool_source=stored.raw_source,
             tool_source_class=stored.tool_source_class,
