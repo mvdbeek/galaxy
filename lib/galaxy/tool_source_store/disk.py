@@ -13,10 +13,9 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import (
-    Iterator,
-    List,
     Optional,
 )
+from collections.abc import Iterator
 
 from . import (
     StoredToolSource,
@@ -84,7 +83,7 @@ class DiskToolSourceStore(ToolSourceStore):
                 with gzip.open(path, "rt", encoding="utf-8") as f:
                     return json.load(f)
             else:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     return json.load(f)
         except Exception as e:
             log.error(f"Error reading {path}: {e}")
@@ -237,14 +236,14 @@ class DiskToolSourceStore(ToolSourceStore):
 
     def list_all(self) -> Iterator[str]:
         """List all stored tool source hashes."""
-        for root, dirs, files in os.walk(self._sources_path):
+        for _root, _dirs, files in os.walk(self._sources_path):
             for file in files:
                 if file.endswith(".json"):
                     yield file[:-5]  # Remove .json extension
 
     def get_by_tool_id(
         self, tool_id: str, version: Optional[str] = None
-    ) -> List[StoredToolSource]:
+    ) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         if version:
             path = self._index_path / "version" / tool_id / f"{version}.json"
@@ -276,7 +275,7 @@ class DiskToolSourceStore(ToolSourceStore):
 
         # Calculate total size
         total_size = 0
-        for root, dirs, files in os.walk(self._sources_path):
+        for root, _dirs, files in os.walk(self._sources_path):
             for file in files:
                 total_size += os.path.getsize(os.path.join(root, file))
 
