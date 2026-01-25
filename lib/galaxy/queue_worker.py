@@ -275,6 +275,26 @@ def reload_tour(app, **kwargs):
     log.debug("Tour reloaded")
 
 
+def reload_tool_source_cache(app, **kwargs):
+    """
+    Reload the tool source cache/index.
+
+    This is typically triggered by an external process (like populate_store.py --watch)
+    when tool files change on disk.
+    """
+    log.debug("Executing tool source cache reload on '%s'", app.config.server_name)
+
+    # Invalidate the lazy toolbox cache if it exists
+    if hasattr(app, "lazy_toolbox") and app.lazy_toolbox:
+        app.lazy_toolbox.invalidate_index_cache()
+        log.info("Tool source index cache invalidated")
+
+    # Invalidate the tool source store cache if it exists
+    if hasattr(app, "tool_source_store") and app.tool_source_store:
+        app.tool_source_store.invalidate_index_cache()
+        log.info("Tool source store cache invalidated")
+
+
 def __job_rule_module_names(app: "MinimalManagerApp"):
     rules_module_names = {"galaxy.jobs.rules"}
     if app.job_config.dynamic_params is not None:
@@ -324,6 +344,7 @@ control_message_to_task = {
     "reconfigure_watcher": reconfigure_watcher,
     "reload_tour": reload_tour,
     "reload_core_config": reload_core_config,
+    "reload_tool_source_cache": reload_tool_source_cache,
 }
 
 

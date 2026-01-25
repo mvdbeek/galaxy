@@ -164,6 +164,49 @@ script on a schedule:
     # Update tool source store every hour
     0 * * * * /path/to/galaxy/.venv/bin/python /path/to/galaxy/scripts/tool_source/populate_store.py --incremental >> /var/log/galaxy/tool_source_update.log 2>&1
 
+Watch Mode (Live Updates)
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+For development environments or installations where tools change frequently, you can run
+the population script in watch mode. This uses ``watchdog`` to monitor tool directories
+for changes and automatically updates the store, then sends a notification via Kombu
+to trigger cache reloads in all Galaxy processes.
+
+.. code-block:: console
+
+    $ python scripts/tool_source/populate_store.py --config galaxy.yml --watch
+
+Watch mode options:
+
+- ``--watch, -w`` - Enable watch mode
+- ``--watch-polling`` - Use polling observer (required for network filesystems like NFS/CVMFS)
+- ``--debounce SECS`` - Debounce time for file changes (default: 2.0 seconds)
+
+Example with polling for network filesystem:
+
+.. code-block:: console
+
+    $ python scripts/tool_source/populate_store.py -c galaxy.yml --watch --watch-polling --debounce 5.0
+
+**Requirements:**
+
+- The ``watchdog`` library must be installed: ``pip install watchdog``
+- Galaxy must have ``amqp_internal_connection`` configured for Kombu notifications
+- All Galaxy processes must be connected to the same AMQP broker
+
+When a tool XML file changes, watch mode will:
+
+1. Detect the file change (with debouncing to handle rapid edits)
+2. Re-parse the tool and update the store
+3. Send a ``reload_tool_source_cache`` control message via Kombu
+4. All Galaxy processes will invalidate their local caches
+
+This is useful for:
+
+- Development environments where tools are being actively edited
+- CI/CD pipelines that deploy tool updates
+- Installations using shared storage where tools may be updated externally
+
 API Endpoints
 -------------
 
