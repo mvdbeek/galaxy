@@ -11,12 +11,9 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
-    Any,
-    Callable,
-    Dict,
-    List,
     Optional,
 )
+from collections.abc import Callable
 
 from .index import (
     ToolIndex,
@@ -94,7 +91,7 @@ class ToolSourceBenchmarks:
             tool_sources_dir: Directory containing tool XML files.
         """
         self.tool_sources_dir = tool_sources_dir or self._find_tool_sources()
-        self._cached_sources: Dict[str, str] = {}
+        self._cached_sources: dict[str, str] = {}
 
     def _find_tool_sources(self) -> Path:
         """Find Galaxy tools directory."""
@@ -110,7 +107,7 @@ class ToolSourceBenchmarks:
         # Return first candidate even if doesn't exist
         return candidates[0]
 
-    def _load_sample_tools(self, count: int = 50) -> List[tuple]:
+    def _load_sample_tools(self, count: int = 50) -> list[tuple]:
         """Load sample tool XML files."""
         tools = []
         if not self.tool_sources_dir.exists():
@@ -331,7 +328,7 @@ class ToolSourceBenchmarks:
             iterations,
         )
 
-    def run_all(self, iterations: int = 100) -> List[BenchmarkResult]:
+    def run_all(self, iterations: int = 100) -> list[BenchmarkResult]:
         """Run all benchmarks."""
         results = []
 

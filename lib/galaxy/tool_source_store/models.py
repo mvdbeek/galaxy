@@ -5,8 +5,6 @@ Pydantic models for Tool Source Store API serialization.
 from datetime import datetime
 from typing import (
     Any,
-    Dict,
-    List,
     Optional,
 )
 
@@ -34,14 +32,14 @@ class ToolSourceDetailResponse(ToolSourceResponse):
     """Detailed response model including raw source."""
 
     raw_source: str = Field(description="Raw tool source content")
-    metadata: Optional[Dict[str, Any]] = Field(None, description="Additional metadata")
+    metadata: Optional[dict[str, Any]] = Field(None, description="Additional metadata")
 
 
 class ToolSourceListResponse(BaseModel):
     """Response model for listing tool sources."""
 
     total_count: int = Field(description="Total number of tool sources")
-    items: List[ToolSourceResponse] = Field(description="List of tool sources")
+    items: list[ToolSourceResponse] = Field(description="List of tool sources")
 
 
 class ToolSourceStatsResponse(BaseModel):
@@ -64,11 +62,11 @@ class ToolIndexEntryResponse(BaseModel):
     description: str = Field(description="Tool description")
     panel_section_id: Optional[str] = Field(None, description="Panel section ID")
     panel_section_name: Optional[str] = Field(None, description="Panel section name")
-    labels: List[str] = Field(default_factory=list, description="Tool labels")
-    edam_operations: List[str] = Field(
+    labels: list[str] = Field(default_factory=list, description="Tool labels")
+    edam_operations: list[str] = Field(
         default_factory=list, description="EDAM operations"
     )
-    edam_topics: List[str] = Field(default_factory=list, description="EDAM topics")
+    edam_topics: list[str] = Field(default_factory=list, description="EDAM topics")
     hidden: bool = Field(False, description="Whether tool is hidden")
     test_count: int = Field(0, description="Number of tests")
 
@@ -101,16 +99,16 @@ class RequirementResponse(BaseModel):
 class SanitizeAllowlistResponse(BaseModel):
     """Response model for /api/sanitize_allow."""
 
-    blocked_toolshed: List[Dict[str, Any]] = Field(
+    blocked_toolshed: list[dict[str, Any]] = Field(
         default_factory=list, description="Blocked tool shed tools"
     )
-    allowed_toolshed: List[Dict[str, Any]] = Field(
+    allowed_toolshed: list[dict[str, Any]] = Field(
         default_factory=list, description="Allowed tool shed tools"
     )
-    blocked_local: List[Dict[str, Any]] = Field(
+    blocked_local: list[dict[str, Any]] = Field(
         default_factory=list, description="Blocked local tools"
     )
-    allowed_local: List[Dict[str, Any]] = Field(
+    allowed_local: list[dict[str, Any]] = Field(
         default_factory=list, description="Allowed local tools"
     )
 

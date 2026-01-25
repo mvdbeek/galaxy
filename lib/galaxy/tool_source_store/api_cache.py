@@ -14,10 +14,7 @@ from datetime import (
 )
 from typing import (
     Any,
-    Dict,
     Optional,
-    Set,
-    Tuple,
 )
 
 from .index import ToolIndex
@@ -53,7 +50,7 @@ class ToolAPICache:
             ttl_seconds: Time-to-live for cached responses in seconds.
         """
         self._ttl = timedelta(seconds=ttl_seconds)
-        self._cache: Dict[str, Tuple[bytes, datetime]] = {}
+        self._cache: dict[str, tuple[bytes, datetime]] = {}
 
     def get_tools_list(self, detailed: bool = False) -> Optional[bytes]:
         """
@@ -143,7 +140,7 @@ class ToolAPICache:
         log.debug(f"Tool API cache refreshed with {len(self._cache)} entries")
 
     def refresh_sanitize_allowlist(
-        self, index: ToolIndex, allowed_ids: Set[str]
+        self, index: ToolIndex, allowed_ids: set[str]
     ) -> bytes:
         """
         Refresh and return sanitize allowlist.
@@ -169,7 +166,7 @@ class ToolAPICache:
         if key in self._cache:
             del self._cache[key]
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         now = datetime.utcnow()
         stats = {

@@ -15,11 +15,9 @@ from dataclasses import (
     field,
 )
 from datetime import datetime
+from collections.abc import Iterator
 from typing import (
     TYPE_CHECKING,
-    Dict,
-    Iterator,
-    List,
     Optional,
 )
 
@@ -40,7 +38,7 @@ class StoredToolSource:
     tool_version: Optional[str] = None  # Tool version if known
     tool_dir: Optional[str] = None  # Original tool directory
     stored_at: Optional[datetime] = None
-    metadata: Optional[Dict] = field(default_factory=dict)
+    metadata: Optional[dict] = field(default_factory=dict)
 
 
 class ToolSourceStore(ABC):
@@ -106,7 +104,7 @@ class ToolSourceStore(ABC):
     @abstractmethod
     def get_by_tool_id(
         self, tool_id: str, version: Optional[str] = None
-    ) -> List[StoredToolSource]:
+    ) -> list[StoredToolSource]:
         """
         Get tool sources by tool ID and optional version.
 
@@ -122,7 +120,7 @@ class ToolSourceStore(ABC):
     def count(self) -> int:
         """Return the total number of stored tool sources."""
 
-    def get_stats(self) -> Dict:
+    def get_stats(self) -> dict:
         """Return storage statistics."""
         return {"count": self.count()}
 

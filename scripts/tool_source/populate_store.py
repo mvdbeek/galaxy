@@ -38,12 +38,9 @@ from concurrent.futures import (
 from datetime import datetime
 from pathlib import Path
 from typing import (
-    Dict,
-    Iterator,
     Optional,
-    Set,
-    Tuple,
 )
+from collections.abc import Iterator
 
 # Add Galaxy lib to path
 galaxy_root = Path(__file__).parent.parent.parent
@@ -57,7 +54,7 @@ def compute_hash(content: str) -> str:
     return hashlib.sha256(content.encode()).hexdigest()
 
 
-def iter_tool_sources(toolbox, pattern: Optional[str] = None) -> Iterator[Tuple]:
+def iter_tool_sources(toolbox, pattern: Optional[str] = None) -> Iterator[tuple]:
     """
     Iterate over all tools in the toolbox.
 
@@ -139,7 +136,7 @@ class ToolFileWatcher:
         self.use_polling = use_polling
         self.verbose = verbose
         self.observer = None
-        self._pending_changes: Set[str] = set()
+        self._pending_changes: set[str] = set()
         self._lock = threading.Lock()
         self._debounce_timer: Optional[threading.Timer] = None
         self._shutdown_event = threading.Event()
@@ -292,7 +289,7 @@ def populate_store(
     parallel: int = 4,
     verbose: bool = False,
     rebuild_index: bool = False,
-) -> Dict[str, int]:
+) -> dict[str, int]:
     """
     Main population function.
 
@@ -353,7 +350,7 @@ def populate_store(
         tool_files = [(p, c) for p, c in tool_files if pattern in p]
         log.info(f"Filtered to {len(tool_files)} tools matching '{pattern}'")
 
-    def process_tool(args: Tuple[str, str]) -> Tuple[str, str, Optional[str]]:
+    def process_tool(args: tuple[str, str]) -> tuple[str, str, Optional[str]]:
         """Process a single tool file."""
         path, content = args
         try:
