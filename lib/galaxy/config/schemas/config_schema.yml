@@ -327,10 +327,18 @@ mapping:
         default: database
         required: false
         desc: |
-          Backend for storing tool sources. Options are 'database', 'redis', or 'disk'.
-          The database backend stores tool sources in the Galaxy database.
-          The redis backend requires tool_source_redis_url to be set.
-          The disk backend requires tool_source_disk_path to be set.
+          Backend for storing pre-parsed tool sources. Options are 'database', 'redis', or 'disk'.
+
+          - 'database': Stores tool sources in the Galaxy database. Best for single-server
+            deployments or when tools don't change frequently. No additional setup required.
+
+          - 'redis': Stores tool sources in Redis. Best for multi-server deployments where
+            multiple Galaxy processes need to share tool cache. Requires tool_source_redis_url.
+
+          - 'disk': Stores tool sources on the filesystem. Best when you want to avoid
+            database load and have fast local storage. Requires tool_source_disk_path.
+
+          To populate the store, run: python scripts/tool_source/populate_store.py
 
       tool_source_redis_url:
         type: str
@@ -339,12 +347,15 @@ mapping:
           Redis URL for tool source storage when using the redis backend.
           Example: redis://localhost:6379/1
 
+          For Redis Sentinel: redis+sentinel://sentinel1:26379,sentinel2:26379/mymaster/0
+
       tool_source_redis_ttl:
         type: int
         required: false
         desc: |
           Optional TTL in seconds for Redis tool source entries.
-          If not set, entries will not expire.
+          If not set, entries will not expire. Set this if you want Redis to
+          automatically clean up old entries, e.g., 86400 for 24 hours.
 
       tool_source_disk_path:
         type: str
@@ -353,14 +364,37 @@ mapping:
         required: false
         desc: |
           Directory path for tool source storage when using the disk backend.
+          The directory will be created if it doesn't exist. Tool sources are
+          stored in a sharded directory structure for efficient access.
+
+      use_lazy_toolbox:
+        type: bool
+        required: false
+        desc: |
+          When true, use the LazyToolBox which loads tools on demand from the
+          tool source store. When false, the traditional eager ToolBox is used.
+          When unset (the default), the LazyToolBox is enabled automatically if
+          the configured tool source store is populated.
+
+      lazy_toolbox_cache_size:
+        type: int
+        default: 500
+        required: false
+        desc: |
+          Maximum number of fully constructed Tool objects the LazyToolBox keeps
+          in its in-memory LRU cache. Larger values reduce repeat parsing cost
+          for popular tools at the expense of memory.
 
       tool_cache_size:
         type: int
         default: 500
         required: false
         desc: |
-          Maximum number of Tool objects to keep in the LRU cache.
-          Higher values use more memory but reduce tool loading time.
+          Maximum number of Tool objects to keep in the LRU cache when using
+          the lazy toolbox. Higher values use more memory but reduce tool
+          loading time. A typical Galaxy installation has 500-2000 tools,
+          so 500 is a reasonable default. Increase if you frequently use
+          many different tools.
 
       tool_api_cache_ttl:
         type: int
@@ -368,7 +402,9 @@ mapping:
         required: false
         desc: |
           Time-to-live in seconds for pre-computed API responses.
-          These cached responses speed up batch endpoints like /api/tools.
+          These cached responses speed up batch endpoints like /api/tools,
+          /api/tools/tests_summary, and /api/tool_panels. Lower values mean
+          more frequent updates but more CPU usage. Set to 0 to disable caching.
 
       tool_dependency_dir:
         type: str

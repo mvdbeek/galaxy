@@ -5,9 +5,11 @@ This module provides a file-based implementation of the ToolSourceStore
 that stores tool sources in a sharded directory structure.
 """
 
+import gzip
 import json
 import logging
 import os
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import (
@@ -79,8 +81,6 @@ class DiskToolSourceStore(ToolSourceStore):
 
         try:
             if self._compression == "gzip":
-                import gzip
-
                 with gzip.open(path, "rt", encoding="utf-8") as f:
                     return json.load(f)
             else:
@@ -95,8 +95,6 @@ class DiskToolSourceStore(ToolSourceStore):
         path.parent.mkdir(parents=True, exist_ok=True)
 
         if self._compression == "gzip":
-            import gzip
-
             with gzip.open(path, "wt", encoding="utf-8") as f:
                 json.dump(data, f)
         else:
@@ -335,8 +333,6 @@ class DiskToolSourceStore(ToolSourceStore):
 
     def clear_all(self) -> None:
         """Clear all stored data (for testing)."""
-        import shutil
-
         if self._sources_path.exists():
             shutil.rmtree(self._sources_path)
         if self._index_path.exists():

@@ -11,11 +11,7 @@ from typing import (
     Optional,
 )
 
-from fastapi import (
-    Query,
-    Response,
-)
-from fastapi.responses import JSONResponse
+from fastapi import Query
 
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.tool_source_store.models import (
@@ -182,44 +178,6 @@ class ToolCacheAPI:
     ) -> CacheStatsResponse:
         """Get statistics about the tool cache."""
         return self.service.get_cache_stats(trans)
-
-    @router.get(
-        "/api/tool_cache/api_response/{key}",
-        summary="Get cached API response",
-    )
-    def get_cached_response(
-        self,
-        key: str,
-        trans: ProvidesAppContext = DependsOnTrans,
-    ) -> Response:
-        """
-        Get a pre-computed cached API response.
-
-        Valid keys: tools_list, tools_list_detailed, tests_summary,
-        all_requirements, panel_views
-        """
-        cached = self.service.get_cached_response(trans, key)
-        if cached is None:
-            return JSONResponse(
-                status_code=404, content={"detail": "Cache entry not found"}
-            )
-        return Response(
-            content=cached,
-            media_type="application/json",
-            headers={"Content-Encoding": "gzip"},
-        )
-
-    @router.post(
-        "/api/tool_cache/refresh",
-        summary="Refresh API cache",
-    )
-    def refresh_cache(
-        self,
-        trans: ProvidesAppContext = DependsOnTrans,
-    ) -> dict:
-        """Refresh the pre-computed API cache."""
-        self.service.refresh_cache(trans)
-        return {"status": "refreshed"}
 
     @router.post(
         "/api/tool_cache/clear",

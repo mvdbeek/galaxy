@@ -239,34 +239,6 @@ class ToolSourcesService:
             index_memory_estimate=0,
         )
 
-    def get_cached_response(
-        self, trans: ProvidesAppContext, key: str
-    ) -> Optional[bytes]:
-        """Get a cached API response."""
-        lazy_toolbox = self._get_lazy_toolbox(trans)
-        if not lazy_toolbox:
-            return None
-
-        api_cache = lazy_toolbox.api_cache
-        key_map = {
-            "tools_list": lambda: api_cache.get_tools_list(detailed=False),
-            "tools_list_detailed": lambda: api_cache.get_tools_list(detailed=True),
-            "tests_summary": api_cache.get_tests_summary,
-            "all_requirements": api_cache.get_all_requirements,
-            "panel_views": api_cache.get_panel_views,
-        }
-
-        getter = key_map.get(key)
-        if getter:
-            return getter()
-        return None
-
-    def refresh_cache(self, trans: ProvidesAppContext) -> None:
-        """Refresh the API cache."""
-        lazy_toolbox = self._get_lazy_toolbox(trans)
-        if lazy_toolbox:
-            lazy_toolbox.refresh_api_cache()
-
     def clear_tool_cache(self, trans: ProvidesAppContext) -> None:
         """Clear the Tool object cache."""
         lazy_toolbox = self._get_lazy_toolbox(trans)
