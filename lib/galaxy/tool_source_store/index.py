@@ -14,10 +14,7 @@ from dataclasses import (
 from datetime import datetime
 from typing import (
     Any,
-    Dict,
-    List,
     Optional,
-    Set,
 )
 
 
@@ -43,9 +40,9 @@ class ToolIndexEntry:
     # === Classification ===
     panel_section_id: Optional[str] = None
     panel_section_name: Optional[str] = None
-    labels: List[str] = field(default_factory=list)
-    edam_operations: List[str] = field(default_factory=list)
-    edam_topics: List[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
+    edam_operations: list[str] = field(default_factory=list)
+    edam_topics: list[str] = field(default_factory=list)
 
     # === Source Reference ===
     source_hash: str = ""
@@ -59,11 +56,11 @@ class ToolIndexEntry:
     test_count: int = 0
 
     # === Requirements (for /api/tools/all_requirements, dependency endpoints) ===
-    requirements: List[Dict[str, Any]] = field(default_factory=list)
+    requirements: list[dict[str, Any]] = field(default_factory=list)
     # Example: [{"name": "samtools", "version": "1.9", "type": "package"}]
 
     # === Container Info (for container resolution endpoints) ===
-    container_requirements: List[Dict[str, Any]] = field(default_factory=list)
+    container_requirements: list[dict[str, Any]] = field(default_factory=list)
     # Example: [{"type": "docker", "identifier": "biocontainers/samtools:1.9"}]
 
     # === Tool Shed Info (for sanitize_allow, shed endpoints) ===
@@ -76,9 +73,9 @@ class ToolIndexEntry:
     # === Timestamps ===
     indexed_at: Optional[datetime] = None
 
-    def to_api_dict(self, detail: bool = False) -> Dict[str, Any]:
+    def to_api_dict(self, detail: bool = False) -> dict[str, Any]:
         """Convert to /api/tools response format."""
-        result: Dict[str, Any] = {
+        result: dict[str, Any] = {
             "id": self.id,
             "name": self.name,
             "version": self.version,
@@ -99,17 +96,17 @@ class ToolIndexEntry:
             )
         return result
 
-    def to_tests_summary(self) -> Dict[str, Any]:
+    def to_tests_summary(self) -> dict[str, Any]:
         """Convert to /api/tools/tests_summary format."""
         return {"tool_name": self.name, "count": self.test_count}
 
-    def to_requirements_list(self) -> List[Dict[str, Any]]:
+    def to_requirements_list(self) -> list[dict[str, Any]]:
         """Get requirements for /api/tools/all_requirements."""
         return self.requirements
 
-    def to_sanitize_entry(self) -> Dict[str, Any]:
+    def to_sanitize_entry(self) -> dict[str, Any]:
         """Convert to /api/sanitize_allow format."""
-        entry: Dict[str, Any] = {"tool_id": self.id, "name": self.name}
+        entry: dict[str, Any] = {"tool_id": self.id, "name": self.name}
         if not self.is_local:
             entry.update(
                 {
@@ -120,7 +117,7 @@ class ToolIndexEntry:
             )
         return entry
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "id": self.id,
@@ -150,7 +147,7 @@ class ToolIndexEntry:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ToolIndexEntry":
+    def from_dict(cls, data: dict[str, Any]) -> "ToolIndexEntry":
         """Create from dictionary."""
         indexed_at = data.get("indexed_at")
         if indexed_at and isinstance(indexed_at, str):
@@ -193,17 +190,17 @@ class ToolIndex:
     used to serve API responses without loading full tool sources.
     """
 
-    entries: Dict[str, ToolIndexEntry] = field(default_factory=dict)
-    by_section: Dict[str, List[str]] = field(default_factory=dict)
-    panel_views: Dict[str, Dict] = field(default_factory=dict)
+    entries: dict[str, ToolIndexEntry] = field(default_factory=dict)
+    by_section: dict[str, list[str]] = field(default_factory=dict)
+    panel_views: dict[str, dict] = field(default_factory=dict)
     version: str = ""  # For cache invalidation
     built_at: Optional[datetime] = None
 
     # Cached computations
-    _requirements_cache: Optional[List[Dict[str, Any]]] = field(
+    _requirements_cache: Optional[list[dict[str, Any]]] = field(
         default=None, repr=False
     )
-    _tests_summary_cache: Optional[Dict[str, Dict[str, Dict]]] = field(
+    _tests_summary_cache: Optional[dict[str, dict[str, dict]]] = field(
         default=None, repr=False
     )
 
@@ -220,7 +217,7 @@ class ToolIndex:
         self,
         section_id: Optional[str] = None,
         include_hidden: bool = False,
-    ) -> List[ToolIndexEntry]:
+    ) -> list[ToolIndexEntry]:
         """
         List tools with optional filtering.
 
@@ -242,7 +239,7 @@ class ToolIndex:
 
         return entries
 
-    def search(self, query: str, limit: int = 50) -> List[ToolIndexEntry]:
+    def search(self, query: str, limit: int = 50) -> list[ToolIndexEntry]:
         """
         Fast text search across tool metadata.
 
@@ -254,7 +251,7 @@ class ToolIndex:
             List of matching tool entries, sorted by relevance.
         """
         query_lower = query.lower()
-        results: List[tuple] = []
+        results: list[tuple] = []
 
         for entry in self.entries.values():
             if entry.hidden:
@@ -277,7 +274,7 @@ class ToolIndex:
         results.sort(key=lambda x: -x[0])
         return [entry for _, entry in results[:limit]]
 
-    def get_tests_summary(self) -> Dict[str, Dict[str, Dict]]:
+    def get_tests_summary(self) -> dict[str, dict[str, dict]]:
         """
         Return pre-computed tests summary from index.
 
@@ -287,7 +284,7 @@ class ToolIndex:
         if self._tests_summary_cache is not None:
             return self._tests_summary_cache
 
-        summary: Dict[str, Dict[str, Dict]] = {}
+        summary: dict[str, dict[str, dict]] = {}
         for entry in self.entries.values():
             if entry.id not in summary:
                 summary[entry.id] = {}
@@ -300,7 +297,7 @@ class ToolIndex:
         self._tests_summary_cache = summary
         return summary
 
-    def get_all_requirements(self) -> List[Dict[str, Any]]:
+    def get_all_requirements(self) -> list[dict[str, Any]]:
         """
         Return unique requirements from all tools.
 
@@ -310,8 +307,8 @@ class ToolIndex:
         if self._requirements_cache is not None:
             return self._requirements_cache
 
-        seen: Set[tuple] = set()
-        reqs: List[Dict[str, Any]] = []
+        seen: set[tuple] = set()
+        reqs: list[dict[str, Any]] = []
 
         for entry in self.entries.values():
             for req in entry.requirements:
@@ -323,7 +320,7 @@ class ToolIndex:
         self._requirements_cache = reqs
         return reqs
 
-    def get_sanitize_allowlist(self, allowed_ids: Set[str]) -> Dict[str, List]:
+    def get_sanitize_allowlist(self, allowed_ids: set[str]) -> dict[str, list]:
         """
         Generate sanitize allowlist from index.
 
@@ -333,7 +330,7 @@ class ToolIndex:
         Returns:
             Dictionary with blocked/allowed toolshed and local tool lists.
         """
-        result: Dict[str, List] = {
+        result: dict[str, list] = {
             "blocked_toolshed": [],
             "allowed_toolshed": [],
             "blocked_local": [],
@@ -360,17 +357,17 @@ class ToolIndex:
 
         return result
 
-    def get_panel_views(self) -> Dict[str, Dict]:
+    def get_panel_views(self) -> dict[str, dict]:
         """Return pre-computed panel view dictionaries."""
         return self.panel_views
 
-    def get_panel_view(self, view: str) -> Optional[Dict]:
+    def get_panel_view(self, view: str) -> Optional[dict]:
         """Return pre-computed panel view."""
         return self.panel_views.get(view)
 
     def get_requirements_summary(
         self, index_by: str = "requirements"
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Summarize requirements across toolbox.
 
@@ -383,7 +380,7 @@ class ToolIndex:
         """
         if index_by == "requirements":
             # Group tools by requirement
-            by_req: Dict[tuple, Dict[str, Any]] = {}
+            by_req: dict[tuple, dict[str, Any]] = {}
             for entry in self.entries.values():
                 for req in entry.requirements:
                     key = (req.get("name", ""), req.get("version", ""))
@@ -398,7 +395,7 @@ class ToolIndex:
                 for e in self.entries.values()
             ]
 
-    def get_tools_needing_containers(self) -> List[ToolIndexEntry]:
+    def get_tools_needing_containers(self) -> list[ToolIndexEntry]:
         """Return tools with container requirements."""
         return [e for e in self.entries.values() if e.container_requirements]
 
@@ -417,7 +414,7 @@ class ToolIndex:
         keys = sorted(self.entries.keys())
         return hashlib.md5(str(keys).encode()).hexdigest()[:8]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             "entries": {k: v.to_dict() for k, v in self.entries.items()},
@@ -428,7 +425,7 @@ class ToolIndex:
         }
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ToolIndex":
+    def from_dict(cls, data: dict[str, Any]) -> "ToolIndex":
         """Create from dictionary."""
         built_at = data.get("built_at")
         if built_at and isinstance(built_at, str):

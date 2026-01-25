@@ -16,12 +16,9 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
-    Dict,
-    List,
     Optional,
 )
 
-import pytest
 
 
 # Add Galaxy lib to path for imports
@@ -46,8 +43,8 @@ class FakeToolSourceStore:
     """In-memory fake implementation of a tool source store."""
 
     def __init__(self):
-        self.stored_sources: Dict[str, object] = {}
-        self.store_calls: List[object] = []
+        self.stored_sources: dict[str, object] = {}
+        self.store_calls: list[object] = []
 
     def exists(self, hash_key: str) -> bool:
         return hash_key in self.stored_sources
@@ -76,7 +73,7 @@ class FakeTool:
 class FakeToolbox:
     """Minimal toolbox representation for testing."""
 
-    def __init__(self, tools: Dict[str, FakeTool]):
+    def __init__(self, tools: dict[str, FakeTool]):
         self._tools_by_id = tools
 
 

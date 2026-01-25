@@ -12,10 +12,9 @@ import logging
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
-    Iterator,
-    List,
     Optional,
 )
+from collections.abc import Iterator
 
 from sqlalchemy import (
     func,
@@ -168,7 +167,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
 
     def get_by_tool_id(
         self, tool_id: str, version: Optional[str] = None
-    ) -> List[StoredToolSource]:
+    ) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         session = self._get_session()
 

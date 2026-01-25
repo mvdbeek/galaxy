@@ -9,10 +9,9 @@ import json
 import logging
 from datetime import datetime
 from typing import (
-    Iterator,
-    List,
     Optional,
 )
+from collections.abc import Iterator
 
 from . import (
     StoredToolSource,
@@ -162,12 +161,11 @@ class RedisToolSourceStore(ToolSourceStore):
     def list_all(self) -> Iterator[str]:
         """List all stored tool source hashes."""
         hashes = self._redis.smembers(f"{self.PREFIX}:all")
-        for hash_value in hashes:
-            yield hash_value
+        yield from hashes
 
     def get_by_tool_id(
         self, tool_id: str, version: Optional[str] = None
-    ) -> List[StoredToolSource]:
+    ) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         if version:
             key = f"{self.PREFIX}:index:version:{tool_id}:{version}"
