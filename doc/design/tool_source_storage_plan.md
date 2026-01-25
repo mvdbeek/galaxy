@@ -872,6 +872,677 @@ if __name__ == "__main__":
 
 ---
 
+## Scalable Tool Listing: Handling `/api/tools` Without Full Memory Load
+
+### The Challenge
+
+The `/api/tools` endpoint must return metadata for all tools (potentially thousands) quickly, but:
+1. Loading and deserializing all tool sources consumes significant memory
+2. Creating full `Tool` objects for each tool is expensive
+3. The current `ToolBox` keeps all tools in memory (`_tools_by_id`)
+
+### Solution: Separate Tool Index from Tool Sources
+
+The key insight is that `/api/tools` needs **lightweight metadata**, not full tool sources. We separate:
+
+| Layer | Purpose | Size | Storage |
+|-------|---------|------|---------|
+| **Tool Index** | API responses, search, panel | ~1-2 KB/tool | Always in memory or fast cache |
+| **Tool Sources** | Tool execution, form rendering | ~10-100 KB/tool | On-demand from store |
+| **Tool Objects** | Runtime execution | Variable | LRU cache with eviction |
+
+### Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         API Layer                                │
+│  /api/tools  /api/tools/{id}  /api/tools/{id}/build            │
+└────────────────────┬───────────────────┬────────────────────────┘
+                     │                   │
+         ┌───────────▼───────────┐       │
+         │     Tool Index        │       │
+         │  (Always Available)   │       │
+         │  - id, name, version  │       │
+         │  - description        │       │
+         │  - panel_section      │       │
+         │  - labels, edam       │       │
+         │  - source_hash ──────────────►│
+         └───────────────────────┘       │
+                                         │
+                     ┌───────────────────▼────────────────────┐
+                     │         Tool Source Store              │
+                     │      (Database/Redis/Disk)             │
+                     │  - Full XML/YAML source                │
+                     │  - Loaded on-demand                    │
+                     └───────────────────┬────────────────────┘
+                                         │
+                     ┌───────────────────▼────────────────────┐
+                     │      Tool Object Cache (LRU)           │
+                     │  - Parsed Tool objects                 │
+                     │  - Evicted under memory pressure       │
+                     │  - Rebuilt from source on cache miss   │
+                     └────────────────────────────────────────┘
+```
+
+### 1. Tool Index Model
+
+Create a lightweight index stored alongside tool sources:
+
+```python
+# lib/galaxy/tool_source_store/index.py
+
+from dataclasses import dataclass, field
+from typing import Optional, List, Dict
+from datetime import datetime
+
+@dataclass
+class ToolIndexEntry:
+    """Lightweight tool metadata for API responses and search."""
+    # Identity
+    id: str
+    uuid: Optional[str] = None
+    version: Optional[str] = None
+
+    # Display
+    name: str = ""
+    description: str = ""
+
+    # Classification
+    panel_section_id: Optional[str] = None
+    panel_section_name: Optional[str] = None
+    labels: List[str] = field(default_factory=list)
+    edam_operations: List[str] = field(default_factory=list)
+    edam_topics: List[str] = field(default_factory=list)
+
+    # Source reference (for on-demand loading)
+    source_hash: str = ""
+    source_class: str = "XmlToolSource"
+
+    # Status
+    hidden: bool = False
+    disabled: bool = False
+
+    # Timestamps
+    indexed_at: Optional[datetime] = None
+
+    def to_api_dict(self, detail: bool = False) -> Dict:
+        """Convert to API response format."""
+        result = {
+            "id": self.id,
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "labels": self.labels,
+            "panel_section_id": self.panel_section_id,
+            "panel_section_name": self.panel_section_name,
+            "hidden": self.hidden,
+        }
+        if detail:
+            result.update({
+                "uuid": self.uuid,
+                "edam_operations": self.edam_operations,
+                "edam_topics": self.edam_topics,
+            })
+        return result
+
+
+@dataclass
+class ToolIndex:
+    """In-memory index of all tools for fast API access."""
+    entries: Dict[str, ToolIndexEntry] = field(default_factory=dict)
+    by_section: Dict[str, List[str]] = field(default_factory=dict)
+    version: str = ""  # For cache invalidation
+    built_at: Optional[datetime] = None
+
+    def get(self, tool_id: str) -> Optional[ToolIndexEntry]:
+        return self.entries.get(tool_id)
+
+    def list_all(self,
+                 section_id: Optional[str] = None,
+                 include_hidden: bool = False) -> List[ToolIndexEntry]:
+        """List tools with optional filtering."""
+        if section_id:
+            tool_ids = self.by_section.get(section_id, [])
+            entries = [self.entries[tid] for tid in tool_ids if tid in self.entries]
+        else:
+            entries = list(self.entries.values())
+
+        if not include_hidden:
+            entries = [e for e in entries if not e.hidden]
+
+        return entries
+
+    def search(self, query: str, limit: int = 50) -> List[ToolIndexEntry]:
+        """Fast text search across tool metadata."""
+        query_lower = query.lower()
+        results = []
+        for entry in self.entries.values():
+            if entry.hidden:
+                continue
+            # Score based on match location
+            score = 0
+            if query_lower in entry.id.lower():
+                score += 100
+            if query_lower in entry.name.lower():
+                score += 50
+            if query_lower in entry.description.lower():
+                score += 10
+            if any(query_lower in label.lower() for label in entry.labels):
+                score += 25
+            if score > 0:
+                results.append((score, entry))
+
+        results.sort(key=lambda x: -x[0])
+        return [entry for _, entry in results[:limit]]
+
+    def memory_size_estimate(self) -> int:
+        """Estimate memory usage in bytes."""
+        # Rough estimate: ~500 bytes per entry for typical tool
+        return len(self.entries) * 500
+```
+
+### 2. Index Storage in Each Backend
+
+Extend storage backends to handle the index:
+
+```python
+# Add to ToolSourceStore ABC
+
+class ToolSourceStore(ABC):
+    # ... existing methods ...
+
+    @abstractmethod
+    def store_index(self, index: ToolIndex) -> None:
+        """Store the complete tool index."""
+        pass
+
+    @abstractmethod
+    def load_index(self) -> Optional[ToolIndex]:
+        """Load the tool index."""
+        pass
+
+    @abstractmethod
+    def update_index_entry(self, entry: ToolIndexEntry) -> None:
+        """Update a single index entry."""
+        pass
+```
+
+**Database Backend Index Storage:**
+```python
+# New table: tool_index
+class ToolIndexModel(Base):
+    __tablename__ = "tool_index"
+
+    tool_id: Mapped[str] = mapped_column(Unicode(255), primary_key=True)
+    uuid: Mapped[Optional[str]] = mapped_column(Unicode(64), index=True)
+    version: Mapped[Optional[str]] = mapped_column(Unicode(64))
+    name: Mapped[str] = mapped_column(Unicode(255))
+    description: Mapped[str] = mapped_column(Text)
+    panel_section_id: Mapped[Optional[str]] = mapped_column(Unicode(255), index=True)
+    panel_section_name: Mapped[Optional[str]] = mapped_column(Unicode(255))
+    labels: Mapped[List[str]] = mapped_column(JSONType)
+    edam_operations: Mapped[List[str]] = mapped_column(JSONType)
+    edam_topics: Mapped[List[str]] = mapped_column(JSONType)
+    source_hash: Mapped[str] = mapped_column(Unicode(64), ForeignKey("tool_source.hash"))
+    source_class: Mapped[str] = mapped_column(Unicode(64))
+    hidden: Mapped[bool] = mapped_column(default=False)
+    disabled: Mapped[bool] = mapped_column(default=False)
+    indexed_at: Mapped[datetime] = mapped_column(default=now)
+```
+
+**Redis Backend Index Storage:**
+```python
+# Keys:
+# tool_index:entry:{tool_id} -> JSON of ToolIndexEntry
+# tool_index:all -> Set of all tool_ids
+# tool_index:section:{section_id} -> Set of tool_ids in section
+# tool_index:meta -> JSON with version, built_at
+
+class RedisToolSourceStore(ToolSourceStore):
+    def load_index(self) -> Optional[ToolIndex]:
+        pipe = self._redis.pipeline()
+
+        # Get all tool IDs
+        tool_ids = self._redis.smembers("tool_index:all")
+        if not tool_ids:
+            return None
+
+        # Batch get all entries
+        entries = {}
+        for tool_id in tool_ids:
+            data = self._redis.get(f"tool_index:entry:{tool_id}")
+            if data:
+                entry_dict = json.loads(data)
+                entries[tool_id] = ToolIndexEntry(**entry_dict)
+
+        # Get section mapping
+        by_section = {}
+        for key in self._redis.scan_iter("tool_index:section:*"):
+            section_id = key.split(":")[-1]
+            by_section[section_id] = list(self._redis.smembers(key))
+
+        # Get metadata
+        meta = json.loads(self._redis.get("tool_index:meta") or "{}")
+
+        return ToolIndex(
+            entries=entries,
+            by_section=by_section,
+            version=meta.get("version", ""),
+            built_at=datetime.fromisoformat(meta["built_at"]) if "built_at" in meta else None,
+        )
+```
+
+### 3. Lazy Tool Loading with LRU Cache
+
+Replace the full in-memory toolbox with lazy loading:
+
+```python
+# lib/galaxy/tools/lazy_toolbox.py
+
+from functools import lru_cache
+from typing import Optional, Dict
+from cachetools import LRUCache
+import threading
+
+class LazyToolBox:
+    """
+    ToolBox that loads tools on-demand from the tool source store.
+
+    Keeps a lightweight index in memory for API responses,
+    but only loads full Tool objects when needed.
+    """
+
+    def __init__(
+        self,
+        app,
+        tool_source_store: ToolSourceStore,
+        cache_size: int = 500,  # Number of Tool objects to cache
+    ):
+        self._app = app
+        self._store = tool_source_store
+        self._index: Optional[ToolIndex] = None
+        self._tool_cache: LRUCache = LRUCache(maxsize=cache_size)
+        self._cache_lock = threading.RLock()
+
+        # Load index on startup
+        self._load_index()
+
+    def _load_index(self) -> None:
+        """Load the tool index from store."""
+        self._index = self._store.load_index()
+        if self._index is None:
+            # Build index from sources if not present
+            self._rebuild_index()
+
+    def _rebuild_index(self) -> None:
+        """Rebuild index from all stored tool sources."""
+        entries = {}
+        by_section = {}
+
+        for source_hash in self._store.list_all():
+            stored = self._store.get(source_hash)
+            if stored:
+                entry = self._build_index_entry(stored)
+                entries[entry.id] = entry
+                if entry.panel_section_id:
+                    by_section.setdefault(entry.panel_section_id, []).append(entry.id)
+
+        self._index = ToolIndex(
+            entries=entries,
+            by_section=by_section,
+            version=hashlib.md5(str(sorted(entries.keys())).encode()).hexdigest()[:8],
+            built_at=datetime.utcnow(),
+        )
+        self._store.store_index(self._index)
+
+    def _build_index_entry(self, stored: StoredToolSource) -> ToolIndexEntry:
+        """Build index entry from stored source (without full Tool creation)."""
+        # Use lightweight parsing - just extract metadata
+        from galaxy.tool_util.parser import get_tool_source
+        tool_source = get_tool_source(
+            raw_tool_source=stored.raw_source,
+            tool_source_class=stored.tool_source_class,
+        )
+
+        return ToolIndexEntry(
+            id=tool_source.parse_id(),
+            version=tool_source.parse_version(),
+            name=tool_source.parse_name(),
+            description=tool_source.parse_description() or "",
+            labels=list(tool_source.parse_xrefs()),
+            edam_operations=tool_source.parse_edam_operations(),
+            edam_topics=tool_source.parse_edam_topics(),
+            source_hash=stored.hash,
+            source_class=stored.tool_source_class,
+            hidden=tool_source.parse_hidden(),
+        )
+
+    # === API Methods (use index, no Tool loading) ===
+
+    def list_tools(
+        self,
+        section_id: Optional[str] = None,
+        include_hidden: bool = False,
+    ) -> List[Dict]:
+        """
+        List all tools - used by /api/tools.
+        Returns lightweight dicts from index, no Tool loading.
+        """
+        entries = self._index.list_all(section_id, include_hidden)
+        return [entry.to_api_dict() for entry in entries]
+
+    def search_tools(self, query: str, limit: int = 50) -> List[Dict]:
+        """Search tools by text - fast, uses index only."""
+        entries = self._index.search(query, limit)
+        return [entry.to_api_dict() for entry in entries]
+
+    def get_tool_info(self, tool_id: str) -> Optional[Dict]:
+        """Get tool info - uses index, no Tool loading."""
+        entry = self._index.get(tool_id)
+        return entry.to_api_dict(detail=True) if entry else None
+
+    # === Tool Loading Methods (load from store on-demand) ===
+
+    def get_tool(self, tool_id: str, version: Optional[str] = None) -> Optional[Tool]:
+        """
+        Get a full Tool object - loads from store if not cached.
+        Used for tool execution, form building, etc.
+        """
+        cache_key = f"{tool_id}:{version or 'latest'}"
+
+        with self._cache_lock:
+            if cache_key in self._tool_cache:
+                return self._tool_cache[cache_key]
+
+        # Get source hash from index
+        entry = self._index.get(tool_id)
+        if not entry:
+            return None
+
+        # Load source from store
+        stored = self._store.get(entry.source_hash)
+        if not stored:
+            return None
+
+        # Create Tool object
+        tool = self._create_tool_from_source(stored)
+
+        with self._cache_lock:
+            self._tool_cache[cache_key] = tool
+
+        return tool
+
+    def _create_tool_from_source(self, stored: StoredToolSource) -> Tool:
+        """Create a Tool object from stored source."""
+        from galaxy.tool_util.parser import get_tool_source
+        from galaxy.tools import create_tool_from_source
+
+        tool_source = get_tool_source(
+            raw_tool_source=stored.raw_source,
+            tool_source_class=stored.tool_source_class,
+        )
+
+        return create_tool_from_source(
+            self._app,
+            tool_source,
+            tool_dir=stored.tool_dir,
+        )
+
+    # === Cache Management ===
+
+    def cache_stats(self) -> Dict:
+        """Return cache statistics."""
+        return {
+            "tool_cache_size": len(self._tool_cache),
+            "tool_cache_maxsize": self._tool_cache.maxsize,
+            "index_size": len(self._index.entries) if self._index else 0,
+            "index_memory_estimate": self._index.memory_size_estimate() if self._index else 0,
+        }
+
+    def clear_cache(self) -> None:
+        """Clear the tool object cache."""
+        with self._cache_lock:
+            self._tool_cache.clear()
+
+    def evict_tool(self, tool_id: str) -> None:
+        """Evict a specific tool from cache."""
+        with self._cache_lock:
+            keys_to_remove = [k for k in self._tool_cache if k.startswith(f"{tool_id}:")]
+            for key in keys_to_remove:
+                del self._tool_cache[key]
+```
+
+### 4. Pre-computed API Responses
+
+For extremely large installations, pre-compute and cache the `/api/tools` response:
+
+```python
+# lib/galaxy/tool_source_store/api_cache.py
+
+import gzip
+import json
+from typing import Optional
+from datetime import datetime, timedelta
+
+class ToolAPICache:
+    """
+    Cache for pre-computed API responses.
+    Stores gzip-compressed JSON for common API queries.
+    """
+
+    CACHE_KEYS = {
+        "tools_list": "/api/tools",
+        "tools_list_detailed": "/api/tools?detailed=true",
+        "tool_panel": "/api/tools?in_panel=true",
+    }
+
+    def __init__(self, store: ToolSourceStore, ttl_seconds: int = 300):
+        self._store = store
+        self._ttl = timedelta(seconds=ttl_seconds)
+        self._cache: Dict[str, tuple] = {}  # key -> (data, expires_at)
+
+    def get_tools_list(self, detailed: bool = False) -> Optional[bytes]:
+        """Get cached tools list response (gzip compressed)."""
+        key = "tools_list_detailed" if detailed else "tools_list"
+        return self._get_cached(key)
+
+    def _get_cached(self, key: str) -> Optional[bytes]:
+        if key in self._cache:
+            data, expires_at = self._cache[key]
+            if datetime.utcnow() < expires_at:
+                return data
+            del self._cache[key]
+        return None
+
+    def refresh(self, index: ToolIndex) -> None:
+        """Refresh all cached API responses from index."""
+        now = datetime.utcnow()
+        expires_at = now + self._ttl
+
+        # Basic tools list
+        tools_list = [entry.to_api_dict() for entry in index.entries.values()
+                      if not entry.hidden]
+        self._cache["tools_list"] = (
+            gzip.compress(json.dumps(tools_list).encode()),
+            expires_at
+        )
+
+        # Detailed tools list
+        tools_detailed = [entry.to_api_dict(detail=True) for entry in index.entries.values()
+                          if not entry.hidden]
+        self._cache["tools_list_detailed"] = (
+            gzip.compress(json.dumps(tools_detailed).encode()),
+            expires_at
+        )
+
+    def invalidate(self) -> None:
+        """Invalidate all cached responses."""
+        self._cache.clear()
+```
+
+### 5. Updated API Endpoints
+
+Modify `/api/tools` to use the index:
+
+```python
+# lib/galaxy/webapps/galaxy/api/tools.py
+
+from fastapi import APIRouter, Response
+from fastapi.responses import StreamingResponse
+import gzip
+
+@router.get("/api/tools")
+def list_tools(
+    trans: ProvidesAppContext = Depends(get_trans),
+    q: Optional[str] = Query(None, description="Search query"),
+    section_id: Optional[str] = Query(None),
+    in_panel: bool = Query(False),
+    detailed: bool = Query(False),
+):
+    """
+    List available tools.
+
+    Uses lightweight index for fast responses without loading full tools.
+    """
+    toolbox = trans.app.lazy_toolbox  # or regular toolbox with index
+
+    # Try pre-computed cache first for common queries
+    if not q and not section_id and not in_panel:
+        api_cache = trans.app.tool_api_cache
+        cached = api_cache.get_tools_list(detailed=detailed)
+        if cached:
+            return Response(
+                content=cached,
+                media_type="application/json",
+                headers={"Content-Encoding": "gzip"}
+            )
+
+    # Search query
+    if q:
+        tools = toolbox.search_tools(q)
+    else:
+        tools = toolbox.list_tools(section_id=section_id)
+
+    return tools
+
+@router.get("/api/tools/{tool_id}")
+def get_tool(
+    tool_id: str,
+    trans: ProvidesAppContext = Depends(get_trans),
+    version: Optional[str] = Query(None),
+    io_details: bool = Query(False),
+):
+    """
+    Get tool details.
+
+    Basic info from index, full tool loaded only if io_details=True.
+    """
+    toolbox = trans.app.lazy_toolbox
+
+    if io_details:
+        # Need full Tool object for inputs/outputs
+        tool = toolbox.get_tool(tool_id, version)
+        if not tool:
+            raise HTTPException(404, "Tool not found")
+        return tool.to_dict()
+    else:
+        # Just use index
+        info = toolbox.get_tool_info(tool_id)
+        if not info:
+            raise HTTPException(404, "Tool not found")
+        return info
+
+@router.get("/api/tools/{tool_id}/build")
+def build_tool(
+    tool_id: str,
+    trans: ProvidesAppContext = Depends(get_trans),
+    version: Optional[str] = Query(None),
+):
+    """
+    Build tool form - requires full Tool object.
+    """
+    toolbox = trans.app.lazy_toolbox
+    tool = toolbox.get_tool(tool_id, version)
+    if not tool:
+        raise HTTPException(404, "Tool not found")
+
+    # Build form using full tool
+    return tool.to_json(trans)
+```
+
+### 6. Memory Budget Configuration
+
+Add configuration for memory management:
+
+```yaml
+# galaxy.yml
+
+# Tool loading configuration
+tool_cache_size: 500        # Max Tool objects in LRU cache
+tool_index_in_memory: true  # Keep tool index in memory (recommended)
+tool_api_cache_ttl: 300     # Seconds to cache /api/tools response
+
+# Memory pressure handling
+tool_cache_evict_on_memory_pressure: true
+tool_cache_memory_limit_mb: 512  # Evict if cache exceeds this
+```
+
+### 7. Benchmarks for Index Operations
+
+Add index-specific benchmarks:
+
+```python
+# Add to benchmarks.py
+
+def benchmark_index_search(self, iterations: int = 100) -> BenchmarkResult:
+    """Benchmark searching the tool index."""
+    # Build a sample index
+    index = ToolIndex()
+    for i in range(1000):
+        index.entries[f"tool_{i}"] = ToolIndexEntry(
+            id=f"tool_{i}",
+            name=f"Tool Number {i}",
+            description=f"A tool that does thing {i}",
+            labels=["genomics", "ngs"] if i % 2 == 0 else ["proteomics"],
+        )
+
+    queries = ["genomics", "tool_5", "number", "does"]
+
+    def search():
+        for q in queries:
+            index.search(q, limit=50)
+
+    return benchmark_function("index_search", search, iterations)
+
+def benchmark_api_response_generation(self, iterations: int = 100) -> BenchmarkResult:
+    """Benchmark generating /api/tools response from index."""
+    index = ToolIndex()
+    for i in range(1000):
+        index.entries[f"tool_{i}"] = ToolIndexEntry(
+            id=f"tool_{i}",
+            name=f"Tool {i}",
+            description=f"Description {i}",
+        )
+
+    def generate_response():
+        return [e.to_api_dict() for e in index.entries.values()]
+
+    return benchmark_function("api_response_generation", generate_response, iterations)
+```
+
+### Summary: Memory vs. Performance Trade-offs
+
+| Configuration | Memory Usage | `/api/tools` Latency | Tool Execution |
+|---------------|--------------|----------------------|----------------|
+| Full ToolBox (current) | High (~100MB+ for 1000 tools) | Fast | Fast |
+| Index + LRU(500) | Medium (~10MB index + ~50MB cache) | Fast | Fast for cached, ~50ms for uncached |
+| Index + LRU(100) | Low (~10MB index + ~10MB cache) | Fast | Fast for cached, ~50ms for uncached |
+| Index + No Cache | Very Low (~10MB) | Fast | ~50ms per tool load |
+
+**Recommendation**: Use Index + LRU cache with size tuned to available memory. For most installations, 500 cached tools covers the "hot" tools used in 95%+ of jobs.
+
+---
+
 ## Implementation Steps
 
 ### Phase 1: Core Infrastructure
@@ -883,6 +1554,7 @@ if __name__ == "__main__":
 
 2. **Implement Database Backend**
    - Create database migration to extend `tool_source` table
+   - Create `tool_index` table for lightweight metadata
    - Implement `DatabaseToolSourceStore`
    - Integrate with existing PR #21278 code
 
@@ -891,53 +1563,76 @@ if __name__ == "__main__":
    - Create sample configuration file
    - Update `GalaxyAppConfiguration` to handle new options
 
-### Phase 2: Additional Backends
+### Phase 2: Tool Index and Lazy Loading
 
-4. **Implement Redis Backend**
-   - `RedisToolSourceStore` with indexing
+4. **Implement Tool Index**
+   - `ToolIndexEntry` dataclass with lightweight metadata
+   - `ToolIndex` class with search and lookup methods
+   - Index storage/loading in all backends
+
+5. **Implement LazyToolBox**
+   - LRU cache for Tool objects
+   - On-demand loading from store
+   - Index-based API responses
+   - Memory pressure handling
+
+6. **Pre-computed API Cache**
+   - Gzip-compressed response caching
+   - TTL-based invalidation
+   - Automatic refresh on index changes
+
+### Phase 3: Additional Backends
+
+7. **Implement Redis Backend**
+   - `RedisToolSourceStore` with source and index storage
    - Connection pooling and error handling
    - Optional TTL support
 
-5. **Implement Disk Backend**
+8. **Implement Disk Backend**
    - `DiskToolSourceStore` with sharded directory structure
-   - Indexing via JSON files
+   - Index storage as JSON files
    - Optional compression support
 
-### Phase 3: API and Integration
+### Phase 4: API and Integration
 
-6. **Create API Endpoints**
+9. **Create API Endpoints**
    - Add `lib/galaxy/webapps/galaxy/api/tool_sources.py`
+   - Update `/api/tools` to use index
    - Create request/response schemas
    - Integrate with FastAPI router
 
-7. **Integrate with ToolBox/DatabaseToolBox**
-   - Update PR #21278's `DatabaseToolBox` to use `ToolSourceStore`
-   - Add tool source storage during tool loading
-   - Implement cache lookup before database query
+10. **Integrate with ToolBox/DatabaseToolBox**
+    - Update PR #21278's `DatabaseToolBox` to use `ToolSourceStore`
+    - Add tool source storage during tool loading
+    - Implement cache lookup before database query
 
-### Phase 4: Scripts and Tooling
+### Phase 5: Scripts and Tooling
 
-8. **Create Population Script**
-   - `scripts/tool_source/populate_store.py`
-   - Support incremental and full modes
-   - Parallel processing
+11. **Create Population Script**
+    - `scripts/tool_source/populate_store.py`
+    - Support incremental and full modes
+    - Parallel processing
+    - Index building
 
-9. **Create Benchmark Suite**
-   - `lib/galaxy/tool_source_store/benchmarks.py`
-   - Benchmarks for all operations
-   - CI integration for regression testing
+12. **Create Benchmark Suite**
+    - `lib/galaxy/tool_source_store/benchmarks.py`
+    - Benchmarks for all operations including index search
+    - CI integration for regression testing
 
-### Phase 5: Testing and Documentation
+### Phase 6: Testing and Documentation
 
-10. **Add Tests**
+13. **Add Tests**
     - Unit tests for each backend
+    - Unit tests for ToolIndex and LazyToolBox
     - Integration tests for API endpoints
     - Performance regression tests
+    - Memory usage tests
 
-11. **Update Documentation**
+14. **Update Documentation**
     - Admin documentation for configuration
     - API documentation
     - Architecture documentation
+    - Migration guide from full ToolBox
 
 ---
 
@@ -947,12 +1642,17 @@ if __name__ == "__main__":
 
 ```
 lib/galaxy/tool_source_store/
-    __init__.py
-    database.py
-    redis.py
-    disk.py
-    models.py
-    benchmarks.py
+    __init__.py              # ToolSourceStore ABC, StoredToolSource, factory
+    database.py              # DatabaseToolSourceStore
+    redis.py                 # RedisToolSourceStore
+    disk.py                  # DiskToolSourceStore
+    models.py                # Pydantic models for serialization
+    index.py                 # ToolIndex, ToolIndexEntry
+    api_cache.py             # ToolAPICache for pre-computed responses
+    benchmarks.py            # Performance benchmarks
+
+lib/galaxy/tools/
+    lazy_toolbox.py          # LazyToolBox with LRU cache
 
 lib/galaxy/webapps/galaxy/api/tool_sources.py
 lib/galaxy/schema/tool_source.py
@@ -961,16 +1661,21 @@ lib/galaxy/config/sample/tool_source_store_conf.sample.yml
 
 scripts/tool_source/
     __init__.py
-    populate_store.py
+    populate_store.py        # Incremental population script
+    build_index.py           # Index building script
 
 lib/galaxy/model/migrations/alembic/versions_gxy/
     xxxx_extend_tool_source_table.py
+    xxxx_add_tool_index_table.py
 
 test/unit/tool_source_store/
     test_database.py
     test_redis.py
     test_disk.py
+    test_index.py
+    test_lazy_toolbox.py
     test_api.py
+    test_api_cache.py
     conftest.py
 ```
 
@@ -979,10 +1684,11 @@ test/unit/tool_source_store/
 ```
 lib/galaxy/config/__init__.py          # Add tool_source_store config handling
 lib/galaxy/config/schemas/config_schema.yml  # Add new config options
-lib/galaxy/model/__init__.py           # Extend ToolSource model
-lib/galaxy/app.py                      # Initialize tool_source_store
+lib/galaxy/model/__init__.py           # Extend ToolSource model, add ToolIndex model
+lib/galaxy/app.py                      # Initialize tool_source_store, lazy_toolbox, api_cache
 lib/galaxy/webapps/galaxy/buildapp.py  # Register API routes
-lib/galaxy/tools/__init__.py           # Integrate with ToolBox
+lib/galaxy/webapps/galaxy/api/tools.py # Update to use index for /api/tools
+lib/galaxy/tools/__init__.py           # Integrate with ToolBox, add ToolSource storage
 ```
 
 ---
@@ -991,23 +1697,44 @@ lib/galaxy/tools/__init__.py           # Integrate with ToolBox
 
 ### Performance
 
-- **Caching**: Consider adding an in-memory LRU cache in front of the storage backend
-- **Lazy Loading**: Only deserialize tool sources when needed
+- **Index in Memory**: Keep the lightweight `ToolIndex` in memory for fast `/api/tools` responses
+- **LRU Caching**: Use bounded LRU cache for `Tool` objects to limit memory usage
+- **Lazy Loading**: Only deserialize tool sources when needed for execution
+- **Pre-computed Responses**: Cache gzip-compressed API responses for common queries
 - **Compression**: For disk/Redis backends, consider compressing large tool sources
+
+### Memory Management
+
+- **Index Size**: ~500 bytes per tool, 1000 tools ≈ 500 KB
+- **Tool Cache**: Size based on available memory; default 500 tools ≈ 50 MB
+- **API Cache**: Gzip-compressed responses, typically < 1 MB total
+- **Eviction**: Automatic eviction under memory pressure
 
 ### Migration
 
 - The database backend should be backward compatible with PR #21278
 - Provide migration tools for moving between backends
+- Support gradual migration: run old ToolBox alongside new LazyToolBox during transition
+- Index can be rebuilt from sources at any time
 
 ### Security
 
 - API endpoints should require admin permissions for write operations
 - Validate tool source content before storage
 - Consider signing/verification for integrity
+- Tool source hashes provide content integrity verification
 
 ### Monitoring
 
 - Add metrics for store operations (get/put latency, hit rate)
+- Track cache hit/miss rates for LRU cache
+- Monitor index size and memory usage
 - Log slow operations
 - Alert on storage backend failures
+
+### Backward Compatibility
+
+- Full ToolBox remains available for installations that prefer it
+- LazyToolBox is opt-in via configuration
+- Existing tool configuration files continue to work
+- Gradual adoption: start with new installations, migrate existing ones later
