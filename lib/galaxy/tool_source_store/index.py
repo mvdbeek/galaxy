@@ -197,12 +197,8 @@ class ToolIndex:
     built_at: Optional[datetime] = None
 
     # Cached computations
-    _requirements_cache: Optional[list[dict[str, Any]]] = field(
-        default=None, repr=False
-    )
-    _tests_summary_cache: Optional[dict[str, dict[str, dict]]] = field(
-        default=None, repr=False
-    )
+    _requirements_cache: Optional[list[dict[str, Any]]] = field(default=None, repr=False)
+    _tests_summary_cache: Optional[dict[str, dict[str, dict]]] = field(default=None, repr=False)
 
     def invalidate_caches(self) -> None:
         """Invalidate all cached computations."""
@@ -365,9 +361,7 @@ class ToolIndex:
         """Return pre-computed panel view."""
         return self.panel_views.get(view)
 
-    def get_requirements_summary(
-        self, index_by: str = "requirements"
-    ) -> list[dict[str, Any]]:
+    def get_requirements_summary(self, index_by: str = "requirements") -> list[dict[str, Any]]:
         """
         Summarize requirements across toolbox.
 
@@ -390,10 +384,7 @@ class ToolIndex:
             return list(by_req.values())
         else:
             # Group requirements by tool
-            return [
-                {"tool_id": e.id, "requirements": e.requirements}
-                for e in self.entries.values()
-            ]
+            return [{"tool_id": e.id, "requirements": e.requirements} for e in self.entries.values()]
 
     def get_tools_needing_containers(self) -> list[ToolIndexEntry]:
         """Return tools with container requirements."""
@@ -431,9 +422,7 @@ class ToolIndex:
         if built_at and isinstance(built_at, str):
             built_at = datetime.fromisoformat(built_at)
 
-        entries = {
-            k: ToolIndexEntry.from_dict(v) for k, v in data.get("entries", {}).items()
-        }
+        entries = {k: ToolIndexEntry.from_dict(v) for k, v in data.get("entries", {}).items()}
 
         return cls(
             entries=entries,

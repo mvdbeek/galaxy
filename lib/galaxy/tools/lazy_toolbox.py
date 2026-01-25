@@ -10,11 +10,9 @@ import logging
 import threading
 from datetime import datetime
 from typing import (
-    TYPE_CHECKING,
     Any,
-    Dict,
-    List,
     Optional,
+    TYPE_CHECKING,
 )
 
 from cachetools import LRUCache
@@ -93,8 +91,8 @@ class LazyToolBox:
             The rebuilt index.
         """
         log.info("Rebuilding tool index from stored sources...")
-        entries: Dict[str, ToolIndexEntry] = {}
-        by_section: Dict[str, List[str]] = {}
+        entries: dict[str, ToolIndexEntry] = {}
+        by_section: dict[str, list[str]] = {}
 
         for source_hash in self._store.list_all():
             stored = self._store.get(source_hash)
@@ -189,12 +187,14 @@ class LazyToolBox:
             version=tool_source.parse_version(),
             name=tool_source.parse_name() or "",
             description=tool_source.parse_description() or "",
-            labels=list(tool_source.parse_xrefs()) if hasattr(tool_source, 'parse_xrefs') else [],
-            edam_operations=list(tool_source.parse_edam_operations()) if hasattr(tool_source, 'parse_edam_operations') else [],
-            edam_topics=list(tool_source.parse_edam_topics()) if hasattr(tool_source, 'parse_edam_topics') else [],
+            labels=list(tool_source.parse_xrefs()) if hasattr(tool_source, "parse_xrefs") else [],
+            edam_operations=(
+                list(tool_source.parse_edam_operations()) if hasattr(tool_source, "parse_edam_operations") else []
+            ),
+            edam_topics=list(tool_source.parse_edam_topics()) if hasattr(tool_source, "parse_edam_topics") else [],
             source_hash=stored.hash,
             source_class=stored.tool_source_class,
-            hidden=tool_source.parse_hidden() if hasattr(tool_source, 'parse_hidden') else False,
+            hidden=tool_source.parse_hidden() if hasattr(tool_source, "parse_hidden") else False,
             test_count=test_count,
             requirements=requirements,
             container_requirements=container_requirements,
@@ -212,7 +212,7 @@ class LazyToolBox:
         self,
         section_id: Optional[str] = None,
         include_hidden: bool = False,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         List all tools - used by /api/tools.
 
@@ -223,41 +223,39 @@ class LazyToolBox:
         entries = self._index.list_all(section_id, include_hidden)
         return [entry.to_api_dict() for entry in entries]
 
-    def search_tools(self, query: str, limit: int = 50) -> List[Dict[str, Any]]:
+    def search_tools(self, query: str, limit: int = 50) -> list[dict[str, Any]]:
         """Search tools by text - fast, uses index only."""
         if self._index is None:
             return []
         entries = self._index.search(query, limit)
         return [entry.to_api_dict() for entry in entries]
 
-    def get_tool_info(self, tool_id: str) -> Optional[Dict[str, Any]]:
+    def get_tool_info(self, tool_id: str) -> Optional[dict[str, Any]]:
         """Get tool info - uses index, no Tool loading."""
         if self._index is None:
             return None
         entry = self._index.get(tool_id)
         return entry.to_api_dict(detail=True) if entry else None
 
-    def get_tests_summary(self) -> Dict[str, Dict[str, Dict]]:
+    def get_tests_summary(self) -> dict[str, dict[str, dict]]:
         """Get tests summary - uses index."""
         if self._index is None:
             return {}
         return self._index.get_tests_summary()
 
-    def get_all_requirements(self) -> List[Dict[str, Any]]:
+    def get_all_requirements(self) -> list[dict[str, Any]]:
         """Get all requirements - uses index."""
         if self._index is None:
             return []
         return self._index.get_all_requirements()
 
-    def get_panel_views(self) -> Dict[str, Dict]:
+    def get_panel_views(self) -> dict[str, dict]:
         """Get panel views - uses index."""
         if self._index is None:
             return {}
         return self._index.get_panel_views()
 
-    def get_requirements_summary(
-        self, index_by: str = "requirements"
-    ) -> List[Dict[str, Any]]:
+    def get_requirements_summary(self, index_by: str = "requirements") -> list[dict[str, Any]]:
         """Get requirements summary for dependency endpoints."""
         if self._index is None:
             return []
@@ -265,9 +263,7 @@ class LazyToolBox:
 
     # === Tool Loading Methods (load from store on-demand) ===
 
-    def get_tool(
-        self, tool_id: str, version: Optional[str] = None
-    ) -> Optional["Tool"]:
+    def get_tool(self, tool_id: str, version: Optional[str] = None) -> Optional["Tool"]:
         """
         Get a full Tool object - loads from store if not cached.
 
@@ -297,9 +293,7 @@ class LazyToolBox:
         # Load source from store
         stored = self._store.get(entry.source_hash)
         if not stored:
-            log.warning(
-                f"Tool source not found for {tool_id} (hash: {entry.source_hash})"
-            )
+            log.warning(f"Tool source not found for {tool_id} (hash: {entry.source_hash})")
             return None
 
         # Create Tool object
@@ -334,9 +328,7 @@ class LazyToolBox:
         """Get the tool index."""
         return self._index
 
-    def add_tool_source(
-        self, stored: StoredToolSource, update_index: bool = True
-    ) -> str:
+    def add_tool_source(self, stored: StoredToolSource, update_index: bool = True) -> str:
         """
         Add a tool source to the store.
 
@@ -369,15 +361,13 @@ class LazyToolBox:
         """Get the API cache."""
         return self._api_cache
 
-    def cache_stats(self) -> Dict[str, Any]:
+    def cache_stats(self) -> dict[str, Any]:
         """Return cache statistics."""
         return {
             "tool_cache_size": len(self._tool_cache),
             "tool_cache_maxsize": self._tool_cache.maxsize,
             "index_size": len(self._index.entries) if self._index else 0,
-            "index_memory_estimate": (
-                self._index.memory_size_estimate() if self._index else 0
-            ),
+            "index_memory_estimate": (self._index.memory_size_estimate() if self._index else 0),
             "api_cache": self._api_cache.get_stats(),
         }
 
@@ -389,9 +379,7 @@ class LazyToolBox:
     def evict_tool(self, tool_id: str) -> None:
         """Evict a specific tool from cache."""
         with self._cache_lock:
-            keys_to_remove = [
-                k for k in self._tool_cache if k.startswith(f"{tool_id}:")
-            ]
+            keys_to_remove = [k for k in self._tool_cache if k.startswith(f"{tool_id}:")]
             for key in keys_to_remove:
                 del self._tool_cache[key]
 

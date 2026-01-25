@@ -539,12 +539,13 @@ class ToolsService(ServiceBase):
     # === Batch Endpoint Methods (use lazy toolbox index when available) ===
 
     def _get_lazy_toolbox(self, trans: ProvidesUserContext) -> Optional["LazyToolBox"]:
-        """Get the lazy toolbox if available."""
-        return getattr(trans.app, "lazy_toolbox", None)
+        """Return the active toolbox if it's a LazyToolBox, else None."""
+        from galaxy.tools.lazy_toolbox import LazyToolBox
 
-    def get_tests_summary(
-        self, trans: ProvidesUserContext
-    ) -> dict[str, dict[str, dict[str, Any]]]:
+        toolbox = trans.app.toolbox
+        return toolbox if isinstance(toolbox, LazyToolBox) else None
+
+    def get_tests_summary(self, trans: ProvidesUserContext) -> dict[str, dict[str, dict[str, Any]]]:
         """
         Get tests summary for all tools.
 
@@ -555,8 +556,8 @@ class ToolsService(ServiceBase):
             Dictionary of {tool_id: {version: {tool_name, count}}}.
         """
         lazy_toolbox = self._get_lazy_toolbox(trans)
-        if lazy_toolbox and lazy_toolbox.index:
-            return lazy_toolbox.index.get_tests_summary()
+        if lazy_toolbox and lazy_toolbox.tool_index:
+            return lazy_toolbox.tool_index.get_tests_summary()
 
         # Fallback to traditional toolbox iteration
         test_counts_by_tool: dict[str, dict] = {}
@@ -573,9 +574,7 @@ class ToolsService(ServiceBase):
                     }
         return test_counts_by_tool
 
-    def get_all_requirements(
-        self, trans: ProvidesUserContext
-    ) -> list[dict[str, Any]]:
+    def get_all_requirements(self, trans: ProvidesUserContext) -> list[dict[str, Any]]:
         """
         Get all unique requirements from all tools.
 
@@ -585,8 +584,8 @@ class ToolsService(ServiceBase):
             List of unique requirement dictionaries.
         """
         lazy_toolbox = self._get_lazy_toolbox(trans)
-        if lazy_toolbox and lazy_toolbox.index:
-            return lazy_toolbox.index.get_all_requirements()
+        if lazy_toolbox and lazy_toolbox.tool_index:
+            return lazy_toolbox.tool_index.get_all_requirements()
 
         # Fallback to traditional toolbox
         return trans.app.toolbox.all_requirements
@@ -600,67 +599,54 @@ class ToolsService(ServiceBase):
         Returns:
             Dictionary with default_panel_view and views.
         """
+        toolbox = trans.app.toolbox
         lazy_toolbox = self._get_lazy_toolbox(trans)
-        if lazy_toolbox and lazy_toolbox.index:
+        if lazy_toolbox and lazy_toolbox.tool_index:
             return {
-                "default_panel_view": trans.app.toolbox._default_panel_view(trans),
-                "views": lazy_toolbox.index.get_panel_views(),
+                "default_panel_view": toolbox.default_panel_view(trans),
+                "views": lazy_toolbox.tool_index.get_panel_views(),
             }
 
         # Fallback to traditional toolbox
         return {
-            "default_panel_view": trans.app.toolbox._default_panel_view(trans),
-            "views": trans.app.toolbox.panel_view_dicts(),
+            "default_panel_view": toolbox.default_panel_view(trans),
+            "views": toolbox.panel_view_dicts(),
         }
 
-    def list_tools_from_index(
+    def list_tools(
         self,
         trans: ProvidesUserContext,
-        section_id: Optional[str] = None,
-        include_hidden: bool = False,
-    ) -> Optional[list[dict[str, Any]]]:
+        in_panel: bool,
+        tool_help: bool,
+        view: Optional[str],
+    ) -> list[dict[str, Any]]:
         """
-        List tools using the lazy toolbox index.
+        List tools, preferring the lazy toolbox index when available for flat listings.
 
-        Returns None if lazy toolbox is not available (caller should fall back).
-
-        Args:
-            trans: Transaction context.
-            section_id: Optional section ID to filter by.
-            include_hidden: Whether to include hidden tools.
-
-        Returns:
-            List of tool dictionaries, or None if index not available.
+        For panel listings or when the index is unavailable, falls back to the
+        traditional toolbox.
         """
-        lazy_toolbox = self._get_lazy_toolbox(trans)
-        if lazy_toolbox:
-            return lazy_toolbox.list_tools(
-                section_id=section_id,
-                include_hidden=include_hidden,
-            )
-        return None
+        if not in_panel:
+            lazy_toolbox = self._get_lazy_toolbox(trans)
+            if lazy_toolbox and lazy_toolbox.tool_index:
+                entries = lazy_toolbox.tool_index.list_all()
+                return [entry.to_api_dict() for entry in entries]
+        return trans.app.toolbox.to_dict(trans, in_panel=in_panel, tool_help=tool_help, view=view)
 
-    def search_tools_from_index(
+    def search_tools(
         self,
         trans: ProvidesUserContext,
         query: str,
+        view: Optional[str] = None,
         limit: int = 50,
-    ) -> Optional[list[dict[str, Any]]]:
+    ) -> list[str]:
         """
-        Search tools using the lazy toolbox index.
+        Search tools, preferring the lazy toolbox index when available.
 
-        Returns None if lazy toolbox is not available.
-
-        Args:
-            trans: Transaction context.
-            query: Search query string.
-            limit: Maximum number of results.
-
-        Returns:
-            List of matching tool IDs, or None if index not available.
+        Returns a list of matching tool IDs.
         """
         lazy_toolbox = self._get_lazy_toolbox(trans)
-        if lazy_toolbox:
-            results = lazy_toolbox.search_tools(query, limit)
-            return [r["id"] for r in results]
-        return None
+        if lazy_toolbox and lazy_toolbox.tool_index:
+            results = lazy_toolbox.tool_index.search(query, limit)
+            return [entry.id for entry in results]
+        return list(self._search(query, view) or [])

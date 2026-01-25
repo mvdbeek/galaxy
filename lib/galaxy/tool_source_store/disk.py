@@ -10,12 +10,12 @@ import json
 import logging
 import os
 import shutil
+from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
 from typing import (
     Optional,
 )
-from collections.abc import Iterator
 
 from . import (
     StoredToolSource,
@@ -114,9 +114,7 @@ class DiskToolSourceStore(ToolSourceStore):
             "tool_id": tool_source.tool_id,
             "tool_version": tool_source.tool_version,
             "tool_dir": tool_source.tool_dir,
-            "stored_at": (
-                tool_source.stored_at.isoformat() if tool_source.stored_at else None
-            ),
+            "stored_at": (tool_source.stored_at.isoformat() if tool_source.stored_at else None),
             "metadata": tool_source.metadata,
         }
 
@@ -241,9 +239,7 @@ class DiskToolSourceStore(ToolSourceStore):
                 if file.endswith(".json"):
                     yield file[:-5]  # Remove .json extension
 
-    def get_by_tool_id(
-        self, tool_id: str, version: Optional[str] = None
-    ) -> list[StoredToolSource]:
+    def get_by_tool_id(self, tool_id: str, version: Optional[str] = None) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         if version:
             path = self._index_path / "version" / tool_id / f"{version}.json"
@@ -269,7 +265,7 @@ class DiskToolSourceStore(ToolSourceStore):
             count += 1
         return count
 
-    def get_stats(self):
+    def get_stats(self) -> dict:
         """Return storage statistics."""
         count = self.count()
 

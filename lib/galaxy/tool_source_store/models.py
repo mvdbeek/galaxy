@@ -63,9 +63,7 @@ class ToolIndexEntryResponse(BaseModel):
     panel_section_id: Optional[str] = Field(None, description="Panel section ID")
     panel_section_name: Optional[str] = Field(None, description="Panel section name")
     labels: list[str] = Field(default_factory=list, description="Tool labels")
-    edam_operations: list[str] = Field(
-        default_factory=list, description="EDAM operations"
-    )
+    edam_operations: list[str] = Field(default_factory=list, description="EDAM operations")
     edam_topics: list[str] = Field(default_factory=list, description="EDAM topics")
     hidden: bool = Field(False, description="Whether tool is hidden")
     test_count: int = Field(0, description="Number of tests")
@@ -99,18 +97,10 @@ class RequirementResponse(BaseModel):
 class SanitizeAllowlistResponse(BaseModel):
     """Response model for /api/sanitize_allow."""
 
-    blocked_toolshed: list[dict[str, Any]] = Field(
-        default_factory=list, description="Blocked tool shed tools"
-    )
-    allowed_toolshed: list[dict[str, Any]] = Field(
-        default_factory=list, description="Allowed tool shed tools"
-    )
-    blocked_local: list[dict[str, Any]] = Field(
-        default_factory=list, description="Blocked local tools"
-    )
-    allowed_local: list[dict[str, Any]] = Field(
-        default_factory=list, description="Allowed local tools"
-    )
+    blocked_toolshed: list[dict[str, Any]] = Field(default_factory=list, description="Blocked tool shed tools")
+    allowed_toolshed: list[dict[str, Any]] = Field(default_factory=list, description="Allowed tool shed tools")
+    blocked_local: list[dict[str, Any]] = Field(default_factory=list, description="Blocked local tools")
+    allowed_local: list[dict[str, Any]] = Field(default_factory=list, description="Allowed local tools")
 
 
 class CacheStatsResponse(BaseModel):
@@ -120,3 +110,16 @@ class CacheStatsResponse(BaseModel):
     tool_cache_maxsize: int = Field(description="Maximum cache size")
     index_size: int = Field(description="Number of tools in index")
     index_memory_estimate: int = Field(description="Estimated index memory usage")
+
+
+class ToolIndexEntryListResponse(BaseModel):
+    """Response model for paginated tool index entry listings."""
+
+    total_count: int = Field(description="Total number of index entries")
+    items: list[ToolIndexEntryResponse] = Field(description="List of index entries")
+
+
+class ClearCacheResponse(BaseModel):
+    """Response model for cache clear operation."""
+
+    status: str = Field(description="Operation status")

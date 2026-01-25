@@ -7,11 +7,12 @@ for high-performance tool source caching and storage.
 
 import json
 import logging
+from collections.abc import Iterator
 from datetime import datetime
 from typing import (
+    cast,
     Optional,
 )
-from collections.abc import Iterator
 
 from . import (
     StoredToolSource,
@@ -53,6 +54,7 @@ class RedisToolSourceStore(ToolSourceStore):
             ttl: Optional TTL in seconds for stored entries.
         """
         try:
+            # Optional dependency: only required when the redis backend is selected.
             from redis import Redis
         except ImportError:
             raise ImportError("redis package is required for RedisToolSourceStore")
@@ -72,9 +74,7 @@ class RedisToolSourceStore(ToolSourceStore):
             "tool_id": tool_source.tool_id,
             "tool_version": tool_source.tool_version,
             "tool_dir": tool_source.tool_dir,
-            "stored_at": (
-                tool_source.stored_at.isoformat() if tool_source.stored_at else None
-            ),
+            "stored_at": (tool_source.stored_at.isoformat() if tool_source.stored_at else None),
             "metadata": tool_source.metadata,
         }
 
@@ -90,9 +90,7 @@ class RedisToolSourceStore(ToolSourceStore):
 
         # Index by tool_id
         if tool_source.tool_id:
-            pipe.sadd(
-                f"{self.PREFIX}:index:tool_id:{tool_source.tool_id}", tool_source.hash
-            )
+            pipe.sadd(f"{self.PREFIX}:index:tool_id:{tool_source.tool_id}", tool_source.hash)
             if tool_source.tool_version:
                 pipe.sadd(
                     f"{self.PREFIX}:index:version:{tool_source.tool_id}:{tool_source.tool_version}",
@@ -105,7 +103,7 @@ class RedisToolSourceStore(ToolSourceStore):
     def get(self, hash: str) -> Optional[StoredToolSource]:
         """Retrieve a tool source by hash."""
         key = f"{self.PREFIX}:{hash}"
-        data = self._redis.get(key)
+        data = cast(Optional[str], self._redis.get(key))
 
         if not data:
             return None
@@ -131,14 +129,14 @@ class RedisToolSourceStore(ToolSourceStore):
 
     def exists(self, hash: str) -> bool:
         """Check if a tool source exists."""
-        return self._redis.exists(f"{self.PREFIX}:{hash}") > 0
+        return cast(int, self._redis.exists(f"{self.PREFIX}:{hash}")) > 0
 
     def delete(self, hash: str) -> bool:
         """Delete a tool source by hash."""
         key = f"{self.PREFIX}:{hash}"
 
         # Get the source first to remove from indexes
-        data = self._redis.get(key)
+        data = cast(Optional[str], self._redis.get(key))
         if not data:
             return False
 
@@ -160,19 +158,17 @@ class RedisToolSourceStore(ToolSourceStore):
 
     def list_all(self) -> Iterator[str]:
         """List all stored tool source hashes."""
-        hashes = self._redis.smembers(f"{self.PREFIX}:all")
+        hashes = cast(set, self._redis.smembers(f"{self.PREFIX}:all"))
         yield from hashes
 
-    def get_by_tool_id(
-        self, tool_id: str, version: Optional[str] = None
-    ) -> list[StoredToolSource]:
+    def get_by_tool_id(self, tool_id: str, version: Optional[str] = None) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         if version:
             key = f"{self.PREFIX}:index:version:{tool_id}:{version}"
         else:
             key = f"{self.PREFIX}:index:tool_id:{tool_id}"
 
-        hashes = self._redis.smembers(key)
+        hashes = cast(set, self._redis.smembers(key))
         sources = []
 
         for hash_value in hashes:
@@ -184,9 +180,9 @@ class RedisToolSourceStore(ToolSourceStore):
 
     def count(self) -> int:
         """Return the total number of stored tool sources."""
-        return self._redis.scard(f"{self.PREFIX}:all") or 0
+        return cast(int, self._redis.scard(f"{self.PREFIX}:all")) or 0
 
-    def get_stats(self):
+    def get_stats(self) -> dict:
         """Return storage statistics."""
         return {
             "count": self.count(),
@@ -209,9 +205,7 @@ class RedisToolSourceStore(ToolSourceStore):
             pipe.sadd(f"{self.INDEX_PREFIX}:all", tool_id)
 
             if entry.panel_section_id:
-                pipe.sadd(
-                    f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", tool_id
-                )
+                pipe.sadd(f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", tool_id)
 
         # Store metadata
         meta = {
@@ -229,19 +223,19 @@ class RedisToolSourceStore(ToolSourceStore):
             return self._cached_index
 
         # Try to load the full index first
-        data = self._redis.get(f"{self.INDEX_PREFIX}:data")
+        data = cast(Optional[str], self._redis.get(f"{self.INDEX_PREFIX}:data"))
         if data:
             self._cached_index = ToolIndex.from_dict(json.loads(data))
             return self._cached_index
 
         # Fall back to building from individual entries
-        tool_ids = self._redis.smembers(f"{self.INDEX_PREFIX}:all")
+        tool_ids = cast(set, self._redis.smembers(f"{self.INDEX_PREFIX}:all"))
         if not tool_ids:
             return None
 
         entries = {}
         for tool_id in tool_ids:
-            entry_data = self._redis.get(f"{self.INDEX_PREFIX}:entry:{tool_id}")
+            entry_data = cast(Optional[str], self._redis.get(f"{self.INDEX_PREFIX}:entry:{tool_id}"))
             if entry_data:
                 entries[tool_id] = ToolIndexEntry.from_dict(json.loads(entry_data))
 
@@ -249,10 +243,10 @@ class RedisToolSourceStore(ToolSourceStore):
         by_section = {}
         for key in self._redis.scan_iter(f"{self.INDEX_PREFIX}:section:*"):
             section_id = key.split(":")[-1]
-            by_section[section_id] = list(self._redis.smembers(key))
+            by_section[section_id] = list(cast(set, self._redis.smembers(key)))
 
         # Get metadata
-        meta_data = self._redis.get(f"{self.INDEX_PREFIX}:meta")
+        meta_data = cast(Optional[str], self._redis.get(f"{self.INDEX_PREFIX}:meta"))
         meta = json.loads(meta_data) if meta_data else {}
 
         built_at = meta.get("built_at")
@@ -271,15 +265,11 @@ class RedisToolSourceStore(ToolSourceStore):
         """Update a single index entry."""
         pipe = self._redis.pipeline()
 
-        pipe.set(
-            f"{self.INDEX_PREFIX}:entry:{entry.id}", json.dumps(entry.to_dict())
-        )
+        pipe.set(f"{self.INDEX_PREFIX}:entry:{entry.id}", json.dumps(entry.to_dict()))
         pipe.sadd(f"{self.INDEX_PREFIX}:all", entry.id)
 
         if entry.panel_section_id:
-            pipe.sadd(
-                f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", entry.id
-            )
+            pipe.sadd(f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", entry.id)
 
         pipe.execute()
 

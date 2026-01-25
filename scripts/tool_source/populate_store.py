@@ -31,16 +31,16 @@ import signal
 import sys
 import threading
 import time
+from collections.abc import Iterator
 from concurrent.futures import (
-    ThreadPoolExecutor,
     as_completed,
+    ThreadPoolExecutor,
 )
 from datetime import datetime
 from pathlib import Path
 from typing import (
     Optional,
 )
-from collections.abc import Iterator
 
 # Add Galaxy lib to path
 galaxy_root = Path(__file__).parent.parent.parent
@@ -307,8 +307,8 @@ def populate_store(
     """
     from galaxy.config import GalaxyAppConfiguration
     from galaxy.tool_source_store import (
-        StoredToolSource,
         build_tool_source_store,
+        StoredToolSource,
     )
 
     log.info("Loading Galaxy configuration...")
@@ -483,47 +483,28 @@ def watch_mode(
 
 def main():
     """Main entry point."""
-    parser = argparse.ArgumentParser(
-        description="Populate tool source store from Galaxy toolbox"
-    )
-    parser.add_argument(
-        "--config", "-c", required=True, help="Galaxy configuration file"
-    )
-    parser.add_argument(
-        "--dry-run", action="store_true", help="Show what would be stored"
-    )
+    parser = argparse.ArgumentParser(description="Populate tool source store from Galaxy toolbox")
+    parser.add_argument("--config", "-c", required=True, help="Galaxy configuration file")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be stored")
     parser.add_argument(
         "--incremental",
         action="store_true",
         default=True,
         help="Only store new/changed tools (default)",
     )
+    parser.add_argument("--full", action="store_true", help="Force re-store all tools")
+    parser.add_argument("--tool-id", help="Tool ID pattern filter")
+    parser.add_argument("--parallel", "-j", type=int, default=4, help="Number of parallel workers")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
+    parser.add_argument("--rebuild-index", action="store_true", help="Rebuild index after population")
     parser.add_argument(
-        "--full", action="store_true", help="Force re-store all tools"
+        "--watch", "-w", action="store_true", help="Watch for file changes and send reload notifications"
     )
     parser.add_argument(
-        "--tool-id", help="Tool ID pattern filter"
+        "--watch-polling", action="store_true", help="Use polling observer for watch mode (for network filesystems)"
     )
     parser.add_argument(
-        "--parallel", "-j", type=int, default=4, help="Number of parallel workers"
-    )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true", help="Enable verbose output"
-    )
-    parser.add_argument(
-        "--rebuild-index", action="store_true", help="Rebuild index after population"
-    )
-    parser.add_argument(
-        "--watch", "-w", action="store_true",
-        help="Watch for file changes and send reload notifications"
-    )
-    parser.add_argument(
-        "--watch-polling", action="store_true",
-        help="Use polling observer for watch mode (for network filesystems)"
-    )
-    parser.add_argument(
-        "--debounce", type=float, default=2.0,
-        help="Debounce time in seconds for watch mode (default: 2.0)"
+        "--debounce", type=float, default=2.0, help="Debounce time in seconds for watch mode (default: 2.0)"
     )
 
     args = parser.parse_args()
@@ -535,12 +516,14 @@ def main():
 
     if args.watch:
         # Watch mode
-        sys.exit(watch_mode(
-            config_file=args.config,
-            use_polling=args.watch_polling,
-            debounce=args.debounce,
-            verbose=args.verbose,
-        ))
+        sys.exit(
+            watch_mode(
+                config_file=args.config,
+                use_polling=args.watch_polling,
+                debounce=args.debounce,
+                verbose=args.verbose,
+            )
+        )
     else:
         # Normal population mode
         stats = populate_store(

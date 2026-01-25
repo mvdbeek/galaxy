@@ -7,7 +7,6 @@ retrieving tool index information, and accessing cache statistics.
 
 import logging
 from typing import (
-    List,
     Optional,
 )
 
@@ -16,6 +15,8 @@ from fastapi import Query
 from galaxy.managers.context import ProvidesAppContext
 from galaxy.tool_source_store.models import (
     CacheStatsResponse,
+    ClearCacheResponse,
+    ToolIndexEntryListResponse,
     ToolIndexEntryResponse,
     ToolIndexStatsResponse,
     ToolSourceDetailResponse,
@@ -45,6 +46,7 @@ class ToolSourcesAPI:
         "/api/tool_sources",
         summary="List stored tool sources",
         response_model=ToolSourceListResponse,
+        require_admin=True,
     )
     def list_tool_sources(
         self,
@@ -54,14 +56,13 @@ class ToolSourcesAPI:
         offset: int = Query(0, ge=0, description="Offset for pagination"),
     ) -> ToolSourceListResponse:
         """List all stored tool sources with optional filtering."""
-        return self.service.list_tool_sources(
-            trans, tool_id=tool_id, limit=limit, offset=offset
-        )
+        return self.service.list_tool_sources(trans, tool_id=tool_id, limit=limit, offset=offset)
 
     @router.get(
         "/api/tool_sources/stats",
         summary="Get tool source storage statistics",
         response_model=ToolSourceStatsResponse,
+        require_admin=True,
     )
     def get_stats(
         self,
@@ -71,9 +72,25 @@ class ToolSourcesAPI:
         return self.service.get_stats(trans)
 
     @router.get(
+        "/api/tool_sources/by_tool/{tool_id}",
+        summary="Get tool sources by tool ID",
+        response_model=list[ToolSourceResponse],
+        require_admin=True,
+    )
+    def get_tool_sources_by_id(
+        self,
+        tool_id: str,
+        trans: ProvidesAppContext = DependsOnTrans,
+        version: Optional[str] = Query(None, description="Filter by version"),
+    ) -> list[ToolSourceResponse]:
+        """Retrieve all tool sources for a given tool ID."""
+        return self.service.get_tool_sources_by_id(trans, tool_id, version)
+
+    @router.get(
         "/api/tool_sources/{hash}",
         summary="Get a specific tool source by hash",
         response_model=ToolSourceDetailResponse,
+        require_admin=True,
     )
     def get_tool_source(
         self,
@@ -82,20 +99,6 @@ class ToolSourcesAPI:
     ) -> ToolSourceDetailResponse:
         """Retrieve a tool source by its content hash."""
         return self.service.get_tool_source(trans, hash)
-
-    @router.get(
-        "/api/tool_sources/by_tool/{tool_id}",
-        summary="Get tool sources by tool ID",
-        response_model=List[ToolSourceResponse],
-    )
-    def get_tool_sources_by_id(
-        self,
-        tool_id: str,
-        version: Optional[str] = Query(None, description="Filter by version"),
-        trans: ProvidesAppContext = DependsOnTrans,
-    ) -> List[ToolSourceResponse]:
-        """Retrieve all tool sources for a given tool ID."""
-        return self.service.get_tool_sources_by_id(trans, tool_id, version)
 
 
 @router.cbv
@@ -107,7 +110,7 @@ class ToolIndexAPI:
     @router.get(
         "/api/tool_index",
         summary="List tool index entries",
-        response_model=List[ToolIndexEntryResponse],
+        response_model=ToolIndexEntryListResponse,
     )
     def list_index_entries(
         self,
@@ -115,16 +118,15 @@ class ToolIndexAPI:
         section_id: Optional[str] = Query(None, description="Filter by section"),
         include_hidden: bool = Query(False, description="Include hidden tools"),
         limit: int = Query(1000, ge=1, le=10000, description="Maximum results"),
-    ) -> List[ToolIndexEntryResponse]:
+    ) -> ToolIndexEntryListResponse:
         """List all tool index entries."""
-        return self.service.list_index_entries(
-            trans, section_id=section_id, include_hidden=include_hidden, limit=limit
-        )
+        return self.service.list_index_entries(trans, section_id=section_id, include_hidden=include_hidden, limit=limit)
 
     @router.get(
         "/api/tool_index/stats",
         summary="Get tool index statistics",
         response_model=ToolIndexStatsResponse,
+        require_admin=True,
     )
     def get_index_stats(
         self,
@@ -132,6 +134,21 @@ class ToolIndexAPI:
     ) -> ToolIndexStatsResponse:
         """Get statistics about the tool index."""
         return self.service.get_index_stats(trans)
+
+    # Static-suffix routes must precede `/{tool_id}` to avoid path shadowing.
+    @router.get(
+        "/api/tool_index/search",
+        summary="Search tool index",
+        response_model=list[ToolIndexEntryResponse],
+    )
+    def search_index(
+        self,
+        trans: ProvidesAppContext = DependsOnTrans,
+        q: str = Query(..., description="Search query"),
+        limit: int = Query(50, ge=1, le=500, description="Maximum results"),
+    ) -> list[ToolIndexEntryResponse]:
+        """Search tool index by text."""
+        return self.service.search_index(trans, q, limit)
 
     @router.get(
         "/api/tool_index/{tool_id}",
@@ -146,20 +163,6 @@ class ToolIndexAPI:
         """Get a specific tool index entry."""
         return self.service.get_index_entry(trans, tool_id)
 
-    @router.get(
-        "/api/tool_index/search",
-        summary="Search tool index",
-        response_model=List[ToolIndexEntryResponse],
-    )
-    def search_index(
-        self,
-        q: str = Query(..., description="Search query"),
-        limit: int = Query(50, ge=1, le=500, description="Maximum results"),
-        trans: ProvidesAppContext = DependsOnTrans,
-    ) -> List[ToolIndexEntryResponse]:
-        """Search tool index by text."""
-        return self.service.search_index(trans, q, limit)
-
 
 @router.cbv
 class ToolCacheAPI:
@@ -171,6 +174,7 @@ class ToolCacheAPI:
         "/api/tool_cache/stats",
         summary="Get cache statistics",
         response_model=CacheStatsResponse,
+        require_admin=True,
     )
     def get_cache_stats(
         self,
@@ -182,11 +186,13 @@ class ToolCacheAPI:
     @router.post(
         "/api/tool_cache/clear",
         summary="Clear tool object cache",
+        response_model=ClearCacheResponse,
+        require_admin=True,
     )
     def clear_cache(
         self,
         trans: ProvidesAppContext = DependsOnTrans,
-    ) -> dict:
+    ) -> ClearCacheResponse:
         """Clear the Tool object LRU cache."""
         self.service.clear_tool_cache(trans)
-        return {"status": "cleared"}
+        return ClearCacheResponse(status="cleared")

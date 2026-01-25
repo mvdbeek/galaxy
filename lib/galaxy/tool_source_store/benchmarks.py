@@ -8,12 +8,12 @@ import hashlib
 import json
 import statistics
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
     Optional,
 )
-from collections.abc import Callable
 
 from .index import (
     ToolIndex,
@@ -109,7 +109,7 @@ class ToolSourceBenchmarks:
 
     def _load_sample_tools(self, count: int = 50) -> list[tuple]:
         """Load sample tool XML files."""
-        tools = []
+        tools: list[tuple] = []
         if not self.tool_sources_dir.exists():
             return tools
 
@@ -141,9 +141,7 @@ class ToolSourceBenchmarks:
                     {"name": f"dep_{(i + 1) % 20}", "version": "2.0", "type": "package"},
                 ],
                 container_requirements=(
-                    [{"type": "docker", "identifier": f"biocontainers/tool_{i % 50}:latest"}]
-                    if i % 3 == 0
-                    else []
+                    [{"type": "docker", "identifier": f"biocontainers/tool_{i % 50}:latest"}] if i % 3 == 0 else []
                 ),
                 tool_shed="toolshed.g2.bx.psu.edu" if i % 4 == 0 else None,
                 repository_name=f"repo_{i % 100}" if i % 4 == 0 else None,
@@ -186,9 +184,7 @@ class ToolSourceBenchmarks:
             iterations=iterations,
         )
 
-    def benchmark_deserialization_from_db_format(
-        self, iterations: int = 100
-    ) -> Optional[BenchmarkResult]:
+    def benchmark_deserialization_from_db_format(self, iterations: int = 100) -> Optional[BenchmarkResult]:
         """Benchmark deserializing from database JSON format."""
         tools = self._load_sample_tools(10)
         if not tools:

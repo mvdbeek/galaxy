@@ -16,10 +16,9 @@ import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
+    Any,
     Optional,
 )
-
-
 
 # Add Galaxy lib to path for imports
 galaxy_root = Path(__file__).parent.parent.parent.parent.parent
@@ -35,7 +34,6 @@ from populate_store import (
     ToolFileWatcher,
 )
 
-
 # --- Fakes for testing ---
 
 
@@ -43,8 +41,8 @@ class FakeToolSourceStore:
     """In-memory fake implementation of a tool source store."""
 
     def __init__(self):
-        self.stored_sources: dict[str, object] = {}
-        self.store_calls: list[object] = []
+        self.stored_sources: dict[str, Any] = {}
+        self.store_calls: list[Any] = []
 
     def exists(self, hash_key: str) -> bool:
         return hash_key in self.stored_sources
@@ -53,7 +51,7 @@ class FakeToolSourceStore:
         self.stored_sources[source.hash] = source
         self.store_calls.append(source)
 
-    def get(self, hash_key: str) -> Optional[object]:
+    def get(self, hash_key: str) -> Optional[Any]:
         return self.stored_sources.get(hash_key)
 
     @property
@@ -149,10 +147,12 @@ class TestIterToolSources:
 
     def test_pattern_filters_by_tool_id(self):
         """Pattern argument filters tools by ID substring match."""
-        toolbox = FakeToolbox({
-            "filter_me": FakeTool(version="1.0", tool_source=object()),
-            "other_tool": FakeTool(version="2.0", tool_source=object()),
-        })
+        toolbox = FakeToolbox(
+            {
+                "filter_me": FakeTool(version="1.0", tool_source=object()),
+                "other_tool": FakeTool(version="2.0", tool_source=object()),
+            }
+        )
 
         result = list(iter_tool_sources(toolbox, pattern="filter"))
 
@@ -161,9 +161,11 @@ class TestIterToolSources:
 
     def test_pattern_no_match_yields_nothing(self):
         """Pattern that matches nothing yields empty result."""
-        toolbox = FakeToolbox({
-            "test_tool": FakeTool(version="1.0", tool_source=object()),
-        })
+        toolbox = FakeToolbox(
+            {
+                "test_tool": FakeTool(version="1.0", tool_source=object()),
+            }
+        )
 
         result = list(iter_tool_sources(toolbox, pattern="nonexistent"))
         assert result == []
@@ -173,10 +175,12 @@ class TestIterToolSources:
         tool_with_source = FakeTool(version="1.0", tool_source=object())
         tool_without_source = FakeTool(version="2.0", tool_source=None)
 
-        toolbox = FakeToolbox({
-            "has_source": tool_with_source,
-            "no_source": tool_without_source,
-        })
+        toolbox = FakeToolbox(
+            {
+                "has_source": tool_with_source,
+                "no_source": tool_without_source,
+            }
+        )
 
         result = list(iter_tool_sources(toolbox))
 
@@ -199,6 +203,7 @@ class TestSendReloadNotification:
 
         # Force an import error by breaking kombu import
         import sys
+
         original_modules = sys.modules.copy()
 
         # Remove kombu if present to simulate import failure
@@ -214,6 +219,20 @@ class TestSendReloadNotification:
         finally:
             # Restore modules
             sys.modules.update(original_modules)
+
+
+def _recording_notify(sink: list):
+    """Build a fake notify callable that records every invocation in ``sink``.
+
+    A plain lambda doesn't work here because ``list.append`` returns ``None``,
+    which mypy's ``func-returns-value`` check rejects.
+    """
+
+    def notify(config: Any) -> bool:
+        sink.append(config)
+        return True
+
+    return notify
 
 
 class TestToolFileWatcher:
@@ -307,9 +326,9 @@ class TestToolFileWatcher:
             tools_dirs=[],
         )
 
-        tool_content = '''<tool id="test_tool" name="Test" version="1.0">
+        tool_content = """<tool id="test_tool" name="Test" version="1.0">
             <command>echo hello</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -334,9 +353,9 @@ class TestToolFileWatcher:
         """Tool already in store with same hash should be skipped."""
         store = FakeToolSourceStore()
 
-        tool_content = '''<tool id="test_tool" name="Test" version="1.0">
+        tool_content = """<tool id="test_tool" name="Test" version="1.0">
             <command>echo hello</command>
-        </tool>'''
+        </tool>"""
         content_hash = compute_hash(tool_content)
 
         # Pre-populate store with this hash
@@ -373,9 +392,9 @@ class TestToolFileWatcher:
         )
 
         # Different attribute order and extra attributes
-        tool_content = '''<tool version="2.5.1" name="My Tool" id="my_tool_id">
+        tool_content = """<tool version="2.5.1" name="My Tool" id="my_tool_id">
             <command>echo test</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -400,9 +419,9 @@ class TestToolFileWatcher:
         )
 
         # Minimal tool with no id or version
-        tool_content = '''<tool name="Minimal">
+        tool_content = """<tool name="Minimal">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -441,11 +460,12 @@ class TestToolFileWatcher:
             config=FakeConfig(),
             store=store,
             tools_dirs=[],
+            notify_callable=lambda c: True,
         )
 
-        tool_content = '''<tool id="test" version="1.0">
+        tool_content = """<tool id="test" version="1.0">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -453,16 +473,7 @@ class TestToolFileWatcher:
 
         try:
             watcher._pending_changes.add(temp_path)
-
-            # Disable notification sending for this test
-            import populate_store
-            original_send = populate_store.send_reload_notification
-            populate_store.send_reload_notification = lambda c: True
-
-            try:
-                watcher._process_pending_changes()
-            finally:
-                populate_store.send_reload_notification = original_send
+            watcher._process_pending_changes()
 
             assert len(watcher._pending_changes) == 0
             assert store.count == 1
@@ -472,15 +483,17 @@ class TestToolFileWatcher:
     def test_process_pending_changes_sends_notification_on_updates(self):
         """Notification should be sent when tools are updated."""
         store = FakeToolSourceStore()
+        notification_sent: list = []
         watcher = ToolFileWatcher(
             config=FakeConfig(),
             store=store,
             tools_dirs=[],
+            notify_callable=_recording_notify(notification_sent),
         )
 
-        tool_content = '''<tool id="test" version="1.0">
+        tool_content = """<tool id="test" version="1.0">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -488,18 +501,10 @@ class TestToolFileWatcher:
 
         try:
             watcher._pending_changes.add(temp_path)
+            watcher._process_pending_changes()
 
-            # Track if notification was attempted
-            notification_sent = []
-            import populate_store
-            original_send = populate_store.send_reload_notification
-            populate_store.send_reload_notification = lambda c: notification_sent.append(c) or True
-
-            try:
-                watcher._process_pending_changes()
-            finally:
-                populate_store.send_reload_notification = original_send
-
+            # State assertions: tool was stored AND notification fired exactly once.
+            assert store.count == 1
             assert len(notification_sent) == 1
         finally:
             os.unlink(temp_path)
@@ -508,16 +513,18 @@ class TestToolFileWatcher:
         """No notification should be sent if no tools were actually updated."""
         store = FakeToolSourceStore()
 
-        tool_content = '''<tool id="test" version="1.0">
+        tool_content = """<tool id="test" version="1.0">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
         # Pre-populate store so tool is "unchanged"
         store.stored_sources[compute_hash(tool_content)] = "exists"
 
+        notification_sent: list = []
         watcher = ToolFileWatcher(
             config=FakeConfig(),
             store=store,
             tools_dirs=[],
+            notify_callable=_recording_notify(notification_sent),
         )
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
@@ -526,18 +533,10 @@ class TestToolFileWatcher:
 
         try:
             watcher._pending_changes.add(temp_path)
+            watcher._process_pending_changes()
 
-            notification_sent = []
-            import populate_store
-            original_send = populate_store.send_reload_notification
-            populate_store.send_reload_notification = lambda c: notification_sent.append(c) or True
-
-            try:
-                watcher._process_pending_changes()
-            finally:
-                populate_store.send_reload_notification = original_send
-
-            # No notification because tool was unchanged
+            # State assertion: nothing new was stored, so no notification fires.
+            assert len(store.store_calls) == 0
             assert len(notification_sent) == 0
         finally:
             os.unlink(temp_path)
