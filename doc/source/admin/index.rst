@@ -19,6 +19,7 @@ Galaxy Deployment & Administration
    job_metrics
    authentication
    tool_panel
+   tool_source_storage
    data_tables
    mq
    dependency_resolvers
