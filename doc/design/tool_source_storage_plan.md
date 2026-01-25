@@ -1528,6 +1528,72 @@ def benchmark_api_response_generation(self, iterations: int = 100) -> BenchmarkR
         return [e.to_api_dict() for e in index.entries.values()]
 
     return benchmark_function("api_response_generation", generate_response, iterations)
+
+def benchmark_tests_summary(self, iterations: int = 100) -> BenchmarkResult:
+    """Benchmark /api/tools/tests_summary generation."""
+    index = self._build_sample_index(1000)
+
+    return benchmark_function(
+        "tests_summary",
+        lambda: index.get_tests_summary(),
+        iterations
+    )
+
+def benchmark_all_requirements(self, iterations: int = 100) -> BenchmarkResult:
+    """Benchmark /api/tools/all_requirements generation."""
+    index = self._build_sample_index(1000)
+
+    return benchmark_function(
+        "all_requirements",
+        lambda: index.get_all_requirements(),
+        iterations
+    )
+
+def benchmark_sanitize_allowlist(self, iterations: int = 100) -> BenchmarkResult:
+    """Benchmark /api/sanitize_allow generation."""
+    index = self._build_sample_index(1000)
+    allowed_ids = {f"tool_{i}" for i in range(0, 1000, 2)}  # Half allowed
+
+    return benchmark_function(
+        "sanitize_allowlist",
+        lambda: index.get_sanitize_allowlist(allowed_ids),
+        iterations
+    )
+
+def benchmark_requirements_summary(self, iterations: int = 100) -> BenchmarkResult:
+    """Benchmark /api/dependency_resolvers/toolbox generation."""
+    index = self._build_sample_index(1000)
+
+    return benchmark_function(
+        "requirements_summary_by_req",
+        lambda: index.get_requirements_summary(index_by="requirements"),
+        iterations
+    )
+
+def _build_sample_index(self, count: int) -> ToolIndex:
+    """Build a realistic sample index for benchmarking."""
+    index = ToolIndex()
+    for i in range(count):
+        index.entries[f"tool_{i}"] = ToolIndexEntry(
+            id=f"tool_{i}",
+            name=f"Tool Number {i}",
+            version=f"1.{i % 10}.0",
+            description=f"A tool that does thing {i}",
+            labels=["genomics", "ngs"] if i % 2 == 0 else ["proteomics"],
+            test_count=i % 5,
+            requirements=[
+                {"name": f"dep_{i % 20}", "version": "1.0", "type": "package"},
+                {"name": f"dep_{(i + 1) % 20}", "version": "2.0", "type": "package"},
+            ],
+            container_requirements=[
+                {"type": "docker", "identifier": f"biocontainers/tool_{i % 50}:latest"}
+            ] if i % 3 == 0 else [],
+            tool_shed="toolshed.g2.bx.psu.edu" if i % 4 == 0 else None,
+            repository_name=f"repo_{i % 100}" if i % 4 == 0 else None,
+            repository_owner=f"owner_{i % 10}" if i % 4 == 0 else None,
+            is_local=(i % 4 != 0),
+        )
+    return index
 ```
 
 ### Summary: Memory vs. Performance Trade-offs
@@ -1540,6 +1606,436 @@ def benchmark_api_response_generation(self, iterations: int = 100) -> BenchmarkR
 | Index + No Cache | Very Low (~10MB) | Fast | ~50ms per tool load |
 
 **Recommendation**: Use Index + LRU cache with size tuned to available memory. For most installations, 500 cached tools covers the "hot" tools used in 95%+ of jobs.
+
+---
+
+## Batch Endpoints: Complete Inventory and Optimization Strategy
+
+A comprehensive survey of the codebase identified **19 API endpoints** that return data for multiple tools. Each requires specific optimization strategies to avoid memory/CPU issues with thousands of tools.
+
+### Critical Risk Endpoints (Iterate ALL Tools)
+
+These endpoints currently iterate through the entire toolbox and require the most attention:
+
+#### 1. `GET /api/tools/tests_summary`
+**File**: `lib/galaxy/webapps/galaxy/api/tools.py:605`
+**Current Behavior**: Iterates all tools, accesses `tool.tests` for each
+**Returns**: `{"tool_id": {"version": {"tool_name": str, "count": int}}}`
+
+**Optimization Strategy**:
+```python
+# Extend ToolIndexEntry with test metadata
+@dataclass
+class ToolIndexEntry:
+    # ... existing fields ...
+    test_count: int = 0  # Pre-computed during indexing
+
+# Pre-compute tests summary in index
+class ToolIndex:
+    def get_tests_summary(self) -> Dict[str, Dict[str, Dict]]:
+        """Return pre-computed tests summary from index."""
+        summary = {}
+        for entry in self.entries.values():
+            if entry.tool_id not in summary:
+                summary[entry.tool_id] = {}
+            summary[entry.tool_id][entry.version] = {
+                "tool_name": entry.name,
+                "count": entry.test_count,
+            }
+        return summary
+```
+
+**Index Extension**: Store `test_count` per tool during indexing (requires parsing tests once).
+
+---
+
+#### 2. `GET /api/tools/all_requirements`
+**File**: `lib/galaxy/webapps/galaxy/api/tools.py:673`
+**Current Behavior**: `{req for _, tool in self.tools() for req in tool.tool_requirements}`
+**Returns**: List of unique requirements across all tools
+
+**Optimization Strategy**:
+```python
+# Store requirements in index
+@dataclass
+class ToolIndexEntry:
+    # ... existing fields ...
+    requirements: List[Dict] = field(default_factory=list)  # [{name, version, type}]
+
+# Aggregate from index
+class ToolIndex:
+    _requirements_cache: Optional[List[Dict]] = None
+
+    def get_all_requirements(self) -> List[Dict]:
+        """Return unique requirements from all tools."""
+        if self._requirements_cache is None:
+            seen = set()
+            reqs = []
+            for entry in self.entries.values():
+                for req in entry.requirements:
+                    key = (req.get("name"), req.get("version"), req.get("type"))
+                    if key not in seen:
+                        seen.add(key)
+                        reqs.append(req)
+            self._requirements_cache = reqs
+        return self._requirements_cache
+```
+
+---
+
+#### 3. `GET /api/sanitize_allow`
+**File**: `lib/galaxy/webapps/galaxy/api/sanitize_allow.py:19`
+**Current Behavior**: Iterates through ALL tools **TWICE**
+**Returns**: Allowlist with blocked/allowed toolshed and local tools
+
+**Optimization Strategy**:
+```python
+# Add sanitize metadata to index
+@dataclass
+class ToolIndexEntry:
+    # ... existing fields ...
+    tool_shed: Optional[str] = None  # Tool shed URL if from shed
+    repository_name: Optional[str] = None
+    repository_owner: Optional[str] = None
+    is_local: bool = True
+
+# Pre-compute allowlist structure
+class ToolIndex:
+    def get_sanitize_allowlist(self, allowed_ids: Set[str]) -> Dict:
+        """Generate sanitize allowlist from index."""
+        result = {
+            "blocked_toolshed": [],
+            "allowed_toolshed": [],
+            "blocked_local": [],
+            "allowed_local": [],
+        }
+        for entry in self.entries.values():
+            is_allowed = entry.id in allowed_ids
+            if entry.is_local:
+                key = "allowed_local" if is_allowed else "blocked_local"
+                result[key].append({"tool_id": entry.id, "name": entry.name})
+            else:
+                key = "allowed_toolshed" if is_allowed else "blocked_toolshed"
+                result[key].append({
+                    "tool_id": entry.id,
+                    "name": entry.name,
+                    "tool_shed": entry.tool_shed,
+                    "repository_name": entry.repository_name,
+                    "repository_owner": entry.repository_owner,
+                })
+        return result
+```
+
+---
+
+#### 4. `GET /api/tools` (with `in_panel=False` or search)
+**File**: `lib/galaxy/webapps/galaxy/api/tools.py:436`
+**Current Behavior**: Iterates `self._tools_by_id.values()` or performs full search
+**Returns**: List of tool dictionaries
+
+**Optimization Strategy**: Already covered in LazyToolBox section - use `ToolIndex.list_all()` and `ToolIndex.search()`.
+
+---
+
+### High Risk Endpoints (Panel/View Operations)
+
+#### 5. `GET /api/tool_panels`
+**File**: `lib/galaxy/webapps/galaxy/api/tools.py:496`
+**Current Behavior**: `{view_id: view_dict for m in self.panel_views()}`
+
+**Optimization Strategy**:
+```python
+# Store panel structure in index
+@dataclass
+class ToolIndex:
+    panel_views: Dict[str, Dict] = field(default_factory=dict)  # Pre-computed panel structure
+
+    def get_panel_views(self) -> Dict[str, Dict]:
+        """Return pre-computed panel view dictionaries."""
+        return self.panel_views
+```
+
+---
+
+#### 6. `GET /api/tool_panels/{view}`
+**File**: `lib/galaxy/webapps/galaxy/api/tools.py:508`
+**Current Behavior**: Iterates through `tool_panel_contents(trans, view=view)`
+
+**Optimization Strategy**:
+```python
+# Pre-compute each panel view
+class ToolIndex:
+    def get_panel_view(self, view: str) -> Optional[Dict]:
+        """Return pre-computed panel view."""
+        return self.panel_views.get(view)
+```
+
+---
+
+#### 7-8. Container Resolution Endpoints
+**Files**: `lib/galaxy/webapps/galaxy/api/container_resolution.py:72,92`
+- `GET /api/container_resolvers/toolbox`
+- `POST /api/container_resolvers/toolbox/install`
+
+**Optimization Strategy**:
+```python
+# Store container info in index
+@dataclass
+class ToolIndexEntry:
+    # ... existing fields ...
+    container_requirements: List[Dict] = field(default_factory=list)
+    resolved_containers: Optional[Dict] = None  # Cached resolution results
+
+# Support filtering without full tool load
+class ToolIndex:
+    def get_tools_needing_containers(self) -> List[ToolIndexEntry]:
+        """Return tools with container requirements."""
+        return [e for e in self.entries.values() if e.container_requirements]
+```
+
+**Note**: Container resolution may still need full Tool for some operations, but filtering can use index.
+
+---
+
+### Moderate Risk Endpoints
+
+#### 9-10. Dependency Resolution Endpoints
+**File**: `lib/galaxy/webapps/galaxy/api/tool_dependencies.py`
+- `GET /api/dependency_resolvers/toolbox` (Line 193)
+- `POST /api/dependency_resolvers/{index}/toolbox/install` (Line 231)
+- `POST /api/dependency_resolvers/{index}/toolbox/uninstall` (Line 265)
+
+**Optimization Strategy**:
+```python
+# Requirements already in index
+class ToolIndex:
+    def get_requirements_summary(self, index_by: str = "requirements") -> Dict:
+        """Summarize requirements across toolbox."""
+        if index_by == "requirements":
+            # Group tools by requirement
+            by_req = {}
+            for entry in self.entries.values():
+                for req in entry.requirements:
+                    key = (req["name"], req.get("version"))
+                    if key not in by_req:
+                        by_req[key] = {"requirement": req, "tools": []}
+                    by_req[key]["tools"].append(entry.id)
+            return list(by_req.values())
+        else:
+            # Group requirements by tool
+            return [
+                {"tool_id": e.id, "requirements": e.requirements}
+                for e in self.entries.values()
+            ]
+```
+
+---
+
+#### 11-12. Dynamic/Unprivileged Tools
+**File**: `lib/galaxy/webapps/galaxy/api/dynamic_tools.py`
+- `GET /api/unprivileged_tools` (Line 69)
+- `GET /api/dynamic_tools` (Line 130)
+
+**Current Behavior**: Database query, typically small result set.
+
+**Optimization Strategy**: Keep as-is, but ensure database query is indexed. These are typically few tools.
+
+---
+
+#### 13-15. Tool Shed Repository Endpoints
+**File**: `lib/galaxy/webapps/galaxy/api/tool_shed_repositories.py`
+- `GET /api/tool_shed_repositories` (Line 418)
+- `POST /api/tool_shed_repositories/install_repository_revisions` (Line 150)
+- `GET /api/tool_shed_repositories/check_for_updates` (Line 441)
+
+**Optimization Strategy**: Database operations, ensure proper indexing. Not directly related to tool source storage.
+
+---
+
+### Low Risk Endpoints
+
+#### 16. `GET /api/tool_shed`
+**File**: `lib/galaxy/webapps/galaxy/api/toolshed.py:20`
+**Returns**: List of configured tool sheds (small, fixed list)
+**Optimization**: None needed.
+
+#### 17. `GET /api/trs_search`
+**File**: `lib/galaxy/webapps/galaxy/api/trs_search.py:31`
+**Returns**: Results from external TRS server
+**Optimization**: Network-bound, not memory-bound.
+
+---
+
+### Extended Tool Index Entry
+
+Based on all endpoints, here's the complete `ToolIndexEntry` with all required fields:
+
+```python
+@dataclass
+class ToolIndexEntry:
+    """Complete lightweight tool metadata for all batch API responses."""
+
+    # === Identity ===
+    id: str
+    uuid: Optional[str] = None
+    version: Optional[str] = None
+    tool_shed_repository_id: Optional[str] = None  # Link to repository
+
+    # === Display ===
+    name: str = ""
+    description: str = ""
+
+    # === Classification ===
+    panel_section_id: Optional[str] = None
+    panel_section_name: Optional[str] = None
+    labels: List[str] = field(default_factory=list)
+    edam_operations: List[str] = field(default_factory=list)
+    edam_topics: List[str] = field(default_factory=list)
+
+    # === Source Reference ===
+    source_hash: str = ""
+    source_class: str = "XmlToolSource"
+
+    # === Status ===
+    hidden: bool = False
+    disabled: bool = False
+
+    # === Tests (for /api/tools/tests_summary) ===
+    test_count: int = 0
+
+    # === Requirements (for /api/tools/all_requirements, dependency endpoints) ===
+    requirements: List[Dict] = field(default_factory=list)
+    # Example: [{"name": "samtools", "version": "1.9", "type": "package"}]
+
+    # === Container Info (for container resolution endpoints) ===
+    container_requirements: List[Dict] = field(default_factory=list)
+    # Example: [{"type": "docker", "identifier": "biocontainers/samtools:1.9"}]
+
+    # === Tool Shed Info (for sanitize_allow, shed endpoints) ===
+    tool_shed: Optional[str] = None  # e.g., "toolshed.g2.bx.psu.edu"
+    repository_name: Optional[str] = None
+    repository_owner: Optional[str] = None
+    changeset_revision: Optional[str] = None
+    is_local: bool = True  # True if not from tool shed
+
+    # === Timestamps ===
+    indexed_at: Optional[datetime] = None
+
+    def to_api_dict(self, detail: bool = False) -> Dict:
+        """Convert to /api/tools response format."""
+        result = {
+            "id": self.id,
+            "name": self.name,
+            "version": self.version,
+            "description": self.description,
+            "labels": self.labels,
+            "panel_section_id": self.panel_section_id,
+            "panel_section_name": self.panel_section_name,
+            "hidden": self.hidden,
+        }
+        if detail:
+            result.update({
+                "uuid": self.uuid,
+                "edam_operations": self.edam_operations,
+                "edam_topics": self.edam_topics,
+                "tool_shed_repository_id": self.tool_shed_repository_id,
+            })
+        return result
+
+    def to_tests_summary(self) -> Dict:
+        """Convert to /api/tools/tests_summary format."""
+        return {"tool_name": self.name, "count": self.test_count}
+
+    def to_requirements_list(self) -> List[Dict]:
+        """Get requirements for /api/tools/all_requirements."""
+        return self.requirements
+
+    def to_sanitize_entry(self) -> Dict:
+        """Convert to /api/sanitize_allow format."""
+        entry = {"tool_id": self.id, "name": self.name}
+        if not self.is_local:
+            entry.update({
+                "tool_shed": self.tool_shed,
+                "repository_name": self.repository_name,
+                "repository_owner": self.repository_owner,
+            })
+        return entry
+```
+
+---
+
+### Pre-computed Cache Keys
+
+Extend `ToolAPICache` for all batch endpoints:
+
+```python
+class ToolAPICache:
+    """Cache for pre-computed API responses."""
+
+    CACHE_KEYS = {
+        # /api/tools variants
+        "tools_list": "/api/tools",
+        "tools_list_detailed": "/api/tools?detailed=true",
+        "tool_panel": "/api/tools?in_panel=true",
+
+        # Other batch endpoints
+        "tests_summary": "/api/tools/tests_summary",
+        "all_requirements": "/api/tools/all_requirements",
+        "sanitize_allowlist": "/api/sanitize_allow",
+        "panel_views": "/api/tool_panels",
+        "container_toolbox": "/api/container_resolvers/toolbox",
+        "dependency_toolbox": "/api/dependency_resolvers/toolbox",
+    }
+
+    def refresh_all(self, index: ToolIndex, config: dict) -> None:
+        """Refresh all cached API responses."""
+        now = datetime.utcnow()
+        expires_at = now + self._ttl
+
+        # Tools list
+        self._cache_tools_list(index, expires_at)
+
+        # Tests summary
+        tests_summary = index.get_tests_summary()
+        self._cache["tests_summary"] = (
+            gzip.compress(json.dumps(tests_summary).encode()),
+            expires_at
+        )
+
+        # All requirements
+        all_reqs = index.get_all_requirements()
+        self._cache["all_requirements"] = (
+            gzip.compress(json.dumps(all_reqs).encode()),
+            expires_at
+        )
+
+        # Panel views
+        panel_views = index.get_panel_views()
+        self._cache["panel_views"] = (
+            gzip.compress(json.dumps(panel_views).encode()),
+            expires_at
+        )
+
+        # Sanitize allowlist (needs runtime config for allowed IDs)
+        # This one may need to be computed on-demand with specific allowed_ids
+```
+
+---
+
+### Batch Endpoint Summary Table
+
+| Endpoint | Risk | Strategy | Index Fields Used |
+|----------|------|----------|-------------------|
+| `GET /api/tools` | Critical | ToolIndex.list_all() | id, name, version, description, labels, panel_* |
+| `GET /api/tools/tests_summary` | Critical | ToolIndex.get_tests_summary() | id, version, name, test_count |
+| `GET /api/tools/all_requirements` | Critical | ToolIndex.get_all_requirements() | requirements |
+| `GET /api/sanitize_allow` | Critical | ToolIndex.get_sanitize_allowlist() | id, name, tool_shed, repository_*, is_local |
+| `GET /api/tool_panels` | High | Pre-computed panel_views | panel_section_id, panel_section_name |
+| `GET /api/tool_panels/{view}` | High | Pre-computed panel_views[view] | panel_section_id |
+| `GET /api/container_resolvers/toolbox` | High | Filter + lazy load | container_requirements |
+| `GET /api/dependency_resolvers/toolbox` | Moderate | ToolIndex.get_requirements_summary() | requirements |
+| `GET /api/unprivileged_tools` | Low | Database query | N/A |
+| `GET /api/dynamic_tools` | Low | Database query | N/A |
 
 ---
 
@@ -1565,19 +2061,38 @@ def benchmark_api_response_generation(self, iterations: int = 100) -> BenchmarkR
 
 ### Phase 2: Tool Index and Lazy Loading
 
-4. **Implement Tool Index**
-   - `ToolIndexEntry` dataclass with lightweight metadata
-   - `ToolIndex` class with search and lookup methods
+4. **Implement Extended Tool Index**
+   - `ToolIndexEntry` dataclass with ALL batch endpoint fields:
+     - Identity: id, uuid, version
+     - Display: name, description
+     - Classification: panel_section_*, labels, edam_*
+     - Tests: test_count
+     - Requirements: requirements list
+     - Containers: container_requirements
+     - Tool Shed: tool_shed, repository_*, is_local
+   - `ToolIndex` class with specialized methods:
+     - `list_all()`, `search()` for /api/tools
+     - `get_tests_summary()` for /api/tools/tests_summary
+     - `get_all_requirements()` for /api/tools/all_requirements
+     - `get_sanitize_allowlist()` for /api/sanitize_allow
+     - `get_panel_views()` for /api/tool_panels
+     - `get_requirements_summary()` for dependency endpoints
    - Index storage/loading in all backends
 
 5. **Implement LazyToolBox**
    - LRU cache for Tool objects
    - On-demand loading from store
-   - Index-based API responses
+   - Index-based API responses for ALL batch endpoints
    - Memory pressure handling
 
 6. **Pre-computed API Cache**
-   - Gzip-compressed response caching
+   - Gzip-compressed response caching for ALL batch endpoints:
+     - /api/tools (multiple variants)
+     - /api/tools/tests_summary
+     - /api/tools/all_requirements
+     - /api/tool_panels
+     - /api/sanitize_allow
+     - /api/dependency_resolvers/toolbox
    - TTL-based invalidation
    - Automatic refresh on index changes
 
@@ -1595,13 +2110,26 @@ def benchmark_api_response_generation(self, iterations: int = 100) -> BenchmarkR
 
 ### Phase 4: API and Integration
 
-9. **Create API Endpoints**
+9. **Create Tool Sources API**
    - Add `lib/galaxy/webapps/galaxy/api/tool_sources.py`
-   - Update `/api/tools` to use index
    - Create request/response schemas
    - Integrate with FastAPI router
 
-10. **Integrate with ToolBox/DatabaseToolBox**
+10. **Update ALL Batch Endpoints to Use Index**
+    - `lib/galaxy/webapps/galaxy/api/tools.py`:
+      - `GET /api/tools` → use `ToolIndex.list_all()` / `search()`
+      - `GET /api/tools/tests_summary` → use `ToolIndex.get_tests_summary()`
+      - `GET /api/tools/all_requirements` → use `ToolIndex.get_all_requirements()`
+      - `GET /api/tool_panels` → use pre-computed panel views
+      - `GET /api/tool_panels/{view}` → use pre-computed panel view
+    - `lib/galaxy/webapps/galaxy/api/sanitize_allow.py`:
+      - `GET /api/sanitize_allow` → use `ToolIndex.get_sanitize_allowlist()`
+    - `lib/galaxy/webapps/galaxy/api/tool_dependencies.py`:
+      - `GET /api/dependency_resolvers/toolbox` → use `ToolIndex.get_requirements_summary()`
+    - `lib/galaxy/webapps/galaxy/api/container_resolution.py`:
+      - `GET /api/container_resolvers/toolbox` → filter using index, lazy load as needed
+
+11. **Integrate with ToolBox/DatabaseToolBox**
     - Update PR #21278's `DatabaseToolBox` to use `ToolSourceStore`
     - Add tool source storage during tool loading
     - Implement cache lookup before database query
@@ -1682,13 +2210,20 @@ test/unit/tool_source_store/
 ### Modified Files
 
 ```
-lib/galaxy/config/__init__.py          # Add tool_source_store config handling
-lib/galaxy/config/schemas/config_schema.yml  # Add new config options
-lib/galaxy/model/__init__.py           # Extend ToolSource model, add ToolIndex model
-lib/galaxy/app.py                      # Initialize tool_source_store, lazy_toolbox, api_cache
-lib/galaxy/webapps/galaxy/buildapp.py  # Register API routes
-lib/galaxy/webapps/galaxy/api/tools.py # Update to use index for /api/tools
-lib/galaxy/tools/__init__.py           # Integrate with ToolBox, add ToolSource storage
+lib/galaxy/config/__init__.py              # Add tool_source_store config handling
+lib/galaxy/config/schemas/config_schema.yml # Add new config options
+lib/galaxy/model/__init__.py               # Extend ToolSource model, add ToolIndex model
+lib/galaxy/app.py                          # Initialize tool_source_store, lazy_toolbox, api_cache
+lib/galaxy/webapps/galaxy/buildapp.py      # Register API routes
+lib/galaxy/tools/__init__.py               # Integrate with ToolBox, add ToolSource storage
+
+# Batch endpoint updates (all 19 endpoints)
+lib/galaxy/webapps/galaxy/api/tools.py              # /api/tools, tests_summary, all_requirements, panels
+lib/galaxy/webapps/galaxy/api/sanitize_allow.py     # /api/sanitize_allow
+lib/galaxy/webapps/galaxy/api/tool_dependencies.py  # /api/dependency_resolvers/toolbox
+lib/galaxy/webapps/galaxy/api/container_resolution.py # /api/container_resolvers/toolbox
+lib/galaxy/webapps/galaxy/api/dynamic_tools.py      # Ensure efficient queries
+lib/galaxy/webapps/galaxy/api/tool_shed_repositories.py # Ensure indexed queries
 ```
 
 ---
