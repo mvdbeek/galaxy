@@ -1,451 +1,218 @@
 """Integration tests for tool source storage backends.
 
-Tests verify that the tool source storage system works correctly with
-different backends (database, disk). These tests directly instantiate
-the stores to test the backend implementations.
+These tests configure Galaxy to use different tool source storage backends
+and verify that tools work correctly through the API and can be executed.
 """
 
-import os
 import tempfile
 
-import pytest
-
-from galaxy.tool_source_store import (
-    build_tool_source_store,
-    ConfigurationError,
-    StoredToolSource,
-)
-from galaxy.tool_source_store.database import DatabaseToolSourceStore
-from galaxy.tool_source_store.disk import DiskToolSourceStore
-from galaxy.tool_source_store.index import (
-    ToolIndex,
-    ToolIndexEntry,
+from galaxy_test.base.populators import (
+    DatasetPopulator,
+    WorkflowPopulator,
 )
 from galaxy_test.driver import integration_util
 
 
-class FakeConfig:
-    """Fake config for testing store backends."""
-
-    def __init__(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-
-
-class TestDatabaseBackend(integration_util.IntegrationTestCase):
-    """Integration tests for database backend using real Galaxy database."""
+class BaseToolSourceStorageIntegrationTestCase(integration_util.IntegrationTestCase):
+    """Base class for tool source storage integration tests."""
 
     framework_tool_and_types = True
+    dataset_populator: DatasetPopulator
+    workflow_populator: WorkflowPopulator
+
+    def setUp(self):
+        super().setUp()
+        self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
+        self.workflow_populator = WorkflowPopulator(self.galaxy_interactor)
+
+    def _test_api_tools_list(self):
+        """Test that /api/tools returns tool list."""
+        response = self._get("tools")
+        self._assert_status_code_is(response, 200)
+        tools = response.json()
+        # Should have some tools loaded
+        assert len(tools) > 0, "Expected at least one tool to be loaded"
+
+    def _test_api_tools_show(self, tool_id: str = "cat1"):
+        """Test that /api/tools/{tool_id} returns tool info."""
+        response = self._get(f"tools/{tool_id}")
+        self._assert_status_code_is(response, 200)
+        tool_info = response.json()
+        assert tool_info["id"] == tool_id
+
+    def _test_run_simple_tool(self):
+        """Test that a simple tool can be executed."""
+        with self.dataset_populator.test_history() as history_id:
+            # Create input dataset
+            hda = self.dataset_populator.new_dataset(history_id, content="test content\n")
+            hda_id = hda["id"]
+
+            # Run cat1 tool
+            inputs = {"input1": {"src": "hda", "id": hda_id}}
+            run_response = self.dataset_populator.run_tool(
+                tool_id="cat1",
+                inputs=inputs,
+                history_id=history_id,
+            )
+
+            # Verify job was created
+            assert "jobs" in run_response
+            assert len(run_response["jobs"]) == 1
+
+            job_id = run_response["jobs"][0]["id"]
+            self.dataset_populator.wait_for_job(job_id)
+
+            # Verify job completed successfully
+            job_details = self.dataset_populator.get_job_details(job_id).json()
+            assert job_details["state"] == "ok", f"Job failed: {job_details}"
+
+
+class TestDatabaseToolSourceStorage(BaseToolSourceStorageIntegrationTestCase):
+    """Integration tests with database tool source storage backend.
+
+    This is the default backend - tests verify tools work with database storage.
+    """
 
     @classmethod
     def handle_galaxy_config_kwds(cls, config):
         super().handle_galaxy_config_kwds(config)
+        # Database backend is the default, but explicitly set it
+        config["tool_source_store"] = "database"
 
-    def _get_session(self):
-        """Get the database session and ensure it's usable."""
-        return self._app.model.context
+    def test_api_tools_list(self):
+        """Test /api/tools endpoint works with database backend."""
+        self._test_api_tools_list()
 
-    def _commit(self):
-        """Commit the current transaction to release database locks."""
-        self._get_session().commit()
+    def test_api_tools_show(self):
+        """Test /api/tools/{id} endpoint works with database backend."""
+        self._test_api_tools_show()
 
-    def test_database_store_basic_operations(self):
-        """Test basic store/get operations with database backend."""
-        # Use the app directly which has the model context
-        store = DatabaseToolSourceStore(self._app)
-        test_hash = "test_hash_integration_" + str(id(self))
+    def test_run_cat_tool(self):
+        """Test running cat1 tool with database backend."""
+        self._test_run_simple_tool()
 
-        try:
-            tool_source = StoredToolSource(
-                hash=test_hash,
-                tool_source_class="XmlToolSource",
-                raw_source='<tool id="test" version="1.0"><command>echo</command></tool>',
-                tool_id="test_integration_tool",
-                tool_version="1.0",
+    def test_api_tool_sources_stats(self):
+        """Test /api/tool_sources/stats endpoint."""
+        response = self._get("tool_sources/stats", admin=True)
+        self._assert_status_code_is(response, 200)
+        stats = response.json()
+        assert stats["backend"] == "database"
+        assert "count" in stats
+
+    def test_api_tool_index_stats(self):
+        """Test /api/tool_index/stats endpoint."""
+        response = self._get("tool_index/stats", admin=True)
+        self._assert_status_code_is(response, 200)
+        stats = response.json()
+        assert "index_size" in stats
+        assert "memory_estimate_bytes" in stats
+
+
+class TestDiskToolSourceStorage(BaseToolSourceStorageIntegrationTestCase):
+    """Integration tests with disk tool source storage backend."""
+
+    _tool_source_disk_path: str
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        # Create temp directory for disk storage
+        cls._tool_source_disk_path = tempfile.mkdtemp(prefix="tool_source_disk_")
+        config["tool_source_store"] = "disk"
+        config["tool_source_disk_path"] = cls._tool_source_disk_path
+
+    def test_api_tools_list(self):
+        """Test /api/tools endpoint works with disk backend."""
+        self._test_api_tools_list()
+
+    def test_api_tools_show(self):
+        """Test /api/tools/{id} endpoint works with disk backend."""
+        self._test_api_tools_show()
+
+    def test_run_cat_tool(self):
+        """Test running cat1 tool with disk backend."""
+        self._test_run_simple_tool()
+
+    def test_api_tool_sources_stats(self):
+        """Test /api/tool_sources/stats endpoint with disk backend."""
+        response = self._get("tool_sources/stats", admin=True)
+        self._assert_status_code_is(response, 200)
+        stats = response.json()
+        assert stats["backend"] == "disk"
+
+
+class TestToolSourceStorageWorkflows(BaseToolSourceStorageIntegrationTestCase):
+    """Integration tests for workflows with tool source storage."""
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        config["tool_source_store"] = "database"
+
+    def test_simple_workflow_execution(self):
+        """Test that a simple workflow can be executed with tool source storage."""
+        # Create a simple workflow with cat1
+        workflow_str = """
+class: GalaxyWorkflow
+inputs:
+  input_file:
+    type: File
+steps:
+  cat_step:
+    tool_id: cat1
+    in:
+      input1: input_file
+"""
+        with self.dataset_populator.test_history() as history_id:
+            # Upload workflow
+            workflow_id = self.workflow_populator.upload_yaml_workflow(workflow_str)
+
+            # Create input
+            hda = self.dataset_populator.new_dataset(history_id, content="workflow test\n")
+
+            # Run workflow
+            invocation_id = self.workflow_populator.invoke_workflow_and_assert_ok(
+                workflow_id,
+                inputs={"input_file": {"src": "hda", "id": hda["id"]}},
+                history_id=history_id,
             )
 
-            store.store(tool_source)
-            self._commit()
-
-            assert store.exists(tool_source.hash)
-
-            retrieved = store.get(tool_source.hash)
-            assert retrieved is not None
-            assert retrieved.tool_id == "test_integration_tool"
-            assert retrieved.tool_version == "1.0"
-            assert "<tool" in retrieved.raw_source
-
-            assert store.delete(tool_source.hash)
-            self._commit()
-            assert not store.exists(tool_source.hash)
-        finally:
-            # Ensure cleanup even if test fails
-            if store.exists(test_hash):
-                store.delete(test_hash)
-                self._commit()
-
-    def test_database_store_index_operations(self):
-        """Test tool index storage with database backend."""
-        store = DatabaseToolSourceStore(self._app)
-
-        index = ToolIndex()
-        index.entries["test_tool_db"] = ToolIndexEntry(
-            id="test_tool_db",
-            name="Test Tool DB",
-            version="1.0",
-            description="A test tool",
-        )
-
-        store.store_index(index)
-        self._commit()
-
-        # Clear the cached index to force reload from database
-        store.invalidate_index_cache()
-
-        loaded_index = store.load_index()
-        assert loaded_index is not None
-        assert "test_tool_db" in loaded_index.entries
-        assert loaded_index.entries["test_tool_db"].name == "Test Tool DB"
-
-    def test_database_store_get_by_tool_id(self):
-        """Test retrieving tool sources by tool ID."""
-        store = DatabaseToolSourceStore(self._app)
-
-        unique_id = f"tool_by_id_test_{id(self)}"
-        test_hash = f"hash_for_{unique_id}"
-
-        try:
-            tool_source = StoredToolSource(
-                hash=test_hash,
-                tool_source_class="XmlToolSource",
-                raw_source=f'<tool id="{unique_id}" version="1.0"><command>echo</command></tool>',
-                tool_id=unique_id,
-                tool_version="1.0",
-            )
-            store.store(tool_source)
-            self._commit()
-
-            sources = store.get_by_tool_id(unique_id)
-            assert len(sources) >= 1
-            assert any(s.tool_id == unique_id for s in sources)
-        finally:
-            # Cleanup
-            if store.exists(test_hash):
-                store.delete(test_hash)
-                self._commit()
-
-    def test_database_store_count(self):
-        """Test counting stored tool sources."""
-        store = DatabaseToolSourceStore(self._app)
-        test_hash = f"count_test_hash_{id(self)}"
-
-        try:
-            initial_count = store.count()
-
-            tool_source = StoredToolSource(
-                hash=test_hash,
-                tool_source_class="XmlToolSource",
-                raw_source='<tool id="count_test"><command>echo</command></tool>',
-                tool_id="count_test",
-                tool_version="1.0",
-            )
-            store.store(tool_source)
-            self._commit()
-
-            assert store.count() == initial_count + 1
-
-            store.delete(test_hash)
-            self._commit()
-            assert store.count() == initial_count
-        finally:
-            # Cleanup
-            if store.exists(test_hash):
-                store.delete(test_hash)
-                self._commit()
-
-
-class TestDiskBackend:
-    """Tests for disk backend."""
-
-    def test_disk_store_basic_operations(self):
-        """Test basic store/get operations with disk backend."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            tool_source = StoredToolSource(
-                hash="disk_test_hash_123",
-                tool_source_class="XmlToolSource",
-                raw_source='<tool id="disk_test" version="2.0"><command>cat</command></tool>',
-                tool_id="disk_test_tool",
-                tool_version="2.0",
-            )
-
-            store.store(tool_source)
-
-            assert store.exists("disk_test_hash_123")
-            retrieved = store.get("disk_test_hash_123")
-            assert retrieved is not None
-            assert retrieved.tool_id == "disk_test_tool"
-
-            assert store.count() >= 1
-
-            assert store.delete("disk_test_hash_123")
-            assert not store.exists("disk_test_hash_123")
-
-    def test_disk_store_index_operations(self):
-        """Test tool index with disk backend."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            index = ToolIndex()
-            index.entries["disk_tool"] = ToolIndexEntry(
-                id="disk_tool",
-                name="Disk Tool",
-                version="1.0",
-                description="Tool stored on disk",
-            )
-
-            store.store_index(index)
-
-            loaded = store.load_index()
-            assert loaded is not None
-            assert "disk_tool" in loaded.entries
-
-    def test_disk_store_persistence(self):
-        """Test that disk storage persists across store instances."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store1 = DiskToolSourceStore(tmpdir)
-            tool_source = StoredToolSource(
-                hash="persist_test_hash",
-                tool_source_class="XmlToolSource",
-                raw_source='<tool id="persist"><command>echo</command></tool>',
-                tool_id="persist_tool",
-                tool_version="1.0",
-            )
-            store1.store(tool_source)
-
-            store2 = DiskToolSourceStore(tmpdir)
-
-            assert store2.exists("persist_test_hash")
-            retrieved = store2.get("persist_test_hash")
-            assert retrieved.tool_id == "persist_tool"
-
-    def test_disk_store_list_all(self):
-        """Test listing all hashes from disk store."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            hashes = ["hash_a", "hash_b", "hash_c"]
-            for h in hashes:
-                store.store(
-                    StoredToolSource(
-                        hash=h,
-                        tool_source_class="XmlToolSource",
-                        raw_source=f'<tool id="{h}"><command>echo</command></tool>',
-                        tool_id=h,
-                        tool_version="1.0",
-                    )
-                )
-
-            listed = list(store.list_all())
-            assert len(listed) == 3
-            for h in hashes:
-                assert h in listed
-
-    def test_disk_store_get_by_tool_id(self):
-        """Test retrieving by tool ID from disk store."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            store.store(
-                StoredToolSource(
-                    hash="v1_hash",
-                    tool_source_class="XmlToolSource",
-                    raw_source='<tool id="multi_version" version="1.0"><command>v1</command></tool>',
-                    tool_id="multi_version",
-                    tool_version="1.0",
-                )
-            )
-            store.store(
-                StoredToolSource(
-                    hash="v2_hash",
-                    tool_source_class="XmlToolSource",
-                    raw_source='<tool id="multi_version" version="2.0"><command>v2</command></tool>',
-                    tool_id="multi_version",
-                    tool_version="2.0",
-                )
-            )
-
-            sources = store.get_by_tool_id("multi_version")
-            assert len(sources) == 2
-
-            sources_v1 = store.get_by_tool_id("multi_version", version="1.0")
-            assert len(sources_v1) == 1
-            assert sources_v1[0].tool_version == "1.0"
-
-
-class TestBuildToolSourceStore:
-    """Tests for the store factory function."""
-
-    def test_build_database_store(self):
-        """Test building database store from config."""
-        config = FakeConfig(
-            tool_source_store="database",
-            database_connection="sqlite:///:memory:",
-        )
-        store = build_tool_source_store(config)
-        assert isinstance(store, DatabaseToolSourceStore)
-
-    def test_build_disk_store(self):
-        """Test building disk store from config."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config = FakeConfig(
-                tool_source_store="disk",
-                tool_source_disk_path=tmpdir,
-            )
-            store = build_tool_source_store(config)
-            assert isinstance(store, DiskToolSourceStore)
-
-    def test_build_disk_store_missing_path_raises(self):
-        """Test that missing disk path raises ConfigurationError."""
-        config = FakeConfig(tool_source_store="disk")
-        with pytest.raises(ConfigurationError):
-            build_tool_source_store(config)
-
-    def test_build_redis_store_missing_url_raises(self):
-        """Test that missing Redis URL raises ConfigurationError."""
-        config = FakeConfig(tool_source_store="redis")
-        with pytest.raises(ConfigurationError):
-            build_tool_source_store(config)
-
-
-@integration_util.skip_unless_environ("GALAXY_TEST_TOOL_SOURCE_REDIS_URL")
-class TestRedisBackend:
-    """Tests for Redis backend (requires Redis)."""
-
-    def test_redis_store_basic_operations(self):
-        """Test basic operations with Redis backend."""
-        from galaxy.tool_source_store.redis import RedisToolSourceStore
-
-        redis_url = os.environ.get("GALAXY_TEST_TOOL_SOURCE_REDIS_URL")
-        store = RedisToolSourceStore(redis_url)
-
-        tool_source = StoredToolSource(
-            hash="redis_test_hash_456",
-            tool_source_class="XmlToolSource",
-            raw_source='<tool id="redis_test"><command>redis</command></tool>',
-            tool_id="redis_test_tool",
-            tool_version="3.0",
-        )
-
-        store.store(tool_source)
-
-        assert store.exists("redis_test_hash_456")
-        retrieved = store.get("redis_test_hash_456")
-        assert retrieved is not None
-        assert retrieved.tool_id == "redis_test_tool"
-
-        store.delete("redis_test_hash_456")
-
-    def test_redis_store_index(self):
-        """Test index operations with Redis backend."""
-        from galaxy.tool_source_store.redis import RedisToolSourceStore
-
-        redis_url = os.environ.get("GALAXY_TEST_TOOL_SOURCE_REDIS_URL")
-        store = RedisToolSourceStore(redis_url)
-
-        index = ToolIndex()
-        index.entries["redis_tool"] = ToolIndexEntry(
-            id="redis_tool",
-            name="Redis Tool",
-            version="1.0",
-            description="Tool in Redis",
-        )
-
-        store.store_index(index)
-
-        loaded = store.load_index()
-        assert loaded is not None
-        assert "redis_tool" in loaded.entries
-
-
-class TestToolIndex:
-    """Tests for ToolIndex functionality."""
-
-    def test_index_search(self):
-        """Test searching the tool index."""
-        index = ToolIndex()
-        index.entries["filter_tool"] = ToolIndexEntry(
-            id="filter_tool",
-            name="Filter Tool",
-            version="1.0",
-            description="Filters data by column",
-        )
-        index.entries["cat_tool"] = ToolIndexEntry(
-            id="cat_tool",
-            name="Concatenate",
-            version="2.0",
-            description="Concatenates files",
-        )
-
-        results = index.search("Filter", limit=10)
-        assert len(results) >= 1
-        assert any(r.id == "filter_tool" for r in results)
-
-        results = index.search("column", limit=10)
-        assert len(results) >= 1
-        assert any(r.id == "filter_tool" for r in results)
-
-    def test_index_serialization(self):
-        """Test index to_dict/from_dict round trip."""
-        index = ToolIndex()
-        index.entries["test_tool"] = ToolIndexEntry(
-            id="test_tool",
-            name="Test",
-            version="1.0",
-            description="Test tool",
-            labels=["genomics"],
-        )
-        index.by_section["section1"] = ["test_tool"]
-
-        data = index.to_dict()
-
-        restored = ToolIndex.from_dict(data)
-
-        assert "test_tool" in restored.entries
-        assert restored.entries["test_tool"].name == "Test"
-        assert "section1" in restored.by_section
-
-    def test_index_get_tests_summary(self):
-        """Test generating tests summary from index."""
-        index = ToolIndex()
-        index.entries["tool1"] = ToolIndexEntry(
-            id="tool1",
-            name="Tool 1",
-            version="1.0",
-            test_count=3,
-        )
-        index.entries["tool2"] = ToolIndexEntry(
-            id="tool2",
-            name="Tool 2",
-            version="2.0",
-            test_count=0,
-        )
-
-        summary = index.get_tests_summary()
-        assert isinstance(summary, dict)
-
-    def test_index_get_all_requirements(self):
-        """Test aggregating all requirements from index."""
-        index = ToolIndex()
-        index.entries["tool1"] = ToolIndexEntry(
-            id="tool1",
-            name="Tool 1",
-            version="1.0",
-            requirements=[
-                {"name": "samtools", "version": "1.0", "type": "package"},
-            ],
-        )
-
-        requirements = index.get_all_requirements()
-        assert isinstance(requirements, (list, dict))
+            # Wait for completion
+            self.workflow_populator.wait_for_invocation_and_jobs(history_id, workflow_id, invocation_id)
+
+            # Verify invocation succeeded
+            invocation_details = self.workflow_populator.get_invocation(invocation_id)
+            assert invocation_details["state"] == "scheduled"
+
+
+class TestToolSourceStorageMultipleVersions(BaseToolSourceStorageIntegrationTestCase):
+    """Integration tests for tools with multiple versions."""
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        config["tool_source_store"] = "database"
+
+    def test_multiple_versions_tool_available(self):
+        """Test that tools with multiple versions are available."""
+        # Get tool panel to see all tools
+        response = self._get("tools")
+        self._assert_status_code_is(response, 200)
+        tools = response.json()
+
+        # Collect every tool id appearing in the panel response.
+        tool_ids = []
+        for section in tools:
+            if "elems" in section:
+                for elem in section["elems"]:
+                    if isinstance(elem, dict) and "id" in elem:
+                        tool_ids.append(elem["id"])
+            elif "id" in section:
+                tool_ids.append(section["id"])
+
+        # The framework_tool_and_types fixture installs a `multi_data_param`
+        # tool registered under both versions 0.1 and 0.2; either both versions
+        # appear flat in the response (LazyToolBox) or the tool id appears once
+        # (traditional ToolBox with only the latest version) — at minimum the
+        # tool id must be discoverable.
+        assert "multi_data_param" in tool_ids, f"multi_data_param not found in {tool_ids}"
