@@ -41,42 +41,52 @@ class TestDatabaseBackend(integration_util.IntegrationTestCase):
     def handle_galaxy_config_kwds(cls, config):
         super().handle_galaxy_config_kwds(config)
 
+    def _get_session(self):
+        """Get the database session and ensure it's usable."""
+        return self._app.model.context
+
+    def _commit(self):
+        """Commit the current transaction to release database locks."""
+        self._get_session().commit()
+
     def test_database_store_basic_operations(self):
         """Test basic store/get operations with database backend."""
-        config = FakeConfig(
-            tool_source_store="database",
-            database_connection=self._app.config.database_connection,
-        )
-        store = DatabaseToolSourceStore(config)
+        # Use the app directly which has the model context
+        store = DatabaseToolSourceStore(self._app)
+        test_hash = "test_hash_integration_" + str(id(self))
 
-        tool_source = StoredToolSource(
-            hash="test_hash_integration_" + str(id(self)),
-            tool_source_class="XmlToolSource",
-            raw_source='<tool id="test" version="1.0"><command>echo</command></tool>',
-            tool_id="test_integration_tool",
-            tool_version="1.0",
-        )
+        try:
+            tool_source = StoredToolSource(
+                hash=test_hash,
+                tool_source_class="XmlToolSource",
+                raw_source='<tool id="test" version="1.0"><command>echo</command></tool>',
+                tool_id="test_integration_tool",
+                tool_version="1.0",
+            )
 
-        store.store(tool_source)
+            store.store(tool_source)
+            self._commit()
 
-        assert store.exists(tool_source.hash)
+            assert store.exists(tool_source.hash)
 
-        retrieved = store.get(tool_source.hash)
-        assert retrieved is not None
-        assert retrieved.tool_id == "test_integration_tool"
-        assert retrieved.tool_version == "1.0"
-        assert "<tool" in retrieved.raw_source
+            retrieved = store.get(tool_source.hash)
+            assert retrieved is not None
+            assert retrieved.tool_id == "test_integration_tool"
+            assert retrieved.tool_version == "1.0"
+            assert "<tool" in retrieved.raw_source
 
-        assert store.delete(tool_source.hash)
-        assert not store.exists(tool_source.hash)
+            assert store.delete(tool_source.hash)
+            self._commit()
+            assert not store.exists(tool_source.hash)
+        finally:
+            # Ensure cleanup even if test fails
+            if store.exists(test_hash):
+                store.delete(test_hash)
+                self._commit()
 
     def test_database_store_index_operations(self):
         """Test tool index storage with database backend."""
-        config = FakeConfig(
-            tool_source_store="database",
-            database_connection=self._app.config.database_connection,
-        )
-        store = DatabaseToolSourceStore(config)
+        store = DatabaseToolSourceStore(self._app)
 
         index = ToolIndex()
         index.entries["test_tool_db"] = ToolIndexEntry(
@@ -87,6 +97,10 @@ class TestDatabaseBackend(integration_util.IntegrationTestCase):
         )
 
         store.store_index(index)
+        self._commit()
+
+        # Clear the cached index to force reload from database
+        store.invalidate_index_cache()
 
         loaded_index = store.load_index()
         assert loaded_index is not None
@@ -95,51 +109,59 @@ class TestDatabaseBackend(integration_util.IntegrationTestCase):
 
     def test_database_store_get_by_tool_id(self):
         """Test retrieving tool sources by tool ID."""
-        config = FakeConfig(
-            tool_source_store="database",
-            database_connection=self._app.config.database_connection,
-        )
-        store = DatabaseToolSourceStore(config)
+        store = DatabaseToolSourceStore(self._app)
 
         unique_id = f"tool_by_id_test_{id(self)}"
-        tool_source = StoredToolSource(
-            hash=f"hash_for_{unique_id}",
-            tool_source_class="XmlToolSource",
-            raw_source=f'<tool id="{unique_id}" version="1.0"><command>echo</command></tool>',
-            tool_id=unique_id,
-            tool_version="1.0",
-        )
-        store.store(tool_source)
+        test_hash = f"hash_for_{unique_id}"
 
-        sources = store.get_by_tool_id(unique_id)
-        assert len(sources) >= 1
-        assert any(s.tool_id == unique_id for s in sources)
+        try:
+            tool_source = StoredToolSource(
+                hash=test_hash,
+                tool_source_class="XmlToolSource",
+                raw_source=f'<tool id="{unique_id}" version="1.0"><command>echo</command></tool>',
+                tool_id=unique_id,
+                tool_version="1.0",
+            )
+            store.store(tool_source)
+            self._commit()
 
-        store.delete(tool_source.hash)
+            sources = store.get_by_tool_id(unique_id)
+            assert len(sources) >= 1
+            assert any(s.tool_id == unique_id for s in sources)
+        finally:
+            # Cleanup
+            if store.exists(test_hash):
+                store.delete(test_hash)
+                self._commit()
 
     def test_database_store_count(self):
         """Test counting stored tool sources."""
-        config = FakeConfig(
-            tool_source_store="database",
-            database_connection=self._app.config.database_connection,
-        )
-        store = DatabaseToolSourceStore(config)
+        store = DatabaseToolSourceStore(self._app)
+        test_hash = f"count_test_hash_{id(self)}"
 
-        initial_count = store.count()
+        try:
+            initial_count = store.count()
 
-        tool_source = StoredToolSource(
-            hash=f"count_test_hash_{id(self)}",
-            tool_source_class="XmlToolSource",
-            raw_source='<tool id="count_test"><command>echo</command></tool>',
-            tool_id="count_test",
-            tool_version="1.0",
-        )
-        store.store(tool_source)
+            tool_source = StoredToolSource(
+                hash=test_hash,
+                tool_source_class="XmlToolSource",
+                raw_source='<tool id="count_test"><command>echo</command></tool>',
+                tool_id="count_test",
+                tool_version="1.0",
+            )
+            store.store(tool_source)
+            self._commit()
 
-        assert store.count() == initial_count + 1
+            assert store.count() == initial_count + 1
 
-        store.delete(tool_source.hash)
-        assert store.count() == initial_count
+            store.delete(test_hash)
+            self._commit()
+            assert store.count() == initial_count
+        finally:
+            # Cleanup
+            if store.exists(test_hash):
+                store.delete(test_hash)
+                self._commit()
 
 
 class TestDiskBackend:
