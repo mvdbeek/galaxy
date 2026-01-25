@@ -6,6 +6,7 @@ that uses the existing tool_source table and adds a tool_index table for
 lightweight metadata.
 """
 
+import gzip
 import json
 import logging
 from datetime import datetime
@@ -19,7 +20,10 @@ from typing import (
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from galaxy.model import ToolSource as ToolSourceModel
+from galaxy.model import (
+    ToolIndexCache,
+    ToolSource as ToolSourceModel,
+)
 from . import (
     StoredToolSource,
     ToolSourceStore,
@@ -199,24 +203,36 @@ class DatabaseToolSourceStore(ToolSourceStore):
         """
         Store the complete tool index.
 
-        Stores the index as a JSON blob in a special tool_source entry
-        with hash='__tool_index__'.
+        Stores the index as a gzip-compressed JSON blob in the tool_index table.
+        Uses versioning for cache invalidation.
         """
         session = self._get_session()
 
+        # Serialize and compress index
         index_data = index.to_dict()
+        json_bytes = json.dumps(index_data).encode("utf-8")
+        compressed = gzip.compress(json_bytes)
 
-        # Check if index entry exists
+        version = index.compute_version()
+
+        # Check if index with this version exists
         existing = session.execute(
-            select(ToolSourceModel).where(ToolSourceModel.hash == "__tool_index__")
+            select(ToolIndexCache).where(ToolIndexCache.version == version)
         ).scalar_one_or_none()
 
         if existing:
-            existing.source = {"index": index_data}
+            existing.data = compressed
+            existing.built_at = index.built_at
         else:
-            model = ToolSourceModel(
-                hash="__tool_index__",
-                source={"index": index_data},
+            # Delete old versions first
+            old_entries = session.execute(select(ToolIndexCache)).scalars().all()
+            for old in old_entries:
+                session.delete(old)
+
+            model = ToolIndexCache(
+                version=version,
+                data=compressed,
+                built_at=index.built_at,
             )
             session.add(model)
 
@@ -224,27 +240,39 @@ class DatabaseToolSourceStore(ToolSourceStore):
         self._cached_index = index
 
     def load_index(self) -> Optional[ToolIndex]:
-        """Load the tool index."""
+        """Load the tool index from the tool_index table."""
         if self._cached_index is not None:
             return self._cached_index
 
         session = self._get_session()
 
+        # Try to load from new tool_index table first
         model = session.execute(
+            select(ToolIndexCache).order_by(ToolIndexCache.id.desc())
+        ).scalar_one_or_none()
+
+        if model and model.data:
+            try:
+                json_bytes = gzip.decompress(model.data)
+                index_data = json.loads(json_bytes.decode("utf-8"))
+                self._cached_index = ToolIndex.from_dict(index_data)
+                return self._cached_index
+            except Exception as e:
+                log.warning(f"Failed to load index from tool_index table: {e}")
+
+        # Fall back to legacy storage in tool_source table
+        legacy = session.execute(
             select(ToolSourceModel).where(ToolSourceModel.hash == "__tool_index__")
         ).scalar_one_or_none()
 
-        if not model:
-            return None
+        if legacy:
+            source_data = legacy.source or {}
+            index_data = source_data.get("index")
+            if index_data:
+                self._cached_index = ToolIndex.from_dict(index_data)
+                return self._cached_index
 
-        source_data = model.source or {}
-        index_data = source_data.get("index")
-
-        if not index_data:
-            return None
-
-        self._cached_index = ToolIndex.from_dict(index_data)
-        return self._cached_index
+        return None
 
     def update_index_entry(self, entry: ToolIndexEntry) -> None:
         """Update a single index entry."""
