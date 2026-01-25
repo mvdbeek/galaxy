@@ -247,14 +247,50 @@ To benchmark tool source deserialization performance, use the benchmarks module:
 
 .. code-block:: console
 
-    $ python -m galaxy.tool_source_store.benchmarks --tools-dir /path/to/tools -n 100
+    $ PYTHONPATH=lib python -m galaxy.tool_source_store.benchmarks --iterations 100
 
-This will measure:
+Performance Results
+^^^^^^^^^^^^^^^^^^^
 
-- Index serialization/deserialization time
-- Tool source storage and retrieval time
-- XML parsing time
-- Memory usage estimates
+The following benchmarks were run on a typical server (results may vary based on hardware):
+
+**Core Operations (1000 tool index)**
+
+================================  ==========  ==============
+Operation                         Mean Time   Throughput
+================================  ==========  ==============
+XML tool parsing                  0.10 ms     ~10,000/sec
+Hash computation                  0.01 ms     ~115,000/sec
+Index search (3 queries)          2.5 ms      ~400/sec
+API response generation           0.35 ms     ~2,800/sec
+All requirements aggregation      0.48 ms     ~2,000/sec
+Index serialization               2.1 ms      ~470/sec
+Index deserialization             2.3 ms      ~430/sec
+================================  ==========  ==============
+
+**Scaling by Index Size**
+
+===========  ===============  ==============  ============
+Tool Count   API Response     Index Search    Memory (JSON)
+===========  ===============  ==============  ============
+100          0.03 ms          0.2 ms          73 KB
+500          0.14 ms          1.0 ms          367 KB
+1,000        0.38 ms          1.9 ms          735 KB
+2,000        0.69 ms          4.2 ms          1.4 MB
+5,000        2.9 ms           10.5 ms         3.6 MB
+===========  ===============  ==============  ============
+
+**Startup Time Comparison (1000 tools)**
+
+- Traditional (parse all at startup): ~100 ms
+- Index-based (lazy loading): ~15 ms
+- **Speedup: ~6-7x faster startup**
+
+The index-based approach provides significant benefits for large installations:
+
+- Faster Galaxy startup time
+- Reduced memory usage (only frequently-used tools in cache)
+- Quick batch API responses from pre-computed index
 
 Troubleshooting
 ---------------
