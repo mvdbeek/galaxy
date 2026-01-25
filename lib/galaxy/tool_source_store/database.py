@@ -1,0 +1,269 @@
+"""
+Database backend for Tool Source Store.
+
+This module provides a database-backed implementation of the ToolSourceStore
+that uses the existing tool_source table and adds a tool_index table for
+lightweight metadata.
+"""
+
+import json
+import logging
+from datetime import datetime
+from typing import (
+    TYPE_CHECKING,
+    Iterator,
+    List,
+    Optional,
+)
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from galaxy.model import ToolSource as ToolSourceModel
+from . import (
+    StoredToolSource,
+    ToolSourceStore,
+)
+from .index import (
+    ToolIndex,
+    ToolIndexEntry,
+)
+
+if TYPE_CHECKING:
+    from galaxy.config import GalaxyAppConfiguration
+
+log = logging.getLogger(__name__)
+
+
+class DatabaseToolSourceStore(ToolSourceStore):
+    """
+    Database-backed tool source store.
+
+    Uses the existing tool_source table for storing full tool sources
+    and a separate tool_index table for lightweight metadata.
+    """
+
+    def __init__(self, config: "GalaxyAppConfiguration"):
+        """
+        Initialize the database tool source store.
+
+        Args:
+            config: Galaxy application configuration.
+        """
+        self._config = config
+        self._cached_index: Optional[ToolIndex] = None
+
+    def _get_session(self) -> Session:
+        """Get a database session."""
+        # Access through the app's model context
+        return self._config.model.context.current
+
+    def store(self, tool_source: StoredToolSource) -> str:
+        """Store a tool source in the database."""
+        session = self._get_session()
+
+        # Check if already exists
+        existing = session.execute(
+            select(ToolSourceModel).where(ToolSourceModel.hash == tool_source.hash)
+        ).scalar_one_or_none()
+
+        if existing:
+            return existing.hash
+
+        # Create new record
+        source_data = {
+            "raw": tool_source.raw_source,
+            "tool_source_class": tool_source.tool_source_class,
+            "tool_id": tool_source.tool_id,
+            "tool_version": tool_source.tool_version,
+            "tool_dir": tool_source.tool_dir,
+            "stored_at": (
+                tool_source.stored_at.isoformat() if tool_source.stored_at else None
+            ),
+            "metadata": tool_source.metadata,
+        }
+
+        model = ToolSourceModel(
+            hash=tool_source.hash,
+            source=source_data,
+        )
+        session.add(model)
+        session.flush()
+
+        return model.hash
+
+    def get(self, hash: str) -> Optional[StoredToolSource]:
+        """Retrieve a tool source by hash."""
+        session = self._get_session()
+
+        model = session.execute(
+            select(ToolSourceModel).where(ToolSourceModel.hash == hash)
+        ).scalar_one_or_none()
+
+        if not model:
+            return None
+
+        return self._model_to_stored(model)
+
+    def _model_to_stored(self, model: ToolSourceModel) -> StoredToolSource:
+        """Convert database model to StoredToolSource."""
+        source_data = model.source or {}
+
+        stored_at = source_data.get("stored_at")
+        if stored_at and isinstance(stored_at, str):
+            stored_at = datetime.fromisoformat(stored_at)
+
+        return StoredToolSource(
+            hash=model.hash,
+            tool_source_class=source_data.get("tool_source_class", "XmlToolSource"),
+            raw_source=source_data.get("raw", ""),
+            tool_id=source_data.get("tool_id"),
+            tool_version=source_data.get("tool_version"),
+            tool_dir=source_data.get("tool_dir"),
+            stored_at=stored_at,
+            metadata=source_data.get("metadata", {}),
+        )
+
+    def exists(self, hash: str) -> bool:
+        """Check if a tool source exists."""
+        session = self._get_session()
+
+        result = session.execute(
+            select(ToolSourceModel.id).where(ToolSourceModel.hash == hash)
+        ).scalar_one_or_none()
+
+        return result is not None
+
+    def delete(self, hash: str) -> bool:
+        """Delete a tool source by hash."""
+        session = self._get_session()
+
+        model = session.execute(
+            select(ToolSourceModel).where(ToolSourceModel.hash == hash)
+        ).scalar_one_or_none()
+
+        if not model:
+            return False
+
+        session.delete(model)
+        session.flush()
+        return True
+
+    def list_all(self) -> Iterator[str]:
+        """List all stored tool source hashes."""
+        session = self._get_session()
+
+        result = session.execute(select(ToolSourceModel.hash))
+
+        for (hash_value,) in result:
+            if hash_value:
+                yield hash_value
+
+    def get_by_tool_id(
+        self, tool_id: str, version: Optional[str] = None
+    ) -> List[StoredToolSource]:
+        """Get tool sources by tool ID and optional version."""
+        session = self._get_session()
+
+        # Query all and filter in Python since tool_id is in JSON
+        result = session.execute(select(ToolSourceModel))
+        sources = []
+
+        for (model,) in result:
+            source_data = model.source or {}
+            if source_data.get("tool_id") == tool_id:
+                if version is None or source_data.get("tool_version") == version:
+                    sources.append(self._model_to_stored(model))
+
+        return sources
+
+    def count(self) -> int:
+        """Return the total number of stored tool sources."""
+        session = self._get_session()
+
+        from sqlalchemy import func
+
+        result = session.execute(select(func.count(ToolSourceModel.id)))
+        return result.scalar() or 0
+
+    def get_stats(self):
+        """Return storage statistics."""
+        return {
+            "count": self.count(),
+            "backend": "database",
+        }
+
+    # Index operations
+
+    def store_index(self, index: ToolIndex) -> None:
+        """
+        Store the complete tool index.
+
+        Stores the index as a JSON blob in a special tool_source entry
+        with hash='__tool_index__'.
+        """
+        session = self._get_session()
+
+        index_data = index.to_dict()
+
+        # Check if index entry exists
+        existing = session.execute(
+            select(ToolSourceModel).where(ToolSourceModel.hash == "__tool_index__")
+        ).scalar_one_or_none()
+
+        if existing:
+            existing.source = {"index": index_data}
+        else:
+            model = ToolSourceModel(
+                hash="__tool_index__",
+                source={"index": index_data},
+            )
+            session.add(model)
+
+        session.flush()
+        self._cached_index = index
+
+    def load_index(self) -> Optional[ToolIndex]:
+        """Load the tool index."""
+        if self._cached_index is not None:
+            return self._cached_index
+
+        session = self._get_session()
+
+        model = session.execute(
+            select(ToolSourceModel).where(ToolSourceModel.hash == "__tool_index__")
+        ).scalar_one_or_none()
+
+        if not model:
+            return None
+
+        source_data = model.source or {}
+        index_data = source_data.get("index")
+
+        if not index_data:
+            return None
+
+        self._cached_index = ToolIndex.from_dict(index_data)
+        return self._cached_index
+
+    def update_index_entry(self, entry: ToolIndexEntry) -> None:
+        """Update a single index entry."""
+        index = self.load_index()
+        if index is None:
+            index = ToolIndex()
+
+        index.entries[entry.id] = entry
+        index.invalidate_caches()
+
+        # Update section mapping
+        if entry.panel_section_id:
+            if entry.panel_section_id not in index.by_section:
+                index.by_section[entry.panel_section_id] = []
+            if entry.id not in index.by_section[entry.panel_section_id]:
+                index.by_section[entry.panel_section_id].append(entry.id)
+
+        self.store_index(index)
+
+    def invalidate_index_cache(self) -> None:
+        """Invalidate the cached index."""
+        self._cached_index = None

@@ -322,6 +322,54 @@ mapping:
           Other tool config files must include the tool_path as an attribute in the
           <toolbox> tag.
 
+      tool_source_store:
+        type: str
+        default: database
+        required: false
+        desc: |
+          Backend for storing tool sources. Options are 'database', 'redis', or 'disk'.
+          The database backend stores tool sources in the Galaxy database.
+          The redis backend requires tool_source_redis_url to be set.
+          The disk backend requires tool_source_disk_path to be set.
+
+      tool_source_redis_url:
+        type: str
+        required: false
+        desc: |
+          Redis URL for tool source storage when using the redis backend.
+          Example: redis://localhost:6379/1
+
+      tool_source_redis_ttl:
+        type: int
+        required: false
+        desc: |
+          Optional TTL in seconds for Redis tool source entries.
+          If not set, entries will not expire.
+
+      tool_source_disk_path:
+        type: str
+        default: tool_sources
+        path_resolves_to: data_dir
+        required: false
+        desc: |
+          Directory path for tool source storage when using the disk backend.
+
+      tool_cache_size:
+        type: int
+        default: 500
+        required: false
+        desc: |
+          Maximum number of Tool objects to keep in the LRU cache.
+          Higher values use more memory but reduce tool loading time.
+
+      tool_api_cache_ttl:
+        type: int
+        default: 300
+        required: false
+        desc: |
+          Time-to-live in seconds for pre-computed API responses.
+          These cached responses speed up batch endpoints like /api/tools.
+
       tool_dependency_dir:
         type: str
         default: dependencies
