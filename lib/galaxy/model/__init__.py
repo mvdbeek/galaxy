@@ -80,6 +80,7 @@ from sqlalchemy import (
     Integer,
     join,
     JSON,
+    LargeBinary,
     literal,
     MetaData,
     not_,
@@ -1394,6 +1395,24 @@ class ToolSource(Base, Dictifiable, RepresentById):
     id: Mapped[int] = mapped_column(primary_key=True)
     hash: Mapped[Optional[str]] = mapped_column(Unicode(255))
     source: Mapped[dict] = mapped_column(JSONType)
+
+
+class ToolIndexCache(Base, Dictifiable, RepresentById):
+    """
+    Stores pre-computed tool index for fast API responses.
+
+    The tool index contains lightweight metadata about all tools for
+    efficient batch endpoint access without loading full tool sources.
+    """
+
+    __tablename__ = "tool_index"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    data: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    built_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    create_time: Mapped[datetime] = mapped_column(default=now, nullable=True)
+    update_time: Mapped[datetime] = mapped_column(default=now, onupdate=now, nullable=True)
 
 
 class ToolRequest(Base, Dictifiable, RepresentById):
