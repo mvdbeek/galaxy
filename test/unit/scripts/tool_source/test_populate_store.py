@@ -19,8 +19,6 @@ from typing import (
     Optional,
 )
 
-
-
 # Add Galaxy lib to path for imports
 galaxy_root = Path(__file__).parent.parent.parent.parent.parent
 import sys
@@ -34,7 +32,6 @@ from populate_store import (
     send_reload_notification,
     ToolFileWatcher,
 )
-
 
 # --- Fakes for testing ---
 
@@ -149,10 +146,12 @@ class TestIterToolSources:
 
     def test_pattern_filters_by_tool_id(self):
         """Pattern argument filters tools by ID substring match."""
-        toolbox = FakeToolbox({
-            "filter_me": FakeTool(version="1.0", tool_source=object()),
-            "other_tool": FakeTool(version="2.0", tool_source=object()),
-        })
+        toolbox = FakeToolbox(
+            {
+                "filter_me": FakeTool(version="1.0", tool_source=object()),
+                "other_tool": FakeTool(version="2.0", tool_source=object()),
+            }
+        )
 
         result = list(iter_tool_sources(toolbox, pattern="filter"))
 
@@ -161,9 +160,11 @@ class TestIterToolSources:
 
     def test_pattern_no_match_yields_nothing(self):
         """Pattern that matches nothing yields empty result."""
-        toolbox = FakeToolbox({
-            "test_tool": FakeTool(version="1.0", tool_source=object()),
-        })
+        toolbox = FakeToolbox(
+            {
+                "test_tool": FakeTool(version="1.0", tool_source=object()),
+            }
+        )
 
         result = list(iter_tool_sources(toolbox, pattern="nonexistent"))
         assert result == []
@@ -173,10 +174,12 @@ class TestIterToolSources:
         tool_with_source = FakeTool(version="1.0", tool_source=object())
         tool_without_source = FakeTool(version="2.0", tool_source=None)
 
-        toolbox = FakeToolbox({
-            "has_source": tool_with_source,
-            "no_source": tool_without_source,
-        })
+        toolbox = FakeToolbox(
+            {
+                "has_source": tool_with_source,
+                "no_source": tool_without_source,
+            }
+        )
 
         result = list(iter_tool_sources(toolbox))
 
@@ -199,6 +202,7 @@ class TestSendReloadNotification:
 
         # Force an import error by breaking kombu import
         import sys
+
         original_modules = sys.modules.copy()
 
         # Remove kombu if present to simulate import failure
@@ -307,9 +311,9 @@ class TestToolFileWatcher:
             tools_dirs=[],
         )
 
-        tool_content = '''<tool id="test_tool" name="Test" version="1.0">
+        tool_content = """<tool id="test_tool" name="Test" version="1.0">
             <command>echo hello</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -334,9 +338,9 @@ class TestToolFileWatcher:
         """Tool already in store with same hash should be skipped."""
         store = FakeToolSourceStore()
 
-        tool_content = '''<tool id="test_tool" name="Test" version="1.0">
+        tool_content = """<tool id="test_tool" name="Test" version="1.0">
             <command>echo hello</command>
-        </tool>'''
+        </tool>"""
         content_hash = compute_hash(tool_content)
 
         # Pre-populate store with this hash
@@ -373,9 +377,9 @@ class TestToolFileWatcher:
         )
 
         # Different attribute order and extra attributes
-        tool_content = '''<tool version="2.5.1" name="My Tool" id="my_tool_id">
+        tool_content = """<tool version="2.5.1" name="My Tool" id="my_tool_id">
             <command>echo test</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -400,9 +404,9 @@ class TestToolFileWatcher:
         )
 
         # Minimal tool with no id or version
-        tool_content = '''<tool name="Minimal">
+        tool_content = """<tool name="Minimal">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -443,9 +447,9 @@ class TestToolFileWatcher:
             tools_dirs=[],
         )
 
-        tool_content = '''<tool id="test" version="1.0">
+        tool_content = """<tool id="test" version="1.0">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -456,6 +460,7 @@ class TestToolFileWatcher:
 
             # Disable notification sending for this test
             import populate_store
+
             original_send = populate_store.send_reload_notification
             populate_store.send_reload_notification = lambda c: True
 
@@ -478,9 +483,9 @@ class TestToolFileWatcher:
             tools_dirs=[],
         )
 
-        tool_content = '''<tool id="test" version="1.0">
+        tool_content = """<tool id="test" version="1.0">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
 
         with tempfile.NamedTemporaryFile(mode="w", suffix=".xml", delete=False) as f:
             f.write(tool_content)
@@ -492,6 +497,7 @@ class TestToolFileWatcher:
             # Track if notification was attempted
             notification_sent = []
             import populate_store
+
             original_send = populate_store.send_reload_notification
             populate_store.send_reload_notification = lambda c: notification_sent.append(c) or True
 
@@ -508,9 +514,9 @@ class TestToolFileWatcher:
         """No notification should be sent if no tools were actually updated."""
         store = FakeToolSourceStore()
 
-        tool_content = '''<tool id="test" version="1.0">
+        tool_content = """<tool id="test" version="1.0">
             <command>echo</command>
-        </tool>'''
+        </tool>"""
         # Pre-populate store so tool is "unchanged"
         store.stored_sources[compute_hash(tool_content)] = "exists"
 
@@ -529,6 +535,7 @@ class TestToolFileWatcher:
 
             notification_sent = []
             import populate_store
+
             original_send = populate_store.send_reload_notification
             populate_store.send_reload_notification = lambda c: notification_sent.append(c) or True
 

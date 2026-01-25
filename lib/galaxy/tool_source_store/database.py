@@ -9,12 +9,12 @@ lightweight metadata.
 import gzip
 import json
 import logging
+from collections.abc import Iterator
 from datetime import datetime
 from typing import (
-    TYPE_CHECKING,
     Optional,
+    TYPE_CHECKING,
 )
-from collections.abc import Iterator
 
 from sqlalchemy import (
     func,
@@ -83,9 +83,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
             "tool_id": tool_source.tool_id,
             "tool_version": tool_source.tool_version,
             "tool_dir": tool_source.tool_dir,
-            "stored_at": (
-                tool_source.stored_at.isoformat() if tool_source.stored_at else None
-            ),
+            "stored_at": (tool_source.stored_at.isoformat() if tool_source.stored_at else None),
             "metadata": tool_source.metadata,
         }
 
@@ -102,9 +100,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         """Retrieve a tool source by hash."""
         session = self._get_session()
 
-        model = session.execute(
-            select(ToolSourceModel).where(ToolSourceModel.hash == hash)
-        ).scalar_one_or_none()
+        model = session.execute(select(ToolSourceModel).where(ToolSourceModel.hash == hash)).scalar_one_or_none()
 
         if not model:
             return None
@@ -134,9 +130,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         """Check if a tool source exists."""
         session = self._get_session()
 
-        result = session.execute(
-            select(ToolSourceModel.id).where(ToolSourceModel.hash == hash)
-        ).scalar_one_or_none()
+        result = session.execute(select(ToolSourceModel.id).where(ToolSourceModel.hash == hash)).scalar_one_or_none()
 
         return result is not None
 
@@ -144,9 +138,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         """Delete a tool source by hash."""
         session = self._get_session()
 
-        model = session.execute(
-            select(ToolSourceModel).where(ToolSourceModel.hash == hash)
-        ).scalar_one_or_none()
+        model = session.execute(select(ToolSourceModel).where(ToolSourceModel.hash == hash)).scalar_one_or_none()
 
         if not model:
             return False
@@ -165,9 +157,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
             if hash_value:
                 yield hash_value
 
-    def get_by_tool_id(
-        self, tool_id: str, version: Optional[str] = None
-    ) -> list[StoredToolSource]:
+    def get_by_tool_id(self, tool_id: str, version: Optional[str] = None) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         session = self._get_session()
 
@@ -215,9 +205,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         version = index.compute_version()
 
         # Check if index with this version exists
-        existing = session.execute(
-            select(ToolIndexCache).where(ToolIndexCache.version == version)
-        ).scalar_one_or_none()
+        existing = session.execute(select(ToolIndexCache).where(ToolIndexCache.version == version)).scalar_one_or_none()
 
         if existing:
             existing.data = compressed
@@ -246,9 +234,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         session = self._get_session()
 
         # Try to load from new tool_index table first
-        model = session.execute(
-            select(ToolIndexCache).order_by(ToolIndexCache.id.desc())
-        ).scalar_one_or_none()
+        model = session.execute(select(ToolIndexCache).order_by(ToolIndexCache.id.desc())).scalar_one_or_none()
 
         if model and model.data:
             try:

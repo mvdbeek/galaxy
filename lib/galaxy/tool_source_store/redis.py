@@ -7,11 +7,11 @@ for high-performance tool source caching and storage.
 
 import json
 import logging
+from collections.abc import Iterator
 from datetime import datetime
 from typing import (
     Optional,
 )
-from collections.abc import Iterator
 
 from . import (
     StoredToolSource,
@@ -72,9 +72,7 @@ class RedisToolSourceStore(ToolSourceStore):
             "tool_id": tool_source.tool_id,
             "tool_version": tool_source.tool_version,
             "tool_dir": tool_source.tool_dir,
-            "stored_at": (
-                tool_source.stored_at.isoformat() if tool_source.stored_at else None
-            ),
+            "stored_at": (tool_source.stored_at.isoformat() if tool_source.stored_at else None),
             "metadata": tool_source.metadata,
         }
 
@@ -90,9 +88,7 @@ class RedisToolSourceStore(ToolSourceStore):
 
         # Index by tool_id
         if tool_source.tool_id:
-            pipe.sadd(
-                f"{self.PREFIX}:index:tool_id:{tool_source.tool_id}", tool_source.hash
-            )
+            pipe.sadd(f"{self.PREFIX}:index:tool_id:{tool_source.tool_id}", tool_source.hash)
             if tool_source.tool_version:
                 pipe.sadd(
                     f"{self.PREFIX}:index:version:{tool_source.tool_id}:{tool_source.tool_version}",
@@ -163,9 +159,7 @@ class RedisToolSourceStore(ToolSourceStore):
         hashes = self._redis.smembers(f"{self.PREFIX}:all")
         yield from hashes
 
-    def get_by_tool_id(
-        self, tool_id: str, version: Optional[str] = None
-    ) -> list[StoredToolSource]:
+    def get_by_tool_id(self, tool_id: str, version: Optional[str] = None) -> list[StoredToolSource]:
         """Get tool sources by tool ID and optional version."""
         if version:
             key = f"{self.PREFIX}:index:version:{tool_id}:{version}"
@@ -209,9 +203,7 @@ class RedisToolSourceStore(ToolSourceStore):
             pipe.sadd(f"{self.INDEX_PREFIX}:all", tool_id)
 
             if entry.panel_section_id:
-                pipe.sadd(
-                    f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", tool_id
-                )
+                pipe.sadd(f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", tool_id)
 
         # Store metadata
         meta = {
@@ -271,15 +263,11 @@ class RedisToolSourceStore(ToolSourceStore):
         """Update a single index entry."""
         pipe = self._redis.pipeline()
 
-        pipe.set(
-            f"{self.INDEX_PREFIX}:entry:{entry.id}", json.dumps(entry.to_dict())
-        )
+        pipe.set(f"{self.INDEX_PREFIX}:entry:{entry.id}", json.dumps(entry.to_dict()))
         pipe.sadd(f"{self.INDEX_PREFIX}:all", entry.id)
 
         if entry.panel_section_id:
-            pipe.sadd(
-                f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", entry.id
-            )
+            pipe.sadd(f"{self.INDEX_PREFIX}:section:{entry.panel_section_id}", entry.id)
 
         pipe.execute()
 
