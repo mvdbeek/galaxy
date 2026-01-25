@@ -1,7 +1,7 @@
 """Add tool_index table for storing pre-computed tool index
 
 Revision ID: f5a73c8b9d12
-Revises: 98621a25ab75
+Revises: 312602e3191d
 Create Date: 2026-01-25 10:00:00.000000
 
 """
@@ -20,7 +20,7 @@ log = logging.getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = "f5a73c8b9d12"
-down_revision = "98621a25ab75"
+down_revision = "312602e3191d"
 branch_labels = None
 depends_on = None
 
