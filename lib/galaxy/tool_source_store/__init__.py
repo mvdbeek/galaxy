@@ -22,6 +22,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
+    from galaxy.app import GalaxyApp
     from galaxy.config import GalaxyAppConfiguration
     from .index import ToolIndex
 
@@ -155,12 +156,14 @@ class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
 
 
-def build_tool_source_store(config: "GalaxyAppConfiguration") -> ToolSourceStore:
+def build_tool_source_store(app_or_config: "GalaxyApp | GalaxyAppConfiguration") -> ToolSourceStore:
     """
     Build a tool source store based on configuration.
 
     Args:
-        config: Galaxy application configuration.
+        app_or_config: Galaxy application or configuration.
+            For database backend, an app with model context is required.
+            For redis/disk backends, only config is needed.
 
     Returns:
         Configured ToolSourceStore instance.
@@ -168,12 +171,14 @@ def build_tool_source_store(config: "GalaxyAppConfiguration") -> ToolSourceStore
     Raises:
         ConfigurationError: If the backend is unknown or misconfigured.
     """
+    # Get config from app or use directly
+    config = getattr(app_or_config, "config", app_or_config)
     backend = getattr(config, "tool_source_store", "database")
 
     if backend == "database":
         from .database import DatabaseToolSourceStore
 
-        return DatabaseToolSourceStore(config)
+        return DatabaseToolSourceStore(app_or_config)
 
     elif backend == "redis":
         from .redis import RedisToolSourceStore

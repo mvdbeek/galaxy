@@ -36,6 +36,7 @@ from .index import (
 )
 
 if TYPE_CHECKING:
+    from galaxy.app import GalaxyApp
     from galaxy.config import GalaxyAppConfiguration
 
 log = logging.getLogger(__name__)
@@ -49,20 +50,25 @@ class DatabaseToolSourceStore(ToolSourceStore):
     and a separate tool_index table for lightweight metadata.
     """
 
-    def __init__(self, config: "GalaxyAppConfiguration"):
+    def __init__(self, app_or_config: "GalaxyApp | GalaxyAppConfiguration"):
         """
         Initialize the database tool source store.
 
         Args:
-            config: Galaxy application configuration.
+            app_or_config: Galaxy application or configuration.
+                If an app is passed, the model context is accessed from app.model.context.
+                If a config is passed, it must have a model attribute for database access.
         """
-        self._config = config
+        self._app_or_config = app_or_config
         self._cached_index: Optional[ToolIndex] = None
 
     def _get_session(self) -> Session:
         """Get a database session."""
-        # Access through the app's model context
-        return self._config.model.context.current
+        # Try to get session from app.model.context (standard pattern)
+        if hasattr(self._app_or_config, "model"):
+            # scoped_session proxies all calls, can be used directly
+            return self._app_or_config.model.context
+        raise RuntimeError("DatabaseToolSourceStore requires an app or config with model attribute")
 
     def store(self, tool_source: StoredToolSource) -> str:
         """Store a tool source in the database."""
