@@ -10,20 +10,19 @@ from abc import (
     ABC,
     abstractmethod,
 )
+from collections.abc import Iterator
 from dataclasses import (
     dataclass,
     field,
 )
 from datetime import datetime
-from collections.abc import Iterator
 from typing import (
-    TYPE_CHECKING,
     Optional,
+    TYPE_CHECKING,
 )
 
 if TYPE_CHECKING:
     from galaxy.config import GalaxyAppConfiguration
-
     from .index import ToolIndex
 
 
@@ -102,9 +101,7 @@ class ToolSourceStore(ABC):
         """
 
     @abstractmethod
-    def get_by_tool_id(
-        self, tool_id: str, version: Optional[str] = None
-    ) -> list[StoredToolSource]:
+    def get_by_tool_id(self, tool_id: str, version: Optional[str] = None) -> list[StoredToolSource]:
         """
         Get tool sources by tool ID and optional version.
 

@@ -7,7 +7,6 @@ operations, tool index management, and cache statistics.
 
 import logging
 from typing import (
-    List,
     Optional,
 )
 
@@ -85,9 +84,7 @@ class ToolSourcesService:
 
         return ToolSourceListResponse(total_count=total, items=items)
 
-    def get_tool_source(
-        self, trans: ProvidesAppContext, hash: str
-    ) -> ToolSourceDetailResponse:
+    def get_tool_source(self, trans: ProvidesAppContext, hash: str) -> ToolSourceDetailResponse:
         """Get a tool source by hash."""
         store = self._get_store(trans)
         source = store.get(hash)
@@ -100,7 +97,7 @@ class ToolSourcesService:
         trans: ProvidesAppContext,
         tool_id: str,
         version: Optional[str] = None,
-    ) -> List[ToolSourceResponse]:
+    ) -> list[ToolSourceResponse]:
         """Get tool sources by tool ID."""
         store = self._get_store(trans)
         sources = store.get_by_tool_id(tool_id, version)
@@ -127,9 +124,7 @@ class ToolSourcesService:
             stored_at=source.stored_at,
         )
 
-    def _source_to_detail_response(
-        self, source: StoredToolSource
-    ) -> ToolSourceDetailResponse:
+    def _source_to_detail_response(self, source: StoredToolSource) -> ToolSourceDetailResponse:
         """Convert StoredToolSource to detailed API response."""
         return ToolSourceDetailResponse(
             hash=source.hash,
@@ -150,7 +145,7 @@ class ToolSourcesService:
         section_id: Optional[str] = None,
         include_hidden: bool = False,
         limit: int = 1000,
-    ) -> List[ToolIndexEntryResponse]:
+    ) -> list[ToolIndexEntryResponse]:
         """List tool index entries."""
         index = self._get_index(trans)
         if not index:
@@ -159,9 +154,7 @@ class ToolSourcesService:
         entries = index.list_all(section_id=section_id, include_hidden=include_hidden)
         return [self._entry_to_response(e) for e in entries[:limit]]
 
-    def get_index_entry(
-        self, trans: ProvidesAppContext, tool_id: str
-    ) -> ToolIndexEntryResponse:
+    def get_index_entry(self, trans: ProvidesAppContext, tool_id: str) -> ToolIndexEntryResponse:
         """Get a specific tool index entry."""
         index = self._get_index(trans)
         if not index:
@@ -191,9 +184,7 @@ class ToolSourcesService:
             built_at=index.built_at,
         )
 
-    def search_index(
-        self, trans: ProvidesAppContext, query: str, limit: int = 50
-    ) -> List[ToolIndexEntryResponse]:
+    def search_index(self, trans: ProvidesAppContext, query: str, limit: int = 50) -> list[ToolIndexEntryResponse]:
         """Search tool index."""
         index = self._get_index(trans)
         if not index:

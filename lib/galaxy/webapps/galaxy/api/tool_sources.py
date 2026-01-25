@@ -7,7 +7,6 @@ retrieving tool index information, and accessing cache statistics.
 
 import logging
 from typing import (
-    List,
     Optional,
 )
 
@@ -54,9 +53,7 @@ class ToolSourcesAPI:
         offset: int = Query(0, ge=0, description="Offset for pagination"),
     ) -> ToolSourceListResponse:
         """List all stored tool sources with optional filtering."""
-        return self.service.list_tool_sources(
-            trans, tool_id=tool_id, limit=limit, offset=offset
-        )
+        return self.service.list_tool_sources(trans, tool_id=tool_id, limit=limit, offset=offset)
 
     @router.get(
         "/api/tool_sources/stats",
@@ -86,14 +83,14 @@ class ToolSourcesAPI:
     @router.get(
         "/api/tool_sources/by_tool/{tool_id}",
         summary="Get tool sources by tool ID",
-        response_model=List[ToolSourceResponse],
+        response_model=list[ToolSourceResponse],
     )
     def get_tool_sources_by_id(
         self,
         tool_id: str,
         version: Optional[str] = Query(None, description="Filter by version"),
         trans: ProvidesAppContext = DependsOnTrans,
-    ) -> List[ToolSourceResponse]:
+    ) -> list[ToolSourceResponse]:
         """Retrieve all tool sources for a given tool ID."""
         return self.service.get_tool_sources_by_id(trans, tool_id, version)
 
@@ -107,7 +104,7 @@ class ToolIndexAPI:
     @router.get(
         "/api/tool_index",
         summary="List tool index entries",
-        response_model=List[ToolIndexEntryResponse],
+        response_model=list[ToolIndexEntryResponse],
     )
     def list_index_entries(
         self,
@@ -115,11 +112,9 @@ class ToolIndexAPI:
         section_id: Optional[str] = Query(None, description="Filter by section"),
         include_hidden: bool = Query(False, description="Include hidden tools"),
         limit: int = Query(1000, ge=1, le=10000, description="Maximum results"),
-    ) -> List[ToolIndexEntryResponse]:
+    ) -> list[ToolIndexEntryResponse]:
         """List all tool index entries."""
-        return self.service.list_index_entries(
-            trans, section_id=section_id, include_hidden=include_hidden, limit=limit
-        )
+        return self.service.list_index_entries(trans, section_id=section_id, include_hidden=include_hidden, limit=limit)
 
     @router.get(
         "/api/tool_index/stats",
@@ -149,14 +144,14 @@ class ToolIndexAPI:
     @router.get(
         "/api/tool_index/search",
         summary="Search tool index",
-        response_model=List[ToolIndexEntryResponse],
+        response_model=list[ToolIndexEntryResponse],
     )
     def search_index(
         self,
         q: str = Query(..., description="Search query"),
         limit: int = Query(50, ge=1, le=500, description="Maximum results"),
         trans: ProvidesAppContext = DependsOnTrans,
-    ) -> List[ToolIndexEntryResponse]:
+    ) -> list[ToolIndexEntryResponse]:
         """Search tool index by text."""
         return self.service.search_index(trans, q, limit)
 

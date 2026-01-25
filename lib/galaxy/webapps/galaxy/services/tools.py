@@ -549,9 +549,7 @@ class ToolsService(ServiceBase):
         """Get the lazy toolbox if available."""
         return getattr(trans.app, "lazy_toolbox", None)
 
-    def get_tests_summary(
-        self, trans: ProvidesUserContext
-    ) -> dict[str, dict[str, dict[str, Any]]]:
+    def get_tests_summary(self, trans: ProvidesUserContext) -> dict[str, dict[str, dict[str, Any]]]:
         """
         Get tests summary for all tools.
 
@@ -580,9 +578,7 @@ class ToolsService(ServiceBase):
                     }
         return test_counts_by_tool
 
-    def get_all_requirements(
-        self, trans: ProvidesUserContext
-    ) -> list[dict[str, Any]]:
+    def get_all_requirements(self, trans: ProvidesUserContext) -> list[dict[str, Any]]:
         """
         Get all unique requirements from all tools.
 

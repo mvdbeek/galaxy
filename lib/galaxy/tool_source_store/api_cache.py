@@ -108,17 +108,11 @@ class ToolAPICache:
         log.debug("Refreshing tool API cache...")
 
         # Tools list (basic)
-        tools_list = [
-            entry.to_api_dict() for entry in index.entries.values() if not entry.hidden
-        ]
+        tools_list = [entry.to_api_dict() for entry in index.entries.values() if not entry.hidden]
         self._set_cached("tools_list", tools_list, expires_at)
 
         # Tools list (detailed)
-        tools_detailed = [
-            entry.to_api_dict(detail=True)
-            for entry in index.entries.values()
-            if not entry.hidden
-        ]
+        tools_detailed = [entry.to_api_dict(detail=True) for entry in index.entries.values() if not entry.hidden]
         self._set_cached("tools_list_detailed", tools_detailed, expires_at)
 
         # Tests summary
@@ -139,9 +133,7 @@ class ToolAPICache:
 
         log.debug(f"Tool API cache refreshed with {len(self._cache)} entries")
 
-    def refresh_sanitize_allowlist(
-        self, index: ToolIndex, allowed_ids: set[str]
-    ) -> bytes:
+    def refresh_sanitize_allowlist(self, index: ToolIndex, allowed_ids: set[str]) -> bytes:
         """
         Refresh and return sanitize allowlist.
 
