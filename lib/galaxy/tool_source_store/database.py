@@ -12,8 +12,8 @@ import logging
 from collections.abc import Iterator
 from datetime import datetime
 from typing import (
+    cast,
     Optional,
-    TYPE_CHECKING,
 )
 
 from sqlalchemy import (
@@ -26,6 +26,7 @@ from galaxy.model import (
     ToolIndexCache,
     ToolSource as ToolSourceModel,
 )
+from galaxy.model.scoped_session import galaxy_scoped_session
 from . import (
     StoredToolSource,
     ToolSourceStore,
@@ -34,9 +35,6 @@ from .index import (
     ToolIndex,
     ToolIndexEntry,
 )
-
-if TYPE_CHECKING:
-    from galaxy.config import GalaxyAppConfiguration
 
 log = logging.getLogger(__name__)
 
@@ -49,20 +47,19 @@ class DatabaseToolSourceStore(ToolSourceStore):
     and a separate tool_index table for lightweight metadata.
     """
 
-    def __init__(self, config: "GalaxyAppConfiguration"):
+    def __init__(self, sa_session: galaxy_scoped_session):
         """
         Initialize the database tool source store.
 
         Args:
-            config: Galaxy application configuration.
+            sa_session: Galaxy's scoped SQLAlchemy session (``app.model.context``).
         """
-        self._config = config
+        self._sa_session = sa_session
         self._cached_index: Optional[ToolIndex] = None
 
     def _get_session(self) -> Session:
         """Get a database session."""
-        # Access through the app's model context
-        return self._config.model.context.current
+        return cast(Session, self._sa_session)
 
     def store(self, tool_source: StoredToolSource) -> str:
         """Store a tool source in the database."""
@@ -74,7 +71,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         ).scalar_one_or_none()
 
         if existing:
-            return existing.hash
+            return tool_source.hash
 
         # Create new record
         source_data = {
@@ -94,7 +91,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         session.add(model)
         session.flush()
 
-        return model.hash
+        return tool_source.hash
 
     def get(self, hash: str) -> Optional[StoredToolSource]:
         """Retrieve a tool source by hash."""
@@ -115,6 +112,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         if stored_at and isinstance(stored_at, str):
             stored_at = datetime.fromisoformat(stored_at)
 
+        assert model.hash is not None
         return StoredToolSource(
             hash=model.hash,
             tool_source_class=source_data.get("tool_source_class", "XmlToolSource"),
@@ -179,7 +177,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         result = session.execute(select(func.count(ToolSourceModel.id)))
         return result.scalar() or 0
 
-    def get_stats(self):
+    def get_stats(self) -> dict:
         """Return storage statistics."""
         return {
             "count": self.count(),
@@ -204,24 +202,22 @@ class DatabaseToolSourceStore(ToolSourceStore):
 
         version = index.compute_version()
 
-        # Check if index with this version exists
-        existing = session.execute(select(ToolIndexCache).where(ToolIndexCache.version == version)).scalar_one_or_none()
-
-        if existing:
-            existing.data = compressed
-            existing.built_at = index.built_at
-        else:
-            # Delete old versions first
-            old_entries = session.execute(select(ToolIndexCache)).scalars().all()
-            for old in old_entries:
-                session.delete(old)
-
+        # Singleton-style upsert: keep at most one row, identified by version. We
+        # update an existing row in place rather than DELETE+INSERT to avoid a
+        # window where the unique-version constraint can be violated by a
+        # concurrent writer.
+        model = session.execute(select(ToolIndexCache).order_by(ToolIndexCache.id)).scalar_one_or_none()
+        if model is None:
             model = ToolIndexCache(
                 version=version,
                 data=compressed,
                 built_at=index.built_at,
             )
             session.add(model)
+        else:
+            model.version = version
+            model.data = compressed
+            model.built_at = index.built_at
 
         session.flush()
         self._cached_index = index

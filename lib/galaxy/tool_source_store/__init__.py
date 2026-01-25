@@ -22,8 +22,7 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from galaxy.config import GalaxyAppConfiguration
-    from .index import ToolIndex
+    from galaxy.app import MinimalGalaxyApplication
 
 
 @dataclass
@@ -155,12 +154,13 @@ class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
 
 
-def build_tool_source_store(config: "GalaxyAppConfiguration") -> ToolSourceStore:
+def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
     """
     Build a tool source store based on configuration.
 
     Args:
-        config: Galaxy application configuration.
+        app: Galaxy application. The database backend requires the app's
+            scoped session; the redis and disk backends use only ``app.config``.
 
     Returns:
         Configured ToolSourceStore instance.
@@ -168,26 +168,31 @@ def build_tool_source_store(config: "GalaxyAppConfiguration") -> ToolSourceStore
     Raises:
         ConfigurationError: If the backend is unknown or misconfigured.
     """
-    backend = getattr(config, "tool_source_store", "database")
+    config = app.config
+    backend = config.tool_source_store
 
     if backend == "database":
+        # Backend imported lazily so the redis/disk-only deployments don't
+        # import SQLAlchemy machinery they don't need.
         from .database import DatabaseToolSourceStore
 
-        return DatabaseToolSourceStore(config)
+        return DatabaseToolSourceStore(app.model.context)
 
     elif backend == "redis":
+        # Backend imported lazily — the redis client is an optional dependency.
         from .redis import RedisToolSourceStore
 
-        redis_url = getattr(config, "tool_source_redis_url", None)
+        redis_url = config.tool_source_redis_url
         if not redis_url:
             raise ConfigurationError("tool_source_redis_url required for redis backend")
-        ttl = getattr(config, "tool_source_redis_ttl", None)
+        ttl = config.tool_source_redis_ttl
         return RedisToolSourceStore(redis_url, ttl=ttl)
 
     elif backend == "disk":
+        # Backend imported lazily so other backends don't pull in disk-only deps.
         from .disk import DiskToolSourceStore
 
-        disk_path = getattr(config, "tool_source_disk_path", None)
+        disk_path = config.tool_source_disk_path
         if not disk_path:
             raise ConfigurationError("tool_source_disk_path required for disk backend")
         return DiskToolSourceStore(disk_path)
@@ -196,7 +201,8 @@ def build_tool_source_store(config: "GalaxyAppConfiguration") -> ToolSourceStore
         raise ConfigurationError(f"Unknown tool source store backend: {backend}")
 
 
-# Re-export key classes
+# Re-export key classes — placed after the abstract base above to avoid circular
+# imports between this module and ``index.py``/``database.py``.
 from .index import (  # noqa: E402
     ToolIndex,
     ToolIndexEntry,
