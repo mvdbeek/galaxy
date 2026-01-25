@@ -282,9 +282,14 @@ Tool Count   API Response     Index Search    Memory (JSON)
 
 **Startup Time Comparison (1000 tools)**
 
-- Traditional (parse all at startup): ~100 ms
-- Index-based (lazy loading): ~15 ms
-- **Speedup: ~6-7x faster startup**
+Measured on test system (100 real Galaxy tools, extrapolated to 1000):
+
+- Traditional (parse all XML at startup): ~84 ms
+- Index-based (load pre-computed index): ~10 ms
+- **Startup speedup: ~8x**
+
+Note: The index must be pre-populated using ``populate_store.py``. The speedup
+applies to Galaxy process startup time, not total initial setup time.
 
 The index-based approach provides significant benefits for large installations:
 
