@@ -379,6 +379,29 @@ def reload_tour(app, **kwargs):
     log.debug("Tour reloaded")
 
 
+def reload_tool_source_cache(app, **kwargs):
+    """
+    Reload the tool source cache/index.
+
+    This is typically triggered by an external process (like populate_store.py --watch)
+    when tool files change on disk.
+    """
+    from galaxy.tools.lazy_toolbox import LazyToolBox
+
+    log.debug("Executing tool source cache reload on '%s'", app.config.server_name)
+
+    # Invalidate the lazy toolbox cache if the active toolbox is a LazyToolBox.
+    toolbox = app.toolbox
+    if isinstance(toolbox, LazyToolBox):
+        toolbox.invalidate_index_cache()
+        log.info("Tool source index cache invalidated")
+
+    # Invalidate the tool source store cache if it exists
+    if app.tool_source_store is not None:
+        app.tool_source_store.invalidate_index_cache()
+        log.info("Tool source store cache invalidated")
+
+
 def __job_rule_module_names(app: "MinimalManagerApp"):
     rules_module_names = {"galaxy.jobs.rules"}
     if app.job_config.dynamic_params is not None:
@@ -555,6 +578,7 @@ control_message_to_task = {
     "entry_point_update": entry_point_update,
     "subscribe_history_viewer": subscribe_history_viewer,
     "unsubscribe_history_viewer": unsubscribe_history_viewer,
+    "reload_tool_source_cache": reload_tool_source_cache,
 }
 
 
