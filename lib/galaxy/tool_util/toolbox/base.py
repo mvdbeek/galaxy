@@ -271,6 +271,10 @@ class AbstractToolBox(ManagesIntegratedToolPanelMixin):
             config_value = getattr(config, "default_panel_view", None)
         return config_value or self.__default_panel_view
 
+    def default_panel_view(self, trans):
+        """Public accessor for the default tool panel view name."""
+        return self._default_panel_view(trans)
+
     def create_tool(self, config_file: "StrPath", **kwds) -> "Tool":
         raise NotImplementedError()
 

@@ -26,19 +26,25 @@ Options:
 import argparse
 import hashlib
 import logging
-import re
 import signal
 import sys
 import threading
 import time
-from collections.abc import Iterator
+from collections.abc import (
+    Callable,
+    Iterator,
+)
 from concurrent.futures import (
     as_completed,
     ThreadPoolExecutor,
 )
-from datetime import datetime
+from datetime import (
+    datetime,
+    timezone,
+)
 from pathlib import Path
 from typing import (
+    Any,
     Optional,
 )
 
@@ -128,6 +134,7 @@ class ToolFileWatcher:
         debounce_seconds: float = 2.0,
         use_polling: bool = False,
         verbose: bool = False,
+        notify_callable: Optional[Callable[[Any], bool]] = None,
     ):
         self.config = config
         self.store = store
@@ -135,6 +142,8 @@ class ToolFileWatcher:
         self.debounce_seconds = debounce_seconds
         self.use_polling = use_polling
         self.verbose = verbose
+        # Injected so tests can substitute a fake; default is the AMQP notifier.
+        self._notify = notify_callable or send_reload_notification
         self.observer = None
         self._pending_changes: set[str] = set()
         self._lock = threading.Lock()
@@ -213,23 +222,26 @@ class ToolFileWatcher:
 
         if updated > 0:
             log.info(f"Updated {updated} tool(s), sending reload notification")
-            send_reload_notification(self.config)
+            self._notify(self.config)
 
     def _process_tool_file(self, path: str) -> bool:
         """Process a single tool file and update the store."""
         from galaxy.tool_source_store import StoredToolSource
+        from galaxy.tool_util.parser import get_tool_source
+        from galaxy.util import xml_to_string
 
         try:
-            with open(path) as f:
-                content = f.read()
+            # Use Galaxy's tool source parser which handles macro expansion
+            tool_source = get_tool_source(config_file=path)
+
+            # Get the expanded XML as a string
+            root = tool_source.xml_tree.getroot()
+            expanded_content = xml_to_string(root, pretty=True)
         except Exception as e:
-            log.warning(f"Could not read {path}: {e}")
+            log.warning(f"Could not parse {path}: {e}")
             return False
 
-        if "<tool" not in content:
-            return False
-
-        content_hash = compute_hash(content)
+        content_hash = compute_hash(expanded_content)
 
         # Check if already stored with same hash
         if self.store.exists(content_hash):
@@ -237,25 +249,18 @@ class ToolFileWatcher:
                 log.debug(f"Tool unchanged: {path}")
             return False
 
-        # Parse tool ID and version
-        tool_id = None
-        match = re.search(r'<tool[^>]+id=["\']([^"\']+)["\']', content)
-        if match:
-            tool_id = match.group(1)
-
-        tool_version = None
-        match = re.search(r'<tool[^>]+version=["\']([^"\']+)["\']', content)
-        if match:
-            tool_version = match.group(1)
+        # Get tool ID and version from the parsed source
+        tool_id = tool_source.parse_id()
+        tool_version = tool_source.parse_version()
 
         stored = StoredToolSource(
             hash=content_hash,
-            tool_source_class="XmlToolSource",
-            raw_source=content,
+            tool_source_class=type(tool_source).__name__,
+            raw_source=expanded_content,
             tool_id=tool_id,
             tool_version=tool_version,
             tool_dir=str(Path(path).parent),
-            stored_at=datetime.utcnow(),
+            stored_at=datetime.now(timezone.utc),
         )
 
         self.store.store(stored)
@@ -306,79 +311,88 @@ def populate_store(
         Statistics dictionary with counts.
     """
     from galaxy.config import GalaxyAppConfiguration
+    from galaxy.datatypes.registry import Registry
+    from galaxy.model import set_datatypes_registry
+    from galaxy.model.mapping import init_models_from_config
     from galaxy.tool_source_store import (
         build_tool_source_store,
         StoredToolSource,
     )
+    from galaxy.util.properties import load_app_properties
 
     log.info("Loading Galaxy configuration...")
-    config = GalaxyAppConfiguration(config_file=config_file)
 
-    log.info(f"Building tool source store (backend: {getattr(config, 'tool_source_store', 'database')})...")
-    store = build_tool_source_store(config)
+    # Initialize datatypes registry (required for model)
+    registry = Registry()
+    registry.load_datatypes()
+    set_datatypes_registry(registry)
 
-    log.info("Loading toolbox...")
-    # For now, we'll work with tools that are already loaded
-    # In a real implementation, this would initialize the toolbox
+    # Load app properties from config file, then create config object
+    properties = load_app_properties(config_file=config_file, config_section="galaxy")
+    config = GalaxyAppConfiguration(**properties)
+
+    log.info(f"Connecting to database: {config.database_connection[:50]}...")
+
+    # Initialize model from config
+    model = init_models_from_config(config)
+
+    log.info(f"Building tool source store (backend: {config.tool_source_store})...")
+
+    # Create a simple app-like object with model attribute
+    class AppContext:
+        pass
+
+    app_context = AppContext()
+    app_context.model = model
+    app_context.config = config
+    store = build_tool_source_store(app_context)
+
+    log.info("Discovering tools from configuration...")
 
     stats = {"processed": 0, "stored": 0, "skipped": 0, "errors": 0}
 
-    # Since we can't easily initialize a full toolbox without a running app,
-    # we'll look for tool XML files directly
-    tools_dirs = [
-        Path(config.tool_path) if hasattr(config, "tool_path") else None,
-        galaxy_root / "tools",
-        galaxy_root / "lib" / "galaxy" / "tools" / "bundled",
-    ]
+    # Use the discover module to find all tool files from config
+    from galaxy.tool_util.toolbox.discover import discover_tools
 
-    tool_files = []
-    for tools_dir in tools_dirs:
-        if tools_dir and tools_dir.exists():
-            for xml_file in tools_dir.rglob("*.xml"):
-                try:
-                    with open(xml_file) as f:
-                        content = f.read()
-                    if "<tool" in content and "macro" not in xml_file.name.lower():
-                        tool_files.append((str(xml_file), content))
-                except Exception as e:
-                    if verbose:
-                        log.warning(f"Error reading {xml_file}: {e}")
+    tool_paths = [discovered.path for discovered in discover_tools(config, include_bundled=True)]
 
-    log.info(f"Found {len(tool_files)} tool files")
+    log.info(f"Found {len(tool_paths)} tool files")
 
     if pattern:
-        tool_files = [(p, c) for p, c in tool_files if pattern in p]
-        log.info(f"Filtered to {len(tool_files)} tools matching '{pattern}'")
+        tool_paths = [p for p in tool_paths if pattern in p]
+        log.info(f"Filtered to {len(tool_paths)} tools matching '{pattern}'")
 
-    def process_tool(args: tuple[str, str]) -> tuple[str, str, Optional[str]]:
-        """Process a single tool file."""
-        path, content = args
+    # Import tool parsing utilities
+    from galaxy.tool_util.parser import get_tool_source
+    from galaxy.util import xml_to_string
+
+    def process_tool(path: str) -> tuple[str, str, Optional[str]]:
+        """Process a single tool file with proper macro expansion."""
         try:
-            content_hash = compute_hash(content)
+            # Use Galaxy's tool source parser which handles macro expansion
+            tool_source = get_tool_source(config_file=path)
+
+            # Get the expanded XML as a string
+            root = tool_source.xml_tree.getroot()
+            expanded_content = xml_to_string(root, pretty=True)
+
+            content_hash = compute_hash(expanded_content)
 
             if incremental and store.exists(content_hash):
                 return ("skipped", path, None)
 
-            # Try to parse tool ID from content
-            tool_id = None
-            match = re.search(r'<tool[^>]+id=["\']([^"\']+)["\']', content)
-            if match:
-                tool_id = match.group(1)
-
-            # Try to parse version
-            tool_version = None
-            match = re.search(r'<tool[^>]+version=["\']([^"\']+)["\']', content)
-            if match:
-                tool_version = match.group(1)
+            # Get tool ID and version from the parsed source
+            tool_id = tool_source.parse_id()
+            tool_version = tool_source.parse_version()
 
             stored = StoredToolSource(
                 hash=content_hash,
-                tool_source_class="XmlToolSource",
-                raw_source=content,
+                tool_source_class=type(tool_source).__name__,
+                raw_source=expanded_content,
                 tool_id=tool_id,
                 tool_version=tool_version,
                 tool_dir=str(Path(path).parent),
-                stored_at=datetime.utcnow(),
+                stored_at=datetime.now(timezone.utc),
             )
 
             if not dry_run:
@@ -389,10 +403,10 @@ def populate_store(
             log.error(f"Error processing {path}: {e}")
             return ("error", path, str(e))
 
-    log.info(f"Processing {len(tool_files)} tools with {parallel} workers...")
+    log.info(f"Processing {len(tool_paths)} tools with {parallel} workers...")
 
     with ThreadPoolExecutor(max_workers=parallel) as executor:
-        futures = {executor.submit(process_tool, t): t for t in tool_files}
+        futures = {executor.submit(process_tool, p): p for p in tool_paths}
         for future in as_completed(futures):
             result = future.result()
             status = result[0]
@@ -436,24 +450,55 @@ def watch_mode(
         verbose: Enable verbose logging.
     """
     from galaxy.config import GalaxyAppConfiguration
+    from galaxy.datatypes.registry import Registry
+    from galaxy.model import set_datatypes_registry
+    from galaxy.model.mapping import init_models_from_config
     from galaxy.tool_source_store import build_tool_source_store
+    from galaxy.util.properties import load_app_properties
 
     log.info("Loading Galaxy configuration...")
-    config = GalaxyAppConfiguration(config_file=config_file)
 
-    log.info(f"Building tool source store (backend: {getattr(config, 'tool_source_store', 'database')})...")
-    store = build_tool_source_store(config)
+    # Initialize datatypes registry (required for model)
+    registry = Registry()
+    registry.load_datatypes()
+    set_datatypes_registry(registry)
 
-    # Determine directories to watch
-    tools_dirs = [
-        Path(config.tool_path) if hasattr(config, "tool_path") else None,
-        galaxy_root / "tools",
-    ]
-    tools_dirs = [d for d in tools_dirs if d and d.exists()]
+    # Load app properties from config file, then create config object
+    properties = load_app_properties(config_file=config_file, config_section="galaxy")
+    config = GalaxyAppConfiguration(**properties)
+
+    log.info(f"Connecting to database: {config.database_connection[:50]}...")
+
+    # Initialize model from config
+    model = init_models_from_config(config)
+
+    log.info(f"Building tool source store (backend: {config.tool_source_store})...")
+
+    # Create a simple app-like object with model attribute
+    class AppContext:
+        pass
+
+    app_context = AppContext()
+    app_context.model = model
+    app_context.config = config
+    store = build_tool_source_store(app_context)
+
+    # Determine directories to watch from tool configurations
+    from galaxy.tool_util.toolbox.discover import discover_tools
+
+    tools_dirs_set: set[Path] = set()
+    for discovered in discover_tools(config, include_bundled=True):
+        tool_dir = Path(discovered.tool_path) if discovered.tool_path else None
+        if tool_dir and tool_dir.exists():
+            tools_dirs_set.add(tool_dir)
+
+    tools_dirs = list(tools_dirs_set)
 
     if not tools_dirs:
         log.error("No tool directories found to watch")
         return 1
+
+    log.info(f"Will watch {len(tools_dirs)} tool directories")
 
     watcher = ToolFileWatcher(
         config=config,
