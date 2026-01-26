@@ -356,9 +356,78 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         self.citations_manager = CitationsManager(self)
         self.biotools_metadata_source = get_galaxy_biotools_metadata_source(self.config)
 
+        # Initialize tool source store if configured
+        self._init_tool_source_store()
+
         self.dynamic_tool_manager = DynamicToolManager(self)
         self._toolbox_lock = threading.RLock()
-        self._toolbox = tools.ToolBox(self.config.tool_configs, self.config.tool_path, self)
+
+        # Use LazyToolBox if tool source store is available and populated
+        if self._use_lazy_toolbox():
+            self._toolbox = self._create_lazy_toolbox()
+        else:
+            self._toolbox = tools.ToolBox(self.config.tool_configs, self.config.tool_path, self)
+
+        # Initialize container finder and toolbox search (requires toolbox)
+        self._init_container_finder()
+        self._set_enabled_container_types()
+        index_help = getattr(self.config, "index_tool_help", True)
+        self.toolbox_search = self._register_singleton(
+            ToolBoxSearch,
+            ToolBoxSearch(self.toolbox, index_dir=self.config.tool_search_index_dir, index_help=index_help),
+        )
+
+    def _init_tool_source_store(self):
+        """Initialize the tool source store for efficient tool loading."""
+        from galaxy.tool_source_store import build_tool_source_store
+
+        self.tool_source_store = None
+
+        try:
+            self.tool_source_store = build_tool_source_store(self)
+            stats = self.tool_source_store.get_stats()
+            tool_count = stats.get("count", 0)
+            log.info(
+                f"Initialized tool source store (backend: {stats.get('backend', 'unknown')}, "
+                f"tools: {tool_count})"
+            )
+        except Exception as e:
+            log.warning(f"Could not initialize tool source store: {e}")
+
+    def _use_lazy_toolbox(self) -> bool:
+        """Determine whether to use LazyToolBox instead of regular ToolBox."""
+        if self.tool_source_store is None:
+            return False
+
+        # Check if lazy toolbox is enabled in config (default: True if store is populated)
+        use_lazy = getattr(self.config, "use_lazy_toolbox", None)
+        if use_lazy is not None:
+            return use_lazy
+
+        # Auto-enable if store has tools
+        try:
+            stats = self.tool_source_store.get_stats()
+            return stats.get("count", 0) > 0
+        except Exception:
+            return False
+
+    def _create_lazy_toolbox(self):
+        """Create a LazyToolBox instance."""
+        from galaxy.tools.lazy_toolbox import LazyToolBox
+
+        cache_size = getattr(self.config, "lazy_toolbox_cache_size", 500)
+        log.info(f"Using LazyToolBox with cache_size={cache_size}")
+
+        return LazyToolBox(
+            config_filenames=self.config.tool_configs,
+            tool_root_dir=self.config.tool_path,
+            app=self,
+            tool_source_store=self.tool_source_store,
+            cache_size=cache_size,
+        )
+
+    def _init_container_finder(self):
+        """Initialize the container finder for dependency resolution."""
         galaxy_root_dir = os.path.abspath(self.config.root)
         file_path = os.path.abspath(self.config.file_path)
         app_info = AppInfo(
@@ -392,12 +461,6 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
                 "mulled_resolution"
             )
         self.container_finder = containers.ContainerFinder(app_info, mulled_resolution_cache=mulled_resolution_cache)
-        self._set_enabled_container_types()
-        index_help = getattr(self.config, "index_tool_help", True)
-        self.toolbox_search = self._register_singleton(
-            ToolBoxSearch,
-            ToolBoxSearch(self.toolbox, index_dir=self.config.tool_search_index_dir, index_help=index_help),
-        )
 
     @property
     def toolbox(self) -> tools.ToolBox:
