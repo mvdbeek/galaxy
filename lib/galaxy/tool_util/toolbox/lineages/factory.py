@@ -95,6 +95,28 @@ class LazyLineageMap(LineageMap):
         self._tool_index = tool_index
         self._index_lineages.clear()  # Clear cached index lineages
 
+    def register(self, tool: "Tool") -> ToolLineage:
+        """
+        Register a tool and return its lineage.
+
+        Overrides parent to populate lineage with all versions from index,
+        not just the loaded tool's version.
+        """
+        # Call parent to create/get the lineage
+        lineage = super().register(tool)
+
+        # Populate lineage with all versions from index
+        if self._tool_index is not None:
+            tool_id = tool.id
+            assert tool_id
+            lineage_ids = self._tool_index.get_lineage_tool_ids(tool_id)
+            for lid in lineage_ids:
+                entry = self._tool_index.entries.get(lid)
+                if entry and entry.version:
+                    lineage.register_version(entry.version)
+
+        return lineage
+
     def get(self, tool_id: str) -> Optional[Union[ToolLineage, IndexToolLineage]]:
         """
         Get lineage for `tool_id`.
