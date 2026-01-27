@@ -398,8 +398,7 @@ class LazyToolBox(ToolBox):
             log.info(f"Built lineage index with {len(self._tool_index.by_lineage)} lineages")
 
         # Connect the lineage map to the tool index for lazy lookups
-        if hasattr(self._lineage_map, 'set_tool_index'):
-            self._lineage_map.set_tool_index(self._tool_index)
+        self._lineage_map.set_tool_index(self._tool_index)
 
     def _rebuild_index_from_store(self, stored_hashes: List[str]) -> None:
         """Rebuild the index from stored tool sources."""

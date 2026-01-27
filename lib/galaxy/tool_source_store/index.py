@@ -15,11 +15,11 @@ from datetime import datetime
 from typing import (
     Any,
     Optional,
-    TYPE_CHECKING,
 )
 
-if TYPE_CHECKING:
-    from packaging.version import Version
+from packaging.version import parse as parse_version
+
+from galaxy.tool_util.id_util import get_lineage_key
 
 
 @dataclass
@@ -217,8 +217,6 @@ class ToolIndex:
         Groups tools by their versionless ID (lineage key) to enable
         version resolution without loading tools.
         """
-        from galaxy.tool_util.id_util import get_lineage_key
-
         self.by_lineage.clear()
         for tool_id in self.entries:
             lineage_key = get_lineage_key(tool_id)
@@ -232,8 +230,6 @@ class ToolIndex:
 
     def _sort_lineages(self) -> None:
         """Sort tool IDs within each lineage by version (oldest to newest)."""
-        from packaging.version import parse as parse_version
-
         for lineage_key, tool_ids in self.by_lineage.items():
             # Sort by version, handling missing versions
             def version_key(tid: str) -> "Version":
@@ -256,8 +252,6 @@ class ToolIndex:
         Returns:
             List of tool IDs in the lineage, sorted by version (oldest first).
         """
-        from galaxy.tool_util.id_util import get_lineage_key
-
         lineage_key = get_lineage_key(tool_id)
         return self.by_lineage.get(lineage_key, [])
 

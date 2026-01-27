@@ -11,6 +11,8 @@ This module provides utilities to parse and convert between these formats.
 import re
 from typing import Optional
 
+from galaxy.util.tool_version import remove_version_from_guid
+
 
 def extract_tool_id_from_xml(xml_content: str, max_read: int = 2000) -> Optional[str]:
     """
@@ -131,33 +133,6 @@ def is_toolshed_guid(tool_id: str) -> bool:
     return "/repos/" in tool_id
 
 
-def remove_version_from_guid(guid: str) -> Optional[str]:
-    """
-    Remove the version suffix from a toolshed GUID.
-
-    GUIDs have the format: toolshed.domain/repos/owner/name/tool_id/version
-    This returns everything except the version part.
-
-    Args:
-        guid: The full toolshed GUID.
-
-    Returns:
-        The GUID without the version suffix, or None if not a valid GUID format.
-
-    Examples:
-        >>> remove_version_from_guid("toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa/0.1.0")
-        'toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa'
-        >>> remove_version_from_guid("github.com/galaxyproject/example/test_tool/0.2")
-        'github.com/galaxyproject/example/test_tool'
-        >>> remove_version_from_guid("simple_tool")
-        None
-    """
-    if "/" not in guid:
-        return None
-    last_slash = guid.rfind("/")
-    return guid[:last_slash]
-
-
 def get_lineage_key(tool_id: str) -> str:
     """
     Get the key to use for lineage grouping.
@@ -179,3 +154,15 @@ def get_lineage_key(tool_id: str) -> str:
     """
     versionless = remove_version_from_guid(tool_id)
     return versionless if versionless else tool_id
+
+
+# Re-export for convenience
+__all__ = (
+    "build_guid",
+    "extract_short_id_from_guid",
+    "extract_tool_id_from_file",
+    "extract_tool_id_from_xml",
+    "get_lineage_key",
+    "is_toolshed_guid",
+    "remove_version_from_guid",
+)

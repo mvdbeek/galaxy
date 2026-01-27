@@ -489,8 +489,8 @@ def _rebuild_tool_index(store) -> None:
             )
             entries[tool_id] = entry
 
-        except Exception as e:
-            log.warning(f"Error building index entry for {source_hash}: {e}")
+        except Exception:
+            log.exception(f"Error building index entry for {source_hash}")
 
     # Create the index
     index = ToolIndex(
