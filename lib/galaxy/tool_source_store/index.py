@@ -15,7 +15,11 @@ from datetime import datetime
 from typing import (
     Any,
     Optional,
+    TYPE_CHECKING,
 )
+
+if TYPE_CHECKING:
+    from packaging.version import Version
 
 
 @dataclass
@@ -192,6 +196,7 @@ class ToolIndex:
 
     entries: dict[str, ToolIndexEntry] = field(default_factory=dict)
     by_section: dict[str, list[str]] = field(default_factory=dict)
+    by_lineage: dict[str, list[str]] = field(default_factory=dict)  # versionless_id -> [tool_ids]
     panel_views: dict[str, dict] = field(default_factory=dict)
     version: str = ""  # For cache invalidation
     built_at: Optional[datetime] = None
@@ -204,6 +209,97 @@ class ToolIndex:
         """Invalidate all cached computations."""
         self._requirements_cache = None
         self._tests_summary_cache = None
+
+    def build_lineage_index(self) -> None:
+        """
+        Build the by_lineage index from entries.
+
+        Groups tools by their versionless ID (lineage key) to enable
+        version resolution without loading tools.
+        """
+        from galaxy.tool_util.id_util import get_lineage_key
+
+        self.by_lineage.clear()
+        for tool_id in self.entries:
+            lineage_key = get_lineage_key(tool_id)
+            if lineage_key not in self.by_lineage:
+                self.by_lineage[lineage_key] = []
+            if tool_id not in self.by_lineage[lineage_key]:
+                self.by_lineage[lineage_key].append(tool_id)
+
+        # Sort each lineage by version (newest last)
+        self._sort_lineages()
+
+    def _sort_lineages(self) -> None:
+        """Sort tool IDs within each lineage by version (oldest to newest)."""
+        from packaging.version import parse as parse_version
+
+        for lineage_key, tool_ids in self.by_lineage.items():
+            # Sort by version, handling missing versions
+            def version_key(tid: str) -> "Version":
+                entry = self.entries.get(tid)
+                version_str = entry.version if entry and entry.version else "0"
+                try:
+                    return parse_version(version_str)
+                except Exception:
+                    return parse_version("0")
+
+            self.by_lineage[lineage_key] = sorted(tool_ids, key=version_key)
+
+    def get_lineage_tool_ids(self, tool_id: str) -> list[str]:
+        """
+        Get all tool IDs in the same lineage as the given tool.
+
+        Args:
+            tool_id: Any tool ID (can be full GUID or versionless).
+
+        Returns:
+            List of tool IDs in the lineage, sorted by version (oldest first).
+        """
+        from galaxy.tool_util.id_util import get_lineage_key
+
+        lineage_key = get_lineage_key(tool_id)
+        return self.by_lineage.get(lineage_key, [])
+
+    def get_tool_by_version(self, tool_id: str, version: str) -> Optional[ToolIndexEntry]:
+        """
+        Find a tool entry matching the given ID and version.
+
+        Args:
+            tool_id: Tool ID (can be full GUID or base ID).
+            version: Version string to match.
+
+        Returns:
+            ToolIndexEntry if found, None otherwise.
+        """
+        # First try direct lookup
+        entry = self.entries.get(tool_id)
+        if entry and entry.version == version:
+            return entry
+
+        # Search lineage for matching version
+        for lid in self.get_lineage_tool_ids(tool_id):
+            entry = self.entries.get(lid)
+            if entry and entry.version == version:
+                return entry
+
+        return None
+
+    def get_latest_tool_in_lineage(self, tool_id: str) -> Optional[ToolIndexEntry]:
+        """
+        Get the newest tool version in the lineage.
+
+        Args:
+            tool_id: Any tool ID in the lineage.
+
+        Returns:
+            The newest ToolIndexEntry in the lineage, or None if not found.
+        """
+        lineage_ids = self.get_lineage_tool_ids(tool_id)
+        if lineage_ids:
+            # Lineages are sorted oldest-to-newest, so last is newest
+            return self.entries.get(lineage_ids[-1])
+        return None
 
     def get(self, tool_id: str) -> Optional[ToolIndexEntry]:
         """Get a tool entry by ID."""
@@ -410,6 +506,7 @@ class ToolIndex:
         return {
             "entries": {k: v.to_dict() for k, v in self.entries.items()},
             "by_section": self.by_section,
+            "by_lineage": self.by_lineage,
             "panel_views": self.panel_views,
             "version": self.version,
             "built_at": self.built_at.isoformat() if self.built_at else None,
@@ -424,10 +521,17 @@ class ToolIndex:
 
         entries = {k: ToolIndexEntry.from_dict(v) for k, v in data.get("entries", {}).items()}
 
-        return cls(
+        index = cls(
             entries=entries,
             by_section=data.get("by_section", {}),
+            by_lineage=data.get("by_lineage", {}),
             panel_views=data.get("panel_views", {}),
             version=data.get("version", ""),
             built_at=built_at,
         )
+
+        # Rebuild lineage index if not present in serialized data
+        if not index.by_lineage and index.entries:
+            index.build_lineage_index()
+
+        return index

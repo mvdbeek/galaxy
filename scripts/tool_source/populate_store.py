@@ -420,11 +420,93 @@ def populate_store(
 
     if rebuild_index and not dry_run:
         log.info("Rebuilding tool index...")
-        # We need a minimal app context for this
-        # For now, just log that this would happen
-        log.info("Index rebuild would happen here with full app context")
+        _rebuild_tool_index(store)
 
     return stats
+
+
+def _rebuild_tool_index(store) -> None:
+    """
+    Rebuild the tool index from all stored tool sources.
+
+    Args:
+        store: The ToolSourceStore instance.
+    """
+    from galaxy.tool_source_store.index import (
+        ToolIndex,
+        ToolIndexEntry,
+    )
+    from galaxy.tool_util.parser import get_tool_source
+
+    entries: dict[str, ToolIndexEntry] = {}
+
+    # Get all stored tools
+    stored_hashes = list(store.list_all())
+    log.info(f"Building index from {len(stored_hashes)} stored tools...")
+
+    for source_hash in stored_hashes:
+        stored = store.get(source_hash)
+        if not stored:
+            continue
+
+        try:
+            # Parse the tool source to get metadata
+            tool_source = get_tool_source(
+                raw_tool_source=stored.raw_source,
+                tool_source_class=stored.tool_source_class,
+            )
+
+            tool_id = tool_source.parse_id() or stored.tool_id
+            if not tool_id:
+                continue
+
+            # Safely get optional attributes
+            uuid_val = None
+            if hasattr(tool_source, "parse_uuid"):
+                try:
+                    parsed_uuid = tool_source.parse_uuid()
+                    uuid_val = str(parsed_uuid) if parsed_uuid else None
+                except Exception:
+                    pass
+
+            hidden = False
+            if hasattr(tool_source, "parse_hidden"):
+                try:
+                    hidden = tool_source.parse_hidden()
+                except Exception:
+                    pass
+
+            entry = ToolIndexEntry(
+                id=tool_id,
+                uuid=uuid_val,
+                version=tool_source.parse_version(),
+                name=tool_source.parse_name() or "",
+                description=tool_source.parse_description() or "",
+                source_hash=stored.hash,
+                source_class=stored.tool_source_class,
+                hidden=hidden,
+                indexed_at=datetime.now(timezone.utc),
+            )
+            entries[tool_id] = entry
+
+        except Exception as e:
+            log.warning(f"Error building index entry for {source_hash}: {e}")
+
+    # Create the index
+    index = ToolIndex(
+        entries=entries,
+        by_section={},
+        version=hashlib.md5(str(sorted(entries.keys())).encode()).hexdigest()[:8],
+        built_at=datetime.now(timezone.utc),
+    )
+
+    # Build the lineage index
+    index.build_lineage_index()
+    log.info(f"Built lineage index with {len(index.by_lineage)} lineages")
+
+    # Store the index
+    store.store_index(index)
+    log.info(f"Stored tool index with {len(entries)} entries")
 
 
 def watch_mode(

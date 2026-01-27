@@ -2,12 +2,18 @@ from typing import (
     Dict,
     Optional,
     TYPE_CHECKING,
+    Union,
 )
 
 from galaxy.util.tool_version import remove_version_from_guid
-from .interface import ToolLineage
+
+from .interface import (
+    IndexToolLineage,
+    ToolLineage,
+)
 
 if TYPE_CHECKING:
+    from galaxy.tool_source_store.index import ToolIndex
     from galaxy.tools import Tool
 
 
@@ -70,4 +76,76 @@ class LineageMap:
         return self.lineage_map.get(versionless_tool_id)
 
 
-__all__ = ("LineageMap",)
+class LazyLineageMap(LineageMap):
+    """
+    LineageMap that uses index data for unloaded tools.
+
+    Extends LineageMap to support lazy-loaded toolboxes. When a lineage
+    is requested for a tool that hasn't been loaded yet, falls back to
+    creating an IndexToolLineage from the tool index.
+    """
+
+    def __init__(self, app, tool_index: Optional["ToolIndex"] = None):
+        super().__init__(app)
+        self._tool_index = tool_index
+        self._index_lineages: Dict[str, IndexToolLineage] = {}
+
+    def set_tool_index(self, tool_index: "ToolIndex") -> None:
+        """Set or update the tool index."""
+        self._tool_index = tool_index
+        self._index_lineages.clear()  # Clear cached index lineages
+
+    def get(self, tool_id: str) -> Optional[Union[ToolLineage, IndexToolLineage]]:
+        """
+        Get lineage for `tool_id`.
+
+        First tries the regular lineage map (for loaded tools),
+        then falls back to index-based lineage for unloaded tools.
+        """
+        # Try regular lineage first (for loaded tools)
+        lineage = super().get(tool_id)
+        if lineage is not None:
+            return lineage
+
+        # Fall back to index-based lineage
+        return self._get_index_lineage(tool_id)
+
+    def _get_index_lineage(self, tool_id: str) -> Optional[IndexToolLineage]:
+        """Get or create an IndexToolLineage for the given tool ID."""
+        if self._tool_index is None:
+            return None
+
+        # Check cache first
+        versionless = remove_version_from_guid(tool_id)
+        cache_key = versionless if versionless else tool_id
+
+        if cache_key in self._index_lineages:
+            return self._index_lineages[cache_key]
+
+        # Create from index
+        lineage = IndexToolLineage.from_index(tool_id, self._tool_index)
+        if lineage:
+            self._index_lineages[cache_key] = lineage
+            # Also cache by full tool_id for faster subsequent lookups
+            if tool_id != cache_key:
+                self._index_lineages[tool_id] = lineage
+
+        return lineage
+
+    def get_lineage_tool_ids(self, tool_id: str) -> list[str]:
+        """
+        Get all tool IDs in the lineage for the given tool.
+
+        Returns tool IDs from both loaded tools and the index.
+        """
+        lineage = self.get(tool_id)
+        if lineage:
+            return lineage.tool_ids
+        return []
+
+    def has_lineage(self, tool_id: str) -> bool:
+        """Check if a lineage exists for the given tool ID."""
+        return self.get(tool_id) is not None
+
+
+__all__ = ("LazyLineageMap", "LineageMap")

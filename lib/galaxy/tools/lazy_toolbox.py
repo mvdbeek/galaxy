@@ -39,7 +39,7 @@ from galaxy.tool_util.id_util import (
 from galaxy.tool_util.parser import get_tool_source
 from galaxy.tool_util.toolbox.base import DynamicToolConfDict
 from galaxy.tool_util.toolbox.filters import FilterFactory
-from galaxy.tool_util.toolbox.lineages import LineageMap
+from galaxy.tool_util.toolbox.lineages import LazyLineageMap
 from galaxy.tool_util.toolbox.panel import (
     ToolPanelElements,
     ToolSection,
@@ -179,7 +179,7 @@ class LazyToolBox(ToolBox):
         self._tool_panel = ToolPanelElements()
         self._index = 0
         self.data_manager_tools: Dict[str, "Tool"] = {}
-        self._lineage_map = LineageMap(app)
+        self._lineage_map = LazyLineageMap(app)
 
         # Tool root dir handling from ToolBox
         if tool_root_dir == "./tools":
@@ -392,6 +392,15 @@ class LazyToolBox(ToolBox):
         else:
             log.info(f"Loaded tool index with {len(self._tool_index.entries)} entries")
 
+        # Build lineage index if not already present
+        if self._tool_index and not self._tool_index.by_lineage:
+            self._tool_index.build_lineage_index()
+            log.info(f"Built lineage index with {len(self._tool_index.by_lineage)} lineages")
+
+        # Connect the lineage map to the tool index for lazy lookups
+        if hasattr(self._lineage_map, 'set_tool_index'):
+            self._lineage_map.set_tool_index(self._tool_index)
+
     def _rebuild_index_from_store(self, stored_hashes: List[str]) -> None:
         """Rebuild the index from stored tool sources."""
         entries: Dict[str, ToolIndexEntry] = {}
@@ -412,6 +421,9 @@ class LazyToolBox(ToolBox):
             version=hashlib.md5(str(sorted(entries.keys())).encode()).hexdigest()[:8],
             built_at=datetime.utcnow(),
         )
+
+        # Build lineage index
+        self._tool_index.build_lineage_index()
 
         # Save the rebuilt index
         try:
@@ -575,12 +587,41 @@ class LazyToolBox(ToolBox):
             )
 
         # Check if we have this tool in our index
-        if self._tool_index and tool_id in self._tool_index.entries:
-            tool = self._load_tool_on_demand(tool_id, tool_version)
-            if tool:
-                if get_all_versions:
-                    return [tool]  # TODO: support multiple versions
-                return tool
+        if self._tool_index:
+            # Handle version resolution
+            if tool_version and not exact:
+                # Try to find the specific version in the lineage
+                entry = self._tool_index.get_tool_by_version(tool_id, tool_version)
+                if entry:
+                    tool = self._load_tool_on_demand(entry.id, tool_version)
+                    if tool:
+                        return [tool] if get_all_versions else tool
+
+            # Handle get_all_versions
+            if get_all_versions:
+                lineage_ids = self._tool_index.get_lineage_tool_ids(tool_id)
+                if lineage_ids:
+                    tools = []
+                    for lid in lineage_ids:
+                        tool = self._load_tool_on_demand(lid)
+                        if tool:
+                            tools.append(tool)
+                    if tools:
+                        return tools
+
+            # Try direct lookup
+            if tool_id in self._tool_index.entries:
+                tool = self._load_tool_on_demand(tool_id, tool_version)
+                if tool:
+                    return [tool] if get_all_versions else tool
+
+            # Try to find latest version in lineage
+            if not exact:
+                latest_entry = self._tool_index.get_latest_tool_in_lineage(tool_id)
+                if latest_entry:
+                    tool = self._load_tool_on_demand(latest_entry.id)
+                    if tool:
+                        return [tool] if get_all_versions else tool
 
         # Fall back to parent implementation for tools not in our index
         # (dynamic tools, data manager tools, etc.)
@@ -689,8 +730,28 @@ class LazyToolBox(ToolBox):
         user: Optional["User"] = None,
     ) -> bool:
         """Check if tool exists, using index for fast lookup."""
-        if tool_id and self._tool_index and tool_id in self._tool_index.entries:
-            return True
+        if tool_id and self._tool_index:
+            # Direct ID match
+            if tool_id in self._tool_index.entries:
+                if not tool_version:
+                    return True
+                # Check if specific version exists
+                entry = self._tool_index.entries[tool_id]
+                if entry.version == tool_version:
+                    return True
+
+            # Check lineage for version
+            if tool_version and not exact:
+                entry = self._tool_index.get_tool_by_version(tool_id, tool_version)
+                if entry:
+                    return True
+
+            # Check if any version exists in lineage
+            if not exact:
+                lineage_ids = self._tool_index.get_lineage_tool_ids(tool_id)
+                if lineage_ids:
+                    return True
+
         # Fall back to parent for UUID lookups and edge cases
         return super().has_tool(
             tool_id=tool_id,
@@ -699,6 +760,23 @@ class LazyToolBox(ToolBox):
             exact=exact,
             user=user,
         )
+
+    def get_loaded_tools_by_lineage(self, tool_id: str) -> List["Tool"]:
+        """
+        Get all loaded tools associated by lineage to the tool whose id is tool_id.
+
+        For LazyToolBox, this loads all tools in the lineage from the index.
+        """
+        if self._tool_index is None:
+            return []
+
+        lineage_ids = self._tool_index.get_lineage_tool_ids(tool_id)
+        tools = []
+        for lid in lineage_ids:
+            tool = self._load_tool_on_demand(lid)
+            if tool:
+                tools.append(tool)
+        return tools
 
     # === Override tools() to iterate loaded tools ===
 

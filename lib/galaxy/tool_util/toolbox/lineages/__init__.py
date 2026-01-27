@@ -1,4 +1,17 @@
-from .factory import LineageMap
-from .interface import ToolLineage
+from .factory import (
+    LazyLineageMap,
+    LineageMap,
+)
+from .interface import (
+    IndexToolLineage,
+    ToolLineage,
+    ToolLineageVersion,
+)
 
-__all__ = ("LineageMap", "ToolLineage")
+__all__ = (
+    "IndexToolLineage",
+    "LazyLineageMap",
+    "LineageMap",
+    "ToolLineage",
+    "ToolLineageVersion",
+)
