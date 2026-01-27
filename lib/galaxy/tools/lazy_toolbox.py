@@ -6,10 +6,12 @@ lightweight index in memory and loads full Tool objects on-demand with
 LRU eviction.
 """
 
+import hashlib
 import logging
 import os
 import string
 import threading
+from datetime import datetime
 from typing import (
     Any,
     Dict,
@@ -29,6 +31,10 @@ from galaxy.tool_source_store import (
 from galaxy.tool_source_store.index import (
     ToolIndex,
     ToolIndexEntry,
+)
+from galaxy.tool_util.id_util import (
+    extract_short_id_from_guid,
+    extract_tool_id_from_file,
 )
 from galaxy.tool_util.parser import get_tool_source
 from galaxy.tool_util.toolbox.base import DynamicToolConfDict
@@ -62,6 +68,26 @@ if TYPE_CHECKING:
     from galaxy.tools import Tool
 
 log = logging.getLogger(__name__)
+
+
+class DefaultToolPanelView(ToolPanelView):
+    """Default tool panel view for LazyToolBox."""
+
+    def __init__(self, toolbox: "LazyToolBox"):
+        self.toolbox = toolbox
+
+    def apply_view(self, base_tool_panel, toolbox_registry):
+        return self.toolbox._tool_panel
+
+    def to_model(self) -> ToolPanelViewModel:
+        return ToolPanelViewModel(
+            id="default",
+            name="Full Tool Panel",
+            description="Galaxy's fully configured toolbox panel.",
+            model_class="DefaultToolPanelView",
+            view_type=ToolPanelViewModelType.default_type,
+            searchable=True,
+        )
 
 
 class LazyToolBox(ToolBox):
@@ -175,8 +201,8 @@ class LazyToolBox(ToolBox):
             view_directories=app.config.panel_views_dir,
             view_dicts=app.config.panel_views,
         )
-        # Note: AbstractToolBox uses name-mangled __default_panel_view
-        self._AbstractToolBox__default_panel_view = app.config.default_panel_view
+        # Store default panel view - we override _default_panel_view() method to use this
+        self._default_panel_view_name = app.config.default_panel_view
         self._setup_panel_views(view_sources)
 
         # Initialize dependency manager
@@ -193,25 +219,23 @@ class LazyToolBox(ToolBox):
         if save_integrated_tool_panel:
             self._save_integrated_tool_panel()
 
+    def _default_panel_view(self, trans):
+        """
+        Override AbstractToolBox._default_panel_view to avoid name-mangled attribute access.
+
+        Returns the default panel view for the given transaction, respecting
+        per-host configuration if available.
+        """
+        config = self.app.config
+        if hasattr(config, "config_value_for_host"):
+            config_value = config.config_value_for_host("default_panel_view", trans.host)
+        else:
+            config_value = getattr(config, "default_panel_view", None)
+        return config_value or self._default_panel_view_name
+
     def _setup_panel_views(self, view_sources) -> None:
         """Set up tool panel views."""
-        toolbox = self
-
-        class DefaultToolPanelView(ToolPanelView):
-            def apply_view(self, base_tool_panel, toolbox_registry):
-                return toolbox._tool_panel
-
-            def to_model(self) -> ToolPanelViewModel:
-                return ToolPanelViewModel(
-                    id="default",
-                    name="Full Tool Panel",
-                    description="Galaxy's fully configured toolbox panel.",
-                    model_class="DefaultToolPanelView",
-                    view_type=ToolPanelViewModelType.default_type,
-                    searchable=True,
-                )
-
-        tool_panel_views_list: List[ToolPanelView] = [DefaultToolPanelView()]
+        tool_panel_views_list: List[ToolPanelView] = [DefaultToolPanelView(self)]
 
         for edam_view in listify(self.app.config.edam_panel_views):
             mode = EdamPanelMode[edam_view]
@@ -342,18 +366,11 @@ class LazyToolBox(ToolBox):
         if not tool_file:
             return None
 
-        # Try to extract tool ID from file path or by quick parsing
+        # Try to extract tool ID from file
         tool_path_full = os.path.join(tool_path, tool_file)
-        try:
-            # Quick regex extraction of tool ID from XML
-            import re
-            with open(tool_path_full, 'r') as f:
-                content = f.read(2000)
-            match = re.search(r'<tool[^>]+id=["\']([^"\']+)["\']', content)
-            if match:
-                return match.group(1)
-        except Exception:
-            pass
+        tool_id = extract_tool_id_from_file(tool_path_full, max_read=2000)
+        if tool_id:
+            return tool_id
 
         # Fall back to using filename without extension as ID hint
         return os.path.splitext(os.path.basename(tool_file))[0]
@@ -377,9 +394,6 @@ class LazyToolBox(ToolBox):
 
     def _rebuild_index_from_store(self, stored_hashes: List[str]) -> None:
         """Rebuild the index from stored tool sources."""
-        import hashlib
-        from datetime import datetime
-
         entries: Dict[str, ToolIndexEntry] = {}
 
         for source_hash in stored_hashes:
@@ -408,8 +422,6 @@ class LazyToolBox(ToolBox):
 
     def _build_index_entry_from_stored(self, stored: StoredToolSource) -> Optional[ToolIndexEntry]:
         """Build an index entry from a stored tool source."""
-        from datetime import datetime
-
         try:
             tool_source = get_tool_source(
                 raw_tool_source=stored.raw_source,
@@ -469,13 +481,9 @@ class LazyToolBox(ToolBox):
                 # Store exact ID
                 short_id_to_section[map_tool_id] = section_info
                 # For guids, also store the short tool ID
-                if "/" in map_tool_id:
-                    parts = map_tool_id.split("/")
-                    if len(parts) >= 2:
-                        # Short ID is second-to-last part (before version)
-                        short_id = parts[-2]
-                        if short_id not in short_id_to_section:
-                            short_id_to_section[short_id] = section_info
+                short_id = extract_short_id_from_guid(map_tool_id)
+                if short_id and short_id != map_tool_id and short_id not in short_id_to_section:
+                    short_id_to_section[short_id] = section_info
         else:
             short_id_to_section = {}
 
