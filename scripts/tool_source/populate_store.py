@@ -345,22 +345,25 @@ def populate_store(
     stats = {"processed": 0, "stored": 0, "skipped": 0, "errors": 0}
 
     # Use the discover module to find all tool files from config
+    # Keep the full DiscoveredTool objects so we have access to guid for shed tools
     from galaxy.tool_util.toolbox.discover import discover_tools
 
-    tool_paths = [discovered.path for discovered in discover_tools(config, include_bundled=True)]
+    discovered_tools = list(discover_tools(config, include_bundled=True))
 
-    log.info(f"Found {len(tool_paths)} tool files")
+    log.info(f"Found {len(discovered_tools)} tool files")
 
     if pattern:
-        tool_paths = [p for p in tool_paths if pattern in p]
-        log.info(f"Filtered to {len(tool_paths)} tools matching '{pattern}'")
+        discovered_tools = [d for d in discovered_tools if pattern in d.path]
+        log.info(f"Filtered to {len(discovered_tools)} tools matching '{pattern}'")
 
     # Import tool parsing utilities
     from galaxy.tool_util.parser import get_tool_source
+    from galaxy.tool_util.toolbox.discover import DiscoveredTool
     from galaxy.util import xml_to_string
 
-    def process_tool(path: str) -> tuple[str, str, Optional[str]]:
+    def process_tool(discovered: DiscoveredTool) -> tuple[str, str, Optional[str]]:
         """Process a single tool file with proper macro expansion."""
+        path = discovered.path
         try:
             # Use Galaxy's tool source parser which handles macro expansion
             tool_source = get_tool_source(config_file=path)
@@ -374,8 +377,9 @@ def populate_store(
             if incremental and store.exists(content_hash):
                 return ("skipped", path, None)
 
-            # Get tool ID and version from the parsed source
-            tool_id = tool_source.parse_id()
+            # For shed tools, use the guid from tool_conf.xml (full toolshed ID)
+            # For local tools, use the ID from the tool XML
+            tool_id = discovered.guid if discovered.guid else tool_source.parse_id()
             tool_version = tool_source.parse_version()
 
             stored = StoredToolSource(
@@ -396,10 +400,10 @@ def populate_store(
             log.error(f"Error processing {path}: {e}")
             return ("error", path, str(e))
 
-    log.info(f"Processing {len(tool_paths)} tools with {parallel} workers...")
+    log.info(f"Processing {len(discovered_tools)} tools with {parallel} workers...")
 
     with ThreadPoolExecutor(max_workers=parallel) as executor:
-        futures = {executor.submit(process_tool, p): p for p in tool_paths}
+        futures = {executor.submit(process_tool, d): d.path for d in discovered_tools}
         for future in as_completed(futures):
             result = future.result()
             status = result[0]
@@ -456,7 +460,9 @@ def _rebuild_tool_index(store) -> None:
                 tool_source_class=stored.tool_source_class,
             )
 
-            tool_id = tool_source.parse_id() or stored.tool_id
+            # Prefer stored.tool_id (which contains the full toolshed GUID for shed tools)
+            # over the short ID parsed from the XML source
+            tool_id = stored.tool_id or tool_source.parse_id()
             if not tool_id:
                 continue
 

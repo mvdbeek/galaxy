@@ -439,7 +439,9 @@ class LazyToolBox(ToolBox):
                 tool_source_class=stored.tool_source_class,
             )
 
-            tool_id = tool_source.parse_id() or stored.tool_id
+            # Prefer the stored tool_id (which contains the full toolshed GUID for shed tools)
+            # over the short ID parsed from the XML source
+            tool_id = stored.tool_id or tool_source.parse_id()
             if not tool_id:
                 return None
 
