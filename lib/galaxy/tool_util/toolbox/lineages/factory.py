@@ -95,26 +95,43 @@ class LazyLineageMap(LineageMap):
         self._tool_index = tool_index
         self._index_lineages.clear()  # Clear cached index lineages
 
-    def register(self, tool: "Tool") -> ToolLineage:
+    def register(self, tool: "Tool", tool_id_for_index: Optional[str] = None) -> ToolLineage:
         """
         Register a tool and return its lineage.
 
         Overrides parent to populate lineage with all versions from index,
         not just the loaded tool's version.
+
+        Args:
+            tool: The Tool object to register.
+            tool_id_for_index: Optional tool ID to use for index lookups.
+                               If provided, this is used instead of tool.id for finding
+                               lineage in the index. This is needed because tool.id may be
+                               the short ID from XML, while the index is keyed by full GUIDs.
         """
+        import logging
+        log = logging.getLogger(__name__)
+
         # Call parent to create/get the lineage
         lineage = super().register(tool)
 
         # Populate lineage with all versions from index
         if self._tool_index is not None:
-            tool_id = tool.id
-            assert tool_id
-            lineage_ids = self._tool_index.get_lineage_tool_ids(tool_id)
+            # Use provided tool_id_for_index (full GUID) if available,
+            # otherwise fall back to tool.id (may be short ID)
+            lookup_id = tool_id_for_index or tool.id
+            assert lookup_id
+            lineage_ids = self._tool_index.get_lineage_tool_ids(lookup_id)
+            log.debug(f"LazyLineageMap.register({lookup_id}): found {len(lineage_ids)} lineage IDs in index")
             for lid in lineage_ids:
                 entry = self._tool_index.entries.get(lid)
                 if entry and entry.version:
                     lineage.register_version(entry.version)
+                    log.debug(f"  Registered version: {entry.version}")
+        else:
+            log.debug(f"LazyLineageMap.register({tool.id}): no tool_index available")
 
+        log.debug(f"LazyLineageMap.register result: {list(lineage.tool_versions)}")
         return lineage
 
     def get(self, tool_id: str) -> Optional[Union[ToolLineage, IndexToolLineage]]:

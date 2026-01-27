@@ -35,6 +35,7 @@ from galaxy.tool_source_store.index import (
 from galaxy.tool_util.id_util import (
     extract_short_id_from_guid,
     extract_tool_id_from_file,
+    parse_guid,
 )
 from galaxy.tool_util.parser import get_tool_source
 from galaxy.tool_util.toolbox.base import DynamicToolConfDict
@@ -674,16 +675,17 @@ class LazyToolBox(ToolBox):
             log.warning(f"Tool source not found for {tool_id} (hash: {entry.source_hash})")
             return None
 
-        # Create Tool object
+        # Create Tool object - pass original tool_id (full GUID) for setting shed attributes
         try:
-            tool = self._create_tool_from_stored_source(stored)
+            tool = self._create_tool_from_stored_source(stored, original_tool_id=tool_id)
             log.debug(f"Lazy-loaded tool: {tool_id}")
         except Exception as e:
             log.error(f"Error creating tool {tool_id}: {e}")
             return None
 
-        # Register the tool
-        self._register_loaded_tool(tool)
+        # Register the tool - pass original tool_id (full GUID) for lineage lookup
+        # because tool.id may be just the short ID from XML
+        self._register_loaded_tool(tool, original_tool_id=tool_id)
 
         # Add to cache
         with self._cache_lock:
@@ -691,37 +693,87 @@ class LazyToolBox(ToolBox):
 
         return tool
 
-    def _create_tool_from_stored_source(self, stored: StoredToolSource) -> "Tool":
-        """Create a Tool object from stored source."""
+    def _create_tool_from_stored_source(self, stored: StoredToolSource, original_tool_id: Optional[str] = None) -> "Tool":
+        """
+        Create a Tool object from stored source.
+
+        Args:
+            stored: The StoredToolSource containing the tool XML/source.
+            original_tool_id: The original tool_id (may be full GUID) to use for setting
+                              toolshed repository attributes.
+        """
         tool_source = get_tool_source(
             raw_tool_source=stored.raw_source,
             tool_source_class=stored.tool_source_class,
         )
-        return create_tool_from_source(
+
+        # Parse GUID to get toolshed repository info
+        guid = original_tool_id or stored.tool_id
+        guid_parts = parse_guid(guid) if guid else None
+
+        tool = create_tool_from_source(
             self.app,
             tool_source,
             tool_dir=stored.tool_dir,
+            guid=guid,
         )
 
-    def _register_loaded_tool(self, tool: "Tool") -> None:
-        """Register a lazily-loaded tool in the toolbox registries."""
+        # Set toolshed repository attributes if this is a shed tool
+        if guid_parts:
+            tool.tool_shed = guid_parts["tool_shed"]
+            tool.repository_owner = guid_parts["owner"]
+            tool.repository_name = guid_parts["name"]
+            # Set guid attribute (used for identification)
+            tool.guid = guid
+            # Try to set changeset_revision from metadata if available
+            if stored.metadata and stored.metadata.get("changeset_revision"):
+                tool.changeset_revision = stored.metadata["changeset_revision"]
+                tool.installed_changeset_revision = stored.metadata.get(
+                    "installed_changeset_revision", stored.metadata["changeset_revision"]
+                )
+            # Build sharable_url
+            from galaxy.util.tool_shed.common_util import get_tool_shed_repository_url
+            tool.sharable_url = get_tool_shed_repository_url(
+                self.app, tool.tool_shed, tool.repository_owner, tool.repository_name
+            )
+            log.debug(f"Set shed attributes for {guid}: owner={tool.repository_owner}, name={tool.repository_name}")
+
+        return tool
+
+    def _register_loaded_tool(self, tool: "Tool", original_tool_id: Optional[str] = None) -> None:
+        """
+        Register a lazily-loaded tool in the toolbox registries.
+
+        Args:
+            tool: The Tool object to register.
+            original_tool_id: The original tool_id used to look up this tool (may be full GUID).
+                              If provided, used for lineage lookup since tool.id may be just the short ID.
+        """
         tool_id = tool.id
         if not tool_id:
             return
 
-        self._tools_by_id[tool_id] = tool
+        # Use original_tool_id (full GUID) if provided, otherwise fall back to tool.id
+        registry_id = original_tool_id or tool_id
+
+        self._tools_by_id[registry_id] = tool
+        # Also register by short ID if different
+        if tool_id != registry_id:
+            self._tools_by_id[tool_id] = tool
 
         version = tool.version
-        if tool_id not in self._tool_versions_by_id:
-            self._tool_versions_by_id[tool_id] = {}
-        self._tool_versions_by_id[tool_id][version] = tool
+        if registry_id not in self._tool_versions_by_id:
+            self._tool_versions_by_id[registry_id] = {}
+        self._tool_versions_by_id[registry_id][version] = tool
 
         # Tool uses 'guid' not 'uuid'
         if hasattr(tool, "uuid") and tool.uuid:
             self._tools_by_uuid[tool.uuid] = tool
 
-        # Update lineage - must assign to tool._lineage so tool.tool_versions works
-        tool._lineage = self._lineage_map.register(tool)
+        # Update lineage - use original_tool_id for index lookup since tool.id may be short ID
+        # The index is keyed by full GUIDs
+        tool._lineage = self._lineage_map.register(tool, tool_id_for_index=registry_id)
+        log.debug(f"Registered tool {registry_id} with lineage versions: {list(tool._lineage.tool_versions) if tool._lineage else 'None'}")
 
     # === Override has_tool to check index ===
 
