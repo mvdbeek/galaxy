@@ -943,17 +943,33 @@ class LazyToolBox(ToolBox):
         Create a panel view representation of the toolbox.
 
         For LazyToolBox, returns tools from index organized by section.
+        Only shows the latest version of each tool (by lineage).
         """
         if self._tool_index is None:
             return {}
 
         view_contents: Dict[str, Dict] = {}
 
+        # Build set of latest tool IDs (only show latest version per lineage)
+        latest_tool_ids: set = set()
+        if self._tool_index.by_lineage:
+            for lineage_key, tool_ids in self._tool_index.by_lineage.items():
+                if tool_ids:
+                    # Lineages are sorted oldest-to-newest, so last is the latest
+                    latest_tool_ids.add(tool_ids[-1])
+        else:
+            # Fallback: if lineage index not built, include all tools
+            latest_tool_ids = set(self._tool_index.entries.keys())
+
         # Group tools by section from index
         sections: Dict[str, Dict[str, Any]] = {}
         uncategorized_tools: List[Dict[str, Any]] = []
 
         for tool_id, entry in self._tool_index.entries.items():
+            # Only include the latest version of each tool in the panel
+            if tool_id not in latest_tool_ids:
+                continue
+
             if entry.hidden and not kwds.get("include_hidden", False):
                 continue
 
