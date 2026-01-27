@@ -8,6 +8,7 @@ ToolBox itself to find all tool XML/YAML files.
 
 import logging
 import os
+import string
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -28,6 +29,10 @@ if TYPE_CHECKING:
     from galaxy.config import GalaxyAppConfiguration
 
 log = logging.getLogger(__name__)
+
+# Path to model tools (e.g., unzip_collection.xml)
+# From lib/galaxy/tool_util/toolbox/ go up to lib/galaxy/ then into tools/
+MODEL_TOOLS_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "tools"))
 
 
 @dataclass
@@ -143,10 +148,16 @@ def discover_tools_from_config(
     resolved_tool_path = _resolve_tool_path(tool_path, config_filename, root_dir)
     is_shed_conf = tool_conf_source.is_shed_tool_conf()
 
+    # Template variables for path substitution
+    template_kwds = {"model_tools_path": MODEL_TOOLS_PATH}
+
     for item in _iter_tool_items(tool_conf_source.parse_items()):
         tool_file = item.get("file")
         if not tool_file:
             continue
+
+        # Apply template substitution for variables like ${model_tools_path}
+        tool_file = string.Template(tool_file).safe_substitute(**template_kwds)
 
         # Resolve tool file path
         if os.path.isabs(tool_file):

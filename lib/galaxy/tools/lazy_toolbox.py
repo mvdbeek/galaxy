@@ -367,6 +367,10 @@ class LazyToolBox(ToolBox):
         if not tool_file:
             return None
 
+        # Apply template substitution for variables like ${model_tools_path}
+        template_kwds = self._path_template_kwds()
+        tool_file = string.Template(tool_file).safe_substitute(**template_kwds)
+
         # Try to extract tool ID from file
         tool_path_full = os.path.join(tool_path, tool_file)
         tool_id = extract_tool_id_from_file(tool_path_full, max_read=2000)
