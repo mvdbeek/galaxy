@@ -133,6 +133,53 @@ def is_toolshed_guid(tool_id: str) -> bool:
     return "/repos/" in tool_id
 
 
+def parse_guid(guid: str) -> Optional[dict]:
+    """
+    Parse a toolshed GUID into its components.
+
+    GUID format: toolshed.domain/repos/owner/name/tool_id/version
+
+    Args:
+        guid: The full toolshed GUID.
+
+    Returns:
+        A dict with keys: tool_shed, owner, name, tool_id, version.
+        Returns None if the GUID is not in the expected format.
+
+    Examples:
+        >>> parse_guid("toolshed.g2.bx.psu.edu/repos/devteam/bwa/bwa/0.1.0")
+        {'tool_shed': 'toolshed.g2.bx.psu.edu', 'owner': 'devteam', 'name': 'bwa', 'tool_id': 'bwa', 'version': '0.1.0'}
+        >>> parse_guid("simple_tool")
+    """
+    if "/repos/" not in guid:
+        return None
+
+    parts = guid.split("/")
+    # Expected: [domain, "repos", owner, name, tool_id, version]
+    if len(parts) < 6:
+        return None
+
+    # Find the "repos" index
+    try:
+        repos_idx = parts.index("repos")
+    except ValueError:
+        return None
+
+    if len(parts) < repos_idx + 5:
+        return None
+
+    # Tool shed is everything before "repos"
+    tool_shed = "/".join(parts[:repos_idx])
+
+    return {
+        "tool_shed": tool_shed,
+        "owner": parts[repos_idx + 1],
+        "name": parts[repos_idx + 2],
+        "tool_id": parts[repos_idx + 3],
+        "version": parts[repos_idx + 4],
+    }
+
+
 def get_lineage_key(tool_id: str) -> str:
     """
     Get the key to use for lineage grouping.
@@ -164,5 +211,6 @@ __all__ = (
     "extract_tool_id_from_xml",
     "get_lineage_key",
     "is_toolshed_guid",
+    "parse_guid",
     "remove_version_from_guid",
 )
