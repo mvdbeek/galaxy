@@ -541,6 +541,9 @@ class LazyToolBox(ToolBox):
             # Show sample IDs from each for comparison
             log.info(f"  Sample index IDs: {list(index_ids)[:3]}")
             log.info(f"  Sample map IDs: {list(map_ids)[:3]}")
+            # Show which entries have panel_section_id after matching
+            with_section = sum(1 for e in self._tool_index.entries.values() if e.panel_section_id)
+            log.info(f"  Entries with panel_section_id: {with_section}/{len(self._tool_index.entries)}")
 
     # === Override get_tool for lazy loading ===
 
@@ -835,6 +838,35 @@ class LazyToolBox(ToolBox):
             ]
             for key in keys_to_remove:
                 del self._tool_object_cache[key]
+
+    def invalidate_index_cache(self) -> None:
+        """
+        Invalidate the tool index cache and reload from store.
+
+        This is called by the queue worker when a reload_tool_source_cache
+        control task is received.
+        """
+        log.info("Invalidating LazyToolBox index cache and reloading...")
+
+        # Clear the tool object cache
+        self.clear_tool_cache()
+
+        # Clear dict caches
+        self._tool_to_dict_cache.clear()
+        self._tool_to_dict_cache_admin.clear()
+
+        # Reload index from store
+        self._tool_index = None
+        self._load_index_from_store()
+
+        # Re-populate registry with new index
+        self._tools_by_id.clear()
+        self._tool_versions_by_id.clear()
+        self._populate_tool_registry_from_index()
+
+        log.info(
+            f"LazyToolBox index reloaded with {len(self._tools_by_id)} tools"
+        )
 
     # === Required property overrides ===
 

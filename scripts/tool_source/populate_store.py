@@ -426,6 +426,14 @@ def populate_store(
         log.info("Rebuilding tool index...")
         _rebuild_tool_index(store)
 
+    # Send reload notification to running Galaxy processes
+    if not dry_run and (stats["stored"] > 0 or rebuild_index):
+        log.info("Sending reload notification to Galaxy processes...")
+        if send_reload_notification(config):
+            log.info("Reload notification sent successfully")
+        else:
+            log.warning("Could not send reload notification - Galaxy processes may need manual restart")
+
     return stats
 
 

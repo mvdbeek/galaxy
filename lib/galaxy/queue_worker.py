@@ -284,15 +284,19 @@ def reload_tool_source_cache(app, **kwargs):
     """
     log.debug("Executing tool source cache reload on '%s'", app.config.server_name)
 
-    # Invalidate the lazy toolbox cache if it exists
-    if hasattr(app, "lazy_toolbox") and app.lazy_toolbox:
-        app.lazy_toolbox.invalidate_index_cache()
-        log.info("Tool source index cache invalidated")
-
-    # Invalidate the tool source store cache if it exists
+    # Invalidate the tool source store cache first (so fresh index is loaded)
     if hasattr(app, "tool_source_store") and app.tool_source_store:
-        app.tool_source_store.invalidate_index_cache()
-        log.info("Tool source store cache invalidated")
+        if hasattr(app.tool_source_store, "invalidate_index_cache"):
+            app.tool_source_store.invalidate_index_cache()
+            log.info("Tool source store cache invalidated")
+
+    # Invalidate and reload the toolbox cache if it's a LazyToolBox
+    from galaxy.tools.lazy_toolbox import LazyToolBox
+
+    toolbox = getattr(app, "toolbox", None)
+    if toolbox and isinstance(toolbox, LazyToolBox):
+        toolbox.invalidate_index_cache()
+        log.info("LazyToolBox index cache invalidated and reloaded")
 
 
 def __job_rule_module_names(app: "MinimalManagerApp"):
