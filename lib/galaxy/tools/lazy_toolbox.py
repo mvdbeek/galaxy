@@ -936,6 +936,8 @@ class LazyToolBox(ToolBox):
             "link": f"/api/tools/{entry.id}",
             "min_width": -1,
             "target": "galaxy_main",
+            # form_style is required for the frontend to handle tool clicks properly
+            "form_style": "regular",
         }
 
     def to_panel_view(self, trans, view="default_panel_view", **kwds) -> Dict[str, Dict]:
