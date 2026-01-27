@@ -105,6 +105,12 @@ class DiskToolSourceStore(ToolSourceStore):
         path = self._source_path(tool_source.hash)
 
         if path.exists():
+            # Update tool_id if it changed (e.g., short ID -> full GUID)
+            existing_data = self._read_json(path)
+            if existing_data and tool_source.tool_id and existing_data.get("tool_id") != tool_source.tool_id:
+                existing_data["tool_id"] = tool_source.tool_id
+                self._write_json(path, existing_data)
+                self._update_indexes(tool_source)
             return tool_source.hash
 
         data = {

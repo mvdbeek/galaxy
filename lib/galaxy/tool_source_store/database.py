@@ -80,6 +80,12 @@ class DatabaseToolSourceStore(ToolSourceStore):
         ).scalar_one_or_none()
 
         if existing:
+            # Update tool_id if it changed (e.g., short ID -> full GUID)
+            existing_data = existing.source or {}
+            if tool_source.tool_id and existing_data.get("tool_id") != tool_source.tool_id:
+                existing_data["tool_id"] = tool_source.tool_id
+                existing.source = existing_data
+                session.flush()
             return existing.hash
 
         # Create new record
