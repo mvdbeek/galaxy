@@ -76,6 +76,7 @@ from galaxy.tool_util.deps import (
 )
 from galaxy.tool_util.deps.requirements import CredentialsRequirement
 from galaxy.tool_util.fetcher import ToolLocationFetcher
+from galaxy.tool_util.id_util import extract_tool_id_from_file
 from galaxy.tool_util.identifiers import uri_safe_tool_id
 from galaxy.tool_util.loader import (
     imported_macro_paths,
@@ -588,10 +589,7 @@ class ToolBox(AbstractToolBox):
                     pass
 
             if store_count > 0 and file_count == 0:
-                log.info(
-                    f"Loaded {total_tools} tools from tool source store ({backend}), "
-                    f"0 parsed from files"
-                )
+                log.info(f"Loaded {total_tools} tools from tool source store ({backend}), 0 parsed from files")
             elif store_count == 0:
                 log.info(f"Loaded {total_tools} tools by parsing from files (no store configured or empty)")
             else:
@@ -722,14 +720,8 @@ class ToolBox(AbstractToolBox):
         if stored is None:
             # Quick extraction of tool_id from raw XML without full macro expansion
             try:
-                import re
-
-                with open(config_file) as f:
-                    # Read just enough to find the tool id attribute
-                    content = f.read(2000)
-                match = re.search(r'<tool[^>]+id=["\']([^"\']+)["\']', content)
-                if match:
-                    extracted_id = match.group(1)
+                extracted_id = extract_tool_id_from_file(str(config_file), max_read=2000)
+                if extracted_id:
                     sources = store.get_by_tool_id(extracted_id)
                     if sources:
                         # Check if any source matches this file's directory

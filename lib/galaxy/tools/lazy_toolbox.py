@@ -6,15 +6,17 @@ lightweight index in memory and loads full Tool objects on-demand with
 LRU eviction.
 """
 
+import hashlib
 import logging
 import os
 import string
 import threading
+from datetime import datetime
 from typing import (
     Any,
-    Dict,
-    List,
+    Literal,
     Optional,
+    overload,
     TYPE_CHECKING,
     Union,
 )
@@ -29,6 +31,10 @@ from galaxy.tool_source_store import (
 from galaxy.tool_source_store.index import (
     ToolIndex,
     ToolIndexEntry,
+)
+from galaxy.tool_util.id_util import (
+    extract_short_id_from_guid,
+    extract_tool_id_from_file,
 )
 from galaxy.tool_util.parser import get_tool_source
 from galaxy.tool_util.toolbox.base import DynamicToolConfDict
@@ -49,10 +55,8 @@ from galaxy.tool_util.toolbox.views.interface import (
 )
 from galaxy.tool_util.toolbox.views.sources import StaticToolBoxViewSources
 from galaxy.util import listify
-
 from . import (
     create_tool_from_source,
-    PersistentToolTagManager,
     ToolBox,
 )
 
@@ -62,6 +66,26 @@ if TYPE_CHECKING:
     from galaxy.tools import Tool
 
 log = logging.getLogger(__name__)
+
+
+class DefaultToolPanelView(ToolPanelView):
+    """Default tool panel view for LazyToolBox."""
+
+    def __init__(self, toolbox: "LazyToolBox"):
+        self.toolbox = toolbox
+
+    def apply_view(self, base_tool_panel, toolbox_registry):
+        return self.toolbox._tool_panel
+
+    def to_model(self) -> ToolPanelViewModel:
+        return ToolPanelViewModel(
+            id="default",
+            name="Full Tool Panel",
+            description="Galaxy's fully configured toolbox panel.",
+            model_class="DefaultToolPanelView",
+            view_type=ToolPanelViewModelType.default_type,
+            searchable=True,
+        )
 
 
 class LazyToolBox(ToolBox):
@@ -75,10 +99,10 @@ class LazyToolBox(ToolBox):
 
     def __init__(
         self,
-        config_filenames: List[str],
+        config_filenames: list[str],
         tool_root_dir: str,
         app: "UniverseApplication",
-        tool_source_store: ToolSourceStore,
+        tool_source_store: Optional[ToolSourceStore],
         cache_size: int = 500,
         save_integrated_tool_panel: bool = True,
     ) -> None:
@@ -116,14 +140,11 @@ class LazyToolBox(ToolBox):
         # This allows has_tool() and similar checks to work without loading
         self._populate_tool_registry_from_index()
 
-        log.info(
-            f"LazyToolBox initialized with {len(self._tools_by_id)} tools "
-            f"(cache_size={cache_size})"
-        )
+        log.info(f"LazyToolBox initialized with {len(self._tools_by_id)} tools (cache_size={cache_size})")
 
     def _init_lazy_toolbox(
         self,
-        config_filenames: List[str],
+        config_filenames: list[str],
         tool_root_dir: str,
         app: "UniverseApplication",
         save_integrated_tool_panel: bool,
@@ -134,7 +155,8 @@ class LazyToolBox(ToolBox):
         This replicates the essential parts of AbstractToolBox.__init__
         without calling _init_tools_from_configs which loads all tools.
         """
-        # From ToolBox.__init__
+        # From ToolBox.__init__ — imported lazily to avoid circular import via
+        # galaxy.tools -> galaxy.tool_util.fetcher -> galaxy.tools.
         from galaxy.tool_util.fetcher import ToolLocationFetcher
 
         self.tool_location_fetcher = ToolLocationFetcher()
@@ -142,17 +164,17 @@ class LazyToolBox(ToolBox):
         self._tools_parsed_from_file = 0
 
         # From AbstractToolBox.__init__
-        self._dynamic_tool_confs: List[DynamicToolConfDict] = []
-        self._tools_by_id: Dict[str, "Tool"] = {}
-        self._tools_by_uuid: Dict[UUID, "Tool"] = {}
-        self._tool_versions_by_id: Dict[str, Dict[Union[str, None], "Tool"]] = {}
-        self._tools_by_old_id: Dict[str, List["Tool"]] = {}
-        self._workflows_by_id: Dict[str, Any] = {}
-        self._tool_to_dict_cache: Dict[str, Dict[str, Any]] = {}
-        self._tool_to_dict_cache_admin: Dict[str, Dict[str, Any]] = {}
+        self._dynamic_tool_confs: list[DynamicToolConfDict] = []
+        self._tools_by_id: dict[str, Tool] = {}
+        self._tools_by_uuid: dict[UUID, Tool] = {}
+        self._tool_versions_by_id: dict[str, dict[Union[str, None], Tool]] = {}
+        self._tools_by_old_id: dict[str, list[Tool]] = {}
+        self._workflows_by_id: dict[str, Any] = {}
+        self._tool_to_dict_cache: dict[str, dict[str, Any]] = {}
+        self._tool_to_dict_cache_admin: dict[str, dict[str, Any]] = {}
         self._tool_panel = ToolPanelElements()
         self._index = 0
-        self.data_manager_tools: Dict[str, "Tool"] = {}
+        self.data_manager_tools: dict[str, Tool] = {}
         self._lineage_map = LineageMap(app)
 
         # Tool root dir handling from ToolBox
@@ -175,8 +197,8 @@ class LazyToolBox(ToolBox):
             view_directories=app.config.panel_views_dir,
             view_dicts=app.config.panel_views,
         )
-        # Note: AbstractToolBox uses name-mangled __default_panel_view
-        self._AbstractToolBox__default_panel_view = app.config.default_panel_view
+        # Store default panel view - we override _default_panel_view() method to use this
+        self._default_panel_view_name = app.config.default_panel_view
         self._setup_panel_views(view_sources)
 
         # Initialize dependency manager
@@ -193,34 +215,32 @@ class LazyToolBox(ToolBox):
         if save_integrated_tool_panel:
             self._save_integrated_tool_panel()
 
+    def _default_panel_view(self, trans):
+        """
+        Override AbstractToolBox._default_panel_view to avoid name-mangled attribute access.
+
+        Returns the default panel view for the given transaction, respecting
+        per-host configuration if available.
+        """
+        config = self.app.config
+        if hasattr(config, "config_value_for_host"):
+            config_value = config.config_value_for_host("default_panel_view", trans.host)
+        else:
+            config_value = getattr(config, "default_panel_view", None)
+        return config_value or self._default_panel_view_name
+
     def _setup_panel_views(self, view_sources) -> None:
         """Set up tool panel views."""
-        toolbox = self
-
-        class DefaultToolPanelView(ToolPanelView):
-            def apply_view(self, base_tool_panel, toolbox_registry):
-                return toolbox._tool_panel
-
-            def to_model(self) -> ToolPanelViewModel:
-                return ToolPanelViewModel(
-                    id="default",
-                    name="Full Tool Panel",
-                    description="Galaxy's fully configured toolbox panel.",
-                    model_class="DefaultToolPanelView",
-                    view_type=ToolPanelViewModelType.default_type,
-                    searchable=True,
-                )
-
-        tool_panel_views_list: List[ToolPanelView] = [DefaultToolPanelView()]
+        tool_panel_views_list: list[ToolPanelView] = [DefaultToolPanelView(self)]
 
         for edam_view in listify(self.app.config.edam_panel_views):
             mode = EdamPanelMode[edam_view]
-            tool_panel_views_list.append(
-                EdamToolPanelView(self.app.datatypes_registry.edam, mode=mode)
-            )
+            tool_panel_views_list.append(EdamToolPanelView(self.app.datatypes_registry.edam, mode=mode))
 
         if view_sources is not None:
+            # Lazy import: only needed when there are static panel views to register.
             from galaxy.tool_util.toolbox.views.static import StaticToolPanelView
+
             for definition in view_sources.get_definitions():
                 tool_panel_views_list.append(StaticToolPanelView(definition))
 
@@ -228,19 +248,20 @@ class LazyToolBox(ToolBox):
         for tool_panel_view in tool_panel_views_list:
             self._tool_panel_views[tool_panel_view.to_model().id] = tool_panel_view
 
-        self._tool_panel_view_rendered: Dict[str, ToolPanelElements] = {}
+        self._tool_panel_view_rendered: dict[str, ToolPanelElements] = {}
 
-    def _init_panel_structure_from_configs(self, config_filenames: List[str]) -> None:
+    def _init_panel_structure_from_configs(self, config_filenames: list[str]) -> None:
         """
         Load panel structure (sections, labels) from config files.
 
         This parses the tool configs to get the panel layout and builds
         a mapping of tool_id -> section info for use with the index.
         """
+        # Lazy import: only the panel-loading code path needs this parser.
         from galaxy.tool_util.toolbox.parser import get_toolbox_parser
 
         # Map tool_id -> (section_id, section_name)
-        self._tool_section_map: Dict[str, tuple] = {}
+        self._tool_section_map: dict[str, tuple] = {}
 
         config_filenames = listify(config_filenames)
 
@@ -261,7 +282,7 @@ class LazyToolBox(ToolBox):
 
                 for item in tool_conf_source.parse_items():
                     try:
-                        item_type = getattr(item, 'type', None)
+                        item_type = getattr(item, "type", None)
                         if item_type == "section":
                             section_id = item.get("id")
                             section_name = item.get("name", section_id)
@@ -282,7 +303,9 @@ class LazyToolBox(ToolBox):
                             label_id = item.get("id")
                             label_text = item.get("text", "")
                             if label_id and label_id not in self._tool_panel:
+                                # Lazy import: only needed when a label element is encountered.
                                 from galaxy.tool_util.toolbox.panel import ToolSectionLabel
+
                                 label = ToolSectionLabel({"id": label_id, "text": label_text})
                                 self._tool_panel[f"label_{label_id}"] = label
 
@@ -311,17 +334,17 @@ class LazyToolBox(ToolBox):
         log.info(f"Built tool section map with {len(self._tool_section_map)} entries")
         # Log some sample entries for debugging
         sample_entries = list(self._tool_section_map.items())[:5]
-        for tool_id, (section_id, section_name) in sample_entries:
+        for tool_id, (section_id, _section_name) in sample_entries:
             log.debug(f"  Section map sample: {tool_id} -> {section_id}")
 
     def _extract_tools_from_section(self, section_item, section_id: str, section_name: str, tool_path: str) -> None:
         """Extract tool IDs from a section and add to section map."""
-        if not hasattr(section_item, 'items'):
+        if not hasattr(section_item, "items"):
             return
 
         for sub_item in section_item.items:
             try:
-                item_type = getattr(sub_item, 'type', None)
+                item_type = getattr(sub_item, "type", None)
                 if item_type == "tool":
                     tool_id = self._extract_tool_id_from_item(sub_item, tool_path)
                     if tool_id:
@@ -342,18 +365,11 @@ class LazyToolBox(ToolBox):
         if not tool_file:
             return None
 
-        # Try to extract tool ID from file path or by quick parsing
+        # Try to extract tool ID from file
         tool_path_full = os.path.join(tool_path, tool_file)
-        try:
-            # Quick regex extraction of tool ID from XML
-            import re
-            with open(tool_path_full, 'r') as f:
-                content = f.read(2000)
-            match = re.search(r'<tool[^>]+id=["\']([^"\']+)["\']', content)
-            if match:
-                return match.group(1)
-        except Exception:
-            pass
+        tool_id = extract_tool_id_from_file(tool_path_full, max_read=2000)
+        if tool_id:
+            return tool_id
 
         # Fall back to using filename without extension as ID hint
         return os.path.splitext(os.path.basename(tool_file))[0]
@@ -361,6 +377,10 @@ class LazyToolBox(ToolBox):
     def _load_index_from_store(self) -> None:
         """Load the tool index from store."""
         log.debug("Loading tool index from store...")
+        if self._store is None:
+            log.info("No tool source store configured")
+            self._tool_index = ToolIndex()
+            return
         self._tool_index = self._store.load_index()
 
         if self._tool_index is None or len(self._tool_index.entries) == 0:
@@ -375,12 +395,10 @@ class LazyToolBox(ToolBox):
         else:
             log.info(f"Loaded tool index with {len(self._tool_index.entries)} entries")
 
-    def _rebuild_index_from_store(self, stored_hashes: List[str]) -> None:
+    def _rebuild_index_from_store(self, stored_hashes: list[str]) -> None:
         """Rebuild the index from stored tool sources."""
-        import hashlib
-        from datetime import datetime
-
-        entries: Dict[str, ToolIndexEntry] = {}
+        assert self._store is not None
+        entries: dict[str, ToolIndexEntry] = {}
 
         for source_hash in stored_hashes:
             stored = self._store.get(source_hash)
@@ -408,8 +426,6 @@ class LazyToolBox(ToolBox):
 
     def _build_index_entry_from_stored(self, stored: StoredToolSource) -> Optional[ToolIndexEntry]:
         """Build an index entry from a stored tool source."""
-        from datetime import datetime
-
         try:
             tool_source = get_tool_source(
                 raw_tool_source=stored.raw_source,
@@ -464,22 +480,19 @@ class LazyToolBox(ToolBox):
         # Update index entries with section info from tool_conf.xml
         # Build reverse map: short_id -> section_info for faster lookup
         if hasattr(self, "_tool_section_map"):
-            short_id_to_section: Dict[str, tuple] = {}
-            for map_tool_id, section_info in self._tool_section_map.items():
+            short_id_to_section: dict[str, tuple] = {}
+            for map_tool_id, mapped_section in self._tool_section_map.items():
                 # Store exact ID
-                short_id_to_section[map_tool_id] = section_info
+                short_id_to_section[map_tool_id] = mapped_section
                 # For guids, also store the short tool ID
-                if "/" in map_tool_id:
-                    parts = map_tool_id.split("/")
-                    if len(parts) >= 2:
-                        # Short ID is second-to-last part (before version)
-                        short_id = parts[-2]
-                        if short_id not in short_id_to_section:
-                            short_id_to_section[short_id] = section_info
+                short_id = extract_short_id_from_guid(map_tool_id)
+                if short_id and short_id != map_tool_id and short_id not in short_id_to_section:
+                    short_id_to_section[short_id] = mapped_section
         else:
             short_id_to_section = {}
 
         section_updates = 0
+        section_info: Optional[tuple]
         for tool_id, entry in self._tool_index.entries.items():
             section_info = None
 
@@ -495,33 +508,55 @@ class LazyToolBox(ToolBox):
                     section_updates += 1
 
             # Store None as placeholder - actual Tool loaded on demand
-            self._tools_by_id[tool_id] = None  # type: ignore[assignment]
+            self._tools_by_id[tool_id] = None
 
             # Initialize version tracking
             if tool_id not in self._tool_versions_by_id:
                 self._tool_versions_by_id[tool_id] = {}
             if entry.version:
-                self._tool_versions_by_id[tool_id][entry.version] = None  # type: ignore[assignment]
+                self._tool_versions_by_id[tool_id][entry.version] = None
 
             # Add to panel if section info available
             if entry.panel_section_id and entry.panel_section_id in self._tool_panel:
                 section = self._tool_panel[entry.panel_section_id]
                 if isinstance(section, ToolSection):
-                    self._tool_panel.record_section_for_tool_id(
-                        tool_id, entry.panel_section_id, section.name or ""
-                    )
+                    self._tool_panel.record_section_for_tool_id(tool_id, entry.panel_section_id, section.name or "")
 
         # Debug: check for mismatches
         index_ids = set(self._tool_index.entries.keys()) if self._tool_index else set()
         map_ids = set(self._tool_section_map.keys()) if hasattr(self, "_tool_section_map") else set()
         matched = index_ids & map_ids
-        log.info(f"Section map has {len(map_ids)} entries, index has {len(index_ids)} entries, {len(matched)} matched, {section_updates} updated")
+        log.info(
+            f"Section map has {len(map_ids)} entries, index has {len(index_ids)} entries, {len(matched)} matched, {section_updates} updated"
+        )
         if map_ids and index_ids:
             # Show sample IDs from each for comparison
             log.info(f"  Sample index IDs: {list(index_ids)[:3]}")
             log.info(f"  Sample map IDs: {list(map_ids)[:3]}")
 
     # === Override get_tool for lazy loading ===
+
+    @overload
+    def get_tool(
+        self,
+        tool_id: Optional[str] = None,
+        tool_version: Optional[str] = None,
+        tool_uuid: Optional[Union[UUID, str]] = None,
+        get_all_versions: Literal[False] = False,
+        exact: Optional[bool] = False,
+        user: Optional["User"] = None,
+    ) -> Optional["Tool"]: ...
+
+    @overload
+    def get_tool(
+        self,
+        tool_id: Optional[str] = None,
+        tool_version: Optional[str] = None,
+        tool_uuid: Optional[Union[UUID, str]] = None,
+        get_all_versions: Literal[True] = True,
+        exact: Optional[bool] = False,
+        user: Optional["User"] = None,
+    ) -> list["Tool"]: ...
 
     def get_tool(
         self,
@@ -531,18 +566,20 @@ class LazyToolBox(ToolBox):
         get_all_versions: Optional[bool] = False,
         exact: Optional[bool] = False,
         user: Optional["User"] = None,
-    ) -> Union[Optional["Tool"], List["Tool"]]:
+    ) -> Union[Optional["Tool"], list["Tool"]]:
         """
         Get a tool, loading from store on-demand if needed.
 
         Overrides ToolBox.get_tool to implement lazy loading.
         """
-        from galaxy.exceptions import ObjectNotFound, RequestParameterInvalidException
+        # Lazy import: galaxy.exceptions pulls in webapp framework deps.
+        from galaxy.exceptions import (
+            ObjectNotFound,
+            RequestParameterInvalidException,
+        )
 
         if tool_id is None and tool_uuid is None:
-            raise RequestParameterInvalidException(
-                "get_tool cannot be called with both tool_id and tool_uuid as None"
-            )
+            raise RequestParameterInvalidException("get_tool cannot be called with both tool_id and tool_uuid as None")
 
         # Handle UUID lookup
         if tool_uuid:
@@ -576,18 +613,25 @@ class LazyToolBox(ToolBox):
 
         # Fall back to parent implementation for tools not in our index
         # (dynamic tools, data manager tools, etc.)
+        if get_all_versions:
+            return super().get_tool(
+                tool_id=tool_id,
+                tool_version=tool_version,
+                tool_uuid=tool_uuid,
+                get_all_versions=True,
+                exact=exact,
+                user=user,
+            )
         return super().get_tool(
             tool_id=tool_id,
             tool_version=tool_version,
             tool_uuid=tool_uuid,
-            get_all_versions=get_all_versions,
+            get_all_versions=False,
             exact=exact,
             user=user,
         )
 
-    def _load_tool_on_demand(
-        self, tool_id: str, tool_version: Optional[str] = None
-    ) -> Optional["Tool"]:
+    def _load_tool_on_demand(self, tool_id: str, tool_version: Optional[str] = None) -> Optional["Tool"]:
         """
         Load a tool from the store on-demand.
 
@@ -608,7 +652,7 @@ class LazyToolBox(ToolBox):
             return existing
 
         # Get entry from index
-        if self._tool_index is None:
+        if self._tool_index is None or self._store is None:
             return None
 
         entry = self._tool_index.get(tool_id)
@@ -701,9 +745,7 @@ class LazyToolBox(ToolBox):
         Note: This only returns tools that have been loaded on-demand.
         For a full list, use the index.
         """
-        return {
-            k: v for k, v in self._tools_by_id.items() if v is not None
-        }.items()
+        return {k: v for k, v in self._tools_by_id.items() if v is not None}.items()
 
     # === Index access methods ===
 
@@ -712,7 +754,7 @@ class LazyToolBox(ToolBox):
         """Get the tool index."""
         return self._tool_index
 
-    def get_tool_ids(self) -> List[str]:
+    def get_tool_ids(self) -> list[str]:
         """Get all tool IDs from index."""
         if self._tool_index:
             return list(self._tool_index.entries.keys())
@@ -726,7 +768,7 @@ class LazyToolBox(ToolBox):
 
     # === Cache management ===
 
-    def cache_stats(self) -> Dict[str, Any]:
+    def cache_stats(self) -> dict[str, Any]:
         """Return cache statistics."""
         return {
             "tool_cache_size": len(self._tool_object_cache),
@@ -743,9 +785,7 @@ class LazyToolBox(ToolBox):
     def evict_tool_from_cache(self, tool_id: str) -> None:
         """Evict a specific tool from cache."""
         with self._cache_lock:
-            keys_to_remove = [
-                k for k in self._tool_object_cache if k.startswith(f"{tool_id}:")
-            ]
+            keys_to_remove = [k for k in self._tool_object_cache if k.startswith(f"{tool_id}:")]
             for key in keys_to_remove:
                 del self._tool_object_cache[key]
 
@@ -762,9 +802,7 @@ class LazyToolBox(ToolBox):
                     req_tuple = (req.get("name"), req.get("version"), req.get("type"))
                     requirements.add(req_tuple)
             return [
-                {"name": r[0], "version": r[1], "type": r[2]}
-                for r in requirements
-                if r[0]  # Filter out empty names
+                {"name": r[0], "version": r[1], "type": r[2]} for r in requirements if r[0]  # Filter out empty names
             ]
         return []
 
@@ -772,7 +810,7 @@ class LazyToolBox(ToolBox):
 
     def to_dict(
         self, trans, in_panel: bool = True, tool_help: bool = False, view: Optional[str] = None, **kwds
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Create a dictionary representation of the toolbox.
 
@@ -787,7 +825,7 @@ class LazyToolBox(ToolBox):
         rval = []
 
         # Return data directly from index - no tool loading needed!
-        for tool_id, entry in self._tool_index.entries.items():
+        for _tool_id, entry in self._tool_index.entries.items():
             # Skip hidden tools unless requested
             if entry.hidden and not kwds.get("include_hidden", False):
                 continue
@@ -799,7 +837,7 @@ class LazyToolBox(ToolBox):
         log.debug(f"LazyToolBox.to_dict: returning {len(rval)} tools from index (no loading)")
         return rval
 
-    def _index_entry_to_api_dict(self, entry: ToolIndexEntry) -> Dict[str, Any]:
+    def _index_entry_to_api_dict(self, entry: ToolIndexEntry) -> dict[str, Any]:
         """Convert an index entry to the format expected by /api/tools."""
         return {
             "id": entry.id,
@@ -819,7 +857,7 @@ class LazyToolBox(ToolBox):
             "target": "galaxy_main",
         }
 
-    def to_panel_view(self, trans, view="default_panel_view", **kwds) -> Dict[str, Dict]:
+    def to_panel_view(self, trans, view="default_panel_view", **kwds) -> dict[str, dict]:
         """
         Create a panel view representation of the toolbox.
 
@@ -828,13 +866,13 @@ class LazyToolBox(ToolBox):
         if self._tool_index is None:
             return {}
 
-        view_contents: Dict[str, Dict] = {}
+        view_contents: dict[str, dict] = {}
 
         # Group tools by section from index
-        sections: Dict[str, Dict[str, Any]] = {}
-        uncategorized_tools: List[Dict[str, Any]] = []
+        sections: dict[str, dict[str, Any]] = {}
+        uncategorized_tools: list[dict[str, Any]] = []
 
-        for tool_id, entry in self._tool_index.entries.items():
+        for _tool_id, entry in self._tool_index.entries.items():
             if entry.hidden and not kwds.get("include_hidden", False):
                 continue
 
