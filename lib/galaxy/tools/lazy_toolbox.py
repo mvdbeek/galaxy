@@ -720,8 +720,8 @@ class LazyToolBox(ToolBox):
         if hasattr(tool, "uuid") and tool.uuid:
             self._tools_by_uuid[tool.uuid] = tool
 
-        # Update lineage
-        self._lineage_map.register(tool)
+        # Update lineage - must assign to tool._lineage so tool.tool_versions works
+        tool._lineage = self._lineage_map.register(tool)
 
     # === Override has_tool to check index ===
 
