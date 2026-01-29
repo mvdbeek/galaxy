@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .label import Label
+from .service_credentials_definition_label import ServiceCredentialsDefinitionLabel
 from .service_parameter_definition import ServiceParameterDefinition
 
 __all__ = ["ServiceCredentialsDefinition"]
@@ -9,7 +9,7 @@ __all__ = ["ServiceCredentialsDefinition"]
 @dataclass
 class ServiceCredentialsDefinition:
     """
-    ServiceCredentialsDefinition dataclass.
+    ServiceCredentialsDefinition dataclass
 
     Args:
         description (str)        : A description of the service.
@@ -21,7 +21,8 @@ class ServiceCredentialsDefinition:
         variables (List[ServiceParameterDefinition])
                                  :
         version (str)            : The version of the service.
-        label (Optional[Label])  : Label of the input.
+        label (ServiceCredentialsDefinitionLabel | None)
+                                 : A human-readable label for the service.
     """
 
     description: str  # A description of the service.
@@ -32,4 +33,26 @@ class ServiceCredentialsDefinition:
     secrets: list[ServiceParameterDefinition]
     variables: list[ServiceParameterDefinition]
     version: str  # The version of the service.
-    label: Label | None = None  # Label of the input.
+    label: ServiceCredentialsDefinitionLabel | None = None  # A human-readable label for the service.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "label": "label",
+            "name": "name",
+            "optional": "optional",
+            "secrets": "secrets",
+            "variables": "variables",
+            "version": "version",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "label": "label",
+            "name": "name",
+            "optional": "optional",
+            "secrets": "secrets",
+            "variables": "variables",
+            "version": "version",
+        }

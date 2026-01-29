@@ -16,3 +16,13 @@ class UserNotificationPreferences:
     """
 
     preferences: UserNotificationPreferencesPreferences  # The notification preferences of the user.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "preferences": "preferences",
+        }
+        key_transform_with_dump = {
+            "preferences": "preferences",
+        }

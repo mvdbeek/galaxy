@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .default import Default
-from .help_ import Help_
-from .label import Label
-from .validators import Validators
+from .help__40 import Help40
+from .template_variable_path_component_default import TemplateVariablePathComponentDefault
+from .template_variable_path_component_label import TemplateVariablePathComponentLabel
+from .template_variable_path_component_validators import TemplateVariablePathComponentValidators
 
 __all__ = ["TemplateVariablePathComponent"]
 
@@ -11,28 +11,43 @@ __all__ = ["TemplateVariablePathComponent"]
 @dataclass
 class TemplateVariablePathComponent:
     """
-    TemplateVariablePathComponent dataclass.
+    TemplateVariablePathComponent dataclass
 
     Args:
-        help_ (Optional[Help_])  : Help text shown below the tool interface.
+        help_ (Help40 | None)    : Maps from 'help'
         name (str)               :
-        type_ (str)              :
-        default (Optional[Default])
-                                 : Whether or not this is a default quota. Valid values are
-                                   ``no``, ``unregistered``, ``registered``. Calling this
-                                   method with ``default="no"`` on a non-default quota will
-                                   throw an error. Not passing this parameter is equivalent
-                                   to passing ``no``.
-        label (Optional[Label])  : Label of the input.
-        validators (Optional[Validators])
+        type_ (str)              : Maps from 'type'
+        default (TemplateVariablePathComponentDefault | None)
+                                 :
+        label (TemplateVariablePathComponentLabel | None)
+                                 :
+        validators (TemplateVariablePathComponentValidators | None)
                                  :
     """
 
-    help_: Help_ | None  # Help text shown below the tool interface.
+    help_: Help40 | None  # Maps from 'help'
     name: str
-    type_: str
-    default: Default | None = (
-        None  # Whether or not this is a default quota. Valid values are ``no``, ``unregistered``, ``registered``. Calling this method with ``default="no"`` on a non-default quota will throw an error. Not passing this parameter is equivalent to passing ``no``.
-    )
-    label: Label | None = None  # Label of the input.
-    validators: Validators | None = None
+    type_: str  # Maps from 'type'
+    default: TemplateVariablePathComponentDefault | None = None
+    label: TemplateVariablePathComponentLabel | None = None
+    validators: TemplateVariablePathComponentValidators | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "default": "default",
+            "help": "help_",
+            "label": "label",
+            "name": "name",
+            "type": "type_",
+            "validators": "validators",
+        }
+        key_transform_with_dump = {
+            "default": "default",
+            "help_": "help",
+            "label": "label",
+            "name": "name",
+            "type_": "type",
+            "validators": "validators",
+        }

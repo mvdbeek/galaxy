@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 
-from .collection_type import CollectionType
-from .column_definitions import ColumnDefinitions
 from .elements_from_type import ElementsFromType
-from .ftp_path import FtpPath
+from .hdca_data_items_from_target_collection_type import HdcaDataItemsFromTargetCollectionType
+from .hdca_data_items_from_target_column_definitions import HdcaDataItemsFromTargetColumnDefinitions
+from .hdca_data_items_from_target_ftp_path import HdcaDataItemsFromTargetFtpPath
+from .hdca_data_items_from_target_name import HdcaDataItemsFromTargetName
+from .hdca_data_items_from_target_path import HdcaDataItemsFromTargetPath
+from .hdca_data_items_from_target_server_dir import HdcaDataItemsFromTargetServerDir
+from .hdca_data_items_from_target_tags import HdcaDataItemsFromTargetTags
+from .hdca_data_items_from_target_url import HdcaDataItemsFromTargetUrl
 from .hdca_destination import HdcaDestination
 from .items_from_src import ItemsFromSrc
-from .name import Name
-from .path import Path
-from .server_dir import ServerDir
-from .tags import Tags
-from .url import Url
 
 __all__ = ["HdcaDataItemsFromTarget"]
 
@@ -18,7 +18,7 @@ __all__ = ["HdcaDataItemsFromTarget"]
 @dataclass
 class HdcaDataItemsFromTarget:
     """
-    HdcaDataItemsFromTarget dataclass.
+    HdcaDataItemsFromTarget dataclass
 
     Args:
         destination (HdcaDestination)
@@ -26,27 +26,28 @@ class HdcaDataItemsFromTarget:
         items_from (ElementsFromType)
                                  :
         src (ItemsFromSrc)       :
-        auto_decompress (Optional[bool])
+        auto_decompress (bool | None)
                                  : This is a boolean value that indicates whether the
                                    dataset should be automatically decompressed if it is
                                    compressed. If set to true, Galaxy will attempt to
                                    decompress the dataset if it is compressed and it is not
                                    explicitly set to a compressed datatype.
-        collection_type (Optional[CollectionType])
-                                 : The type of the collection, can be `list`, `paired`, or
-                                   define subcollections using `:` as separator like
-                                   `list:paired` or `list:list`.
-        column_definitions (Optional[ColumnDefinitions])
-                                 : Column data associated with each element of this
-                                   collection.
-        ftp_path (Optional[FtpPath])
+        collection_type (HdcaDataItemsFromTargetCollectionType | None)
                                  :
-        name (Optional[Name])    : The name of the creator.
-        path (Optional[Path])    :
-        server_dir (Optional[ServerDir])
+        column_definitions (HdcaDataItemsFromTargetColumnDefinitions | None)
                                  :
-        tags (Optional[Tags])    : The collection of tags associated with an item.
-        url (Optional[Url])      : The relative URL to access this item.
+        ftp_path (HdcaDataItemsFromTargetFtpPath | None)
+                                 :
+        name (HdcaDataItemsFromTargetName | None)
+                                 :
+        path (HdcaDataItemsFromTargetPath | None)
+                                 :
+        server_dir (HdcaDataItemsFromTargetServerDir | None)
+                                 :
+        tags (HdcaDataItemsFromTargetTags | None)
+                                 :
+        url (HdcaDataItemsFromTargetUrl | None)
+                                 :
     """
 
     destination: HdcaDestination
@@ -55,13 +56,43 @@ class HdcaDataItemsFromTarget:
     auto_decompress: bool | None = (
         False  # This is a boolean value that indicates whether the dataset should be automatically decompressed if it is compressed. If set to true, Galaxy will attempt to decompress the dataset if it is compressed and it is not explicitly set to a compressed datatype.
     )
-    collection_type: CollectionType | None = (
-        None  # The type of the collection, can be `list`, `paired`, or define subcollections using `:` as separator like `list:paired` or `list:list`.
-    )
-    column_definitions: ColumnDefinitions | None = None  # Column data associated with each element of this collection.
-    ftp_path: FtpPath | None = None
-    name: Name | None = None  # The name of the creator.
-    path: Path | None = None
-    server_dir: ServerDir | None = ""
-    tags: Tags | None = None  # The collection of tags associated with an item.
-    url: Url | None = None  # The relative URL to access this item.
+    collection_type: HdcaDataItemsFromTargetCollectionType | None = None
+    column_definitions: HdcaDataItemsFromTargetColumnDefinitions | None = None
+    ftp_path: HdcaDataItemsFromTargetFtpPath | None = None
+    name: HdcaDataItemsFromTargetName | None = None
+    path: HdcaDataItemsFromTargetPath | None = None
+    server_dir: HdcaDataItemsFromTargetServerDir | None = None
+    tags: HdcaDataItemsFromTargetTags | None = None
+    url: HdcaDataItemsFromTargetUrl | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "auto_decompress": "auto_decompress",
+            "collection_type": "collection_type",
+            "column_definitions": "column_definitions",
+            "destination": "destination",
+            "ftp_path": "ftp_path",
+            "items_from": "items_from",
+            "name": "name",
+            "path": "path",
+            "server_dir": "server_dir",
+            "src": "src",
+            "tags": "tags",
+            "url": "url",
+        }
+        key_transform_with_dump = {
+            "auto_decompress": "auto_decompress",
+            "collection_type": "collection_type",
+            "column_definitions": "column_definitions",
+            "destination": "destination",
+            "ftp_path": "ftp_path",
+            "items_from": "items_from",
+            "name": "name",
+            "path": "path",
+            "server_dir": "server_dir",
+            "src": "src",
+            "tags": "tags",
+            "url": "url",
+        }

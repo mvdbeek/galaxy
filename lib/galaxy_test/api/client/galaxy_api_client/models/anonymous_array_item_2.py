@@ -1,5 +1,8 @@
 from typing import TypeAlias
 
+from .file_pattern_dataset_collection_description import FilePatternDatasetCollectionDescription
+from .tool_provided_metadata_dataset_collection import ToolProvidedMetadataDatasetCollection
+
 __all__ = ["AnonymousArrayItem2"]
 
-AnonymousArrayItem2: TypeAlias = str
+AnonymousArrayItem2: TypeAlias = FilePatternDatasetCollectionDescription | ToolProvidedMetadataDatasetCollection

@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .active import Active
-from .hidden import Hidden
-from .tool_directory import ToolDirectory
+from .path_based_dynamic_tool_create_payload_active import PathBasedDynamicToolCreatePayloadActive
+from .path_based_dynamic_tool_create_payload_hidden import PathBasedDynamicToolCreatePayloadHidden
+from .path_based_dynamic_tool_create_payload_tool_directory import PathBasedDynamicToolCreatePayloadToolDirectory
 
 __all__ = ["PathBasedDynamicToolCreatePayload"]
 
@@ -10,19 +10,39 @@ __all__ = ["PathBasedDynamicToolCreatePayload"]
 @dataclass
 class PathBasedDynamicToolCreatePayload:
     """
-    PathBasedDynamicToolCreatePayload dataclass.
+    PathBasedDynamicToolCreatePayload dataclass
 
     Args:
         path (str)               :
         src (str)                :
-        active (Optional[Active]): User is active
-        hidden (Optional[Hidden]): If true, the output will not be shown in the history.
-        tool_directory (Optional[ToolDirectory])
+        active (PathBasedDynamicToolCreatePayloadActive | None)
+                                 :
+        hidden (PathBasedDynamicToolCreatePayloadHidden | None)
+                                 :
+        tool_directory (PathBasedDynamicToolCreatePayloadToolDirectory | None)
                                  :
     """
 
     path: str
     src: str
-    active: Active | None = True  # User is active
-    hidden: Hidden | None = False  # If true, the output will not be shown in the history.
-    tool_directory: ToolDirectory | None = None
+    active: PathBasedDynamicToolCreatePayloadActive | None = None
+    hidden: PathBasedDynamicToolCreatePayloadHidden | None = None
+    tool_directory: PathBasedDynamicToolCreatePayloadToolDirectory | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "active": "active",
+            "hidden": "hidden",
+            "path": "path",
+            "src": "src",
+            "tool_directory": "tool_directory",
+        }
+        key_transform_with_dump = {
+            "active": "active",
+            "hidden": "hidden",
+            "path": "path",
+            "src": "src",
+            "tool_directory": "tool_directory",
+        }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .user_value import UserValue
+from .item_tags_response_user_value import ItemTagsResponseUserValue
 
 __all__ = ["ItemTagsResponse"]
 
@@ -11,14 +11,30 @@ class ItemTagsResponse:
     Response schema for showing an item tag.
 
     Args:
-        id_ (str)                :
+        id_ (str)                : Maps from 'id'
         model_class (str)        :
         user_tname (str)         :
-        user_value (Optional[UserValue])
+        user_value (ItemTagsResponseUserValue | None)
                                  :
     """
 
-    id_: str
+    id_: str  # Maps from 'id'
     model_class: str
     user_tname: str
-    user_value: UserValue | None = None
+    user_value: ItemTagsResponseUserValue | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "id": "id_",
+            "model_class": "model_class",
+            "user_tname": "user_tname",
+            "user_value": "user_value",
+        }
+        key_transform_with_dump = {
+            "id_": "id",
+            "model_class": "model_class",
+            "user_tname": "user_tname",
+            "user_value": "user_value",
+        }

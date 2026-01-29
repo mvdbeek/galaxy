@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -16,14 +17,65 @@ from ..models.body_ai_agents_custom_tool_create_custom_tool_2 import BodyAiAgent
 from ..models.body_ai_agents_error_analysis_analyze_error_2 import BodyAiAgentsErrorAnalysisAnalyzeError2
 
 
-class AiClient:
+@runtime_checkable
+class AiClientProtocol(Protocol):
+    """Protocol defining the interface of AiClient for dependency injection."""
+
+    async def ai_agents_list_agents(
+        self,
+        run_as: AiAgentsListAgentsParamRunAs | None = None,
+    ) -> AgentListResponse: ...
+
+    async def ai_agents_list_agents(
+        self,
+        run_as: AiAgentsListAgentsParamRunAs | None = None,
+    ) -> AgentListResponse: ...
+
+    async def ai_agents_custom_tool_create_custom_tool(
+        self,
+        body: BodyAiAgentsCustomToolCreateCustomTool2,
+        run_as: AiAgentsCustomToolCreateCustomToolParamRunAs | None = None,
+    ) -> AgentResponse: ...
+
+    async def ai_agents_custom_tool_create_custom_tool(
+        self,
+        body: BodyAiAgentsCustomToolCreateCustomTool2,
+        run_as: AiAgentsCustomToolCreateCustomToolParamRunAs | None = None,
+    ) -> AgentResponse: ...
+
+    async def ai_agents_error_analysis_analyze_error(
+        self,
+        body: BodyAiAgentsErrorAnalysisAnalyzeError2,
+        run_as: AiAgentsErrorAnalysisAnalyzeErrorParamRunAs | None = None,
+    ) -> AgentResponse: ...
+
+    async def ai_agents_error_analysis_analyze_error(
+        self,
+        body: BodyAiAgentsErrorAnalysisAnalyzeError2,
+        run_as: AiAgentsErrorAnalysisAnalyzeErrorParamRunAs | None = None,
+    ) -> AgentResponse: ...
+
+    async def ai_agents_query_query_agent(
+        self,
+        body: AgentQueryRequest,
+        run_as: AiAgentsQueryQueryAgentParamRunAs | None = None,
+    ) -> AgentQueryResponse: ...
+
+    async def ai_agents_query_query_agent(
+        self,
+        body: AgentQueryRequest,
+        run_as: AiAgentsQueryQueryAgentParamRunAs | None = None,
+    ) -> AgentQueryResponse: ...
+
+
+class AiClient(AiClientProtocol):
     """Client for ai endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def ai_agents_list_agents_2_2(
+    async def ai_agents_list_agents(
         self,
         run_as: AiAgentsListAgentsParamRunAs | None = None,
     ) -> AgentListResponse:
@@ -33,7 +85,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsListAgentsParamRunAs])
+            run-as (AiAgentsListAgentsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -48,7 +100,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -56,13 +108,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentListResponse, response.json())
+                return structure_from_dict(response.json(), AgentListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_list_agents_2_2(
+    async def ai_agents_list_agents(
         self,
         run_as: AiAgentsListAgentsParamRunAs | None = None,
     ) -> AgentListResponse:
@@ -72,7 +124,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsListAgentsParamRunAs])
+            run-as (AiAgentsListAgentsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -87,7 +139,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -95,13 +147,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentListResponse, response.json())
+                return structure_from_dict(response.json(), AgentListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_custom_tool_create_custom_tool_2_2(
+    async def ai_agents_custom_tool_create_custom_tool(
         self,
         body: BodyAiAgentsCustomToolCreateCustomTool2,
         run_as: AiAgentsCustomToolCreateCustomToolParamRunAs | None = None,
@@ -112,7 +164,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsCustomToolCreateCustomToolParamRunAs])
+            run-as (AiAgentsCustomToolCreateCustomToolParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -129,7 +181,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents/custom-tool"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: BodyAiAgentsCustomToolCreateCustomTool2 = DataclassSerializer.serialize(body)
@@ -139,13 +191,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentResponse, response.json())
+                return structure_from_dict(response.json(), AgentResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_custom_tool_create_custom_tool_2_2(
+    async def ai_agents_custom_tool_create_custom_tool(
         self,
         body: BodyAiAgentsCustomToolCreateCustomTool2,
         run_as: AiAgentsCustomToolCreateCustomToolParamRunAs | None = None,
@@ -156,7 +208,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsCustomToolCreateCustomToolParamRunAs])
+            run-as (AiAgentsCustomToolCreateCustomToolParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -173,7 +225,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents/custom-tool"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: BodyAiAgentsCustomToolCreateCustomTool2 = DataclassSerializer.serialize(body)
@@ -183,13 +235,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentResponse, response.json())
+                return structure_from_dict(response.json(), AgentResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_error_analysis_analyze_error_2_2(
+    async def ai_agents_error_analysis_analyze_error(
         self,
         body: BodyAiAgentsErrorAnalysisAnalyzeError2,
         run_as: AiAgentsErrorAnalysisAnalyzeErrorParamRunAs | None = None,
@@ -200,7 +252,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsErrorAnalysisAnalyzeErrorParamRunAs])
+            run-as (AiAgentsErrorAnalysisAnalyzeErrorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -217,7 +269,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents/error-analysis"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: BodyAiAgentsErrorAnalysisAnalyzeError2 = DataclassSerializer.serialize(body)
@@ -227,13 +279,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentResponse, response.json())
+                return structure_from_dict(response.json(), AgentResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_error_analysis_analyze_error_2_2(
+    async def ai_agents_error_analysis_analyze_error(
         self,
         body: BodyAiAgentsErrorAnalysisAnalyzeError2,
         run_as: AiAgentsErrorAnalysisAnalyzeErrorParamRunAs | None = None,
@@ -244,7 +296,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsErrorAnalysisAnalyzeErrorParamRunAs])
+            run-as (AiAgentsErrorAnalysisAnalyzeErrorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -261,7 +313,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents/error-analysis"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: BodyAiAgentsErrorAnalysisAnalyzeError2 = DataclassSerializer.serialize(body)
@@ -271,13 +323,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentResponse, response.json())
+                return structure_from_dict(response.json(), AgentResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_query_query_agent_2_2(
+    async def ai_agents_query_query_agent(
         self,
         body: AgentQueryRequest,
         run_as: AiAgentsQueryQueryAgentParamRunAs | None = None,
@@ -288,7 +340,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsQueryQueryAgentParamRunAs])
+            run-as (AiAgentsQueryQueryAgentParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -304,7 +356,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents/query"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: AgentQueryRequest = DataclassSerializer.serialize(body)
@@ -314,13 +366,13 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentQueryResponse, response.json())
+                return structure_from_dict(response.json(), AgentQueryResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def ai_agents_query_query_agent_2_2(
+    async def ai_agents_query_query_agent(
         self,
         body: AgentQueryRequest,
         run_as: AiAgentsQueryQueryAgentParamRunAs | None = None,
@@ -331,7 +383,7 @@ class AiClient:
         **Warning**: This API is unstable and may change without notice.
 
         Args:
-            run-as (Optional[AiAgentsQueryQueryAgentParamRunAs])
+            run-as (AiAgentsQueryQueryAgentParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -347,7 +399,7 @@ class AiClient:
         url = f"{self.base_url}/api/ai/agents/query"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: AgentQueryRequest = DataclassSerializer.serialize(body)
@@ -357,8 +409,8 @@ class AiClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AgentQueryResponse, response.json())
+                return structure_from_dict(response.json(), AgentQueryResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

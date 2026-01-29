@@ -9,24 +9,22 @@ class HdcJobStateSummary:
     Overview of the job states working inside a dataset collection.
 
     Args:
-        all_jobs (Optional[int]) : Total number of jobs associated with a dataset
+        all_jobs (int | None)    : Total number of jobs associated with a dataset
                                    collection.
-        deleted (Optional[int])  : Number of jobs in the `deleted` state.
-        deleted_new (Optional[int])
-                                 : Number of jobs in the `deleted_new` state.
-        error (Optional[int])    : Number of jobs in the `error` state.
-        failed (Optional[int])   : Number of jobs in the `failed` state.
-        new (Optional[int])      : Number of jobs in the `new` state.
-        ok (Optional[int])       : Number of jobs in the `ok` state.
-        paused (Optional[int])   : Number of jobs in the `paused` state.
-        queued (Optional[int])   : Number of jobs in the `queued` state.
-        resubmitted (Optional[int])
-                                 : Number of jobs in the `resubmitted` state.
-        running (Optional[int])  : Number of jobs in the `running` state.
-        skipped (Optional[int])  : Number of jobs that were skipped due to conditional
+        deleted (int | None)     : Number of jobs in the `deleted` state.
+        deleted_new (int | None) : Number of jobs in the `deleted_new` state.
+        error (int | None)       : Number of jobs in the `error` state.
+        failed (int | None)      : Number of jobs in the `failed` state.
+        new (int | None)         : Number of jobs in the `new` state.
+        ok (int | None)          : Number of jobs in the `ok` state.
+        paused (int | None)      : Number of jobs in the `paused` state.
+        queued (int | None)      : Number of jobs in the `queued` state.
+        resubmitted (int | None) : Number of jobs in the `resubmitted` state.
+        running (int | None)     : Number of jobs in the `running` state.
+        skipped (int | None)     : Number of jobs that were skipped due to conditional
                                    workflow step execution.
-        upload (Optional[int])   : Number of jobs in the `upload` state.
-        waiting (Optional[int])  : Number of jobs in the `waiting` state.
+        upload (int | None)      : Number of jobs in the `upload` state.
+        waiting (int | None)     : Number of jobs in the `waiting` state.
     """
 
     all_jobs: int | None = 0  # Total number of jobs associated with a dataset collection.
@@ -43,3 +41,39 @@ class HdcJobStateSummary:
     skipped: int | None = 0  # Number of jobs that were skipped due to conditional workflow step execution.
     upload: int | None = 0  # Number of jobs in the `upload` state.
     waiting: int | None = 0  # Number of jobs in the `waiting` state.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "all_jobs": "all_jobs",
+            "deleted": "deleted",
+            "deleted_new": "deleted_new",
+            "error": "error",
+            "failed": "failed",
+            "new": "new",
+            "ok": "ok",
+            "paused": "paused",
+            "queued": "queued",
+            "resubmitted": "resubmitted",
+            "running": "running",
+            "skipped": "skipped",
+            "upload": "upload",
+            "waiting": "waiting",
+        }
+        key_transform_with_dump = {
+            "all_jobs": "all_jobs",
+            "deleted": "deleted",
+            "deleted_new": "deleted_new",
+            "error": "error",
+            "failed": "failed",
+            "new": "new",
+            "ok": "ok",
+            "paused": "paused",
+            "queued": "queued",
+            "resubmitted": "resubmitted",
+            "running": "running",
+            "skipped": "skipped",
+            "upload": "upload",
+            "waiting": "waiting",
+        }

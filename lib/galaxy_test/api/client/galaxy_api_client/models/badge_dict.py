@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .message import Message
-from .source import Source
-from .type_ import Type_
+from .badge_dict_message import BadgeDictMessage
+from .badge_dict_source import BadgeDictSource
+from .type__2 import Type2
 
 __all__ = ["BadgeDict"]
 
@@ -10,16 +10,28 @@ __all__ = ["BadgeDict"]
 @dataclass
 class BadgeDict:
     """
-    BadgeDict dataclass.
+    BadgeDict dataclass
 
     Args:
-        message (Optional[Message])
-                                 : The optional message sent with the error report.
-        source (Source)          : The source of the notification. Represents the agent that
-                                   created the notification.
-        type_ (Type_)            : The type of content to be created in the history.
+        message (BadgeDictMessage):
+        source (BadgeDictSource) :
+        type_ (Type2)            : Maps from 'type'
     """
 
-    message: Message | None  # The optional message sent with the error report.
-    source: Source  # The source of the notification. Represents the agent that created the notification.
-    type_: Type_  # The type of content to be created in the history.
+    message: BadgeDictMessage
+    source: BadgeDictSource
+    type_: Type2  # Maps from 'type'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "message": "message",
+            "source": "source",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "message": "message",
+            "source": "source",
+            "type_": "type",
+        }

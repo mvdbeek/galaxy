@@ -1,6 +1,7 @@
 from datetime import datetime
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -35,7 +36,7 @@ from ..models.notifications_preferences_get_notification_preferences_param_run_a
 from ..models.notifications_preferences_update_notification_preferences_param_run_as import (
     NotificationsPreferencesUpdateNotificationPreferencesParamRunAs,
 )
-from ..models.notifications_send_notification_200_response_2 import NotificationsSendNotification200Response2
+from ..models.notifications_send_notification_200_response import NotificationsSendNotification200Response
 from ..models.notifications_send_notification_param_run_as import NotificationsSendNotificationParamRunAs
 from ..models.notifications_show_notification_param_run_as import NotificationsShowNotificationParamRunAs
 from ..models.notifications_status_get_notifications_status_param_run_as import (
@@ -51,14 +52,189 @@ from ..models.user_notification_update_request import UserNotificationUpdateRequ
 from ..models.user_notifications_batch_update_request import UserNotificationsBatchUpdateRequest
 
 
-class NotificationsClient:
+@runtime_checkable
+class NotificationsClientProtocol(Protocol):
+    """Protocol defining the interface of NotificationsClient for dependency injection."""
+
+    async def notifications_delete_user_notifications(
+        self,
+        body: NotificationsBatchRequest,
+        run_as: NotificationsDeleteUserNotificationsParamRunAs | None = None,
+    ) -> NotificationsBatchUpdateResponse: ...
+
+    async def notifications_delete_user_notifications(
+        self,
+        body: NotificationsBatchRequest,
+        run_as: NotificationsDeleteUserNotificationsParamRunAs | None = None,
+    ) -> NotificationsBatchUpdateResponse: ...
+
+    async def notifications_get_user_notifications(
+        self,
+        limit: NotificationsGetUserNotificationsParamLimit | None = None,
+        offset: NotificationsGetUserNotificationsParamOffset | None = None,
+        run_as: NotificationsGetUserNotificationsParamRunAs | None = None,
+    ) -> UserNotificationListResponse: ...
+
+    async def notifications_get_user_notifications(
+        self,
+        limit: NotificationsGetUserNotificationsParamLimit | None = None,
+        offset: NotificationsGetUserNotificationsParamOffset | None = None,
+        run_as: NotificationsGetUserNotificationsParamRunAs | None = None,
+    ) -> UserNotificationListResponse: ...
+
+    async def notifications_send_notification(
+        self,
+        body: NotificationCreateRequest,
+        run_as: NotificationsSendNotificationParamRunAs | None = None,
+    ) -> NotificationsSendNotification200Response: ...
+
+    async def notifications_send_notification(
+        self,
+        body: NotificationCreateRequest,
+        run_as: NotificationsSendNotificationParamRunAs | None = None,
+    ) -> NotificationsSendNotification200Response: ...
+
+    async def notifications_update_user_notifications(
+        self,
+        body: UserNotificationsBatchUpdateRequest,
+        run_as: NotificationsUpdateUserNotificationsParamRunAs | None = None,
+    ) -> NotificationsBatchUpdateResponse: ...
+
+    async def notifications_update_user_notifications(
+        self,
+        body: UserNotificationsBatchUpdateRequest,
+        run_as: NotificationsUpdateUserNotificationsParamRunAs | None = None,
+    ) -> NotificationsBatchUpdateResponse: ...
+
+    async def notifications_broadcast_get_all_broadcasted(
+        self,
+        run_as: NotificationsBroadcastGetAllBroadcastedParamRunAs | None = None,
+    ) -> BroadcastNotificationListResponse: ...
+
+    async def notifications_broadcast_get_all_broadcasted(
+        self,
+        run_as: NotificationsBroadcastGetAllBroadcastedParamRunAs | None = None,
+    ) -> BroadcastNotificationListResponse: ...
+
+    async def notifications_broadcast_broadcast_notification(
+        self,
+        body: BroadcastNotificationCreateRequest,
+        run_as: NotificationsBroadcastBroadcastNotificationParamRunAs | None = None,
+    ) -> NotificationCreatedResponse: ...
+
+    async def notifications_broadcast_broadcast_notification(
+        self,
+        body: BroadcastNotificationCreateRequest,
+        run_as: NotificationsBroadcastBroadcastNotificationParamRunAs | None = None,
+    ) -> NotificationCreatedResponse: ...
+
+    async def notifications_broadcast_get_broadcasted(
+        self,
+        notification_id: str,
+        run_as: NotificationsBroadcastGetBroadcastedParamRunAs | None = None,
+    ) -> BroadcastNotificationResponse: ...
+
+    async def notifications_broadcast_get_broadcasted(
+        self,
+        notification_id: str,
+        run_as: NotificationsBroadcastGetBroadcastedParamRunAs | None = None,
+    ) -> BroadcastNotificationResponse: ...
+
+    async def notifications_broadcast_update_broadcasted_notification(
+        self,
+        notification_id: str,
+        body: NotificationBroadcastUpdateRequest,
+        run_as: NotificationsBroadcastUpdateBroadcastedNotificationParamRunAs | None = None,
+    ) -> None: ...
+
+    async def notifications_broadcast_update_broadcasted_notification(
+        self,
+        notification_id: str,
+        body: NotificationBroadcastUpdateRequest,
+        run_as: NotificationsBroadcastUpdateBroadcastedNotificationParamRunAs | None = None,
+    ) -> None: ...
+
+    async def notifications_preferences_get_notification_preferences(
+        self,
+        run_as: NotificationsPreferencesGetNotificationPreferencesParamRunAs | None = None,
+    ) -> UserNotificationPreferences: ...
+
+    async def notifications_preferences_get_notification_preferences(
+        self,
+        run_as: NotificationsPreferencesGetNotificationPreferencesParamRunAs | None = None,
+    ) -> UserNotificationPreferences: ...
+
+    async def notifications_preferences_update_notification_preferences(
+        self,
+        body: UpdateUserNotificationPreferencesRequest,
+        run_as: NotificationsPreferencesUpdateNotificationPreferencesParamRunAs | None = None,
+    ) -> UserNotificationPreferences: ...
+
+    async def notifications_preferences_update_notification_preferences(
+        self,
+        body: UpdateUserNotificationPreferencesRequest,
+        run_as: NotificationsPreferencesUpdateNotificationPreferencesParamRunAs | None = None,
+    ) -> UserNotificationPreferences: ...
+
+    async def notifications_status_get_notifications_status(
+        self,
+        since: datetime,
+        run_as: NotificationsStatusGetNotificationsStatusParamRunAs | None = None,
+    ) -> NotificationStatusSummary: ...
+
+    async def notifications_status_get_notifications_status(
+        self,
+        since: datetime,
+        run_as: NotificationsStatusGetNotificationsStatusParamRunAs | None = None,
+    ) -> NotificationStatusSummary: ...
+
+    async def notifications_delete_user_notification(
+        self,
+        notification_id: str,
+        run_as: NotificationsDeleteUserNotificationParamRunAs | None = None,
+    ) -> None: ...
+
+    async def notifications_delete_user_notification(
+        self,
+        notification_id: str,
+        run_as: NotificationsDeleteUserNotificationParamRunAs | None = None,
+    ) -> None: ...
+
+    async def notifications_show_notification(
+        self,
+        notification_id: str,
+        run_as: NotificationsShowNotificationParamRunAs | None = None,
+    ) -> UserNotificationResponse: ...
+
+    async def notifications_show_notification(
+        self,
+        notification_id: str,
+        run_as: NotificationsShowNotificationParamRunAs | None = None,
+    ) -> UserNotificationResponse: ...
+
+    async def notifications_update_user_notification(
+        self,
+        notification_id: str,
+        body: UserNotificationUpdateRequest,
+        run_as: NotificationsUpdateUserNotificationParamRunAs | None = None,
+    ) -> None: ...
+
+    async def notifications_update_user_notification(
+        self,
+        notification_id: str,
+        body: UserNotificationUpdateRequest,
+        run_as: NotificationsUpdateUserNotificationParamRunAs | None = None,
+    ) -> None: ...
+
+
+class NotificationsClient(NotificationsClientProtocol):
     """Client for notifications endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def notifications_delete_user_notifications_2_2(
+    async def notifications_delete_user_notifications(
         self,
         body: NotificationsBatchRequest,
         run_as: NotificationsDeleteUserNotificationsParamRunAs | None = None,
@@ -67,7 +243,7 @@ class NotificationsClient:
         Deletes a list of notifications received by the user in a single request.
 
         Args:
-            run-as (Optional[NotificationsDeleteUserNotificationsParamRunAs])
+            run-as (NotificationsDeleteUserNotificationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -84,7 +260,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: NotificationsBatchRequest = DataclassSerializer.serialize(body)
@@ -94,13 +270,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationsBatchUpdateResponse, response.json())
+                return structure_from_dict(response.json(), NotificationsBatchUpdateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_delete_user_notifications_2_2(
+    async def notifications_delete_user_notifications(
         self,
         body: NotificationsBatchRequest,
         run_as: NotificationsDeleteUserNotificationsParamRunAs | None = None,
@@ -109,7 +285,7 @@ class NotificationsClient:
         Deletes a list of notifications received by the user in a single request.
 
         Args:
-            run-as (Optional[NotificationsDeleteUserNotificationsParamRunAs])
+            run-as (NotificationsDeleteUserNotificationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -126,7 +302,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: NotificationsBatchRequest = DataclassSerializer.serialize(body)
@@ -136,15 +312,15 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationsBatchUpdateResponse, response.json())
+                return structure_from_dict(response.json(), NotificationsBatchUpdateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_get_user_notifications_2_2(
+    async def notifications_get_user_notifications(
         self,
-        limit: NotificationsGetUserNotificationsParamLimit | None = 20,
+        limit: NotificationsGetUserNotificationsParamLimit | None = None,
         offset: NotificationsGetUserNotificationsParamOffset | None = None,
         run_as: NotificationsGetUserNotificationsParamRunAs | None = None,
     ) -> UserNotificationListResponse:
@@ -155,11 +331,11 @@ class NotificationsClient:
         You can use the `limit` and `offset` parameters to paginate through the notifications.
 
         Args:
-            limit (Optional[NotificationsGetUserNotificationsParamLimit])
+            limit (NotificationsGetUserNotificationsParamLimit | None)
                                      :
-            offset (Optional[NotificationsGetUserNotificationsParamOffset])
+            offset (NotificationsGetUserNotificationsParamOffset | None)
                                      :
-            run-as (Optional[NotificationsGetUserNotificationsParamRunAs])
+            run-as (NotificationsGetUserNotificationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -174,12 +350,12 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         params: dict[str, Any] = {
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -187,15 +363,15 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationListResponse, response.json())
+                return structure_from_dict(response.json(), UserNotificationListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_get_user_notifications_2_2(
+    async def notifications_get_user_notifications(
         self,
-        limit: NotificationsGetUserNotificationsParamLimit | None = 20,
+        limit: NotificationsGetUserNotificationsParamLimit | None = None,
         offset: NotificationsGetUserNotificationsParamOffset | None = None,
         run_as: NotificationsGetUserNotificationsParamRunAs | None = None,
     ) -> UserNotificationListResponse:
@@ -206,11 +382,11 @@ class NotificationsClient:
         You can use the `limit` and `offset` parameters to paginate through the notifications.
 
         Args:
-            limit (Optional[NotificationsGetUserNotificationsParamLimit])
+            limit (NotificationsGetUserNotificationsParamLimit | None)
                                      :
-            offset (Optional[NotificationsGetUserNotificationsParamOffset])
+            offset (NotificationsGetUserNotificationsParamOffset | None)
                                      :
-            run-as (Optional[NotificationsGetUserNotificationsParamRunAs])
+            run-as (NotificationsGetUserNotificationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -225,12 +401,12 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         params: dict[str, Any] = {
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -238,24 +414,24 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationListResponse, response.json())
+                return structure_from_dict(response.json(), UserNotificationListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_send_notification_2_2(
+    async def notifications_send_notification(
         self,
         body: NotificationCreateRequest,
         run_as: NotificationsSendNotificationParamRunAs | None = None,
-    ) -> NotificationsSendNotification200Response2:
+    ) -> NotificationsSendNotification200Response:
         """
         Sends a notification to a list of recipients (users, groups or roles).
 
         Sends a notification to a list of recipients (users, groups or roles).
 
         Args:
-            run-as (Optional[NotificationsSendNotificationParamRunAs])
+            run-as (NotificationsSendNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -263,7 +439,7 @@ class NotificationsClient:
                                      : Request body. (json)
 
         Returns:
-            NotificationsSendNotification200Response2: Successful Response
+            NotificationsSendNotification200Response: Successful Response
 
         Raises:
             HttpError:
@@ -272,7 +448,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: NotificationCreateRequest = DataclassSerializer.serialize(body)
@@ -282,24 +458,24 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationsSendNotification200Response2, response.json())
+                return structure_from_dict(response.json(), NotificationsSendNotification200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_send_notification_2_2(
+    async def notifications_send_notification(
         self,
         body: NotificationCreateRequest,
         run_as: NotificationsSendNotificationParamRunAs | None = None,
-    ) -> NotificationsSendNotification200Response2:
+    ) -> NotificationsSendNotification200Response:
         """
         Sends a notification to a list of recipients (users, groups or roles).
 
         Sends a notification to a list of recipients (users, groups or roles).
 
         Args:
-            run-as (Optional[NotificationsSendNotificationParamRunAs])
+            run-as (NotificationsSendNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -307,7 +483,7 @@ class NotificationsClient:
                                      : Request body. (json)
 
         Returns:
-            NotificationsSendNotification200Response2: Successful Response
+            NotificationsSendNotification200Response: Successful Response
 
         Raises:
             HttpError:
@@ -316,7 +492,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: NotificationCreateRequest = DataclassSerializer.serialize(body)
@@ -326,13 +502,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationsSendNotification200Response2, response.json())
+                return structure_from_dict(response.json(), NotificationsSendNotification200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_update_user_notifications_2_2(
+    async def notifications_update_user_notifications(
         self,
         body: UserNotificationsBatchUpdateRequest,
         run_as: NotificationsUpdateUserNotificationsParamRunAs | None = None,
@@ -341,7 +517,7 @@ class NotificationsClient:
         Updates a list of notifications with the requested values in a single request.
 
         Args:
-            run-as (Optional[NotificationsUpdateUserNotificationsParamRunAs])
+            run-as (NotificationsUpdateUserNotificationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -358,7 +534,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserNotificationsBatchUpdateRequest = DataclassSerializer.serialize(body)
@@ -368,13 +544,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationsBatchUpdateResponse, response.json())
+                return structure_from_dict(response.json(), NotificationsBatchUpdateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_update_user_notifications_2_2(
+    async def notifications_update_user_notifications(
         self,
         body: UserNotificationsBatchUpdateRequest,
         run_as: NotificationsUpdateUserNotificationsParamRunAs | None = None,
@@ -383,7 +559,7 @@ class NotificationsClient:
         Updates a list of notifications with the requested values in a single request.
 
         Args:
-            run-as (Optional[NotificationsUpdateUserNotificationsParamRunAs])
+            run-as (NotificationsUpdateUserNotificationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -400,7 +576,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserNotificationsBatchUpdateRequest = DataclassSerializer.serialize(body)
@@ -410,13 +586,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationsBatchUpdateResponse, response.json())
+                return structure_from_dict(response.json(), NotificationsBatchUpdateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_get_all_broadcasted_2_2(
+    async def notifications_broadcast_get_all_broadcasted(
         self,
         run_as: NotificationsBroadcastGetAllBroadcastedParamRunAs | None = None,
     ) -> BroadcastNotificationListResponse:
@@ -426,7 +602,7 @@ class NotificationsClient:
         Only Admin users can access inactive notifications (scheduled or recently expired).
 
         Args:
-            run-as (Optional[NotificationsBroadcastGetAllBroadcastedParamRunAs])
+            run-as (NotificationsBroadcastGetAllBroadcastedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -441,7 +617,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/broadcast"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -449,13 +625,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(BroadcastNotificationListResponse, response.json())
+                return structure_from_dict(response.json(), BroadcastNotificationListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_get_all_broadcasted_2_2(
+    async def notifications_broadcast_get_all_broadcasted(
         self,
         run_as: NotificationsBroadcastGetAllBroadcastedParamRunAs | None = None,
     ) -> BroadcastNotificationListResponse:
@@ -465,7 +641,7 @@ class NotificationsClient:
         Only Admin users can access inactive notifications (scheduled or recently expired).
 
         Args:
-            run-as (Optional[NotificationsBroadcastGetAllBroadcastedParamRunAs])
+            run-as (NotificationsBroadcastGetAllBroadcastedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -480,7 +656,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/broadcast"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -488,13 +664,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(BroadcastNotificationListResponse, response.json())
+                return structure_from_dict(response.json(), BroadcastNotificationListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_broadcast_notification_2_2(
+    async def notifications_broadcast_broadcast_notification(
         self,
         body: BroadcastNotificationCreateRequest,
         run_as: NotificationsBroadcastBroadcastNotificationParamRunAs | None = None,
@@ -516,7 +692,7 @@ class NotificationsClient:
         edit, reschedule, or expire broadcasted notifications as needed.
 
         Args:
-            run-as (Optional[NotificationsBroadcastBroadcastNotificationParamRunAs])
+            run-as (NotificationsBroadcastBroadcastNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -533,7 +709,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/broadcast"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: BroadcastNotificationCreateRequest = DataclassSerializer.serialize(body)
@@ -543,13 +719,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationCreatedResponse, response.json())
+                return structure_from_dict(response.json(), NotificationCreatedResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_broadcast_notification_2_2(
+    async def notifications_broadcast_broadcast_notification(
         self,
         body: BroadcastNotificationCreateRequest,
         run_as: NotificationsBroadcastBroadcastNotificationParamRunAs | None = None,
@@ -571,7 +747,7 @@ class NotificationsClient:
         edit, reschedule, or expire broadcasted notifications as needed.
 
         Args:
-            run-as (Optional[NotificationsBroadcastBroadcastNotificationParamRunAs])
+            run-as (NotificationsBroadcastBroadcastNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -588,7 +764,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/broadcast"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: BroadcastNotificationCreateRequest = DataclassSerializer.serialize(body)
@@ -598,13 +774,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationCreatedResponse, response.json())
+                return structure_from_dict(response.json(), NotificationCreatedResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_get_broadcasted_2_2(
+    async def notifications_broadcast_get_broadcasted(
         self,
         notification_id: str,
         run_as: NotificationsBroadcastGetBroadcastedParamRunAs | None = None,
@@ -616,7 +792,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsBroadcastGetBroadcastedParamRunAs])
+            run-as (NotificationsBroadcastGetBroadcastedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -628,10 +804,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/broadcast/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -639,13 +817,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(BroadcastNotificationResponse, response.json())
+                return structure_from_dict(response.json(), BroadcastNotificationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_get_broadcasted_2_2(
+    async def notifications_broadcast_get_broadcasted(
         self,
         notification_id: str,
         run_as: NotificationsBroadcastGetBroadcastedParamRunAs | None = None,
@@ -657,7 +835,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsBroadcastGetBroadcastedParamRunAs])
+            run-as (NotificationsBroadcastGetBroadcastedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -669,10 +847,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/broadcast/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -680,13 +860,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(BroadcastNotificationResponse, response.json())
+                return structure_from_dict(response.json(), BroadcastNotificationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_update_broadcasted_notification_2_2(
+    async def notifications_broadcast_update_broadcasted_notification(
         self,
         notification_id: str,
         body: NotificationBroadcastUpdateRequest,
@@ -700,7 +880,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsBroadcastUpdateBroadcastedNotificationParamRunAs])
+            run-as (NotificationsBroadcastUpdateBroadcastedNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -711,10 +891,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/broadcast/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: NotificationBroadcastUpdateRequest = DataclassSerializer.serialize(body)
@@ -728,9 +910,9 @@ class NotificationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_broadcast_update_broadcasted_notification_2_2(
+    async def notifications_broadcast_update_broadcasted_notification(
         self,
         notification_id: str,
         body: NotificationBroadcastUpdateRequest,
@@ -744,7 +926,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsBroadcastUpdateBroadcastedNotificationParamRunAs])
+            run-as (NotificationsBroadcastUpdateBroadcastedNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -755,10 +937,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/broadcast/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: NotificationBroadcastUpdateRequest = DataclassSerializer.serialize(body)
@@ -772,9 +956,9 @@ class NotificationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_preferences_get_notification_preferences_2_2(
+    async def notifications_preferences_get_notification_preferences(
         self,
         run_as: NotificationsPreferencesGetNotificationPreferencesParamRunAs | None = None,
     ) -> UserNotificationPreferences:
@@ -787,7 +971,7 @@ class NotificationsClient:
         returned in the `supported-channels` header.
 
         Args:
-            run-as (Optional[NotificationsPreferencesGetNotificationPreferencesParamRunAs])
+            run-as (NotificationsPreferencesGetNotificationPreferencesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -802,7 +986,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/preferences"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -810,13 +994,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationPreferences, response.json())
+                return structure_from_dict(response.json(), UserNotificationPreferences)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_preferences_get_notification_preferences_2_2(
+    async def notifications_preferences_get_notification_preferences(
         self,
         run_as: NotificationsPreferencesGetNotificationPreferencesParamRunAs | None = None,
     ) -> UserNotificationPreferences:
@@ -829,7 +1013,7 @@ class NotificationsClient:
         returned in the `supported-channels` header.
 
         Args:
-            run-as (Optional[NotificationsPreferencesGetNotificationPreferencesParamRunAs])
+            run-as (NotificationsPreferencesGetNotificationPreferencesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -844,7 +1028,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/preferences"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -852,13 +1036,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationPreferences, response.json())
+                return structure_from_dict(response.json(), UserNotificationPreferences)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_preferences_update_notification_preferences_2_2(
+    async def notifications_preferences_update_notification_preferences(
         self,
         body: UpdateUserNotificationPreferencesRequest,
         run_as: NotificationsPreferencesUpdateNotificationPreferencesParamRunAs | None = None,
@@ -871,7 +1055,7 @@ class NotificationsClient:
         particular type (category) or to enable/disable a particular channel on each category.
 
         Args:
-            run-as (Optional[NotificationsPreferencesUpdateNotificationPreferencesParamRunAs])
+            run-as (NotificationsPreferencesUpdateNotificationPreferencesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -888,7 +1072,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/preferences"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UpdateUserNotificationPreferencesRequest = DataclassSerializer.serialize(body)
@@ -898,13 +1082,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationPreferences, response.json())
+                return structure_from_dict(response.json(), UserNotificationPreferences)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_preferences_update_notification_preferences_2_2(
+    async def notifications_preferences_update_notification_preferences(
         self,
         body: UpdateUserNotificationPreferencesRequest,
         run_as: NotificationsPreferencesUpdateNotificationPreferencesParamRunAs | None = None,
@@ -917,7 +1101,7 @@ class NotificationsClient:
         particular type (category) or to enable/disable a particular channel on each category.
 
         Args:
-            run-as (Optional[NotificationsPreferencesUpdateNotificationPreferencesParamRunAs])
+            run-as (NotificationsPreferencesUpdateNotificationPreferencesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -934,7 +1118,7 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/preferences"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UpdateUserNotificationPreferencesRequest = DataclassSerializer.serialize(body)
@@ -944,13 +1128,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationPreferences, response.json())
+                return structure_from_dict(response.json(), UserNotificationPreferences)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_status_get_notifications_status_2_2(
+    async def notifications_status_get_notifications_status(
         self,
         since: datetime,
         run_as: NotificationsStatusGetNotificationsStatusParamRunAs | None = None,
@@ -962,7 +1146,7 @@ class NotificationsClient:
 
         Args:
             since (datetime)         :
-            run-as (Optional[NotificationsStatusGetNotificationsStatusParamRunAs])
+            run-as (NotificationsStatusGetNotificationsStatusParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -977,11 +1161,11 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/status"
 
         params: dict[str, Any] = {
-            "since": since,
+            "since": DataclassSerializer.serialize(since),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -989,13 +1173,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationStatusSummary, response.json())
+                return structure_from_dict(response.json(), NotificationStatusSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_status_get_notifications_status_2_2(
+    async def notifications_status_get_notifications_status(
         self,
         since: datetime,
         run_as: NotificationsStatusGetNotificationsStatusParamRunAs | None = None,
@@ -1007,7 +1191,7 @@ class NotificationsClient:
 
         Args:
             since (datetime)         :
-            run-as (Optional[NotificationsStatusGetNotificationsStatusParamRunAs])
+            run-as (NotificationsStatusGetNotificationsStatusParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1022,11 +1206,11 @@ class NotificationsClient:
         url = f"{self.base_url}/api/notifications/status"
 
         params: dict[str, Any] = {
-            "since": since,
+            "since": DataclassSerializer.serialize(since),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1034,13 +1218,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(NotificationStatusSummary, response.json())
+                return structure_from_dict(response.json(), NotificationStatusSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_delete_user_notification_2_2(
+    async def notifications_delete_user_notification(
         self,
         notification_id: str,
         run_as: NotificationsDeleteUserNotificationParamRunAs | None = None,
@@ -1056,7 +1240,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsDeleteUserNotificationParamRunAs])
+            run-as (NotificationsDeleteUserNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1065,10 +1249,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1080,9 +1266,9 @@ class NotificationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_delete_user_notification_2_2(
+    async def notifications_delete_user_notification(
         self,
         notification_id: str,
         run_as: NotificationsDeleteUserNotificationParamRunAs | None = None,
@@ -1098,7 +1284,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsDeleteUserNotificationParamRunAs])
+            run-as (NotificationsDeleteUserNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1107,10 +1293,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1122,9 +1310,9 @@ class NotificationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_show_notification_2_2(
+    async def notifications_show_notification(
         self,
         notification_id: str,
         run_as: NotificationsShowNotificationParamRunAs | None = None,
@@ -1134,7 +1322,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsShowNotificationParamRunAs])
+            run-as (NotificationsShowNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1146,10 +1334,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1157,13 +1347,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationResponse, response.json())
+                return structure_from_dict(response.json(), UserNotificationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_show_notification_2_2(
+    async def notifications_show_notification(
         self,
         notification_id: str,
         run_as: NotificationsShowNotificationParamRunAs | None = None,
@@ -1173,7 +1363,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsShowNotificationParamRunAs])
+            run-as (NotificationsShowNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1185,10 +1375,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1196,13 +1388,13 @@ class NotificationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserNotificationResponse, response.json())
+                return structure_from_dict(response.json(), UserNotificationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_update_user_notification_2_2(
+    async def notifications_update_user_notification(
         self,
         notification_id: str,
         body: UserNotificationUpdateRequest,
@@ -1213,7 +1405,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsUpdateUserNotificationParamRunAs])
+            run-as (NotificationsUpdateUserNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1224,10 +1416,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserNotificationUpdateRequest = DataclassSerializer.serialize(body)
@@ -1241,9 +1435,9 @@ class NotificationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def notifications_update_user_notification_2_2(
+    async def notifications_update_user_notification(
         self,
         notification_id: str,
         body: UserNotificationUpdateRequest,
@@ -1254,7 +1448,7 @@ class NotificationsClient:
 
         Args:
             notification_id (str)    : The ID of the Notification.
-            run-as (Optional[NotificationsUpdateUserNotificationParamRunAs])
+            run-as (NotificationsUpdateUserNotificationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1265,10 +1459,12 @@ class NotificationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        notification_id = DataclassSerializer.serialize(notification_id)
+
         url = f"{self.base_url}/api/notifications/{notification_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserNotificationUpdateRequest = DataclassSerializer.serialize(body)
@@ -1282,4 +1478,4 @@ class NotificationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

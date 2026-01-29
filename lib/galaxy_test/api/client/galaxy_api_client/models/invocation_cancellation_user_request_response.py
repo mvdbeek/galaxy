@@ -1,15 +1,28 @@
 from dataclasses import dataclass
 
+from .invocation_message_response_union_reason_enum import InvocationMessageResponseUnionReasonEnum
+
 __all__ = ["InvocationCancellationUserRequestResponse"]
 
 
 @dataclass
 class InvocationCancellationUserRequestResponse:
     """
-    InvocationCancellationUserRequestResponse dataclass.
+    InvocationCancellationUserRequestResponse dataclass
 
     Args:
-        reason (str)             :
+        reason (InvocationMessageResponseUnionReasonEnum)
+                                 :
     """
 
-    reason: str
+    reason: InvocationMessageResponseUnionReasonEnum
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "reason": "reason",
+        }
+        key_transform_with_dump = {
+            "reason": "reason",
+        }

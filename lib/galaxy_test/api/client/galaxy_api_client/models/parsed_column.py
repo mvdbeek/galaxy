@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .type_ import Type_
+from .type__9 import Type9
 
 __all__ = ["ParsedColumn"]
 
@@ -8,14 +8,28 @@ __all__ = ["ParsedColumn"]
 @dataclass
 class ParsedColumn:
     """
-    ParsedColumn dataclass.
+    ParsedColumn dataclass
 
     Args:
         title (str)              :
-        type_ (Type_)            : The type of content to be created in the history.
+        type_ (Type9)            : Maps from 'type'
         type_index (int)         :
     """
 
     title: str
-    type_: Type_  # The type of content to be created in the history.
+    type_: Type9  # Maps from 'type'
     type_index: int
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "title": "title",
+            "type": "type_",
+            "type_index": "type_index",
+        }
+        key_transform_with_dump = {
+            "title": "title",
+            "type_": "type",
+            "type_index": "type_index",
+        }

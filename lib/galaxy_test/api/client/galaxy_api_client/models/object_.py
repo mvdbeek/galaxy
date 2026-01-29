@@ -6,5 +6,5 @@ from .hda_object import HdaObject
 
 __all__ = ["Object_"]
 
-Object_: TypeAlias = DcObject | HdaDetailed | HdaObject | None
+Object_: TypeAlias = HdaObject | HdaDetailed | DcObject | None
 """Alias for The element's specific data depending on the value of `element_type`."""

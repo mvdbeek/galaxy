@@ -1,13 +1,9 @@
-from dataclasses import dataclass
+from typing import TypeAlias
+
+from .encoded_job_details import EncodedJobDetails
+from .job_summary import JobSummary
+from .show_full_job_response import ShowFullJobResponse
 
 __all__ = ["AnonymousArrayItem115"]
 
-
-@dataclass
-class AnonymousArrayItem115:
-    """
-    AnonymousArrayItem115 dataclass.
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem115: TypeAlias = ShowFullJobResponse | EncodedJobDetails | JobSummary

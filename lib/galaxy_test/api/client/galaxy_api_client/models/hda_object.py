@@ -1,10 +1,9 @@
 from dataclasses import dataclass
 
-from .accessible import Accessible
-from .copied_from_ldda_id import CopiedFromLddaId
 from .dataset_source_type import DatasetSourceType
 from .dataset_state import DatasetState
-from .tags import Tags
+from .hda_object_accessible import HdaObjectAccessible
+from .hda_object_copied_from_ldda_id import HdaObjectCopiedFromLddaId
 
 __all__ = ["HdaObject"]
 
@@ -16,26 +15,51 @@ class HdaObject:
 
     Args:
         history_id (str)         :
-        id_ (str)                :
+        id_ (str)                : Maps from 'id'
         model_class (str)        : The name of the database model class.
         purged (bool)            :
         state (DatasetState)     :
-        tags (Tags)              : The collection of tags associated with an item.
-        accessible (Optional[Accessible])
-                                 : Whether this item is accessible to the current user due
-                                   to permissions.
-        copied_from_ldda_id (Optional[CopiedFromLddaId])
+        tags (List[str])         :
+        accessible (HdaObjectAccessible | None)
                                  :
-        hda_ldda (Optional[DatasetSourceType])
+        copied_from_ldda_id (HdaObjectCopiedFromLddaId | None)
+                                 :
+        hda_ldda (DatasetSourceType | None)
                                  :
     """
 
     history_id: str
-    id_: str
+    id_: str  # Maps from 'id'
     model_class: str  # The name of the database model class.
     purged: bool
     state: DatasetState
-    tags: Tags  # The collection of tags associated with an item.
-    accessible: Accessible | None = None  # Whether this item is accessible to the current user due to permissions.
-    copied_from_ldda_id: CopiedFromLddaId | None = None
+    tags: list[str]
+    accessible: HdaObjectAccessible | None = None
+    copied_from_ldda_id: HdaObjectCopiedFromLddaId | None = None
     hda_ldda: DatasetSourceType | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "accessible": "accessible",
+            "copied_from_ldda_id": "copied_from_ldda_id",
+            "hda_ldda": "hda_ldda",
+            "history_id": "history_id",
+            "id": "id_",
+            "model_class": "model_class",
+            "purged": "purged",
+            "state": "state",
+            "tags": "tags",
+        }
+        key_transform_with_dump = {
+            "accessible": "accessible",
+            "copied_from_ldda_id": "copied_from_ldda_id",
+            "hda_ldda": "hda_ldda",
+            "history_id": "history_id",
+            "id_": "id",
+            "model_class": "model_class",
+            "purged": "purged",
+            "state": "state",
+            "tags": "tags",
+        }

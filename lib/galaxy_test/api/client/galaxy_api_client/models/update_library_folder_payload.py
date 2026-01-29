@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .description import Description
-from .name import Name
+from .update_library_folder_payload_description import UpdateLibraryFolderPayloadDescription
+from .update_library_folder_payload_name import UpdateLibraryFolderPayloadName
 
 __all__ = ["UpdateLibraryFolderPayload"]
 
@@ -9,13 +9,26 @@ __all__ = ["UpdateLibraryFolderPayload"]
 @dataclass
 class UpdateLibraryFolderPayload:
     """
-    UpdateLibraryFolderPayload dataclass.
+    UpdateLibraryFolderPayload dataclass
 
     Args:
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        name (Optional[Name])    : The name of the creator.
+        description (UpdateLibraryFolderPayloadDescription | None)
+                                 : The new description of the library folder.
+        name (UpdateLibraryFolderPayloadName | None)
+                                 : The new name of the library folder.
     """
 
-    description: Description | None = ""  # Detailed text description for this Quota.
-    name: Name | None = None  # The name of the creator.
+    description: UpdateLibraryFolderPayloadDescription | None = None  # The new description of the library folder.
+    name: UpdateLibraryFolderPayloadName | None = None  # The new name of the library folder.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "name": "name",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "name": "name",
+        }

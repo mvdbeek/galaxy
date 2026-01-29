@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .collection_type import CollectionType
-from .parse_log import ParseLog
 from .parsed_column import ParsedColumn
-from .rows import Rows
-from .workbook_type import WorkbookType
+from .parsed_fetch_workbook_for_collections_collection_type import ParsedFetchWorkbookForCollectionsCollectionType
+from .parsed_fetch_workbook_for_collections_parse_log import ParsedFetchWorkbookForCollectionsParseLog
+from .parsed_fetch_workbook_for_collections_rows import ParsedFetchWorkbookForCollectionsRows
+from .parsed_fetch_workbook_for_collections_workbook_type import ParsedFetchWorkbookForCollectionsWorkbookType
 
 __all__ = ["ParsedFetchWorkbookForCollections"]
 
@@ -12,26 +12,41 @@ __all__ = ["ParsedFetchWorkbookForCollections"]
 @dataclass
 class ParsedFetchWorkbookForCollections:
     """
-    ParsedFetchWorkbookForCollections dataclass.
+    ParsedFetchWorkbookForCollections dataclass
 
     Args:
-        collection_type (Optional[CollectionType])
-                                 : The type of the collection, can be `list`, `paired`, or
-                                   define subcollections using `:` as separator like
-                                   `list:paired` or `list:list`.
+        collection_type (ParsedFetchWorkbookForCollectionsCollectionType)
+                                 :
         columns (List[ParsedColumn])
                                  :
-        parse_log (ParseLog)     :
-        rows (Optional[Rows])    : Specify rows of metadata data corresponding to an
-                                   identifier if collection_type is sample_sheet
-        workbook_type (Optional[WorkbookType])
+        parse_log (ParsedFetchWorkbookForCollectionsParseLog)
+                                 :
+        rows (ParsedFetchWorkbookForCollectionsRows)
+                                 :
+        workbook_type (ParsedFetchWorkbookForCollectionsWorkbookType | None)
                                  :
     """
 
-    collection_type: (
-        CollectionType | None
-    )  # The type of the collection, can be `list`, `paired`, or define subcollections using `:` as separator like `list:paired` or `list:list`.
+    collection_type: ParsedFetchWorkbookForCollectionsCollectionType
     columns: list[ParsedColumn]
-    parse_log: ParseLog
-    rows: Rows | None  # Specify rows of metadata data corresponding to an identifier if collection_type is sample_sheet
-    workbook_type: WorkbookType | None = "datasets"
+    parse_log: ParsedFetchWorkbookForCollectionsParseLog
+    rows: ParsedFetchWorkbookForCollectionsRows
+    workbook_type: ParsedFetchWorkbookForCollectionsWorkbookType | None = "collection"
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "collection_type": "collection_type",
+            "columns": "columns",
+            "parse_log": "parse_log",
+            "rows": "rows",
+            "workbook_type": "workbook_type",
+        }
+        key_transform_with_dump = {
+            "collection_type": "collection_type",
+            "columns": "columns",
+            "parse_log": "parse_log",
+            "rows": "rows",
+            "workbook_type": "workbook_type",
+        }

@@ -3,11 +3,11 @@
 This module contains utility classes and functions used across the code generation process.
 """
 
+import base64
 import dataclasses
 import keyword
 import logging
 import re
-from datetime import datetime
 from typing import Any, TypeVar, cast
 
 logger = logging.getLogger(__name__)
@@ -124,7 +124,8 @@ class NameSanitizer:
 
     @staticmethod
     def sanitize_module_name(name: str) -> str:
-        """Convert a raw name into a valid Python module name in snake_case, splitting camel case and PascalCase."""
+        """Convert a raw name into a valid Python module name in snake_case,
+        splitting camel case and PascalCase."""
         # # <<< Add Check for problematic input >>>
         # if '[' in name or ']' in name or ',' in name:
         #     logger.error(f"sanitize_module_name received potentially invalid input: '{name}'")
@@ -194,7 +195,8 @@ class NameSanitizer:
 
     @staticmethod
     def sanitize_method_name(name: str) -> str:
-        """Convert a raw name into a valid Python method name in snake_case, splitting camelCase and PascalCase."""
+        """Convert a raw name into a valid Python method name in snake_case,
+        splitting camelCase and PascalCase."""
         # Remove curly braces
         name = re.sub(r"[{}]", "", name)
         # Split camelCase and PascalCase to snake_case
@@ -260,9 +262,15 @@ class KwargsBuilder:
 
 
 class Formatter:
-    """Helper to format code using Black, falling back to unformatted content if Black is unavailable or errors."""
+    """Helper to format code using Black, falling back to unformatted content if
+    Black is unavailable or errors."""
 
     def __init__(self) -> None:
+        from collections.abc import Callable
+        from typing import Any
+
+        self._file_mode: Any | None = None
+        self._format_str: Callable[..., str] | None = None
         try:
             from black import FileMode, format_str
 
@@ -278,14 +286,15 @@ class Formatter:
             self._file_mode = FileMode()
             self._format_str = format_str
         except ImportError:
-            self._file_mode = None  # type: ignore[assignment]
-            self._format_str = None  # type: ignore[assignment]
+            self._file_mode = None
+            self._format_str = None
 
     def format(self, code: str) -> str:
         """Format the given code string with Black if possible."""
         if self._format_str is not None and self._file_mode is not None:
             try:
-                return self._format_str(code, mode=self._file_mode)
+                formatted: str = self._format_str(code, mode=self._file_mode)
+                return formatted
             except Exception:
                 # On any Black formatting error, return original code
                 return code
@@ -306,104 +315,165 @@ def safe_cast(expected_type: type[T], data: Any) -> T:
 
 
 class DataclassSerializer:
-    """Utility for converting dataclass instances to dictionaries for API serialization.
+    """Utility for converting dataclass instances to dictionaries for API serialisation.
 
-    This enables automatic conversion of dataclass request bodies to JSON-compatible
-    dictionaries in generated client code, providing a better developer experience.
+    This is a convenience wrapper around cattrs unstructure_to_dict() with
+    circular reference protection. All serialisation is delegated to cattrs which provides:
+    - Custom unstructure hooks for correct handling of generated types
+    - Field name transformation (snake_case → camelCase)
+    - Type-specific handling (datetime, bytes, enums)
+    - Recursive nested dataclass handling
+
+    Circular reference protection is provided by tracking visited objects and
+    post-processing cattrs output to ensure complete dict conversion.
+
+    Note: This class is maintained for backward compatibility.
+    New code should use unstructure_to_dict() directly from cattrs_converter.
     """
 
     @staticmethod
     def serialize(obj: Any) -> Any:
-        """Convert dataclass instances to dictionaries recursively.
+        """Convert dataclass instances to dictionaries using cattrs with circular ref protection.
+
+        Uses cattrs converter which respects custom unstructure hooks
+        for correct handling of all generated types, with additional circular
+        reference tracking to ensure JSON-safe output.
 
         Args:
-            obj: The object to serialize. Can be a dataclass, list, dict, or primitive.
+            obj: The object to serialise. Can be a dataclass, list, dict, or primitive.
 
         Returns:
-            The serialized object with dataclasses converted to dictionaries.
+            The serialised object with dataclasses converted to dictionaries.
+            Guaranteed to be JSON-serializable (no dataclass instances in output).
 
         Handles:
-        - Dataclass instances: Converted to dictionaries
-        - Lists: Recursively serialize each item
-        - Dictionaries: Recursively serialize values
+        - Dataclass instances with Meta.key_transform_with_dump: Applies field
+          name mapping (snake_case → camelCase)
+        - Regular dataclass instances: Converted to dictionaries using field names
+        - Lists: Recursively serialise each item
+        - Dictionaries: Recursively serialise values
         - datetime: Convert to ISO format string
+        - Enums: Convert to their value
+        - bytes/bytearray: Convert to base64-encoded ASCII string
         - Primitives: Return unchanged
         - None values: Excluded from output
+        - Circular references: Handled gracefully (returns None for cycles)
+        - Custom cattrs hooks: Applied automatically for types with registered hooks
         """
-        # Track visited objects to handle circular references
         return DataclassSerializer._serialize_with_tracking(obj, set())
 
     @staticmethod
     def _serialize_with_tracking(obj: Any, visited: set[int]) -> Any:
-        """Internal serialization method with circular reference tracking."""
+        """Internal serialisation with circular reference tracking.
 
-        # Handle None values by excluding them
-        if obj is None:
-            return None
+        This wraps cattrs.unstructure_to_dict() with:
+        - Circular reference detection (prevents infinite recursion)
+        - Post-processing to ensure complete dict conversion
+
+        cattrs handles:
+        - Custom unstructure hooks (critical for types with _data fields)
+        - Field name transformations (Meta.key_transform_with_dump)
+        - Type-specific conversions (datetime, enum, bytes)
+
+        Args:
+            obj: The object to serialise
+            visited: Set of object IDs currently being processed
+
+        Returns:
+            Serialised object with all dataclasses converted to dicts
+        """
+        from .cattrs_converter import unstructure_to_dict
+
+        # Handle primitives early (no tracking needed)
+        if obj is None or isinstance(obj, (str, int, float, bool)):
+            return obj
 
         # Handle circular references
         obj_id = id(obj)
         if obj_id in visited:
-            # For circular references, return a simple representation
-            if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
-                return f"<Circular reference to {obj.__class__.__name__}>"
-            return obj
+            # Return None for circular refs (JSON-safe, avoids infinite recursion)
+            return None
 
-        # Handle datetime objects
-        if isinstance(obj, datetime):
-            return obj.isoformat()
+        # Special handling for bytearray (cattrs handles bytes but not bytearray)
+        if isinstance(obj, bytearray):
+            return base64.b64encode(bytes(obj)).decode("ascii")
 
-        # Handle dataclass instances
+        # Handle lists - recurse on each item
+        if isinstance(obj, list):
+            visited.add(obj_id)
+            try:
+                return [DataclassSerializer._serialize_with_tracking(item, visited) for item in obj]
+            finally:
+                visited.remove(obj_id)
+
+        # For dataclasses, track and use cattrs
         if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
             visited.add(obj_id)
             try:
-                result = {}
-                for field in dataclasses.fields(obj):
-                    value = getattr(obj, field.name)
-                    # Skip None values to keep JSON clean
-                    if value is not None:
-                        serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
-                        if serialized_value is not None:
-                            result[field.name] = serialized_value
-                return result
+                # Let cattrs do the heavy lifting (respects custom hooks, field mappings, etc.)
+                result = unstructure_to_dict(obj)
+
+                # Post-process to ensure nested dataclasses are fully converted
+                result = DataclassSerializer._ensure_all_dicts(result, visited)
+
+                # Filter None values (maintains API compatibility)
+                return DataclassSerializer._remove_none_values(result)
             finally:
-                visited.discard(obj_id)
+                visited.remove(obj_id)
 
-        # Handle lists and tuples
-        if isinstance(obj, (list, tuple)):
-            return [DataclassSerializer._serialize_with_tracking(item, visited) for item in obj]
+        # For everything else (dicts, primitives, etc.), let cattrs handle it
+        result = unstructure_to_dict(obj)
+        return DataclassSerializer._remove_none_values(result)
 
-        # Handle dictionaries
+    @staticmethod
+    def _ensure_all_dicts(obj: Any, visited: set[int]) -> Any:
+        """Post-process cattrs output to ensure nested dataclasses are dicts.
+
+        cattrs sometimes leaves nested dataclass instances unconverted in circular
+        reference scenarios. This recursively ensures all dataclasses become dicts.
+
+        Args:
+            obj: The object from cattrs (dict, list, or primitive)
+            visited: Set of object IDs already being processed
+
+        Returns:
+            Object with all nested dataclasses converted to dicts
+        """
+        # If we encounter a dataclass instance, it wasn't properly unstructured by cattrs
+        if dataclasses.is_dataclass(obj) and not isinstance(obj, type):
+            # Recurse through serialize to handle it properly
+            return DataclassSerializer._serialize_with_tracking(obj, visited)
+
+        # Recursively process dict values
         if isinstance(obj, dict):
             result = {}
             for key, value in obj.items():
-                serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
-                if serialized_value is not None:
-                    result[key] = serialized_value
+                if value is not None:  # Skip None values
+                    processed = DataclassSerializer._ensure_all_dicts(value, visited)
+                    if processed is not None:  # Only include if not None after processing
+                        result[key] = processed
             return result
 
-        # Handle primitive types and unknown objects
-        if isinstance(obj, (str, int, float, bool)):
-            return obj
+        # Recursively process list items
+        if isinstance(obj, list):
+            return [DataclassSerializer._ensure_all_dicts(item, visited) for item in obj]
 
-        # For unknown types, try to convert to string as fallback
-        try:
-            # If the object has a __dict__, try to serialize it like a dataclass
-            if hasattr(obj, "__dict__"):
-                visited.add(obj_id)
-                try:
-                    result = {}
-                    for key, value in obj.__dict__.items():
-                        if not key.startswith("_"):  # Skip private attributes
-                            serialized_value = DataclassSerializer._serialize_with_tracking(value, visited)
-                            if serialized_value is not None:
-                                result[key] = serialized_value
-                    return result
-                finally:
-                    visited.discard(obj_id)
-            else:
-                # Fallback to string representation
-                return str(obj)
-        except Exception:
-            # Ultimate fallback
-            return str(obj)
+        # Primitives pass through
+        return obj
+
+    @staticmethod
+    def _remove_none_values(obj: Any) -> Any:
+        """Recursively remove None values from dictionaries and lists.
+
+        Args:
+            obj: The object to filter (dict, list, or other)
+
+        Returns:
+            The object with None values removed from dicts
+        """
+        if isinstance(obj, dict):
+            return {k: DataclassSerializer._remove_none_values(v) for k, v in obj.items() if v is not None}
+        elif isinstance(obj, list):
+            return [DataclassSerializer._remove_none_values(item) for item in obj]
+        else:
+            return obj

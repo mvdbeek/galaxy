@@ -1,14 +1,7 @@
-from dataclasses import dataclass
+from typing import TypeAlias
+
+from .encoded_job_parameter_history_item import EncodedJobParameterHistoryItem
 
 __all__ = ["AnonymousArrayItem60"]
 
-
-@dataclass
-class AnonymousArrayItem60:
-    """
-    [Circular reference detected: AnonymousArrayItem60 -> ServiceCredentialGroupResponse ->
-    AnonymousArrayItem60]
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem60: TypeAlias = EncodedJobParameterHistoryItem | None

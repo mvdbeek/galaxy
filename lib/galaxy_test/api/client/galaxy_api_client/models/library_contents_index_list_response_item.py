@@ -6,5 +6,5 @@ from .library_contents_index_folder_response import LibraryContentsIndexFolderRe
 __all__ = ["LibraryContentsIndexListResponseItem"]
 
 LibraryContentsIndexListResponseItem: TypeAlias = (
-    LibraryContentsIndexDatasetResponse | LibraryContentsIndexFolderResponse
+    LibraryContentsIndexFolderResponse | LibraryContentsIndexDatasetResponse
 )

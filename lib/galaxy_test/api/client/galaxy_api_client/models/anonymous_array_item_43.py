@@ -1,14 +1,7 @@
-from dataclasses import dataclass
+from typing import TypeAlias
+
+from .anonymous_array_item_43_item import AnonymousArrayItem43Item
 
 __all__ = ["AnonymousArrayItem43"]
 
-
-@dataclass
-class AnonymousArrayItem43:
-    """
-    [Circular reference detected: AnonymousArrayItem43 -> DatasetSource -> Transform ->
-    AnonymousArrayItem43]
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem43: TypeAlias = list[AnonymousArrayItem43Item]

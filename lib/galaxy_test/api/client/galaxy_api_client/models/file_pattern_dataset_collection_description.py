@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .directory import Directory
-from .format_ import Format_
-from .sort_comp import SortComp
-from .sort_key import SortKey
+from .file_pattern_dataset_collection_description_directory import FilePatternDatasetCollectionDescriptionDirectory
+from .file_pattern_dataset_collection_description_sort_comp import FilePatternDatasetCollectionDescriptionSortComp
+from .file_pattern_dataset_collection_description_sort_key import FilePatternDatasetCollectionDescriptionSortKey
+from .format__2 import Format2
 
 __all__ = ["FilePatternDatasetCollectionDescription"]
 
@@ -11,33 +11,64 @@ __all__ = ["FilePatternDatasetCollectionDescription"]
 @dataclass
 class FilePatternDatasetCollectionDescription:
     """
-    FilePatternDatasetCollectionDescription dataclass.
+    FilePatternDatasetCollectionDescription dataclass
 
     Args:
         assign_primary_output (bool)
                                  :
-        directory (Optional[Directory])
+        directory (FilePatternDatasetCollectionDescriptionDirectory)
                                  :
         discover_via (str)       :
-        format_ (Format_)        : The short name for the output datatype.
+        format_ (Format2 | None) : Maps from 'format'
         match_relative_path (bool):
         pattern (str)            :
         recurse (bool)           :
-        sort_comp (SortComp)     :
-        sort_key (SortKey)       :
-        visible (bool)           :
-        sort_reverse (Optional[bool])
+        sort_comp (FilePatternDatasetCollectionDescriptionSortComp)
                                  :
+        sort_key (FilePatternDatasetCollectionDescriptionSortKey)
+                                 :
+        visible (bool)           :
+        sort_reverse (bool | None):
     """
 
     assign_primary_output: bool
-    directory: Directory | None
+    directory: FilePatternDatasetCollectionDescriptionDirectory
     discover_via: str
-    format_: Format_  # The short name for the output datatype.
+    format_: Format2 | None  # Maps from 'format'
     match_relative_path: bool
     pattern: str
     recurse: bool
-    sort_comp: SortComp
-    sort_key: SortKey
+    sort_comp: FilePatternDatasetCollectionDescriptionSortComp
+    sort_key: FilePatternDatasetCollectionDescriptionSortKey
     visible: bool
     sort_reverse: bool | None = False
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "assign_primary_output": "assign_primary_output",
+            "directory": "directory",
+            "discover_via": "discover_via",
+            "format": "format_",
+            "match_relative_path": "match_relative_path",
+            "pattern": "pattern",
+            "recurse": "recurse",
+            "sort_comp": "sort_comp",
+            "sort_key": "sort_key",
+            "sort_reverse": "sort_reverse",
+            "visible": "visible",
+        }
+        key_transform_with_dump = {
+            "assign_primary_output": "assign_primary_output",
+            "directory": "directory",
+            "discover_via": "discover_via",
+            "format_": "format",
+            "match_relative_path": "match_relative_path",
+            "pattern": "pattern",
+            "recurse": "recurse",
+            "sort_comp": "sort_comp",
+            "sort_key": "sort_key",
+            "sort_reverse": "sort_reverse",
+            "visible": "visible",
+        }

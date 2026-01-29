@@ -1,0 +1,15 @@
+from typing import TypeAlias
+
+from .library_contents_create_dataset_collection_response import LibraryContentsCreateDatasetCollectionResponse
+from .library_contents_create_dataset_response import LibraryContentsCreateDatasetResponse
+from .library_contents_create_file_list_response import LibraryContentsCreateFileListResponse
+from .library_contents_create_folder_list_response import LibraryContentsCreateFolderListResponse
+
+__all__ = ["LibrariesContentsCreateForm200Response"]
+
+LibrariesContentsCreateForm200Response: TypeAlias = (
+    LibraryContentsCreateFolderListResponse
+    | LibraryContentsCreateFileListResponse
+    | LibraryContentsCreateDatasetCollectionResponse
+    | LibraryContentsCreateDatasetResponse
+)

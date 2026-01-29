@@ -1,14 +1,14 @@
 from dataclasses import dataclass
 
-from .address import Address
-from .alternate_name import AlternateName
-from .email_ import Email_
-from .fax_number import FaxNumber
-from .identifier import Identifier
-from .image import Image
-from .name import Name
-from .telephone import Telephone
-from .url import Url
+from .email__5 import Email5
+from .galaxy_schema_schema_organization_address import GalaxySchemaSchemaOrganizationAddress
+from .galaxy_schema_schema_organization_alternate_name import GalaxySchemaSchemaOrganizationAlternateName
+from .galaxy_schema_schema_organization_fax_number import GalaxySchemaSchemaOrganizationFaxNumber
+from .galaxy_schema_schema_organization_identifier import GalaxySchemaSchemaOrganizationIdentifier
+from .galaxy_schema_schema_organization_image import GalaxySchemaSchemaOrganizationImage
+from .galaxy_schema_schema_organization_name import GalaxySchemaSchemaOrganizationName
+from .galaxy_schema_schema_organization_telephone import GalaxySchemaSchemaOrganizationTelephone
+from .galaxy_schema_schema_organization_url import GalaxySchemaSchemaOrganizationUrl
 
 __all__ = ["GalaxySchemaSchemaOrganization"]
 
@@ -16,34 +16,64 @@ __all__ = ["GalaxySchemaSchemaOrganization"]
 @dataclass
 class GalaxySchemaSchemaOrganization:
     """
-    GalaxySchemaSchemaOrganization dataclass.
+    GalaxySchemaSchemaOrganization dataclass
 
     Args:
-        address (Optional[Address])
+        address (GalaxySchemaSchemaOrganizationAddress | None)
                                  :
-        alternate_name (Optional[AlternateName])
-                                 :
-        class_ (Optional[str])   :
-        email_ (Optional[Email_]): Email address for communication with the user. Only
-                                   required for anonymous users.
-        fax_number (Optional[FaxNumber])
-                                 :
-        identifier (Optional[Identifier])
+        alternate_name (GalaxySchemaSchemaOrganizationAlternateName | None)
+                                 : Maps from 'alternateName'
+        class_ (str | None)      : Maps from 'class'
+        email_ (Email5 | None)   : Maps from 'email'
+        fax_number (GalaxySchemaSchemaOrganizationFaxNumber | None)
+                                 : Maps from 'faxNumber'
+        identifier (GalaxySchemaSchemaOrganizationIdentifier | None)
                                  : Identifier (typically an orcid.org ID)
-        image (Optional[Image])  :
-        name (Optional[Name])    : The name of the creator.
-        telephone (Optional[Telephone])
+        image (GalaxySchemaSchemaOrganizationImage | None)
                                  :
-        url (Optional[Url])      : The relative URL to access this item.
+        name (GalaxySchemaSchemaOrganizationName | None)
+                                 : The name of the creator.
+        telephone (GalaxySchemaSchemaOrganizationTelephone | None)
+                                 :
+        url (GalaxySchemaSchemaOrganizationUrl | None)
+                                 :
     """
 
-    address: Address | None = None
-    alternate_name: AlternateName | None = None
-    class_: str | None = "Organization"
-    email_: Email_ | None = None  # Email address for communication with the user. Only required for anonymous users.
-    fax_number: FaxNumber | None = None
-    identifier: Identifier | None = None  # Identifier (typically an orcid.org ID)
-    image: Image | None = None
-    name: Name | None = None  # The name of the creator.
-    telephone: Telephone | None = None
-    url: Url | None = None  # The relative URL to access this item.
+    address: GalaxySchemaSchemaOrganizationAddress | None = None
+    alternate_name: GalaxySchemaSchemaOrganizationAlternateName | None = None  # Maps from 'alternateName'
+    class_: str | None = "Organization"  # Maps from 'class'
+    email_: Email5 | None = None  # Maps from 'email'
+    fax_number: GalaxySchemaSchemaOrganizationFaxNumber | None = None  # Maps from 'faxNumber'
+    identifier: GalaxySchemaSchemaOrganizationIdentifier | None = None  # Identifier (typically an orcid.org ID)
+    image: GalaxySchemaSchemaOrganizationImage | None = None
+    name: GalaxySchemaSchemaOrganizationName | None = None  # The name of the creator.
+    telephone: GalaxySchemaSchemaOrganizationTelephone | None = None
+    url: GalaxySchemaSchemaOrganizationUrl | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "address": "address",
+            "alternateName": "alternate_name",
+            "class": "class_",
+            "email": "email_",
+            "faxNumber": "fax_number",
+            "identifier": "identifier",
+            "image": "image",
+            "name": "name",
+            "telephone": "telephone",
+            "url": "url",
+        }
+        key_transform_with_dump = {
+            "address": "address",
+            "alternate_name": "alternateName",
+            "class_": "class",
+            "email_": "email",
+            "fax_number": "faxNumber",
+            "identifier": "identifier",
+            "image": "image",
+            "name": "name",
+            "telephone": "telephone",
+            "url": "url",
+        }

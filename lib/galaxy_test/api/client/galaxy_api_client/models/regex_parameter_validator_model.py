@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from .message import Message
+from .anonymous_array_item_56_type_enum import AnonymousArrayItem56TypeEnum
+from .regex_parameter_validator_model_message import RegexParameterValidatorModelMessage
 
 __all__ = ["RegexParameterValidatorModel"]
 
@@ -15,15 +16,34 @@ class RegexParameterValidatorModel:
 
     Args:
         expression (str)         :
-        implicit (Optional[bool]):
-        message (Optional[Message])
-                                 : The optional message sent with the error report.
-        negate (Optional[bool])  :
-        type_ (Optional[str])    :
+        implicit (bool | None)   :
+        message (RegexParameterValidatorModelMessage | None)
+                                 :
+        negate (bool | None)     :
+        type_ (AnonymousArrayItem56TypeEnum | None)
+                                 : Maps from 'type'
     """
 
     expression: str
     implicit: bool | None = False
-    message: Message | None = None  # The optional message sent with the error report.
+    message: RegexParameterValidatorModelMessage | None = None
     negate: bool | None = False
-    type_: str | None = "regex"
+    type_: AnonymousArrayItem56TypeEnum | None = AnonymousArrayItem56TypeEnum.REGEX  # Maps from 'type'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "expression": "expression",
+            "implicit": "implicit",
+            "message": "message",
+            "negate": "negate",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "expression": "expression",
+            "implicit": "implicit",
+            "message": "message",
+            "negate": "negate",
+            "type_": "type",
+        }

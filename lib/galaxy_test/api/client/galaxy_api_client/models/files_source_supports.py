@@ -6,15 +6,28 @@ __all__ = ["FilesSourceSupports"]
 @dataclass
 class FilesSourceSupports:
     """
-    FilesSourceSupports dataclass.
+    FilesSourceSupports dataclass
 
     Args:
-        pagination (Optional[bool])
-                                 : Whether this file source supports server-side pagination.
-        search (Optional[bool])  : Whether this file source supports server-side search.
-        sorting (Optional[bool]) : Whether this file source supports server-side sorting.
+        pagination (bool | None) : Whether this file source supports server-side pagination.
+        search (bool | None)     : Whether this file source supports server-side search.
+        sorting (bool | None)    : Whether this file source supports server-side sorting.
     """
 
     pagination: bool | None = False  # Whether this file source supports server-side pagination.
     search: bool | None = False  # Whether this file source supports server-side search.
     sorting: bool | None = False  # Whether this file source supports server-side sorting.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "pagination": "pagination",
+            "search": "search",
+            "sorting": "sorting",
+        }
+        key_transform_with_dump = {
+            "pagination": "pagination",
+            "search": "search",
+            "sorting": "sorting",
+        }

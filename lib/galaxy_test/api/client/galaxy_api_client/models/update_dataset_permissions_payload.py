@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .access_ids import AccessIds
-from .action import Action
-from .manage_ids import ManageIds
-from .modify_ids import ModifyIds
+from .update_dataset_permissions_payload_access_ids import UpdateDatasetPermissionsPayloadAccessIds
+from .update_dataset_permissions_payload_action import UpdateDatasetPermissionsPayloadAction
+from .update_dataset_permissions_payload_manage_ids import UpdateDatasetPermissionsPayloadManageIds
+from .update_dataset_permissions_payload_modify_ids import UpdateDatasetPermissionsPayloadModifyIds
 
 __all__ = ["UpdateDatasetPermissionsPayload"]
 
@@ -11,28 +11,38 @@ __all__ = ["UpdateDatasetPermissionsPayload"]
 @dataclass
 class UpdateDatasetPermissionsPayload:
     """
-    UpdateDatasetPermissionsPayload dataclass.
+    UpdateDatasetPermissionsPayload dataclass
 
     Args:
-        access_ids (Optional[AccessIds])
-                                 : A list of role encoded IDs defining roles that should
-                                   have access permission on the dataset.
-        action (Optional[Action]): Indicates what action should be performed on the dataset.
-        manage_ids (Optional[ManageIds])
-                                 : A list of role encoded IDs defining roles that should
-                                   have manage permission on the dataset.
-        modify_ids (Optional[ModifyIds])
-                                 : A list of role encoded IDs defining roles that should
-                                   have modify permission on the dataset.
+        access_ids (UpdateDatasetPermissionsPayloadAccessIds | None)
+                                 : Maps from 'access_ids[]'
+        action (UpdateDatasetPermissionsPayloadAction | None)
+                                 : Indicates what action should be performed on the dataset.
+        manage_ids (UpdateDatasetPermissionsPayloadManageIds | None)
+                                 : Maps from 'manage_ids[]'
+        modify_ids (UpdateDatasetPermissionsPayloadModifyIds | None)
+                                 : Maps from 'modify_ids[]'
     """
 
-    access_ids: AccessIds | None = (
-        None  # A list of role encoded IDs defining roles that should have access permission on the dataset.
+    access_ids: UpdateDatasetPermissionsPayloadAccessIds | None = None  # Maps from 'access_ids[]'
+    action: UpdateDatasetPermissionsPayloadAction | None = (
+        "set_permissions"  # Indicates what action should be performed on the dataset.
     )
-    action: Action | None = "set_permissions"  # Indicates what action should be performed on the dataset.
-    manage_ids: ManageIds | None = (
-        None  # A list of role encoded IDs defining roles that should have manage permission on the dataset.
-    )
-    modify_ids: ModifyIds | None = (
-        None  # A list of role encoded IDs defining roles that should have modify permission on the dataset.
-    )
+    manage_ids: UpdateDatasetPermissionsPayloadManageIds | None = None  # Maps from 'manage_ids[]'
+    modify_ids: UpdateDatasetPermissionsPayloadModifyIds | None = None  # Maps from 'modify_ids[]'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "access_ids[]": "access_ids",
+            "action": "action",
+            "manage_ids[]": "manage_ids",
+            "modify_ids[]": "modify_ids",
+        }
+        key_transform_with_dump = {
+            "access_ids": "access_ids[]",
+            "action": "action",
+            "manage_ids": "manage_ids[]",
+            "modify_ids": "modify_ids[]",
+        }

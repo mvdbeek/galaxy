@@ -1,12 +1,11 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from .copied_from_ldda_id import CopiedFromLddaId
 from .dataset_state import DatasetState
-from .name import Name
-from .tags import Tags
-from .type_id import TypeId
-from .update_time import UpdateTime
+from .hda_inaccessible_copied_from_ldda_id import HdaInaccessibleCopiedFromLddaId
+from .hda_inaccessible_name import HdaInaccessibleName
+from .hda_inaccessible_type_id import HdaInaccessibleTypeId
+from .hda_inaccessible_update_time import HdaInaccessibleUpdateTime
 
 __all__ = ["HdaInaccessible"]
 
@@ -23,20 +22,21 @@ class HdaInaccessible:
         hid (int)                : The index position of this item in the History.
         history_content_type (str): This is always `dataset` for datasets.
         history_id (str)         :
-        id_ (str)                :
-        name (Optional[Name])    : The name of the creator.
+        id_ (str)                : Maps from 'id'
+        name (HdaInaccessibleName): The name of the item.
         state (DatasetState)     :
-        tags (Tags)              : The collection of tags associated with an item.
-        type_ (str)              : The type of this item.
-        update_time (Optional[UpdateTime])
+        tags (List[str])         : The collection of tags associated with an item.
+        type_ (str)              : The type of this item. (maps from 'type')
+        update_time (HdaInaccessibleUpdateTime)
                                  : The last time and date this item was updated.
         url (str)                : The relative URL to access this item.
         visible (bool)           : Whether this item is visible or hidden to the user by
                                    default.
-        copied_from_ldda_id (Optional[CopiedFromLddaId])
+        copied_from_ldda_id (HdaInaccessibleCopiedFromLddaId | None)
                                  :
-        type_id (Optional[TypeId]): The type and the encoded ID of this item. Used for
-                                    caching.
+        type_id (HdaInaccessibleTypeId | None)
+                                 : The type and the encoded ID of this item. Used for
+                                   caching.
     """
 
     accessible: bool
@@ -45,13 +45,53 @@ class HdaInaccessible:
     hid: int  # The index position of this item in the History.
     history_content_type: str  # This is always `dataset` for datasets.
     history_id: str
-    id_: str
-    name: Name | None  # The name of the creator.
+    id_: str  # Maps from 'id'
+    name: HdaInaccessibleName  # The name of the item.
     state: DatasetState
-    tags: Tags  # The collection of tags associated with an item.
-    type_: str  # The type of this item.
-    update_time: UpdateTime | None  # The last time and date this item was updated.
+    tags: list[str]  # The collection of tags associated with an item.
+    type_: str  # The type of this item. (maps from 'type')
+    update_time: HdaInaccessibleUpdateTime  # The last time and date this item was updated.
     url: str  # The relative URL to access this item.
     visible: bool  # Whether this item is visible or hidden to the user by default.
-    copied_from_ldda_id: CopiedFromLddaId | None = None
-    type_id: TypeId | None = None  # The type and the encoded ID of this item. Used for caching.
+    copied_from_ldda_id: HdaInaccessibleCopiedFromLddaId | None = None
+    type_id: HdaInaccessibleTypeId | None = None  # The type and the encoded ID of this item. Used for caching.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "accessible": "accessible",
+            "copied_from_ldda_id": "copied_from_ldda_id",
+            "create_time": "create_time",
+            "deleted": "deleted",
+            "hid": "hid",
+            "history_content_type": "history_content_type",
+            "history_id": "history_id",
+            "id": "id_",
+            "name": "name",
+            "state": "state",
+            "tags": "tags",
+            "type": "type_",
+            "type_id": "type_id",
+            "update_time": "update_time",
+            "url": "url",
+            "visible": "visible",
+        }
+        key_transform_with_dump = {
+            "accessible": "accessible",
+            "copied_from_ldda_id": "copied_from_ldda_id",
+            "create_time": "create_time",
+            "deleted": "deleted",
+            "hid": "hid",
+            "history_content_type": "history_content_type",
+            "history_id": "history_id",
+            "id_": "id",
+            "name": "name",
+            "state": "state",
+            "tags": "tags",
+            "type_": "type",
+            "type_id": "type_id",
+            "update_time": "update_time",
+            "url": "url",
+            "visible": "visible",
+        }

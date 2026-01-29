@@ -1,92 +1,137 @@
 __all__ = [
     "AiClient",
+    "AiClientProtocol",
     "AuthenticateClient",
+    "AuthenticateClientProtocol",
     "ChatClient",
+    "ChatClientProtocol",
     "ConfigurationClient",
+    "ConfigurationClientProtocol",
     "ContextClient",
+    "ContextClientProtocol",
     "DataLibrariesFoldersClient",
+    "DataLibrariesFoldersClientProtocol",
     "DatasetCollectionsClient",
+    "DatasetCollectionsClientProtocol",
     "DatasetsClient",
+    "DatasetsClientProtocol",
     "DatatypesClient",
+    "DatatypesClientProtocol",
     "DisplayApplicationsClient",
+    "DisplayApplicationsClientProtocol",
     "DrsClient",
+    "DrsClientProtocol",
     "DynamicToolsClient",
+    "DynamicToolsClientProtocol",
     "FileSourcesClient",
+    "FileSourcesClientProtocol",
     "FormsClient",
+    "FormsClientProtocol",
     "GenomesClient",
+    "GenomesClientProtocol",
     "GroupRolesClient",
+    "GroupRolesClientProtocol",
     "GroupUsersClient",
+    "GroupUsersClientProtocol",
     "GroupsClient",
+    "GroupsClientProtocol",
     "Help_Client",
+    "Help_ClientProtocol",
     "HistoriesClient",
+    "HistoriesClientProtocol",
     "JobLockClient",
+    "JobLockClientProtocol",
     "JobsClient",
+    "JobsClientProtocol",
     "LibrariesClient",
+    "LibrariesClientProtocol",
     "LicensesClient",
+    "LicensesClientProtocol",
     "MetricsClient",
+    "MetricsClientProtocol",
     "NotificationsClient",
+    "NotificationsClientProtocol",
     "Oauth2Client",
+    "Oauth2ClientProtocol",
     "ObjectStoresClient",
+    "ObjectStoresClientProtocol",
     "OidcTokensClient",
+    "OidcTokensClientProtocol",
     "PagesClient",
+    "PagesClientProtocol",
     "QuotasClient",
+    "QuotasClientProtocol",
     "RemoteFilesClient",
+    "RemoteFilesClientProtocol",
     "RolesClient",
+    "RolesClientProtocol",
     "ShortTermStorageClient",
+    "ShortTermStorageClientProtocol",
     "StorageManagementClient",
+    "StorageManagementClientProtocol",
     "TagsClient",
+    "TagsClientProtocol",
     "TasksClient",
+    "TasksClientProtocol",
     "ToolDataTablesClient",
+    "ToolDataTablesClientProtocol",
     "ToolShedRepositoriesClient",
+    "ToolShedRepositoriesClientProtocol",
     "ToolsClient",
+    "ToolsClientProtocol",
     "ToursClient",
+    "ToursClientProtocol",
     "UsersClient",
+    "UsersClientProtocol",
     "UtilitiesClient",
+    "UtilitiesClientProtocol",
     "VisualizationsClient",
+    "VisualizationsClientProtocol",
     "WorkflowsClient",
+    "WorkflowsClientProtocol",
 ]
-from .ai import AiClient
-from .authenticate import AuthenticateClient
-from .chat import ChatClient
-from .configuration import ConfigurationClient
-from .context import ContextClient
-from .data_libraries_folders import DataLibrariesFoldersClient
-from .dataset_collections import DatasetCollectionsClient
-from .datasets import DatasetsClient
-from .datatypes import DatatypesClient
-from .display_applications import DisplayApplicationsClient
-from .drs import DrsClient
-from .dynamic_tools import DynamicToolsClient
-from .file_sources import FileSourcesClient
-from .forms import FormsClient
-from .genomes import GenomesClient
-from .group_roles import GroupRolesClient
-from .group_users import GroupUsersClient
-from .groups import GroupsClient
-from .help_ import Help_Client
-from .histories import HistoriesClient
-from .job_lock import JobLockClient
-from .jobs import JobsClient
-from .libraries import LibrariesClient
-from .licenses import LicensesClient
-from .metrics import MetricsClient
-from .notifications import NotificationsClient
-from .oauth_2 import Oauth2Client
-from .object_stores import ObjectStoresClient
-from .oidc_tokens import OidcTokensClient
-from .pages import PagesClient
-from .quotas import QuotasClient
-from .remote_files import RemoteFilesClient
-from .roles import RolesClient
-from .short_term_storage import ShortTermStorageClient
-from .storage_management import StorageManagementClient
-from .tags import TagsClient
-from .tasks import TasksClient
-from .tool_data_tables import ToolDataTablesClient
-from .tool_shed_repositories import ToolShedRepositoriesClient
-from .tools import ToolsClient
-from .tours import ToursClient
-from .users import UsersClient
-from .utilities import UtilitiesClient
-from .visualizations import VisualizationsClient
-from .workflows import WorkflowsClient
+from .ai import AiClient, AiClientProtocol
+from .authenticate import AuthenticateClient, AuthenticateClientProtocol
+from .chat import ChatClient, ChatClientProtocol
+from .configuration import ConfigurationClient, ConfigurationClientProtocol
+from .context import ContextClient, ContextClientProtocol
+from .data_libraries_folders import DataLibrariesFoldersClient, DataLibrariesFoldersClientProtocol
+from .dataset_collections import DatasetCollectionsClient, DatasetCollectionsClientProtocol
+from .datasets import DatasetsClient, DatasetsClientProtocol
+from .datatypes import DatatypesClient, DatatypesClientProtocol
+from .display_applications import DisplayApplicationsClient, DisplayApplicationsClientProtocol
+from .drs import DrsClient, DrsClientProtocol
+from .dynamic_tools import DynamicToolsClient, DynamicToolsClientProtocol
+from .file_sources import FileSourcesClient, FileSourcesClientProtocol
+from .forms import FormsClient, FormsClientProtocol
+from .genomes import GenomesClient, GenomesClientProtocol
+from .group_roles import GroupRolesClient, GroupRolesClientProtocol
+from .group_users import GroupUsersClient, GroupUsersClientProtocol
+from .groups import GroupsClient, GroupsClientProtocol
+from .help_ import Help_Client, Help_ClientProtocol
+from .histories import HistoriesClient, HistoriesClientProtocol
+from .job_lock import JobLockClient, JobLockClientProtocol
+from .jobs import JobsClient, JobsClientProtocol
+from .libraries import LibrariesClient, LibrariesClientProtocol
+from .licenses import LicensesClient, LicensesClientProtocol
+from .metrics import MetricsClient, MetricsClientProtocol
+from .notifications import NotificationsClient, NotificationsClientProtocol
+from .oauth_2 import Oauth2Client, Oauth2ClientProtocol
+from .object_stores import ObjectStoresClient, ObjectStoresClientProtocol
+from .oidc_tokens import OidcTokensClient, OidcTokensClientProtocol
+from .pages import PagesClient, PagesClientProtocol
+from .quotas import QuotasClient, QuotasClientProtocol
+from .remote_files import RemoteFilesClient, RemoteFilesClientProtocol
+from .roles import RolesClient, RolesClientProtocol
+from .short_term_storage import ShortTermStorageClient, ShortTermStorageClientProtocol
+from .storage_management import StorageManagementClient, StorageManagementClientProtocol
+from .tags import TagsClient, TagsClientProtocol
+from .tasks import TasksClient, TasksClientProtocol
+from .tool_data_tables import ToolDataTablesClient, ToolDataTablesClientProtocol
+from .tool_shed_repositories import ToolShedRepositoriesClient, ToolShedRepositoriesClientProtocol
+from .tools import ToolsClient, ToolsClientProtocol
+from .tours import ToursClient, ToursClientProtocol
+from .users import UsersClient, UsersClientProtocol
+from .utilities import UtilitiesClient, UtilitiesClientProtocol
+from .visualizations import VisualizationsClient, VisualizationsClientProtocol
+from .workflows import WorkflowsClient, WorkflowsClientProtocol

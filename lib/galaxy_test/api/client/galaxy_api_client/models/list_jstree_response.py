@@ -1,8 +1,17 @@
-from typing import TypeAlias
-
-from .list_jstree_response_item import ListJstreeResponseItem
+from dataclasses import dataclass, field
+from typing import Any
 
 __all__ = ["ListJstreeResponse"]
 
-ListJstreeResponse: TypeAlias = list[ListJstreeResponseItem]
-"""Alias for List of files in Jstree format."""
+
+@dataclass
+class ListJstreeResponse:
+    """
+    List of files in Jstree format.
+
+    Args:
+        items (List[dict[str, Any]] | None)
+                                 : List of files in Jstree format.
+    """
+
+    items: list[dict[str, Any]] | None = field(default_factory=list)  # List of files in Jstree format.

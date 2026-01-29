@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .source import Source
+from .quota_model_source import QuotaModelSource
 
 __all__ = ["QuotaModel"]
 
@@ -8,13 +8,25 @@ __all__ = ["QuotaModel"]
 @dataclass
 class QuotaModel:
     """
-    QuotaModel dataclass.
+    QuotaModel dataclass
 
     Args:
         enabled (bool)           :
-        source (Optional[Source]): The source of the notification. Represents the agent that
-                                   created the notification.
+        source (QuotaModelSource | None)
+                                 :
     """
 
     enabled: bool
-    source: Source | None = None  # The source of the notification. Represents the agent that created the notification.
+    source: QuotaModelSource | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "enabled": "enabled",
+            "source": "source",
+        }
+        key_transform_with_dump = {
+            "enabled": "enabled",
+            "source": "source",
+        }

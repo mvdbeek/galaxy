@@ -8,11 +8,21 @@ __all__ = ["CreateMetricsPayload"]
 @dataclass
 class CreateMetricsPayload:
     """
-    CreateMetricsPayload dataclass.
+    CreateMetricsPayload dataclass
 
     Args:
-        metrics (Optional[List[Metric]])
+        metrics (List[Metric] | None)
                                  :
     """
 
     metrics: list[Metric] | None = field(default_factory=list)
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "metrics": "metrics",
+        }
+        key_transform_with_dump = {
+            "metrics": "metrics",
+        }

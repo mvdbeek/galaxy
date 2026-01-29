@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .filename import Filename
-from .name import Name
+from .yaml_template_config_file_filename import YamlTemplateConfigFileFilename
+from .yaml_template_config_file_name import YamlTemplateConfigFileName
 
 __all__ = ["YamlTemplateConfigFile"]
 
@@ -9,18 +9,34 @@ __all__ = ["YamlTemplateConfigFile"]
 @dataclass
 class YamlTemplateConfigFile:
     """
-    YamlTemplateConfigFile dataclass.
+    YamlTemplateConfigFile dataclass
 
     Args:
         content (str)            :
-        eval_engine (Optional[str])
+        eval_engine (str | None) :
+        filename (YamlTemplateConfigFileFilename | None)
                                  :
-        filename (Optional[Filename])
+        name (YamlTemplateConfigFileName | None)
                                  :
-        name (Optional[Name])    : The name of the creator.
     """
 
     content: str
     eval_engine: str | None = "ecmascript"
-    filename: Filename | None = None
-    name: Name | None = None  # The name of the creator.
+    filename: YamlTemplateConfigFileFilename | None = None
+    name: YamlTemplateConfigFileName | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "content": "content",
+            "eval_engine": "eval_engine",
+            "filename": "filename",
+            "name": "name",
+        }
+        key_transform_with_dump = {
+            "content": "content",
+            "eval_engine": "eval_engine",
+            "filename": "filename",
+            "name": "name",
+        }

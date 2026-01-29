@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .description import Description
-from .name import Name
-from .secrets import Secrets
-from .type_ import Type_
-from .variables import Variables
+from .file_source_template_summary_description import FileSourceTemplateSummaryDescription
+from .file_source_template_summary_name import FileSourceTemplateSummaryName
+from .file_source_template_summary_secrets import FileSourceTemplateSummarySecrets
+from .file_source_template_summary_variables import FileSourceTemplateSummaryVariables
+from .type__7 import Type7
 
 __all__ = ["FileSourceTemplateSummary"]
 
@@ -12,27 +12,52 @@ __all__ = ["FileSourceTemplateSummary"]
 @dataclass
 class FileSourceTemplateSummary:
     """
-    FileSourceTemplateSummary dataclass.
+    FileSourceTemplateSummary dataclass
 
     Args:
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        id_ (str)                :
-        name (Optional[Name])    : The name of the creator.
-        type_ (Type_)            : The type of content to be created in the history.
-        hidden (Optional[bool])  :
-        secrets (Optional[Secrets])
+        description (FileSourceTemplateSummaryDescription)
                                  :
-        variables (Optional[Variables])
+        id_ (str)                : Maps from 'id'
+        name (FileSourceTemplateSummaryName)
                                  :
-        version (Optional[int])  :
+        type_ (Type7)            : Maps from 'type'
+        hidden (bool | None)     :
+        secrets (FileSourceTemplateSummarySecrets | None)
+                                 :
+        variables (FileSourceTemplateSummaryVariables | None)
+                                 :
+        version (int | None)     :
     """
 
-    description: Description | None  # Detailed text description for this Quota.
-    id_: str
-    name: Name | None  # The name of the creator.
-    type_: Type_  # The type of content to be created in the history.
+    description: FileSourceTemplateSummaryDescription
+    id_: str  # Maps from 'id'
+    name: FileSourceTemplateSummaryName
+    type_: Type7  # Maps from 'type'
     hidden: bool | None = False
-    secrets: Secrets | None = None
-    variables: Variables | None = None
+    secrets: FileSourceTemplateSummarySecrets | None = None
+    variables: FileSourceTemplateSummaryVariables | None = None
     version: int | None = 0
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "hidden": "hidden",
+            "id": "id_",
+            "name": "name",
+            "secrets": "secrets",
+            "type": "type_",
+            "variables": "variables",
+            "version": "version",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "hidden": "hidden",
+            "id_": "id",
+            "name": "name",
+            "secrets": "secrets",
+            "type_": "type",
+            "variables": "variables",
+            "version": "version",
+        }

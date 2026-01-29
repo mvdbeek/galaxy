@@ -8,7 +8,7 @@ __all__ = ["JobInputAssociation"]
 @dataclass
 class JobInputAssociation:
     """
-    JobInputAssociation dataclass.
+    JobInputAssociation dataclass
 
     Args:
         dataset (EncodedDataItemSourceId)
@@ -18,3 +18,15 @@ class JobInputAssociation:
 
     dataset: EncodedDataItemSourceId
     name: str  # Name of the job input parameter.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "dataset": "dataset",
+            "name": "name",
+        }
+        key_transform_with_dump = {
+            "dataset": "dataset",
+            "name": "name",
+        }

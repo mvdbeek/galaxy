@@ -53,7 +53,7 @@ def paginate_by_next(
         while True:
             result = await fetch_page(**params)
             # result is expected to be a dict
-            # (assumed since fetch_page is typed to return Dict[str, Any])
+            # (assumed since fetch_page is typed to return dict[str, Any])
             items = result.get(items_key, [])
             for item in items:
                 yield item

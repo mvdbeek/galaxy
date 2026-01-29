@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .variables import Variables
+from .test_update_instance_payload_variables import TestUpdateInstancePayloadVariables
 
 __all__ = ["TestUpdateInstancePayload"]
 
@@ -8,11 +8,21 @@ __all__ = ["TestUpdateInstancePayload"]
 @dataclass
 class TestUpdateInstancePayload:
     """
-    TestUpdateInstancePayload dataclass.
+    TestUpdateInstancePayload dataclass
 
     Args:
-        variables (Optional[Variables])
+        variables (TestUpdateInstancePayloadVariables | None)
                                  :
     """
 
-    variables: Variables | None = None
+    variables: TestUpdateInstancePayloadVariables | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "variables": "variables",
+        }
+        key_transform_with_dump = {
+            "variables": "variables",
+        }

@@ -1,20 +1,20 @@
 from dataclasses import dataclass
 
-from .collection_type import CollectionType
-from .created_from_basename import CreatedFromBasename
-from .description import Description
-from .extra_files import ExtraFiles
-from .hashes import Hashes
-from .info import Info
-from .items_from import ItemsFrom
-from .md_5 import Md5
-from .name import Name
-from .paste_content import PasteContent
-from .row import Row
-from .sha_1 import Sha1
-from .sha_256 import Sha256
-from .sha_512 import Sha512
-from .tags import Tags
+from .pasted_data_element_collection_type import PastedDataElementCollectionType
+from .pasted_data_element_created_from_basename import PastedDataElementCreatedFromBasename
+from .pasted_data_element_description import PastedDataElementDescription
+from .pasted_data_element_extra_files import PastedDataElementExtraFiles
+from .pasted_data_element_hashes import PastedDataElementHashes
+from .pasted_data_element_info import PastedDataElementInfo
+from .pasted_data_element_items_from import PastedDataElementItemsFrom
+from .pasted_data_element_md_5 import PastedDataElementMd5
+from .pasted_data_element_name import PastedDataElementName
+from .pasted_data_element_paste_content import PastedDataElementPasteContent
+from .pasted_data_element_row import PastedDataElementRow
+from .pasted_data_element_sha_1 import PastedDataElementSha1
+from .pasted_data_element_sha_256 import PastedDataElementSha256
+from .pasted_data_element_sha_512 import PastedDataElementSha512
+from .pasted_data_element_tags import PastedDataElementTags
 
 __all__ = ["PastedDataElement"]
 
@@ -22,45 +22,51 @@ __all__ = ["PastedDataElement"]
 @dataclass
 class PastedDataElement:
     """
-    PastedDataElement dataclass.
+    PastedDataElement dataclass
 
     Args:
-        paste_content (PasteContent)
+        paste_content (PastedDataElementPasteContent)
                                  : This is the text of the content to import if the 'src' of
                                    the item is 'pasted'.
         src (str)                :
-        md5 (Optional[Md5])      : The MD5 checksum of the dataset. This is a hash of the
+        md5 (PastedDataElementMd5 | None)
+                                 : The MD5 checksum of the dataset. This is a hash of the
                                    dataset contents that can be used to verify the integrity
                                    of the dataset. More information on MD5 checksums can be
                                    found on [Wikipedia](https://en.wikipedia.org/wiki/MD5).
-        sha_1 (Optional[Sha1])   : The SHA1 checksum of the dataset. This is a hash of the
+                                   (maps from 'MD5')
+        sha_1 (PastedDataElementSha1 | None)
+                                 : The SHA1 checksum of the dataset. This is a hash of the
                                    dataset contents that can be used to verify the integrity
                                    of the dataset. More information on SHA1 checksums can be
                                    found on
-                                   [Wikipedia](https://en.wikipedia.org/wiki/SHA-1).
-        sha_256 (Optional[Sha256]): The SHA-256 checksum of the dataset. This is a hash of
-                                    the dataset contents that can be used to verify the
-                                    integrity of the dataset. More information on SHA-256
-                                    checksums can be found on
-                                    [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).
-        sha_512 (Optional[Sha512]): The SHA-512 checksum of the dataset. This is a hash of
-                                    the dataset contents that can be used to verify the
-                                    integrity of the dataset. More information on SHA-512
-                                    checksums can be found on
-                                    [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).
-        auto_decompress (Optional[bool])
+                                   [Wikipedia](https://en.wikipedia.org/wiki/SHA-1).  (maps
+                                   from 'SHA-1')
+        sha_256 (PastedDataElementSha256 | None)
+                                 : The SHA-256 checksum of the dataset. This is a hash of
+                                   the dataset contents that can be used to verify the
+                                   integrity of the dataset. More information on SHA-256
+                                   checksums can be found on
+                                   [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).  (maps
+                                   from 'SHA-256')
+        sha_512 (PastedDataElementSha512 | None)
+                                 : The SHA-512 checksum of the dataset. This is a hash of
+                                   the dataset contents that can be used to verify the
+                                   integrity of the dataset. More information on SHA-512
+                                   checksums can be found on
+                                   [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).  (maps
+                                   from 'SHA-512')
+        auto_decompress (bool | None)
                                  : This is a boolean value that indicates whether the
                                    dataset should be automatically decompressed if it is
                                    compressed. If set to true, Galaxy will attempt to
                                    decompress the dataset if it is compressed and it is not
                                    explicitly set to a compressed datatype.
-        collection_type (Optional[CollectionType])
-                                 : The type of the collection, can be `list`, `paired`, or
-                                   define subcollections using `:` as separator like
-                                   `list:paired` or `list:list`.
-        created_from_basename (Optional[CreatedFromBasename])
-                                 : The basename of the output that produced this dataset.
-        dbkey (Optional[str])    : This identifier is used to associate datasets with
+        collection_type (PastedDataElementCollectionType | None)
+                                 :
+        created_from_basename (PastedDataElementCreatedFromBasename | None)
+                                 :
+        dbkey (str | None)       : This identifier is used to associate datasets with
                                    specific reference genomes. If set, the dbkey is a string
                                    that represents the genome assembly, such as "hg19" for
                                    human genome version 19 or "mm10" for mouse genome
@@ -69,43 +75,48 @@ class PastedDataElement:
                                    refers to this as "build" or "custom build". The value
                                    "?" is used to indicate that the dataset does not have a
                                    dbkey set.
-        deferred (Optional[bool]): This is a boolean value that indicates whether the
+        deferred (bool | None)   : This is a boolean value that indicates whether the
                                    dataset is deferred. Deferred datasets are not
                                    immediately ingested into Galaxy on data import and may
                                    lack some metadata. Given open bugs with deferred
                                    datasets, most datasets should not be deferred unless you
                                    are sure you want to use this feature.
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        ext (Optional[str])      : The file extension of the dataset. This is shorthand
+        description (PastedDataElementDescription | None)
+                                 :
+        ext (str | None)         : The file extension of the dataset. This is shorthand
                                    description of the datatype corresponding to this
                                    dataset. The default "auto" is used to indicate that the
                                    datatype should be automatically determined by Galaxy
                                    based on the contents of the file.
-        extra_files (Optional[ExtraFiles])
+        extra_files (PastedDataElementExtraFiles | None)
                                  :
-        hashes (Optional[Hashes]): List of precomputed hashes for the file, if available.
-        info (Optional[Info])    : Free text field that can be used to store arbitrary
+        hashes (PastedDataElementHashes | None)
+                                 :
+        info (PastedDataElementInfo | None)
+                                 : Free text field that can be used to store arbitrary
                                    information about the dataset. This used to be
                                    prominently displayed in the Galaxy user interface, but
                                    now is largely unused.
-        items_from (Optional[ItemsFrom])
+        items_from (PastedDataElementItemsFrom | None)
                                  :
-        name (Optional[Name])    : The name of the creator.
-        row (Optional[Row])      :
-        space_to_tab (Optional[bool])
-                                 : This is a boolean value that indicates whether the spaces
-                                   in the dataset contents should be converted to tabs. This
-                                   should typically be set to false for most applications,
-                                   but sometimes when pasting data into the Galaxy user
-                                   interface, it is useful to set this to true to ensure
-                                   that the data is converted to a tabular format correctly.
-        tags (Optional[Tags])    : Tags are a way to categorize datasets in Galaxy. They are
+        name (PastedDataElementName | None)
+                                 :
+        row (PastedDataElementRow | None)
+                                 :
+        space_to_tab (bool | None): This is a boolean value that indicates whether the
+                                    spaces in the dataset contents should be converted to
+                                    tabs. This should typically be set to false for most
+                                    applications, but sometimes when pasting data into the
+                                    Galaxy user interface, it is useful to set this to true
+                                    to ensure that the data is converted to a tabular format
+                                    correctly.
+        tags (PastedDataElementTags | None)
+                                 : Tags are a way to categorize datasets in Galaxy. They are
                                    free-form text strings that can be used to group datasets
                                    together. Tags can be used to filter datasets in the
                                    Galaxy user interface and can be used to search for
                                    datasets in the Galaxy API.
-        to_posix_lines (Optional[bool])
+        to_posix_lines (bool | None)
                                  : This is a boolean value that indicates whether the line
                                    endings in the dataset should be converted to POSIX line
                                    endings (LF). The Galaxy user interface will typically
@@ -116,51 +127,103 @@ class PastedDataElement:
                                    precise about file handling details.
     """
 
-    paste_content: PasteContent  # This is the text of the content to import if the 'src' of the item is 'pasted'.
+    paste_content: (
+        PastedDataElementPasteContent  # This is the text of the content to import if the 'src' of the item is 'pasted'.
+    )
     src: str
-    md5: Md5 | None = (
-        None  # The MD5 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on MD5 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/MD5).
+    md5: PastedDataElementMd5 | None = (
+        None  # The MD5 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on MD5 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/MD5).  (maps from 'MD5')
     )
-    sha_1: Sha1 | None = (
-        None  # The SHA1 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on SHA1 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/SHA-1).
+    sha_1: PastedDataElementSha1 | None = (
+        None  # The SHA1 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on SHA1 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/SHA-1).  (maps from 'SHA-1')
     )
-    sha_256: Sha256 | None = (
-        None  # The SHA-256 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on SHA-256 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).
+    sha_256: PastedDataElementSha256 | None = (
+        None  # The SHA-256 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on SHA-256 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).  (maps from 'SHA-256')
     )
-    sha_512: Sha512 | None = (
-        None  # The SHA-512 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on SHA-512 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).
+    sha_512: PastedDataElementSha512 | None = (
+        None  # The SHA-512 checksum of the dataset. This is a hash of the dataset contents that can be used to verify the integrity of the dataset. More information on SHA-512 checksums can be found on [Wikipedia](https://en.wikipedia.org/wiki/SHA-2).  (maps from 'SHA-512')
     )
     auto_decompress: bool | None = (
         False  # This is a boolean value that indicates whether the dataset should be automatically decompressed if it is compressed. If set to true, Galaxy will attempt to decompress the dataset if it is compressed and it is not explicitly set to a compressed datatype.
     )
-    collection_type: CollectionType | None = (
-        None  # The type of the collection, can be `list`, `paired`, or define subcollections using `:` as separator like `list:paired` or `list:list`.
-    )
-    created_from_basename: CreatedFromBasename | None = None  # The basename of the output that produced this dataset.
+    collection_type: PastedDataElementCollectionType | None = None
+    created_from_basename: PastedDataElementCreatedFromBasename | None = None
     dbkey: str | None = (
         "?"  # This identifier is used to associate datasets with specific reference genomes. If set, the dbkey is a string that represents the genome assembly, such as "hg19" for human genome version 19 or "mm10" for mouse genome version 10. In other parts of of the API this is referred to as the "genome_build". The Galaxy user interface also refers to this as "build" or "custom build". The value "?" is used to indicate that the dataset does not have a dbkey set.
     )
     deferred: bool | None = (
         False  # This is a boolean value that indicates whether the dataset is deferred. Deferred datasets are not immediately ingested into Galaxy on data import and may lack some metadata. Given open bugs with deferred datasets, most datasets should not be deferred unless you are sure you want to use this feature.
     )
-    description: Description | None = ""  # Detailed text description for this Quota.
+    description: PastedDataElementDescription | None = None
     ext: str | None = (
         "auto"  # The file extension of the dataset. This is shorthand description of the datatype corresponding to this dataset. The default "auto" is used to indicate that the datatype should be automatically determined by Galaxy based on the contents of the file.
     )
-    extra_files: ExtraFiles | None = None
-    hashes: Hashes | None = None  # List of precomputed hashes for the file, if available.
-    info: Info | None = (
+    extra_files: PastedDataElementExtraFiles | None = None
+    hashes: PastedDataElementHashes | None = None
+    info: PastedDataElementInfo | None = (
         None  # Free text field that can be used to store arbitrary information about the dataset. This used to be prominently displayed in the Galaxy user interface, but now is largely unused.
     )
-    items_from: ItemsFrom | None = None
-    name: Name | None = None  # The name of the creator.
-    row: Row | None = None
+    items_from: PastedDataElementItemsFrom | None = None
+    name: PastedDataElementName | None = None
+    row: PastedDataElementRow | None = None
     space_to_tab: bool | None = (
         False  # This is a boolean value that indicates whether the spaces in the dataset contents should be converted to tabs. This should typically be set to false for most applications, but sometimes when pasting data into the Galaxy user interface, it is useful to set this to true to ensure that the data is converted to a tabular format correctly.
     )
-    tags: Tags | None = (
+    tags: PastedDataElementTags | None = (
         None  # Tags are a way to categorize datasets in Galaxy. They are free-form text strings that can be used to group datasets together. Tags can be used to filter datasets in the Galaxy user interface and can be used to search for datasets in the Galaxy API.
     )
     to_posix_lines: bool | None = (
         False  # This is a boolean value that indicates whether the line endings in the dataset should be converted to POSIX line endings (LF). The Galaxy user interface will typically set this to true so that all datasets default to having POSIX line endings as most tools and workflows expect. The actual upload API will default this to false though assuming the API user is more likely to be want to be precise about file handling details.
     )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "MD5": "md5",
+            "SHA-1": "sha_1",
+            "SHA-256": "sha_256",
+            "SHA-512": "sha_512",
+            "auto_decompress": "auto_decompress",
+            "collection_type": "collection_type",
+            "created_from_basename": "created_from_basename",
+            "dbkey": "dbkey",
+            "deferred": "deferred",
+            "description": "description",
+            "ext": "ext",
+            "extra_files": "extra_files",
+            "hashes": "hashes",
+            "info": "info",
+            "items_from": "items_from",
+            "name": "name",
+            "paste_content": "paste_content",
+            "row": "row",
+            "space_to_tab": "space_to_tab",
+            "src": "src",
+            "tags": "tags",
+            "to_posix_lines": "to_posix_lines",
+        }
+        key_transform_with_dump = {
+            "auto_decompress": "auto_decompress",
+            "collection_type": "collection_type",
+            "created_from_basename": "created_from_basename",
+            "dbkey": "dbkey",
+            "deferred": "deferred",
+            "description": "description",
+            "ext": "ext",
+            "extra_files": "extra_files",
+            "hashes": "hashes",
+            "info": "info",
+            "items_from": "items_from",
+            "md5": "MD5",
+            "name": "name",
+            "paste_content": "paste_content",
+            "row": "row",
+            "sha_1": "SHA-1",
+            "sha_256": "SHA-256",
+            "sha_512": "SHA-512",
+            "space_to_tab": "space_to_tab",
+            "src": "src",
+            "tags": "tags",
+            "to_posix_lines": "to_posix_lines",
+        }

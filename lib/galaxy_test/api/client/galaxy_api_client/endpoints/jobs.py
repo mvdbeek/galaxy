@@ -1,13 +1,14 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
-from ..models.anonymous_array_item_127 import AnonymousArrayItem127
-from ..models.anonymous_array_item_210 import AnonymousArrayItem210
-from ..models.anonymous_array_item_212 import AnonymousArrayItem212
-from ..models.anonymous_array_item_214 import AnonymousArrayItem214
+from ..models.anonymous_array_item_87 import AnonymousArrayItem87
+from ..models.anonymous_array_item_115 import AnonymousArrayItem115
+from ..models.anonymous_array_item_117 import AnonymousArrayItem117
+from ..models.anonymous_array_item_119 import AnonymousArrayItem119
 from ..models.dataset_source_type import DatasetSourceType
 from ..models.encoded_job_details import EncodedJobDetails
 from ..models.job_console_output import JobConsoleOutput
@@ -25,7 +26,7 @@ from ..models.jobs_common_problems_common_problems_param_run_as import JobsCommo
 from ..models.jobs_console_output_console_output_param_run_as import JobsConsoleOutputConsoleOutputParamRunAs
 from ..models.jobs_create_param_run_as import JobsCreateParamRunAs
 from ..models.jobs_delete_param_run_as import JobsDeleteParamRunAs
-from ..models.jobs_delete_request_body_2 import JobsDeleteRequestBody2
+from ..models.jobs_delete_request_body import JobsDeleteRequestBody
 from ..models.jobs_destination_params_destination_params_param_run_as import (
     JobsDestinationParamsDestinationParamsParamRunAs,
 )
@@ -59,54 +60,307 @@ from ..models.jobs_parameters_display_parameters_display_by_job_param_run_as imp
 )
 from ..models.jobs_resume_resume_param_run_as import JobsResumeResumeParamRunAs
 from ..models.jobs_search_search_param_run_as import JobsSearchSearchParamRunAs
-from ..models.jobs_show_200_response_2 import JobsShow200Response2
+from ..models.jobs_show_200_response import JobsShow200Response
 from ..models.jobs_show_param_full import JobsShowParamFull
 from ..models.jobs_show_param_run_as import JobsShowParamRunAs
 from ..models.report_job_error_payload import ReportJobErrorPayload
 from ..models.search_jobs_payload import SearchJobsPayload
 
 
-class JobsClient:
+@runtime_checkable
+class JobsClientProtocol(Protocol):
+    """Protocol defining the interface of JobsClient for dependency injection."""
+
+    async def jobs_metrics_metrics_by_dataset(
+        self,
+        dataset_id: str,
+        hda_ldda: DatasetSourceType | None = None,
+        run_as: JobsMetricsMetricsByDatasetParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem87]: ...
+
+    async def jobs_metrics_metrics_by_dataset(
+        self,
+        dataset_id: str,
+        hda_ldda: DatasetSourceType | None = None,
+        run_as: JobsMetricsMetricsByDatasetParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem87]: ...
+
+    async def jobs_parameters_display_parameters_display_by_dataset(
+        self,
+        dataset_id: str,
+        hda_ldda: DatasetSourceType | None = None,
+        run_as: JobsParametersDisplayParametersDisplayByDatasetParamRunAs | None = None,
+    ) -> JobDisplayParametersSummary: ...
+
+    async def jobs_parameters_display_parameters_display_by_dataset(
+        self,
+        dataset_id: str,
+        hda_ldda: DatasetSourceType | None = None,
+        run_as: JobsParametersDisplayParametersDisplayByDatasetParamRunAs | None = None,
+    ) -> JobDisplayParametersSummary: ...
+
+    async def jobs_index(
+        self,
+        user_details: bool | None = None,
+        user_id: JobsIndexParamUserId | None = None,
+        view: JobIndexViewEnum | None = None,
+        date_range_min: JobsIndexParamDateRangeMin | None = None,
+        date_range_max: JobsIndexParamDateRangeMax | None = None,
+        history_id: JobsIndexParamHistoryId | None = None,
+        workflow_id: JobsIndexParamWorkflowId | None = None,
+        invocation_id: JobsIndexParamInvocationId | None = None,
+        implicit_collection_jobs_id: JobsIndexParamImplicitCollectionJobsId | None = None,
+        tool_request_id: JobsIndexParamToolRequestId | None = None,
+        order_by: JobIndexSortByEnum | None = None,
+        search: JobsIndexParamSearch | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        state: JobsIndexParamState | None = None,
+        tool_id: JobsIndexParamToolId | None = None,
+        tool_id_like: JobsIndexParamToolIdLike | None = None,
+        run_as: JobsIndexParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem115]: ...
+
+    async def jobs_index(
+        self,
+        user_details: bool | None = None,
+        user_id: JobsIndexParamUserId | None = None,
+        view: JobIndexViewEnum | None = None,
+        date_range_min: JobsIndexParamDateRangeMin | None = None,
+        date_range_max: JobsIndexParamDateRangeMax | None = None,
+        history_id: JobsIndexParamHistoryId | None = None,
+        workflow_id: JobsIndexParamWorkflowId | None = None,
+        invocation_id: JobsIndexParamInvocationId | None = None,
+        implicit_collection_jobs_id: JobsIndexParamImplicitCollectionJobsId | None = None,
+        tool_request_id: JobsIndexParamToolRequestId | None = None,
+        order_by: JobIndexSortByEnum | None = None,
+        search: JobsIndexParamSearch | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        state: JobsIndexParamState | None = None,
+        tool_id: JobsIndexParamToolId | None = None,
+        tool_id_like: JobsIndexParamToolIdLike | None = None,
+        run_as: JobsIndexParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem115]: ...
+
+    async def jobs_create(
+        self,
+        body: JobRequest,
+        run_as: JobsCreateParamRunAs | None = None,
+    ) -> JobCreateResponse: ...
+
+    async def jobs_create(
+        self,
+        body: JobRequest,
+        run_as: JobsCreateParamRunAs | None = None,
+    ) -> JobCreateResponse: ...
+
+    async def jobs_search_search(
+        self,
+        body: SearchJobsPayload,
+        run_as: JobsSearchSearchParamRunAs | None = None,
+    ) -> list[EncodedJobDetails]: ...
+
+    async def jobs_search_search(
+        self,
+        body: SearchJobsPayload,
+        run_as: JobsSearchSearchParamRunAs | None = None,
+    ) -> list[EncodedJobDetails]: ...
+
+    async def jobs_delete(
+        self,
+        job_id: str,
+        run_as: JobsDeleteParamRunAs | None = None,
+        body: JobsDeleteRequestBody | None = None,
+    ) -> bool: ...
+
+    async def jobs_delete(
+        self,
+        job_id: str,
+        run_as: JobsDeleteParamRunAs | None = None,
+        body: JobsDeleteRequestBody | None = None,
+    ) -> bool: ...
+
+    async def jobs_show(
+        self,
+        job_id: str,
+        full: JobsShowParamFull | None = None,
+        run_as: JobsShowParamRunAs | None = None,
+    ) -> JobsShow200Response: ...
+
+    async def jobs_show(
+        self,
+        job_id: str,
+        full: JobsShowParamFull | None = None,
+        run_as: JobsShowParamRunAs | None = None,
+    ) -> JobsShow200Response: ...
+
+    async def jobs_common_problems_common_problems(
+        self,
+        job_id: str,
+        run_as: JobsCommonProblemsCommonProblemsParamRunAs | None = None,
+    ) -> JobInputSummary: ...
+
+    async def jobs_common_problems_common_problems(
+        self,
+        job_id: str,
+        run_as: JobsCommonProblemsCommonProblemsParamRunAs | None = None,
+    ) -> JobInputSummary: ...
+
+    async def jobs_console_output_console_output(
+        self,
+        job_id: str,
+        stdout_position: int,
+        stdout_length: int,
+        stderr_position: int,
+        stderr_length: int,
+        run_as: JobsConsoleOutputConsoleOutputParamRunAs | None = None,
+    ) -> JobConsoleOutput: ...
+
+    async def jobs_console_output_console_output(
+        self,
+        job_id: str,
+        stdout_position: int,
+        stdout_length: int,
+        stderr_position: int,
+        stderr_length: int,
+        run_as: JobsConsoleOutputConsoleOutputParamRunAs | None = None,
+    ) -> JobConsoleOutput: ...
+
+    async def jobs_destination_params_destination_params(
+        self,
+        job_id: str,
+        run_as: JobsDestinationParamsDestinationParamsParamRunAs | None = None,
+    ) -> JobDestinationParams: ...
+
+    async def jobs_destination_params_destination_params(
+        self,
+        job_id: str,
+        run_as: JobsDestinationParamsDestinationParamsParamRunAs | None = None,
+    ) -> JobDestinationParams: ...
+
+    async def jobs_error_error(
+        self,
+        job_id: str,
+        body: ReportJobErrorPayload,
+        run_as: JobsErrorErrorParamRunAs | None = None,
+    ) -> JobErrorSummary: ...
+
+    async def jobs_error_error(
+        self,
+        job_id: str,
+        body: ReportJobErrorPayload,
+        run_as: JobsErrorErrorParamRunAs | None = None,
+    ) -> JobErrorSummary: ...
+
+    async def jobs_inputs_inputs(
+        self,
+        job_id: str,
+        run_as: JobsInputsInputsParamRunAs | None = None,
+    ) -> list[JobInputAssociation]: ...
+
+    async def jobs_inputs_inputs(
+        self,
+        job_id: str,
+        run_as: JobsInputsInputsParamRunAs | None = None,
+    ) -> list[JobInputAssociation]: ...
+
+    async def jobs_metrics_metrics_by_job(
+        self,
+        job_id: str,
+        hda_ldda: JobsMetricsMetricsByJobParamHdaLdda | None = None,
+        run_as: JobsMetricsMetricsByJobParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem117]: ...
+
+    async def jobs_metrics_metrics_by_job(
+        self,
+        job_id: str,
+        hda_ldda: JobsMetricsMetricsByJobParamHdaLdda | None = None,
+        run_as: JobsMetricsMetricsByJobParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem117]: ...
+
+    async def jobs_outputs_outputs(
+        self,
+        job_id: str,
+        run_as: JobsOutputsOutputsParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem119]: ...
+
+    async def jobs_outputs_outputs(
+        self,
+        job_id: str,
+        run_as: JobsOutputsOutputsParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem119]: ...
+
+    async def jobs_parameters_display_parameters_display_by_job(
+        self,
+        job_id: str,
+        hda_ldda: JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None = None,
+        run_as: JobsParametersDisplayParametersDisplayByJobParamRunAs | None = None,
+    ) -> JobDisplayParametersSummary: ...
+
+    async def jobs_parameters_display_parameters_display_by_job(
+        self,
+        job_id: str,
+        hda_ldda: JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None = None,
+        run_as: JobsParametersDisplayParametersDisplayByJobParamRunAs | None = None,
+    ) -> JobDisplayParametersSummary: ...
+
+    async def jobs_resume_resume(
+        self,
+        job_id: str,
+        run_as: JobsResumeResumeParamRunAs | None = None,
+    ) -> list[JobOutputAssociation]: ...
+
+    async def jobs_resume_resume(
+        self,
+        job_id: str,
+        run_as: JobsResumeResumeParamRunAs | None = None,
+    ) -> list[JobOutputAssociation]: ...
+
+
+class JobsClient(JobsClientProtocol):
     """Client for jobs endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def jobs_metrics_metrics_by_dataset_2_2(
+    async def jobs_metrics_metrics_by_dataset(
         self,
         dataset_id: str,
         hda_ldda: DatasetSourceType | None = None,
         run_as: JobsMetricsMetricsByDatasetParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem127]:
+    ) -> list[AnonymousArrayItem87]:
         """
         Return job metrics for specified job.
 
         Args:
             dataset_id (str)         : The ID of the dataset
-            hda_ldda (Optional[DatasetSourceType])
+            hda_ldda (DatasetSourceType | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsMetricsMetricsByDatasetParamRunAs])
+            run-as (JobsMetricsMetricsByDatasetParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem127]: Successful Response
+            List[AnonymousArrayItem87]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        dataset_id = DataclassSerializer.serialize(dataset_id)
+
         url = f"{self.base_url}/api/datasets/{dataset_id}/metrics"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -114,46 +368,48 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem127], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem87])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_metrics_metrics_by_dataset_2_2(
+    async def jobs_metrics_metrics_by_dataset(
         self,
         dataset_id: str,
         hda_ldda: DatasetSourceType | None = None,
         run_as: JobsMetricsMetricsByDatasetParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem127]:
+    ) -> list[AnonymousArrayItem87]:
         """
         Return job metrics for specified job.
 
         Args:
             dataset_id (str)         : The ID of the dataset
-            hda_ldda (Optional[DatasetSourceType])
+            hda_ldda (DatasetSourceType | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsMetricsMetricsByDatasetParamRunAs])
+            run-as (JobsMetricsMetricsByDatasetParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem127]: Successful Response
+            List[AnonymousArrayItem87]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        dataset_id = DataclassSerializer.serialize(dataset_id)
+
         url = f"{self.base_url}/api/datasets/{dataset_id}/metrics"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -161,13 +417,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem127], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem87])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_parameters_display_parameters_display_by_dataset_2_2(
+    async def jobs_parameters_display_parameters_display_by_dataset(
         self,
         dataset_id: str,
         hda_ldda: DatasetSourceType | None = None,
@@ -180,10 +436,10 @@ class JobsClient:
 
         Args:
             dataset_id (str)         : The ID of the dataset
-            hda_ldda (Optional[DatasetSourceType])
+            hda_ldda (DatasetSourceType | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsParametersDisplayParametersDisplayByDatasetParamRunAs])
+            run-as (JobsParametersDisplayParametersDisplayByDatasetParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -195,14 +451,16 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        dataset_id = DataclassSerializer.serialize(dataset_id)
+
         url = f"{self.base_url}/api/datasets/{dataset_id}/parameters_display"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -210,13 +468,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobDisplayParametersSummary, response.json())
+                return structure_from_dict(response.json(), JobDisplayParametersSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_parameters_display_parameters_display_by_dataset_2_2(
+    async def jobs_parameters_display_parameters_display_by_dataset(
         self,
         dataset_id: str,
         hda_ldda: DatasetSourceType | None = None,
@@ -229,10 +487,10 @@ class JobsClient:
 
         Args:
             dataset_id (str)         : The ID of the dataset
-            hda_ldda (Optional[DatasetSourceType])
+            hda_ldda (DatasetSourceType | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsParametersDisplayParametersDisplayByDatasetParamRunAs])
+            run-as (JobsParametersDisplayParametersDisplayByDatasetParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -244,14 +502,16 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        dataset_id = DataclassSerializer.serialize(dataset_id)
+
         url = f"{self.base_url}/api/datasets/{dataset_id}/parameters_display"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -259,15 +519,15 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobDisplayParametersSummary, response.json())
+                return structure_from_dict(response.json(), JobDisplayParametersSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_index_2_2(
+    async def jobs_index(
         self,
-        user_details: bool | None = False,
+        user_details: bool | None = None,
         user_id: JobsIndexParamUserId | None = None,
         view: JobIndexViewEnum | None = None,
         date_range_min: JobsIndexParamDateRangeMin | None = None,
@@ -279,54 +539,53 @@ class JobsClient:
         tool_request_id: JobsIndexParamToolRequestId | None = None,
         order_by: JobIndexSortByEnum | None = None,
         search: JobsIndexParamSearch | None = None,
-        limit: int | None = 500,
-        offset: int | None = 0,
+        limit: int | None = None,
+        offset: int | None = None,
         state: JobsIndexParamState | None = None,
         tool_id: JobsIndexParamToolId | None = None,
         tool_id_like: JobsIndexParamToolIdLike | None = None,
         run_as: JobsIndexParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem210]:
+    ) -> list[AnonymousArrayItem115]:
         """
         Index
 
         Args:
-            user_details (Optional[bool])
-                                     : If true, and requester is an admin, will return external
-                                       job id and user email. This is only available to admins.
-            user_id (Optional[JobsIndexParamUserId])
+            user_details (bool | None): If true, and requester is an admin, will return external
+                                        job id and user email. This is only available to admins.
+            user_id (JobsIndexParamUserId | None)
                                      : an encoded user id to restrict query to, must be own id
                                        if not admin user
-            view (Optional[JobIndexViewEnum])
+            view (JobIndexViewEnum | None)
                                      : Determines columns to return. Defaults to 'collection'.
-            date_range_min (Optional[JobsIndexParamDateRangeMin])
+            date_range_min (JobsIndexParamDateRangeMin | None)
                                      : Limit listing of jobs to those that are updated after
                                        specified date (e.g. '2014-01-01')
-            date_range_max (Optional[JobsIndexParamDateRangeMax])
+            date_range_max (JobsIndexParamDateRangeMax | None)
                                      : Limit listing of jobs to those that are updated before
                                        specified date (e.g. '2014-01-01')
-            history_id (Optional[JobsIndexParamHistoryId])
+            history_id (JobsIndexParamHistoryId | None)
                                      : Limit listing of jobs to those that match the history_id.
                                        If none, jobs from any history may be returned.
-            workflow_id (Optional[JobsIndexParamWorkflowId])
+            workflow_id (JobsIndexParamWorkflowId | None)
                                      : Limit listing of jobs to those that match the specified
                                        workflow ID. If none, jobs from any workflow (or from no
                                        workflows) may be returned.
-            invocation_id (Optional[JobsIndexParamInvocationId])
+            invocation_id (JobsIndexParamInvocationId | None)
                                      : Limit listing of jobs to those that match the specified
                                        workflow invocation ID. If none, jobs from any workflow
                                        invocation (or from no workflows) may be returned.
-            implicit_collection_jobs_id (Optional[JobsIndexParamImplicitCollectionJobsId])
+            implicit_collection_jobs_id (JobsIndexParamImplicitCollectionJobsId | None)
                                      : Limit listing of jobs to those that match the specified
                                        implicit collection job ID. If none, jobs from any
                                        implicit collection execution (or from no implicit
                                        collection execution) may be returned.
-            tool_request_id (Optional[JobsIndexParamToolRequestId])
+            tool_request_id (JobsIndexParamToolRequestId | None)
                                      : Limit listing of jobs to those that were created from the
                                        supplied tool request ID. If none, jobs from any tool
                                        request (or from no workflows) may be returned.
-            order_by (Optional[JobIndexSortByEnum])
+            order_by (JobIndexSortByEnum | None)
                                      : Sort results by specified field.
-            search (Optional[JobsIndexParamSearch])
+            search (JobsIndexParamSearch | None)
                                      : A mix of free text and GitHub-style tags used to filter
                                        the index operation.  ## Query Structure  GitHub-style
                                        filter tags (not be confused with Galaxy tags) are tags
@@ -359,28 +618,28 @@ class JobsClient:
                                        search terms will be searched against the following
                                        attributes of the Jobs: `user`, `tool`, `handler`,
                                        `runner`.
-            limit (Optional[int])    : Maximum number of jobs to return.
-            offset (Optional[int])   : Return jobs starting from this specified position. For
+            limit (int | None)       : Maximum number of jobs to return.
+            offset (int | None)      : Return jobs starting from this specified position. For
                                        example, if ``limit`` is set to 100 and ``offset`` to
                                        200, jobs 200-299 will be returned.
-            state (Optional[JobsIndexParamState])
+            state (JobsIndexParamState | None)
                                      : A list or comma-separated list of states to filter job
                                        query on. If unspecified, jobs of any state may be
                                        returned.
-            tool_id (Optional[JobsIndexParamToolId])
+            tool_id (JobsIndexParamToolId | None)
                                      : Limit listing of jobs to those that match one of the
                                        included tool_ids. If none, all are returned
-            tool_id_like (Optional[JobsIndexParamToolIdLike])
+            tool_id_like (JobsIndexParamToolIdLike | None)
                                      : Limit listing of jobs to those that match one of the
                                        included tool ID sql-like patterns. If none, all are
                                        returned
-            run-as (Optional[JobsIndexParamRunAs])
+            run-as (JobsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem210]: Successful Response
+            List[AnonymousArrayItem115]: Successful Response
 
         Raises:
             HttpError:
@@ -389,31 +648,35 @@ class JobsClient:
         url = f"{self.base_url}/api/jobs"
 
         params: dict[str, Any] = {
-            **({"user_details": user_details} if user_details is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"date_range_min": date_range_min} if date_range_min is not None else {}),
-            **({"date_range_max": date_range_max} if date_range_max is not None else {}),
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"workflow_id": workflow_id} if workflow_id is not None else {}),
-            **({"invocation_id": invocation_id} if invocation_id is not None else {}),
+            **({"user_details": DataclassSerializer.serialize(user_details)} if user_details is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"date_range_min": DataclassSerializer.serialize(date_range_min)} if date_range_min is not None else {}),
+            **({"date_range_max": DataclassSerializer.serialize(date_range_max)} if date_range_max is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"workflow_id": DataclassSerializer.serialize(workflow_id)} if workflow_id is not None else {}),
+            **({"invocation_id": DataclassSerializer.serialize(invocation_id)} if invocation_id is not None else {}),
             **(
-                {"implicit_collection_jobs_id": implicit_collection_jobs_id}
+                {"implicit_collection_jobs_id": DataclassSerializer.serialize(implicit_collection_jobs_id)}
                 if implicit_collection_jobs_id is not None
                 else {}
             ),
-            **({"tool_request_id": tool_request_id} if tool_request_id is not None else {}),
-            **({"order_by": order_by} if order_by is not None else {}),
-            **({"search": search} if search is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"state": state} if state is not None else {}),
-            **({"tool_id": tool_id} if tool_id is not None else {}),
-            **({"tool_id_like": tool_id_like} if tool_id_like is not None else {}),
+            **(
+                {"tool_request_id": DataclassSerializer.serialize(tool_request_id)}
+                if tool_request_id is not None
+                else {}
+            ),
+            **({"order_by": DataclassSerializer.serialize(order_by)} if order_by is not None else {}),
+            **({"search": DataclassSerializer.serialize(search)} if search is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"state": DataclassSerializer.serialize(state)} if state is not None else {}),
+            **({"tool_id": DataclassSerializer.serialize(tool_id)} if tool_id is not None else {}),
+            **({"tool_id_like": DataclassSerializer.serialize(tool_id_like)} if tool_id_like is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -421,15 +684,15 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem210], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem115])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_index_2_2(
+    async def jobs_index(
         self,
-        user_details: bool | None = False,
+        user_details: bool | None = None,
         user_id: JobsIndexParamUserId | None = None,
         view: JobIndexViewEnum | None = None,
         date_range_min: JobsIndexParamDateRangeMin | None = None,
@@ -441,54 +704,53 @@ class JobsClient:
         tool_request_id: JobsIndexParamToolRequestId | None = None,
         order_by: JobIndexSortByEnum | None = None,
         search: JobsIndexParamSearch | None = None,
-        limit: int | None = 500,
-        offset: int | None = 0,
+        limit: int | None = None,
+        offset: int | None = None,
         state: JobsIndexParamState | None = None,
         tool_id: JobsIndexParamToolId | None = None,
         tool_id_like: JobsIndexParamToolIdLike | None = None,
         run_as: JobsIndexParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem210]:
+    ) -> list[AnonymousArrayItem115]:
         """
         Index
 
         Args:
-            user_details (Optional[bool])
-                                     : If true, and requester is an admin, will return external
-                                       job id and user email. This is only available to admins.
-            user_id (Optional[JobsIndexParamUserId])
+            user_details (bool | None): If true, and requester is an admin, will return external
+                                        job id and user email. This is only available to admins.
+            user_id (JobsIndexParamUserId | None)
                                      : an encoded user id to restrict query to, must be own id
                                        if not admin user
-            view (Optional[JobIndexViewEnum])
+            view (JobIndexViewEnum | None)
                                      : Determines columns to return. Defaults to 'collection'.
-            date_range_min (Optional[JobsIndexParamDateRangeMin])
+            date_range_min (JobsIndexParamDateRangeMin | None)
                                      : Limit listing of jobs to those that are updated after
                                        specified date (e.g. '2014-01-01')
-            date_range_max (Optional[JobsIndexParamDateRangeMax])
+            date_range_max (JobsIndexParamDateRangeMax | None)
                                      : Limit listing of jobs to those that are updated before
                                        specified date (e.g. '2014-01-01')
-            history_id (Optional[JobsIndexParamHistoryId])
+            history_id (JobsIndexParamHistoryId | None)
                                      : Limit listing of jobs to those that match the history_id.
                                        If none, jobs from any history may be returned.
-            workflow_id (Optional[JobsIndexParamWorkflowId])
+            workflow_id (JobsIndexParamWorkflowId | None)
                                      : Limit listing of jobs to those that match the specified
                                        workflow ID. If none, jobs from any workflow (or from no
                                        workflows) may be returned.
-            invocation_id (Optional[JobsIndexParamInvocationId])
+            invocation_id (JobsIndexParamInvocationId | None)
                                      : Limit listing of jobs to those that match the specified
                                        workflow invocation ID. If none, jobs from any workflow
                                        invocation (or from no workflows) may be returned.
-            implicit_collection_jobs_id (Optional[JobsIndexParamImplicitCollectionJobsId])
+            implicit_collection_jobs_id (JobsIndexParamImplicitCollectionJobsId | None)
                                      : Limit listing of jobs to those that match the specified
                                        implicit collection job ID. If none, jobs from any
                                        implicit collection execution (or from no implicit
                                        collection execution) may be returned.
-            tool_request_id (Optional[JobsIndexParamToolRequestId])
+            tool_request_id (JobsIndexParamToolRequestId | None)
                                      : Limit listing of jobs to those that were created from the
                                        supplied tool request ID. If none, jobs from any tool
                                        request (or from no workflows) may be returned.
-            order_by (Optional[JobIndexSortByEnum])
+            order_by (JobIndexSortByEnum | None)
                                      : Sort results by specified field.
-            search (Optional[JobsIndexParamSearch])
+            search (JobsIndexParamSearch | None)
                                      : A mix of free text and GitHub-style tags used to filter
                                        the index operation.  ## Query Structure  GitHub-style
                                        filter tags (not be confused with Galaxy tags) are tags
@@ -521,28 +783,28 @@ class JobsClient:
                                        search terms will be searched against the following
                                        attributes of the Jobs: `user`, `tool`, `handler`,
                                        `runner`.
-            limit (Optional[int])    : Maximum number of jobs to return.
-            offset (Optional[int])   : Return jobs starting from this specified position. For
+            limit (int | None)       : Maximum number of jobs to return.
+            offset (int | None)      : Return jobs starting from this specified position. For
                                        example, if ``limit`` is set to 100 and ``offset`` to
                                        200, jobs 200-299 will be returned.
-            state (Optional[JobsIndexParamState])
+            state (JobsIndexParamState | None)
                                      : A list or comma-separated list of states to filter job
                                        query on. If unspecified, jobs of any state may be
                                        returned.
-            tool_id (Optional[JobsIndexParamToolId])
+            tool_id (JobsIndexParamToolId | None)
                                      : Limit listing of jobs to those that match one of the
                                        included tool_ids. If none, all are returned
-            tool_id_like (Optional[JobsIndexParamToolIdLike])
+            tool_id_like (JobsIndexParamToolIdLike | None)
                                      : Limit listing of jobs to those that match one of the
                                        included tool ID sql-like patterns. If none, all are
                                        returned
-            run-as (Optional[JobsIndexParamRunAs])
+            run-as (JobsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem210]: Successful Response
+            List[AnonymousArrayItem115]: Successful Response
 
         Raises:
             HttpError:
@@ -551,31 +813,35 @@ class JobsClient:
         url = f"{self.base_url}/api/jobs"
 
         params: dict[str, Any] = {
-            **({"user_details": user_details} if user_details is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"date_range_min": date_range_min} if date_range_min is not None else {}),
-            **({"date_range_max": date_range_max} if date_range_max is not None else {}),
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"workflow_id": workflow_id} if workflow_id is not None else {}),
-            **({"invocation_id": invocation_id} if invocation_id is not None else {}),
+            **({"user_details": DataclassSerializer.serialize(user_details)} if user_details is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"date_range_min": DataclassSerializer.serialize(date_range_min)} if date_range_min is not None else {}),
+            **({"date_range_max": DataclassSerializer.serialize(date_range_max)} if date_range_max is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"workflow_id": DataclassSerializer.serialize(workflow_id)} if workflow_id is not None else {}),
+            **({"invocation_id": DataclassSerializer.serialize(invocation_id)} if invocation_id is not None else {}),
             **(
-                {"implicit_collection_jobs_id": implicit_collection_jobs_id}
+                {"implicit_collection_jobs_id": DataclassSerializer.serialize(implicit_collection_jobs_id)}
                 if implicit_collection_jobs_id is not None
                 else {}
             ),
-            **({"tool_request_id": tool_request_id} if tool_request_id is not None else {}),
-            **({"order_by": order_by} if order_by is not None else {}),
-            **({"search": search} if search is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"state": state} if state is not None else {}),
-            **({"tool_id": tool_id} if tool_id is not None else {}),
-            **({"tool_id_like": tool_id_like} if tool_id_like is not None else {}),
+            **(
+                {"tool_request_id": DataclassSerializer.serialize(tool_request_id)}
+                if tool_request_id is not None
+                else {}
+            ),
+            **({"order_by": DataclassSerializer.serialize(order_by)} if order_by is not None else {}),
+            **({"search": DataclassSerializer.serialize(search)} if search is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"state": DataclassSerializer.serialize(state)} if state is not None else {}),
+            **({"tool_id": DataclassSerializer.serialize(tool_id)} if tool_id is not None else {}),
+            **({"tool_id_like": DataclassSerializer.serialize(tool_id_like)} if tool_id_like is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -583,13 +849,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem210], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem115])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_create_2_2(
+    async def jobs_create(
         self,
         body: JobRequest,
         run_as: JobsCreateParamRunAs | None = None,
@@ -598,7 +864,7 @@ class JobsClient:
         Create
 
         Args:
-            run-as (Optional[JobsCreateParamRunAs])
+            run-as (JobsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -614,7 +880,7 @@ class JobsClient:
         url = f"{self.base_url}/api/jobs"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: JobRequest = DataclassSerializer.serialize(body)
@@ -624,13 +890,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobCreateResponse, response.json())
+                return structure_from_dict(response.json(), JobCreateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_create_2_2(
+    async def jobs_create(
         self,
         body: JobRequest,
         run_as: JobsCreateParamRunAs | None = None,
@@ -639,7 +905,7 @@ class JobsClient:
         Create
 
         Args:
-            run-as (Optional[JobsCreateParamRunAs])
+            run-as (JobsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -655,7 +921,7 @@ class JobsClient:
         url = f"{self.base_url}/api/jobs"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: JobRequest = DataclassSerializer.serialize(body)
@@ -665,13 +931,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobCreateResponse, response.json())
+                return structure_from_dict(response.json(), JobCreateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_search_search_2_2(
+    async def jobs_search_search(
         self,
         body: SearchJobsPayload,
         run_as: JobsSearchSearchParamRunAs | None = None,
@@ -684,7 +950,7 @@ class JobsClient:
         amount of repeated work, and simply recycle the old results.
 
         Args:
-            run-as (Optional[JobsSearchSearchParamRunAs])
+            run-as (JobsSearchSearchParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -700,7 +966,7 @@ class JobsClient:
         url = f"{self.base_url}/api/jobs/search"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SearchJobsPayload = DataclassSerializer.serialize(body)
@@ -710,13 +976,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[EncodedJobDetails], response.json())
+                return structure_from_dict(response.json(), list[EncodedJobDetails])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_search_search_2_2(
+    async def jobs_search_search(
         self,
         body: SearchJobsPayload,
         run_as: JobsSearchSearchParamRunAs | None = None,
@@ -729,7 +995,7 @@ class JobsClient:
         amount of repeated work, and simply recycle the old results.
 
         Args:
-            run-as (Optional[JobsSearchSearchParamRunAs])
+            run-as (JobsSearchSearchParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -745,7 +1011,7 @@ class JobsClient:
         url = f"{self.base_url}/api/jobs/search"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SearchJobsPayload = DataclassSerializer.serialize(body)
@@ -755,28 +1021,28 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[EncodedJobDetails], response.json())
+                return structure_from_dict(response.json(), list[EncodedJobDetails])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_delete_2_2(
+    async def jobs_delete(
         self,
         job_id: str,
         run_as: JobsDeleteParamRunAs | None = None,
-        body: JobsDeleteRequestBody2 | None = None,
+        body: JobsDeleteRequestBody | None = None,
     ) -> bool:
         """
         Cancels specified job
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsDeleteParamRunAs])
+            run-as (JobsDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[JobsDeleteRequestBody2])
+            body (JobsDeleteRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -786,13 +1052,15 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: JobsDeleteRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: JobsDeleteRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("DELETE", url, params=None, json=json_body, headers=headers)
 
@@ -803,24 +1071,24 @@ class JobsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_delete_2_2(
+    async def jobs_delete(
         self,
         job_id: str,
         run_as: JobsDeleteParamRunAs | None = None,
-        body: JobsDeleteRequestBody2 | None = None,
+        body: JobsDeleteRequestBody | None = None,
     ) -> bool:
         """
         Cancels specified job
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsDeleteParamRunAs])
+            run-as (JobsDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[JobsDeleteRequestBody2])
+            body (JobsDeleteRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -830,13 +1098,15 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: JobsDeleteRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: JobsDeleteRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("DELETE", url, params=None, json=json_body, headers=headers)
 
@@ -847,41 +1117,43 @@ class JobsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_show_2_2(
+    async def jobs_show(
         self,
         job_id: str,
-        full: JobsShowParamFull | None = False,
+        full: JobsShowParamFull | None = None,
         run_as: JobsShowParamRunAs | None = None,
-    ) -> JobsShow200Response2:
+    ) -> JobsShow200Response:
         """
         Return dictionary containing description of job data.
 
         Args:
             job_id (str)             : The ID of the job
-            full (Optional[JobsShowParamFull])
+            full (JobsShowParamFull | None)
                                      : Show extra information.
-            run-as (Optional[JobsShowParamRunAs])
+            run-as (JobsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            JobsShow200Response2: Successful Response
+            JobsShow200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}"
 
         params: dict[str, Any] = {
-            **({"full": full} if full is not None else {}),
+            **({"full": DataclassSerializer.serialize(full)} if full is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -889,45 +1161,47 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobsShow200Response2, response.json())
+                return structure_from_dict(response.json(), JobsShow200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_show_2_2(
+    async def jobs_show(
         self,
         job_id: str,
-        full: JobsShowParamFull | None = False,
+        full: JobsShowParamFull | None = None,
         run_as: JobsShowParamRunAs | None = None,
-    ) -> JobsShow200Response2:
+    ) -> JobsShow200Response:
         """
         Return dictionary containing description of job data.
 
         Args:
             job_id (str)             : The ID of the job
-            full (Optional[JobsShowParamFull])
+            full (JobsShowParamFull | None)
                                      : Show extra information.
-            run-as (Optional[JobsShowParamRunAs])
+            run-as (JobsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            JobsShow200Response2: Successful Response
+            JobsShow200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}"
 
         params: dict[str, Any] = {
-            **({"full": full} if full is not None else {}),
+            **({"full": DataclassSerializer.serialize(full)} if full is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -935,13 +1209,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobsShow200Response2, response.json())
+                return structure_from_dict(response.json(), JobsShow200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_common_problems_common_problems_2_2(
+    async def jobs_common_problems_common_problems(
         self,
         job_id: str,
         run_as: JobsCommonProblemsCommonProblemsParamRunAs | None = None,
@@ -951,7 +1225,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsCommonProblemsCommonProblemsParamRunAs])
+            run-as (JobsCommonProblemsCommonProblemsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -963,10 +1237,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/common_problems"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -974,13 +1250,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobInputSummary, response.json())
+                return structure_from_dict(response.json(), JobInputSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_common_problems_common_problems_2_2(
+    async def jobs_common_problems_common_problems(
         self,
         job_id: str,
         run_as: JobsCommonProblemsCommonProblemsParamRunAs | None = None,
@@ -990,7 +1266,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsCommonProblemsCommonProblemsParamRunAs])
+            run-as (JobsCommonProblemsCommonProblemsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1002,10 +1278,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/common_problems"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1013,13 +1291,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobInputSummary, response.json())
+                return structure_from_dict(response.json(), JobInputSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_console_output_console_output_2_2(
+    async def jobs_console_output_console_output(
         self,
         job_id: str,
         stdout_position: int,
@@ -1041,7 +1319,7 @@ class JobsClient:
             stdout_length (int)      :
             stderr_position (int)    :
             stderr_length (int)      :
-            run-as (Optional[JobsConsoleOutputConsoleOutputParamRunAs])
+            run-as (JobsConsoleOutputConsoleOutputParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1053,17 +1331,19 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/console_output"
 
         params: dict[str, Any] = {
-            "stdout_position": stdout_position,
-            "stdout_length": stdout_length,
-            "stderr_position": stderr_position,
-            "stderr_length": stderr_length,
+            "stdout_position": DataclassSerializer.serialize(stdout_position),
+            "stdout_length": DataclassSerializer.serialize(stdout_length),
+            "stderr_position": DataclassSerializer.serialize(stderr_position),
+            "stderr_length": DataclassSerializer.serialize(stderr_length),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1071,13 +1351,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobConsoleOutput, response.json())
+                return structure_from_dict(response.json(), JobConsoleOutput)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_console_output_console_output_2_2(
+    async def jobs_console_output_console_output(
         self,
         job_id: str,
         stdout_position: int,
@@ -1099,7 +1379,7 @@ class JobsClient:
             stdout_length (int)      :
             stderr_position (int)    :
             stderr_length (int)      :
-            run-as (Optional[JobsConsoleOutputConsoleOutputParamRunAs])
+            run-as (JobsConsoleOutputConsoleOutputParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1111,17 +1391,19 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/console_output"
 
         params: dict[str, Any] = {
-            "stdout_position": stdout_position,
-            "stdout_length": stdout_length,
-            "stderr_position": stderr_position,
-            "stderr_length": stderr_length,
+            "stdout_position": DataclassSerializer.serialize(stdout_position),
+            "stdout_length": DataclassSerializer.serialize(stdout_length),
+            "stderr_position": DataclassSerializer.serialize(stderr_position),
+            "stderr_length": DataclassSerializer.serialize(stderr_length),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1129,13 +1411,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobConsoleOutput, response.json())
+                return structure_from_dict(response.json(), JobConsoleOutput)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_destination_params_destination_params_2_2(
+    async def jobs_destination_params_destination_params(
         self,
         job_id: str,
         run_as: JobsDestinationParamsDestinationParamsParamRunAs | None = None,
@@ -1145,7 +1427,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsDestinationParamsDestinationParamsParamRunAs])
+            run-as (JobsDestinationParamsDestinationParamsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1157,10 +1439,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/destination_params"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1168,13 +1452,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobDestinationParams, response.json())
+                return structure_from_dict(response.json(), JobDestinationParams)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_destination_params_destination_params_2_2(
+    async def jobs_destination_params_destination_params(
         self,
         job_id: str,
         run_as: JobsDestinationParamsDestinationParamsParamRunAs | None = None,
@@ -1184,7 +1468,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsDestinationParamsDestinationParamsParamRunAs])
+            run-as (JobsDestinationParamsDestinationParamsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1196,10 +1480,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/destination_params"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1207,13 +1493,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobDestinationParams, response.json())
+                return structure_from_dict(response.json(), JobDestinationParams)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_error_error_2_2(
+    async def jobs_error_error(
         self,
         job_id: str,
         body: ReportJobErrorPayload,
@@ -1224,7 +1510,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsErrorErrorParamRunAs])
+            run-as (JobsErrorErrorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1238,10 +1524,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/error"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ReportJobErrorPayload = DataclassSerializer.serialize(body)
@@ -1251,13 +1539,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobErrorSummary, response.json())
+                return structure_from_dict(response.json(), JobErrorSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_error_error_2_2(
+    async def jobs_error_error(
         self,
         job_id: str,
         body: ReportJobErrorPayload,
@@ -1268,7 +1556,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsErrorErrorParamRunAs])
+            run-as (JobsErrorErrorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1282,10 +1570,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/error"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ReportJobErrorPayload = DataclassSerializer.serialize(body)
@@ -1295,13 +1585,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobErrorSummary, response.json())
+                return structure_from_dict(response.json(), JobErrorSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_inputs_inputs_2_2(
+    async def jobs_inputs_inputs(
         self,
         job_id: str,
         run_as: JobsInputsInputsParamRunAs | None = None,
@@ -1311,7 +1601,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsInputsInputsParamRunAs])
+            run-as (JobsInputsInputsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1323,10 +1613,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/inputs"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1334,13 +1626,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[JobInputAssociation], response.json())
+                return structure_from_dict(response.json(), list[JobInputAssociation])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_inputs_inputs_2_2(
+    async def jobs_inputs_inputs(
         self,
         job_id: str,
         run_as: JobsInputsInputsParamRunAs | None = None,
@@ -1350,7 +1642,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsInputsInputsParamRunAs])
+            run-as (JobsInputsInputsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1362,10 +1654,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/inputs"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1373,46 +1667,48 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[JobInputAssociation], response.json())
+                return structure_from_dict(response.json(), list[JobInputAssociation])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_metrics_metrics_by_job_2_2(
+    async def jobs_metrics_metrics_by_job(
         self,
         job_id: str,
-        hda_ldda: JobsMetricsMetricsByJobParamHdaLdda | None = "hda",
+        hda_ldda: JobsMetricsMetricsByJobParamHdaLdda | None = None,
         run_as: JobsMetricsMetricsByJobParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem212]:
+    ) -> list[AnonymousArrayItem117]:
         """
         Return job metrics for specified job.
 
         Args:
             job_id (str)             : The ID of the job
-            hda_ldda (Optional[JobsMetricsMetricsByJobParamHdaLdda])
+            hda_ldda (JobsMetricsMetricsByJobParamHdaLdda | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsMetricsMetricsByJobParamRunAs])
+            run-as (JobsMetricsMetricsByJobParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem212]: Successful Response
+            List[AnonymousArrayItem117]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/metrics"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1420,46 +1716,48 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem212], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem117])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_metrics_metrics_by_job_2_2(
+    async def jobs_metrics_metrics_by_job(
         self,
         job_id: str,
-        hda_ldda: JobsMetricsMetricsByJobParamHdaLdda | None = "hda",
+        hda_ldda: JobsMetricsMetricsByJobParamHdaLdda | None = None,
         run_as: JobsMetricsMetricsByJobParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem212]:
+    ) -> list[AnonymousArrayItem117]:
         """
         Return job metrics for specified job.
 
         Args:
             job_id (str)             : The ID of the job
-            hda_ldda (Optional[JobsMetricsMetricsByJobParamHdaLdda])
+            hda_ldda (JobsMetricsMetricsByJobParamHdaLdda | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsMetricsMetricsByJobParamRunAs])
+            run-as (JobsMetricsMetricsByJobParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem212]: Successful Response
+            List[AnonymousArrayItem117]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/metrics"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1467,38 +1765,40 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem212], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem117])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_outputs_outputs_2_2(
+    async def jobs_outputs_outputs(
         self,
         job_id: str,
         run_as: JobsOutputsOutputsParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem214]:
+    ) -> list[AnonymousArrayItem119]:
         """
         Returns output datasets created by a job.
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsOutputsOutputsParamRunAs])
+            run-as (JobsOutputsOutputsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem214]: Successful Response
+            List[AnonymousArrayItem119]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/outputs"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1506,38 +1806,40 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem214], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem119])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_outputs_outputs_2_2(
+    async def jobs_outputs_outputs(
         self,
         job_id: str,
         run_as: JobsOutputsOutputsParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem214]:
+    ) -> list[AnonymousArrayItem119]:
         """
         Returns output datasets created by a job.
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsOutputsOutputsParamRunAs])
+            run-as (JobsOutputsOutputsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem214]: Successful Response
+            List[AnonymousArrayItem119]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/outputs"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1545,16 +1847,16 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem214], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem119])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_parameters_display_parameters_display_by_job_2_2(
+    async def jobs_parameters_display_parameters_display_by_job(
         self,
         job_id: str,
-        hda_ldda: JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None = "hda",
+        hda_ldda: JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None = None,
         run_as: JobsParametersDisplayParametersDisplayByJobParamRunAs | None = None,
     ) -> JobDisplayParametersSummary:
         """
@@ -1564,10 +1866,10 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            hda_ldda (Optional[JobsParametersDisplayParametersDisplayByJobParamHdaLdda])
+            hda_ldda (JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsParametersDisplayParametersDisplayByJobParamRunAs])
+            run-as (JobsParametersDisplayParametersDisplayByJobParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1579,14 +1881,16 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/parameters_display"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1594,16 +1898,16 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobDisplayParametersSummary, response.json())
+                return structure_from_dict(response.json(), JobDisplayParametersSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_parameters_display_parameters_display_by_job_2_2(
+    async def jobs_parameters_display_parameters_display_by_job(
         self,
         job_id: str,
-        hda_ldda: JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None = "hda",
+        hda_ldda: JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None = None,
         run_as: JobsParametersDisplayParametersDisplayByJobParamRunAs | None = None,
     ) -> JobDisplayParametersSummary:
         """
@@ -1613,10 +1917,10 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            hda_ldda (Optional[JobsParametersDisplayParametersDisplayByJobParamHdaLdda])
+            hda_ldda (JobsParametersDisplayParametersDisplayByJobParamHdaLdda | None)
                                      : Whether this dataset belongs to a history (HDA) or a
                                        library (LDDA).
-            run-as (Optional[JobsParametersDisplayParametersDisplayByJobParamRunAs])
+            run-as (JobsParametersDisplayParametersDisplayByJobParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1628,14 +1932,16 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/parameters_display"
 
         params: dict[str, Any] = {
-            **({"hda_ldda": hda_ldda} if hda_ldda is not None else {}),
+            **({"hda_ldda": DataclassSerializer.serialize(hda_ldda)} if hda_ldda is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1643,13 +1949,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(JobDisplayParametersSummary, response.json())
+                return structure_from_dict(response.json(), JobDisplayParametersSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_resume_resume_2_2(
+    async def jobs_resume_resume(
         self,
         job_id: str,
         run_as: JobsResumeResumeParamRunAs | None = None,
@@ -1659,7 +1965,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsResumeResumeParamRunAs])
+            run-as (JobsResumeResumeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1671,10 +1977,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/resume"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -1682,13 +1990,13 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[JobOutputAssociation], response.json())
+                return structure_from_dict(response.json(), list[JobOutputAssociation])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def jobs_resume_resume_2_2(
+    async def jobs_resume_resume(
         self,
         job_id: str,
         run_as: JobsResumeResumeParamRunAs | None = None,
@@ -1698,7 +2006,7 @@ class JobsClient:
 
         Args:
             job_id (str)             : The ID of the job
-            run-as (Optional[JobsResumeResumeParamRunAs])
+            run-as (JobsResumeResumeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1710,10 +2018,12 @@ class JobsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        job_id = DataclassSerializer.serialize(job_id)
+
         url = f"{self.base_url}/api/jobs/{job_id}/resume"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -1721,8 +2031,8 @@ class JobsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[JobOutputAssociation], response.json())
+                return structure_from_dict(response.json(), list[JobOutputAssociation])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

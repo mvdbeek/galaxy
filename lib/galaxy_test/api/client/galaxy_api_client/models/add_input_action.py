@@ -1,13 +1,14 @@
 from dataclasses import dataclass
 
-from .collection_type import CollectionType
-from .default import Default
-from .label import Label
-from .optional_bool import OptionalBool
-from .position import Position
-from .restrict_on_connections import RestrictOnConnections
-from .restrictions import Restrictions
-from .suggestions import Suggestions
+from .add_input_action_collection_type import AddInputActionCollectionType
+from .add_input_action_default import AddInputActionDefault
+from .add_input_action_label import AddInputActionLabel
+from .add_input_action_optional import AddInputActionOptional
+from .add_input_action_position import AddInputActionPosition
+from .add_input_action_restrict_on_connections import AddInputActionRestrictOnConnections
+from .add_input_action_restrictions import AddInputActionRestrictions
+from .add_input_action_suggestions import AddInputActionSuggestions
+from .refactor_request_actions_item_action_type_enum import RefactorRequestActionsItemActionTypeEnum
 
 __all__ = ["AddInputAction"]
 
@@ -15,45 +16,65 @@ __all__ = ["AddInputAction"]
 @dataclass
 class AddInputAction:
     """
-    AddInputAction dataclass.
+    AddInputAction dataclass
 
     Args:
-        action_type (str)        :
-        type_ (str)              :
-        collection_type (Optional[CollectionType])
-                                 : The type of the collection, can be `list`, `paired`, or
-                                   define subcollections using `:` as separator like
-                                   `list:paired` or `list:list`.
-        default (Optional[Default])
-                                 : Whether or not this is a default quota. Valid values are
-                                   ``no``, ``unregistered``, ``registered``. Calling this
-                                   method with ``default="no"`` on a non-default quota will
-                                   throw an error. Not passing this parameter is equivalent
-                                   to passing ``no``.
-        label (Optional[Label])  : Label of the input.
-        optional (Optional[OptionalBool])
+        action_type (RefactorRequestActionsItemActionTypeEnum)
                                  :
-        position (Optional[Position])
-                                 : The location of the step in the Galaxy workflow editor.
-        restrict_on_connections (Optional[RestrictOnConnections])
+        type_ (str)              : Maps from 'type'
+        collection_type (AddInputActionCollectionType | None)
                                  :
-        restrictions (Optional[Restrictions])
+        default (AddInputActionDefault | None)
                                  :
-        suggestions (Optional[Suggestions])
+        label (AddInputActionLabel | None)
+                                 :
+        optional (AddInputActionOptional | None)
+                                 :
+        position (AddInputActionPosition | None)
+                                 :
+        restrict_on_connections (AddInputActionRestrictOnConnections | None)
+                                 :
+        restrictions (AddInputActionRestrictions | None)
+                                 :
+        suggestions (AddInputActionSuggestions | None)
                                  :
     """
 
-    action_type: str
-    type_: str
-    collection_type: CollectionType | None = (
-        None  # The type of the collection, can be `list`, `paired`, or define subcollections using `:` as separator like `list:paired` or `list:list`.
-    )
-    default: Default | None = (
-        None  # Whether or not this is a default quota. Valid values are ``no``, ``unregistered``, ``registered``. Calling this method with ``default="no"`` on a non-default quota will throw an error. Not passing this parameter is equivalent to passing ``no``.
-    )
-    label: Label | None = None  # Label of the input.
-    optional: OptionalBool | None = False
-    position: Position | None = None  # The location of the step in the Galaxy workflow editor.
-    restrict_on_connections: RestrictOnConnections | None = None
-    restrictions: Restrictions | None = None
-    suggestions: Suggestions | None = None
+    action_type: RefactorRequestActionsItemActionTypeEnum
+    type_: str  # Maps from 'type'
+    collection_type: AddInputActionCollectionType | None = None
+    default: AddInputActionDefault | None = None
+    label: AddInputActionLabel | None = None
+    optional: AddInputActionOptional | None = False
+    position: AddInputActionPosition | None = None
+    restrict_on_connections: AddInputActionRestrictOnConnections | None = None
+    restrictions: AddInputActionRestrictions | None = None
+    suggestions: AddInputActionSuggestions | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "action_type": "action_type",
+            "collection_type": "collection_type",
+            "default": "default",
+            "label": "label",
+            "optional": "optional",
+            "position": "position",
+            "restrict_on_connections": "restrict_on_connections",
+            "restrictions": "restrictions",
+            "suggestions": "suggestions",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "action_type": "action_type",
+            "collection_type": "collection_type",
+            "default": "default",
+            "label": "label",
+            "optional": "optional",
+            "position": "position",
+            "restrict_on_connections": "restrict_on_connections",
+            "restrictions": "restrictions",
+            "suggestions": "suggestions",
+            "type_": "type",
+        }

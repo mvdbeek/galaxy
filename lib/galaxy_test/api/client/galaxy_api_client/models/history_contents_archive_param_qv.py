@@ -1,8 +1,6 @@
 from typing import TypeAlias
 
-from .anonymous_array_item_180 import AnonymousArrayItem180
-
 __all__ = ["HistoryContentsArchiveParamQv"]
 
-HistoryContentsArchiveParamQv: TypeAlias = list[AnonymousArrayItem180] | None
+HistoryContentsArchiveParamQv: TypeAlias = list[str] | None
 """Alias for The value to filter by."""

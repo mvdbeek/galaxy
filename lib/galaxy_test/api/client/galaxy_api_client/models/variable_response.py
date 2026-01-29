@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .value import Value
+from .variable_response_value import VariableResponseValue
 
 __all__ = ["VariableResponse"]
 
@@ -8,12 +8,25 @@ __all__ = ["VariableResponse"]
 @dataclass
 class VariableResponse:
     """
-    VariableResponse dataclass.
+    VariableResponse dataclass
 
     Args:
         name (str)               : The name of the credential.
-        value (Optional[Value])  : TODO
+        value (VariableResponseValue | None)
+                                 : The value of the variable (for variables, not secrets).
     """
 
     name: str  # The name of the credential.
-    value: Value | None = False  # TODO
+    value: VariableResponseValue | None = None  # The value of the variable (for variables, not secrets).
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "name": "name",
+            "value": "value",
+        }
+        key_transform_with_dump = {
+            "name": "name",
+            "value": "value",
+        }

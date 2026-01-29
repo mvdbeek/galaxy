@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .group_ids import GroupIds
-from .role_type import RoleType
-from .user_ids import UserIds
+from .role_definition_model_group_ids import RoleDefinitionModelGroupIds
+from .role_definition_model_role_type import RoleDefinitionModelRoleType
+from .role_definition_model_user_ids import RoleDefinitionModelUserIds
 
 __all__ = ["RoleDefinitionModel"]
 
@@ -10,24 +10,39 @@ __all__ = ["RoleDefinitionModel"]
 @dataclass
 class RoleDefinitionModel:
     """
-    RoleDefinitionModel dataclass.
+    RoleDefinitionModel dataclass
 
     Args:
         description (str)        : Description of the role
         name (str)               : Name of the role
-        group_ids (Optional[GroupIds])
-                                 : The list of encoded group IDs of the groups that should
-                                   receive the notification.
-        role_type (Optional[RoleType])
+        group_ids (RoleDefinitionModelGroupIds | None)
                                  :
-        user_ids (Optional[UserIds])
+        role_type (RoleDefinitionModelRoleType | None)
+                                 :
+        user_ids (RoleDefinitionModelUserIds | None)
                                  :
     """
 
     description: str  # Description of the role
     name: str  # Name of the role
-    group_ids: GroupIds | None = (
-        None  # The list of encoded group IDs of the groups that should receive the notification.
-    )
-    role_type: RoleType | None = "admin"
-    user_ids: UserIds | None = None
+    group_ids: RoleDefinitionModelGroupIds | None = None
+    role_type: RoleDefinitionModelRoleType | None = "admin"
+    user_ids: RoleDefinitionModelUserIds | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "group_ids": "group_ids",
+            "name": "name",
+            "role_type": "role_type",
+            "user_ids": "user_ids",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "group_ids": "group_ids",
+            "name": "name",
+            "role_type": "role_type",
+            "user_ids": "user_ids",
+        }

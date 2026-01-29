@@ -7,7 +7,7 @@ __all__ = ["ApiKeyModel2"]
 @dataclass
 class ApiKeyModel2:
     """
-    ApiKeyModel2 dataclass.
+    ApiKeyModel2 dataclass
 
     Args:
         create_time (datetime)   : The time and date this API key was created.
@@ -16,3 +16,15 @@ class ApiKeyModel2:
 
     create_time: datetime  # The time and date this API key was created.
     key: str  # API key to interact with the Galaxy API
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "create_time": "create_time",
+            "key": "key",
+        }
+        key_transform_with_dump = {
+            "create_time": "create_time",
+            "key": "key",
+        }

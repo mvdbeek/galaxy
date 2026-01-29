@@ -219,7 +219,7 @@ PYTHON_CLIENT_DIR = lib/galaxy_test/api/client
 
 update-python-api-client: build-api-schema ## Generate Python API client from OpenAPI schema
 	rm -rf $(PYTHON_CLIENT_DIR)/galaxy_api_client
-	$(IN_VENV) pyopenapi-gen gen _schema.yaml \
+	python3.12 -m pyopenapi_gen _schema.yaml \
 		--project-root $(PYTHON_CLIENT_DIR) \
 		--output-package galaxy_api_client \
 		--force \

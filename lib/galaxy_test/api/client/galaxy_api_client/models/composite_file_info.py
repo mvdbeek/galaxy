@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .description import Description
-from .mimetype import Mimetype
-from .substitute_name_with_metadata import SubstituteNameWithMetadata
+from .composite_file_info_description import CompositeFileInfoDescription
+from .composite_file_info_mimetype import CompositeFileInfoMimetype
+from .composite_file_info_substitute_name_with_metadata import CompositeFileInfoSubstituteNameWithMetadata
 
 __all__ = ["CompositeFileInfo"]
 
@@ -10,27 +10,51 @@ __all__ = ["CompositeFileInfo"]
 @dataclass
 class CompositeFileInfo:
     """
-    CompositeFileInfo dataclass.
+    CompositeFileInfo dataclass
 
     Args:
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
+        description (CompositeFileInfoDescription)
+                                 : Summary description of the purpouse of this file
         is_binary (bool)         : Whether this file is a binary file
-        mimetype (Optional[Mimetype])
+        mimetype (CompositeFileInfoMimetype)
                                  : The MIME type of this file
         name (str)               : The name of this composite file
         optional (bool)          :
         space_to_tab (bool)      :
-        substitute_name_with_metadata (Optional[SubstituteNameWithMetadata])
+        substitute_name_with_metadata (CompositeFileInfoSubstituteNameWithMetadata)
                                  :
         to_posix_lines (bool)    :
     """
 
-    description: Description | None  # Detailed text description for this Quota.
+    description: CompositeFileInfoDescription  # Summary description of the purpouse of this file
     is_binary: bool  # Whether this file is a binary file
-    mimetype: Mimetype | None  # The MIME type of this file
+    mimetype: CompositeFileInfoMimetype  # The MIME type of this file
     name: str  # The name of this composite file
     optional: bool
     space_to_tab: bool
-    substitute_name_with_metadata: SubstituteNameWithMetadata | None
+    substitute_name_with_metadata: CompositeFileInfoSubstituteNameWithMetadata
     to_posix_lines: bool
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "is_binary": "is_binary",
+            "mimetype": "mimetype",
+            "name": "name",
+            "optional": "optional",
+            "space_to_tab": "space_to_tab",
+            "substitute_name_with_metadata": "substitute_name_with_metadata",
+            "to_posix_lines": "to_posix_lines",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "is_binary": "is_binary",
+            "mimetype": "mimetype",
+            "name": "name",
+            "optional": "optional",
+            "space_to_tab": "space_to_tab",
+            "substitute_name_with_metadata": "substitute_name_with_metadata",
+            "to_posix_lines": "to_posix_lines",
+        }

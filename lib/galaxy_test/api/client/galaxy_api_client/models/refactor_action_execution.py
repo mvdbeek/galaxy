@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .action import Action
+from .refactor_action_execution_action import RefactorActionExecutionAction
 from .refactor_action_execution_message import RefactorActionExecutionMessage
 
 __all__ = ["RefactorActionExecution"]
@@ -9,13 +9,26 @@ __all__ = ["RefactorActionExecution"]
 @dataclass
 class RefactorActionExecution:
     """
-    RefactorActionExecution dataclass.
+    RefactorActionExecution dataclass
 
     Args:
-        action (Optional[Action]): Indicates what action should be performed on the dataset.
+        action (RefactorActionExecutionAction)
+                                 :
         messages (List[RefactorActionExecutionMessage])
                                  :
     """
 
-    action: Action | None  # Indicates what action should be performed on the dataset.
+    action: RefactorActionExecutionAction
     messages: list[RefactorActionExecutionMessage]
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "action": "action",
+            "messages": "messages",
+        }
+        key_transform_with_dump = {
+            "action": "action",
+            "messages": "messages",
+        }

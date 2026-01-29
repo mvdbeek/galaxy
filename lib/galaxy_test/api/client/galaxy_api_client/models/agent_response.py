@@ -1,9 +1,9 @@
 from dataclasses import dataclass, field
 
 from .action_suggestion import ActionSuggestion
+from .agent_response_metadata import AgentResponseMetadata
+from .agent_response_reasoning import AgentResponseReasoning
 from .confidence_level import ConfidenceLevel
-from .metadata import Metadata
-from .reasoning import Reasoning
 
 __all__ = ["AgentResponse"]
 
@@ -18,17 +18,37 @@ class AgentResponse:
         confidence (ConfidenceLevel)
                                  : Confidence levels for agent responses.
         content (str)            : Main response content
-        metadata (Optional[Metadata])
+        metadata (AgentResponseMetadata | None)
                                  : Additional metadata
-        reasoning (Optional[Reasoning])
+        reasoning (AgentResponseReasoning | None)
                                  : Explanation of the agent's reasoning
-        suggestions (Optional[List[ActionSuggestion]])
+        suggestions (List[ActionSuggestion] | None)
                                  : Actionable suggestions
     """
 
     agent_type: str  # Type of agent that generated this response
     confidence: ConfidenceLevel  # Confidence levels for agent responses.
     content: str  # Main response content
-    metadata: Metadata | None = None  # Additional metadata
-    reasoning: Reasoning | None = None  # Explanation of the agent's reasoning
+    metadata: AgentResponseMetadata | None = None  # Additional metadata
+    reasoning: AgentResponseReasoning | None = None  # Explanation of the agent's reasoning
     suggestions: list[ActionSuggestion] | None = field(default_factory=list)  # Actionable suggestions
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "agent_type": "agent_type",
+            "confidence": "confidence",
+            "content": "content",
+            "metadata": "metadata",
+            "reasoning": "reasoning",
+            "suggestions": "suggestions",
+        }
+        key_transform_with_dump = {
+            "agent_type": "agent_type",
+            "confidence": "confidence",
+            "content": "content",
+            "metadata": "metadata",
+            "reasoning": "reasoning",
+            "suggestions": "suggestions",
+        }

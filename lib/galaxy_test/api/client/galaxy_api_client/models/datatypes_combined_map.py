@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 
-from .datatypes import Datatypes
 from .datatypes_map import DatatypesMap
 
 __all__ = ["DatatypesCombinedMap"]
@@ -9,13 +8,25 @@ __all__ = ["DatatypesCombinedMap"]
 @dataclass
 class DatatypesCombinedMap:
     """
-    DatatypesCombinedMap dataclass.
+    DatatypesCombinedMap dataclass
 
     Args:
-        datatypes (Datatypes)    : List of datatypes extensions
+        datatypes (List[str])    : List of datatypes extensions
         datatypes_mapping (DatatypesMap)
                                  :
     """
 
-    datatypes: Datatypes  # List of datatypes extensions
+    datatypes: list[str]  # List of datatypes extensions
     datatypes_mapping: DatatypesMap
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "datatypes": "datatypes",
+            "datatypes_mapping": "datatypes_mapping",
+        }
+        key_transform_with_dump = {
+            "datatypes": "datatypes",
+            "datatypes_mapping": "datatypes_mapping",
+        }

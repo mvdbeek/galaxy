@@ -6,14 +6,26 @@ __all__ = ["CwlIntegerParameterModel"]
 @dataclass
 class CwlIntegerParameterModel:
     """
-    CwlIntegerParameterModel dataclass.
+    CwlIntegerParameterModel dataclass
 
     Args:
         name (str)               : Parameter name. Used when referencing parameter in
                                    workflows or inside command templating.
-        parameter_type (Optional[str])
+        parameter_type (str | None)
                                  :
     """
 
     name: str  # Parameter name. Used when referencing parameter in workflows or inside command templating.
     parameter_type: str | None = "cwl_integer"
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "name": "name",
+            "parameter_type": "parameter_type",
+        }
+        key_transform_with_dump = {
+            "name": "name",
+            "parameter_type": "parameter_type",
+        }

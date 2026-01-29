@@ -6,7 +6,7 @@ __all__ = ["Checksum"]
 @dataclass
 class Checksum:
     """
-    Checksum dataclass.
+    Checksum dataclass
 
     Args:
         checksum (str)           : The hex-string encoded checksum for the data
@@ -23,8 +23,21 @@ class Checksum:
                                    implementers do choose such an algorithm (e.g. because
                                    it's implemented by their storage provider), they SHOULD
                                    use an existing standard `type` value such as `md5`,
-                                   `etag`, `crc32c`, `trunc512`, or `sha1`.
+                                   `etag`, `crc32c`, `trunc512`, or `sha1`. (maps from
+                                   'type')
     """
 
     checksum: str  # The hex-string encoded checksum for the data
-    type_: str  # The digest method used to create the checksum. The value (e.g. `sha-256`) SHOULD be listed as `Hash Name String` in the https://www.iana.org/assignments/named-information/named-information.xhtml#hash-alg[IANA Named Information Hash Algorithm Registry]. Other values MAY be used, as long as implementors are aware of the issues discussed in https://tools.ietf.org/html/rfc6920#section-9.4[RFC6920]. GA4GH may provide more explicit guidance for use of non-IANA-registered algorithms in the future. Until then, if implementers do choose such an algorithm (e.g. because it's implemented by their storage provider), they SHOULD use an existing standard `type` value such as `md5`, `etag`, `crc32c`, `trunc512`, or `sha1`.
+    type_: str  # The digest method used to create the checksum. The value (e.g. `sha-256`) SHOULD be listed as `Hash Name String` in the https://www.iana.org/assignments/named-information/named-information.xhtml#hash-alg[IANA Named Information Hash Algorithm Registry]. Other values MAY be used, as long as implementors are aware of the issues discussed in https://tools.ietf.org/html/rfc6920#section-9.4[RFC6920]. GA4GH may provide more explicit guidance for use of non-IANA-registered algorithms in the future. Until then, if implementers do choose such an algorithm (e.g. because it's implemented by their storage provider), they SHOULD use an existing standard `type` value such as `md5`, `etag`, `crc32c`, `trunc512`, or `sha1`. (maps from 'type')
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "checksum": "checksum",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "checksum": "checksum",
+            "type_": "type",
+        }

@@ -3,5 +3,5 @@ from typing import TypeAlias
 
 __all__ = ["JobsIndexParamDateRangeMin"]
 
-JobsIndexParamDateRangeMin: TypeAlias = date | datetime | None
+JobsIndexParamDateRangeMin: TypeAlias = datetime | date | None
 """Alias for Limit listing of jobs to those that are updated after specified date (e.g. '2014-01-01')"""

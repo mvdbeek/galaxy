@@ -1,32 +1,31 @@
 from dataclasses import dataclass
 
-from .annotation import Annotation
-from .archived import Archived
-from .contents_active import ContentsActive
-from .contents_states import ContentsStates
-from .contents_url import ContentsUrl
-from .count import Count
-from .create_time import CreateTime
-from .deleted import Deleted
-from .genome_build import GenomeBuild
-from .importable import Importable
-from .model_class import ModelClass
-from .name import Name
-from .nice_size import NiceSize
-from .preferred_object_store_id import PreferredObjectStoreId
-from .published import Published
-from .purged import Purged
-from .size import Size
-from .slug import Slug
-from .state import State
-from .state_details import StateDetails
-from .state_ids import StateIds
-from .tags import Tags
-from .update_time import UpdateTime
-from .url import Url
-from .user_id import UserId
-from .username import Username
-from .username_and_slug import UsernameAndSlug
+from .custom_history_view_annotation import CustomHistoryViewAnnotation
+from .custom_history_view_archived import CustomHistoryViewArchived
+from .custom_history_view_contents_active import CustomHistoryViewContentsActive
+from .custom_history_view_contents_states import CustomHistoryViewContentsStates
+from .custom_history_view_contents_url import CustomHistoryViewContentsUrl
+from .custom_history_view_count import CustomHistoryViewCount
+from .custom_history_view_create_time import CustomHistoryViewCreateTime
+from .custom_history_view_deleted import CustomHistoryViewDeleted
+from .custom_history_view_genome_build import CustomHistoryViewGenomeBuild
+from .custom_history_view_importable import CustomHistoryViewImportable
+from .custom_history_view_name import CustomHistoryViewName
+from .custom_history_view_nice_size import CustomHistoryViewNiceSize
+from .custom_history_view_preferred_object_store_id import CustomHistoryViewPreferredObjectStoreId
+from .custom_history_view_published import CustomHistoryViewPublished
+from .custom_history_view_purged import CustomHistoryViewPurged
+from .custom_history_view_size import CustomHistoryViewSize
+from .custom_history_view_slug import CustomHistoryViewSlug
+from .custom_history_view_state import CustomHistoryViewState
+from .custom_history_view_state_details import CustomHistoryViewStateDetails
+from .custom_history_view_state_ids import CustomHistoryViewStateIds
+from .custom_history_view_tags import CustomHistoryViewTags
+from .custom_history_view_update_time import CustomHistoryViewUpdateTime
+from .custom_history_view_url import CustomHistoryViewUrl
+from .custom_history_view_user_id import CustomHistoryViewUserId
+from .custom_history_view_username import CustomHistoryViewUsername
+from .custom_history_view_username_and_slug import CustomHistoryViewUsernameAndSlug
 
 __all__ = ["CustomHistoryView"]
 
@@ -39,107 +38,189 @@ class CustomHistoryView:
     fields that will be requested, so we have to allow all fields to be optional.
 
     Args:
-        annotation (Optional[Annotation])
-                                 : The annotation of this Visualization.
-        archived (Optional[Archived])
+        annotation (CustomHistoryViewAnnotation | None)
+                                 : An annotation to provide details or to help understand
+                                   the purpose and usage of this item.
+        archived (CustomHistoryViewArchived | None)
                                  : Whether this item has been archived and is no longer
                                    active.
-        contents_active (Optional[ContentsActive])
+        contents_active (CustomHistoryViewContentsActive | None)
                                  : Contains the number of active, deleted or hidden items in
                                    a History.
-        contents_states (Optional[ContentsStates])
+        contents_states (CustomHistoryViewContentsStates | None)
                                  : A dictionary keyed to possible dataset states and valued
                                    with the number of datasets in this history that have
                                    those states.
-        contents_url (Optional[ContentsUrl])
+        contents_url (CustomHistoryViewContentsUrl | None)
                                  : The relative URL to access the contents of this History.
-        count (Optional[Count])  : The number of items in the history.
-        create_time (Optional[CreateTime])
+        count (CustomHistoryViewCount | None)
+                                 : The number of items in the history.
+        create_time (CustomHistoryViewCreateTime | None)
                                  : The time and date this item was created.
-        deleted (Optional[Deleted])
-                                 : Whether this Visualization has been deleted.
-        genome_build (Optional[GenomeBuild])
+        deleted (CustomHistoryViewDeleted | None)
+                                 : Whether this item is marked as deleted.
+        genome_build (CustomHistoryViewGenomeBuild | None)
                                  : TODO
-        id_ (Optional[str])      :
-        importable (Optional[Importable])
-                                 : Indicates if the workflow is importable by the current
-                                   user.
-        model_class (Optional[ModelClass])
-                                 : The name of the database model class.
-        name (Optional[Name])    : The name of the creator.
-        nice_size (Optional[NiceSize])
+        id_ (str | None)         : Maps from 'id'
+        importable (CustomHistoryViewImportable | None)
+                                 : Whether this History can be imported by other users with
+                                   a shared link.
+        model_class (str | None) : The name of the database model class.
+        name (CustomHistoryViewName | None)
+                                 : The name of the history.
+        nice_size (CustomHistoryViewNiceSize | None)
                                  : The total size of the contents of this history in a
                                    human-readable format.
-        preferred_object_store_id (Optional[PreferredObjectStoreId])
+        preferred_object_store_id (CustomHistoryViewPreferredObjectStoreId | None)
                                  : The ID of the object store that should be used to store
-                                   all datasets (can instead specify object store IDs for
-                                   intermediate and outputs datasts separately) -  -
-                                   Galaxy's job configuration may override this in some
-                                   cases but this workflow preference will override tool and
-                                   user preferences
-        published (Optional[Published])
+                                   new datasets in this history.
+        published (CustomHistoryViewPublished | None)
                                  : Whether this resource is currently publicly available to
                                    all users.
-        purged (Optional[Purged]): Whether this dataset has been removed from disk.
-        size (Optional[Size])    : The total size of the contents of this history in bytes.
-        slug (Optional[Slug])    : The slug of the visualization.
-        state (Optional[State])  : Current state of the job.
-        state_details (Optional[StateDetails])
+        purged (CustomHistoryViewPurged | None)
+                                 : Whether this item has been permanently removed.
+        size (CustomHistoryViewSize | None)
+                                 : The total size of the contents of this history in bytes.
+        slug (CustomHistoryViewSlug | None)
+                                 : Part of the URL to uniquely identify this History by link
+                                   in a readable way.
+        state (CustomHistoryViewState | None)
+                                 : The current state of the History based on the states of
+                                   the datasets it contains.
+        state_details (CustomHistoryViewStateDetails | None)
                                  : A dictionary keyed to possible dataset states and valued
                                    with the number of datasets in this history that have
                                    those states.
-        state_ids (Optional[StateIds])
+        state_ids (CustomHistoryViewStateIds | None)
                                  : A dictionary keyed to possible dataset states and valued
                                    with lists containing the ids of each HDA in that state.
-        tags (Optional[Tags])    : The collection of tags associated with an item.
-        update_time (Optional[UpdateTime])
+        tags (CustomHistoryViewTags | None)
+                                 : The collection of tags associated with an item.
+        update_time (CustomHistoryViewUpdateTime | None)
                                  : The last time and date this item was updated.
-        url (Optional[Url])      : The relative URL to access this item.
-        user_id (Optional[UserId]): User ID of user that ran this job
-        username (Optional[Username])
-                                 : The name of the user.
-        username_and_slug (Optional[UsernameAndSlug])
-                                 : The relative URL in the form of
-                                   /u/{username}/{resource_single_char}/{slug}
+        url (CustomHistoryViewUrl | None)
+                                 : The relative URL to access this item.
+        user_id (CustomHistoryViewUserId | None)
+                                 : The encoded ID of the user that owns this History.
+        username (CustomHistoryViewUsername | None)
+                                 : Owner of the history
+        username_and_slug (CustomHistoryViewUsernameAndSlug | None)
+                                 : The relative URL in the form of /u/{username}/h/{slug}
     """
 
-    annotation: Annotation | None = None  # The annotation of this Visualization.
-    archived: Archived | None = None  # Whether this item has been archived and is no longer active.
-    contents_active: ContentsActive | None = (
+    annotation: CustomHistoryViewAnnotation | None = (
+        None  # An annotation to provide details or to help understand the purpose and usage of this item.
+    )
+    archived: CustomHistoryViewArchived | None = None  # Whether this item has been archived and is no longer active.
+    contents_active: CustomHistoryViewContentsActive | None = (
         None  # Contains the number of active, deleted or hidden items in a History.
     )
-    contents_states: ContentsStates | None = (
+    contents_states: CustomHistoryViewContentsStates | None = (
         None  # A dictionary keyed to possible dataset states and valued with the number of datasets in this history that have those states.
     )
-    contents_url: ContentsUrl | None = None  # The relative URL to access the contents of this History.
-    count: Count | None = None  # The number of items in the history.
-    create_time: CreateTime | None = None  # The time and date this item was created.
-    deleted: Deleted | None = False  # Whether this Visualization has been deleted.
-    genome_build: GenomeBuild | None = "?"  # TODO
-    id_: str | None = None
-    importable: Importable | None = None  # Indicates if the workflow is importable by the current user.
-    model_class: ModelClass | None = None  # The name of the database model class.
-    name: Name | None = None  # The name of the creator.
-    nice_size: NiceSize | None = None  # The total size of the contents of this history in a human-readable format.
-    preferred_object_store_id: PreferredObjectStoreId | None = (
-        None  # The ID of the object store that should be used to store all datasets (can instead specify object store IDs for intermediate and outputs datasts separately) -  - Galaxy's job configuration may override this in some cases but this workflow preference will override tool and user preferences
+    contents_url: CustomHistoryViewContentsUrl | None = None  # The relative URL to access the contents of this History.
+    count: CustomHistoryViewCount | None = None  # The number of items in the history.
+    create_time: CustomHistoryViewCreateTime | None = None  # The time and date this item was created.
+    deleted: CustomHistoryViewDeleted | None = None  # Whether this item is marked as deleted.
+    genome_build: CustomHistoryViewGenomeBuild | None = "?"  # TODO
+    id_: str | None = None  # Maps from 'id'
+    importable: CustomHistoryViewImportable | None = (
+        None  # Whether this History can be imported by other users with a shared link.
     )
-    published: Published | None = None  # Whether this resource is currently publicly available to all users.
-    purged: Purged | None = None  # Whether this dataset has been removed from disk.
-    size: Size | None = None  # The total size of the contents of this history in bytes.
-    slug: Slug | None = None  # The slug of the visualization.
-    state: State | None = None  # Current state of the job.
-    state_details: StateDetails | None = (
+    model_class: str | None = None  # The name of the database model class.
+    name: CustomHistoryViewName | None = None  # The name of the history.
+    nice_size: CustomHistoryViewNiceSize | None = (
+        None  # The total size of the contents of this history in a human-readable format.
+    )
+    preferred_object_store_id: CustomHistoryViewPreferredObjectStoreId | None = (
+        None  # The ID of the object store that should be used to store new datasets in this history.
+    )
+    published: CustomHistoryViewPublished | None = (
+        None  # Whether this resource is currently publicly available to all users.
+    )
+    purged: CustomHistoryViewPurged | None = None  # Whether this item has been permanently removed.
+    size: CustomHistoryViewSize | None = None  # The total size of the contents of this history in bytes.
+    slug: CustomHistoryViewSlug | None = (
+        None  # Part of the URL to uniquely identify this History by link in a readable way.
+    )
+    state: CustomHistoryViewState | None = (
+        None  # The current state of the History based on the states of the datasets it contains.
+    )
+    state_details: CustomHistoryViewStateDetails | None = (
         None  # A dictionary keyed to possible dataset states and valued with the number of datasets in this history that have those states.
     )
-    state_ids: StateIds | None = (
+    state_ids: CustomHistoryViewStateIds | None = (
         None  # A dictionary keyed to possible dataset states and valued with lists containing the ids of each HDA in that state.
     )
-    tags: Tags | None = None  # The collection of tags associated with an item.
-    update_time: UpdateTime | None = None  # The last time and date this item was updated.
-    url: Url | None = None  # The relative URL to access this item.
-    user_id: UserId | None = None  # User ID of user that ran this job
-    username: Username | None = None  # The name of the user.
-    username_and_slug: UsernameAndSlug | None = (
-        None  # The relative URL in the form of /u/{username}/{resource_single_char}/{slug}
+    tags: CustomHistoryViewTags | None = None  # The collection of tags associated with an item.
+    update_time: CustomHistoryViewUpdateTime | None = None  # The last time and date this item was updated.
+    url: CustomHistoryViewUrl | None = None  # The relative URL to access this item.
+    user_id: CustomHistoryViewUserId | None = None  # The encoded ID of the user that owns this History.
+    username: CustomHistoryViewUsername | None = None  # Owner of the history
+    username_and_slug: CustomHistoryViewUsernameAndSlug | None = (
+        None  # The relative URL in the form of /u/{username}/h/{slug}
     )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "annotation": "annotation",
+            "archived": "archived",
+            "contents_active": "contents_active",
+            "contents_states": "contents_states",
+            "contents_url": "contents_url",
+            "count": "count",
+            "create_time": "create_time",
+            "deleted": "deleted",
+            "genome_build": "genome_build",
+            "id": "id_",
+            "importable": "importable",
+            "model_class": "model_class",
+            "name": "name",
+            "nice_size": "nice_size",
+            "preferred_object_store_id": "preferred_object_store_id",
+            "published": "published",
+            "purged": "purged",
+            "size": "size",
+            "slug": "slug",
+            "state": "state",
+            "state_details": "state_details",
+            "state_ids": "state_ids",
+            "tags": "tags",
+            "update_time": "update_time",
+            "url": "url",
+            "user_id": "user_id",
+            "username": "username",
+            "username_and_slug": "username_and_slug",
+        }
+        key_transform_with_dump = {
+            "annotation": "annotation",
+            "archived": "archived",
+            "contents_active": "contents_active",
+            "contents_states": "contents_states",
+            "contents_url": "contents_url",
+            "count": "count",
+            "create_time": "create_time",
+            "deleted": "deleted",
+            "genome_build": "genome_build",
+            "id_": "id",
+            "importable": "importable",
+            "model_class": "model_class",
+            "name": "name",
+            "nice_size": "nice_size",
+            "preferred_object_store_id": "preferred_object_store_id",
+            "published": "published",
+            "purged": "purged",
+            "size": "size",
+            "slug": "slug",
+            "state": "state",
+            "state_details": "state_details",
+            "state_ids": "state_ids",
+            "tags": "tags",
+            "update_time": "update_time",
+            "url": "url",
+            "user_id": "user_id",
+            "username": "username",
+            "username_and_slug": "username_and_slug",
+        }

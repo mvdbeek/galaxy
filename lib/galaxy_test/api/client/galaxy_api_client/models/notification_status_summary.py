@@ -23,3 +23,17 @@ class NotificationStatusSummary:
     broadcasts: list[BroadcastNotificationResponse]  # The list of updated broadcasts.
     notifications: list[UserNotificationResponse]  # The list of updated notifications for the user.
     total_unread_count: int  # The total number of unread notifications for the user.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "broadcasts": "broadcasts",
+            "notifications": "notifications",
+            "total_unread_count": "total_unread_count",
+        }
+        key_transform_with_dump = {
+            "broadcasts": "broadcasts",
+            "notifications": "notifications",
+            "total_unread_count": "total_unread_count",
+        }

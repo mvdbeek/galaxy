@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 
-from .details import Details
+from .invocation_failure_expression_evaluation_failed_response_details import (
+    InvocationFailureExpressionEvaluationFailedResponseDetails,
+)
+from .invocation_message_response_union_reason_enum import InvocationMessageResponseUnionReasonEnum
 
 __all__ = ["InvocationFailureExpressionEvaluationFailedResponse"]
 
@@ -8,15 +11,32 @@ __all__ = ["InvocationFailureExpressionEvaluationFailedResponse"]
 @dataclass
 class InvocationFailureExpressionEvaluationFailedResponse:
     """
-    InvocationFailureExpressionEvaluationFailedResponse dataclass.
+    InvocationFailureExpressionEvaluationFailedResponse dataclass
 
     Args:
-        reason (str)             :
+        reason (InvocationMessageResponseUnionReasonEnum)
+                                 :
         workflow_step_id (int)   : Workflow step id of step that failed.
-        details (Optional[Details])
-                                 : May contains details to help troubleshoot this problem.
+        details (InvocationFailureExpressionEvaluationFailedResponseDetails | None)
+                                 : May contain details to help troubleshoot this problem.
     """
 
-    reason: str
+    reason: InvocationMessageResponseUnionReasonEnum
     workflow_step_id: int  # Workflow step id of step that failed.
-    details: Details | None = None  # May contains details to help troubleshoot this problem.
+    details: InvocationFailureExpressionEvaluationFailedResponseDetails | None = (
+        None  # May contain details to help troubleshoot this problem.
+    )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "details": "details",
+            "reason": "reason",
+            "workflow_step_id": "workflow_step_id",
+        }
+        key_transform_with_dump = {
+            "details": "details",
+            "reason": "reason",
+            "workflow_step_id": "workflow_step_id",
+        }

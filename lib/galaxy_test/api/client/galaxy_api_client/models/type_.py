@@ -1,6 +1,17 @@
-from typing import TypeAlias
+from enum import Enum, unique
 
 __all__ = ["Type_"]
 
-Type_: TypeAlias = str
-"""Alias for The type of content to be created in the history."""
+
+@unique
+class Type_(str, Enum):
+    """
+    Type_ Enum
+
+    Args:
+        docker (str)             : Value for DOCKER
+        singularity (str)        : Value for SINGULARITY
+    """
+
+    DOCKER = "docker"
+    SINGULARITY = "singularity"

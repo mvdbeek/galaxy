@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
-from .creator import Creator
+from .refactor_request_actions_item_action_type_enum import RefactorRequestActionsItemActionTypeEnum
+from .update_creator_action_creator import UpdateCreatorActionCreator
 
 __all__ = ["UpdateCreatorAction"]
 
@@ -8,14 +9,26 @@ __all__ = ["UpdateCreatorAction"]
 @dataclass
 class UpdateCreatorAction:
     """
-    UpdateCreatorAction dataclass.
+    UpdateCreatorAction dataclass
 
     Args:
-        action_type (str)        :
-        creator (Optional[Creator])
-                                 : Additional information about the creator (or multiple
-                                   creators) of this workflow.
+        action_type (RefactorRequestActionsItemActionTypeEnum)
+                                 :
+        creator (UpdateCreatorActionCreator | None)
+                                 :
     """
 
-    action_type: str
-    creator: Creator | None = None  # Additional information about the creator (or multiple creators) of this workflow.
+    action_type: RefactorRequestActionsItemActionTypeEnum
+    creator: UpdateCreatorActionCreator | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "action_type": "action_type",
+            "creator": "creator",
+        }
+        key_transform_with_dump = {
+            "action_type": "action_type",
+            "creator": "creator",
+        }

@@ -8,7 +8,7 @@ __all__ = ["ParseWorkbookForCollectionApi"]
 @dataclass
 class ParseWorkbookForCollectionApi:
     """
-    ParseWorkbookForCollectionApi dataclass.
+    ParseWorkbookForCollectionApi dataclass
 
     Args:
         column_definitions (List[SampleSheetColumnDefinitionModel])
@@ -23,3 +23,15 @@ class ParseWorkbookForCollectionApi:
         SampleSheetColumnDefinitionModel
     ]  # A description of the columns expected in the workbook after the first columns described by 'prefix_columns_type'
     content: str  # The workbook content (the contents of the xlsx file) that have been base64 encoded.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "column_definitions": "column_definitions",
+            "content": "content",
+        }
+        key_transform_with_dump = {
+            "column_definitions": "column_definitions",
+            "content": "content",
+        }

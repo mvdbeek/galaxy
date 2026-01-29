@@ -9,7 +9,7 @@ __all__ = ["NotificationCreateRequest"]
 @dataclass
 class NotificationCreateRequest:
     """
-    NotificationCreateRequest dataclass.
+    NotificationCreateRequest dataclass
 
     Args:
         notification (NotificationCreateData)
@@ -20,3 +20,15 @@ class NotificationCreateRequest:
 
     notification: NotificationCreateData  # Basic common fields for all notification create requests.
     recipients: NotificationRecipientsRequest
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "notification": "notification",
+            "recipients": "recipients",
+        }
+        key_transform_with_dump = {
+            "notification": "notification",
+            "recipients": "recipients",
+        }

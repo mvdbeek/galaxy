@@ -1,8 +1,0 @@
-from typing import TypeAlias
-
-from .library_contents_show_dataset_response import LibraryContentsShowDatasetResponse
-from .library_contents_show_folder_response import LibraryContentsShowFolderResponse
-
-__all__ = ["LibrariesContentsShow200Response2"]
-
-LibrariesContentsShow200Response2: TypeAlias = LibraryContentsShowDatasetResponse | LibraryContentsShowFolderResponse

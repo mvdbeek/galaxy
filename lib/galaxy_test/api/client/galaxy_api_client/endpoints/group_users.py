@@ -1,7 +1,9 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
+from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
 from ..models.group_user_list_response import GroupUserListResponse
 from ..models.group_user_response import GroupUserResponse
@@ -14,14 +16,115 @@ from ..models.group_users_users_show_param_run_as import GroupUsersUsersShowPara
 from ..models.group_users_users_update_param_run_as import GroupUsersUsersUpdateParamRunAs
 
 
-class GroupUsersClient:
+@runtime_checkable
+class GroupUsersClientProtocol(Protocol):
+    """Protocol defining the interface of GroupUsersClient for dependency injection."""
+
+    async def group_users_user_delete(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUserDeleteParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_user_delete(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUserDeleteParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_user_show(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUserShowParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_user_show(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUserShowParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_user_update(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUserUpdateParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_user_update(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUserUpdateParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_users_index(
+        self,
+        group_id: str,
+        run_as: GroupUsersUsersIndexParamRunAs | None = None,
+    ) -> GroupUserListResponse: ...
+
+    async def group_users_users_index(
+        self,
+        group_id: str,
+        run_as: GroupUsersUsersIndexParamRunAs | None = None,
+    ) -> GroupUserListResponse: ...
+
+    async def group_users_users_delete(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUsersDeleteParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_users_delete(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUsersDeleteParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_users_show(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUsersShowParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_users_show(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUsersShowParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_users_update(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUsersUpdateParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+    async def group_users_users_update(
+        self,
+        group_id: str,
+        user_id: str,
+        run_as: GroupUsersUsersUpdateParamRunAs | None = None,
+    ) -> GroupUserResponse: ...
+
+
+class GroupUsersClient(GroupUsersClientProtocol):
     """Client for group_users endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def group_users_user_delete_2_2(
+    async def group_users_user_delete(
         self,
         group_id: str,
         user_id: str,
@@ -36,7 +139,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUserDeleteParamRunAs])
+            run-as (GroupUsersUserDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -48,10 +151,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/user/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -59,13 +165,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_user_delete_2_2(
+    async def group_users_user_delete(
         self,
         group_id: str,
         user_id: str,
@@ -80,7 +186,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUserDeleteParamRunAs])
+            run-as (GroupUsersUserDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -92,10 +198,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/user/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -103,13 +212,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_user_show_2_2(
+    async def group_users_user_show(
         self,
         group_id: str,
         user_id: str,
@@ -123,7 +232,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUserShowParamRunAs])
+            run-as (GroupUsersUserShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -135,10 +244,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/user/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -146,13 +258,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_user_show_2_2(
+    async def group_users_user_show(
         self,
         group_id: str,
         user_id: str,
@@ -166,7 +278,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUserShowParamRunAs])
+            run-as (GroupUsersUserShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -178,10 +290,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/user/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -189,13 +304,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_user_update_2_2(
+    async def group_users_user_update(
         self,
         group_id: str,
         user_id: str,
@@ -209,7 +324,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUserUpdateParamRunAs])
+            run-as (GroupUsersUserUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -221,10 +336,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/user/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -232,13 +350,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_user_update_2_2(
+    async def group_users_user_update(
         self,
         group_id: str,
         user_id: str,
@@ -252,7 +370,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUserUpdateParamRunAs])
+            run-as (GroupUsersUserUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -264,10 +382,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/user/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -275,13 +396,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_index_2_2(
+    async def group_users_users_index(
         self,
         group_id: str,
         run_as: GroupUsersUsersIndexParamRunAs | None = None,
@@ -293,7 +414,7 @@ class GroupUsersClient:
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupUsersUsersIndexParamRunAs])
+            run-as (GroupUsersUsersIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -305,10 +426,12 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -316,13 +439,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserListResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_index_2_2(
+    async def group_users_users_index(
         self,
         group_id: str,
         run_as: GroupUsersUsersIndexParamRunAs | None = None,
@@ -334,7 +457,7 @@ class GroupUsersClient:
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupUsersUsersIndexParamRunAs])
+            run-as (GroupUsersUsersIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -346,10 +469,12 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -357,13 +482,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserListResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_delete_2_2(
+    async def group_users_users_delete(
         self,
         group_id: str,
         user_id: str,
@@ -378,7 +503,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUsersDeleteParamRunAs])
+            run-as (GroupUsersUsersDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -390,10 +515,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -401,13 +529,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_delete_2_2(
+    async def group_users_users_delete(
         self,
         group_id: str,
         user_id: str,
@@ -422,7 +550,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUsersDeleteParamRunAs])
+            run-as (GroupUsersUsersDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -434,10 +562,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -445,13 +576,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_show_2_2(
+    async def group_users_users_show(
         self,
         group_id: str,
         user_id: str,
@@ -465,7 +596,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUsersShowParamRunAs])
+            run-as (GroupUsersUsersShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -477,10 +608,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -488,13 +622,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_show_2_2(
+    async def group_users_users_show(
         self,
         group_id: str,
         user_id: str,
@@ -508,7 +642,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUsersShowParamRunAs])
+            run-as (GroupUsersUsersShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -520,10 +654,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -531,13 +668,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_update_2_2(
+    async def group_users_users_update(
         self,
         group_id: str,
         user_id: str,
@@ -551,7 +688,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUsersUpdateParamRunAs])
+            run-as (GroupUsersUsersUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -563,10 +700,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -574,13 +714,13 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def group_users_users_update_2_2(
+    async def group_users_users_update(
         self,
         group_id: str,
         user_id: str,
@@ -594,7 +734,7 @@ class GroupUsersClient:
         Args:
             group_id (str)           : The ID of the group.
             user_id (str)            : The ID of the user.
-            run-as (Optional[GroupUsersUsersUpdateParamRunAs])
+            run-as (GroupUsersUsersUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -606,10 +746,13 @@ class GroupUsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/users/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -617,8 +760,8 @@ class GroupUsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupUserResponse, response.json())
+                return structure_from_dict(response.json(), GroupUserResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

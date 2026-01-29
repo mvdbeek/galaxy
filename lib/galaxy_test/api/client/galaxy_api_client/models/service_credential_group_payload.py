@@ -8,7 +8,7 @@ __all__ = ["ServiceCredentialGroupPayload"]
 @dataclass
 class ServiceCredentialGroupPayload:
     """
-    ServiceCredentialGroupPayload dataclass.
+    ServiceCredentialGroupPayload dataclass
 
     Args:
         name (str)               : The name of the credential group (minimum 3 characters).
@@ -21,3 +21,17 @@ class ServiceCredentialGroupPayload:
     name: str  # The name of the credential group (minimum 3 characters).
     secrets: list[CredentialPayload]  # List of secrets for this credential group.
     variables: list[CredentialPayload]  # List of variables for this credential group.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "name": "name",
+            "secrets": "secrets",
+            "variables": "variables",
+        }
+        key_transform_with_dump = {
+            "name": "name",
+            "secrets": "secrets",
+            "variables": "variables",
+        }

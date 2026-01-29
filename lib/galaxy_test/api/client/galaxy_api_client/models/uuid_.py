@@ -1,6 +1,13 @@
-from typing import Any, TypeAlias
+from dataclasses import dataclass
 
 __all__ = ["Uuid_"]
 
-Uuid_: TypeAlias = Any
-"""Alias for Universal unique identifier of the workflow invocation."""
+
+@dataclass
+class Uuid_:
+    """
+    Uuid_ dataclass
+    """
+
+    # No properties defined in schema
+    pass

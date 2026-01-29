@@ -1,51 +1,52 @@
 from dataclasses import dataclass
 
-from .accessible import Accessible
-from .annotation import Annotation
-from .copied_from_history_dataset_association_id import CopiedFromHistoryDatasetAssociationId
-from .copied_from_ldda_id import CopiedFromLddaId
-from .copied_from_library_dataset_dataset_association_id import CopiedFromLibraryDatasetDatasetAssociationId
-from .create_time import CreateTime
-from .created_from_basename import CreatedFromBasename
-from .creating_job import CreatingJob
-from .data_type import DataType
 from .dataset_source_type import DatasetSourceType
-from .deleted import Deleted
-from .display_apps import DisplayApps
-from .display_types import DisplayTypes
-from .download_url import DownloadUrl
-from .drs_id import DrsId
-from .extension import Extension
-from .file_ext import FileExt
-from .file_name import FileName
-from .file_size import FileSize
-from .genome_build import GenomeBuild
-from .hashes import Hashes
-from .hid import Hid
-from .history_content_type import HistoryContentType
-from .meta_files import MetaFiles
-from .metadata import Metadata
-from .misc_blurb import MiscBlurb
-from .misc_info import MiscInfo
-from .model_class import ModelClass
-from .name import Name
-from .object_store_id import ObjectStoreId
-from .peek import Peek
-from .permissions import Permissions
-from .purged import Purged
-from .rerunnable import Rerunnable
-from .resubmitted import Resubmitted
-from .sources import Sources
-from .state import State
-from .tags import Tags
-from .type_id import TypeId
-from .update_time import UpdateTime
-from .url import Url
-from .uuid_ import Uuid_
-from .validated_state import ValidatedState
-from .validated_state_message import ValidatedStateMessage
-from .visible import Visible
-from .visualizations import Visualizations
+from .hda_custom_accessible import HdaCustomAccessible
+from .hda_custom_annotation import HdaCustomAnnotation
+from .hda_custom_copied_from_history_dataset_association_id import HdaCustomCopiedFromHistoryDatasetAssociationId
+from .hda_custom_copied_from_ldda_id import HdaCustomCopiedFromLddaId
+from .hda_custom_copied_from_library_dataset_dataset_association_id import (
+    HdaCustomCopiedFromLibraryDatasetDatasetAssociationId,
+)
+from .hda_custom_create_time import HdaCustomCreateTime
+from .hda_custom_created_from_basename import HdaCustomCreatedFromBasename
+from .hda_custom_creating_job import HdaCustomCreatingJob
+from .hda_custom_data_type import HdaCustomDataType
+from .hda_custom_deleted import HdaCustomDeleted
+from .hda_custom_display_apps import HdaCustomDisplayApps
+from .hda_custom_display_types import HdaCustomDisplayTypes
+from .hda_custom_download_url import HdaCustomDownloadUrl
+from .hda_custom_drs_id import HdaCustomDrsId
+from .hda_custom_extension import HdaCustomExtension
+from .hda_custom_file_ext import HdaCustomFileExt
+from .hda_custom_file_name import HdaCustomFileName
+from .hda_custom_file_size import HdaCustomFileSize
+from .hda_custom_genome_build import HdaCustomGenomeBuild
+from .hda_custom_hashes import HdaCustomHashes
+from .hda_custom_hid import HdaCustomHid
+from .hda_custom_history_content_type import HdaCustomHistoryContentType
+from .hda_custom_meta_files import HdaCustomMetaFiles
+from .hda_custom_metadata import HdaCustomMetadata
+from .hda_custom_misc_blurb import HdaCustomMiscBlurb
+from .hda_custom_misc_info import HdaCustomMiscInfo
+from .hda_custom_name import HdaCustomName
+from .hda_custom_object_store_id import HdaCustomObjectStoreId
+from .hda_custom_peek import HdaCustomPeek
+from .hda_custom_permissions import HdaCustomPermissions
+from .hda_custom_purged import HdaCustomPurged
+from .hda_custom_rerunnable import HdaCustomRerunnable
+from .hda_custom_resubmitted import HdaCustomResubmitted
+from .hda_custom_sources import HdaCustomSources
+from .hda_custom_state import HdaCustomState
+from .hda_custom_tags import HdaCustomTags
+from .hda_custom_type_id import HdaCustomTypeId
+from .hda_custom_update_time import HdaCustomUpdateTime
+from .hda_custom_url import HdaCustomUrl
+from .hda_custom_validated_state import HdaCustomValidatedState
+from .hda_custom_validated_state_message import HdaCustomValidatedStateMessage
+from .hda_custom_visible import HdaCustomVisible
+from .hda_custom_visualizations import HdaCustomVisualizations
+from .uuid__4 import Uuid4
 
 __all__ = ["HdaCustom"]
 
@@ -58,164 +59,286 @@ class HdaCustom:
     keys).
 
     Args:
-        accessible (Optional[Accessible])
+        accessible (HdaCustomAccessible | None)
                                  : Whether this item is accessible to the current user due
                                    to permissions.
-        annotation (Optional[Annotation])
-                                 : The annotation of this Visualization.
-        api_type (Optional[str]) : TODO
-        copied_from_history_dataset_association_id (Optional[CopiedFromHistoryDatasetAssociationId])
+        annotation (HdaCustomAnnotation | None)
+                                 : An annotation to provide details or to help understand
+                                   the purpose and usage of this item.
+        api_type (str | None)    : TODO
+        copied_from_history_dataset_association_id (HdaCustomCopiedFromHistoryDatasetAssociationId | None)
                                  : ID of HDA this HDA was copied from.
-        copied_from_ldda_id (Optional[CopiedFromLddaId])
+        copied_from_ldda_id (HdaCustomCopiedFromLddaId | None)
                                  :
-        copied_from_library_dataset_dataset_association_id (Optional[CopiedFromLibraryDatasetDatasetAssociationId])
+        copied_from_library_dataset_dataset_association_id (HdaCustomCopiedFromLibraryDatasetDatasetAssociationId | None)
                                  : ID of LDDA this HDA was copied from.
-        create_time (Optional[CreateTime])
+        create_time (HdaCustomCreateTime | None)
                                  : The time and date this item was created.
-        created_from_basename (Optional[CreatedFromBasename])
+        created_from_basename (HdaCustomCreatedFromBasename | None)
                                  : The basename of the output that produced this dataset.
-        creating_job (Optional[CreatingJob])
+        creating_job (HdaCustomCreatingJob | None)
                                  : The encoded ID of the job that created this dataset.
-        data_type (Optional[DataType])
+        data_type (HdaCustomDataType | None)
                                  : The fully qualified name of the class implementing the
                                    data type of this dataset.
-        dataset_id (Optional[str]): The encoded ID of the dataset associated with this item.
-        deleted (Optional[Deleted])
-                                 : Whether this Visualization has been deleted.
-        display_apps (Optional[DisplayApps])
+        dataset_id (str | None)  : The encoded ID of the dataset associated with this item.
+        deleted (HdaCustomDeleted | None)
+                                 : Whether this item is marked as deleted.
+        display_apps (HdaCustomDisplayApps | None)
                                  : Contains new-style display app urls.
-        display_types (Optional[DisplayTypes])
+        display_types (HdaCustomDisplayTypes | None)
                                  : Contains old-style display app urls.
-        download_url (Optional[DownloadUrl])
+        download_url (HdaCustomDownloadUrl | None)
                                  : The URL to download this item from the server.
-        drs_id (Optional[DrsId]) : The DRS ID of the dataset.
-        extension (Optional[Extension])
+        drs_id (HdaCustomDrsId | None)
+                                 : The DRS ID of the dataset.
+        extension (HdaCustomExtension | None)
                                  : The extension of the dataset.
-        file_ext (Optional[FileExt])
+        file_ext (HdaCustomFileExt | None)
                                  : The extension of the file.
-        file_name (Optional[FileName])
+        file_name (HdaCustomFileName | None)
                                  : The full path to the dataset file.
-        file_size (Optional[FileSize])
+        file_size (HdaCustomFileSize | None)
                                  : The file size in bytes.
-        genome_build (Optional[GenomeBuild])
+        genome_build (HdaCustomGenomeBuild | None)
                                  : TODO
-        hashes (Optional[Hashes]): List of precomputed hashes for the file, if available.
-        hda_ldda (Optional[DatasetSourceType])
+        hashes (HdaCustomHashes | None)
+                                 : The list of hashes associated with this dataset.
+        hda_ldda (DatasetSourceType | None)
                                  :
-        hid (Optional[Hid])      : The index position of this item in the History.
-        history_content_type (Optional[HistoryContentType])
-                                 : This is always `dataset_collection` for dataset
-                                   collections.
-        history_id (Optional[str]):
-        id_ (Optional[str])      :
-        meta_files (Optional[MetaFiles])
+        hid (HdaCustomHid | None): The index position of this item in the History.
+        history_content_type (HdaCustomHistoryContentType | None)
+                                 : This is always `dataset` for datasets.
+        history_id (str | None)  :
+        id_ (str | None)         : Maps from 'id'
+        meta_files (HdaCustomMetaFiles | None)
                                  : Collection of metadata files associated with this
                                    dataset.
-        metadata (Optional[Metadata])
+        metadata (HdaCustomMetadata | None)
                                  : The metadata associated with this dataset.
-        misc_blurb (Optional[MiscBlurb])
+        misc_blurb (HdaCustomMiscBlurb | None)
                                  : TODO
-        misc_info (Optional[MiscInfo])
+        misc_info (HdaCustomMiscInfo | None)
                                  : TODO
-        model_class (Optional[ModelClass])
-                                 : The name of the database model class.
-        name (Optional[Name])    : The name of the creator.
-        object_store_id (Optional[ObjectStoreId])
+        model_class (str | None) : The name of the database model class.
+        name (HdaCustomName | None)
+                                 : The name of the item.
+        object_store_id (HdaCustomObjectStoreId | None)
                                  : The ID of the object store that this dataset is stored
                                    in.
-        peek (Optional[Peek])    : A few lines of contents from the start of the file.
-        permissions (Optional[Permissions])
+        peek (HdaCustomPeek | None)
+                                 : A few lines of contents from the start of the file.
+        permissions (HdaCustomPermissions | None)
                                  : Role-based access and manage control permissions for the
                                    dataset.
-        purged (Optional[Purged]): Whether this dataset has been removed from disk.
-        rerunnable (Optional[Rerunnable])
+        purged (HdaCustomPurged | None)
+                                 : Whether this dataset has been removed from disk.
+        rerunnable (HdaCustomRerunnable | None)
                                  : Whether the job creating this dataset can be run again.
-        resubmitted (Optional[Resubmitted])
+        resubmitted (HdaCustomResubmitted | None)
                                  : Whether the job creating this dataset has been
                                    resubmitted.
-        sources (Optional[Sources])
+        sources (HdaCustomSources | None)
                                  : The list of sources associated with this dataset.
-        state (Optional[State])  : Current state of the job.
-        tags (Optional[Tags])    : The collection of tags associated with an item.
-        type_ (Optional[str])    : This is always `file` for datasets.
-        type_id (Optional[TypeId]): The type and the encoded ID of this item. Used for
-                                    caching.
-        update_time (Optional[UpdateTime])
+        state (HdaCustomState | None)
+                                 : The current state of this dataset.
+        tags (HdaCustomTags | None)
+                                 : The collection of tags associated with an item.
+        type_ (str | None)       : This is always `file` for datasets. (maps from 'type')
+        type_id (HdaCustomTypeId | None)
+                                 : The type and the encoded ID of this item. Used for
+                                   caching.
+        update_time (HdaCustomUpdateTime | None)
                                  : The last time and date this item was updated.
-        url (Optional[Url])      : The relative URL to access this item.
-        uuid_ (Optional[Uuid_])  : Universal unique identifier of the workflow invocation.
-        validated_state (Optional[ValidatedState])
+        url (HdaCustomUrl | None): The relative URL to access this item.
+        uuid_ (Uuid4 | None)     : Maps from 'uuid'
+        validated_state (HdaCustomValidatedState | None)
                                  : The state of the datatype validation for this dataset.
-        validated_state_message (Optional[ValidatedStateMessage])
+        validated_state_message (HdaCustomValidatedStateMessage | None)
                                  : The message with details about the datatype validation
                                    result for this dataset.
-        visible (Optional[Visible])
-                                 : Whether this item is visible in the history.
-        visualizations (Optional[Visualizations])
+        visible (HdaCustomVisible | None)
+                                 : Whether this item is visible or hidden to the user by
+                                   default.
+        visualizations (HdaCustomVisualizations | None)
                                  : The collection of visualizations that can be applied to
                                    this dataset.
     """
 
-    accessible: Accessible | None = None  # Whether this item is accessible to the current user due to permissions.
-    annotation: Annotation | None = None  # The annotation of this Visualization.
+    accessible: HdaCustomAccessible | None = (
+        None  # Whether this item is accessible to the current user due to permissions.
+    )
+    annotation: HdaCustomAnnotation | None = (
+        None  # An annotation to provide details or to help understand the purpose and usage of this item.
+    )
     api_type: str | None = "file"  # TODO
-    copied_from_history_dataset_association_id: CopiedFromHistoryDatasetAssociationId | None = (
+    copied_from_history_dataset_association_id: HdaCustomCopiedFromHistoryDatasetAssociationId | None = (
         None  # ID of HDA this HDA was copied from.
     )
-    copied_from_ldda_id: CopiedFromLddaId | None = None
-    copied_from_library_dataset_dataset_association_id: CopiedFromLibraryDatasetDatasetAssociationId | None = (
+    copied_from_ldda_id: HdaCustomCopiedFromLddaId | None = None
+    copied_from_library_dataset_dataset_association_id: HdaCustomCopiedFromLibraryDatasetDatasetAssociationId | None = (
         None  # ID of LDDA this HDA was copied from.
     )
-    create_time: CreateTime | None = None  # The time and date this item was created.
-    created_from_basename: CreatedFromBasename | None = None  # The basename of the output that produced this dataset.
-    creating_job: CreatingJob | None = None  # The encoded ID of the job that created this dataset.
-    data_type: DataType | None = (
+    create_time: HdaCustomCreateTime | None = None  # The time and date this item was created.
+    created_from_basename: HdaCustomCreatedFromBasename | None = (
+        None  # The basename of the output that produced this dataset.
+    )
+    creating_job: HdaCustomCreatingJob | None = None  # The encoded ID of the job that created this dataset.
+    data_type: HdaCustomDataType | None = (
         None  # The fully qualified name of the class implementing the data type of this dataset.
     )
     dataset_id: str | None = None  # The encoded ID of the dataset associated with this item.
-    deleted: Deleted | None = False  # Whether this Visualization has been deleted.
-    display_apps: DisplayApps | None = None  # Contains new-style display app urls.
-    display_types: DisplayTypes | None = None  # Contains old-style display app urls.
-    download_url: DownloadUrl | None = None  # The URL to download this item from the server.
-    drs_id: DrsId | None = None  # The DRS ID of the dataset.
-    extension: Extension | None = None  # The extension of the dataset.
-    file_ext: FileExt | None = None  # The extension of the file.
-    file_name: FileName | None = None  # The full path to the dataset file.
-    file_size: FileSize | None = None  # The file size in bytes.
-    genome_build: GenomeBuild | None = "?"  # TODO
-    hashes: Hashes | None = None  # List of precomputed hashes for the file, if available.
+    deleted: HdaCustomDeleted | None = None  # Whether this item is marked as deleted.
+    display_apps: HdaCustomDisplayApps | None = None  # Contains new-style display app urls.
+    display_types: HdaCustomDisplayTypes | None = None  # Contains old-style display app urls.
+    download_url: HdaCustomDownloadUrl | None = None  # The URL to download this item from the server.
+    drs_id: HdaCustomDrsId | None = None  # The DRS ID of the dataset.
+    extension: HdaCustomExtension | None = None  # The extension of the dataset.
+    file_ext: HdaCustomFileExt | None = None  # The extension of the file.
+    file_name: HdaCustomFileName | None = None  # The full path to the dataset file.
+    file_size: HdaCustomFileSize | None = None  # The file size in bytes.
+    genome_build: HdaCustomGenomeBuild | None = "?"  # TODO
+    hashes: HdaCustomHashes | None = None  # The list of hashes associated with this dataset.
     hda_ldda: DatasetSourceType | None = None
-    hid: Hid | None = None  # The index position of this item in the History.
-    history_content_type: HistoryContentType | None = (
-        None  # This is always `dataset_collection` for dataset collections.
-    )
+    hid: HdaCustomHid | None = None  # The index position of this item in the History.
+    history_content_type: HdaCustomHistoryContentType | None = None  # This is always `dataset` for datasets.
     history_id: str | None = None
-    id_: str | None = None
-    meta_files: MetaFiles | None = None  # Collection of metadata files associated with this dataset.
-    metadata: Metadata | None = None  # The metadata associated with this dataset.
-    misc_blurb: MiscBlurb | None = None  # TODO
-    misc_info: MiscInfo | None = None  # TODO
-    model_class: ModelClass | None = None  # The name of the database model class.
-    name: Name | None = None  # The name of the creator.
-    object_store_id: ObjectStoreId | None = None  # The ID of the object store that this dataset is stored in.
-    peek: Peek | None = None  # A few lines of contents from the start of the file.
-    permissions: Permissions | None = None  # Role-based access and manage control permissions for the dataset.
-    purged: Purged | None = None  # Whether this dataset has been removed from disk.
-    rerunnable: Rerunnable | None = None  # Whether the job creating this dataset can be run again.
-    resubmitted: Resubmitted | None = None  # Whether the job creating this dataset has been resubmitted.
-    sources: Sources | None = None  # The list of sources associated with this dataset.
-    state: State | None = None  # Current state of the job.
-    tags: Tags | None = None  # The collection of tags associated with an item.
-    type_: str | None = "file"  # This is always `file` for datasets.
-    type_id: TypeId | None = None  # The type and the encoded ID of this item. Used for caching.
-    update_time: UpdateTime | None = None  # The last time and date this item was updated.
-    url: Url | None = None  # The relative URL to access this item.
-    uuid_: Uuid_ | None = None  # Universal unique identifier of the workflow invocation.
-    validated_state: ValidatedState | None = None  # The state of the datatype validation for this dataset.
-    validated_state_message: ValidatedStateMessage | None = (
+    id_: str | None = None  # Maps from 'id'
+    meta_files: HdaCustomMetaFiles | None = None  # Collection of metadata files associated with this dataset.
+    metadata: HdaCustomMetadata | None = None  # The metadata associated with this dataset.
+    misc_blurb: HdaCustomMiscBlurb | None = None  # TODO
+    misc_info: HdaCustomMiscInfo | None = None  # TODO
+    model_class: str | None = None  # The name of the database model class.
+    name: HdaCustomName | None = None  # The name of the item.
+    object_store_id: HdaCustomObjectStoreId | None = None  # The ID of the object store that this dataset is stored in.
+    peek: HdaCustomPeek | None = None  # A few lines of contents from the start of the file.
+    permissions: HdaCustomPermissions | None = None  # Role-based access and manage control permissions for the dataset.
+    purged: HdaCustomPurged | None = None  # Whether this dataset has been removed from disk.
+    rerunnable: HdaCustomRerunnable | None = None  # Whether the job creating this dataset can be run again.
+    resubmitted: HdaCustomResubmitted | None = None  # Whether the job creating this dataset has been resubmitted.
+    sources: HdaCustomSources | None = None  # The list of sources associated with this dataset.
+    state: HdaCustomState | None = None  # The current state of this dataset.
+    tags: HdaCustomTags | None = None  # The collection of tags associated with an item.
+    type_: str | None = "file"  # This is always `file` for datasets. (maps from 'type')
+    type_id: HdaCustomTypeId | None = None  # The type and the encoded ID of this item. Used for caching.
+    update_time: HdaCustomUpdateTime | None = None  # The last time and date this item was updated.
+    url: HdaCustomUrl | None = None  # The relative URL to access this item.
+    uuid_: Uuid4 | None = None  # Maps from 'uuid'
+    validated_state: HdaCustomValidatedState | None = None  # The state of the datatype validation for this dataset.
+    validated_state_message: HdaCustomValidatedStateMessage | None = (
         None  # The message with details about the datatype validation result for this dataset.
     )
-    visible: Visible | None = None  # Whether this item is visible in the history.
-    visualizations: Visualizations | None = (
+    visible: HdaCustomVisible | None = None  # Whether this item is visible or hidden to the user by default.
+    visualizations: HdaCustomVisualizations | None = (
         None  # The collection of visualizations that can be applied to this dataset.
     )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "accessible": "accessible",
+            "annotation": "annotation",
+            "api_type": "api_type",
+            "copied_from_history_dataset_association_id": "copied_from_history_dataset_association_id",
+            "copied_from_ldda_id": "copied_from_ldda_id",
+            "copied_from_library_dataset_dataset_association_id": "copied_from_library_dataset_dataset_association_id",
+            "create_time": "create_time",
+            "created_from_basename": "created_from_basename",
+            "creating_job": "creating_job",
+            "data_type": "data_type",
+            "dataset_id": "dataset_id",
+            "deleted": "deleted",
+            "display_apps": "display_apps",
+            "display_types": "display_types",
+            "download_url": "download_url",
+            "drs_id": "drs_id",
+            "extension": "extension",
+            "file_ext": "file_ext",
+            "file_name": "file_name",
+            "file_size": "file_size",
+            "genome_build": "genome_build",
+            "hashes": "hashes",
+            "hda_ldda": "hda_ldda",
+            "hid": "hid",
+            "history_content_type": "history_content_type",
+            "history_id": "history_id",
+            "id": "id_",
+            "meta_files": "meta_files",
+            "metadata": "metadata",
+            "misc_blurb": "misc_blurb",
+            "misc_info": "misc_info",
+            "model_class": "model_class",
+            "name": "name",
+            "object_store_id": "object_store_id",
+            "peek": "peek",
+            "permissions": "permissions",
+            "purged": "purged",
+            "rerunnable": "rerunnable",
+            "resubmitted": "resubmitted",
+            "sources": "sources",
+            "state": "state",
+            "tags": "tags",
+            "type": "type_",
+            "type_id": "type_id",
+            "update_time": "update_time",
+            "url": "url",
+            "uuid": "uuid_",
+            "validated_state": "validated_state",
+            "validated_state_message": "validated_state_message",
+            "visible": "visible",
+            "visualizations": "visualizations",
+        }
+        key_transform_with_dump = {
+            "accessible": "accessible",
+            "annotation": "annotation",
+            "api_type": "api_type",
+            "copied_from_history_dataset_association_id": "copied_from_history_dataset_association_id",
+            "copied_from_ldda_id": "copied_from_ldda_id",
+            "copied_from_library_dataset_dataset_association_id": "copied_from_library_dataset_dataset_association_id",
+            "create_time": "create_time",
+            "created_from_basename": "created_from_basename",
+            "creating_job": "creating_job",
+            "data_type": "data_type",
+            "dataset_id": "dataset_id",
+            "deleted": "deleted",
+            "display_apps": "display_apps",
+            "display_types": "display_types",
+            "download_url": "download_url",
+            "drs_id": "drs_id",
+            "extension": "extension",
+            "file_ext": "file_ext",
+            "file_name": "file_name",
+            "file_size": "file_size",
+            "genome_build": "genome_build",
+            "hashes": "hashes",
+            "hda_ldda": "hda_ldda",
+            "hid": "hid",
+            "history_content_type": "history_content_type",
+            "history_id": "history_id",
+            "id_": "id",
+            "meta_files": "meta_files",
+            "metadata": "metadata",
+            "misc_blurb": "misc_blurb",
+            "misc_info": "misc_info",
+            "model_class": "model_class",
+            "name": "name",
+            "object_store_id": "object_store_id",
+            "peek": "peek",
+            "permissions": "permissions",
+            "purged": "purged",
+            "rerunnable": "rerunnable",
+            "resubmitted": "resubmitted",
+            "sources": "sources",
+            "state": "state",
+            "tags": "tags",
+            "type_": "type",
+            "type_id": "type_id",
+            "update_time": "update_time",
+            "url": "url",
+            "uuid_": "uuid",
+            "validated_state": "validated_state",
+            "validated_state_message": "validated_state_message",
+            "visible": "visible",
+            "visualizations": "visualizations",
+        }

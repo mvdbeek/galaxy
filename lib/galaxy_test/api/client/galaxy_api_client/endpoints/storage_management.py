@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -61,14 +62,121 @@ from ..models.storage_management_histories_discarded_summary_discarded_histories
 from ..models.stored_item import StoredItem
 
 
-class StorageManagementClient:
+@runtime_checkable
+class StorageManagementClientProtocol(Protocol):
+    """Protocol defining the interface of StorageManagementClient for dependency injection."""
+
+    async def storage_management_datasets_cleanup_datasets(
+        self,
+        body: CleanupStorageItemsRequest,
+        run_as: StorageManagementDatasetsCleanupDatasetsParamRunAs | None = None,
+    ) -> StorageItemsCleanupResult: ...
+
+    async def storage_management_datasets_cleanup_datasets(
+        self,
+        body: CleanupStorageItemsRequest,
+        run_as: StorageManagementDatasetsCleanupDatasetsParamRunAs | None = None,
+    ) -> StorageItemsCleanupResult: ...
+
+    async def storage_management_datasets_discarded_discarded_datasets(
+        self,
+        offset: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None = None,
+        limit: StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit | None = None,
+        order: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder | None = None,
+        run_as: StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs | None = None,
+    ) -> list[StoredItem]: ...
+
+    async def storage_management_datasets_discarded_discarded_datasets(
+        self,
+        offset: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None = None,
+        limit: StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit | None = None,
+        order: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder | None = None,
+        run_as: StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs | None = None,
+    ) -> list[StoredItem]: ...
+
+    async def storage_management_datasets_discarded_summary_discarded_datasets_summary(
+        self,
+        run_as: StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs | None = None,
+    ) -> CleanableItemsSummary: ...
+
+    async def storage_management_datasets_discarded_summary_discarded_datasets_summary(
+        self,
+        run_as: StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs | None = None,
+    ) -> CleanableItemsSummary: ...
+
+    async def storage_management_histories_cleanup_histories(
+        self,
+        body: CleanupStorageItemsRequest,
+        run_as: StorageManagementHistoriesCleanupHistoriesParamRunAs | None = None,
+    ) -> StorageItemsCleanupResult: ...
+
+    async def storage_management_histories_cleanup_histories(
+        self,
+        body: CleanupStorageItemsRequest,
+        run_as: StorageManagementHistoriesCleanupHistoriesParamRunAs | None = None,
+    ) -> StorageItemsCleanupResult: ...
+
+    async def storage_management_histories_archived_archived_histories(
+        self,
+        offset: StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None = None,
+        limit: StorageManagementHistoriesArchivedArchivedHistoriesParamLimit | None = None,
+        order: StorageManagementHistoriesArchivedArchivedHistoriesParamOrder | None = None,
+        run_as: StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs | None = None,
+    ) -> list[StoredItem]: ...
+
+    async def storage_management_histories_archived_archived_histories(
+        self,
+        offset: StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None = None,
+        limit: StorageManagementHistoriesArchivedArchivedHistoriesParamLimit | None = None,
+        order: StorageManagementHistoriesArchivedArchivedHistoriesParamOrder | None = None,
+        run_as: StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs | None = None,
+    ) -> list[StoredItem]: ...
+
+    async def storage_management_histories_archived_summary_archived_histories_summary(
+        self,
+        run_as: StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs | None = None,
+    ) -> CleanableItemsSummary: ...
+
+    async def storage_management_histories_archived_summary_archived_histories_summary(
+        self,
+        run_as: StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs | None = None,
+    ) -> CleanableItemsSummary: ...
+
+    async def storage_management_histories_discarded_discarded_histories(
+        self,
+        offset: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None = None,
+        limit: StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit | None = None,
+        order: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder | None = None,
+        run_as: StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs | None = None,
+    ) -> list[StoredItem]: ...
+
+    async def storage_management_histories_discarded_discarded_histories(
+        self,
+        offset: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None = None,
+        limit: StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit | None = None,
+        order: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder | None = None,
+        run_as: StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs | None = None,
+    ) -> list[StoredItem]: ...
+
+    async def storage_management_histories_discarded_summary_discarded_histories_summary(
+        self,
+        run_as: StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs | None = None,
+    ) -> CleanableItemsSummary: ...
+
+    async def storage_management_histories_discarded_summary_discarded_histories_summary(
+        self,
+        run_as: StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs | None = None,
+    ) -> CleanableItemsSummary: ...
+
+
+class StorageManagementClient(StorageManagementClientProtocol):
     """Client for storage management endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def storage_management_datasets_cleanup_datasets_2_2(
+    async def storage_management_datasets_cleanup_datasets(
         self,
         body: CleanupStorageItemsRequest,
         run_as: StorageManagementDatasetsCleanupDatasetsParamRunAs | None = None,
@@ -80,7 +188,7 @@ class StorageManagementClient:
         from the disk.
 
         Args:
-            run-as (Optional[StorageManagementDatasetsCleanupDatasetsParamRunAs])
+            run-as (StorageManagementDatasetsCleanupDatasetsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -97,7 +205,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/datasets"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CleanupStorageItemsRequest = DataclassSerializer.serialize(body)
@@ -107,13 +215,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(StorageItemsCleanupResult, response.json())
+                return structure_from_dict(response.json(), StorageItemsCleanupResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_datasets_cleanup_datasets_2_2(
+    async def storage_management_datasets_cleanup_datasets(
         self,
         body: CleanupStorageItemsRequest,
         run_as: StorageManagementDatasetsCleanupDatasetsParamRunAs | None = None,
@@ -125,7 +233,7 @@ class StorageManagementClient:
         from the disk.
 
         Args:
-            run-as (Optional[StorageManagementDatasetsCleanupDatasetsParamRunAs])
+            run-as (StorageManagementDatasetsCleanupDatasetsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -142,7 +250,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/datasets"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CleanupStorageItemsRequest = DataclassSerializer.serialize(body)
@@ -152,15 +260,15 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(StorageItemsCleanupResult, response.json())
+                return structure_from_dict(response.json(), StorageItemsCleanupResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_datasets_discarded_discarded_datasets_2_2(
+    async def storage_management_datasets_discarded_discarded_datasets(
         self,
-        offset: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None = 0,
+        offset: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None = None,
         limit: StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit | None = None,
         order: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder | None = None,
         run_as: StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs | None = None,
@@ -169,16 +277,16 @@ class StorageManagementClient:
         Returns discarded datasets owned by the given user. The results can be paginated.
 
         Args:
-            offset (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset])
+            offset (StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            limit (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit])
+            limit (StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit | None)
                                      : The maximum number of items to return.
-            order (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder])
+            order (StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder | None)
                                      : String containing one of the valid ordering attributes
                                        followed by '-asc' or '-dsc' for ascending and descending
                                        order respectively.
-            run-as (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs])
+            run-as (StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -193,13 +301,13 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/datasets/discarded"
 
         params: dict[str, Any] = {
-            **({"offset": offset} if offset is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"order": order} if order is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"order": DataclassSerializer.serialize(order)} if order is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -207,15 +315,15 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[StoredItem], response.json())
+                return structure_from_dict(response.json(), list[StoredItem])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_datasets_discarded_discarded_datasets_2_2(
+    async def storage_management_datasets_discarded_discarded_datasets(
         self,
-        offset: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None = 0,
+        offset: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None = None,
         limit: StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit | None = None,
         order: StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder | None = None,
         run_as: StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs | None = None,
@@ -224,16 +332,16 @@ class StorageManagementClient:
         Returns discarded datasets owned by the given user. The results can be paginated.
 
         Args:
-            offset (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset])
+            offset (StorageManagementDatasetsDiscardedDiscardedDatasetsParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            limit (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit])
+            limit (StorageManagementDatasetsDiscardedDiscardedDatasetsParamLimit | None)
                                      : The maximum number of items to return.
-            order (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder])
+            order (StorageManagementDatasetsDiscardedDiscardedDatasetsParamOrder | None)
                                      : String containing one of the valid ordering attributes
                                        followed by '-asc' or '-dsc' for ascending and descending
                                        order respectively.
-            run-as (Optional[StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs])
+            run-as (StorageManagementDatasetsDiscardedDiscardedDatasetsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -248,13 +356,13 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/datasets/discarded"
 
         params: dict[str, Any] = {
-            **({"offset": offset} if offset is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"order": order} if order is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"order": DataclassSerializer.serialize(order)} if order is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -262,13 +370,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[StoredItem], response.json())
+                return structure_from_dict(response.json(), list[StoredItem])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_datasets_discarded_summary_discarded_datasets_summary_2_2(
+    async def storage_management_datasets_discarded_summary_discarded_datasets_summary(
         self,
         run_as: StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs | None = None,
     ) -> CleanableItemsSummary:
@@ -277,7 +385,7 @@ class StorageManagementClient:
         the given user.
 
         Args:
-            run-as (Optional[StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs])
+            run-as (StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -292,7 +400,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/datasets/discarded/summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -300,13 +408,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CleanableItemsSummary, response.json())
+                return structure_from_dict(response.json(), CleanableItemsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_datasets_discarded_summary_discarded_datasets_summary_2_2(
+    async def storage_management_datasets_discarded_summary_discarded_datasets_summary(
         self,
         run_as: StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs | None = None,
     ) -> CleanableItemsSummary:
@@ -315,7 +423,7 @@ class StorageManagementClient:
         the given user.
 
         Args:
-            run-as (Optional[StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs])
+            run-as (StorageManagementDatasetsDiscardedSummaryDiscardedDatasetsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -330,7 +438,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/datasets/discarded/summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -338,13 +446,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CleanableItemsSummary, response.json())
+                return structure_from_dict(response.json(), CleanableItemsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_cleanup_histories_2_2(
+    async def storage_management_histories_cleanup_histories(
         self,
         body: CleanupStorageItemsRequest,
         run_as: StorageManagementHistoriesCleanupHistoriesParamRunAs | None = None,
@@ -356,7 +464,7 @@ class StorageManagementClient:
         from the disk.
 
         Args:
-            run-as (Optional[StorageManagementHistoriesCleanupHistoriesParamRunAs])
+            run-as (StorageManagementHistoriesCleanupHistoriesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -373,7 +481,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CleanupStorageItemsRequest = DataclassSerializer.serialize(body)
@@ -383,13 +491,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(StorageItemsCleanupResult, response.json())
+                return structure_from_dict(response.json(), StorageItemsCleanupResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_cleanup_histories_2_2(
+    async def storage_management_histories_cleanup_histories(
         self,
         body: CleanupStorageItemsRequest,
         run_as: StorageManagementHistoriesCleanupHistoriesParamRunAs | None = None,
@@ -401,7 +509,7 @@ class StorageManagementClient:
         from the disk.
 
         Args:
-            run-as (Optional[StorageManagementHistoriesCleanupHistoriesParamRunAs])
+            run-as (StorageManagementHistoriesCleanupHistoriesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -418,7 +526,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CleanupStorageItemsRequest = DataclassSerializer.serialize(body)
@@ -428,15 +536,15 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(StorageItemsCleanupResult, response.json())
+                return structure_from_dict(response.json(), StorageItemsCleanupResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_archived_archived_histories_2_2(
+    async def storage_management_histories_archived_archived_histories(
         self,
-        offset: StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None = 0,
+        offset: StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None = None,
         limit: StorageManagementHistoriesArchivedArchivedHistoriesParamLimit | None = None,
         order: StorageManagementHistoriesArchivedArchivedHistoriesParamOrder | None = None,
         run_as: StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs | None = None,
@@ -446,16 +554,16 @@ class StorageManagementClient:
         be paginated.
 
         Args:
-            offset (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamOffset])
+            offset (StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            limit (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamLimit])
+            limit (StorageManagementHistoriesArchivedArchivedHistoriesParamLimit | None)
                                      : The maximum number of items to return.
-            order (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamOrder])
+            order (StorageManagementHistoriesArchivedArchivedHistoriesParamOrder | None)
                                      : String containing one of the valid ordering attributes
                                        followed by '-asc' or '-dsc' for ascending and descending
                                        order respectively.
-            run-as (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs])
+            run-as (StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -470,13 +578,13 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/archived"
 
         params: dict[str, Any] = {
-            **({"offset": offset} if offset is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"order": order} if order is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"order": DataclassSerializer.serialize(order)} if order is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -484,15 +592,15 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[StoredItem], response.json())
+                return structure_from_dict(response.json(), list[StoredItem])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_archived_archived_histories_2_2(
+    async def storage_management_histories_archived_archived_histories(
         self,
-        offset: StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None = 0,
+        offset: StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None = None,
         limit: StorageManagementHistoriesArchivedArchivedHistoriesParamLimit | None = None,
         order: StorageManagementHistoriesArchivedArchivedHistoriesParamOrder | None = None,
         run_as: StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs | None = None,
@@ -502,16 +610,16 @@ class StorageManagementClient:
         be paginated.
 
         Args:
-            offset (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamOffset])
+            offset (StorageManagementHistoriesArchivedArchivedHistoriesParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            limit (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamLimit])
+            limit (StorageManagementHistoriesArchivedArchivedHistoriesParamLimit | None)
                                      : The maximum number of items to return.
-            order (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamOrder])
+            order (StorageManagementHistoriesArchivedArchivedHistoriesParamOrder | None)
                                      : String containing one of the valid ordering attributes
                                        followed by '-asc' or '-dsc' for ascending and descending
                                        order respectively.
-            run-as (Optional[StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs])
+            run-as (StorageManagementHistoriesArchivedArchivedHistoriesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -526,13 +634,13 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/archived"
 
         params: dict[str, Any] = {
-            **({"offset": offset} if offset is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"order": order} if order is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"order": DataclassSerializer.serialize(order)} if order is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -540,13 +648,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[StoredItem], response.json())
+                return structure_from_dict(response.json(), list[StoredItem])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_archived_summary_archived_histories_summary_2_2(
+    async def storage_management_histories_archived_summary_archived_histories_summary(
         self,
         run_as: StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs | None = None,
     ) -> CleanableItemsSummary:
@@ -555,7 +663,7 @@ class StorageManagementClient:
         associated with the given user.
 
         Args:
-            run-as (Optional[StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs])
+            run-as (StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -570,7 +678,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/archived/summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -578,13 +686,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CleanableItemsSummary, response.json())
+                return structure_from_dict(response.json(), CleanableItemsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_archived_summary_archived_histories_summary_2_2(
+    async def storage_management_histories_archived_summary_archived_histories_summary(
         self,
         run_as: StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs | None = None,
     ) -> CleanableItemsSummary:
@@ -593,7 +701,7 @@ class StorageManagementClient:
         associated with the given user.
 
         Args:
-            run-as (Optional[StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs])
+            run-as (StorageManagementHistoriesArchivedSummaryArchivedHistoriesSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -608,7 +716,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/archived/summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -616,15 +724,15 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CleanableItemsSummary, response.json())
+                return structure_from_dict(response.json(), CleanableItemsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_discarded_discarded_histories_2_2(
+    async def storage_management_histories_discarded_discarded_histories(
         self,
-        offset: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None = 0,
+        offset: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None = None,
         limit: StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit | None = None,
         order: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder | None = None,
         run_as: StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs | None = None,
@@ -633,16 +741,16 @@ class StorageManagementClient:
         Returns all discarded histories associated with the given user.
 
         Args:
-            offset (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset])
+            offset (StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            limit (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit])
+            limit (StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit | None)
                                      : The maximum number of items to return.
-            order (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder])
+            order (StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder | None)
                                      : String containing one of the valid ordering attributes
                                        followed by '-asc' or '-dsc' for ascending and descending
                                        order respectively.
-            run-as (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs])
+            run-as (StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -657,13 +765,13 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/discarded"
 
         params: dict[str, Any] = {
-            **({"offset": offset} if offset is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"order": order} if order is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"order": DataclassSerializer.serialize(order)} if order is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -671,15 +779,15 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[StoredItem], response.json())
+                return structure_from_dict(response.json(), list[StoredItem])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_discarded_discarded_histories_2_2(
+    async def storage_management_histories_discarded_discarded_histories(
         self,
-        offset: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None = 0,
+        offset: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None = None,
         limit: StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit | None = None,
         order: StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder | None = None,
         run_as: StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs | None = None,
@@ -688,16 +796,16 @@ class StorageManagementClient:
         Returns all discarded histories associated with the given user.
 
         Args:
-            offset (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset])
+            offset (StorageManagementHistoriesDiscardedDiscardedHistoriesParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            limit (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit])
+            limit (StorageManagementHistoriesDiscardedDiscardedHistoriesParamLimit | None)
                                      : The maximum number of items to return.
-            order (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder])
+            order (StorageManagementHistoriesDiscardedDiscardedHistoriesParamOrder | None)
                                      : String containing one of the valid ordering attributes
                                        followed by '-asc' or '-dsc' for ascending and descending
                                        order respectively.
-            run-as (Optional[StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs])
+            run-as (StorageManagementHistoriesDiscardedDiscardedHistoriesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -712,13 +820,13 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/discarded"
 
         params: dict[str, Any] = {
-            **({"offset": offset} if offset is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"order": order} if order is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"order": DataclassSerializer.serialize(order)} if order is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -726,13 +834,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[StoredItem], response.json())
+                return structure_from_dict(response.json(), list[StoredItem])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_discarded_summary_discarded_histories_summary_2_2(
+    async def storage_management_histories_discarded_summary_discarded_histories_summary(
         self,
         run_as: StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs | None = None,
     ) -> CleanableItemsSummary:
@@ -741,7 +849,7 @@ class StorageManagementClient:
         with the given user.
 
         Args:
-            run-as (Optional[StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs])
+            run-as (StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -756,7 +864,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/discarded/summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -764,13 +872,13 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CleanableItemsSummary, response.json())
+                return structure_from_dict(response.json(), CleanableItemsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def storage_management_histories_discarded_summary_discarded_histories_summary_2_2(
+    async def storage_management_histories_discarded_summary_discarded_histories_summary(
         self,
         run_as: StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs | None = None,
     ) -> CleanableItemsSummary:
@@ -779,7 +887,7 @@ class StorageManagementClient:
         with the given user.
 
         Args:
-            run-as (Optional[StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs])
+            run-as (StorageManagementHistoriesDiscardedSummaryDiscardedHistoriesSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -794,7 +902,7 @@ class StorageManagementClient:
         url = f"{self.base_url}/api/storage/histories/discarded/summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -802,8 +910,8 @@ class StorageManagementClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CleanableItemsSummary, response.json())
+                return structure_from_dict(response.json(), CleanableItemsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

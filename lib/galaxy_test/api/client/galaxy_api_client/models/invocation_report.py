@@ -1,16 +1,16 @@
 from dataclasses import dataclass
 
-from .errors import Errors
-from .generate_time import GenerateTime
-from .generate_version import GenerateVersion
-from .histories import Histories
-from .history_dataset_collections import HistoryDatasetCollections
-from .history_datasets import HistoryDatasets
-from .invocation_markdown import InvocationMarkdown
-from .invocations import Invocations
-from .jobs import Jobs
-from .markdown import Markdown
-from .workflows import Workflows
+from .invocation_report_errors import InvocationReportErrors
+from .invocation_report_generate_time import InvocationReportGenerateTime
+from .invocation_report_generate_version import InvocationReportGenerateVersion
+from .invocation_report_histories import InvocationReportHistories
+from .invocation_report_history_dataset_collections import InvocationReportHistoryDatasetCollections
+from .invocation_report_history_datasets import InvocationReportHistoryDatasets
+from .invocation_report_invocation_markdown import InvocationReportInvocationMarkdown
+from .invocation_report_invocations import InvocationReportInvocations
+from .invocation_report_jobs import InvocationReportJobs
+from .invocation_report_markdown import InvocationReportMarkdown
+from .invocation_report_workflows import InvocationReportWorkflows
 
 __all__ = ["InvocationReport"]
 
@@ -22,52 +22,95 @@ class InvocationReport:
 
     Args:
         id_ (str)                : The workflow this invocation has been triggered for.
+                                   (maps from 'id')
         model_class (str)        : The name of the database model class.
         title (str)              : The name of the report.
         username (str)           : The name of the user who owns this report.
-        errors (Optional[Errors]): Collection of messages indicating that the resource was
-                                   not shared with some (or all users) due to an error.
-        generate_time (Optional[GenerateTime])
+        errors (InvocationReportErrors | None)
+                                 : Errors associated with the invocation.
+        generate_time (InvocationReportGenerateTime | None)
                                  : The version of Galaxy this object was generated with.
-        generate_version (Optional[GenerateVersion])
+        generate_version (InvocationReportGenerateVersion | None)
                                  : The version of Galaxy this object was generated with.
-        histories (Optional[Histories])
+        histories (InvocationReportHistories | None)
                                  : Histories associated with the invocation.
-        history_dataset_collections (Optional[HistoryDatasetCollections])
+        history_dataset_collections (InvocationReportHistoryDatasetCollections | None)
                                  : History dataset collections associated with the
                                    invocation.
-        history_datasets (Optional[HistoryDatasets])
+        history_datasets (InvocationReportHistoryDatasets | None)
                                  : History datasets associated with the invocation.
-        invocation_markdown (Optional[InvocationMarkdown])
+        invocation_markdown (InvocationReportInvocationMarkdown | None)
                                  : Raw galaxy-flavored markdown contents of the report.
-        invocations (Optional[Invocations])
+        invocations (InvocationReportInvocations | None)
                                  : Other invocations associated with the invocation.
-        jobs (Optional[Jobs])    : Jobs associated with the invocation.
-        markdown (Optional[Markdown])
+        jobs (InvocationReportJobs | None)
+                                 : Jobs associated with the invocation.
+        markdown (InvocationReportMarkdown | None)
                                  : Raw galaxy-flavored markdown contents of the report.
-        render_format (Optional[str])
-                                 : Format of the invocation report.
-        workflows (Optional[Workflows])
+        render_format (str | None): Format of the invocation report.
+        workflows (InvocationReportWorkflows | None)
                                  : Workflows associated with the invocation.
     """
 
-    id_: str  # The workflow this invocation has been triggered for.
+    id_: str  # The workflow this invocation has been triggered for. (maps from 'id')
     model_class: str  # The name of the database model class.
     title: str  # The name of the report.
     username: str  # The name of the user who owns this report.
-    errors: Errors | None = (
-        None  # Collection of messages indicating that the resource was not shared with some (or all users) due to an error.
+    errors: InvocationReportErrors | None = None  # Errors associated with the invocation.
+    generate_time: InvocationReportGenerateTime | None = None  # The version of Galaxy this object was generated with.
+    generate_version: InvocationReportGenerateVersion | None = (
+        None  # The version of Galaxy this object was generated with.
     )
-    generate_time: GenerateTime | None = None  # The version of Galaxy this object was generated with.
-    generate_version: GenerateVersion | None = None  # The version of Galaxy this object was generated with.
-    histories: Histories | None = None  # Histories associated with the invocation.
-    history_dataset_collections: HistoryDatasetCollections | None = (
+    histories: InvocationReportHistories | None = None  # Histories associated with the invocation.
+    history_dataset_collections: InvocationReportHistoryDatasetCollections | None = (
         None  # History dataset collections associated with the invocation.
     )
-    history_datasets: HistoryDatasets | None = None  # History datasets associated with the invocation.
-    invocation_markdown: InvocationMarkdown | None = None  # Raw galaxy-flavored markdown contents of the report.
-    invocations: Invocations | None = None  # Other invocations associated with the invocation.
-    jobs: Jobs | None = None  # Jobs associated with the invocation.
-    markdown: Markdown | None = None  # Raw galaxy-flavored markdown contents of the report.
+    history_datasets: InvocationReportHistoryDatasets | None = None  # History datasets associated with the invocation.
+    invocation_markdown: InvocationReportInvocationMarkdown | None = (
+        None  # Raw galaxy-flavored markdown contents of the report.
+    )
+    invocations: InvocationReportInvocations | None = None  # Other invocations associated with the invocation.
+    jobs: InvocationReportJobs | None = None  # Jobs associated with the invocation.
+    markdown: InvocationReportMarkdown | None = None  # Raw galaxy-flavored markdown contents of the report.
     render_format: str | None = "markdown"  # Format of the invocation report.
-    workflows: Workflows | None = None  # Workflows associated with the invocation.
+    workflows: InvocationReportWorkflows | None = None  # Workflows associated with the invocation.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "errors": "errors",
+            "generate_time": "generate_time",
+            "generate_version": "generate_version",
+            "histories": "histories",
+            "history_dataset_collections": "history_dataset_collections",
+            "history_datasets": "history_datasets",
+            "id": "id_",
+            "invocation_markdown": "invocation_markdown",
+            "invocations": "invocations",
+            "jobs": "jobs",
+            "markdown": "markdown",
+            "model_class": "model_class",
+            "render_format": "render_format",
+            "title": "title",
+            "username": "username",
+            "workflows": "workflows",
+        }
+        key_transform_with_dump = {
+            "errors": "errors",
+            "generate_time": "generate_time",
+            "generate_version": "generate_version",
+            "histories": "histories",
+            "history_dataset_collections": "history_dataset_collections",
+            "history_datasets": "history_datasets",
+            "id_": "id",
+            "invocation_markdown": "invocation_markdown",
+            "invocations": "invocations",
+            "jobs": "jobs",
+            "markdown": "markdown",
+            "model_class": "model_class",
+            "render_format": "render_format",
+            "title": "title",
+            "username": "username",
+            "workflows": "workflows",
+        }

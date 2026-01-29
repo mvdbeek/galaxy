@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .parse_log import ParseLog
 from .parsed_column import ParsedColumn
-from .rows import Rows
-from .workbook_type import WorkbookType
+from .parsed_fetch_workbook_for_datasets_parse_log import ParsedFetchWorkbookForDatasetsParseLog
+from .parsed_fetch_workbook_for_datasets_rows import ParsedFetchWorkbookForDatasetsRows
+from .parsed_fetch_workbook_for_datasets_workbook_type import ParsedFetchWorkbookForDatasetsWorkbookType
 
 __all__ = ["ParsedFetchWorkbookForDatasets"]
 
@@ -11,19 +11,36 @@ __all__ = ["ParsedFetchWorkbookForDatasets"]
 @dataclass
 class ParsedFetchWorkbookForDatasets:
     """
-    ParsedFetchWorkbookForDatasets dataclass.
+    ParsedFetchWorkbookForDatasets dataclass
 
     Args:
         columns (List[ParsedColumn])
                                  :
-        parse_log (ParseLog)     :
-        rows (Optional[Rows])    : Specify rows of metadata data corresponding to an
-                                   identifier if collection_type is sample_sheet
-        workbook_type (Optional[WorkbookType])
+        parse_log (ParsedFetchWorkbookForDatasetsParseLog)
+                                 :
+        rows (ParsedFetchWorkbookForDatasetsRows)
+                                 :
+        workbook_type (ParsedFetchWorkbookForDatasetsWorkbookType | None)
                                  :
     """
 
     columns: list[ParsedColumn]
-    parse_log: ParseLog
-    rows: Rows | None  # Specify rows of metadata data corresponding to an identifier if collection_type is sample_sheet
-    workbook_type: WorkbookType | None = "datasets"
+    parse_log: ParsedFetchWorkbookForDatasetsParseLog
+    rows: ParsedFetchWorkbookForDatasetsRows
+    workbook_type: ParsedFetchWorkbookForDatasetsWorkbookType | None = "datasets"
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "columns": "columns",
+            "parse_log": "parse_log",
+            "rows": "rows",
+            "workbook_type": "workbook_type",
+        }
+        key_transform_with_dump = {
+            "columns": "columns",
+            "parse_log": "parse_log",
+            "rows": "rows",
+            "workbook_type": "workbook_type",
+        }

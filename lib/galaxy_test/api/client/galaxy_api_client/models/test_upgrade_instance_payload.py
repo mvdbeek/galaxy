@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .secrets import Secrets
-from .variables import Variables
+from .test_upgrade_instance_payload_secrets import TestUpgradeInstancePayloadSecrets
+from .test_upgrade_instance_payload_variables import TestUpgradeInstancePayloadVariables
 
 __all__ = ["TestUpgradeInstancePayload"]
 
@@ -9,14 +9,30 @@ __all__ = ["TestUpgradeInstancePayload"]
 @dataclass
 class TestUpgradeInstancePayload:
     """
-    TestUpgradeInstancePayload dataclass.
+    TestUpgradeInstancePayload dataclass
 
     Args:
-        secrets (Secrets)        :
+        secrets (TestUpgradeInstancePayloadSecrets)
+                                 :
         template_version (int)   :
-        variables (Variables)    :
+        variables (TestUpgradeInstancePayloadVariables)
+                                 :
     """
 
-    secrets: Secrets
+    secrets: TestUpgradeInstancePayloadSecrets
     template_version: int
-    variables: Variables
+    variables: TestUpgradeInstancePayloadVariables
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "secrets": "secrets",
+            "template_version": "template_version",
+            "variables": "variables",
+        }
+        key_transform_with_dump = {
+            "secrets": "secrets",
+            "template_version": "template_version",
+            "variables": "variables",
+        }

@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .files import Files
-from .history_id import HistoryId
-from .landing_uuid import LandingUuid
-from .targets import Targets
+from .body_tools_fetch_fetch_form_files import BodyToolsFetchFetchFormFiles
+from .body_tools_fetch_fetch_form_history_id import BodyToolsFetchFetchFormHistoryId
+from .body_tools_fetch_fetch_form_landing_uuid import BodyToolsFetchFetchFormLandingUuid
+from .body_tools_fetch_fetch_form_targets import BodyToolsFetchFetchFormTargets
 
 __all__ = ["BodyToolsFetchFetchForm2"]
 
@@ -11,18 +11,36 @@ __all__ = ["BodyToolsFetchFetchForm2"]
 @dataclass
 class BodyToolsFetchFetchForm2:
     """
-    BodyToolsFetchFetchForm2 dataclass.
+    BodyToolsFetchFetchForm2 dataclass
 
     Args:
-        history_id (HistoryId)   : The encoded ID of the history associated with this item.
-        targets (Targets)        :
-        files (Optional[Files])  :
-        landing_uuid (Optional[LandingUuid])
-                                 : The UUID of the workflow landing request associated with
-                                   this invocation.
+        history_id (BodyToolsFetchFetchFormHistoryId)
+                                 :
+        targets (BodyToolsFetchFetchFormTargets)
+                                 :
+        files (BodyToolsFetchFetchFormFiles | None)
+                                 :
+        landing_uuid (BodyToolsFetchFetchFormLandingUuid | None)
+                                 :
     """
 
-    history_id: HistoryId  # The encoded ID of the history associated with this item.
-    targets: Targets
-    files: Files | None = None
-    landing_uuid: LandingUuid | None = None  # The UUID of the workflow landing request associated with this invocation.
+    history_id: BodyToolsFetchFetchFormHistoryId
+    targets: BodyToolsFetchFetchFormTargets
+    files: BodyToolsFetchFetchFormFiles | None = None
+    landing_uuid: BodyToolsFetchFetchFormLandingUuid | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "files": "files",
+            "history_id": "history_id",
+            "landing_uuid": "landing_uuid",
+            "targets": "targets",
+        }
+        key_transform_with_dump = {
+            "files": "files",
+            "history_id": "history_id",
+            "landing_uuid": "landing_uuid",
+            "targets": "targets",
+        }

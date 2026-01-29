@@ -1,13 +1,7 @@
-from dataclasses import dataclass
+from typing import TypeAlias
+
+from .job_metric import JobMetric
 
 __all__ = ["AnonymousArrayItem117"]
 
-
-@dataclass
-class AnonymousArrayItem117:
-    """
-    AnonymousArrayItem117 dataclass.
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem117: TypeAlias = JobMetric | None

@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
-from .tags import Tags
-from .type_ import Type_
+from .type__8 import Type8
 
 __all__ = ["TagOperationParams"]
 
@@ -9,12 +8,24 @@ __all__ = ["TagOperationParams"]
 @dataclass
 class TagOperationParams:
     """
-    TagOperationParams dataclass.
+    TagOperationParams dataclass
 
     Args:
-        tags (Tags)              : The collection of tags associated with an item.
-        type_ (Type_)            : The type of content to be created in the history.
+        tags (List[str])         :
+        type_ (Type8)            : Maps from 'type'
     """
 
-    tags: Tags  # The collection of tags associated with an item.
-    type_: Type_  # The type of content to be created in the history.
+    tags: list[str]
+    type_: Type8  # Maps from 'type'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "tags": "tags",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "tags": "tags",
+            "type_": "type",
+        }

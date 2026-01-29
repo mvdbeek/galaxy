@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .repeat_parameter_model_output_parameters_item import RepeatParameterModelOutputParametersItem
+
+__all__ = ["RepeatParameterModelOutputParameters"]
+
+RepeatParameterModelOutputParameters: TypeAlias = list[RepeatParameterModelOutputParametersItem]

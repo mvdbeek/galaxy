@@ -1,7 +1,6 @@
 from dataclasses import dataclass
 
-from .columns import Columns
-from .fields import Fields
+from .tool_data_details_fields import ToolDataDetailsFields
 
 __all__ = ["ToolDataDetails"]
 
@@ -9,17 +8,33 @@ __all__ = ["ToolDataDetails"]
 @dataclass
 class ToolDataDetails:
     """
-    ToolDataDetails dataclass.
+    ToolDataDetails dataclass
 
     Args:
-        columns (Optional[Columns])
-                                 : A list of column names
+        columns (List[str])      : A list of column names
         model_class (str)        : The name of class modelling this tool data
         name (str)               : The name of this tool data entry
-        fields (Optional[Fields]):
+        fields (ToolDataDetailsFields | None)
+                                 :
     """
 
-    columns: Columns | None  # A list of column names
+    columns: list[str]  # A list of column names
     model_class: str  # The name of class modelling this tool data
     name: str  # The name of this tool data entry
-    fields: Fields | None = None
+    fields: ToolDataDetailsFields | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "columns": "columns",
+            "fields": "fields",
+            "model_class": "model_class",
+            "name": "name",
+        }
+        key_transform_with_dump = {
+            "columns": "columns",
+            "fields": "fields",
+            "model_class": "model_class",
+            "name": "name",
+        }

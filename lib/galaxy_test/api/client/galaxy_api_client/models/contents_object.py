@@ -6,7 +6,7 @@ __all__ = ["ContentsObject"]
 @dataclass
 class ContentsObject:
     """
-    [Circular reference detected: ContentsObject -> Contents -> AnonymousArrayItem27 ->
+    [Circular reference detected: ContentsObject -> ContentsObjectContents ->
     ContentsObject]
     """
 

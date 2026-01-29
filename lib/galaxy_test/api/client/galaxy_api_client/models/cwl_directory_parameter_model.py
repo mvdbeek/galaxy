@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .argument import Argument
-from .help_ import Help_
-from .label import Label
+from .cwl_directory_parameter_model_argument import CwlDirectoryParameterModelArgument
+from .cwl_directory_parameter_model_label import CwlDirectoryParameterModelLabel
+from .help__20 import Help20
 
 __all__ = ["CwlDirectoryParameterModel"]
 
@@ -10,12 +10,12 @@ __all__ = ["CwlDirectoryParameterModel"]
 @dataclass
 class CwlDirectoryParameterModel:
     """
-    CwlDirectoryParameterModel dataclass.
+    CwlDirectoryParameterModel dataclass
 
     Args:
         name (str)               : Parameter name. Used when referencing parameter in
                                    workflows or inside command templating.
-        argument (Optional[Argument])
+        argument (CwlDirectoryParameterModelArgument | None)
                                  : If the parameter reflects just one command line argument
                                    of a certain tool, this tag should be set to that
                                    particular argument. It is rendered in parenthesis after
@@ -24,23 +24,54 @@ class CwlDirectoryParameterModel:
                                    stripping leading dashes and replacing all remaining
                                    dashes by underscores (e.g. if argument="--long-
                                    parameter" then name="long_parameter" is implicit).
-        help_ (Optional[Help_])  : Help text shown below the tool interface.
-        hidden (Optional[bool])  :
-        is_dynamic (Optional[bool])
-                                 :
-        label (Optional[Label])  : Label of the input.
-        optional (Optional[bool]): If `false`, parameter must have a value.
-        parameter_type (Optional[str])
+        help_ (Help20 | None)    : Short bit of text, rendered on the tool form just below
+                                   the associated field to provide information about the
+                                   field. (maps from 'help')
+        hidden (bool | None)     :
+        is_dynamic (bool | None) :
+        label (CwlDirectoryParameterModelLabel | None)
+                                 : Will be displayed on the tool page as the label of the
+                                   parameter.
+        optional (bool | None)   : If `false`, parameter must have a value.
+        parameter_type (str | None)
                                  :
     """
 
     name: str  # Parameter name. Used when referencing parameter in workflows or inside command templating.
-    argument: Argument | None = (
+    argument: CwlDirectoryParameterModelArgument | None = (
         None  # If the parameter reflects just one command line argument of a certain tool, this tag should be set to that particular argument. It is rendered in parenthesis after the help section, and it will create the name attribute (if not given explicitly) from the argument attribute by stripping leading dashes and replacing all remaining dashes by underscores (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
     )
-    help_: Help_ | None = None  # Help text shown below the tool interface.
+    help_: Help20 | None = (
+        None  # Short bit of text, rendered on the tool form just below the associated field to provide information about the field. (maps from 'help')
+    )
     hidden: bool | None = False
     is_dynamic: bool | None = False
-    label: Label | None = None  # Label of the input.
+    label: CwlDirectoryParameterModelLabel | None = (
+        None  # Will be displayed on the tool page as the label of the parameter.
+    )
     optional: bool | None = False  # If `false`, parameter must have a value.
     parameter_type: str | None = "cwl_directory"
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "argument": "argument",
+            "help": "help_",
+            "hidden": "hidden",
+            "is_dynamic": "is_dynamic",
+            "label": "label",
+            "name": "name",
+            "optional": "optional",
+            "parameter_type": "parameter_type",
+        }
+        key_transform_with_dump = {
+            "argument": "argument",
+            "help_": "help",
+            "hidden": "hidden",
+            "is_dynamic": "is_dynamic",
+            "label": "label",
+            "name": "name",
+            "optional": "optional",
+            "parameter_type": "parameter_type",
+        }

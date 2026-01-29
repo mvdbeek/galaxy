@@ -1,56 +1,206 @@
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from galaxy_test.api.client.galaxy_api_client.core.config import ClientConfig
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport, HttpxTransport
 
-from .endpoints.ai import AiClient
-from .endpoints.authenticate import AuthenticateClient
-from .endpoints.chat import ChatClient
-from .endpoints.configuration import ConfigurationClient
-from .endpoints.context import ContextClient
-from .endpoints.data_libraries_folders import DataLibrariesFoldersClient
-from .endpoints.dataset_collections import DatasetCollectionsClient
-from .endpoints.datasets import DatasetsClient
-from .endpoints.datatypes import DatatypesClient
-from .endpoints.display_applications import DisplayApplicationsClient
-from .endpoints.drs import DrsClient
-from .endpoints.dynamic_tools import DynamicToolsClient
-from .endpoints.file_sources import FileSourcesClient
-from .endpoints.forms import FormsClient
-from .endpoints.genomes import GenomesClient
-from .endpoints.group_roles import GroupRolesClient
-from .endpoints.group_users import GroupUsersClient
-from .endpoints.groups import GroupsClient
-from .endpoints.help_ import Help_Client
-from .endpoints.histories import HistoriesClient
-from .endpoints.job_lock import JobLockClient
-from .endpoints.jobs import JobsClient
-from .endpoints.libraries import LibrariesClient
-from .endpoints.licenses import LicensesClient
-from .endpoints.metrics import MetricsClient
-from .endpoints.notifications import NotificationsClient
-from .endpoints.oauth_2 import Oauth2Client
-from .endpoints.object_stores import ObjectStoresClient
-from .endpoints.oidc_tokens import OidcTokensClient
-from .endpoints.pages import PagesClient
-from .endpoints.quotas import QuotasClient
-from .endpoints.remote_files import RemoteFilesClient
-from .endpoints.roles import RolesClient
-from .endpoints.short_term_storage import ShortTermStorageClient
-from .endpoints.storage_management import StorageManagementClient
-from .endpoints.tags import TagsClient
-from .endpoints.tasks import TasksClient
-from .endpoints.tool_data_tables import ToolDataTablesClient
-from .endpoints.tool_shed_repositories import ToolShedRepositoriesClient
-from .endpoints.tools import ToolsClient
-from .endpoints.tours import ToursClient
-from .endpoints.users import UsersClient
-from .endpoints.utilities import UtilitiesClient
-from .endpoints.visualizations import VisualizationsClient
-from .endpoints.workflows import WorkflowsClient
+from .endpoints.ai import AiClient, AiClientProtocol
+from .endpoints.authenticate import AuthenticateClient, AuthenticateClientProtocol
+from .endpoints.chat import ChatClient, ChatClientProtocol
+from .endpoints.configuration import ConfigurationClient, ConfigurationClientProtocol
+from .endpoints.context import ContextClient, ContextClientProtocol
+from .endpoints.data_libraries_folders import DataLibrariesFoldersClient, DataLibrariesFoldersClientProtocol
+from .endpoints.dataset_collections import DatasetCollectionsClient, DatasetCollectionsClientProtocol
+from .endpoints.datasets import DatasetsClient, DatasetsClientProtocol
+from .endpoints.datatypes import DatatypesClient, DatatypesClientProtocol
+from .endpoints.display_applications import DisplayApplicationsClient, DisplayApplicationsClientProtocol
+from .endpoints.drs import DrsClient, DrsClientProtocol
+from .endpoints.dynamic_tools import DynamicToolsClient, DynamicToolsClientProtocol
+from .endpoints.file_sources import FileSourcesClient, FileSourcesClientProtocol
+from .endpoints.forms import FormsClient, FormsClientProtocol
+from .endpoints.genomes import GenomesClient, GenomesClientProtocol
+from .endpoints.group_roles import GroupRolesClient, GroupRolesClientProtocol
+from .endpoints.group_users import GroupUsersClient, GroupUsersClientProtocol
+from .endpoints.groups import GroupsClient, GroupsClientProtocol
+from .endpoints.help_ import Help_Client, Help_ClientProtocol
+from .endpoints.histories import HistoriesClient, HistoriesClientProtocol
+from .endpoints.job_lock import JobLockClient, JobLockClientProtocol
+from .endpoints.jobs import JobsClient, JobsClientProtocol
+from .endpoints.libraries import LibrariesClient, LibrariesClientProtocol
+from .endpoints.licenses import LicensesClient, LicensesClientProtocol
+from .endpoints.metrics import MetricsClient, MetricsClientProtocol
+from .endpoints.notifications import NotificationsClient, NotificationsClientProtocol
+from .endpoints.oauth_2 import Oauth2Client, Oauth2ClientProtocol
+from .endpoints.object_stores import ObjectStoresClient, ObjectStoresClientProtocol
+from .endpoints.oidc_tokens import OidcTokensClient, OidcTokensClientProtocol
+from .endpoints.pages import PagesClient, PagesClientProtocol
+from .endpoints.quotas import QuotasClient, QuotasClientProtocol
+from .endpoints.remote_files import RemoteFilesClient, RemoteFilesClientProtocol
+from .endpoints.roles import RolesClient, RolesClientProtocol
+from .endpoints.short_term_storage import ShortTermStorageClient, ShortTermStorageClientProtocol
+from .endpoints.storage_management import StorageManagementClient, StorageManagementClientProtocol
+from .endpoints.tags import TagsClient, TagsClientProtocol
+from .endpoints.tasks import TasksClient, TasksClientProtocol
+from .endpoints.tool_data_tables import ToolDataTablesClient, ToolDataTablesClientProtocol
+from .endpoints.tool_shed_repositories import ToolShedRepositoriesClient, ToolShedRepositoriesClientProtocol
+from .endpoints.tools import ToolsClient, ToolsClientProtocol
+from .endpoints.tours import ToursClient, ToursClientProtocol
+from .endpoints.users import UsersClient, UsersClientProtocol
+from .endpoints.utilities import UtilitiesClient, UtilitiesClientProtocol
+from .endpoints.visualizations import VisualizationsClient, VisualizationsClientProtocol
+from .endpoints.workflows import WorkflowsClient, WorkflowsClientProtocol
 
 
-class APIClient:
+@runtime_checkable
+class APIClientProtocol(Protocol):
+    """Protocol defining the interface of APIClient for dependency injection."""
+
+    @property
+    def ai(self) -> "AiClientProtocol": ...
+
+    @property
+    def authenticate(self) -> "AuthenticateClientProtocol": ...
+
+    @property
+    def chat(self) -> "ChatClientProtocol": ...
+
+    @property
+    def configuration(self) -> "ConfigurationClientProtocol": ...
+
+    @property
+    def context(self) -> "ContextClientProtocol": ...
+
+    @property
+    def data_libraries_folders(self) -> "DataLibrariesFoldersClientProtocol": ...
+
+    @property
+    def dataset_collections(self) -> "DatasetCollectionsClientProtocol": ...
+
+    @property
+    def datasets(self) -> "DatasetsClientProtocol": ...
+
+    @property
+    def datatypes(self) -> "DatatypesClientProtocol": ...
+
+    @property
+    def display_applications(self) -> "DisplayApplicationsClientProtocol": ...
+
+    @property
+    def drs(self) -> "DrsClientProtocol": ...
+
+    @property
+    def dynamic_tools(self) -> "DynamicToolsClientProtocol": ...
+
+    @property
+    def file_sources(self) -> "FileSourcesClientProtocol": ...
+
+    @property
+    def forms(self) -> "FormsClientProtocol": ...
+
+    @property
+    def genomes(self) -> "GenomesClientProtocol": ...
+
+    @property
+    def group_roles(self) -> "GroupRolesClientProtocol": ...
+
+    @property
+    def groups(self) -> "GroupsClientProtocol": ...
+
+    @property
+    def group_users(self) -> "GroupUsersClientProtocol": ...
+
+    @property
+    def help_(self) -> "Help_ClientProtocol": ...
+
+    @property
+    def histories(self) -> "HistoriesClientProtocol": ...
+
+    @property
+    def job_lock(self) -> "JobLockClientProtocol": ...
+
+    @property
+    def jobs(self) -> "JobsClientProtocol": ...
+
+    @property
+    def libraries(self) -> "LibrariesClientProtocol": ...
+
+    @property
+    def licenses(self) -> "LicensesClientProtocol": ...
+
+    @property
+    def metrics(self) -> "MetricsClientProtocol": ...
+
+    @property
+    def notifications(self) -> "NotificationsClientProtocol": ...
+
+    @property
+    def oauth_2(self) -> "Oauth2ClientProtocol": ...
+
+    @property
+    def object_stores(self) -> "ObjectStoresClientProtocol": ...
+
+    @property
+    def oidc_tokens(self) -> "OidcTokensClientProtocol": ...
+
+    @property
+    def pages(self) -> "PagesClientProtocol": ...
+
+    @property
+    def quotas(self) -> "QuotasClientProtocol": ...
+
+    @property
+    def remote_files(self) -> "RemoteFilesClientProtocol": ...
+
+    @property
+    def roles(self) -> "RolesClientProtocol": ...
+
+    @property
+    def short_term_storage(self) -> "ShortTermStorageClientProtocol": ...
+
+    @property
+    def storage_management(self) -> "StorageManagementClientProtocol": ...
+
+    @property
+    def tags(self) -> "TagsClientProtocol": ...
+
+    @property
+    def tasks(self) -> "TasksClientProtocol": ...
+
+    @property
+    def tool_data_tables(self) -> "ToolDataTablesClientProtocol": ...
+
+    @property
+    def tools(self) -> "ToolsClientProtocol": ...
+
+    @property
+    def tool_shed_repositories(self) -> "ToolShedRepositoriesClientProtocol": ...
+
+    @property
+    def tours(self) -> "ToursClientProtocol": ...
+
+    @property
+    def users(self) -> "UsersClientProtocol": ...
+
+    @property
+    def utilities(self) -> "UtilitiesClientProtocol": ...
+
+    @property
+    def visualizations(self) -> "VisualizationsClientProtocol": ...
+
+    @property
+    def workflows(self) -> "WorkflowsClientProtocol": ...
+
+    async def request(self, method: str, url: str, **kwargs: Any) -> Any: ...
+
+    async def close(self) -> None: ...
+
+    async def __aenter__(self) -> "APIClientProtocol": ...
+
+    async def __aexit__(
+        self, exc_type: type[BaseException] | None, exc_val: BaseException | None, exc_tb: object | None
+    ) -> None: ...
+
+
+class APIClient(APIClientProtocol):
     """
     Galaxy API (version 0.1.0)
 
@@ -60,7 +210,7 @@ class APIClient:
 
     Args:
         config (ClientConfig)    : Client configuration object.
-        transport (Optional[HttpTransport])
+        transport (HttpTransport | None)
                                  : Custom HTTP transport (optional).
         ai (AiClient)            : Client for 'ai' endpoints.
         authenticate (AuthenticateClient)

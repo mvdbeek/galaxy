@@ -1,13 +1,13 @@
 # Re-export core exceptions and generated aliases
 from .auth.base import BaseAuth
 from .auth.plugins import ApiKeyAuth, BearerAuth, OAuth2Auth
+from .cattrs_converter import converter, structure_from_dict, unstructure_to_dict
 from .config import ClientConfig
 from .exception_aliases import *  # noqa: F403
 from .exceptions import ClientError, HTTPError, ServerError
 
 # Re-export other commonly used core components
 from .http_transport import HttpTransport, HttpxTransport
-from .schemas import BaseSchema
 from .utils import DataclassSerializer
 
 __all__ = [
@@ -21,8 +21,10 @@ __all__ = [
     "HttpxTransport",
     # Configuration
     "ClientConfig",
-    # Schemas
-    "BaseSchema",
+    # Serialization (cattrs)
+    "structure_from_dict",
+    "unstructure_to_dict",
+    "converter",
     # Utilities
     "DataclassSerializer",
     # Authentication
@@ -31,10 +33,6 @@ __all__ = [
     "BearerAuth",
     "OAuth2Auth",
     # Generated exception aliases
-    "Error200",
-    "Error202",
-    "Error204",
-    "Error304",
-    "Error404",
-    "Error501",
+    "HttpNotImplementedError",
+    "NotFoundError",
 ]

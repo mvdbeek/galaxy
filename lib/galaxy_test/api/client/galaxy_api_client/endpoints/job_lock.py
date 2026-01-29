@@ -1,4 +1,4 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
@@ -9,7 +9,23 @@ from ..models.job_lock_job_lock_status_param_run_as import JobLockJobLockStatusP
 from ..models.job_lock_update_job_lock_param_run_as import JobLockUpdateJobLockParamRunAs
 
 
-class JobLockClient:
+@runtime_checkable
+class JobLockClientProtocol(Protocol):
+    """Protocol defining the interface of JobLockClient for dependency injection."""
+
+    async def job_lock_job_lock_status(
+        self,
+        run_as: JobLockJobLockStatusParamRunAs | None = None,
+    ) -> "JobLock": ...
+
+    async def job_lock_update_job_lock(
+        self,
+        body: "JobLock",
+        run_as: JobLockUpdateJobLockParamRunAs | None = None,
+    ) -> "JobLock": ...
+
+
+class JobLockClient(JobLockClientProtocol):
     """Client for job_lock endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
@@ -26,7 +42,7 @@ class JobLockClient:
         Get job lock status.
 
         Args:
-            run-as (Optional[JobLockJobLockStatusParamRunAs])
+            run-as (JobLockJobLockStatusParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -41,7 +57,7 @@ class JobLockClient:
         url = f"{self.base_url}/api/job_lock"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -53,7 +69,7 @@ class JobLockClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
     async def job_lock_update_job_lock(
         self,
@@ -66,7 +82,7 @@ class JobLockClient:
         Set job lock status.
 
         Args:
-            run-as (Optional[JobLockUpdateJobLockParamRunAs])
+            run-as (JobLockUpdateJobLockParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -82,7 +98,7 @@ class JobLockClient:
         url = f"{self.base_url}/api/job_lock"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: JobLock = DataclassSerializer.serialize(body)
@@ -96,4 +112,4 @@ class JobLockClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

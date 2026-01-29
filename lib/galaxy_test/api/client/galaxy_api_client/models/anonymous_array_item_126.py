@@ -1,7 +1,8 @@
 from typing import TypeAlias
 
-from .job_metric import JobMetric
+from .limited_user_model import LimitedUserModel
+from .user_model import UserModel
 
 __all__ = ["AnonymousArrayItem126"]
 
-AnonymousArrayItem126: TypeAlias = JobMetric | None
+AnonymousArrayItem126: TypeAlias = UserModel | LimitedUserModel

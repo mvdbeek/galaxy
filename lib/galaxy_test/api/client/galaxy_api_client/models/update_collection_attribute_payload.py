@@ -13,3 +13,13 @@ class UpdateCollectionAttributePayload:
     """
 
     dbkey: str  # TODO
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "dbkey": "dbkey",
+        }
+        key_transform_with_dump = {
+            "dbkey": "dbkey",
+        }

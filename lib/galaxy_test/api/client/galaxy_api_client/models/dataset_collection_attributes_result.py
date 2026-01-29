@@ -1,8 +1,7 @@
 from dataclasses import dataclass
 
-from .dbkeys import Dbkeys
-from .extensions import Extensions
-from .tags import Tags
+from .dataset_collection_attributes_result_dbkeys import DatasetCollectionAttributesResultDbkeys
+from .dataset_collection_attributes_result_extensions import DatasetCollectionAttributesResultExtensions
 
 __all__ = ["DatasetCollectionAttributesResult"]
 
@@ -10,21 +9,42 @@ __all__ = ["DatasetCollectionAttributesResult"]
 @dataclass
 class DatasetCollectionAttributesResult:
     """
-    DatasetCollectionAttributesResult dataclass.
+    DatasetCollectionAttributesResult dataclass
 
     Args:
         dbkey (str)              : TODO
-        dbkeys (Optional[Dbkeys]):
+        dbkeys (DatasetCollectionAttributesResultDbkeys)
+                                 :
         extension (str)          : The dataset file extension.
-        extensions (Extensions)  : Limit inputs to datasets with these extensions. Use
-                                   'data' to allow all input datasets.
+        extensions (DatasetCollectionAttributesResultExtensions)
+                                 :
         model_class (str)        : The name of the database model class.
-        tags (Tags)              : The collection of tags associated with an item.
+        tags (List[str])         : The collection of tags associated with an item.
     """
 
     dbkey: str  # TODO
-    dbkeys: Dbkeys | None
+    dbkeys: DatasetCollectionAttributesResultDbkeys
     extension: str  # The dataset file extension.
-    extensions: Extensions  # Limit inputs to datasets with these extensions. Use 'data' to allow all input datasets.
+    extensions: DatasetCollectionAttributesResultExtensions
     model_class: str  # The name of the database model class.
-    tags: Tags  # The collection of tags associated with an item.
+    tags: list[str]  # The collection of tags associated with an item.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "dbkey": "dbkey",
+            "dbkeys": "dbkeys",
+            "extension": "extension",
+            "extensions": "extensions",
+            "model_class": "model_class",
+            "tags": "tags",
+        }
+        key_transform_with_dump = {
+            "dbkey": "dbkey",
+            "dbkeys": "dbkeys",
+            "extension": "extension",
+            "extensions": "extensions",
+            "model_class": "model_class",
+            "tags": "tags",
+        }

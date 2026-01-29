@@ -1,11 +1,13 @@
 from dataclasses import dataclass
 
-from .created_from_basename import CreatedFromBasename
-from .hashes import Hashes
-from .info import Info
-from .name import Name
-from .src import Src
-from .tags import Tags
+from .collection_element_data_request_uri_created_from_basename import (
+    CollectionElementDataRequestUriCreatedFromBasename,
+)
+from .collection_element_data_request_uri_hashes import CollectionElementDataRequestUriHashes
+from .collection_element_data_request_uri_info import CollectionElementDataRequestUriInfo
+from .collection_element_data_request_uri_name import CollectionElementDataRequestUriName
+from .collection_element_data_request_uri_src import CollectionElementDataRequestUriSrc
+from .collection_element_data_request_uri_tags import CollectionElementDataRequestUriTags
 
 __all__ = ["CollectionElementDataRequestUri"]
 
@@ -13,45 +15,80 @@ __all__ = ["CollectionElementDataRequestUri"]
 @dataclass
 class CollectionElementDataRequestUri:
     """
-    CollectionElementDataRequestUri dataclass.
+    CollectionElementDataRequestUri dataclass
 
     Args:
-        class_ (str)             :
+        class_ (str)             : Maps from 'class'
         ext (str)                :
         identifier (str)         : A unique identifier for this element within the
                                    collection.
         location (str)           :
-        created_from_basename (Optional[CreatedFromBasename])
-                                 : The basename of the output that produced this dataset.
-        dbkey (Optional[str])    :
-        deferred (Optional[bool]):
-        hashes (Optional[Hashes]): List of precomputed hashes for the file, if available.
-        info (Optional[Info])    : Free text field that can be used to store arbitrary
-                                   information about the dataset. This used to be
-                                   prominently displayed in the Galaxy user interface, but
-                                   now is largely unused.
-        name (Optional[Name])    : The name of the creator.
-        space_to_tab (Optional[bool])
+        created_from_basename (CollectionElementDataRequestUriCreatedFromBasename | None)
                                  :
-        src (Optional[Src])      : Source type of the input dataset/dataset collection.
-        tags (Optional[Tags])    : The collection of tags associated with an item.
-        to_posix_lines (Optional[bool])
+        dbkey (str | None)       :
+        deferred (bool | None)   :
+        hashes (CollectionElementDataRequestUriHashes | None)
+                                 :
+        info (CollectionElementDataRequestUriInfo | None)
+                                 :
+        name (CollectionElementDataRequestUriName | None)
+                                 :
+        space_to_tab (bool | None):
+        src (CollectionElementDataRequestUriSrc | None)
+                                 :
+        tags (CollectionElementDataRequestUriTags | None)
+                                 :
+        to_posix_lines (bool | None)
                                  :
     """
 
-    class_: str
+    class_: str  # Maps from 'class'
     ext: str
     identifier: str  # A unique identifier for this element within the collection.
     location: str
-    created_from_basename: CreatedFromBasename | None = None  # The basename of the output that produced this dataset.
+    created_from_basename: CollectionElementDataRequestUriCreatedFromBasename | None = None
     dbkey: str | None = "?"
     deferred: bool | None = False
-    hashes: Hashes | None = None  # List of precomputed hashes for the file, if available.
-    info: Info | None = (
-        None  # Free text field that can be used to store arbitrary information about the dataset. This used to be prominently displayed in the Galaxy user interface, but now is largely unused.
-    )
-    name: Name | None = None  # The name of the creator.
+    hashes: CollectionElementDataRequestUriHashes | None = None
+    info: CollectionElementDataRequestUriInfo | None = None
+    name: CollectionElementDataRequestUriName | None = None
     space_to_tab: bool | None = False
-    src: Src | None = None  # Source type of the input dataset/dataset collection.
-    tags: Tags | None = None  # The collection of tags associated with an item.
+    src: CollectionElementDataRequestUriSrc | None = None
+    tags: CollectionElementDataRequestUriTags | None = None
     to_posix_lines: bool | None = False
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "class": "class_",
+            "created_from_basename": "created_from_basename",
+            "dbkey": "dbkey",
+            "deferred": "deferred",
+            "ext": "ext",
+            "hashes": "hashes",
+            "identifier": "identifier",
+            "info": "info",
+            "location": "location",
+            "name": "name",
+            "space_to_tab": "space_to_tab",
+            "src": "src",
+            "tags": "tags",
+            "to_posix_lines": "to_posix_lines",
+        }
+        key_transform_with_dump = {
+            "class_": "class",
+            "created_from_basename": "created_from_basename",
+            "dbkey": "dbkey",
+            "deferred": "deferred",
+            "ext": "ext",
+            "hashes": "hashes",
+            "identifier": "identifier",
+            "info": "info",
+            "location": "location",
+            "name": "name",
+            "space_to_tab": "space_to_tab",
+            "src": "src",
+            "tags": "tags",
+            "to_posix_lines": "to_posix_lines",
+        }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .message import Message
+from .delete_job_payload_message import DeleteJobPayloadMessage
 
 __all__ = ["DeleteJobPayload"]
 
@@ -8,11 +8,21 @@ __all__ = ["DeleteJobPayload"]
 @dataclass
 class DeleteJobPayload:
     """
-    DeleteJobPayload dataclass.
+    DeleteJobPayload dataclass
 
     Args:
-        message (Optional[Message])
-                                 : The optional message sent with the error report.
+        message (DeleteJobPayloadMessage | None)
+                                 : Stop message
     """
 
-    message: Message | None = None  # The optional message sent with the error report.
+    message: DeleteJobPayloadMessage | None = None  # Stop message
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "message": "message",
+        }
+        key_transform_with_dump = {
+            "message": "message",
+        }

@@ -1,20 +1,20 @@
 from dataclasses import dataclass
 
-from .collection_type import CollectionType
-from .column_definitions import ColumnDefinitions
-from .content import Content
-from .copy_elements import CopyElements
-from .dbkey import Dbkey
-from .element_identifiers import ElementIdentifiers
-from .fields import Fields
-from .folder_id import FolderId
-from .hide_source_items import HideSourceItems
-from .history_id import HistoryId
-from .instance_type import InstanceType
-from .name import Name
-from .rows import Rows
-from .source import Source
-from .type_ import Type_
+from .create_history_content_payload_collection_type import CreateHistoryContentPayloadCollectionType
+from .create_history_content_payload_column_definitions import CreateHistoryContentPayloadColumnDefinitions
+from .create_history_content_payload_content import CreateHistoryContentPayloadContent
+from .create_history_content_payload_copy_elements import CreateHistoryContentPayloadCopyElements
+from .create_history_content_payload_dbkey import CreateHistoryContentPayloadDbkey
+from .create_history_content_payload_element_identifiers import CreateHistoryContentPayloadElementIdentifiers
+from .create_history_content_payload_fields import CreateHistoryContentPayloadFields
+from .create_history_content_payload_folder_id import CreateHistoryContentPayloadFolderId
+from .create_history_content_payload_hide_source_items import CreateHistoryContentPayloadHideSourceItems
+from .create_history_content_payload_history_id import CreateHistoryContentPayloadHistoryId
+from .create_history_content_payload_instance_type import CreateHistoryContentPayloadInstanceType
+from .create_history_content_payload_name import CreateHistoryContentPayloadName
+from .create_history_content_payload_rows import CreateHistoryContentPayloadRows
+from .create_history_content_payload_source import CreateHistoryContentPayloadSource
+from .type__5 import Type5
 
 __all__ = ["CreateHistoryContentPayload"]
 
@@ -22,64 +22,129 @@ __all__ = ["CreateHistoryContentPayload"]
 @dataclass
 class CreateHistoryContentPayload:
     """
-    CreateHistoryContentPayload dataclass.
+    CreateHistoryContentPayload dataclass
 
     Args:
-        collection_type (Optional[CollectionType])
+        collection_type (CreateHistoryContentPayloadCollectionType | None)
                                  : The type of the collection, can be `list`, `paired`, or
                                    define subcollections using `:` as separator like
                                    `list:paired` or `list:list`.
-        column_definitions (Optional[ColumnDefinitions])
-                                 : Column data associated with each element of this
-                                   collection.
-        content (Optional[Content])
-                                 : Text contents of the last page revision with embedded
-                                   directives expanded (type dependent on content_format).
-        copy_elements (Optional[CopyElements])
-                                 : Whether to create a copy of the source HDAs for the new
-                                   collection.
-        dbkey (Optional[Dbkey])  : The database key of the visualization.
-        element_identifiers (Optional[ElementIdentifiers])
+        column_definitions (CreateHistoryContentPayloadColumnDefinitions | None)
+                                 : Specify definitions for row data if collection_type is
+                                   sample_sheet
+        content (CreateHistoryContentPayloadContent | None)
+                                 : Depending on the `source` it can be: - The encoded id
+                                   from the library dataset - The encoded id from the
+                                   library folder - The encoded id from the HDA - The
+                                   encoded id from the HDCA
+        copy_elements (CreateHistoryContentPayloadCopyElements | None)
+                                 : If the source is a collection, whether to copy child HDAs
+                                   into the target history as well. Prior to the galaxy
+                                   release 23.1 this defaulted to false.
+        dbkey (CreateHistoryContentPayloadDbkey | None)
+                                 : TODO
+        element_identifiers (CreateHistoryContentPayloadElementIdentifiers | None)
                                  : List of elements that should be in the new collection.
-        fields (Optional[Fields]):
-        folder_id (Optional[FolderId])
+        fields (CreateHistoryContentPayloadFields | None)
+                                 : List of fields to create for this collection. Set to
+                                   'auto' to guess fields from identifiers.
+        folder_id (CreateHistoryContentPayloadFolderId | None)
                                  : The ID of the library folder that will contain the
                                    collection. Required if `instance_type=library`.
-        hide_source_items (Optional[HideSourceItems])
+        hide_source_items (CreateHistoryContentPayloadHideSourceItems | None)
                                  : Whether to mark the original HDAs as hidden.
-        history_id (Optional[HistoryId])
-                                 : The encoded ID of the history associated with this item.
-        instance_type (Optional[InstanceType])
+        history_id (CreateHistoryContentPayloadHistoryId | None)
+                                 : The ID of the history that will contain the collection.
+                                   Required if `instance_type=history`.
+        instance_type (CreateHistoryContentPayloadInstanceType | None)
                                  : The type of the instance, either `history` (default) or
                                    `library`.
-        name (Optional[Name])    : The name of the creator.
-        rows (Optional[Rows])    : Specify rows of metadata data corresponding to an
+        name (CreateHistoryContentPayloadName | None)
+                                 : The name of the new collection.
+        rows (CreateHistoryContentPayloadRows | None)
+                                 : Specify rows of metadata data corresponding to an
                                    identifier if collection_type is sample_sheet
-        source (Optional[Source]): The source of the notification. Represents the agent that
-                                   created the notification.
-        type_ (Optional[Type_])  : The type of content to be created in the history.
+        source (CreateHistoryContentPayloadSource | None)
+                                 : The source of the content. Can be other history element
+                                   to be copied or library elements.
+        type_ (Type5 | None)     : The type of content to be created in the history. (maps
+                                   from 'type')
     """
 
-    collection_type: CollectionType | None = (
+    collection_type: CreateHistoryContentPayloadCollectionType | None = (
         None  # The type of the collection, can be `list`, `paired`, or define subcollections using `:` as separator like `list:paired` or `list:list`.
     )
-    column_definitions: ColumnDefinitions | None = None  # Column data associated with each element of this collection.
-    content: Content | None = (
-        ""  # Text contents of the last page revision with embedded directives expanded (type dependent on content_format).
+    column_definitions: CreateHistoryContentPayloadColumnDefinitions | None = (
+        None  # Specify definitions for row data if collection_type is sample_sheet
     )
-    copy_elements: CopyElements | None = True  # Whether to create a copy of the source HDAs for the new collection.
-    dbkey: Dbkey | None = "?"  # The database key of the visualization.
-    element_identifiers: ElementIdentifiers | None = None  # List of elements that should be in the new collection.
-    fields: Fields | None = None
-    folder_id: FolderId | None = (
+    content: CreateHistoryContentPayloadContent | None = (
+        None  # Depending on the `source` it can be: - The encoded id from the library dataset - The encoded id from the library folder - The encoded id from the HDA - The encoded id from the HDCA
+    )
+    copy_elements: CreateHistoryContentPayloadCopyElements | None = (
+        True  # If the source is a collection, whether to copy child HDAs into the target history as well. Prior to the galaxy release 23.1 this defaulted to false.
+    )
+    dbkey: CreateHistoryContentPayloadDbkey | None = None  # TODO
+    element_identifiers: CreateHistoryContentPayloadElementIdentifiers | None = (
+        None  # List of elements that should be in the new collection.
+    )
+    fields: CreateHistoryContentPayloadFields | None = (
+        None  # List of fields to create for this collection. Set to 'auto' to guess fields from identifiers.
+    )
+    folder_id: CreateHistoryContentPayloadFolderId | None = (
         None  # The ID of the library folder that will contain the collection. Required if `instance_type=library`.
     )
-    hide_source_items: HideSourceItems | None = False  # Whether to mark the original HDAs as hidden.
-    history_id: HistoryId | None = None  # The encoded ID of the history associated with this item.
-    instance_type: InstanceType | None = "history"  # The type of the instance, either `history` (default) or `library`.
-    name: Name | None = None  # The name of the creator.
-    rows: Rows | None = (
+    hide_source_items: CreateHistoryContentPayloadHideSourceItems | None = (
+        False  # Whether to mark the original HDAs as hidden.
+    )
+    history_id: CreateHistoryContentPayloadHistoryId | None = (
+        None  # The ID of the history that will contain the collection. Required if `instance_type=history`.
+    )
+    instance_type: CreateHistoryContentPayloadInstanceType | None = (
+        "history"  # The type of the instance, either `history` (default) or `library`.
+    )
+    name: CreateHistoryContentPayloadName | None = None  # The name of the new collection.
+    rows: CreateHistoryContentPayloadRows | None = (
         None  # Specify rows of metadata data corresponding to an identifier if collection_type is sample_sheet
     )
-    source: Source | None = None  # The source of the notification. Represents the agent that created the notification.
-    type_: Type_ | None = "dataset"  # The type of content to be created in the history.
+    source: CreateHistoryContentPayloadSource | None = (
+        None  # The source of the content. Can be other history element to be copied or library elements.
+    )
+    type_: Type5 | None = "dataset"  # The type of content to be created in the history. (maps from 'type')
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "collection_type": "collection_type",
+            "column_definitions": "column_definitions",
+            "content": "content",
+            "copy_elements": "copy_elements",
+            "dbkey": "dbkey",
+            "element_identifiers": "element_identifiers",
+            "fields": "fields",
+            "folder_id": "folder_id",
+            "hide_source_items": "hide_source_items",
+            "history_id": "history_id",
+            "instance_type": "instance_type",
+            "name": "name",
+            "rows": "rows",
+            "source": "source",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "collection_type": "collection_type",
+            "column_definitions": "column_definitions",
+            "content": "content",
+            "copy_elements": "copy_elements",
+            "dbkey": "dbkey",
+            "element_identifiers": "element_identifiers",
+            "fields": "fields",
+            "folder_id": "folder_id",
+            "hide_source_items": "hide_source_items",
+            "history_id": "history_id",
+            "instance_type": "instance_type",
+            "name": "name",
+            "rows": "rows",
+            "source": "source",
+            "type_": "type",
+        }

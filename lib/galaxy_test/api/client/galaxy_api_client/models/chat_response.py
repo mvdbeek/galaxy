@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .error_code import ErrorCode
-from .error_message import ErrorMessage
+from .chat_response_error_code import ChatResponseErrorCode
+from .chat_response_error_message import ChatResponseErrorMessage
 
 __all__ = ["ChatResponse"]
 
@@ -9,16 +9,30 @@ __all__ = ["ChatResponse"]
 @dataclass
 class ChatResponse:
     """
-    ChatResponse dataclass.
+    ChatResponse dataclass
 
     Args:
-        error_code (Optional[ErrorCode])
+        error_code (ChatResponseErrorCode)
                                  : The error code, if any, for the chat query.
-        error_message (Optional[ErrorMessage])
+        error_message (ChatResponseErrorMessage)
                                  : The error message, if any, for the chat query.
         response (str)           : The response to the chat query.
     """
 
-    error_code: ErrorCode | None  # The error code, if any, for the chat query.
-    error_message: ErrorMessage | None  # The error message, if any, for the chat query.
+    error_code: ChatResponseErrorCode  # The error code, if any, for the chat query.
+    error_message: ChatResponseErrorMessage  # The error message, if any, for the chat query.
     response: str  # The response to the chat query.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "error_code": "error_code",
+            "error_message": "error_message",
+            "response": "response",
+        }
+        key_transform_with_dump = {
+            "error_code": "error_code",
+            "error_message": "error_message",
+            "response": "response",
+        }

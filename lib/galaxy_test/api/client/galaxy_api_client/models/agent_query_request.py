@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .context import Context
+from .agent_query_request_context import AgentQueryRequestContext
 
 __all__ = ["AgentQueryRequest"]
 
@@ -12,13 +12,29 @@ class AgentQueryRequest:
 
     Args:
         query (str)              : The user's question or request
-        agent_type (Optional[str]): Preferred agent type ('auto' for routing)
-        context (Optional[Context])
+        agent_type (str | None)  : Preferred agent type ('auto' for routing)
+        context (AgentQueryRequestContext | None)
                                  : Additional context for the query
-        stream (Optional[bool])  : Whether to stream the response
+        stream (bool | None)     : Whether to stream the response
     """
 
     query: str  # The user's question or request
     agent_type: str | None = "auto"  # Preferred agent type ('auto' for routing)
-    context: Context | None = None  # Additional context for the query
+    context: AgentQueryRequestContext | None = None  # Additional context for the query
     stream: bool | None = False  # Whether to stream the response
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "agent_type": "agent_type",
+            "context": "context",
+            "query": "query",
+            "stream": "stream",
+        }
+        key_transform_with_dump = {
+            "agent_type": "agent_type",
+            "context": "context",
+            "query": "query",
+            "stream": "stream",
+        }

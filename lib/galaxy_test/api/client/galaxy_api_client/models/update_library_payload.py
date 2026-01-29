@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .description import Description
-from .name import Name
-from .synopsis import Synopsis
+from .update_library_payload_description import UpdateLibraryPayloadDescription
+from .update_library_payload_name import UpdateLibraryPayloadName
+from .update_library_payload_synopsis import UpdateLibraryPayloadSynopsis
 
 __all__ = ["UpdateLibraryPayload"]
 
@@ -10,19 +10,38 @@ __all__ = ["UpdateLibraryPayload"]
 @dataclass
 class UpdateLibraryPayload:
     """
-    UpdateLibraryPayload dataclass.
+    UpdateLibraryPayload dataclass
 
     Args:
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        name (Optional[Name])    : The name of the creator.
-        synopsis (Optional[Synopsis])
+        description (UpdateLibraryPayloadDescription | None)
+                                 : A detailed description of the Library. Leave unset to
+                                   keep the existing.
+        name (UpdateLibraryPayloadName | None)
+                                 : The new name of the Library. Leave unset to keep the
+                                   existing.
+        synopsis (UpdateLibraryPayloadSynopsis | None)
                                  : A short text describing the contents of the Library.
                                    Leave unset to keep the existing.
     """
 
-    description: Description | None = ""  # Detailed text description for this Quota.
-    name: Name | None = None  # The name of the creator.
-    synopsis: Synopsis | None = (
-        ""  # A short text describing the contents of the Library. Leave unset to keep the existing.
+    description: UpdateLibraryPayloadDescription | None = (
+        None  # A detailed description of the Library. Leave unset to keep the existing.
     )
+    name: UpdateLibraryPayloadName | None = None  # The new name of the Library. Leave unset to keep the existing.
+    synopsis: UpdateLibraryPayloadSynopsis | None = (
+        None  # A short text describing the contents of the Library. Leave unset to keep the existing.
+    )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "name": "name",
+            "synopsis": "synopsis",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "name": "name",
+            "synopsis": "synopsis",
+        }

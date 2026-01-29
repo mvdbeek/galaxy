@@ -1,8 +1,9 @@
 from dataclasses import dataclass
 
-from .input_ import Input_
-from .label import Label
-from .position import Position
+from .extract_input_action_label import ExtractInputActionLabel
+from .extract_input_action_position import ExtractInputActionPosition
+from .input__3 import Input3
+from .refactor_request_actions_item_action_type_enum import RefactorRequestActionsItemActionTypeEnum
 
 __all__ = ["ExtractInputAction"]
 
@@ -10,17 +11,35 @@ __all__ = ["ExtractInputAction"]
 @dataclass
 class ExtractInputAction:
     """
-    ExtractInputAction dataclass.
+    ExtractInputAction dataclass
 
     Args:
-        action_type (str)        :
-        input_ (Input_)          :
-        label (Optional[Label])  : Label of the input.
-        position (Optional[Position])
-                                 : The location of the step in the Galaxy workflow editor.
+        action_type (RefactorRequestActionsItemActionTypeEnum)
+                                 :
+        input_ (Input3)          : Maps from 'input'
+        label (ExtractInputActionLabel | None)
+                                 :
+        position (ExtractInputActionPosition | None)
+                                 :
     """
 
-    action_type: str
-    input_: Input_
-    label: Label | None = None  # Label of the input.
-    position: Position | None = None  # The location of the step in the Galaxy workflow editor.
+    action_type: RefactorRequestActionsItemActionTypeEnum
+    input_: Input3  # Maps from 'input'
+    label: ExtractInputActionLabel | None = None
+    position: ExtractInputActionPosition | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "action_type": "action_type",
+            "input": "input_",
+            "label": "label",
+            "position": "position",
+        }
+        key_transform_with_dump = {
+            "action_type": "action_type",
+            "input_": "input",
+            "label": "label",
+            "position": "position",
+        }

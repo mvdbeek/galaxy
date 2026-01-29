@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .hash_function import HashFunction
+from .file_hash_hash_function import FileHashHashFunction
 
 __all__ = ["FileHash"]
 
@@ -8,13 +8,25 @@ __all__ = ["FileHash"]
 @dataclass
 class FileHash:
     """
-    FileHash dataclass.
+    FileHash dataclass
 
     Args:
-        hash_function (HashFunction)
-                                 : Hash function name to use to compute dataset hashes.
+        hash_function (FileHashHashFunction)
+                                 :
         hash_value (str)         :
     """
 
-    hash_function: HashFunction  # Hash function name to use to compute dataset hashes.
+    hash_function: FileHashHashFunction
     hash_value: str
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "hash_function": "hash_function",
+            "hash_value": "hash_value",
+        }
+        key_transform_with_dump = {
+            "hash_function": "hash_function",
+            "hash_value": "hash_value",
+        }

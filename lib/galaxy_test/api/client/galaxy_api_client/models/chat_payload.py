@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .context import Context
-from .exchange_id import ExchangeId
+from .chat_payload_context import ChatPayloadContext
+from .chat_payload_exchange_id import ChatPayloadExchangeId
 
 __all__ = ["ChatPayload"]
 
@@ -9,16 +9,30 @@ __all__ = ["ChatPayload"]
 @dataclass
 class ChatPayload:
     """
-    ChatPayload dataclass.
+    ChatPayload dataclass
 
     Args:
         query (str)              : The query to be sent to the chatbot.
-        context (Optional[Context])
+        context (ChatPayloadContext | None)
                                  : The context for the chatbot.
-        exchange_id (Optional[ExchangeId])
+        exchange_id (ChatPayloadExchangeId | None)
                                  : The ID of an existing chat exchange to continue.
     """
 
     query: str  # The query to be sent to the chatbot.
-    context: Context | None = ""  # The context for the chatbot.
-    exchange_id: ExchangeId | None = None  # The ID of an existing chat exchange to continue.
+    context: ChatPayloadContext | None = ""  # The context for the chatbot.
+    exchange_id: ChatPayloadExchangeId | None = None  # The ID of an existing chat exchange to continue.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "context": "context",
+            "exchange_id": "exchange_id",
+            "query": "query",
+        }
+        key_transform_with_dump = {
+            "context": "context",
+            "exchange_id": "exchange_id",
+            "query": "query",
+        }

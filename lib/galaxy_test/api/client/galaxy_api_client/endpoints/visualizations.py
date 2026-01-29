@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -34,28 +35,191 @@ from ..models.visualizations_sharing_sharing_param_run_as import VisualizationsS
 from ..models.visualizations_show_param_run_as import VisualizationsShowParamRunAs
 from ..models.visualizations_slug_set_slug_param_run_as import VisualizationsSlugSetSlugParamRunAs
 from ..models.visualizations_unpublish_unpublish_param_run_as import VisualizationsUnpublishUnpublishParamRunAs
-from ..models.visualizations_update_200_response_2 import VisualizationsUpdate200Response2
+from ..models.visualizations_update_200_response import VisualizationsUpdate200Response
 from ..models.visualizations_update_param_run_as import VisualizationsUpdateParamRunAs
 
 
-class VisualizationsClient:
+@runtime_checkable
+class VisualizationsClientProtocol(Protocol):
+    """Protocol defining the interface of VisualizationsClient for dependency injection."""
+
+    async def visualizations_index(
+        self,
+        deleted: bool | None = None,
+        limit: VisualizationsIndexParamLimit | None = None,
+        offset: VisualizationsIndexParamOffset | None = None,
+        user_id: VisualizationsIndexParamUserId | None = None,
+        show_own: bool | None = None,
+        show_published: bool | None = None,
+        show_shared: bool | None = None,
+        sort_by: str | None = None,
+        sort_desc: bool | None = None,
+        search: VisualizationsIndexParamSearch | None = None,
+        run_as: VisualizationsIndexParamRunAs | None = None,
+    ) -> VisualizationSummaryList: ...
+
+    async def visualizations_index(
+        self,
+        deleted: bool | None = None,
+        limit: VisualizationsIndexParamLimit | None = None,
+        offset: VisualizationsIndexParamOffset | None = None,
+        user_id: VisualizationsIndexParamUserId | None = None,
+        show_own: bool | None = None,
+        show_published: bool | None = None,
+        show_shared: bool | None = None,
+        sort_by: str | None = None,
+        sort_desc: bool | None = None,
+        search: VisualizationsIndexParamSearch | None = None,
+        run_as: VisualizationsIndexParamRunAs | None = None,
+    ) -> VisualizationSummaryList: ...
+
+    async def visualizations_create(
+        self,
+        body: VisualizationCreatePayload,
+        import_id: VisualizationsCreateParamImportId | None = None,
+        run_as: VisualizationsCreateParamRunAs | None = None,
+    ) -> VisualizationCreateResponse: ...
+
+    async def visualizations_create(
+        self,
+        body: VisualizationCreatePayload,
+        import_id: VisualizationsCreateParamImportId | None = None,
+        run_as: VisualizationsCreateParamRunAs | None = None,
+    ) -> VisualizationCreateResponse: ...
+
+    async def visualizations_show(
+        self,
+        id_: str,
+        run_as: VisualizationsShowParamRunAs | None = None,
+    ) -> VisualizationShowResponse: ...
+
+    async def visualizations_show(
+        self,
+        id_: str,
+        run_as: VisualizationsShowParamRunAs | None = None,
+    ) -> VisualizationShowResponse: ...
+
+    async def visualizations_update(
+        self,
+        id_: str,
+        body: VisualizationUpdatePayload,
+        run_as: VisualizationsUpdateParamRunAs | None = None,
+    ) -> VisualizationsUpdate200Response | None: ...
+
+    async def visualizations_update(
+        self,
+        id_: str,
+        body: VisualizationUpdatePayload,
+        run_as: VisualizationsUpdateParamRunAs | None = None,
+    ) -> VisualizationsUpdate200Response | None: ...
+
+    async def visualizations_disable_link_access_disable_link_access(
+        self,
+        id_: str,
+        run_as: VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_disable_link_access_disable_link_access(
+        self,
+        id_: str,
+        run_as: VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_enable_link_access_enable_link_access(
+        self,
+        id_: str,
+        run_as: VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_enable_link_access_enable_link_access(
+        self,
+        id_: str,
+        run_as: VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_publish_publish(
+        self,
+        id_: str,
+        run_as: VisualizationsPublishPublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_publish_publish(
+        self,
+        id_: str,
+        run_as: VisualizationsPublishPublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_share_with_users_share_with_users(
+        self,
+        id_: str,
+        body: ShareWithPayload,
+        run_as: VisualizationsShareWithUsersShareWithUsersParamRunAs | None = None,
+    ) -> ShareWithStatus: ...
+
+    async def visualizations_share_with_users_share_with_users(
+        self,
+        id_: str,
+        body: ShareWithPayload,
+        run_as: VisualizationsShareWithUsersShareWithUsersParamRunAs | None = None,
+    ) -> ShareWithStatus: ...
+
+    async def visualizations_sharing_sharing(
+        self,
+        id_: str,
+        run_as: VisualizationsSharingSharingParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_sharing_sharing(
+        self,
+        id_: str,
+        run_as: VisualizationsSharingSharingParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_slug_set_slug(
+        self,
+        id_: str,
+        body: SetSlugPayload,
+        run_as: VisualizationsSlugSetSlugParamRunAs | None = None,
+    ) -> None: ...
+
+    async def visualizations_slug_set_slug(
+        self,
+        id_: str,
+        body: SetSlugPayload,
+        run_as: VisualizationsSlugSetSlugParamRunAs | None = None,
+    ) -> None: ...
+
+    async def visualizations_unpublish_unpublish(
+        self,
+        id_: str,
+        run_as: VisualizationsUnpublishUnpublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def visualizations_unpublish_unpublish(
+        self,
+        id_: str,
+        run_as: VisualizationsUnpublishUnpublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+
+class VisualizationsClient(VisualizationsClientProtocol):
     """Client for visualizations endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def visualizations_index_2_2(
+    async def visualizations_index(
         self,
-        deleted: bool | None = False,
+        deleted: bool | None = None,
         limit: VisualizationsIndexParamLimit | None = None,
-        offset: VisualizationsIndexParamOffset | None = 0,
+        offset: VisualizationsIndexParamOffset | None = None,
         user_id: VisualizationsIndexParamUserId | None = None,
-        show_own: bool | None = True,
-        show_published: bool | None = True,
-        show_shared: bool | None = False,
-        sort_by: str | None = "update_time",
-        sort_desc: bool | None = True,
+        show_own: bool | None = None,
+        show_published: bool | None = None,
+        show_shared: bool | None = None,
+        sort_by: str | None = None,
+        sort_desc: bool | None = None,
         search: VisualizationsIndexParamSearch | None = None,
         run_as: VisualizationsIndexParamRunAs | None = None,
     ) -> VisualizationSummaryList:
@@ -63,23 +227,22 @@ class VisualizationsClient:
         Returns visualizations for the current user.
 
         Args:
-            deleted (Optional[bool]) : Whether to include deleted visualizations in the result.
-            limit (Optional[VisualizationsIndexParamLimit])
+            deleted (bool | None)    : Whether to include deleted visualizations in the result.
+            limit (VisualizationsIndexParamLimit | None)
                                      : The maximum number of items to return.
-            offset (Optional[VisualizationsIndexParamOffset])
+            offset (VisualizationsIndexParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            user_id (Optional[VisualizationsIndexParamUserId])
+            user_id (VisualizationsIndexParamUserId | None)
                                      :
-            show_own (Optional[bool]):
-            show_published (Optional[bool])
+            show_own (bool | None)   :
+            show_published (bool | None)
                                      :
-            show_shared (Optional[bool])
-                                     :
-            sort_by (Optional[str])  : Sort visualization index by this specified attribute on
+            show_shared (bool | None):
+            sort_by (str | None)     : Sort visualization index by this specified attribute on
                                        the visualization model
-            sort_desc (Optional[bool]): Sort in descending order?
-            search (Optional[VisualizationsIndexParamSearch])
+            sort_desc (bool | None)  : Sort in descending order?
+            search (VisualizationsIndexParamSearch | None)
                                      : A mix of free text and GitHub-style tags used to filter
                                        the index operation.  ## Query Structure  GitHub-style
                                        filter tags (not be confused with Galaxy tags) are tags
@@ -106,7 +269,7 @@ class VisualizationsClient:
                                        Free text search terms will be searched against the
                                        following attributes of the Visualizations: `title`,
                                        `slug`, `tag`, `type`.
-            run-as (Optional[VisualizationsIndexParamRunAs])
+            run-as (VisualizationsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -121,20 +284,20 @@ class VisualizationsClient:
         url = f"{self.base_url}/api/visualizations"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"show_own": show_own} if show_own is not None else {}),
-            **({"show_published": show_published} if show_published is not None else {}),
-            **({"show_shared": show_shared} if show_shared is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"search": search} if search is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"show_own": DataclassSerializer.serialize(show_own)} if show_own is not None else {}),
+            **({"show_published": DataclassSerializer.serialize(show_published)} if show_published is not None else {}),
+            **({"show_shared": DataclassSerializer.serialize(show_shared)} if show_shared is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **({"search": DataclassSerializer.serialize(search)} if search is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -142,23 +305,23 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationSummaryList, response.json())
+                return structure_from_dict(response.json(), VisualizationSummaryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_index_2_2(
+    async def visualizations_index(
         self,
-        deleted: bool | None = False,
+        deleted: bool | None = None,
         limit: VisualizationsIndexParamLimit | None = None,
-        offset: VisualizationsIndexParamOffset | None = 0,
+        offset: VisualizationsIndexParamOffset | None = None,
         user_id: VisualizationsIndexParamUserId | None = None,
-        show_own: bool | None = True,
-        show_published: bool | None = True,
-        show_shared: bool | None = False,
-        sort_by: str | None = "update_time",
-        sort_desc: bool | None = True,
+        show_own: bool | None = None,
+        show_published: bool | None = None,
+        show_shared: bool | None = None,
+        sort_by: str | None = None,
+        sort_desc: bool | None = None,
         search: VisualizationsIndexParamSearch | None = None,
         run_as: VisualizationsIndexParamRunAs | None = None,
     ) -> VisualizationSummaryList:
@@ -166,23 +329,22 @@ class VisualizationsClient:
         Returns visualizations for the current user.
 
         Args:
-            deleted (Optional[bool]) : Whether to include deleted visualizations in the result.
-            limit (Optional[VisualizationsIndexParamLimit])
+            deleted (bool | None)    : Whether to include deleted visualizations in the result.
+            limit (VisualizationsIndexParamLimit | None)
                                      : The maximum number of items to return.
-            offset (Optional[VisualizationsIndexParamOffset])
+            offset (VisualizationsIndexParamOffset | None)
                                      : Starts at the beginning skip the first ( offset - 1 )
                                        items and begin returning at the Nth item
-            user_id (Optional[VisualizationsIndexParamUserId])
+            user_id (VisualizationsIndexParamUserId | None)
                                      :
-            show_own (Optional[bool]):
-            show_published (Optional[bool])
+            show_own (bool | None)   :
+            show_published (bool | None)
                                      :
-            show_shared (Optional[bool])
-                                     :
-            sort_by (Optional[str])  : Sort visualization index by this specified attribute on
+            show_shared (bool | None):
+            sort_by (str | None)     : Sort visualization index by this specified attribute on
                                        the visualization model
-            sort_desc (Optional[bool]): Sort in descending order?
-            search (Optional[VisualizationsIndexParamSearch])
+            sort_desc (bool | None)  : Sort in descending order?
+            search (VisualizationsIndexParamSearch | None)
                                      : A mix of free text and GitHub-style tags used to filter
                                        the index operation.  ## Query Structure  GitHub-style
                                        filter tags (not be confused with Galaxy tags) are tags
@@ -209,7 +371,7 @@ class VisualizationsClient:
                                        Free text search terms will be searched against the
                                        following attributes of the Visualizations: `title`,
                                        `slug`, `tag`, `type`.
-            run-as (Optional[VisualizationsIndexParamRunAs])
+            run-as (VisualizationsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -224,20 +386,20 @@ class VisualizationsClient:
         url = f"{self.base_url}/api/visualizations"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"show_own": show_own} if show_own is not None else {}),
-            **({"show_published": show_published} if show_published is not None else {}),
-            **({"show_shared": show_shared} if show_shared is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"search": search} if search is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"show_own": DataclassSerializer.serialize(show_own)} if show_own is not None else {}),
+            **({"show_published": DataclassSerializer.serialize(show_published)} if show_published is not None else {}),
+            **({"show_shared": DataclassSerializer.serialize(show_shared)} if show_shared is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **({"search": DataclassSerializer.serialize(search)} if search is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -245,13 +407,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationSummaryList, response.json())
+                return structure_from_dict(response.json(), VisualizationSummaryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_create_2_2(
+    async def visualizations_create(
         self,
         body: VisualizationCreatePayload,
         import_id: VisualizationsCreateParamImportId | None = None,
@@ -265,10 +427,10 @@ class VisualizationsClient:
         user's workspace and does not require the rest of the payload.
 
         Args:
-            import_id (Optional[VisualizationsCreateParamImportId])
+            import_id (VisualizationsCreateParamImportId | None)
                                      : The encoded database identifier of the Visualization to
                                        import.
-            run-as (Optional[VisualizationsCreateParamRunAs])
+            run-as (VisualizationsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -285,11 +447,11 @@ class VisualizationsClient:
         url = f"{self.base_url}/api/visualizations"
 
         params: dict[str, Any] = {
-            **({"import_id": import_id} if import_id is not None else {}),
+            **({"import_id": DataclassSerializer.serialize(import_id)} if import_id is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: VisualizationCreatePayload = DataclassSerializer.serialize(body)
@@ -299,13 +461,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationCreateResponse, response.json())
+                return structure_from_dict(response.json(), VisualizationCreateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_create_2_2(
+    async def visualizations_create(
         self,
         body: VisualizationCreatePayload,
         import_id: VisualizationsCreateParamImportId | None = None,
@@ -319,10 +481,10 @@ class VisualizationsClient:
         user's workspace and does not require the rest of the payload.
 
         Args:
-            import_id (Optional[VisualizationsCreateParamImportId])
+            import_id (VisualizationsCreateParamImportId | None)
                                      : The encoded database identifier of the Visualization to
                                        import.
-            run-as (Optional[VisualizationsCreateParamRunAs])
+            run-as (VisualizationsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -339,11 +501,11 @@ class VisualizationsClient:
         url = f"{self.base_url}/api/visualizations"
 
         params: dict[str, Any] = {
-            **({"import_id": import_id} if import_id is not None else {}),
+            **({"import_id": DataclassSerializer.serialize(import_id)} if import_id is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: VisualizationCreatePayload = DataclassSerializer.serialize(body)
@@ -353,13 +515,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationCreateResponse, response.json())
+                return structure_from_dict(response.json(), VisualizationCreateResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_show_2_2(
+    async def visualizations_show(
         self,
         id_: str,
         run_as: VisualizationsShowParamRunAs | None = None,
@@ -371,7 +533,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsShowParamRunAs])
+            run-as (VisualizationsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -383,10 +545,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -394,13 +558,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationShowResponse, response.json())
+                return structure_from_dict(response.json(), VisualizationShowResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_show_2_2(
+    async def visualizations_show(
         self,
         id_: str,
         run_as: VisualizationsShowParamRunAs | None = None,
@@ -412,7 +576,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsShowParamRunAs])
+            run-as (VisualizationsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -424,10 +588,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -435,24 +601,24 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationShowResponse, response.json())
+                return structure_from_dict(response.json(), VisualizationShowResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_update_2_2(
+    async def visualizations_update(
         self,
         id_: str,
         body: VisualizationUpdatePayload,
         run_as: VisualizationsUpdateParamRunAs | None = None,
-    ) -> VisualizationsUpdate200Response2:
+    ) -> VisualizationsUpdate200Response | None:
         """
         Update a visualization.
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsUpdateParamRunAs])
+            run-as (VisualizationsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -460,16 +626,18 @@ class VisualizationsClient:
                                      : Request body. (json)
 
         Returns:
-            VisualizationsUpdate200Response2: Successful Response
+            VisualizationsUpdate200Response | None: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: VisualizationUpdatePayload = DataclassSerializer.serialize(body)
@@ -479,24 +647,28 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationsUpdate200Response2, response.json())
+                return (
+                    structure_from_dict(response.json(), VisualizationsUpdate200Response)
+                    if response.json() is not None
+                    else None
+                )
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_update_2_2(
+    async def visualizations_update(
         self,
         id_: str,
         body: VisualizationUpdatePayload,
         run_as: VisualizationsUpdateParamRunAs | None = None,
-    ) -> VisualizationsUpdate200Response2:
+    ) -> VisualizationsUpdate200Response | None:
         """
         Update a visualization.
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsUpdateParamRunAs])
+            run-as (VisualizationsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -504,16 +676,18 @@ class VisualizationsClient:
                                      : Request body. (json)
 
         Returns:
-            VisualizationsUpdate200Response2: Successful Response
+            VisualizationsUpdate200Response | None: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: VisualizationUpdatePayload = DataclassSerializer.serialize(body)
@@ -523,13 +697,17 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(VisualizationsUpdate200Response2, response.json())
+                return (
+                    structure_from_dict(response.json(), VisualizationsUpdate200Response)
+                    if response.json() is not None
+                    else None
+                )
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_disable_link_access_disable_link_access_2_2(
+    async def visualizations_disable_link_access_disable_link_access(
         self,
         id_: str,
         run_as: VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
@@ -541,7 +719,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs])
+            run-as (VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -553,10 +731,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/disable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -564,13 +744,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_disable_link_access_disable_link_access_2_2(
+    async def visualizations_disable_link_access_disable_link_access(
         self,
         id_: str,
         run_as: VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
@@ -582,7 +762,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs])
+            run-as (VisualizationsDisableLinkAccessDisableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -594,10 +774,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/disable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -605,13 +787,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_enable_link_access_enable_link_access_2_2(
+    async def visualizations_enable_link_access_enable_link_access(
         self,
         id_: str,
         run_as: VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
@@ -623,7 +805,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs])
+            run-as (VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -635,10 +817,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/enable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -646,13 +830,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_enable_link_access_enable_link_access_2_2(
+    async def visualizations_enable_link_access_enable_link_access(
         self,
         id_: str,
         run_as: VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
@@ -664,7 +848,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs])
+            run-as (VisualizationsEnableLinkAccessEnableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -676,10 +860,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/enable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -687,13 +873,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_publish_publish_2_2(
+    async def visualizations_publish_publish(
         self,
         id_: str,
         run_as: VisualizationsPublishPublishParamRunAs | None = None,
@@ -705,7 +891,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsPublishPublishParamRunAs])
+            run-as (VisualizationsPublishPublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -717,10 +903,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/publish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -728,13 +916,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_publish_publish_2_2(
+    async def visualizations_publish_publish(
         self,
         id_: str,
         run_as: VisualizationsPublishPublishParamRunAs | None = None,
@@ -746,7 +934,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsPublishPublishParamRunAs])
+            run-as (VisualizationsPublishPublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -758,10 +946,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/publish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -769,13 +959,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_share_with_users_share_with_users_2_2(
+    async def visualizations_share_with_users_share_with_users(
         self,
         id_: str,
         body: ShareWithPayload,
@@ -788,7 +978,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsShareWithUsersShareWithUsersParamRunAs])
+            run-as (VisualizationsShareWithUsersShareWithUsersParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -801,10 +991,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/share_with_users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ShareWithPayload = DataclassSerializer.serialize(body)
@@ -814,13 +1006,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ShareWithStatus, response.json())
+                return structure_from_dict(response.json(), ShareWithStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_share_with_users_share_with_users_2_2(
+    async def visualizations_share_with_users_share_with_users(
         self,
         id_: str,
         body: ShareWithPayload,
@@ -833,7 +1025,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsShareWithUsersShareWithUsersParamRunAs])
+            run-as (VisualizationsShareWithUsersShareWithUsersParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -846,10 +1038,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/share_with_users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ShareWithPayload = DataclassSerializer.serialize(body)
@@ -859,13 +1053,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ShareWithStatus, response.json())
+                return structure_from_dict(response.json(), ShareWithStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_sharing_sharing_2_2(
+    async def visualizations_sharing_sharing(
         self,
         id_: str,
         run_as: VisualizationsSharingSharingParamRunAs | None = None,
@@ -877,7 +1071,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsSharingSharingParamRunAs])
+            run-as (VisualizationsSharingSharingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -889,10 +1083,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/sharing"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -900,13 +1096,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_sharing_sharing_2_2(
+    async def visualizations_sharing_sharing(
         self,
         id_: str,
         run_as: VisualizationsSharingSharingParamRunAs | None = None,
@@ -918,7 +1114,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsSharingSharingParamRunAs])
+            run-as (VisualizationsSharingSharingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -930,10 +1126,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/sharing"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -941,13 +1139,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_slug_set_slug_2_2(
+    async def visualizations_slug_set_slug(
         self,
         id_: str,
         body: SetSlugPayload,
@@ -960,7 +1158,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsSlugSetSlugParamRunAs])
+            run-as (VisualizationsSlugSetSlugParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -970,10 +1168,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/slug"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SetSlugPayload = DataclassSerializer.serialize(body)
@@ -987,9 +1187,9 @@ class VisualizationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_slug_set_slug_2_2(
+    async def visualizations_slug_set_slug(
         self,
         id_: str,
         body: SetSlugPayload,
@@ -1002,7 +1202,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsSlugSetSlugParamRunAs])
+            run-as (VisualizationsSlugSetSlugParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1012,10 +1212,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/slug"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SetSlugPayload = DataclassSerializer.serialize(body)
@@ -1029,9 +1231,9 @@ class VisualizationsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_unpublish_unpublish_2_2(
+    async def visualizations_unpublish_unpublish(
         self,
         id_: str,
         run_as: VisualizationsUnpublishUnpublishParamRunAs | None = None,
@@ -1043,7 +1245,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsUnpublishUnpublishParamRunAs])
+            run-as (VisualizationsUnpublishUnpublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1055,10 +1257,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/unpublish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -1066,13 +1270,13 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def visualizations_unpublish_unpublish_2_2(
+    async def visualizations_unpublish_unpublish(
         self,
         id_: str,
         run_as: VisualizationsUnpublishUnpublishParamRunAs | None = None,
@@ -1084,7 +1288,7 @@ class VisualizationsClient:
 
         Args:
             id (str)                 : The encoded database identifier of the Visualization.
-            run-as (Optional[VisualizationsUnpublishUnpublishParamRunAs])
+            run-as (VisualizationsUnpublishUnpublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1096,10 +1300,12 @@ class VisualizationsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/visualizations/{id_}/unpublish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -1107,8 +1313,8 @@ class VisualizationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

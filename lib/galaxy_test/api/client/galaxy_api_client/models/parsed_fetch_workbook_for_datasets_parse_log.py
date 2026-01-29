@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .parsed_fetch_workbook_for_datasets_parse_log_item import ParsedFetchWorkbookForDatasetsParseLogItem
+
+__all__ = ["ParsedFetchWorkbookForDatasetsParseLog"]
+
+ParsedFetchWorkbookForDatasetsParseLog: TypeAlias = list[ParsedFetchWorkbookForDatasetsParseLogItem]

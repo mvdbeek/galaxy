@@ -18,3 +18,15 @@ class AgentListResponse:
 
     agents: list[AvailableAgent]  # List of available agents
     total_count: int  # Total number of agents
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "agents": "agents",
+            "total_count": "total_count",
+        }
+        key_transform_with_dump = {
+            "agents": "agents",
+            "total_count": "total_count",
+        }

@@ -5,4 +5,4 @@ from .workflow_invocation_element_view import WorkflowInvocationElementView
 
 __all__ = ["WorkflowInvocationResponse"]
 
-WorkflowInvocationResponse: TypeAlias = WorkflowInvocationCollectionView | WorkflowInvocationElementView
+WorkflowInvocationResponse: TypeAlias = WorkflowInvocationElementView | WorkflowInvocationCollectionView

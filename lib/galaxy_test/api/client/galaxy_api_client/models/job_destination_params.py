@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .handler import Handler
-from .runner import Runner
-from .runner_job_id import RunnerJobId
+from .job_destination_params_handler import JobDestinationParamsHandler
+from .job_destination_params_runner import JobDestinationParamsRunner
+from .job_destination_params_runner_job_id import JobDestinationParamsRunnerJobId
 
 __all__ = ["JobDestinationParams"]
 
@@ -10,20 +10,37 @@ __all__ = ["JobDestinationParams"]
 @dataclass
 class JobDestinationParams:
     """
-    JobDestinationParams dataclass.
+    JobDestinationParams dataclass
 
     Args:
-        handler (Optional[Handler])
-                                 : The job handler process assigned to handle this job. Only
-                                   administrator can see this value.
-        runner (Optional[Runner]): Job runner class
-        runner_job_id (Optional[RunnerJobId])
+        handler (JobDestinationParamsHandler | None)
+                                 : Name of the process that handled the job. (maps from
+                                   'Handler')
+        runner (JobDestinationParamsRunner | None)
+                                 : Job runner class (maps from 'Runner')
+        runner_job_id (JobDestinationParamsRunnerJobId | None)
                                  : ID assigned to submitted job by external job running
-                                   system
+                                   system (maps from 'Runner Job ID')
     """
 
-    handler: Handler | None = (
-        None  # The job handler process assigned to handle this job. Only administrator can see this value.
+    handler: JobDestinationParamsHandler | None = (
+        None  # Name of the process that handled the job. (maps from 'Handler')
     )
-    runner: Runner | None = None  # Job runner class
-    runner_job_id: RunnerJobId | None = None  # ID assigned to submitted job by external job running system
+    runner: JobDestinationParamsRunner | None = None  # Job runner class (maps from 'Runner')
+    runner_job_id: JobDestinationParamsRunnerJobId | None = (
+        None  # ID assigned to submitted job by external job running system (maps from 'Runner Job ID')
+    )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "Handler": "handler",
+            "Runner": "runner",
+            "Runner Job ID": "runner_job_id",
+        }
+        key_transform_with_dump = {
+            "handler": "Handler",
+            "runner": "Runner",
+            "runner_job_id": "Runner Job ID",
+        }

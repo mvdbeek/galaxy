@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .content import Content
-from .generate_time import GenerateTime
-from .generate_version import GenerateVersion
+from .tool_report_for_dataset_content import ToolReportForDatasetContent
+from .tool_report_for_dataset_generate_time import ToolReportForDatasetGenerateTime
+from .tool_report_for_dataset_generate_version import ToolReportForDatasetGenerateVersion
 
 __all__ = ["ToolReportForDataset"]
 
@@ -10,20 +10,38 @@ __all__ = ["ToolReportForDataset"]
 @dataclass
 class ToolReportForDataset:
     """
-    ToolReportForDataset dataclass.
+    ToolReportForDataset dataclass
 
     Args:
-        content (Optional[Content])
+        content (ToolReportForDatasetContent | None)
                                  : Text contents of the last page revision with embedded
                                    directives expanded (type dependent on content_format).
-        generate_time (Optional[GenerateTime])
+        generate_time (ToolReportForDatasetGenerateTime | None)
                                  : The version of Galaxy this object was generated with.
-        generate_version (Optional[GenerateVersion])
+        generate_version (ToolReportForDatasetGenerateVersion | None)
                                  : The version of Galaxy this object was generated with.
     """
 
-    content: Content | None = (
+    content: ToolReportForDatasetContent | None = (
         ""  # Text contents of the last page revision with embedded directives expanded (type dependent on content_format).
     )
-    generate_time: GenerateTime | None = None  # The version of Galaxy this object was generated with.
-    generate_version: GenerateVersion | None = None  # The version of Galaxy this object was generated with.
+    generate_time: ToolReportForDatasetGenerateTime | None = (
+        None  # The version of Galaxy this object was generated with.
+    )
+    generate_version: ToolReportForDatasetGenerateVersion | None = (
+        None  # The version of Galaxy this object was generated with.
+    )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "content": "content",
+            "generate_time": "generate_time",
+            "generate_version": "generate_version",
+        }
+        key_transform_with_dump = {
+            "content": "content",
+            "generate_time": "generate_time",
+            "generate_version": "generate_version",
+        }

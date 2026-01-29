@@ -1,14 +1,5 @@
-from dataclasses import dataclass
+from typing import TypeAlias
 
 __all__ = ["AnonymousArrayItem11"]
 
-
-@dataclass
-class AnonymousArrayItem11:
-    """
-    [Circular reference detected: AnonymousArrayItem11 -> GalaxyToolParameterModel-Input ->
-    TextParameterModel -> AnonymousArrayItem11]
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem11: TypeAlias = int | float | bool | str | None

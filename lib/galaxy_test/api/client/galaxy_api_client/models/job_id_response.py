@@ -13,3 +13,13 @@ class JobIdResponse:
     """
 
     job_id: str
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "job_id": "job_id",
+        }
+        key_transform_with_dump = {
+            "job_id": "job_id",
+        }

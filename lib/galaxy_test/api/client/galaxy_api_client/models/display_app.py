@@ -18,3 +18,15 @@ class DisplayApp:
 
     label: str  # The label or title of the Display Application.
     links: list[Hyperlink]  # The collection of link details for this Display Application.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "label": "label",
+            "links": "links",
+        }
+        key_transform_with_dump = {
+            "label": "label",
+            "links": "links",
+        }

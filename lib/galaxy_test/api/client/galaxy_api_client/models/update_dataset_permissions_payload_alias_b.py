@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .access import Access
-from .action import Action
-from .manage import Manage
-from .modify import Modify
+from .update_dataset_permissions_payload_alias_b_access import UpdateDatasetPermissionsPayloadAliasBAccess
+from .update_dataset_permissions_payload_alias_b_action import UpdateDatasetPermissionsPayloadAliasBAction
+from .update_dataset_permissions_payload_alias_b_manage import UpdateDatasetPermissionsPayloadAliasBManage
+from .update_dataset_permissions_payload_alias_b_modify import UpdateDatasetPermissionsPayloadAliasBModify
 
 __all__ = ["UpdateDatasetPermissionsPayloadAliasB"]
 
@@ -11,25 +11,47 @@ __all__ = ["UpdateDatasetPermissionsPayloadAliasB"]
 @dataclass
 class UpdateDatasetPermissionsPayloadAliasB:
     """
-    UpdateDatasetPermissionsPayloadAliasB dataclass.
+    UpdateDatasetPermissionsPayloadAliasB dataclass
 
     Args:
-        access (Optional[Access]): A list of role encoded IDs defining roles that should
+        access (UpdateDatasetPermissionsPayloadAliasBAccess | None)
+                                 : A list of role encoded IDs defining roles that should
                                    have access permission on the dataset.
-        action (Optional[Action]): Indicates what action should be performed on the dataset.
-        manage (Optional[Manage]): A list of role encoded IDs defining roles that should
+        action (UpdateDatasetPermissionsPayloadAliasBAction | None)
+                                 : Indicates what action should be performed on the dataset.
+        manage (UpdateDatasetPermissionsPayloadAliasBManage | None)
+                                 : A list of role encoded IDs defining roles that should
                                    have manage permission on the dataset.
-        modify (Optional[Modify]): A list of role encoded IDs defining roles that should
+        modify (UpdateDatasetPermissionsPayloadAliasBModify | None)
+                                 : A list of role encoded IDs defining roles that should
                                    have modify permission on the dataset.
     """
 
-    access: Access | None = (
+    access: UpdateDatasetPermissionsPayloadAliasBAccess | None = (
         None  # A list of role encoded IDs defining roles that should have access permission on the dataset.
     )
-    action: Action | None = "set_permissions"  # Indicates what action should be performed on the dataset.
-    manage: Manage | None = (
+    action: UpdateDatasetPermissionsPayloadAliasBAction | None = (
+        "set_permissions"  # Indicates what action should be performed on the dataset.
+    )
+    manage: UpdateDatasetPermissionsPayloadAliasBManage | None = (
         None  # A list of role encoded IDs defining roles that should have manage permission on the dataset.
     )
-    modify: Modify | None = (
+    modify: UpdateDatasetPermissionsPayloadAliasBModify | None = (
         None  # A list of role encoded IDs defining roles that should have modify permission on the dataset.
     )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "access": "access",
+            "action": "action",
+            "manage": "manage",
+            "modify": "modify",
+        }
+        key_transform_with_dump = {
+            "access": "access",
+            "action": "action",
+            "manage": "manage",
+            "modify": "modify",
+        }

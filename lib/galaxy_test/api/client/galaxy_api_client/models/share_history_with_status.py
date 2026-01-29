@@ -1,11 +1,10 @@
 from dataclasses import dataclass, field
 
-from .email_hash import EmailHash
-from .errors import Errors
 from .share_history_extra import ShareHistoryExtra
-from .user_email_7 import UserEmail7
-from .username import Username
-from .username_and_slug import UsernameAndSlug
+from .share_history_with_status_email_hash import ShareHistoryWithStatusEmailHash
+from .share_history_with_status_username import ShareHistoryWithStatusUsername
+from .share_history_with_status_username_and_slug import ShareHistoryWithStatusUsernameAndSlug
+from .user_email import UserEmail
 
 __all__ = ["ShareHistoryWithStatus"]
 
@@ -13,41 +12,70 @@ __all__ = ["ShareHistoryWithStatus"]
 @dataclass
 class ShareHistoryWithStatus:
     """
-    ShareHistoryWithStatus dataclass.
+    ShareHistoryWithStatus dataclass
 
     Args:
         extra (ShareHistoryExtra):
-        id_ (str)                : The encoded ID of the resource to be shared.
+        id_ (str)                : The encoded ID of the resource to be shared. (maps from
+                                   'id')
         importable (bool)        : Whether this resource can be published using a link.
         published (bool)         : Whether this resource is currently published.
         title (str)              : The title or name of the resource.
-        email_hash (Optional[EmailHash])
-                                 : The hash of the email of the creator of this workflow
-        errors (Optional[Errors]): Collection of messages indicating that the resource was
+        email_hash (ShareHistoryWithStatusEmailHash | None)
+                                 : Encoded owner email.
+        errors (List[str] | None): Collection of messages indicating that the resource was
                                    not shared with some (or all users) due to an error.
-        username (Optional[Username])
-                                 : The name of the user.
-        username_and_slug (Optional[UsernameAndSlug])
+        username (ShareHistoryWithStatusUsername | None)
+                                 : The owner's username.
+        username_and_slug (ShareHistoryWithStatusUsernameAndSlug | None)
                                  : The relative URL in the form of
                                    /u/{username}/{resource_single_char}/{slug}
-        users_shared_with (Optional[List[UserEmail7]])
+        users_shared_with (List[UserEmail] | None)
                                  : The list of encoded ids for users the resource has been
                                    shared.
     """
 
     extra: ShareHistoryExtra
-    id_: str  # The encoded ID of the resource to be shared.
+    id_: str  # The encoded ID of the resource to be shared. (maps from 'id')
     importable: bool  # Whether this resource can be published using a link.
     published: bool  # Whether this resource is currently published.
     title: str  # The title or name of the resource.
-    email_hash: EmailHash | None = None  # The hash of the email of the creator of this workflow
-    errors: Errors | None = (
-        None  # Collection of messages indicating that the resource was not shared with some (or all users) due to an error.
-    )
-    username: Username | None = None  # The name of the user.
-    username_and_slug: UsernameAndSlug | None = (
+    email_hash: ShareHistoryWithStatusEmailHash | None = None  # Encoded owner email.
+    errors: list[str] | None = field(
+        default_factory=list
+    )  # Collection of messages indicating that the resource was not shared with some (or all users) due to an error.
+    username: ShareHistoryWithStatusUsername | None = None  # The owner's username.
+    username_and_slug: ShareHistoryWithStatusUsernameAndSlug | None = (
         None  # The relative URL in the form of /u/{username}/{resource_single_char}/{slug}
     )
-    users_shared_with: list[UserEmail7] | None = field(
+    users_shared_with: list[UserEmail] | None = field(
         default_factory=list
     )  # The list of encoded ids for users the resource has been shared.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "email_hash": "email_hash",
+            "errors": "errors",
+            "extra": "extra",
+            "id": "id_",
+            "importable": "importable",
+            "published": "published",
+            "title": "title",
+            "username": "username",
+            "username_and_slug": "username_and_slug",
+            "users_shared_with": "users_shared_with",
+        }
+        key_transform_with_dump = {
+            "email_hash": "email_hash",
+            "errors": "errors",
+            "extra": "extra",
+            "id_": "id",
+            "importable": "importable",
+            "published": "published",
+            "title": "title",
+            "username": "username",
+            "username_and_slug": "username_and_slug",
+            "users_shared_with": "users_shared_with",
+        }

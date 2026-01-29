@@ -1,10 +1,12 @@
 from dataclasses import dataclass
 
-from .collection_type import CollectionType
-from .collection_type_from_rules import CollectionTypeFromRules
-from .collection_type_source import CollectionTypeSource
-from .discover_datasets import DiscoverDatasets
-from .structured_like import StructuredLike
+from .tool_output_collection_structure_collection_type import ToolOutputCollectionStructureCollectionType
+from .tool_output_collection_structure_collection_type_from_rules import (
+    ToolOutputCollectionStructureCollectionTypeFromRules,
+)
+from .tool_output_collection_structure_collection_type_source import ToolOutputCollectionStructureCollectionTypeSource
+from .tool_output_collection_structure_discover_datasets import ToolOutputCollectionStructureDiscoverDatasets
+from .tool_output_collection_structure_structured_like import ToolOutputCollectionStructureStructuredLike
 
 __all__ = ["ToolOutputCollectionStructure"]
 
@@ -12,27 +14,41 @@ __all__ = ["ToolOutputCollectionStructure"]
 @dataclass
 class ToolOutputCollectionStructure:
     """
-    ToolOutputCollectionStructure dataclass.
+    ToolOutputCollectionStructure dataclass
 
     Args:
-        collection_type (Optional[CollectionType])
-                                 : The type of the collection, can be `list`, `paired`, or
-                                   define subcollections using `:` as separator like
-                                   `list:paired` or `list:list`.
-        collection_type_from_rules (Optional[CollectionTypeFromRules])
+        collection_type (ToolOutputCollectionStructureCollectionType | None)
                                  :
-        collection_type_source (Optional[CollectionTypeSource])
+        collection_type_from_rules (ToolOutputCollectionStructureCollectionTypeFromRules | None)
                                  :
-        discover_datasets (Optional[DiscoverDatasets])
+        collection_type_source (ToolOutputCollectionStructureCollectionTypeSource | None)
                                  :
-        structured_like (Optional[StructuredLike])
+        discover_datasets (ToolOutputCollectionStructureDiscoverDatasets | None)
+                                 :
+        structured_like (ToolOutputCollectionStructureStructuredLike | None)
                                  :
     """
 
-    collection_type: CollectionType | None = (
-        None  # The type of the collection, can be `list`, `paired`, or define subcollections using `:` as separator like `list:paired` or `list:list`.
-    )
-    collection_type_from_rules: CollectionTypeFromRules | None = None
-    collection_type_source: CollectionTypeSource | None = None
-    discover_datasets: DiscoverDatasets | None = None
-    structured_like: StructuredLike | None = None
+    collection_type: ToolOutputCollectionStructureCollectionType | None = None
+    collection_type_from_rules: ToolOutputCollectionStructureCollectionTypeFromRules | None = None
+    collection_type_source: ToolOutputCollectionStructureCollectionTypeSource | None = None
+    discover_datasets: ToolOutputCollectionStructureDiscoverDatasets | None = None
+    structured_like: ToolOutputCollectionStructureStructuredLike | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "collection_type": "collection_type",
+            "collection_type_from_rules": "collection_type_from_rules",
+            "collection_type_source": "collection_type_source",
+            "discover_datasets": "discover_datasets",
+            "structured_like": "structured_like",
+        }
+        key_transform_with_dump = {
+            "collection_type": "collection_type",
+            "collection_type_from_rules": "collection_type_from_rules",
+            "collection_type_source": "collection_type_source",
+            "discover_datasets": "discover_datasets",
+            "structured_like": "structured_like",
+        }

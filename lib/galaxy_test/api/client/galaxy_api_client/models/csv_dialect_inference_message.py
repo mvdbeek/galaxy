@@ -8,7 +8,7 @@ __all__ = ["CsvDialectInferenceMessage"]
 @dataclass
 class CsvDialectInferenceMessage:
     """
-    CsvDialectInferenceMessage dataclass.
+    CsvDialectInferenceMessage dataclass
 
     Args:
         dialect (CsvDialect)     :
@@ -17,3 +17,15 @@ class CsvDialectInferenceMessage:
 
     dialect: CsvDialect
     message: str
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "dialect": "dialect",
+            "message": "message",
+        }
+        key_transform_with_dump = {
+            "dialect": "dialect",
+            "message": "message",
+        }

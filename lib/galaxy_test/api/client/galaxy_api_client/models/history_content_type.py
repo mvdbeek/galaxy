@@ -6,7 +6,7 @@ __all__ = ["HistoryContentType"]
 @unique
 class HistoryContentType(str, Enum):
     """
-    This is always `dataset_collection` for dataset collections.
+    Available types of History contents.
 
     Args:
         dataset (str)            : Value for DATASET

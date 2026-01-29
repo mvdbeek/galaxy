@@ -1,5 +1,19 @@
-from typing import Any, TypeAlias
+from enum import Enum, unique
 
 __all__ = ["CreateType"]
 
-CreateType: TypeAlias = Any
+
+@unique
+class CreateType(str, Enum):
+    """
+    CreateType Enum
+
+    Args:
+        file (str)               : Value for FILE
+        folder (str)             : Value for FOLDER
+        collection (str)         : Value for COLLECTION
+    """
+
+    FILE = "file"
+    FOLDER = "folder"
+    COLLECTION = "collection"

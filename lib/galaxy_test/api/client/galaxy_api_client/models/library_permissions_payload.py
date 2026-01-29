@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .access_ids import AccessIds
-from .action import Action
-from .add_ids import AddIds
-from .manage_ids import ManageIds
-from .modify_ids import ModifyIds
+from .library_permissions_payload_access_ids import LibraryPermissionsPayloadAccessIds
+from .library_permissions_payload_action import LibraryPermissionsPayloadAction
+from .library_permissions_payload_add_ids import LibraryPermissionsPayloadAddIds
+from .library_permissions_payload_manage_ids import LibraryPermissionsPayloadManageIds
+from .library_permissions_payload_modify_ids import LibraryPermissionsPayloadModifyIds
 
 __all__ = ["LibraryPermissionsPayload"]
 
@@ -12,33 +12,56 @@ __all__ = ["LibraryPermissionsPayload"]
 @dataclass
 class LibraryPermissionsPayload:
     """
-    LibraryPermissionsPayload dataclass.
+    LibraryPermissionsPayload dataclass
 
     Args:
-        access_ids (Optional[AccessIds])
+        access_ids (LibraryPermissionsPayloadAccessIds | None)
                                  : A list of role encoded IDs defining roles that should
-                                   have access permission on the dataset.
-        action (Optional[Action]): Indicates what action should be performed on the dataset.
-        add_ids (Optional[AddIds]): A list of role encoded IDs defining roles that should be
-                                    able to add items to the library.
-        manage_ids (Optional[ManageIds])
+                                   have access permission on the library. (maps from
+                                   'access_ids[]')
+        action (LibraryPermissionsPayloadAction | None)
+                                 : Indicates what action should be performed on the Library.
+        add_ids (LibraryPermissionsPayloadAddIds | None)
+                                 : A list of role encoded IDs defining roles that should be
+                                   able to add items to the library. (maps from 'add_ids[]')
+        manage_ids (LibraryPermissionsPayloadManageIds | None)
                                  : A list of role encoded IDs defining roles that should
-                                   have manage permission on the dataset.
-        modify_ids (Optional[ModifyIds])
+                                   have manage permission on the library. (maps from
+                                   'manage_ids[]')
+        modify_ids (LibraryPermissionsPayloadModifyIds | None)
                                  : A list of role encoded IDs defining roles that should
-                                   have modify permission on the dataset.
+                                   have modify permission on the library. (maps from
+                                   'modify_ids[]')
     """
 
-    access_ids: AccessIds | None = (
-        None  # A list of role encoded IDs defining roles that should have access permission on the dataset.
+    access_ids: LibraryPermissionsPayloadAccessIds | None = (
+        None  # A list of role encoded IDs defining roles that should have access permission on the library. (maps from 'access_ids[]')
     )
-    action: Action | None = "set_permissions"  # Indicates what action should be performed on the dataset.
-    add_ids: AddIds | None = (
-        None  # A list of role encoded IDs defining roles that should be able to add items to the library.
+    action: LibraryPermissionsPayloadAction | None = None  # Indicates what action should be performed on the Library.
+    add_ids: LibraryPermissionsPayloadAddIds | None = (
+        None  # A list of role encoded IDs defining roles that should be able to add items to the library. (maps from 'add_ids[]')
     )
-    manage_ids: ManageIds | None = (
-        None  # A list of role encoded IDs defining roles that should have manage permission on the dataset.
+    manage_ids: LibraryPermissionsPayloadManageIds | None = (
+        None  # A list of role encoded IDs defining roles that should have manage permission on the library. (maps from 'manage_ids[]')
     )
-    modify_ids: ModifyIds | None = (
-        None  # A list of role encoded IDs defining roles that should have modify permission on the dataset.
+    modify_ids: LibraryPermissionsPayloadModifyIds | None = (
+        None  # A list of role encoded IDs defining roles that should have modify permission on the library. (maps from 'modify_ids[]')
     )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "access_ids[]": "access_ids",
+            "action": "action",
+            "add_ids[]": "add_ids",
+            "manage_ids[]": "manage_ids",
+            "modify_ids[]": "modify_ids",
+        }
+        key_transform_with_dump = {
+            "access_ids": "access_ids[]",
+            "action": "action",
+            "add_ids": "add_ids[]",
+            "manage_ids": "manage_ids[]",
+            "modify_ids": "modify_ids[]",
+        }

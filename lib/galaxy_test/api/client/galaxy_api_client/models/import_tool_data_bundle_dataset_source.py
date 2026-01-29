@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .src import Src
+from .import_tool_data_bundle_source_src_enum import ImportToolDataBundleSourceSrcEnum
 
 __all__ = ["ImportToolDataBundleDatasetSource"]
 
@@ -8,12 +8,26 @@ __all__ = ["ImportToolDataBundleDatasetSource"]
 @dataclass
 class ImportToolDataBundleDatasetSource:
     """
-    ImportToolDataBundleDatasetSource dataclass.
+    ImportToolDataBundleDatasetSource dataclass
 
     Args:
-        id_ (str)                :
-        src (Src)                : Source type of the input dataset/dataset collection.
+        id_ (str)                : Maps from 'id'
+        src (ImportToolDataBundleSourceSrcEnum)
+                                 : Indicates that the tool data should be resolved from a
+                                   dataset.
     """
 
-    id_: str
-    src: Src  # Source type of the input dataset/dataset collection.
+    id_: str  # Maps from 'id'
+    src: ImportToolDataBundleSourceSrcEnum  # Indicates that the tool data should be resolved from a dataset.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "id": "id_",
+            "src": "src",
+        }
+        key_transform_with_dump = {
+            "id_": "id",
+            "src": "src",
+        }

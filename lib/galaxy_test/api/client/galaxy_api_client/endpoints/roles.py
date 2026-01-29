@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -15,14 +16,89 @@ from ..models.roles_show_param_run_as import RolesShowParamRunAs
 from ..models.roles_undelete_undelete_param_run_as import RolesUndeleteUndeleteParamRunAs
 
 
-class RolesClient:
+@runtime_checkable
+class RolesClientProtocol(Protocol):
+    """Protocol defining the interface of RolesClient for dependency injection."""
+
+    async def roles_index(
+        self,
+        run_as: RolesIndexParamRunAs | None = None,
+    ) -> RoleListResponse: ...
+
+    async def roles_index(
+        self,
+        run_as: RolesIndexParamRunAs | None = None,
+    ) -> RoleListResponse: ...
+
+    async def roles_create(
+        self,
+        body: RoleDefinitionModel,
+        run_as: RolesCreateParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_create(
+        self,
+        body: RoleDefinitionModel,
+        run_as: RolesCreateParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_delete(
+        self,
+        id_: str,
+        run_as: RolesDeleteParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_delete(
+        self,
+        id_: str,
+        run_as: RolesDeleteParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_show(
+        self,
+        id_: str,
+        run_as: RolesShowParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_show(
+        self,
+        id_: str,
+        run_as: RolesShowParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_purge_purge(
+        self,
+        id_: str,
+        run_as: RolesPurgePurgeParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_purge_purge(
+        self,
+        id_: str,
+        run_as: RolesPurgePurgeParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_undelete_undelete(
+        self,
+        id_: str,
+        run_as: RolesUndeleteUndeleteParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+    async def roles_undelete_undelete(
+        self,
+        id_: str,
+        run_as: RolesUndeleteUndeleteParamRunAs | None = None,
+    ) -> RoleModelResponse: ...
+
+
+class RolesClient(RolesClientProtocol):
     """Client for roles endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def roles_index_2_2(
+    async def roles_index(
         self,
         run_as: RolesIndexParamRunAs | None = None,
     ) -> RoleListResponse:
@@ -30,7 +106,7 @@ class RolesClient:
         Index
 
         Args:
-            run-as (Optional[RolesIndexParamRunAs])
+            run-as (RolesIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -45,7 +121,7 @@ class RolesClient:
         url = f"{self.base_url}/api/roles"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -53,13 +129,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleListResponse, response.json())
+                return structure_from_dict(response.json(), RoleListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_index_2_2(
+    async def roles_index(
         self,
         run_as: RolesIndexParamRunAs | None = None,
     ) -> RoleListResponse:
@@ -67,7 +143,7 @@ class RolesClient:
         Index
 
         Args:
-            run-as (Optional[RolesIndexParamRunAs])
+            run-as (RolesIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -82,7 +158,7 @@ class RolesClient:
         url = f"{self.base_url}/api/roles"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -90,13 +166,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleListResponse, response.json())
+                return structure_from_dict(response.json(), RoleListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_create_2_2(
+    async def roles_create(
         self,
         body: RoleDefinitionModel,
         run_as: RolesCreateParamRunAs | None = None,
@@ -105,7 +181,7 @@ class RolesClient:
         Create
 
         Args:
-            run-as (Optional[RolesCreateParamRunAs])
+            run-as (RolesCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -121,7 +197,7 @@ class RolesClient:
         url = f"{self.base_url}/api/roles"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: RoleDefinitionModel = DataclassSerializer.serialize(body)
@@ -131,13 +207,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_create_2_2(
+    async def roles_create(
         self,
         body: RoleDefinitionModel,
         run_as: RolesCreateParamRunAs | None = None,
@@ -146,7 +222,7 @@ class RolesClient:
         Create
 
         Args:
-            run-as (Optional[RolesCreateParamRunAs])
+            run-as (RolesCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -162,7 +238,7 @@ class RolesClient:
         url = f"{self.base_url}/api/roles"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: RoleDefinitionModel = DataclassSerializer.serialize(body)
@@ -172,13 +248,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_delete_2_2(
+    async def roles_delete(
         self,
         id_: str,
         run_as: RolesDeleteParamRunAs | None = None,
@@ -188,7 +264,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesDeleteParamRunAs])
+            run-as (RolesDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -200,10 +276,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -211,13 +289,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_delete_2_2(
+    async def roles_delete(
         self,
         id_: str,
         run_as: RolesDeleteParamRunAs | None = None,
@@ -227,7 +305,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesDeleteParamRunAs])
+            run-as (RolesDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -239,10 +317,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -250,13 +330,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_show_2_2(
+    async def roles_show(
         self,
         id_: str,
         run_as: RolesShowParamRunAs | None = None,
@@ -266,7 +346,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesShowParamRunAs])
+            run-as (RolesShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -278,10 +358,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -289,13 +371,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_show_2_2(
+    async def roles_show(
         self,
         id_: str,
         run_as: RolesShowParamRunAs | None = None,
@@ -305,7 +387,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesShowParamRunAs])
+            run-as (RolesShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -317,10 +399,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -328,13 +412,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_purge_purge_2_2(
+    async def roles_purge_purge(
         self,
         id_: str,
         run_as: RolesPurgePurgeParamRunAs | None = None,
@@ -344,7 +428,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesPurgePurgeParamRunAs])
+            run-as (RolesPurgePurgeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -356,10 +440,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}/purge"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -367,13 +453,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_purge_purge_2_2(
+    async def roles_purge_purge(
         self,
         id_: str,
         run_as: RolesPurgePurgeParamRunAs | None = None,
@@ -383,7 +469,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesPurgePurgeParamRunAs])
+            run-as (RolesPurgePurgeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -395,10 +481,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}/purge"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -406,13 +494,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_undelete_undelete_2_2(
+    async def roles_undelete_undelete(
         self,
         id_: str,
         run_as: RolesUndeleteUndeleteParamRunAs | None = None,
@@ -422,7 +510,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesUndeleteUndeleteParamRunAs])
+            run-as (RolesUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -434,10 +522,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -445,13 +535,13 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def roles_undelete_undelete_2_2(
+    async def roles_undelete_undelete(
         self,
         id_: str,
         run_as: RolesUndeleteUndeleteParamRunAs | None = None,
@@ -461,7 +551,7 @@ class RolesClient:
 
         Args:
             id (str)                 : The ID of the role.
-            run-as (Optional[RolesUndeleteUndeleteParamRunAs])
+            run-as (RolesUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -473,10 +563,12 @@ class RolesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/roles/{id_}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -484,8 +576,8 @@ class RolesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleModelResponse, response.json())
+                return structure_from_dict(response.json(), RoleModelResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

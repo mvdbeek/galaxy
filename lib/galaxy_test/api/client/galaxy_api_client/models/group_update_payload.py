@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .name import Name
-from .role_ids import RoleIds
-from .user_ids import UserIds
+from .group_update_payload_name import GroupUpdatePayloadName
+from .group_update_payload_role_ids import GroupUpdatePayloadRoleIds
+from .group_update_payload_user_ids import GroupUpdatePayloadUserIds
 
 __all__ = ["GroupUpdatePayload"]
 
@@ -13,13 +13,28 @@ class GroupUpdatePayload:
     Payload schema for updating a group.
 
     Args:
-        name (Optional[Name])    : The name of the creator.
-        role_ids (Optional[RoleIds])
+        name (GroupUpdatePayloadName | None)
                                  :
-        user_ids (Optional[UserIds])
+        role_ids (GroupUpdatePayloadRoleIds | None)
+                                 :
+        user_ids (GroupUpdatePayloadUserIds | None)
                                  :
     """
 
-    name: Name | None = None  # The name of the creator.
-    role_ids: RoleIds | None = None
-    user_ids: UserIds | None = None
+    name: GroupUpdatePayloadName | None = None
+    role_ids: GroupUpdatePayloadRoleIds | None = None
+    user_ids: GroupUpdatePayloadUserIds | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "name": "name",
+            "role_ids": "role_ids",
+            "user_ids": "user_ids",
+        }
+        key_transform_with_dump = {
+            "name": "name",
+            "role_ids": "role_ids",
+            "user_ids": "user_ids",
+        }

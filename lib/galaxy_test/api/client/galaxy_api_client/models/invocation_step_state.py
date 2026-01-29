@@ -1,19 +1,9 @@
-from enum import Enum, unique
+from typing import TypeAlias
+
+from .invocation_step_state_2 import InvocationStepState2
+from .job_state import JobState
 
 __all__ = ["InvocationStepState"]
 
-
-@unique
-class InvocationStepState(str, Enum):
-    """
-    InvocationStepState Enum
-
-    Args:
-        new (str)                : Value for NEW
-        ready (str)              : Value for READY
-        scheduled (str)          : Value for SCHEDULED
-    """
-
-    NEW = "new"
-    READY = "ready"
-    SCHEDULED = "scheduled"
+InvocationStepState: TypeAlias = InvocationStepState2 | JobState | None
+"""Alias for Describes where in the scheduling process the workflow invocation step is."""

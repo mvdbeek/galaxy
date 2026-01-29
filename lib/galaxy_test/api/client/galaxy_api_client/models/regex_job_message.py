@@ -1,9 +1,9 @@
 from dataclasses import dataclass
 
-from .code_desc import CodeDesc
-from .desc import Desc
-from .match import Match
-from .stream import Stream
+from .regex_job_message_code_desc import RegexJobMessageCodeDesc
+from .regex_job_message_desc import RegexJobMessageDesc
+from .regex_job_message_match import RegexJobMessageMatch
+from .regex_job_message_stream import RegexJobMessageStream
 
 __all__ = ["RegexJobMessage"]
 
@@ -11,21 +11,43 @@ __all__ = ["RegexJobMessage"]
 @dataclass
 class RegexJobMessage:
     """
-    RegexJobMessage dataclass.
+    RegexJobMessage dataclass
 
     Args:
-        desc (Optional[Desc])    :
+        desc (RegexJobMessageDesc):
         error_level (float)      :
-        match (Optional[Match])  :
-        stream (Optional[Stream]):
-        type_ (str)              :
-        code_desc (Optional[CodeDesc])
+        match (RegexJobMessageMatch)
+                                 :
+        stream (RegexJobMessageStream)
+                                 :
+        type_ (str)              : Maps from 'type'
+        code_desc (RegexJobMessageCodeDesc | None)
                                  :
     """
 
-    desc: Desc | None
+    desc: RegexJobMessageDesc
     error_level: float
-    match: Match | None
-    stream: Stream | None
-    type_: str
-    code_desc: CodeDesc | None = None
+    match: RegexJobMessageMatch
+    stream: RegexJobMessageStream
+    type_: str  # Maps from 'type'
+    code_desc: RegexJobMessageCodeDesc | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "code_desc": "code_desc",
+            "desc": "desc",
+            "error_level": "error_level",
+            "match": "match",
+            "stream": "stream",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "code_desc": "code_desc",
+            "desc": "desc",
+            "error_level": "error_level",
+            "match": "match",
+            "stream": "stream",
+            "type_": "type",
+        }

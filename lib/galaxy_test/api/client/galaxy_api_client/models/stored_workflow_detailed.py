@@ -1,23 +1,22 @@
 from dataclasses import dataclass
 from datetime import datetime
 
-from .annotation import Annotation
-from .annotations import Annotations
-from .creator import Creator
-from .doi import Doi
-from .email_hash import EmailHash
-from .help_ import Help_
-from .importable import Importable
-from .inputs import Inputs
-from .latest_workflow_uuid import LatestWorkflowUuid
-from .license import License
-from .number_of_steps import NumberOfSteps
-from .readme import Readme
-from .show_in_tool_panel import ShowInToolPanel
-from .slug import Slug
-from .source_metadata import SourceMetadata
+from .help__42 import Help42
+from .stored_workflow_detailed_annotation import StoredWorkflowDetailedAnnotation
+from .stored_workflow_detailed_annotations import StoredWorkflowDetailedAnnotations
+from .stored_workflow_detailed_creator import StoredWorkflowDetailedCreator
+from .stored_workflow_detailed_doi import StoredWorkflowDetailedDoi
+from .stored_workflow_detailed_email_hash import StoredWorkflowDetailedEmailHash
+from .stored_workflow_detailed_importable import StoredWorkflowDetailedImportable
+from .stored_workflow_detailed_inputs import StoredWorkflowDetailedInputs
+from .stored_workflow_detailed_latest_workflow_uuid import StoredWorkflowDetailedLatestWorkflowUuid
+from .stored_workflow_detailed_license import StoredWorkflowDetailedLicense
+from .stored_workflow_detailed_number_of_steps import StoredWorkflowDetailedNumberOfSteps
+from .stored_workflow_detailed_readme import StoredWorkflowDetailedReadme
+from .stored_workflow_detailed_show_in_tool_panel import StoredWorkflowDetailedShowInToolPanel
+from .stored_workflow_detailed_slug import StoredWorkflowDetailedSlug
+from .stored_workflow_detailed_source_metadata import StoredWorkflowDetailedSourceMetadata
 from .stored_workflow_detailed_steps import StoredWorkflowDetailedSteps
-from .tags import Tags
 
 __all__ = ["StoredWorkflowDetailed"]
 
@@ -25,20 +24,22 @@ __all__ = ["StoredWorkflowDetailed"]
 @dataclass
 class StoredWorkflowDetailed:
     """
-    StoredWorkflowDetailed dataclass.
+    StoredWorkflowDetailed dataclass
 
     Args:
-        annotation (Optional[Annotation])
-                                 : The annotation of this Visualization.
+        annotation (StoredWorkflowDetailedAnnotation)
+                                 : An annotation to provide details or to help understand
+                                   the purpose and usage of this item.
         create_time (datetime)   : The time and date this item was created.
         creator_deleted (bool)   : Whether the creator of this Workflow has been deleted.
         deleted (bool)           : Whether this item is marked as deleted.
-        email_hash (Optional[EmailHash])
+        email_hash (StoredWorkflowDetailedEmailHash)
                                  : The hash of the email of the creator of this workflow
-        help_ (Optional[Help_])  : Help text shown below the tool interface.
+        help_ (Help42 | None)    : The detailed help text for how to use the workflow and
+                                   debug problems with it. (maps from 'help')
         hidden (bool)            : TODO
-        id_ (str)                :
-        importable (Optional[Importable])
+        id_ (str)                : Maps from 'id'
+        importable (StoredWorkflowDetailedImportable)
                                  : Indicates if the workflow is importable by the current
                                    user.
         model_class (str)        : The name of the database model class.
@@ -46,75 +47,151 @@ class StoredWorkflowDetailed:
         owner (str)              : The name of the user who owns this workflow.
         published (bool)         : Whether this workflow is currently publicly available to
                                    all users.
-        readme (Optional[Readme]): The detailed markdown readme of the workflow.
-        slug (Optional[Slug])    : The slug of the visualization.
-        source_metadata (Optional[SourceMetadata])
+        readme (StoredWorkflowDetailedReadme)
+                                 : The detailed markdown readme of the workflow.
+        slug (StoredWorkflowDetailedSlug)
+                                 : The slug of the workflow.
+        source_metadata (StoredWorkflowDetailedSourceMetadata)
                                  : The source metadata of the workflow.
-        tags (Tags)              : The collection of tags associated with an item.
+        tags (List[str])         : The collection of tags associated with an item.
         update_time (datetime)   : The last time and date this item was updated.
         url (str)                : The relative URL to access this item.
         version (int)            : The version of the workflow represented by an incremental
                                    number.
-        annotations (Optional[Annotations])
+        annotations (StoredWorkflowDetailedAnnotations | None)
                                  : An list of annotations to provide details or to help
                                    understand the purpose and usage of this workflow.
-        creator (Optional[Creator])
+        creator (StoredWorkflowDetailedCreator | None)
                                  : Additional information about the creator (or multiple
                                    creators) of this workflow.
-        doi (Optional[Doi])      : A list of Digital Object Identifiers associated with this
+        doi (StoredWorkflowDetailedDoi | None)
+                                 : A list of Digital Object Identifiers associated with this
                                    workflow.
-        inputs (Optional[Inputs]): A dictionary containing information about all the inputs
+        inputs (StoredWorkflowDetailedInputs | None)
+                                 : A dictionary containing information about all the inputs
                                    of the workflow.
-        latest_workflow_uuid (Optional[LatestWorkflowUuid])
+        latest_workflow_uuid (StoredWorkflowDetailedLatestWorkflowUuid | None)
                                  : TODO
-        license (Optional[License])
-                                 : A full URI or a a short
-                                   [SPDX](https://spdx.org/licenses/) identifier for a
-                                   license for this tool wrapper. The tool wrapper license
-                                   can be independent of the underlying tool license. This
-                                   license covers the tool yaml and associated scripts
-                                   shipped with the tool.
-        number_of_steps (Optional[NumberOfSteps])
+        license (StoredWorkflowDetailedLicense | None)
+                                 : SPDX Identifier of the license associated with this
+                                   workflow.
+        number_of_steps (StoredWorkflowDetailedNumberOfSteps | None)
                                  : The number of steps that make up this workflow.
-        show_in_tool_panel (Optional[ShowInToolPanel])
+        show_in_tool_panel (StoredWorkflowDetailedShowInToolPanel | None)
                                  : Whether to display this workflow in the Tools Panel.
-        steps (Optional[StoredWorkflowDetailedSteps])
+        steps (StoredWorkflowDetailedSteps | None)
                                  : A dictionary with information about all the steps of the
                                    workflow.
     """
 
-    annotation: Annotation | None  # The annotation of this Visualization.
+    annotation: StoredWorkflowDetailedAnnotation  # An annotation to provide details or to help understand the purpose and usage of this item.
     create_time: datetime  # The time and date this item was created.
     creator_deleted: bool  # Whether the creator of this Workflow has been deleted.
     deleted: bool  # Whether this item is marked as deleted.
-    email_hash: EmailHash | None  # The hash of the email of the creator of this workflow
-    help_: Help_ | None  # Help text shown below the tool interface.
+    email_hash: StoredWorkflowDetailedEmailHash  # The hash of the email of the creator of this workflow
+    help_: (
+        Help42 | None
+    )  # The detailed help text for how to use the workflow and debug problems with it. (maps from 'help')
     hidden: bool  # TODO
-    id_: str
-    importable: Importable | None  # Indicates if the workflow is importable by the current user.
+    id_: str  # Maps from 'id'
+    importable: StoredWorkflowDetailedImportable  # Indicates if the workflow is importable by the current user.
     model_class: str  # The name of the database model class.
     name: str  # The name of the history.
     owner: str  # The name of the user who owns this workflow.
     published: bool  # Whether this workflow is currently publicly available to all users.
-    readme: Readme | None  # The detailed markdown readme of the workflow.
-    slug: Slug | None  # The slug of the visualization.
-    source_metadata: SourceMetadata | None  # The source metadata of the workflow.
-    tags: Tags  # The collection of tags associated with an item.
+    readme: StoredWorkflowDetailedReadme  # The detailed markdown readme of the workflow.
+    slug: StoredWorkflowDetailedSlug  # The slug of the workflow.
+    source_metadata: StoredWorkflowDetailedSourceMetadata  # The source metadata of the workflow.
+    tags: list[str]  # The collection of tags associated with an item.
     update_time: datetime  # The last time and date this item was updated.
     url: str  # The relative URL to access this item.
     version: int  # The version of the workflow represented by an incremental number.
-    annotations: Annotations | None = (
+    annotations: StoredWorkflowDetailedAnnotations | None = (
         None  # An list of annotations to provide details or to help understand the purpose and usage of this workflow.
     )
-    creator: Creator | None = None  # Additional information about the creator (or multiple creators) of this workflow.
-    doi: Doi | None = None  # A list of Digital Object Identifiers associated with this workflow.
-    inputs: Inputs | None = None  # A dictionary containing information about all the inputs of the workflow.
-    latest_workflow_uuid: LatestWorkflowUuid | None = None  # TODO
-    license: License | None = (
-        None  # A full URI or a a short [SPDX](https://spdx.org/licenses/) identifier for a license for this tool wrapper. The tool wrapper license can be independent of the underlying tool license. This license covers the tool yaml and associated scripts shipped with the tool.
+    creator: StoredWorkflowDetailedCreator | None = (
+        None  # Additional information about the creator (or multiple creators) of this workflow.
     )
-    number_of_steps: NumberOfSteps | None = None  # The number of steps that make up this workflow.
-    show_in_tool_panel: ShowInToolPanel | None = None  # Whether to display this workflow in the Tools Panel.
+    doi: StoredWorkflowDetailedDoi | None = None  # A list of Digital Object Identifiers associated with this workflow.
+    inputs: StoredWorkflowDetailedInputs | None = (
+        None  # A dictionary containing information about all the inputs of the workflow.
+    )
+    latest_workflow_uuid: StoredWorkflowDetailedLatestWorkflowUuid | None = None  # TODO
+    license: StoredWorkflowDetailedLicense | None = (
+        None  # SPDX Identifier of the license associated with this workflow.
+    )
+    number_of_steps: StoredWorkflowDetailedNumberOfSteps | None = (
+        None  # The number of steps that make up this workflow.
+    )
+    show_in_tool_panel: StoredWorkflowDetailedShowInToolPanel | None = (
+        None  # Whether to display this workflow in the Tools Panel.
+    )
     steps: StoredWorkflowDetailedSteps | None = (
         None  # A dictionary with information about all the steps of the workflow.
     )
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "annotation": "annotation",
+            "annotations": "annotations",
+            "create_time": "create_time",
+            "creator": "creator",
+            "creator_deleted": "creator_deleted",
+            "deleted": "deleted",
+            "doi": "doi",
+            "email_hash": "email_hash",
+            "help": "help_",
+            "hidden": "hidden",
+            "id": "id_",
+            "importable": "importable",
+            "inputs": "inputs",
+            "latest_workflow_uuid": "latest_workflow_uuid",
+            "license": "license",
+            "model_class": "model_class",
+            "name": "name",
+            "number_of_steps": "number_of_steps",
+            "owner": "owner",
+            "published": "published",
+            "readme": "readme",
+            "show_in_tool_panel": "show_in_tool_panel",
+            "slug": "slug",
+            "source_metadata": "source_metadata",
+            "steps": "steps",
+            "tags": "tags",
+            "update_time": "update_time",
+            "url": "url",
+            "version": "version",
+        }
+        key_transform_with_dump = {
+            "annotation": "annotation",
+            "annotations": "annotations",
+            "create_time": "create_time",
+            "creator": "creator",
+            "creator_deleted": "creator_deleted",
+            "deleted": "deleted",
+            "doi": "doi",
+            "email_hash": "email_hash",
+            "help_": "help",
+            "hidden": "hidden",
+            "id_": "id",
+            "importable": "importable",
+            "inputs": "inputs",
+            "latest_workflow_uuid": "latest_workflow_uuid",
+            "license": "license",
+            "model_class": "model_class",
+            "name": "name",
+            "number_of_steps": "number_of_steps",
+            "owner": "owner",
+            "published": "published",
+            "readme": "readme",
+            "show_in_tool_panel": "show_in_tool_panel",
+            "slug": "slug",
+            "source_metadata": "source_metadata",
+            "steps": "steps",
+            "tags": "tags",
+            "update_time": "update_time",
+            "url": "url",
+            "version": "version",
+        }

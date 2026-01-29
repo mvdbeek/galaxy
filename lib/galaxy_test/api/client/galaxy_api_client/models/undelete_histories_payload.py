@@ -1,17 +1,25 @@
 from dataclasses import dataclass
 
-from .ids import Ids
-
 __all__ = ["UndeleteHistoriesPayload"]
 
 
 @dataclass
 class UndeleteHistoriesPayload:
     """
-    UndeleteHistoriesPayload dataclass.
+    UndeleteHistoriesPayload dataclass
 
     Args:
-        ids (Ids)                : List of history IDs to be undeleted.
+        ids (List[str])          : List of history IDs to be undeleted.
     """
 
-    ids: Ids  # List of history IDs to be undeleted.
+    ids: list[str]  # List of history IDs to be undeleted.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "ids": "ids",
+        }
+        key_transform_with_dump = {
+            "ids": "ids",
+        }

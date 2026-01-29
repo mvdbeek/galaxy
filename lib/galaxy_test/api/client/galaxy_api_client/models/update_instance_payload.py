@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .active import Active
-from .description import Description
-from .hidden import Hidden
-from .name import Name
-from .variables import Variables
+from .update_instance_payload_active import UpdateInstancePayloadActive
+from .update_instance_payload_description import UpdateInstancePayloadDescription
+from .update_instance_payload_hidden import UpdateInstancePayloadHidden
+from .update_instance_payload_name import UpdateInstancePayloadName
+from .update_instance_payload_variables import UpdateInstancePayloadVariables
 
 __all__ = ["UpdateInstancePayload"]
 
@@ -12,20 +12,41 @@ __all__ = ["UpdateInstancePayload"]
 @dataclass
 class UpdateInstancePayload:
     """
-    UpdateInstancePayload dataclass.
+    UpdateInstancePayload dataclass
 
     Args:
-        active (Optional[Active]): User is active
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        hidden (Optional[Hidden]): If true, the output will not be shown in the history.
-        name (Optional[Name])    : The name of the creator.
-        variables (Optional[Variables])
+        active (UpdateInstancePayloadActive | None)
+                                 :
+        description (UpdateInstancePayloadDescription | None)
+                                 :
+        hidden (UpdateInstancePayloadHidden | None)
+                                 :
+        name (UpdateInstancePayloadName | None)
+                                 :
+        variables (UpdateInstancePayloadVariables | None)
                                  :
     """
 
-    active: Active | None = True  # User is active
-    description: Description | None = ""  # Detailed text description for this Quota.
-    hidden: Hidden | None = False  # If true, the output will not be shown in the history.
-    name: Name | None = None  # The name of the creator.
-    variables: Variables | None = None
+    active: UpdateInstancePayloadActive | None = None
+    description: UpdateInstancePayloadDescription | None = None
+    hidden: UpdateInstancePayloadHidden | None = None
+    name: UpdateInstancePayloadName | None = None
+    variables: UpdateInstancePayloadVariables | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "active": "active",
+            "description": "description",
+            "hidden": "hidden",
+            "name": "name",
+            "variables": "variables",
+        }
+        key_transform_with_dump = {
+            "active": "active",
+            "description": "description",
+            "hidden": "hidden",
+            "name": "name",
+            "variables": "variables",
+        }

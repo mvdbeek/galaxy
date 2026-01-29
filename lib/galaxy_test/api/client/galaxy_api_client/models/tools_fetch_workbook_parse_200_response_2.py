@@ -1,8 +1,0 @@
-from typing import TypeAlias
-
-from .parsed_fetch_workbook_for_collections import ParsedFetchWorkbookForCollections
-from .parsed_fetch_workbook_for_datasets import ParsedFetchWorkbookForDatasets
-
-__all__ = ["ToolsFetchWorkbookParse200Response2"]
-
-ToolsFetchWorkbookParse200Response2: TypeAlias = ParsedFetchWorkbookForCollections | ParsedFetchWorkbookForDatasets

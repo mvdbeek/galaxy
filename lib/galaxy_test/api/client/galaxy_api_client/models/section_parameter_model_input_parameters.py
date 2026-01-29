@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .section_parameter_model_input_parameters_item import SectionParameterModelInputParametersItem
+
+__all__ = ["SectionParameterModelInputParameters"]
+
+SectionParameterModelInputParameters: TypeAlias = list[SectionParameterModelInputParametersItem]

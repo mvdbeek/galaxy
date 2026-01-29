@@ -1,12 +1,12 @@
 # Client package __init__.py
 # Re-exports from core and local client.
 
+from .client import APIClient
 from .core.auth import ApiKeyAuth, BaseAuth, BearerAuth, OAuth2Auth
+from .core.cattrs_converter import converter, structure_from_dict, unstructure_to_dict
 from .core.config import ClientConfig
 from .core.exceptions import ClientError, HTTPError, ServerError
 from .core.http_transport import HttpTransport, HttpxTransport
-from .core.schemas import BaseSchema
-from .client import APIClient
 
 __all__ = [
     "APIClient",
@@ -20,5 +20,7 @@ __all__ = [
     "ServerError",
     "HttpTransport",
     "HttpxTransport",
-    "BaseSchema",
+    "structure_from_dict",
+    "unstructure_to_dict",
+    "converter",
 ]

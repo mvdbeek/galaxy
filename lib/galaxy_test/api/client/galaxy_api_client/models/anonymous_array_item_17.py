@@ -1,14 +1,5 @@
-from dataclasses import dataclass
+from typing import TypeAlias
 
 __all__ = ["AnonymousArrayItem17"]
 
-
-@dataclass
-class AnonymousArrayItem17:
-    """
-    [Circular reference detected: AnonymousArrayItem17 -> JavascriptRequirement ->
-    ExpressionLib -> AnonymousArrayItem17]
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem17: TypeAlias = int | float | bool | str | None

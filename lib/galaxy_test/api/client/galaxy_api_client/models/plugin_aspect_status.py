@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .state import State
+from .plugin_aspect_status_state import PluginAspectStatusState
 
 __all__ = ["PluginAspectStatus"]
 
@@ -8,12 +8,25 @@ __all__ = ["PluginAspectStatus"]
 @dataclass
 class PluginAspectStatus:
     """
-    PluginAspectStatus dataclass.
+    PluginAspectStatus dataclass
 
     Args:
         message (str)            :
-        state (Optional[State])  : Current state of the job.
+        state (PluginAspectStatusState)
+                                 :
     """
 
     message: str
-    state: State | None  # Current state of the job.
+    state: PluginAspectStatusState
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "message": "message",
+            "state": "state",
+        }
+        key_transform_with_dump = {
+            "message": "message",
+            "state": "state",
+        }

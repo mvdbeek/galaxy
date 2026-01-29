@@ -1,7 +1,6 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from .model_ import Model_
-from .specialties import Specialties
 
 __all__ = ["AvailableAgent"]
 
@@ -16,8 +15,8 @@ class AvailableAgent:
         description (str)        : Description of the agent's capabilities
         enabled (bool)           : Whether the agent is currently enabled
         name (str)               : Human-readable name
-        model_ (Optional[Model_]): LLM model used by the agent
-        specialties (Optional[Specialties])
+        model_ (Model_ | None)   : LLM model used by the agent (maps from 'model')
+        specialties (List[str] | None)
                                  : Areas of specialization
     """
 
@@ -25,5 +24,25 @@ class AvailableAgent:
     description: str  # Description of the agent's capabilities
     enabled: bool  # Whether the agent is currently enabled
     name: str  # Human-readable name
-    model_: Model_ | None = None  # LLM model used by the agent
-    specialties: Specialties | None = None  # Areas of specialization
+    model_: Model_ | None = None  # LLM model used by the agent (maps from 'model')
+    specialties: list[str] | None = field(default_factory=list)  # Areas of specialization
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "agent_type": "agent_type",
+            "description": "description",
+            "enabled": "enabled",
+            "model": "model_",
+            "name": "name",
+            "specialties": "specialties",
+        }
+        key_transform_with_dump = {
+            "agent_type": "agent_type",
+            "description": "description",
+            "enabled": "enabled",
+            "model_": "model",
+            "name": "name",
+            "specialties": "specialties",
+        }

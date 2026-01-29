@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .config_ import Config_
-from .dbkey import Dbkey
+from .visualization_revision_response_config import VisualizationRevisionResponseConfig
+from .visualization_revision_response_dbkey import VisualizationRevisionResponseDbkey
 
 __all__ = ["VisualizationRevisionResponse"]
 
@@ -9,20 +9,44 @@ __all__ = ["VisualizationRevisionResponse"]
 @dataclass
 class VisualizationRevisionResponse:
     """
-    VisualizationRevisionResponse dataclass.
+    VisualizationRevisionResponse dataclass
 
     Args:
-        config_ (Config_)        : The config of the visualization revision.
-        id_ (str)                : Encoded ID of the Visualization Revision.
+        config_ (VisualizationRevisionResponseConfig)
+                                 : The config of the visualization revision. (maps from
+                                   'config')
+        id_ (str)                : Encoded ID of the Visualization Revision. (maps from
+                                   'id')
         model_class (str)        : The name of the database model class.
         title (str)              : The name of the visualization revision.
         visualization_id (str)   : Encoded ID of the Visualization.
-        dbkey (Optional[Dbkey])  : The database key of the visualization.
+        dbkey (VisualizationRevisionResponseDbkey | None)
+                                 : The database key of the visualization.
     """
 
-    config_: Config_  # The config of the visualization revision.
-    id_: str  # Encoded ID of the Visualization Revision.
+    config_: VisualizationRevisionResponseConfig  # The config of the visualization revision. (maps from 'config')
+    id_: str  # Encoded ID of the Visualization Revision. (maps from 'id')
     model_class: str  # The name of the database model class.
     title: str  # The name of the visualization revision.
     visualization_id: str  # Encoded ID of the Visualization.
-    dbkey: Dbkey | None = "?"  # The database key of the visualization.
+    dbkey: VisualizationRevisionResponseDbkey | None = None  # The database key of the visualization.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "config": "config_",
+            "dbkey": "dbkey",
+            "id": "id_",
+            "model_class": "model_class",
+            "title": "title",
+            "visualization_id": "visualization_id",
+        }
+        key_transform_with_dump = {
+            "config_": "config",
+            "dbkey": "dbkey",
+            "id_": "id",
+            "model_class": "model_class",
+            "title": "title",
+            "visualization_id": "visualization_id",
+        }

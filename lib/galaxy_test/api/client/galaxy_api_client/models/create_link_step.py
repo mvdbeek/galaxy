@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .ready import Ready
-from .state import State
+from .create_link_step_ready import CreateLinkStepReady
+from .create_link_step_state import CreateLinkStepState
 
 __all__ = ["CreateLinkStep"]
 
@@ -9,14 +9,30 @@ __all__ = ["CreateLinkStep"]
 @dataclass
 class CreateLinkStep:
     """
-    CreateLinkStep dataclass.
+    CreateLinkStep dataclass
 
     Args:
         name (str)               :
-        ready (Optional[Ready])  :
-        state (Optional[State])  : Current state of the job.
+        ready (CreateLinkStepReady | None)
+                                 :
+        state (CreateLinkStepState | None)
+                                 :
     """
 
     name: str
-    ready: Ready | None = False
-    state: State | None = None  # Current state of the job.
+    ready: CreateLinkStepReady | None = False
+    state: CreateLinkStepState | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "name": "name",
+            "ready": "ready",
+            "state": "state",
+        }
+        key_transform_with_dump = {
+            "name": "name",
+            "ready": "ready",
+            "state": "state",
+        }

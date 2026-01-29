@@ -1,5 +1,9 @@
 from typing import TypeAlias
 
+from .container_requirement import ContainerRequirement
+from .javascript_requirement import JavascriptRequirement
+from .resource_requirement import ResourceRequirement
+
 __all__ = ["AnonymousArrayItem47"]
 
-AnonymousArrayItem47: TypeAlias = str
+AnonymousArrayItem47: TypeAlias = JavascriptRequirement | ResourceRequirement | ContainerRequirement

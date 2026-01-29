@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -17,14 +18,103 @@ from ..models.groups_undelete_undelete_param_run_as import GroupsUndeleteUndelet
 from ..models.groups_update_param_run_as import GroupsUpdateParamRunAs
 
 
-class GroupsClient:
+@runtime_checkable
+class GroupsClientProtocol(Protocol):
+    """Protocol defining the interface of GroupsClient for dependency injection."""
+
+    async def groups_index(
+        self,
+        run_as: GroupsIndexParamRunAs | None = None,
+    ) -> GroupListResponse: ...
+
+    async def groups_index(
+        self,
+        run_as: GroupsIndexParamRunAs | None = None,
+    ) -> GroupListResponse: ...
+
+    async def groups_create(
+        self,
+        body: GroupCreatePayload,
+        run_as: GroupsCreateParamRunAs | None = None,
+    ) -> GroupListResponse: ...
+
+    async def groups_create(
+        self,
+        body: GroupCreatePayload,
+        run_as: GroupsCreateParamRunAs | None = None,
+    ) -> GroupListResponse: ...
+
+    async def groups_delete(
+        self,
+        group_id: str,
+        run_as: GroupsDeleteParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def groups_delete(
+        self,
+        group_id: str,
+        run_as: GroupsDeleteParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def groups_show(
+        self,
+        group_id: str,
+        run_as: GroupsShowParamRunAs | None = None,
+    ) -> GroupResponse: ...
+
+    async def groups_show(
+        self,
+        group_id: str,
+        run_as: GroupsShowParamRunAs | None = None,
+    ) -> GroupResponse: ...
+
+    async def groups_update(
+        self,
+        group_id: str,
+        body: GroupUpdatePayload,
+        run_as: GroupsUpdateParamRunAs | None = None,
+    ) -> GroupResponse: ...
+
+    async def groups_update(
+        self,
+        group_id: str,
+        body: GroupUpdatePayload,
+        run_as: GroupsUpdateParamRunAs | None = None,
+    ) -> GroupResponse: ...
+
+    async def groups_purge_purge(
+        self,
+        group_id: str,
+        run_as: GroupsPurgePurgeParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def groups_purge_purge(
+        self,
+        group_id: str,
+        run_as: GroupsPurgePurgeParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def groups_undelete_undelete(
+        self,
+        group_id: str,
+        run_as: GroupsUndeleteUndeleteParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def groups_undelete_undelete(
+        self,
+        group_id: str,
+        run_as: GroupsUndeleteUndeleteParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+
+class GroupsClient(GroupsClientProtocol):
     """Client for groups endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def groups_index_2_2(
+    async def groups_index(
         self,
         run_as: GroupsIndexParamRunAs | None = None,
     ) -> GroupListResponse:
@@ -32,7 +122,7 @@ class GroupsClient:
         Displays a collection (list) of groups.
 
         Args:
-            run-as (Optional[GroupsIndexParamRunAs])
+            run-as (GroupsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -47,7 +137,7 @@ class GroupsClient:
         url = f"{self.base_url}/api/groups"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -55,13 +145,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupListResponse, response.json())
+                return structure_from_dict(response.json(), GroupListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_index_2_2(
+    async def groups_index(
         self,
         run_as: GroupsIndexParamRunAs | None = None,
     ) -> GroupListResponse:
@@ -69,7 +159,7 @@ class GroupsClient:
         Displays a collection (list) of groups.
 
         Args:
-            run-as (Optional[GroupsIndexParamRunAs])
+            run-as (GroupsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -84,7 +174,7 @@ class GroupsClient:
         url = f"{self.base_url}/api/groups"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -92,13 +182,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupListResponse, response.json())
+                return structure_from_dict(response.json(), GroupListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_create_2_2(
+    async def groups_create(
         self,
         body: GroupCreatePayload,
         run_as: GroupsCreateParamRunAs | None = None,
@@ -107,7 +197,7 @@ class GroupsClient:
         Creates a new group.
 
         Args:
-            run-as (Optional[GroupsCreateParamRunAs])
+            run-as (GroupsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -123,7 +213,7 @@ class GroupsClient:
         url = f"{self.base_url}/api/groups"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: GroupCreatePayload = DataclassSerializer.serialize(body)
@@ -133,13 +223,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupListResponse, response.json())
+                return structure_from_dict(response.json(), GroupListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_create_2_2(
+    async def groups_create(
         self,
         body: GroupCreatePayload,
         run_as: GroupsCreateParamRunAs | None = None,
@@ -148,7 +238,7 @@ class GroupsClient:
         Creates a new group.
 
         Args:
-            run-as (Optional[GroupsCreateParamRunAs])
+            run-as (GroupsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -164,7 +254,7 @@ class GroupsClient:
         url = f"{self.base_url}/api/groups"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: GroupCreatePayload = DataclassSerializer.serialize(body)
@@ -174,38 +264,40 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupListResponse, response.json())
+                return structure_from_dict(response.json(), GroupListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_delete_2_2(
+    async def groups_delete(
         self,
         group_id: str,
         run_as: GroupsDeleteParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Delete
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsDeleteParamRunAs])
+            run-as (GroupsDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -213,38 +305,40 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_delete_2_2(
+    async def groups_delete(
         self,
         group_id: str,
         run_as: GroupsDeleteParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Delete
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsDeleteParamRunAs])
+            run-as (GroupsDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -252,13 +346,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_show_2_2(
+    async def groups_show(
         self,
         group_id: str,
         run_as: GroupsShowParamRunAs | None = None,
@@ -268,7 +362,7 @@ class GroupsClient:
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsShowParamRunAs])
+            run-as (GroupsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -280,10 +374,12 @@ class GroupsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -291,13 +387,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupResponse, response.json())
+                return structure_from_dict(response.json(), GroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_show_2_2(
+    async def groups_show(
         self,
         group_id: str,
         run_as: GroupsShowParamRunAs | None = None,
@@ -307,7 +403,7 @@ class GroupsClient:
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsShowParamRunAs])
+            run-as (GroupsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -319,10 +415,12 @@ class GroupsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -330,13 +428,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupResponse, response.json())
+                return structure_from_dict(response.json(), GroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_update_2_2(
+    async def groups_update(
         self,
         group_id: str,
         body: GroupUpdatePayload,
@@ -347,7 +445,7 @@ class GroupsClient:
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsUpdateParamRunAs])
+            run-as (GroupsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -360,10 +458,12 @@ class GroupsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: GroupUpdatePayload = DataclassSerializer.serialize(body)
@@ -373,13 +473,13 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupResponse, response.json())
+                return structure_from_dict(response.json(), GroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_update_2_2(
+    async def groups_update(
         self,
         group_id: str,
         body: GroupUpdatePayload,
@@ -390,7 +490,7 @@ class GroupsClient:
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsUpdateParamRunAs])
+            run-as (GroupsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -403,10 +503,12 @@ class GroupsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: GroupUpdatePayload = DataclassSerializer.serialize(body)
@@ -416,38 +518,40 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GroupResponse, response.json())
+                return structure_from_dict(response.json(), GroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_purge_purge_2_2(
+    async def groups_purge_purge(
         self,
         group_id: str,
         run_as: GroupsPurgePurgeParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Purge
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsPurgePurgeParamRunAs])
+            run-as (GroupsPurgePurgeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/purge"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -455,38 +559,40 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_purge_purge_2_2(
+    async def groups_purge_purge(
         self,
         group_id: str,
         run_as: GroupsPurgePurgeParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Purge
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsPurgePurgeParamRunAs])
+            run-as (GroupsPurgePurgeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/purge"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -494,38 +600,40 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_undelete_undelete_2_2(
+    async def groups_undelete_undelete(
         self,
         group_id: str,
         run_as: GroupsUndeleteUndeleteParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Undelete
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsUndeleteUndeleteParamRunAs])
+            run-as (GroupsUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -533,38 +641,40 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def groups_undelete_undelete_2_2(
+    async def groups_undelete_undelete(
         self,
         group_id: str,
         run_as: GroupsUndeleteUndeleteParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Undelete
 
         Args:
             group_id (str)           : The ID of the group.
-            run-as (Optional[GroupsUndeleteUndeleteParamRunAs])
+            run-as (GroupsUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/groups/{group_id}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -572,8 +682,8 @@ class GroupsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

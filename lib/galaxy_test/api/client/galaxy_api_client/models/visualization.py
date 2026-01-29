@@ -6,7 +6,7 @@ __all__ = ["Visualization"]
 @dataclass
 class Visualization:
     """
-    Visualization dataclass.
+    Visualization dataclass
     """
 
     # No properties defined in schema

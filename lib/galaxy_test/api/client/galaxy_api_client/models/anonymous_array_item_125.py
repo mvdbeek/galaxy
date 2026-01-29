@@ -1,15 +1,8 @@
 from typing import TypeAlias
 
-from .hda_custom import HdaCustom
-from .hda_detailed import HdaDetailed
-from .hda_inaccessible import HdaInaccessible
-from .hda_summary import HdaSummary
-from .hdca_custom import HdcaCustom
-from .hdca_detailed_2 import HdcaDetailed2
-from .hdca_summary import HdcaSummary
+from .limited_user_model import LimitedUserModel
+from .user_model import UserModel
 
 __all__ = ["AnonymousArrayItem125"]
 
-AnonymousArrayItem125: TypeAlias = (
-    HdaCustom | HdaDetailed | HdaInaccessible | HdaSummary | HdcaCustom | HdcaDetailed2 | HdcaSummary
-)
+AnonymousArrayItem125: TypeAlias = UserModel | LimitedUserModel

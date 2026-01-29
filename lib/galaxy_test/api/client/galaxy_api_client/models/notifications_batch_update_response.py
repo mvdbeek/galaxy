@@ -13,3 +13,13 @@ class NotificationsBatchUpdateResponse:
     """
 
     updated_count: int  # The number of notifications that were updated.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "updated_count": "updated_count",
+        }
+        key_transform_with_dump = {
+            "updated_count": "updated_count",
+        }

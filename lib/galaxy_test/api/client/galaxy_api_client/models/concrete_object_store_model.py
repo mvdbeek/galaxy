@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
 from .badge_dict import BadgeDict
-from .description import Description
-from .device import Device
-from .name import Name
-from .object_expires_after_days import ObjectExpiresAfterDays
-from .object_store_id import ObjectStoreId
+from .concrete_object_store_model_description import ConcreteObjectStoreModelDescription
+from .concrete_object_store_model_device import ConcreteObjectStoreModelDevice
+from .concrete_object_store_model_name import ConcreteObjectStoreModelName
+from .concrete_object_store_model_object_expires_after_days import ConcreteObjectStoreModelObjectExpiresAfterDays
+from .concrete_object_store_model_object_store_id import ConcreteObjectStoreModelObjectStoreId
 from .quota_model import QuotaModel
 
 __all__ = ["ConcreteObjectStoreModel"]
@@ -14,28 +14,53 @@ __all__ = ["ConcreteObjectStoreModel"]
 @dataclass
 class ConcreteObjectStoreModel:
     """
-    ConcreteObjectStoreModel dataclass.
+    ConcreteObjectStoreModel dataclass
 
     Args:
         badges (List[BadgeDict]) :
         private (bool)           :
         quota (QuotaModel)       :
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        device (Optional[Device]):
-        name (Optional[Name])    : The name of the creator.
-        object_expires_after_days (Optional[ObjectExpiresAfterDays])
+        description (ConcreteObjectStoreModelDescription | None)
                                  :
-        object_store_id (Optional[ObjectStoreId])
-                                 : The ID of the object store that this dataset is stored
-                                   in.
+        device (ConcreteObjectStoreModelDevice | None)
+                                 :
+        name (ConcreteObjectStoreModelName | None)
+                                 :
+        object_expires_after_days (ConcreteObjectStoreModelObjectExpiresAfterDays | None)
+                                 :
+        object_store_id (ConcreteObjectStoreModelObjectStoreId | None)
+                                 :
     """
 
     badges: list[BadgeDict]
     private: bool
     quota: QuotaModel
-    description: Description | None = ""  # Detailed text description for this Quota.
-    device: Device | None = None
-    name: Name | None = None  # The name of the creator.
-    object_expires_after_days: ObjectExpiresAfterDays | None = None
-    object_store_id: ObjectStoreId | None = None  # The ID of the object store that this dataset is stored in.
+    description: ConcreteObjectStoreModelDescription | None = None
+    device: ConcreteObjectStoreModelDevice | None = None
+    name: ConcreteObjectStoreModelName | None = None
+    object_expires_after_days: ConcreteObjectStoreModelObjectExpiresAfterDays | None = None
+    object_store_id: ConcreteObjectStoreModelObjectStoreId | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "badges": "badges",
+            "description": "description",
+            "device": "device",
+            "name": "name",
+            "object_expires_after_days": "object_expires_after_days",
+            "object_store_id": "object_store_id",
+            "private": "private",
+            "quota": "quota",
+        }
+        key_transform_with_dump = {
+            "badges": "badges",
+            "description": "description",
+            "device": "device",
+            "name": "name",
+            "object_expires_after_days": "object_expires_after_days",
+            "object_store_id": "object_store_id",
+            "private": "private",
+            "quota": "quota",
+        }

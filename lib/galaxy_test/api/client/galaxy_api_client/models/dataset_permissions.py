@@ -1,7 +1,4 @@
-from dataclasses import dataclass
-
-from .access import Access
-from .manage import Manage
+from dataclasses import dataclass, field
 
 __all__ = ["DatasetPermissions"]
 
@@ -12,11 +9,27 @@ class DatasetPermissions:
     Role-based permissions for accessing and managing a dataset.
 
     Args:
-        access (Optional[Access]): The set of roles (encoded IDs) that can access this
+        access (List[str] | None): The set of roles (encoded IDs) that can access this
                                    dataset.
-        manage (Optional[Manage]): The set of roles (encoded IDs) that can manage this
+        manage (List[str] | None): The set of roles (encoded IDs) that can manage this
                                    dataset.
     """
 
-    access: Access | None = None  # The set of roles (encoded IDs) that can access this dataset.
-    manage: Manage | None = None  # The set of roles (encoded IDs) that can manage this dataset.
+    access: list[str] | None = field(
+        default_factory=list
+    )  # The set of roles (encoded IDs) that can access this dataset.
+    manage: list[str] | None = field(
+        default_factory=list
+    )  # The set of roles (encoded IDs) that can manage this dataset.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "access": "access",
+            "manage": "manage",
+        }
+        key_transform_with_dump = {
+            "access": "access",
+            "manage": "manage",
+        }

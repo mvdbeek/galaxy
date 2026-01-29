@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from .content_id import ContentId
-from .step import Step
+from .refactor_request_actions_item_action_type_enum import RefactorRequestActionsItemActionTypeEnum
+from .upgrade_subworkflow_action_content_id import UpgradeSubworkflowActionContentId
+from .upgrade_subworkflow_action_step import UpgradeSubworkflowActionStep
 
 __all__ = ["UpgradeSubworkflowAction"]
 
@@ -9,15 +10,31 @@ __all__ = ["UpgradeSubworkflowAction"]
 @dataclass
 class UpgradeSubworkflowAction:
     """
-    UpgradeSubworkflowAction dataclass.
+    UpgradeSubworkflowAction dataclass
 
     Args:
-        action_type (str)        :
-        step (Step)              : The target step for this action.
-        content_id (Optional[ContentId])
+        action_type (RefactorRequestActionsItemActionTypeEnum)
+                                 :
+        step (UpgradeSubworkflowActionStep)
+                                 : The target step for this action.
+        content_id (UpgradeSubworkflowActionContentId | None)
                                  :
     """
 
-    action_type: str
-    step: Step  # The target step for this action.
-    content_id: ContentId | None = None
+    action_type: RefactorRequestActionsItemActionTypeEnum
+    step: UpgradeSubworkflowActionStep  # The target step for this action.
+    content_id: UpgradeSubworkflowActionContentId | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "action_type": "action_type",
+            "content_id": "content_id",
+            "step": "step",
+        }
+        key_transform_with_dump = {
+            "action_type": "action_type",
+            "content_id": "content_id",
+            "step": "step",
+        }

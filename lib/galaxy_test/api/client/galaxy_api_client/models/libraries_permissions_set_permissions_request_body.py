@@ -1,0 +1,8 @@
+from typing import TypeAlias
+
+from .legacy_library_permissions_payload import LegacyLibraryPermissionsPayload
+from .library_permissions_payload import LibraryPermissionsPayload
+
+__all__ = ["LibrariesPermissionsSetPermissionsRequestBody"]
+
+LibrariesPermissionsSetPermissionsRequestBody: TypeAlias = LibraryPermissionsPayload | LegacyLibraryPermissionsPayload

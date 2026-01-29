@@ -1,7 +1,8 @@
 from dataclasses import dataclass
 
-from .description import Description
-from .synopsis import Synopsis
+from .data_elements_from_target_destination_type_enum import DataElementsFromTargetDestinationTypeEnum
+from .library_destination_description import LibraryDestinationDescription
+from .library_destination_synopsis import LibraryDestinationSynopsis
 
 __all__ = ["LibraryDestination"]
 
@@ -9,21 +10,35 @@ __all__ = ["LibraryDestination"]
 @dataclass
 class LibraryDestination:
     """
-    LibraryDestination dataclass.
+    LibraryDestination dataclass
 
     Args:
         name (str)               : Must specify a library name
-        type_ (str)              :
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        synopsis (Optional[Synopsis])
-                                 : A short text describing the contents of the Library.
-                                   Leave unset to keep the existing.
+        type_ (DataElementsFromTargetDestinationTypeEnum)
+                                 : Maps from 'type'
+        description (LibraryDestinationDescription | None)
+                                 : Description for library to create
+        synopsis (LibraryDestinationSynopsis | None)
+                                 : Description for library to create
     """
 
     name: str  # Must specify a library name
-    type_: str
-    description: Description | None = ""  # Detailed text description for this Quota.
-    synopsis: Synopsis | None = (
-        ""  # A short text describing the contents of the Library. Leave unset to keep the existing.
-    )
+    type_: DataElementsFromTargetDestinationTypeEnum  # Maps from 'type'
+    description: LibraryDestinationDescription | None = None  # Description for library to create
+    synopsis: LibraryDestinationSynopsis | None = None  # Description for library to create
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "description": "description",
+            "name": "name",
+            "synopsis": "synopsis",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "description": "description",
+            "name": "name",
+            "synopsis": "synopsis",
+            "type_": "type",
+        }

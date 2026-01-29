@@ -1,7 +1,9 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
+from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
 from ..models.generate_tour_response import GenerateTourResponse
 from ..models.tour_details import TourDetails
@@ -10,14 +12,65 @@ from ..models.tours_generate_generate_tour_param_run_as import ToursGenerateGene
 from ..models.tours_update_tour_param_run_as import ToursUpdateTourParamRunAs
 
 
-class ToursClient:
+@runtime_checkable
+class ToursClientProtocol(Protocol):
+    """Protocol defining the interface of ToursClient for dependency injection."""
+
+    async def tours_index(
+        self,
+    ) -> TourList: ...
+
+    async def tours_index(
+        self,
+    ) -> TourList: ...
+
+    async def tours_generate_generate_tour(
+        self,
+        tool_id: str,
+        tool_version: str,
+        performs_upload: bool | None = None,
+        run_as: ToursGenerateGenerateTourParamRunAs | None = None,
+    ) -> GenerateTourResponse: ...
+
+    async def tours_generate_generate_tour(
+        self,
+        tool_id: str,
+        tool_version: str,
+        performs_upload: bool | None = None,
+        run_as: ToursGenerateGenerateTourParamRunAs | None = None,
+    ) -> GenerateTourResponse: ...
+
+    async def tours_show(
+        self,
+        tour_id: str,
+    ) -> TourDetails: ...
+
+    async def tours_show(
+        self,
+        tour_id: str,
+    ) -> TourDetails: ...
+
+    async def tours_update_tour(
+        self,
+        tour_id: str,
+        run_as: ToursUpdateTourParamRunAs | None = None,
+    ) -> TourDetails: ...
+
+    async def tours_update_tour(
+        self,
+        tour_id: str,
+        run_as: ToursUpdateTourParamRunAs | None = None,
+    ) -> TourDetails: ...
+
+
+class ToursClient(ToursClientProtocol):
     """Client for tours endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def tours_index_2_2(
+    async def tours_index(
         self,
     ) -> TourList:
         """
@@ -39,13 +92,13 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(TourList, response.json())
+                return structure_from_dict(response.json(), TourList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_index_2_2(
+    async def tours_index(
         self,
     ) -> TourList:
         """
@@ -67,17 +120,17 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(TourList, response.json())
+                return structure_from_dict(response.json(), TourList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_generate_generate_tour_2_2(
+    async def tours_generate_generate_tour(
         self,
         tool_id: str,
         tool_version: str,
-        performs_upload: bool | None = True,
+        performs_upload: bool | None = None,
         run_as: ToursGenerateGenerateTourParamRunAs | None = None,
     ) -> GenerateTourResponse:
         """
@@ -88,9 +141,9 @@ class ToursClient:
         Args:
             tool_id (str)            :
             tool_version (str)       :
-            performs_upload (Optional[bool])
+            performs_upload (bool | None)
                                      :
-            run-as (Optional[ToursGenerateGenerateTourParamRunAs])
+            run-as (ToursGenerateGenerateTourParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -105,13 +158,17 @@ class ToursClient:
         url = f"{self.base_url}/api/tours/generate"
 
         params: dict[str, Any] = {
-            "tool_id": tool_id,
-            "tool_version": tool_version,
-            **({"performs_upload": performs_upload} if performs_upload is not None else {}),
+            "tool_id": DataclassSerializer.serialize(tool_id),
+            "tool_version": DataclassSerializer.serialize(tool_version),
+            **(
+                {"performs_upload": DataclassSerializer.serialize(performs_upload)}
+                if performs_upload is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -119,17 +176,17 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GenerateTourResponse, response.json())
+                return structure_from_dict(response.json(), GenerateTourResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_generate_generate_tour_2_2(
+    async def tours_generate_generate_tour(
         self,
         tool_id: str,
         tool_version: str,
-        performs_upload: bool | None = True,
+        performs_upload: bool | None = None,
         run_as: ToursGenerateGenerateTourParamRunAs | None = None,
     ) -> GenerateTourResponse:
         """
@@ -140,9 +197,9 @@ class ToursClient:
         Args:
             tool_id (str)            :
             tool_version (str)       :
-            performs_upload (Optional[bool])
+            performs_upload (bool | None)
                                      :
-            run-as (Optional[ToursGenerateGenerateTourParamRunAs])
+            run-as (ToursGenerateGenerateTourParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -157,13 +214,17 @@ class ToursClient:
         url = f"{self.base_url}/api/tours/generate"
 
         params: dict[str, Any] = {
-            "tool_id": tool_id,
-            "tool_version": tool_version,
-            **({"performs_upload": performs_upload} if performs_upload is not None else {}),
+            "tool_id": DataclassSerializer.serialize(tool_id),
+            "tool_version": DataclassSerializer.serialize(tool_version),
+            **(
+                {"performs_upload": DataclassSerializer.serialize(performs_upload)}
+                if performs_upload is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -171,13 +232,13 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(GenerateTourResponse, response.json())
+                return structure_from_dict(response.json(), GenerateTourResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_show_2_2(
+    async def tours_show(
         self,
         tour_id: str,
     ) -> TourDetails:
@@ -196,6 +257,8 @@ class ToursClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        tour_id = DataclassSerializer.serialize(tour_id)
+
         url = f"{self.base_url}/api/tours/{tour_id}"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -203,13 +266,13 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(TourDetails, response.json())
+                return structure_from_dict(response.json(), TourDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_show_2_2(
+    async def tours_show(
         self,
         tour_id: str,
     ) -> TourDetails:
@@ -228,6 +291,8 @@ class ToursClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        tour_id = DataclassSerializer.serialize(tour_id)
+
         url = f"{self.base_url}/api/tours/{tour_id}"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -235,13 +300,13 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(TourDetails, response.json())
+                return structure_from_dict(response.json(), TourDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_update_tour_2_2(
+    async def tours_update_tour(
         self,
         tour_id: str,
         run_as: ToursUpdateTourParamRunAs | None = None,
@@ -253,7 +318,7 @@ class ToursClient:
 
         Args:
             tour_id (str)            :
-            run-as (Optional[ToursUpdateTourParamRunAs])
+            run-as (ToursUpdateTourParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -265,10 +330,12 @@ class ToursClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        tour_id = DataclassSerializer.serialize(tour_id)
+
         url = f"{self.base_url}/api/tours/{tour_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -276,13 +343,13 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(TourDetails, response.json())
+                return structure_from_dict(response.json(), TourDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tours_update_tour_2_2(
+    async def tours_update_tour(
         self,
         tour_id: str,
         run_as: ToursUpdateTourParamRunAs | None = None,
@@ -294,7 +361,7 @@ class ToursClient:
 
         Args:
             tour_id (str)            :
-            run-as (Optional[ToursUpdateTourParamRunAs])
+            run-as (ToursUpdateTourParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -306,10 +373,12 @@ class ToursClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        tour_id = DataclassSerializer.serialize(tour_id)
+
         url = f"{self.base_url}/api/tours/{tour_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -317,8 +386,8 @@ class ToursClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(TourDetails, response.json())
+                return structure_from_dict(response.json(), TourDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

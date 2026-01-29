@@ -8,7 +8,7 @@ __all__ = ["SelectServiceCredentialPayload"]
 @dataclass
 class SelectServiceCredentialPayload:
     """
-    SelectServiceCredentialPayload dataclass.
+    SelectServiceCredentialPayload dataclass
 
     Args:
         service_credentials (List[SelectCurrentGroupPayload])
@@ -25,3 +25,19 @@ class SelectServiceCredentialPayload:
     source_id: str  # The ID of the source (e.g., tool ID).
     source_type: str  # The type of source requiring credentials.
     source_version: str  # The version of the source.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "service_credentials": "service_credentials",
+            "source_id": "source_id",
+            "source_type": "source_type",
+            "source_version": "source_version",
+        }
+        key_transform_with_dump = {
+            "service_credentials": "service_credentials",
+            "source_id": "source_id",
+            "source_type": "source_type",
+            "source_version": "source_version",
+        }

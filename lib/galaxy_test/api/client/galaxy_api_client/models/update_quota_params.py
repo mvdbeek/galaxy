@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-from .amount import Amount
-from .default import Default
-from .description import Description
-from .in_groups import InGroups
-from .in_users import InUsers
-from .name import Name
 from .quota_operation import QuotaOperation
+from .update_quota_params_amount import UpdateQuotaParamsAmount
+from .update_quota_params_default import UpdateQuotaParamsDefault
+from .update_quota_params_description import UpdateQuotaParamsDescription
+from .update_quota_params_in_groups import UpdateQuotaParamsInGroups
+from .update_quota_params_in_users import UpdateQuotaParamsInUsers
+from .update_quota_params_name import UpdateQuotaParamsName
 
 __all__ = ["UpdateQuotaParams"]
 
@@ -14,36 +14,63 @@ __all__ = ["UpdateQuotaParams"]
 @dataclass
 class UpdateQuotaParams:
     """
-    UpdateQuotaParams dataclass.
+    UpdateQuotaParams dataclass
 
     Args:
-        amount (Optional[Amount]): Quota size (E.g. ``10000MB``, ``99 gb``, ``0.2T``,
+        amount (UpdateQuotaParamsAmount | None)
+                                 : Quota size (E.g. ``10000MB``, ``99 gb``, ``0.2T``,
                                    ``unlimited``)
-        default (Optional[Default])
+        default (UpdateQuotaParamsDefault | None)
                                  : Whether or not this is a default quota. Valid values are
                                    ``no``, ``unregistered``, ``registered``. Calling this
                                    method with ``default="no"`` on a non-default quota will
                                    throw an error. Not passing this parameter is equivalent
                                    to passing ``no``.
-        description (Optional[Description])
+        description (UpdateQuotaParamsDescription | None)
                                  : Detailed text description for this Quota.
-        in_groups (Optional[InGroups])
+        in_groups (UpdateQuotaParamsInGroups | None)
                                  : A list of group IDs or names to associate with this
                                    quota.
-        in_users (Optional[InUsers])
+        in_users (UpdateQuotaParamsInUsers | None)
                                  : A list of user IDs or user emails to associate with this
                                    quota.
-        name (Optional[Name])    : The name of the creator.
-        operation (Optional[QuotaOperation])
+        name (UpdateQuotaParamsName | None)
+                                 : The new name of the quota. This must be unique within a
+                                   Galaxy instance.
+        operation (QuotaOperation | None)
                                  :
     """
 
-    amount: Amount | None = None  # Quota size (E.g. ``10000MB``, ``99 gb``, ``0.2T``, ``unlimited``)
-    default: Default | None = (
+    amount: UpdateQuotaParamsAmount | None = None  # Quota size (E.g. ``10000MB``, ``99 gb``, ``0.2T``, ``unlimited``)
+    default: UpdateQuotaParamsDefault | None = (
         None  # Whether or not this is a default quota. Valid values are ``no``, ``unregistered``, ``registered``. Calling this method with ``default="no"`` on a non-default quota will throw an error. Not passing this parameter is equivalent to passing ``no``.
     )
-    description: Description | None = ""  # Detailed text description for this Quota.
-    in_groups: InGroups | None = None  # A list of group IDs or names to associate with this quota.
-    in_users: InUsers | None = None  # A list of user IDs or user emails to associate with this quota.
-    name: Name | None = None  # The name of the creator.
+    description: UpdateQuotaParamsDescription | None = None  # Detailed text description for this Quota.
+    in_groups: UpdateQuotaParamsInGroups | None = None  # A list of group IDs or names to associate with this quota.
+    in_users: UpdateQuotaParamsInUsers | None = None  # A list of user IDs or user emails to associate with this quota.
+    name: UpdateQuotaParamsName | None = (
+        None  # The new name of the quota. This must be unique within a Galaxy instance.
+    )
     operation: QuotaOperation | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "amount": "amount",
+            "default": "default",
+            "description": "description",
+            "in_groups": "in_groups",
+            "in_users": "in_users",
+            "name": "name",
+            "operation": "operation",
+        }
+        key_transform_with_dump = {
+            "amount": "amount",
+            "default": "default",
+            "description": "description",
+            "in_groups": "in_groups",
+            "in_users": "in_users",
+            "name": "name",
+            "operation": "operation",
+        }

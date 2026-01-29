@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .actions import Actions
+from .refactor_request_actions import RefactorRequestActions
 
 __all__ = ["RefactorRequest"]
 
@@ -8,14 +8,29 @@ __all__ = ["RefactorRequest"]
 @dataclass
 class RefactorRequest:
     """
-    RefactorRequest dataclass.
+    RefactorRequest dataclass
 
     Args:
-        actions (Actions)        :
-        dry_run (Optional[bool]) :
-        style (Optional[str])    :
+        actions (RefactorRequestActions)
+                                 :
+        dry_run (bool | None)    :
+        style (str | None)       :
     """
 
-    actions: Actions
+    actions: RefactorRequestActions
     dry_run: bool | None = False
     style: str | None = "export"
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "actions": "actions",
+            "dry_run": "dry_run",
+            "style": "style",
+        }
+        key_transform_with_dump = {
+            "actions": "actions",
+            "dry_run": "dry_run",
+            "style": "style",
+        }

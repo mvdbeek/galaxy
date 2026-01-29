@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .create_file_landing_payload_request_state_item import CreateFileLandingPayloadRequestStateItem
+
+__all__ = ["CreateFileLandingPayloadRequestState"]
+
+CreateFileLandingPayloadRequestState: TypeAlias = list[CreateFileLandingPayloadRequestStateItem]

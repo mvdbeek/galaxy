@@ -1,8 +1,8 @@
 from dataclasses import dataclass
 
-from .model_store_format import ModelStoreFormat
-from .store_content_uri import StoreContentUri
-from .store_dict import StoreDict
+from .create_libraries_from_store_model_store_format import CreateLibrariesFromStoreModelStoreFormat
+from .create_libraries_from_store_store_content_uri import CreateLibrariesFromStoreStoreContentUri
+from .create_libraries_from_store_store_dict import CreateLibrariesFromStoreStoreDict
 
 __all__ = ["CreateLibrariesFromStore"]
 
@@ -10,17 +10,31 @@ __all__ = ["CreateLibrariesFromStore"]
 @dataclass
 class CreateLibrariesFromStore:
     """
-    CreateLibrariesFromStore dataclass.
+    CreateLibrariesFromStore dataclass
 
     Args:
-        model_store_format (Optional[ModelStoreFormat])
+        model_store_format (CreateLibrariesFromStoreModelStoreFormat | None)
                                  :
-        store_content_uri (Optional[StoreContentUri])
+        store_content_uri (CreateLibrariesFromStoreStoreContentUri | None)
                                  :
-        store_dict (Optional[StoreDict])
+        store_dict (CreateLibrariesFromStoreStoreDict | None)
                                  :
     """
 
-    model_store_format: ModelStoreFormat | None = None
-    store_content_uri: StoreContentUri | None = None
-    store_dict: StoreDict | None = None
+    model_store_format: CreateLibrariesFromStoreModelStoreFormat | None = None
+    store_content_uri: CreateLibrariesFromStoreStoreContentUri | None = None
+    store_dict: CreateLibrariesFromStoreStoreDict | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "model_store_format": "model_store_format",
+            "store_content_uri": "store_content_uri",
+            "store_dict": "store_dict",
+        }
+        key_transform_with_dump = {
+            "model_store_format": "model_store_format",
+            "store_content_uri": "store_content_uri",
+            "store_dict": "store_dict",
+        }

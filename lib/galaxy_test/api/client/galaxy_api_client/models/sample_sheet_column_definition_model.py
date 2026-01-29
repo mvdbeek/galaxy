@@ -1,11 +1,11 @@
 from dataclasses import dataclass
 
-from .default_value import DefaultValue
-from .description import Description
-from .restrictions import Restrictions
-from .suggestions import Suggestions
-from .type_ import Type_
-from .validators import Validators
+from .sample_sheet_column_definition_model_default_value import SampleSheetColumnDefinitionModelDefaultValue
+from .sample_sheet_column_definition_model_description import SampleSheetColumnDefinitionModelDescription
+from .sample_sheet_column_definition_model_restrictions import SampleSheetColumnDefinitionModelRestrictions
+from .sample_sheet_column_definition_model_suggestions import SampleSheetColumnDefinitionModelSuggestions
+from .sample_sheet_column_definition_model_validators import SampleSheetColumnDefinitionModelValidators
+from .type__6 import Type6
 
 __all__ = ["SampleSheetColumnDefinitionModel"]
 
@@ -13,29 +13,53 @@ __all__ = ["SampleSheetColumnDefinitionModel"]
 @dataclass
 class SampleSheetColumnDefinitionModel:
     """
-    SampleSheetColumnDefinitionModel dataclass.
+    SampleSheetColumnDefinitionModel dataclass
 
     Args:
         name (str)               :
         optional (bool)          :
-        type_ (Type_)            : The type of content to be created in the history.
-        default_value (Optional[DefaultValue])
+        type_ (Type6)            : Maps from 'type'
+        default_value (SampleSheetColumnDefinitionModelDefaultValue | None)
                                  :
-        description (Optional[Description])
-                                 : Detailed text description for this Quota.
-        restrictions (Optional[Restrictions])
+        description (SampleSheetColumnDefinitionModelDescription | None)
                                  :
-        suggestions (Optional[Suggestions])
+        restrictions (SampleSheetColumnDefinitionModelRestrictions | None)
                                  :
-        validators (Optional[Validators])
+        suggestions (SampleSheetColumnDefinitionModelSuggestions | None)
+                                 :
+        validators (SampleSheetColumnDefinitionModelValidators | None)
                                  :
     """
 
     name: str
     optional: bool
-    type_: Type_  # The type of content to be created in the history.
-    default_value: DefaultValue | None = None
-    description: Description | None = ""  # Detailed text description for this Quota.
-    restrictions: Restrictions | None = None
-    suggestions: Suggestions | None = None
-    validators: Validators | None = None
+    type_: Type6  # Maps from 'type'
+    default_value: SampleSheetColumnDefinitionModelDefaultValue | None = None
+    description: SampleSheetColumnDefinitionModelDescription | None = None
+    restrictions: SampleSheetColumnDefinitionModelRestrictions | None = None
+    suggestions: SampleSheetColumnDefinitionModelSuggestions | None = None
+    validators: SampleSheetColumnDefinitionModelValidators | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "default_value": "default_value",
+            "description": "description",
+            "name": "name",
+            "optional": "optional",
+            "restrictions": "restrictions",
+            "suggestions": "suggestions",
+            "type": "type_",
+            "validators": "validators",
+        }
+        key_transform_with_dump = {
+            "default_value": "default_value",
+            "description": "description",
+            "name": "name",
+            "optional": "optional",
+            "restrictions": "restrictions",
+            "suggestions": "suggestions",
+            "type_": "type",
+            "validators": "validators",
+        }

@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -21,14 +22,109 @@ from ..models.tool_data_tables_reload_reload_param_run_as import ToolDataTablesR
 from ..models.tool_data_tables_show_param_run_as import ToolDataTablesShowParamRunAs
 
 
-class ToolDataTablesClient:
+@runtime_checkable
+class ToolDataTablesClientProtocol(Protocol):
+    """Protocol defining the interface of ToolDataTablesClient for dependency injection."""
+
+    async def tool_data_tables_index(
+        self,
+    ) -> ToolDataEntryList: ...
+
+    async def tool_data_tables_index(
+        self,
+    ) -> ToolDataEntryList: ...
+
+    async def tool_data_tables_create(
+        self,
+        body: ImportToolDataBundle,
+        tool_data_file_path: ToolDataTablesCreateParamToolDataFilePath | None = None,
+        run_as: ToolDataTablesCreateParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def tool_data_tables_create(
+        self,
+        body: ImportToolDataBundle,
+        tool_data_file_path: ToolDataTablesCreateParamToolDataFilePath | None = None,
+        run_as: ToolDataTablesCreateParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def tool_data_tables_delete(
+        self,
+        table_name: str,
+        body: ToolDataItem,
+        run_as: ToolDataTablesDeleteParamRunAs | None = None,
+    ) -> ToolDataDetails: ...
+
+    async def tool_data_tables_delete(
+        self,
+        table_name: str,
+        body: ToolDataItem,
+        run_as: ToolDataTablesDeleteParamRunAs | None = None,
+    ) -> ToolDataDetails: ...
+
+    async def tool_data_tables_show(
+        self,
+        table_name: str,
+        run_as: ToolDataTablesShowParamRunAs | None = None,
+    ) -> ToolDataDetails: ...
+
+    async def tool_data_tables_show(
+        self,
+        table_name: str,
+        run_as: ToolDataTablesShowParamRunAs | None = None,
+    ) -> ToolDataDetails: ...
+
+    async def tool_data_tables_fields_show_field(
+        self,
+        table_name: str,
+        field_name: str,
+        run_as: ToolDataTablesFieldsShowFieldParamRunAs | None = None,
+    ) -> ToolDataField: ...
+
+    async def tool_data_tables_fields_show_field(
+        self,
+        table_name: str,
+        field_name: str,
+        run_as: ToolDataTablesFieldsShowFieldParamRunAs | None = None,
+    ) -> ToolDataField: ...
+
+    async def tool_data_tables_fields_files_download_field_file(
+        self,
+        table_name: str,
+        field_name: str,
+        file_name: str,
+        run_as: ToolDataTablesFieldsFilesDownloadFieldFileParamRunAs | None = None,
+    ) -> None: ...
+
+    async def tool_data_tables_fields_files_download_field_file(
+        self,
+        table_name: str,
+        field_name: str,
+        file_name: str,
+        run_as: ToolDataTablesFieldsFilesDownloadFieldFileParamRunAs | None = None,
+    ) -> None: ...
+
+    async def tool_data_tables_reload_reload(
+        self,
+        table_name: str,
+        run_as: ToolDataTablesReloadReloadParamRunAs | None = None,
+    ) -> ToolDataDetails: ...
+
+    async def tool_data_tables_reload_reload(
+        self,
+        table_name: str,
+        run_as: ToolDataTablesReloadReloadParamRunAs | None = None,
+    ) -> ToolDataDetails: ...
+
+
+class ToolDataTablesClient(ToolDataTablesClientProtocol):
     """Client for tool data tables endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def tool_data_tables_index_2_2(
+    async def tool_data_tables_index(
         self,
     ) -> ToolDataEntryList:
         """
@@ -50,13 +146,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataEntryList, response.json())
+                return structure_from_dict(response.json(), ToolDataEntryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_index_2_2(
+    async def tool_data_tables_index(
         self,
     ) -> ToolDataEntryList:
         """
@@ -78,13 +174,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataEntryList, response.json())
+                return structure_from_dict(response.json(), ToolDataEntryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_create_2_2(
+    async def tool_data_tables_create(
         self,
         body: ImportToolDataBundle,
         tool_data_file_path: ToolDataTablesCreateParamToolDataFilePath | None = None,
@@ -94,9 +190,9 @@ class ToolDataTablesClient:
         Import a data manager bundle
 
         Args:
-            tool_data_file_path (Optional[ToolDataTablesCreateParamToolDataFilePath])
+            tool_data_file_path (ToolDataTablesCreateParamToolDataFilePath | None)
                                      :
-            run-as (Optional[ToolDataTablesCreateParamRunAs])
+            run-as (ToolDataTablesCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -113,11 +209,15 @@ class ToolDataTablesClient:
         url = f"{self.base_url}/api/tool_data"
 
         params: dict[str, Any] = {
-            **({"tool_data_file_path": tool_data_file_path} if tool_data_file_path is not None else {}),
+            **(
+                {"tool_data_file_path": DataclassSerializer.serialize(tool_data_file_path)}
+                if tool_data_file_path is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ImportToolDataBundle = DataclassSerializer.serialize(body)
@@ -127,13 +227,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_create_2_2(
+    async def tool_data_tables_create(
         self,
         body: ImportToolDataBundle,
         tool_data_file_path: ToolDataTablesCreateParamToolDataFilePath | None = None,
@@ -143,9 +243,9 @@ class ToolDataTablesClient:
         Import a data manager bundle
 
         Args:
-            tool_data_file_path (Optional[ToolDataTablesCreateParamToolDataFilePath])
+            tool_data_file_path (ToolDataTablesCreateParamToolDataFilePath | None)
                                      :
-            run-as (Optional[ToolDataTablesCreateParamRunAs])
+            run-as (ToolDataTablesCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -162,11 +262,15 @@ class ToolDataTablesClient:
         url = f"{self.base_url}/api/tool_data"
 
         params: dict[str, Any] = {
-            **({"tool_data_file_path": tool_data_file_path} if tool_data_file_path is not None else {}),
+            **(
+                {"tool_data_file_path": DataclassSerializer.serialize(tool_data_file_path)}
+                if tool_data_file_path is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ImportToolDataBundle = DataclassSerializer.serialize(body)
@@ -176,13 +280,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_delete_2_2(
+    async def tool_data_tables_delete(
         self,
         table_name: str,
         body: ToolDataItem,
@@ -195,7 +299,7 @@ class ToolDataTablesClient:
 
         Args:
             table_name (str)         : The name of the tool data table
-            run-as (Optional[ToolDataTablesDeleteParamRunAs])
+            run-as (ToolDataTablesDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -208,10 +312,12 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ToolDataItem = DataclassSerializer.serialize(body)
@@ -221,13 +327,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataDetails, response.json())
+                return structure_from_dict(response.json(), ToolDataDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_delete_2_2(
+    async def tool_data_tables_delete(
         self,
         table_name: str,
         body: ToolDataItem,
@@ -240,7 +346,7 @@ class ToolDataTablesClient:
 
         Args:
             table_name (str)         : The name of the tool data table
-            run-as (Optional[ToolDataTablesDeleteParamRunAs])
+            run-as (ToolDataTablesDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -253,10 +359,12 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ToolDataItem = DataclassSerializer.serialize(body)
@@ -266,13 +374,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataDetails, response.json())
+                return structure_from_dict(response.json(), ToolDataDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_show_2_2(
+    async def tool_data_tables_show(
         self,
         table_name: str,
         run_as: ToolDataTablesShowParamRunAs | None = None,
@@ -285,7 +393,7 @@ class ToolDataTablesClient:
 
         Args:
             table_name (str)         : The name of the tool data table
-            run-as (Optional[ToolDataTablesShowParamRunAs])
+            run-as (ToolDataTablesShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -297,10 +405,12 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -308,13 +418,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataDetails, response.json())
+                return structure_from_dict(response.json(), ToolDataDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_show_2_2(
+    async def tool_data_tables_show(
         self,
         table_name: str,
         run_as: ToolDataTablesShowParamRunAs | None = None,
@@ -327,7 +437,7 @@ class ToolDataTablesClient:
 
         Args:
             table_name (str)         : The name of the tool data table
-            run-as (Optional[ToolDataTablesShowParamRunAs])
+            run-as (ToolDataTablesShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -339,10 +449,12 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -350,13 +462,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataDetails, response.json())
+                return structure_from_dict(response.json(), ToolDataDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_fields_show_field_2_2(
+    async def tool_data_tables_fields_show_field(
         self,
         table_name: str,
         field_name: str,
@@ -370,7 +482,7 @@ class ToolDataTablesClient:
         Args:
             table_name (str)         : The name of the tool data table
             field_name (str)         : The name of the tool data table field
-            run-as (Optional[ToolDataTablesFieldsShowFieldParamRunAs])
+            run-as (ToolDataTablesFieldsShowFieldParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -382,10 +494,13 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+        field_name = DataclassSerializer.serialize(field_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}/fields/{field_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -393,13 +508,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataField, response.json())
+                return structure_from_dict(response.json(), ToolDataField)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_fields_show_field_2_2(
+    async def tool_data_tables_fields_show_field(
         self,
         table_name: str,
         field_name: str,
@@ -413,7 +528,7 @@ class ToolDataTablesClient:
         Args:
             table_name (str)         : The name of the tool data table
             field_name (str)         : The name of the tool data table field
-            run-as (Optional[ToolDataTablesFieldsShowFieldParamRunAs])
+            run-as (ToolDataTablesFieldsShowFieldParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -425,10 +540,13 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+        field_name = DataclassSerializer.serialize(field_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}/fields/{field_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -436,13 +554,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataField, response.json())
+                return structure_from_dict(response.json(), ToolDataField)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_fields_files_download_field_file_2_2(
+    async def tool_data_tables_fields_files_download_field_file(
         self,
         table_name: str,
         field_name: str,
@@ -458,7 +576,7 @@ class ToolDataTablesClient:
             table_name (str)         : The name of the tool data table
             field_name (str)         : The name of the tool data table field
             file_name (str)          : The name of a file associated with this data table field
-            run-as (Optional[ToolDataTablesFieldsFilesDownloadFieldFileParamRunAs])
+            run-as (ToolDataTablesFieldsFilesDownloadFieldFileParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -467,10 +585,14 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+        field_name = DataclassSerializer.serialize(field_name)
+        file_name = DataclassSerializer.serialize(file_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}/fields/{field_name}/files/{file_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -482,9 +604,9 @@ class ToolDataTablesClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_fields_files_download_field_file_2_2(
+    async def tool_data_tables_fields_files_download_field_file(
         self,
         table_name: str,
         field_name: str,
@@ -500,7 +622,7 @@ class ToolDataTablesClient:
             table_name (str)         : The name of the tool data table
             field_name (str)         : The name of the tool data table field
             file_name (str)          : The name of a file associated with this data table field
-            run-as (Optional[ToolDataTablesFieldsFilesDownloadFieldFileParamRunAs])
+            run-as (ToolDataTablesFieldsFilesDownloadFieldFileParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -509,10 +631,14 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+        field_name = DataclassSerializer.serialize(field_name)
+        file_name = DataclassSerializer.serialize(file_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}/fields/{field_name}/files/{file_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -524,9 +650,9 @@ class ToolDataTablesClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_reload_reload_2_2(
+    async def tool_data_tables_reload_reload(
         self,
         table_name: str,
         run_as: ToolDataTablesReloadReloadParamRunAs | None = None,
@@ -538,7 +664,7 @@ class ToolDataTablesClient:
 
         Args:
             table_name (str)         : The name of the tool data table
-            run-as (Optional[ToolDataTablesReloadReloadParamRunAs])
+            run-as (ToolDataTablesReloadReloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -550,10 +676,12 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}/reload"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -561,13 +689,13 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataDetails, response.json())
+                return structure_from_dict(response.json(), ToolDataDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_data_tables_reload_reload_2_2(
+    async def tool_data_tables_reload_reload(
         self,
         table_name: str,
         run_as: ToolDataTablesReloadReloadParamRunAs | None = None,
@@ -579,7 +707,7 @@ class ToolDataTablesClient:
 
         Args:
             table_name (str)         : The name of the tool data table
-            run-as (Optional[ToolDataTablesReloadReloadParamRunAs])
+            run-as (ToolDataTablesReloadReloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -591,10 +719,12 @@ class ToolDataTablesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        table_name = DataclassSerializer.serialize(table_name)
+
         url = f"{self.base_url}/api/tool_data/{table_name}/reload"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -602,8 +732,8 @@ class ToolDataTablesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ToolDataDetails, response.json())
+                return structure_from_dict(response.json(), ToolDataDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

@@ -1,6 +1,7 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
-from galaxy_test.api.client.galaxy_api_client.core import Error501
+from galaxy_test.api.client.galaxy_api_client.core import HttpNotImplementedError
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -21,7 +22,7 @@ from ..models.dataset_collections_contents_contents_param_run_as import DatasetC
 from ..models.dataset_collections_copy_copy_param_run_as import DatasetCollectionsCopyCopyParamRunAs
 from ..models.dataset_collections_create_param_run_as import DatasetCollectionsCreateParamRunAs
 from ..models.dataset_collections_download_param_run_as import DatasetCollectionsDownloadParamRunAs
-from ..models.dataset_collections_show_200_response_2 import DatasetCollectionsShow200Response2
+from ..models.dataset_collections_show_200_response import DatasetCollectionsShow200Response
 from ..models.dataset_collections_show_param_run_as import DatasetCollectionsShowParamRunAs
 from ..models.dataset_collections_suitable_converters_suitable_converters_param_run_as import (
     DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs,
@@ -40,7 +41,7 @@ from ..models.dataset_collections_workbook_parse_for_collection_param_run_as imp
     DatasetCollectionsWorkbookParseForCollectionParamRunAs,
 )
 from ..models.dataset_collections_workbook_parse_param_run_as import DatasetCollectionsWorkbookParseParamRunAs
-from ..models.dce_summary_9 import DceSummary9
+from ..models.dce_summary_2 import DceSummary2
 from ..models.hdca_detailed_2 import HdcaDetailed2
 from ..models.histories_prepare_download_prepare_collection_download_param_run_as import (
     HistoriesPrepareDownloadPrepareCollectionDownloadParamRunAs,
@@ -53,39 +54,216 @@ from ..models.suitable_converters import SuitableConverters
 from ..models.update_collection_attribute_payload import UpdateCollectionAttributePayload
 
 
-class DatasetCollectionsClient:
+@runtime_checkable
+class DatasetCollectionsClientProtocol(Protocol):
+    """Protocol defining the interface of DatasetCollectionsClient for dependency injection."""
+
+    async def dataset_collections_content(
+        self,
+        dce_id: str,
+        run_as: DatasetCollectionsContentParamRunAs | None = None,
+    ) -> DceSummary2: ...
+
+    async def dataset_collections_content(
+        self,
+        dce_id: str,
+        run_as: DatasetCollectionsContentParamRunAs | None = None,
+    ) -> DceSummary2: ...
+
+    async def dataset_collections_create(
+        self,
+        body: CreateNewCollectionPayload,
+        run_as: DatasetCollectionsCreateParamRunAs | None = None,
+    ) -> HdcaDetailed2: ...
+
+    async def dataset_collections_create(
+        self,
+        body: CreateNewCollectionPayload,
+        run_as: DatasetCollectionsCreateParamRunAs | None = None,
+    ) -> HdcaDetailed2: ...
+
+    async def dataset_collections_show(
+        self,
+        hdca_id: str,
+        instance_type: str | None = None,
+        view: str | None = None,
+        run_as: DatasetCollectionsShowParamRunAs | None = None,
+    ) -> DatasetCollectionsShow200Response: ...
+
+    async def dataset_collections_show(
+        self,
+        hdca_id: str,
+        instance_type: str | None = None,
+        view: str | None = None,
+        run_as: DatasetCollectionsShowParamRunAs | None = None,
+    ) -> DatasetCollectionsShow200Response: ...
+
+    async def dataset_collections_attributes_attributes(
+        self,
+        hdca_id: str,
+        instance_type: str | None = None,
+        run_as: DatasetCollectionsAttributesAttributesParamRunAs | None = None,
+    ) -> DatasetCollectionAttributesResult: ...
+
+    async def dataset_collections_attributes_attributes(
+        self,
+        hdca_id: str,
+        instance_type: str | None = None,
+        run_as: DatasetCollectionsAttributesAttributesParamRunAs | None = None,
+    ) -> DatasetCollectionAttributesResult: ...
+
+    async def dataset_collections_contents_contents(
+        self,
+        hdca_id: str,
+        parent_id: str,
+        instance_type: str | None = None,
+        limit: DatasetCollectionsContentsContentsParamLimit | None = None,
+        offset: DatasetCollectionsContentsContentsParamOffset | None = None,
+        run_as: DatasetCollectionsContentsContentsParamRunAs | None = None,
+    ) -> DatasetCollectionContentElements: ...
+
+    async def dataset_collections_contents_contents(
+        self,
+        hdca_id: str,
+        parent_id: str,
+        instance_type: str | None = None,
+        limit: DatasetCollectionsContentsContentsParamLimit | None = None,
+        offset: DatasetCollectionsContentsContentsParamOffset | None = None,
+        run_as: DatasetCollectionsContentsContentsParamRunAs | None = None,
+    ) -> DatasetCollectionContentElements: ...
+
+    async def dataset_collections_copy_copy(
+        self,
+        hdca_id: str,
+        body: UpdateCollectionAttributePayload,
+        run_as: DatasetCollectionsCopyCopyParamRunAs | None = None,
+    ) -> None: ...
+
+    async def dataset_collections_copy_copy(
+        self,
+        hdca_id: str,
+        body: UpdateCollectionAttributePayload,
+        run_as: DatasetCollectionsCopyCopyParamRunAs | None = None,
+    ) -> None: ...
+
+    async def dataset_collections_download(
+        self,
+        hdca_id: str,
+        run_as: DatasetCollectionsDownloadParamRunAs | None = None,
+    ) -> None: ...
+
+    async def histories_prepare_download_prepare_collection_download(
+        self,
+        hdca_id: str,
+        run_as: HistoriesPrepareDownloadPrepareCollectionDownloadParamRunAs | None = None,
+    ) -> AsyncFile: ...
+
+    async def dataset_collections_workbook_download_for_collection(
+        self,
+        hdca_id: str,
+        body: CreateWorkbookForCollectionApi,
+        filename: DatasetCollectionsWorkbookDownloadForCollectionParamFilename | None = None,
+        run_as: DatasetCollectionsWorkbookDownloadForCollectionParamRunAs | None = None,
+    ) -> None: ...
+
+    async def dataset_collections_workbook_download_for_collection(
+        self,
+        hdca_id: str,
+        body: CreateWorkbookForCollectionApi,
+        filename: DatasetCollectionsWorkbookDownloadForCollectionParamFilename | None = None,
+        run_as: DatasetCollectionsWorkbookDownloadForCollectionParamRunAs | None = None,
+    ) -> None: ...
+
+    async def dataset_collections_workbook_parse_for_collection(
+        self,
+        hdca_id: str,
+        body: ParseWorkbookForCollectionApi,
+        run_as: DatasetCollectionsWorkbookParseForCollectionParamRunAs | None = None,
+    ) -> ParsedWorkbookForCollection: ...
+
+    async def dataset_collections_workbook_parse_for_collection(
+        self,
+        hdca_id: str,
+        body: ParseWorkbookForCollectionApi,
+        run_as: DatasetCollectionsWorkbookParseForCollectionParamRunAs | None = None,
+    ) -> ParsedWorkbookForCollection: ...
+
+    async def dataset_collections_suitable_converters_suitable_converters(
+        self,
+        hdca_id: str,
+        instance_type: str | None = None,
+        run_as: DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs | None = None,
+    ) -> SuitableConverters: ...
+
+    async def dataset_collections_suitable_converters_suitable_converters(
+        self,
+        hdca_id: str,
+        instance_type: str | None = None,
+        run_as: DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs | None = None,
+    ) -> SuitableConverters: ...
+
+    async def dataset_collections_workbook_download(
+        self,
+        body: CreateWorkbookRequest,
+        filename: DatasetCollectionsWorkbookDownloadParamFilename | None = None,
+        run_as: DatasetCollectionsWorkbookDownloadParamRunAs | None = None,
+    ) -> None: ...
+
+    async def dataset_collections_workbook_download(
+        self,
+        body: CreateWorkbookRequest,
+        filename: DatasetCollectionsWorkbookDownloadParamFilename | None = None,
+        run_as: DatasetCollectionsWorkbookDownloadParamRunAs | None = None,
+    ) -> None: ...
+
+    async def dataset_collections_workbook_parse(
+        self,
+        body: ParseWorkbook,
+        run_as: DatasetCollectionsWorkbookParseParamRunAs | None = None,
+    ) -> ParsedWorkbook: ...
+
+    async def dataset_collections_workbook_parse(
+        self,
+        body: ParseWorkbook,
+        run_as: DatasetCollectionsWorkbookParseParamRunAs | None = None,
+    ) -> ParsedWorkbook: ...
+
+
+class DatasetCollectionsClient(DatasetCollectionsClientProtocol):
     """Client for dataset collections endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def dataset_collections_content_2_2(
+    async def dataset_collections_content(
         self,
         dce_id: str,
         run_as: DatasetCollectionsContentParamRunAs | None = None,
-    ) -> DceSummary9:
+    ) -> DceSummary2:
         """
         Content
 
         Args:
             dce_id (str)             : The encoded ID of the dataset collection element.
-            run-as (Optional[DatasetCollectionsContentParamRunAs])
+            run-as (DatasetCollectionsContentParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            DceSummary9: Successful Response
+            DceSummary2: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        dce_id = DataclassSerializer.serialize(dce_id)
+
         url = f"{self.base_url}/api/dataset_collection_element/{dce_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -93,38 +271,40 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DceSummary9, response.json())
+                return structure_from_dict(response.json(), DceSummary2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_content_2_2(
+    async def dataset_collections_content(
         self,
         dce_id: str,
         run_as: DatasetCollectionsContentParamRunAs | None = None,
-    ) -> DceSummary9:
+    ) -> DceSummary2:
         """
         Content
 
         Args:
             dce_id (str)             : The encoded ID of the dataset collection element.
-            run-as (Optional[DatasetCollectionsContentParamRunAs])
+            run-as (DatasetCollectionsContentParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            DceSummary9: Successful Response
+            DceSummary2: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        dce_id = DataclassSerializer.serialize(dce_id)
+
         url = f"{self.base_url}/api/dataset_collection_element/{dce_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -132,13 +312,13 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DceSummary9, response.json())
+                return structure_from_dict(response.json(), DceSummary2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_create_2_2(
+    async def dataset_collections_create(
         self,
         body: CreateNewCollectionPayload,
         run_as: DatasetCollectionsCreateParamRunAs | None = None,
@@ -147,7 +327,7 @@ class DatasetCollectionsClient:
         Create a new dataset collection instance.
 
         Args:
-            run-as (Optional[DatasetCollectionsCreateParamRunAs])
+            run-as (DatasetCollectionsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -164,7 +344,7 @@ class DatasetCollectionsClient:
         url = f"{self.base_url}/api/dataset_collections"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateNewCollectionPayload = DataclassSerializer.serialize(body)
@@ -174,13 +354,13 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(HdcaDetailed2, response.json())
+                return structure_from_dict(response.json(), HdcaDetailed2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_create_2_2(
+    async def dataset_collections_create(
         self,
         body: CreateNewCollectionPayload,
         run_as: DatasetCollectionsCreateParamRunAs | None = None,
@@ -189,7 +369,7 @@ class DatasetCollectionsClient:
         Create a new dataset collection instance.
 
         Args:
-            run-as (Optional[DatasetCollectionsCreateParamRunAs])
+            run-as (DatasetCollectionsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -206,7 +386,7 @@ class DatasetCollectionsClient:
         url = f"{self.base_url}/api/dataset_collections"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateNewCollectionPayload = DataclassSerializer.serialize(body)
@@ -216,49 +396,50 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(HdcaDetailed2, response.json())
+                return structure_from_dict(response.json(), HdcaDetailed2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_show_2_2(
+    async def dataset_collections_show(
         self,
         hdca_id: str,
-        instance_type: str | None = "history",
-        view: str | None = "element",
+        instance_type: str | None = None,
+        view: str | None = None,
         run_as: DatasetCollectionsShowParamRunAs | None = None,
-    ) -> DatasetCollectionsShow200Response2:
+    ) -> DatasetCollectionsShow200Response:
         """
         Returns detailed information about the given collection.
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            view (Optional[str])     : The view of collection instance to return.
-            run-as (Optional[DatasetCollectionsShowParamRunAs])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            view (str | None)        : The view of collection instance to return.
+            run-as (DatasetCollectionsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            DatasetCollectionsShow200Response2: Successful Response
+            DatasetCollectionsShow200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
-            **({"view": view} if view is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -266,49 +447,50 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatasetCollectionsShow200Response2, response.json())
+                return structure_from_dict(response.json(), DatasetCollectionsShow200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_show_2_2(
+    async def dataset_collections_show(
         self,
         hdca_id: str,
-        instance_type: str | None = "history",
-        view: str | None = "element",
+        instance_type: str | None = None,
+        view: str | None = None,
         run_as: DatasetCollectionsShowParamRunAs | None = None,
-    ) -> DatasetCollectionsShow200Response2:
+    ) -> DatasetCollectionsShow200Response:
         """
         Returns detailed information about the given collection.
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            view (Optional[str])     : The view of collection instance to return.
-            run-as (Optional[DatasetCollectionsShowParamRunAs])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            view (str | None)        : The view of collection instance to return.
+            run-as (DatasetCollectionsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            DatasetCollectionsShow200Response2: Successful Response
+            DatasetCollectionsShow200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
-            **({"view": view} if view is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -316,16 +498,16 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatasetCollectionsShow200Response2, response.json())
+                return structure_from_dict(response.json(), DatasetCollectionsShow200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_attributes_attributes_2_2(
+    async def dataset_collections_attributes_attributes(
         self,
         hdca_id: str,
-        instance_type: str | None = "history",
+        instance_type: str | None = None,
         run_as: DatasetCollectionsAttributesAttributesParamRunAs | None = None,
     ) -> DatasetCollectionAttributesResult:
         """
@@ -333,10 +515,9 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            run-as (Optional[DatasetCollectionsAttributesAttributesParamRunAs])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            run-as (DatasetCollectionsAttributesAttributesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -348,14 +529,16 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/attributes"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -363,16 +546,16 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatasetCollectionAttributesResult, response.json())
+                return structure_from_dict(response.json(), DatasetCollectionAttributesResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_attributes_attributes_2_2(
+    async def dataset_collections_attributes_attributes(
         self,
         hdca_id: str,
-        instance_type: str | None = "history",
+        instance_type: str | None = None,
         run_as: DatasetCollectionsAttributesAttributesParamRunAs | None = None,
     ) -> DatasetCollectionAttributesResult:
         """
@@ -380,10 +563,9 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            run-as (Optional[DatasetCollectionsAttributesAttributesParamRunAs])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            run-as (DatasetCollectionsAttributesAttributesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -395,14 +577,16 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/attributes"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -410,17 +594,17 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatasetCollectionAttributesResult, response.json())
+                return structure_from_dict(response.json(), DatasetCollectionAttributesResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_contents_contents_2_2(
+    async def dataset_collections_contents_contents(
         self,
         hdca_id: str,
         parent_id: str,
-        instance_type: str | None = "history",
+        instance_type: str | None = None,
         limit: DatasetCollectionsContentsContentsParamLimit | None = None,
         offset: DatasetCollectionsContentsContentsParamOffset | None = None,
         run_as: DatasetCollectionsContentsContentsParamRunAs | None = None,
@@ -432,15 +616,14 @@ class DatasetCollectionsClient:
             hdca_id (str)            : The ID of the `HDCA`.
             parent_id (str)          : Parent collection ID describing what collection the
                                        contents belongs to.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            limit (Optional[DatasetCollectionsContentsContentsParamLimit])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            limit (DatasetCollectionsContentsContentsParamLimit | None)
                                      : The maximum number of content elements to return.
-            offset (Optional[DatasetCollectionsContentsContentsParamOffset])
+            offset (DatasetCollectionsContentsContentsParamOffset | None)
                                      : The number of content elements that will be skipped
                                        before returning.
-            run-as (Optional[DatasetCollectionsContentsContentsParamRunAs])
+            run-as (DatasetCollectionsContentsContentsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -452,16 +635,19 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+        parent_id = DataclassSerializer.serialize(parent_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/contents/{parent_id}"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -469,17 +655,17 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatasetCollectionContentElements, response.json())
+                return structure_from_dict(response.json(), DatasetCollectionContentElements)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_contents_contents_2_2(
+    async def dataset_collections_contents_contents(
         self,
         hdca_id: str,
         parent_id: str,
-        instance_type: str | None = "history",
+        instance_type: str | None = None,
         limit: DatasetCollectionsContentsContentsParamLimit | None = None,
         offset: DatasetCollectionsContentsContentsParamOffset | None = None,
         run_as: DatasetCollectionsContentsContentsParamRunAs | None = None,
@@ -491,15 +677,14 @@ class DatasetCollectionsClient:
             hdca_id (str)            : The ID of the `HDCA`.
             parent_id (str)          : Parent collection ID describing what collection the
                                        contents belongs to.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            limit (Optional[DatasetCollectionsContentsContentsParamLimit])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            limit (DatasetCollectionsContentsContentsParamLimit | None)
                                      : The maximum number of content elements to return.
-            offset (Optional[DatasetCollectionsContentsContentsParamOffset])
+            offset (DatasetCollectionsContentsContentsParamOffset | None)
                                      : The number of content elements that will be skipped
                                        before returning.
-            run-as (Optional[DatasetCollectionsContentsContentsParamRunAs])
+            run-as (DatasetCollectionsContentsContentsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -511,16 +696,19 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+        parent_id = DataclassSerializer.serialize(parent_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/contents/{parent_id}"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -528,13 +716,13 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatasetCollectionContentElements, response.json())
+                return structure_from_dict(response.json(), DatasetCollectionContentElements)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_copy_copy_2_2(
+    async def dataset_collections_copy_copy(
         self,
         hdca_id: str,
         body: UpdateCollectionAttributePayload,
@@ -545,7 +733,7 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            run-as (Optional[DatasetCollectionsCopyCopyParamRunAs])
+            run-as (DatasetCollectionsCopyCopyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -556,10 +744,12 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/copy"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UpdateCollectionAttributePayload = DataclassSerializer.serialize(body)
@@ -573,9 +763,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_copy_copy_2_2(
+    async def dataset_collections_copy_copy(
         self,
         hdca_id: str,
         body: UpdateCollectionAttributePayload,
@@ -586,7 +776,7 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            run-as (Optional[DatasetCollectionsCopyCopyParamRunAs])
+            run-as (DatasetCollectionsCopyCopyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -597,10 +787,12 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/copy"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UpdateCollectionAttributePayload = DataclassSerializer.serialize(body)
@@ -614,9 +806,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_download_2(
+    async def dataset_collections_download(
         self,
         hdca_id: str,
         run_as: DatasetCollectionsDownloadParamRunAs | None = None,
@@ -629,7 +821,7 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            run-as (Optional[DatasetCollectionsDownloadParamRunAs])
+            run-as (DatasetCollectionsDownloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -638,10 +830,12 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/download"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -653,9 +847,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def histories_prepare_download_prepare_collection_download_2(
+    async def histories_prepare_download_prepare_collection_download(
         self,
         hdca_id: str,
         run_as: HistoriesPrepareDownloadPrepareCollectionDownloadParamRunAs | None = None,
@@ -669,7 +863,7 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            run-as (Optional[HistoriesPrepareDownloadPrepareCollectionDownloadParamRunAs])
+            run-as (HistoriesPrepareDownloadPrepareCollectionDownloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -682,10 +876,12 @@ class DatasetCollectionsClient:
                 HTTPError: 501: Required asynchronous tasks required for this operation not
                            available.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/prepare_download"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -693,15 +889,15 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncFile, response.json())
+                return structure_from_dict(response.json(), AsyncFile)
             case 501:
-                raise Error501(response=response)
+                raise HttpNotImplementedError(response=response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_download_for_collection_2_2(
+    async def dataset_collections_workbook_download_for_collection(
         self,
         hdca_id: str,
         body: CreateWorkbookForCollectionApi,
@@ -713,9 +909,9 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            filename (Optional[DatasetCollectionsWorkbookDownloadForCollectionParamFilename])
+            filename (DatasetCollectionsWorkbookDownloadForCollectionParamFilename | None)
                                      : Filename of the workbook download to generate
-            run-as (Optional[DatasetCollectionsWorkbookDownloadForCollectionParamRunAs])
+            run-as (DatasetCollectionsWorkbookDownloadForCollectionParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -726,14 +922,16 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/sample_sheet_workbook"
 
         params: dict[str, Any] = {
-            **({"filename": filename} if filename is not None else {}),
+            **({"filename": DataclassSerializer.serialize(filename)} if filename is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateWorkbookForCollectionApi = DataclassSerializer.serialize(body)
@@ -747,9 +945,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_download_for_collection_2_2(
+    async def dataset_collections_workbook_download_for_collection(
         self,
         hdca_id: str,
         body: CreateWorkbookForCollectionApi,
@@ -761,9 +959,9 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            filename (Optional[DatasetCollectionsWorkbookDownloadForCollectionParamFilename])
+            filename (DatasetCollectionsWorkbookDownloadForCollectionParamFilename | None)
                                      : Filename of the workbook download to generate
-            run-as (Optional[DatasetCollectionsWorkbookDownloadForCollectionParamRunAs])
+            run-as (DatasetCollectionsWorkbookDownloadForCollectionParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -774,14 +972,16 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/sample_sheet_workbook"
 
         params: dict[str, Any] = {
-            **({"filename": filename} if filename is not None else {}),
+            **({"filename": DataclassSerializer.serialize(filename)} if filename is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateWorkbookForCollectionApi = DataclassSerializer.serialize(body)
@@ -795,9 +995,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_parse_for_collection_2_2(
+    async def dataset_collections_workbook_parse_for_collection(
         self,
         hdca_id: str,
         body: ParseWorkbookForCollectionApi,
@@ -808,7 +1008,7 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            run-as (Optional[DatasetCollectionsWorkbookParseForCollectionParamRunAs])
+            run-as (DatasetCollectionsWorkbookParseForCollectionParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -822,10 +1022,12 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/sample_sheet_workbook/parse"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ParseWorkbookForCollectionApi = DataclassSerializer.serialize(body)
@@ -835,13 +1037,13 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ParsedWorkbookForCollection, response.json())
+                return structure_from_dict(response.json(), ParsedWorkbookForCollection)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_parse_for_collection_2_2(
+    async def dataset_collections_workbook_parse_for_collection(
         self,
         hdca_id: str,
         body: ParseWorkbookForCollectionApi,
@@ -852,7 +1054,7 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            run-as (Optional[DatasetCollectionsWorkbookParseForCollectionParamRunAs])
+            run-as (DatasetCollectionsWorkbookParseForCollectionParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -866,10 +1068,12 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/sample_sheet_workbook/parse"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ParseWorkbookForCollectionApi = DataclassSerializer.serialize(body)
@@ -879,16 +1083,16 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ParsedWorkbookForCollection, response.json())
+                return structure_from_dict(response.json(), ParsedWorkbookForCollection)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_suitable_converters_suitable_converters_2_2(
+    async def dataset_collections_suitable_converters_suitable_converters(
         self,
         hdca_id: str,
-        instance_type: str | None = "history",
+        instance_type: str | None = None,
         run_as: DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs | None = None,
     ) -> SuitableConverters:
         """
@@ -896,10 +1100,9 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            run-as (Optional[DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            run-as (DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -911,14 +1114,16 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/suitable_converters"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -926,16 +1131,16 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SuitableConverters, response.json())
+                return structure_from_dict(response.json(), SuitableConverters)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_suitable_converters_suitable_converters_2_2(
+    async def dataset_collections_suitable_converters_suitable_converters(
         self,
         hdca_id: str,
-        instance_type: str | None = "history",
+        instance_type: str | None = None,
         run_as: DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs | None = None,
     ) -> SuitableConverters:
         """
@@ -943,10 +1148,9 @@ class DatasetCollectionsClient:
 
         Args:
             hdca_id (str)            : The ID of the `HDCA`.
-            instance_type (Optional[str])
-                                     : The type of collection instance. Either `history`
-                                       (default) or `library`.
-            run-as (Optional[DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs])
+            instance_type (str | None): The type of collection instance. Either `history`
+                                        (default) or `library`.
+            run-as (DatasetCollectionsSuitableConvertersSuitableConvertersParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -958,14 +1162,16 @@ class DatasetCollectionsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        hdca_id = DataclassSerializer.serialize(hdca_id)
+
         url = f"{self.base_url}/api/dataset_collections/{hdca_id}/suitable_converters"
 
         params: dict[str, Any] = {
-            **({"instance_type": instance_type} if instance_type is not None else {}),
+            **({"instance_type": DataclassSerializer.serialize(instance_type)} if instance_type is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -973,13 +1179,13 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SuitableConverters, response.json())
+                return structure_from_dict(response.json(), SuitableConverters)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_download_2_2(
+    async def dataset_collections_workbook_download(
         self,
         body: CreateWorkbookRequest,
         filename: DatasetCollectionsWorkbookDownloadParamFilename | None = None,
@@ -989,9 +1195,9 @@ class DatasetCollectionsClient:
         Create an XLSX workbook for a sample sheet definition.
 
         Args:
-            filename (Optional[DatasetCollectionsWorkbookDownloadParamFilename])
+            filename (DatasetCollectionsWorkbookDownloadParamFilename | None)
                                      : Filename of the workbook download to generate
-            run-as (Optional[DatasetCollectionsWorkbookDownloadParamRunAs])
+            run-as (DatasetCollectionsWorkbookDownloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1005,11 +1211,11 @@ class DatasetCollectionsClient:
         url = f"{self.base_url}/api/sample_sheet_workbook"
 
         params: dict[str, Any] = {
-            **({"filename": filename} if filename is not None else {}),
+            **({"filename": DataclassSerializer.serialize(filename)} if filename is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateWorkbookRequest = DataclassSerializer.serialize(body)
@@ -1023,9 +1229,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_download_2_2(
+    async def dataset_collections_workbook_download(
         self,
         body: CreateWorkbookRequest,
         filename: DatasetCollectionsWorkbookDownloadParamFilename | None = None,
@@ -1035,9 +1241,9 @@ class DatasetCollectionsClient:
         Create an XLSX workbook for a sample sheet definition.
 
         Args:
-            filename (Optional[DatasetCollectionsWorkbookDownloadParamFilename])
+            filename (DatasetCollectionsWorkbookDownloadParamFilename | None)
                                      : Filename of the workbook download to generate
-            run-as (Optional[DatasetCollectionsWorkbookDownloadParamRunAs])
+            run-as (DatasetCollectionsWorkbookDownloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1051,11 +1257,11 @@ class DatasetCollectionsClient:
         url = f"{self.base_url}/api/sample_sheet_workbook"
 
         params: dict[str, Any] = {
-            **({"filename": filename} if filename is not None else {}),
+            **({"filename": DataclassSerializer.serialize(filename)} if filename is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateWorkbookRequest = DataclassSerializer.serialize(body)
@@ -1069,9 +1275,9 @@ class DatasetCollectionsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_parse_2_2(
+    async def dataset_collections_workbook_parse(
         self,
         body: ParseWorkbook,
         run_as: DatasetCollectionsWorkbookParseParamRunAs | None = None,
@@ -1080,7 +1286,7 @@ class DatasetCollectionsClient:
         Parse an XLSX workbook for a sample sheet definition and supplied file contents.
 
         Args:
-            run-as (Optional[DatasetCollectionsWorkbookParseParamRunAs])
+            run-as (DatasetCollectionsWorkbookParseParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1096,7 +1302,7 @@ class DatasetCollectionsClient:
         url = f"{self.base_url}/api/sample_sheet_workbook/parse"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ParseWorkbook = DataclassSerializer.serialize(body)
@@ -1106,13 +1312,13 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ParsedWorkbook, response.json())
+                return structure_from_dict(response.json(), ParsedWorkbook)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def dataset_collections_workbook_parse_2_2(
+    async def dataset_collections_workbook_parse(
         self,
         body: ParseWorkbook,
         run_as: DatasetCollectionsWorkbookParseParamRunAs | None = None,
@@ -1121,7 +1327,7 @@ class DatasetCollectionsClient:
         Parse an XLSX workbook for a sample sheet definition and supplied file contents.
 
         Args:
-            run-as (Optional[DatasetCollectionsWorkbookParseParamRunAs])
+            run-as (DatasetCollectionsWorkbookParseParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1137,7 +1343,7 @@ class DatasetCollectionsClient:
         url = f"{self.base_url}/api/sample_sheet_workbook/parse"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ParseWorkbook = DataclassSerializer.serialize(body)
@@ -1147,8 +1353,8 @@ class DatasetCollectionsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ParsedWorkbook, response.json())
+                return structure_from_dict(response.json(), ParsedWorkbook)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

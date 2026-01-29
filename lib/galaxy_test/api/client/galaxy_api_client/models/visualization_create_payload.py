@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .annotation import Annotation
-from .config_ import Config_
-from .dbkey import Dbkey
-from .slug import Slug
-from .title import Title
+from .config__2 import Config2
+from .visualization_create_payload_annotation import VisualizationCreatePayloadAnnotation
+from .visualization_create_payload_dbkey import VisualizationCreatePayloadDbkey
+from .visualization_create_payload_slug import VisualizationCreatePayloadSlug
+from .visualization_create_payload_title import VisualizationCreatePayloadTitle
 
 __all__ = ["VisualizationCreatePayload"]
 
@@ -12,22 +12,44 @@ __all__ = ["VisualizationCreatePayload"]
 @dataclass
 class VisualizationCreatePayload:
     """
-    VisualizationCreatePayload dataclass.
+    VisualizationCreatePayload dataclass
 
     Args:
-        type_ (str)              : The type of the visualization.
-        annotation (Optional[Annotation])
-                                 : The annotation of this Visualization.
-        config_ (Optional[Config_])
-                                 : The config of the visualization.
-        dbkey (Optional[Dbkey])  : The database key of the visualization.
-        slug (Optional[Slug])    : The slug of the visualization.
-        title (Optional[Title])  : The name of the visualization.
+        type_ (str)              : The type of the visualization. (maps from 'type')
+        annotation (VisualizationCreatePayloadAnnotation | None)
+                                 : The annotation of the visualization.
+        config_ (Config2 | None) : The config of the visualization. (maps from 'config')
+        dbkey (VisualizationCreatePayloadDbkey | None)
+                                 : The database key of the visualization.
+        slug (VisualizationCreatePayloadSlug | None)
+                                 : The slug of the visualization.
+        title (VisualizationCreatePayloadTitle | None)
+                                 : The name of the visualization.
     """
 
-    type_: str  # The type of the visualization.
-    annotation: Annotation | None = None  # The annotation of this Visualization.
-    config_: Config_ | None = None  # The config of the visualization.
-    dbkey: Dbkey | None = "?"  # The database key of the visualization.
-    slug: Slug | None = None  # The slug of the visualization.
-    title: Title | None = "Untitled Visualization"  # The name of the visualization.
+    type_: str  # The type of the visualization. (maps from 'type')
+    annotation: VisualizationCreatePayloadAnnotation | None = None  # The annotation of the visualization.
+    config_: Config2 | None = None  # The config of the visualization. (maps from 'config')
+    dbkey: VisualizationCreatePayloadDbkey | None = None  # The database key of the visualization.
+    slug: VisualizationCreatePayloadSlug | None = None  # The slug of the visualization.
+    title: VisualizationCreatePayloadTitle | None = "Untitled Visualization"  # The name of the visualization.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "annotation": "annotation",
+            "config": "config_",
+            "dbkey": "dbkey",
+            "slug": "slug",
+            "title": "title",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "annotation": "annotation",
+            "config_": "config",
+            "dbkey": "dbkey",
+            "slug": "slug",
+            "title": "title",
+            "type_": "type",
+        }

@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .directory_uri_parameter_model_validators_item import DirectoryUriParameterModelValidatorsItem
+
+__all__ = ["DirectoryUriParameterModelValidators"]
+
+DirectoryUriParameterModelValidators: TypeAlias = list[DirectoryUriParameterModelValidatorsItem]

@@ -8,7 +8,7 @@ __all__ = ["RefactorResponse"]
 @dataclass
 class RefactorResponse:
     """
-    RefactorResponse dataclass.
+    RefactorResponse dataclass
 
     Args:
         action_executions (List[RefactorActionExecution])
@@ -20,3 +20,17 @@ class RefactorResponse:
     action_executions: list[RefactorActionExecution]
     dry_run: bool
     workflow: str
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "action_executions": "action_executions",
+            "dry_run": "dry_run",
+            "workflow": "workflow",
+        }
+        key_transform_with_dump = {
+            "action_executions": "action_executions",
+            "dry_run": "dry_run",
+            "workflow": "workflow",
+        }

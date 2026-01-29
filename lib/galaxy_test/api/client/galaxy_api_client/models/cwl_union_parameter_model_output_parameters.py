@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .cwl_union_parameter_model_output_parameters_item import CwlUnionParameterModelOutputParametersItem
+
+__all__ = ["CwlUnionParameterModelOutputParameters"]
+
+CwlUnionParameterModelOutputParameters: TypeAlias = list[CwlUnionParameterModelOutputParametersItem]

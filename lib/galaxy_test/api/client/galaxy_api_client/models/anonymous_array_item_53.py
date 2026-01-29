@@ -1,13 +1,41 @@
 from dataclasses import dataclass
+from typing import Annotated, TypeAlias
 
-__all__ = ["AnonymousArrayItem53"]
+from .in_range_parameter_validator_model import InRangeParameterValidatorModel
+from .length_parameter_validator_model import LengthParameterValidatorModel
+from .regex_parameter_validator_model import RegexParameterValidatorModel
+
+__all__ = ["AnonymousArrayItem53", "AnonymousArrayItem53Discriminator"]
 
 
-@dataclass
-class AnonymousArrayItem53:
-    """
-    [Self-referencing schema: AnonymousArrayItem53]
-    """
+@dataclass(frozen=True)
+class AnonymousArrayItem53Discriminator:
+    """Discriminator metadata for AnonymousArrayItem53 union."""
 
-    # No properties defined in schema
-    pass
+    property_name: str = "type"
+    """The discriminator property name"""
+
+    # Mapping stored as tuple for frozen dataclass compatibility
+    _mapping_data: tuple[tuple[str, str], ...] = (
+        ("in_range", "InRangeParameterValidatorModel"),
+        ("length", "LengthParameterValidatorModel"),
+        ("regex", "RegexParameterValidatorModel"),
+    )
+
+    def get_mapping(self) -> dict[str, type]:
+        """Get discriminator mapping with actual type references."""
+        from .in_range_parameter_validator_model import InRangeParameterValidatorModel
+        from .length_parameter_validator_model import LengthParameterValidatorModel
+        from .regex_parameter_validator_model import RegexParameterValidatorModel
+
+        return {
+            "in_range": InRangeParameterValidatorModel,
+            "length": LengthParameterValidatorModel,
+            "regex": RegexParameterValidatorModel,
+        }
+
+
+AnonymousArrayItem53: TypeAlias = Annotated[
+    RegexParameterValidatorModel | InRangeParameterValidatorModel | LengthParameterValidatorModel,
+    AnonymousArrayItem53Discriminator(),
+]

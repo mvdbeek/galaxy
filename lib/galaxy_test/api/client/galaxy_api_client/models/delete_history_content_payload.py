@@ -6,15 +6,15 @@ __all__ = ["DeleteHistoryContentPayload"]
 @dataclass
 class DeleteHistoryContentPayload:
     """
-    DeleteHistoryContentPayload dataclass.
+    DeleteHistoryContentPayload dataclass
 
     Args:
-        purge (Optional[bool])   : Whether to remove the dataset from storage. Datasets will
+        purge (bool | None)      : Whether to remove the dataset from storage. Datasets will
                                    only be removed from storage once all HDAs or LDDAs that
                                    refer to this datasets are deleted.
-        recursive (Optional[bool]): When deleting a dataset collection, whether to also
-                                    delete containing datasets.
-        stop_job (Optional[bool]): Whether to stop the creating job if all the job's outputs
+        recursive (bool | None)  : When deleting a dataset collection, whether to also
+                                   delete containing datasets.
+        stop_job (bool | None)   : Whether to stop the creating job if all the job's outputs
                                    are deleted.
     """
 
@@ -23,3 +23,17 @@ class DeleteHistoryContentPayload:
     )
     recursive: bool | None = False  # When deleting a dataset collection, whether to also delete containing datasets.
     stop_job: bool | None = False  # Whether to stop the creating job if all the job's outputs are deleted.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "purge": "purge",
+            "recursive": "recursive",
+            "stop_job": "stop_job",
+        }
+        key_transform_with_dump = {
+            "purge": "purge",
+            "recursive": "recursive",
+            "stop_job": "stop_job",
+        }

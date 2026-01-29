@@ -2,4 +2,4 @@ from typing import TypeAlias
 
 __all__ = ["AnonymousArrayItem34"]
 
-AnonymousArrayItem34: TypeAlias = str
+AnonymousArrayItem34: TypeAlias = int | float | bool | str | None

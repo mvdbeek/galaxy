@@ -1,13 +1,8 @@
-from dataclasses import dataclass
+from typing import TypeAlias
+
+from .job_output_association import JobOutputAssociation
+from .job_output_collection_association import JobOutputCollectionAssociation
 
 __all__ = ["AnonymousArrayItem119"]
 
-
-@dataclass
-class AnonymousArrayItem119:
-    """
-    AnonymousArrayItem119 dataclass.
-    """
-
-    # No properties defined in schema
-    pass
+AnonymousArrayItem119: TypeAlias = JobOutputAssociation | JobOutputCollectionAssociation

@@ -9,7 +9,7 @@ __all__ = ["AsyncFile"]
 @dataclass
 class AsyncFile:
     """
-    AsyncFile dataclass.
+    AsyncFile dataclass
 
     Args:
         storage_request_id (UUID):
@@ -19,3 +19,15 @@ class AsyncFile:
 
     storage_request_id: UUID
     task: AsyncTaskResultSummary
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "storage_request_id": "storage_request_id",
+            "task": "task",
+        }
+        key_transform_with_dump = {
+            "storage_request_id": "storage_request_id",
+            "task": "task",
+        }

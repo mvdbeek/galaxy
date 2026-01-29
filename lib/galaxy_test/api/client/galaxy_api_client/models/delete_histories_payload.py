@@ -1,19 +1,29 @@
 from dataclasses import dataclass
 
-from .ids import Ids
-
 __all__ = ["DeleteHistoriesPayload"]
 
 
 @dataclass
 class DeleteHistoriesPayload:
     """
-    DeleteHistoriesPayload dataclass.
+    DeleteHistoriesPayload dataclass
 
     Args:
-        ids (Ids)                : List of history IDs to be deleted.
-        purge (Optional[bool])   : Whether to definitely remove this history from disk.
+        ids (List[str])          : List of history IDs to be deleted.
+        purge (bool | None)      : Whether to definitely remove this history from disk.
     """
 
-    ids: Ids  # List of history IDs to be deleted.
+    ids: list[str]  # List of history IDs to be deleted.
     purge: bool | None = False  # Whether to definitely remove this history from disk.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "ids": "ids",
+            "purge": "purge",
+        }
+        key_transform_with_dump = {
+            "ids": "ids",
+            "purge": "purge",
+        }

@@ -8,7 +8,7 @@ __all__ = ["CustomBuildsMetadataResponse"]
 @dataclass
 class CustomBuildsMetadataResponse:
     """
-    CustomBuildsMetadataResponse dataclass.
+    CustomBuildsMetadataResponse dataclass
 
     Args:
         fasta_hdas (List[LabelValuePair])
@@ -24,3 +24,15 @@ class CustomBuildsMetadataResponse:
         LabelValuePair
     ]  # A list of label/value pairs with all the datasets of type `FASTA` contained in the History.  - `label` is item position followed by the name of the dataset.  - `value` is the encoded database ID of the dataset.
     installed_builds: list[LabelValuePair]  # TODO
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "fasta_hdas": "fasta_hdas",
+            "installed_builds": "installed_builds",
+        }
+        key_transform_with_dump = {
+            "fasta_hdas": "fasta_hdas",
+            "installed_builds": "installed_builds",
+        }

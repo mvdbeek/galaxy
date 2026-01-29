@@ -6,7 +6,7 @@ __all__ = ["Format_"]
 @unique
 class Format_(str, Enum):
     """
-    The short name for the output datatype.
+    Format_ Enum
 
     Args:
         restructuredtext (str)   : Value for RESTRUCTUREDTEXT

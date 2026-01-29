@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .messages import Messages
+from .job_error_summary_messages import JobErrorSummaryMessages
 
 __all__ = ["JobErrorSummary"]
 
@@ -8,11 +8,21 @@ __all__ = ["JobErrorSummary"]
 @dataclass
 class JobErrorSummary:
     """
-    JobErrorSummary dataclass.
+    JobErrorSummary dataclass
 
     Args:
-        messages (Optional[Messages])
+        messages (JobErrorSummaryMessages)
                                  : The error messages for the specified job.
     """
 
-    messages: Messages | None  # The error messages for the specified job.
+    messages: JobErrorSummaryMessages  # The error messages for the specified job.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "messages": "messages",
+        }
+        key_transform_with_dump = {
+            "messages": "messages",
+        }

@@ -6,8 +6,7 @@ __all__ = ["DrillDownOptionsDictInput"]
 @dataclass
 class DrillDownOptionsDictInput:
     """
-    [Circular reference detected: DrillDownOptionsDict-Input -> AnonymousArrayItem48 ->
-    DrillDownOptionsDict-Input]
+    [Self-referencing schema: DrillDownOptionsDictInput]
     """
 
     # No properties defined in schema

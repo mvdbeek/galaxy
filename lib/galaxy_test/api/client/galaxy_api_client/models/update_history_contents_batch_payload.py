@@ -16,3 +16,13 @@ class UpdateHistoryContentsBatchPayload:
     """
 
     items: list[UpdateContentItem]  # A list of content items to update with the changes.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "items": "items",
+        }
+        key_transform_with_dump = {
+            "items": "items",
+        }

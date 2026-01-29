@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .elements import Elements
+from .composite_items_elements import CompositeItemsElements
 
 __all__ = ["CompositeItems"]
 
@@ -8,10 +8,21 @@ __all__ = ["CompositeItems"]
 @dataclass
 class CompositeItems:
     """
-    CompositeItems dataclass.
+    CompositeItems dataclass
 
     Args:
-        elements (Elements)      :
+        elements (CompositeItemsElements)
+                                 :
     """
 
-    elements: Elements
+    elements: CompositeItemsElements
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "elements": "elements",
+        }
+        key_transform_with_dump = {
+            "elements": "elements",
+        }

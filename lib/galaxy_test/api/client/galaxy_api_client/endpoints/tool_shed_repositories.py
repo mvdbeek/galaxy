@@ -1,7 +1,9 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
+from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
 from ..models.check_for_updates_response import CheckForUpdatesResponse
 from ..models.installed_tool_shed_repository import InstalledToolShedRepository
@@ -18,14 +20,59 @@ from ..models.tool_shed_repositories_index_param_owner import ToolShedRepositori
 from ..models.tool_shed_repositories_index_param_uninstalled import ToolShedRepositoriesIndexParamUninstalled
 
 
-class ToolShedRepositoriesClient:
+@runtime_checkable
+class ToolShedRepositoriesClientProtocol(Protocol):
+    """Protocol defining the interface of ToolShedRepositoriesClient for dependency injection."""
+
+    async def tool_shed_repositories_index(
+        self,
+        name: ToolShedRepositoriesIndexParamName | None = None,
+        owner: ToolShedRepositoriesIndexParamOwner | None = None,
+        changeset: ToolShedRepositoriesIndexParamChangeset | None = None,
+        deleted: ToolShedRepositoriesIndexParamDeleted | None = None,
+        uninstalled: ToolShedRepositoriesIndexParamUninstalled | None = None,
+    ) -> list[InstalledToolShedRepository]: ...
+
+    async def tool_shed_repositories_index(
+        self,
+        name: ToolShedRepositoriesIndexParamName | None = None,
+        owner: ToolShedRepositoriesIndexParamOwner | None = None,
+        changeset: ToolShedRepositoriesIndexParamChangeset | None = None,
+        deleted: ToolShedRepositoriesIndexParamDeleted | None = None,
+        uninstalled: ToolShedRepositoriesIndexParamUninstalled | None = None,
+    ) -> list[InstalledToolShedRepository]: ...
+
+    async def tool_shed_repositories_check_for_updates_check_for_updates(
+        self,
+        id_: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId | None = None,
+        run_as: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs | None = None,
+    ) -> CheckForUpdatesResponse: ...
+
+    async def tool_shed_repositories_check_for_updates_check_for_updates(
+        self,
+        id_: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId | None = None,
+        run_as: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs | None = None,
+    ) -> CheckForUpdatesResponse: ...
+
+    async def tool_shed_repositories_show(
+        self,
+        id_: str,
+    ) -> InstalledToolShedRepository: ...
+
+    async def tool_shed_repositories_show(
+        self,
+        id_: str,
+    ) -> InstalledToolShedRepository: ...
+
+
+class ToolShedRepositoriesClient(ToolShedRepositoriesClientProtocol):
     """Client for tool_shed_repositories endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def tool_shed_repositories_index_2_2(
+    async def tool_shed_repositories_index(
         self,
         name: ToolShedRepositoriesIndexParamName | None = None,
         owner: ToolShedRepositoriesIndexParamOwner | None = None,
@@ -37,15 +84,15 @@ class ToolShedRepositoriesClient:
         Lists installed tool shed repositories.
 
         Args:
-            name (Optional[ToolShedRepositoriesIndexParamName])
+            name (ToolShedRepositoriesIndexParamName | None)
                                      : Filter by repository name.
-            owner (Optional[ToolShedRepositoriesIndexParamOwner])
+            owner (ToolShedRepositoriesIndexParamOwner | None)
                                      : Filter by repository owner.
-            changeset (Optional[ToolShedRepositoriesIndexParamChangeset])
+            changeset (ToolShedRepositoriesIndexParamChangeset | None)
                                      : Filter by changeset revision.
-            deleted (Optional[ToolShedRepositoriesIndexParamDeleted])
+            deleted (ToolShedRepositoriesIndexParamDeleted | None)
                                      : Filter by whether the repository has been deleted.
-            uninstalled (Optional[ToolShedRepositoriesIndexParamUninstalled])
+            uninstalled (ToolShedRepositoriesIndexParamUninstalled | None)
                                      : Filter by whether the repository has been uninstalled.
 
         Returns:
@@ -58,11 +105,11 @@ class ToolShedRepositoriesClient:
         url = f"{self.base_url}/api/tool_shed_repositories"
 
         params: dict[str, Any] = {
-            **({"name": name} if name is not None else {}),
-            **({"owner": owner} if owner is not None else {}),
-            **({"changeset": changeset} if changeset is not None else {}),
-            **({"deleted": deleted} if deleted is not None else {}),
-            **({"uninstalled": uninstalled} if uninstalled is not None else {}),
+            **({"name": DataclassSerializer.serialize(name)} if name is not None else {}),
+            **({"owner": DataclassSerializer.serialize(owner)} if owner is not None else {}),
+            **({"changeset": DataclassSerializer.serialize(changeset)} if changeset is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
+            **({"uninstalled": DataclassSerializer.serialize(uninstalled)} if uninstalled is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=None)
@@ -70,13 +117,13 @@ class ToolShedRepositoriesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[InstalledToolShedRepository], response.json())
+                return structure_from_dict(response.json(), list[InstalledToolShedRepository])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_shed_repositories_index_2_2(
+    async def tool_shed_repositories_index(
         self,
         name: ToolShedRepositoriesIndexParamName | None = None,
         owner: ToolShedRepositoriesIndexParamOwner | None = None,
@@ -88,15 +135,15 @@ class ToolShedRepositoriesClient:
         Lists installed tool shed repositories.
 
         Args:
-            name (Optional[ToolShedRepositoriesIndexParamName])
+            name (ToolShedRepositoriesIndexParamName | None)
                                      : Filter by repository name.
-            owner (Optional[ToolShedRepositoriesIndexParamOwner])
+            owner (ToolShedRepositoriesIndexParamOwner | None)
                                      : Filter by repository owner.
-            changeset (Optional[ToolShedRepositoriesIndexParamChangeset])
+            changeset (ToolShedRepositoriesIndexParamChangeset | None)
                                      : Filter by changeset revision.
-            deleted (Optional[ToolShedRepositoriesIndexParamDeleted])
+            deleted (ToolShedRepositoriesIndexParamDeleted | None)
                                      : Filter by whether the repository has been deleted.
-            uninstalled (Optional[ToolShedRepositoriesIndexParamUninstalled])
+            uninstalled (ToolShedRepositoriesIndexParamUninstalled | None)
                                      : Filter by whether the repository has been uninstalled.
 
         Returns:
@@ -109,11 +156,11 @@ class ToolShedRepositoriesClient:
         url = f"{self.base_url}/api/tool_shed_repositories"
 
         params: dict[str, Any] = {
-            **({"name": name} if name is not None else {}),
-            **({"owner": owner} if owner is not None else {}),
-            **({"changeset": changeset} if changeset is not None else {}),
-            **({"deleted": deleted} if deleted is not None else {}),
-            **({"uninstalled": uninstalled} if uninstalled is not None else {}),
+            **({"name": DataclassSerializer.serialize(name)} if name is not None else {}),
+            **({"owner": DataclassSerializer.serialize(owner)} if owner is not None else {}),
+            **({"changeset": DataclassSerializer.serialize(changeset)} if changeset is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
+            **({"uninstalled": DataclassSerializer.serialize(uninstalled)} if uninstalled is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=None)
@@ -121,13 +168,13 @@ class ToolShedRepositoriesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[InstalledToolShedRepository], response.json())
+                return structure_from_dict(response.json(), list[InstalledToolShedRepository])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_shed_repositories_check_for_updates_check_for_updates_2_2(
+    async def tool_shed_repositories_check_for_updates_check_for_updates(
         self,
         id_: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId | None = None,
         run_as: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs | None = None,
@@ -136,9 +183,9 @@ class ToolShedRepositoriesClient:
         Check for updates to the specified repository, or all installed repositories.
 
         Args:
-            id (Optional[ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId])
+            id (ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId | None)
                                      :
-            run-as (Optional[ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs])
+            run-as (ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -153,11 +200,11 @@ class ToolShedRepositoriesClient:
         url = f"{self.base_url}/api/tool_shed_repositories/check_for_updates"
 
         params: dict[str, Any] = {
-            **({"id": id_} if id_ is not None else {}),
+            **({"id": DataclassSerializer.serialize(id_)} if id_ is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -165,13 +212,13 @@ class ToolShedRepositoriesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CheckForUpdatesResponse, response.json())
+                return structure_from_dict(response.json(), CheckForUpdatesResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_shed_repositories_check_for_updates_check_for_updates_2_2(
+    async def tool_shed_repositories_check_for_updates_check_for_updates(
         self,
         id_: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId | None = None,
         run_as: ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs | None = None,
@@ -180,9 +227,9 @@ class ToolShedRepositoriesClient:
         Check for updates to the specified repository, or all installed repositories.
 
         Args:
-            id (Optional[ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId])
+            id (ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamId | None)
                                      :
-            run-as (Optional[ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs])
+            run-as (ToolShedRepositoriesCheckForUpdatesCheckForUpdatesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -197,11 +244,11 @@ class ToolShedRepositoriesClient:
         url = f"{self.base_url}/api/tool_shed_repositories/check_for_updates"
 
         params: dict[str, Any] = {
-            **({"id": id_} if id_ is not None else {}),
+            **({"id": DataclassSerializer.serialize(id_)} if id_ is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -209,13 +256,13 @@ class ToolShedRepositoriesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CheckForUpdatesResponse, response.json())
+                return structure_from_dict(response.json(), CheckForUpdatesResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_shed_repositories_show_2_2(
+    async def tool_shed_repositories_show(
         self,
         id_: str,
     ) -> InstalledToolShedRepository:
@@ -233,6 +280,8 @@ class ToolShedRepositoriesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/tool_shed_repositories/{id_}"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -240,13 +289,13 @@ class ToolShedRepositoriesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InstalledToolShedRepository, response.json())
+                return structure_from_dict(response.json(), InstalledToolShedRepository)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tool_shed_repositories_show_2_2(
+    async def tool_shed_repositories_show(
         self,
         id_: str,
     ) -> InstalledToolShedRepository:
@@ -264,6 +313,8 @@ class ToolShedRepositoriesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/tool_shed_repositories/{id_}"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -271,8 +322,8 @@ class ToolShedRepositoriesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InstalledToolShedRepository, response.json())
+                return structure_from_dict(response.json(), InstalledToolShedRepository)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

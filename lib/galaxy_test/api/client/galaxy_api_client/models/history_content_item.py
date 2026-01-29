@@ -8,14 +8,25 @@ __all__ = ["HistoryContentItem"]
 @dataclass
 class HistoryContentItem:
     """
-    HistoryContentItem dataclass.
+    HistoryContentItem dataclass
 
     Args:
         history_content_type (HistoryContentType)
-                                 : This is always `dataset_collection` for dataset
-                                   collections.
-        id_ (str)                :
+                                 : Available types of History contents.
+        id_ (str)                : Maps from 'id'
     """
 
-    history_content_type: HistoryContentType  # This is always `dataset_collection` for dataset collections.
-    id_: str
+    history_content_type: HistoryContentType  # Available types of History contents.
+    id_: str  # Maps from 'id'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "history_content_type": "history_content_type",
+            "id": "id_",
+        }
+        key_transform_with_dump = {
+            "history_content_type": "history_content_type",
+            "id_": "id",
+        }

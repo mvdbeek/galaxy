@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-from .destination import Destination
+from .data_elements_from_target_destination import DataElementsFromTargetDestination
+from .data_elements_from_target_ftp_path import DataElementsFromTargetFtpPath
+from .data_elements_from_target_path import DataElementsFromTargetPath
+from .data_elements_from_target_server_dir import DataElementsFromTargetServerDir
+from .data_elements_from_target_url import DataElementsFromTargetUrl
 from .elements_from_type import ElementsFromType
-from .ftp_path import FtpPath
 from .items_from_src import ItemsFromSrc
-from .path import Path
-from .server_dir import ServerDir
-from .url import Url
 
 __all__ = ["DataElementsFromTarget"]
 
@@ -14,34 +14,61 @@ __all__ = ["DataElementsFromTarget"]
 @dataclass
 class DataElementsFromTarget:
     """
-    DataElementsFromTarget dataclass.
+    DataElementsFromTarget dataclass
 
     Args:
-        destination (Destination):
+        destination (DataElementsFromTargetDestination)
+                                 :
         elements_from (ElementsFromType)
                                  :
         src (ItemsFromSrc)       :
-        auto_decompress (Optional[bool])
+        auto_decompress (bool | None)
                                  : This is a boolean value that indicates whether the
                                    dataset should be automatically decompressed if it is
                                    compressed. If set to true, Galaxy will attempt to
                                    decompress the dataset if it is compressed and it is not
                                    explicitly set to a compressed datatype.
-        ftp_path (Optional[FtpPath])
+        ftp_path (DataElementsFromTargetFtpPath | None)
                                  :
-        path (Optional[Path])    :
-        server_dir (Optional[ServerDir])
+        path (DataElementsFromTargetPath | None)
                                  :
-        url (Optional[Url])      : The relative URL to access this item.
+        server_dir (DataElementsFromTargetServerDir | None)
+                                 :
+        url (DataElementsFromTargetUrl | None)
+                                 :
     """
 
-    destination: Destination
+    destination: DataElementsFromTargetDestination
     elements_from: ElementsFromType
     src: ItemsFromSrc
     auto_decompress: bool | None = (
         False  # This is a boolean value that indicates whether the dataset should be automatically decompressed if it is compressed. If set to true, Galaxy will attempt to decompress the dataset if it is compressed and it is not explicitly set to a compressed datatype.
     )
-    ftp_path: FtpPath | None = None
-    path: Path | None = None
-    server_dir: ServerDir | None = ""
-    url: Url | None = None  # The relative URL to access this item.
+    ftp_path: DataElementsFromTargetFtpPath | None = None
+    path: DataElementsFromTargetPath | None = None
+    server_dir: DataElementsFromTargetServerDir | None = None
+    url: DataElementsFromTargetUrl | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "auto_decompress": "auto_decompress",
+            "destination": "destination",
+            "elements_from": "elements_from",
+            "ftp_path": "ftp_path",
+            "path": "path",
+            "server_dir": "server_dir",
+            "src": "src",
+            "url": "url",
+        }
+        key_transform_with_dump = {
+            "auto_decompress": "auto_decompress",
+            "destination": "destination",
+            "elements_from": "elements_from",
+            "ftp_path": "ftp_path",
+            "path": "path",
+            "server_dir": "server_dir",
+            "src": "src",
+            "url": "url",
+        }

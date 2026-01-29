@@ -6,8 +6,8 @@ __all__ = ["CollectionElementIdentifier"]
 @dataclass
 class CollectionElementIdentifier:
     """
-    [Circular reference detected: CollectionElementIdentifier -> ElementIdentifiers ->
-    AnonymousArrayItem22 -> CollectionElementIdentifier]
+    [Circular reference detected: CollectionElementIdentifier ->
+    CollectionElementIdentifierElementIdentifiers -> CollectionElementIdentifier]
     """
 
     # No properties defined in schema

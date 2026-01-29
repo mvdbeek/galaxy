@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
@@ -8,14 +8,31 @@ from ..models.item_tags_payload import ItemTagsPayload
 from ..models.tags_update_param_run_as import TagsUpdateParamRunAs
 
 
-class TagsClient:
+@runtime_checkable
+class TagsClientProtocol(Protocol):
+    """Protocol defining the interface of TagsClient for dependency injection."""
+
+    async def tags_update(
+        self,
+        body: ItemTagsPayload,
+        run_as: TagsUpdateParamRunAs | None = None,
+    ) -> None: ...
+
+    async def tags_update(
+        self,
+        body: ItemTagsPayload,
+        run_as: TagsUpdateParamRunAs | None = None,
+    ) -> None: ...
+
+
+class TagsClient(TagsClientProtocol):
     """Client for tags endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def tags_update_2_2(
+    async def tags_update(
         self,
         body: ItemTagsPayload,
         run_as: TagsUpdateParamRunAs | None = None,
@@ -28,7 +45,7 @@ class TagsClient:
         the currently associated tags will also be __deleted__.
 
         Args:
-            run-as (Optional[TagsUpdateParamRunAs])
+            run-as (TagsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -41,7 +58,7 @@ class TagsClient:
         url = f"{self.base_url}/api/tags"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ItemTagsPayload = DataclassSerializer.serialize(body)
@@ -55,9 +72,9 @@ class TagsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def tags_update_2_2(
+    async def tags_update(
         self,
         body: ItemTagsPayload,
         run_as: TagsUpdateParamRunAs | None = None,
@@ -70,7 +87,7 @@ class TagsClient:
         the currently associated tags will also be __deleted__.
 
         Args:
-            run-as (Optional[TagsUpdateParamRunAs])
+            run-as (TagsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -83,7 +100,7 @@ class TagsClient:
         url = f"{self.base_url}/api/tags"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ItemTagsPayload = DataclassSerializer.serialize(body)
@@ -97,4 +114,4 @@ class TagsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

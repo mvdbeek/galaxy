@@ -1,14 +1,15 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 from uuid import UUID
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
-from ..models.anonymous_array_item_202 import AnonymousArrayItem202
-from ..models.anonymous_array_item_224 import AnonymousArrayItem224
-from ..models.anonymous_array_item_226 import AnonymousArrayItem226
-from ..models.anonymous_array_item_228 import AnonymousArrayItem228
+from ..models.anonymous_array_item_113 import AnonymousArrayItem113
+from ..models.anonymous_array_item_129 import AnonymousArrayItem129
+from ..models.anonymous_array_item_131 import AnonymousArrayItem131
+from ..models.anonymous_array_item_133 import AnonymousArrayItem133
 from ..models.async_file import AsyncFile
 from ..models.async_task_result_summary import AsyncTaskResultSummary
 from ..models.create_invocations_from_store_payload import CreateInvocationsFromStorePayload
@@ -37,7 +38,7 @@ from ..models.workflow_job_metric import WorkflowJobMetric
 from ..models.workflow_landing_request import WorkflowLandingRequest
 from ..models.workflows_cancel_invocation_param_run_as import WorkflowsCancelInvocationParamRunAs
 from ..models.workflows_claim_claim_landing_param_run_as import WorkflowsClaimClaimLandingParamRunAs
-from ..models.workflows_claim_claim_landing_request_body_2 import WorkflowsClaimClaimLandingRequestBody2
+from ..models.workflows_claim_claim_landing_request_body import WorkflowsClaimClaimLandingRequestBody
 from ..models.workflows_create_landing_param_run_as import WorkflowsCreateLandingParamRunAs
 from ..models.workflows_delete_workflow_param_run_as import WorkflowsDeleteWorkflowParamRunAs
 from ..models.workflows_disable_link_access_disable_link_access_param_run_as import (
@@ -105,7 +106,7 @@ from ..models.workflows_invocations_index_workflow_invocations_param_user_id imp
 from ..models.workflows_invocations_index_workflow_invocations_param_view import (
     WorkflowsInvocationsIndexWorkflowInvocationsParamView,
 )
-from ..models.workflows_invocations_invoke_200_response_2 import WorkflowsInvocationsInvoke200Response2
+from ..models.workflows_invocations_invoke_200_response import WorkflowsInvocationsInvoke200Response
 from ..models.workflows_invocations_invoke_param_run_as import WorkflowsInvocationsInvokeParamRunAs
 from ..models.workflows_invocations_invoke_param_workflow_id import WorkflowsInvocationsInvokeParamWorkflowId
 from ..models.workflows_invocations_jobs_summary_workflow_invocation_jobs_summary_param_run_as import (
@@ -210,7 +211,7 @@ from ..models.workflows_usage_index_workflow_invocations_param_user_id import (
 from ..models.workflows_usage_index_workflow_invocations_param_view import (
     WorkflowsUsageIndexWorkflowInvocationsParamView,
 )
-from ..models.workflows_usage_invoke_200_response_2 import WorkflowsUsageInvoke200Response2
+from ..models.workflows_usage_invoke_200_response import WorkflowsUsageInvoke200Response
 from ..models.workflows_usage_invoke_param_run_as import WorkflowsUsageInvokeParamRunAs
 from ..models.workflows_usage_invoke_param_workflow_id import WorkflowsUsageInvokeParamWorkflowId
 from ..models.workflows_usage_jobs_summary_workflow_invocation_jobs_summary_param_run_as import (
@@ -240,62 +241,950 @@ from ..models.workflows_write_store_write_store_param_run_as import WorkflowsWri
 from ..models.write_invocation_store_to_payload import WriteInvocationStoreToPayload
 
 
-class WorkflowsClient:
+@runtime_checkable
+class WorkflowsClientProtocol(Protocol):
+    """Protocol defining the interface of WorkflowsClient for dependency injection."""
+
+    async def workflows_index_invocations(
+        self,
+        workflow_id: WorkflowsIndexInvocationsParamWorkflowId | None = None,
+        history_id: WorkflowsIndexInvocationsParamHistoryId | None = None,
+        job_id: WorkflowsIndexInvocationsParamJobId | None = None,
+        user_id: WorkflowsIndexInvocationsParamUserId | None = None,
+        sort_by: WorkflowsIndexInvocationsParamSortBy | None = None,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsIndexInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsIndexInvocationsParamLimit | None = None,
+        offset: WorkflowsIndexInvocationsParamOffset | None = None,
+        instance: WorkflowsIndexInvocationsParamInstance | None = None,
+        view: WorkflowsIndexInvocationsParamView | None = None,
+        step_details: bool | None = None,
+        include_nested_invocations: bool | None = None,
+        run_as: WorkflowsIndexInvocationsParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_index_invocations(
+        self,
+        workflow_id: WorkflowsIndexInvocationsParamWorkflowId | None = None,
+        history_id: WorkflowsIndexInvocationsParamHistoryId | None = None,
+        job_id: WorkflowsIndexInvocationsParamJobId | None = None,
+        user_id: WorkflowsIndexInvocationsParamUserId | None = None,
+        sort_by: WorkflowsIndexInvocationsParamSortBy | None = None,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsIndexInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsIndexInvocationsParamLimit | None = None,
+        offset: WorkflowsIndexInvocationsParamOffset | None = None,
+        instance: WorkflowsIndexInvocationsParamInstance | None = None,
+        view: WorkflowsIndexInvocationsParamView | None = None,
+        step_details: bool | None = None,
+        include_nested_invocations: bool | None = None,
+        run_as: WorkflowsIndexInvocationsParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_from_store_create_invocations_from_store(
+        self,
+        body: CreateInvocationsFromStorePayload,
+        run_as: WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_from_store_create_invocations_from_store(
+        self,
+        body: CreateInvocationsFromStorePayload,
+        run_as: WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_steps_step(
+        self,
+        step_id: str,
+        run_as: WorkflowsStepsStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_steps_step(
+        self,
+        step_id: str,
+        run_as: WorkflowsStepsStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_cancel_invocation(
+        self,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsCancelInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_cancel_invocation(
+        self,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsCancelInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_show_invocation(
+        self,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsShowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_show_invocation(
+        self,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsShowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_error_report_error(
+        self,
+        invocation_id: str,
+        body: ReportInvocationErrorPayload,
+        run_as: WorkflowsErrorReportErrorParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_error_report_error(
+        self,
+        invocation_id: str,
+        body: ReportInvocationErrorPayload,
+        run_as: WorkflowsErrorReportErrorParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_jobs_summary_invocation_jobs_summary(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs | None = None,
+    ) -> InvocationJobsResponse: ...
+
+    async def workflows_jobs_summary_invocation_jobs_summary(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs | None = None,
+    ) -> InvocationJobsResponse: ...
+
+    async def workflows_metrics_get_invocation_metrics(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsMetricsGetInvocationMetricsParamRunAs | None = None,
+    ) -> list[WorkflowJobMetric]: ...
+
+    async def workflows_metrics_get_invocation_metrics(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsMetricsGetInvocationMetricsParamRunAs | None = None,
+    ) -> list[WorkflowJobMetric]: ...
+
+    async def workflows_prepare_store_download_prepare_store_download(
+        self,
+        invocation_id: str,
+        body: PrepareStoreDownloadPayload,
+        run_as: WorkflowsPrepareStoreDownloadPrepareStoreDownloadParamRunAs | None = None,
+    ) -> AsyncFile: ...
+
+    async def workflows_prepare_store_download_prepare_store_download(
+        self,
+        invocation_id: str,
+        body: PrepareStoreDownloadPayload,
+        run_as: WorkflowsPrepareStoreDownloadPrepareStoreDownloadParamRunAs | None = None,
+    ) -> AsyncFile: ...
+
+    async def workflows_report_show_invocation_report(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsReportShowInvocationReportParamRunAs | None = None,
+    ) -> InvocationReport: ...
+
+    async def workflows_report_show_invocation_report(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsReportShowInvocationReportParamRunAs | None = None,
+    ) -> InvocationReport: ...
+
+    async def workflows_report_pdf_show_invocation_report_pdf(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsReportPdfShowInvocationReportPdfParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_report_pdf_show_invocation_report_pdf(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsReportPdfShowInvocationReportPdfParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_request_invocation_as_request(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsRequestInvocationAsRequestParamRunAs | None = None,
+    ) -> WorkflowInvocationRequestModel: ...
+
+    async def workflows_request_invocation_as_request(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsRequestInvocationAsRequestParamRunAs | None = None,
+    ) -> WorkflowInvocationRequestModel: ...
+
+    async def workflows_step_jobs_summary_invocation_step_jobs_summary(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem113]: ...
+
+    async def workflows_step_jobs_summary_invocation_step_jobs_summary(
+        self,
+        invocation_id: str,
+        run_as: WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem113]: ...
+
+    async def workflows_steps_invocation_step(
+        self,
+        invocation_id: str,
+        step_id: str,
+        run_as: WorkflowsStepsInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_steps_invocation_step(
+        self,
+        invocation_id: str,
+        step_id: str,
+        run_as: WorkflowsStepsInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_steps_update_invocation_step(
+        self,
+        invocation_id: str,
+        step_id: str,
+        body: InvocationUpdatePayload,
+        run_as: WorkflowsStepsUpdateInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_steps_update_invocation_step(
+        self,
+        invocation_id: str,
+        step_id: str,
+        body: InvocationUpdatePayload,
+        run_as: WorkflowsStepsUpdateInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_write_store_write_store(
+        self,
+        invocation_id: str,
+        body: WriteInvocationStoreToPayload,
+        run_as: WorkflowsWriteStoreWriteStoreParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def workflows_write_store_write_store(
+        self,
+        invocation_id: str,
+        body: WriteInvocationStoreToPayload,
+        run_as: WorkflowsWriteStoreWriteStoreParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def workflows_create_landing(
+        self,
+        body: CreateWorkflowLandingRequestPayload,
+        run_as: WorkflowsCreateLandingParamRunAs | None = None,
+    ) -> WorkflowLandingRequest: ...
+
+    async def workflows_create_landing(
+        self,
+        body: CreateWorkflowLandingRequestPayload,
+        run_as: WorkflowsCreateLandingParamRunAs | None = None,
+    ) -> WorkflowLandingRequest: ...
+
+    async def workflows_get_landing(
+        self,
+        uuid_: UUID,
+        run_as: WorkflowsGetLandingParamRunAs | None = None,
+    ) -> WorkflowLandingRequest: ...
+
+    async def workflows_get_landing(
+        self,
+        uuid_: UUID,
+        run_as: WorkflowsGetLandingParamRunAs | None = None,
+    ) -> WorkflowLandingRequest: ...
+
+    async def workflows_claim_claim_landing(
+        self,
+        uuid_: UUID,
+        body: WorkflowsClaimClaimLandingRequestBody | None,
+        run_as: WorkflowsClaimClaimLandingParamRunAs | None = None,
+    ) -> WorkflowLandingRequest: ...
+
+    async def workflows_claim_claim_landing(
+        self,
+        uuid_: UUID,
+        body: WorkflowsClaimClaimLandingRequestBody | None,
+        run_as: WorkflowsClaimClaimLandingParamRunAs | None = None,
+    ) -> WorkflowLandingRequest: ...
+
+    async def workflows_index(
+        self,
+        show_deleted: bool | None = None,
+        show_hidden: bool | None = None,
+        missing_tools: bool | None = None,
+        show_published: WorkflowsIndexParamShowPublished | None = None,
+        show_shared: WorkflowsIndexParamShowShared | None = None,
+        sort_by: WorkflowsIndexParamSortBy | None = None,
+        sort_desc: WorkflowsIndexParamSortDesc | None = None,
+        limit: WorkflowsIndexParamLimit | None = None,
+        offset: WorkflowsIndexParamOffset | None = None,
+        search: WorkflowsIndexParamSearch | None = None,
+        skip_step_counts: bool | None = None,
+        run_as: WorkflowsIndexParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem129]: ...
+
+    async def workflows_index(
+        self,
+        show_deleted: bool | None = None,
+        show_hidden: bool | None = None,
+        missing_tools: bool | None = None,
+        show_published: WorkflowsIndexParamShowPublished | None = None,
+        show_shared: WorkflowsIndexParamShowShared | None = None,
+        sort_by: WorkflowsIndexParamSortBy | None = None,
+        sort_desc: WorkflowsIndexParamSortDesc | None = None,
+        limit: WorkflowsIndexParamLimit | None = None,
+        offset: WorkflowsIndexParamOffset | None = None,
+        search: WorkflowsIndexParamSearch | None = None,
+        skip_step_counts: bool | None = None,
+        run_as: WorkflowsIndexParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem129]: ...
+
+    async def workflows_menu_get_workflow_menu(
+        self,
+        show_deleted: WorkflowsMenuGetWorkflowMenuParamShowDeleted | None = None,
+        show_hidden: WorkflowsMenuGetWorkflowMenuParamShowHidden | None = None,
+        missing_tools: WorkflowsMenuGetWorkflowMenuParamMissingTools | None = None,
+        show_published: WorkflowsMenuGetWorkflowMenuParamShowPublished | None = None,
+        show_shared: WorkflowsMenuGetWorkflowMenuParamShowShared | None = None,
+        run_as: WorkflowsMenuGetWorkflowMenuParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_menu_get_workflow_menu(
+        self,
+        show_deleted: WorkflowsMenuGetWorkflowMenuParamShowDeleted | None = None,
+        show_hidden: WorkflowsMenuGetWorkflowMenuParamShowHidden | None = None,
+        missing_tools: WorkflowsMenuGetWorkflowMenuParamMissingTools | None = None,
+        show_published: WorkflowsMenuGetWorkflowMenuParamShowPublished | None = None,
+        show_shared: WorkflowsMenuGetWorkflowMenuParamShowShared | None = None,
+        run_as: WorkflowsMenuGetWorkflowMenuParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_delete_workflow(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsDeleteWorkflowParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_delete_workflow(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsDeleteWorkflowParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_show_workflow(
+        self,
+        workflow_id: str,
+        instance: WorkflowsShowWorkflowParamInstance | None = None,
+        legacy: WorkflowsShowWorkflowParamLegacy | None = None,
+        version: WorkflowsShowWorkflowParamVersion | None = None,
+        run_as: WorkflowsShowWorkflowParamRunAs | None = None,
+    ) -> StoredWorkflowDetailed: ...
+
+    async def workflows_show_workflow(
+        self,
+        workflow_id: str,
+        instance: WorkflowsShowWorkflowParamInstance | None = None,
+        legacy: WorkflowsShowWorkflowParamLegacy | None = None,
+        version: WorkflowsShowWorkflowParamVersion | None = None,
+        run_as: WorkflowsShowWorkflowParamRunAs | None = None,
+    ) -> StoredWorkflowDetailed: ...
+
+    async def workflows_invocation_counts(
+        self,
+        workflow_id: str,
+        instance: WorkflowsInvocationCountsParamInstance | None = None,
+        run_as: WorkflowsInvocationCountsParamRunAs | None = None,
+    ) -> RootModelDictStrInt2: ...
+
+    async def workflows_invocation_counts(
+        self,
+        workflow_id: str,
+        instance: WorkflowsInvocationCountsParamInstance | None = None,
+        run_as: WorkflowsInvocationCountsParamRunAs | None = None,
+    ) -> RootModelDictStrInt2: ...
+
+    async def workflows_disable_link_access_disable_link_access(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_disable_link_access_disable_link_access(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_enable_link_access_enable_link_access(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_enable_link_access_enable_link_access(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_invocations_index_workflow_invocations(
+        self,
+        workflow_id: str,
+        history_id: WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId | None = None,
+        job_id: WorkflowsInvocationsIndexWorkflowInvocationsParamJobId | None = None,
+        user_id: WorkflowsInvocationsIndexWorkflowInvocationsParamUserId | None = None,
+        sort_by: WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy | None = None,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None = None,
+        offset: WorkflowsInvocationsIndexWorkflowInvocationsParamOffset | None = None,
+        instance: WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None = None,
+        view: WorkflowsInvocationsIndexWorkflowInvocationsParamView | None = None,
+        step_details: bool | None = None,
+        run_as: WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_invocations_index_workflow_invocations(
+        self,
+        workflow_id: str,
+        history_id: WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId | None = None,
+        job_id: WorkflowsInvocationsIndexWorkflowInvocationsParamJobId | None = None,
+        user_id: WorkflowsInvocationsIndexWorkflowInvocationsParamUserId | None = None,
+        sort_by: WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy | None = None,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None = None,
+        offset: WorkflowsInvocationsIndexWorkflowInvocationsParamOffset | None = None,
+        instance: WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None = None,
+        view: WorkflowsInvocationsIndexWorkflowInvocationsParamView | None = None,
+        step_details: bool | None = None,
+        run_as: WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_invocations_invoke(
+        self,
+        workflow_id: WorkflowsInvocationsInvokeParamWorkflowId,
+        body: InvokeWorkflowPayload,
+        run_as: WorkflowsInvocationsInvokeParamRunAs | None = None,
+    ) -> WorkflowsInvocationsInvoke200Response: ...
+
+    async def workflows_invocations_invoke(
+        self,
+        workflow_id: WorkflowsInvocationsInvokeParamWorkflowId,
+        body: InvokeWorkflowPayload,
+        run_as: WorkflowsInvocationsInvokeParamRunAs | None = None,
+    ) -> WorkflowsInvocationsInvoke200Response: ...
+
+    async def workflows_invocations_cancel_workflow_invocation(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsInvocationsCancelWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_invocations_cancel_workflow_invocation(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsInvocationsCancelWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_invocations_show_workflow_invocation(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsInvocationsShowWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_invocations_show_workflow_invocation(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsInvocationsShowWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_invocations_jobs_summary_workflow_invocation_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsInvocationsJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None = None,
+    ) -> InvocationJobsResponse: ...
+
+    async def workflows_invocations_jobs_summary_workflow_invocation_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsInvocationsJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None = None,
+    ) -> InvocationJobsResponse: ...
+
+    async def workflows_invocations_report_show_workflow_invocation_report(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        run_as: WorkflowsInvocationsReportShowWorkflowInvocationReportParamRunAs | None = None,
+    ) -> InvocationReport: ...
+
+    async def workflows_invocations_report_show_workflow_invocation_report(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        run_as: WorkflowsInvocationsReportShowWorkflowInvocationReportParamRunAs | None = None,
+    ) -> InvocationReport: ...
+
+    async def workflows_invocations_report_pdf_show_workflow_invocation_report_pdf(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsInvocationsReportPdfShowWorkflowInvocationReportPdfParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_invocations_report_pdf_show_workflow_invocation_report_pdf(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsInvocationsReportPdfShowWorkflowInvocationReportPdfParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_invocations_step_jobs_summary_workflow_invocation_step_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem131]: ...
+
+    async def workflows_invocations_step_jobs_summary_workflow_invocation_step_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem131]: ...
+
+    async def workflows_invocations_steps_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        run_as: WorkflowsInvocationsStepsWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_invocations_steps_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        run_as: WorkflowsInvocationsStepsWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_invocations_steps_update_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        body: InvocationUpdatePayload,
+        run_as: WorkflowsInvocationsStepsUpdateWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_invocations_steps_update_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        body: InvocationUpdatePayload,
+        run_as: WorkflowsInvocationsStepsUpdateWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_publish_publish(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsPublishPublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_publish_publish(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsPublishPublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_refactor_refactor(
+        self,
+        workflow_id: str,
+        body: RefactorRequest,
+        instance: WorkflowsRefactorRefactorParamInstance | None = None,
+        run_as: WorkflowsRefactorRefactorParamRunAs | None = None,
+    ) -> RefactorResponse: ...
+
+    async def workflows_refactor_refactor(
+        self,
+        workflow_id: str,
+        body: RefactorRequest,
+        instance: WorkflowsRefactorRefactorParamInstance | None = None,
+        run_as: WorkflowsRefactorRefactorParamRunAs | None = None,
+    ) -> RefactorResponse: ...
+
+    async def workflows_share_with_users_share_with_users(
+        self,
+        workflow_id: str,
+        body: ShareWithPayload,
+        run_as: WorkflowsShareWithUsersShareWithUsersParamRunAs | None = None,
+    ) -> ShareWithStatus: ...
+
+    async def workflows_share_with_users_share_with_users(
+        self,
+        workflow_id: str,
+        body: ShareWithPayload,
+        run_as: WorkflowsShareWithUsersShareWithUsersParamRunAs | None = None,
+    ) -> ShareWithStatus: ...
+
+    async def workflows_sharing_sharing(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsSharingSharingParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_sharing_sharing(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsSharingSharingParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_slug_set_slug(
+        self,
+        workflow_id: str,
+        body: SetSlugPayload,
+        run_as: WorkflowsSlugSetSlugParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_slug_set_slug(
+        self,
+        workflow_id: str,
+        body: SetSlugPayload,
+        run_as: WorkflowsSlugSetSlugParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_tags_index(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsTagsIndexParamRunAs | None = None,
+    ) -> ItemTagsListResponse: ...
+
+    async def workflows_tags_delete(
+        self,
+        workflow_id: str,
+        tag_name: str,
+        run_as: WorkflowsTagsDeleteParamRunAs | None = None,
+    ) -> bool: ...
+
+    async def workflows_tags_show(
+        self,
+        workflow_id: str,
+        tag_name: str,
+        run_as: WorkflowsTagsShowParamRunAs | None = None,
+    ) -> ItemTagsResponse: ...
+
+    async def workflows_tags_create(
+        self,
+        workflow_id: str,
+        tag_name: str,
+        run_as: WorkflowsTagsCreateParamRunAs | None = None,
+        body: ItemTagsCreatePayload | None = None,
+    ) -> ItemTagsResponse: ...
+
+    async def workflows_tags_update(
+        self,
+        workflow_id: str,
+        tag_name: str,
+        body: ItemTagsCreatePayload,
+        run_as: WorkflowsTagsUpdateParamRunAs | None = None,
+    ) -> ItemTagsResponse: ...
+
+    async def workflows_undelete_undelete_workflow(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsUndeleteUndeleteWorkflowParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_undelete_undelete_workflow(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsUndeleteUndeleteWorkflowParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_unpublish_unpublish(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsUnpublishUnpublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_unpublish_unpublish(
+        self,
+        workflow_id: str,
+        run_as: WorkflowsUnpublishUnpublishParamRunAs | None = None,
+    ) -> SharingStatus: ...
+
+    async def workflows_usage_index_workflow_invocations(
+        self,
+        workflow_id: str,
+        history_id: WorkflowsUsageIndexWorkflowInvocationsParamHistoryId | None = None,
+        job_id: WorkflowsUsageIndexWorkflowInvocationsParamJobId | None = None,
+        user_id: WorkflowsUsageIndexWorkflowInvocationsParamUserId | None = None,
+        sort_by: WorkflowsUsageIndexWorkflowInvocationsParamSortBy | None = None,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsUsageIndexWorkflowInvocationsParamLimit | None = None,
+        offset: WorkflowsUsageIndexWorkflowInvocationsParamOffset | None = None,
+        instance: WorkflowsUsageIndexWorkflowInvocationsParamInstance | None = None,
+        view: WorkflowsUsageIndexWorkflowInvocationsParamView | None = None,
+        step_details: bool | None = None,
+        run_as: WorkflowsUsageIndexWorkflowInvocationsParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_usage_index_workflow_invocations(
+        self,
+        workflow_id: str,
+        history_id: WorkflowsUsageIndexWorkflowInvocationsParamHistoryId | None = None,
+        job_id: WorkflowsUsageIndexWorkflowInvocationsParamJobId | None = None,
+        user_id: WorkflowsUsageIndexWorkflowInvocationsParamUserId | None = None,
+        sort_by: WorkflowsUsageIndexWorkflowInvocationsParamSortBy | None = None,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsUsageIndexWorkflowInvocationsParamLimit | None = None,
+        offset: WorkflowsUsageIndexWorkflowInvocationsParamOffset | None = None,
+        instance: WorkflowsUsageIndexWorkflowInvocationsParamInstance | None = None,
+        view: WorkflowsUsageIndexWorkflowInvocationsParamView | None = None,
+        step_details: bool | None = None,
+        run_as: WorkflowsUsageIndexWorkflowInvocationsParamRunAs | None = None,
+    ) -> list[WorkflowInvocationResponse]: ...
+
+    async def workflows_usage_invoke(
+        self,
+        workflow_id: WorkflowsUsageInvokeParamWorkflowId,
+        body: InvokeWorkflowPayload,
+        run_as: WorkflowsUsageInvokeParamRunAs | None = None,
+    ) -> WorkflowsUsageInvoke200Response: ...
+
+    async def workflows_usage_invoke(
+        self,
+        workflow_id: WorkflowsUsageInvokeParamWorkflowId,
+        body: InvokeWorkflowPayload,
+        run_as: WorkflowsUsageInvokeParamRunAs | None = None,
+    ) -> WorkflowsUsageInvoke200Response: ...
+
+    async def workflows_usage_cancel_workflow_invocation(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsUsageCancelWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_usage_cancel_workflow_invocation(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsUsageCancelWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_usage_show_workflow_invocation(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsUsageShowWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_usage_show_workflow_invocation(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
+        run_as: WorkflowsUsageShowWorkflowInvocationParamRunAs | None = None,
+    ) -> WorkflowInvocationResponse: ...
+
+    async def workflows_usage_jobs_summary_workflow_invocation_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsUsageJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None = None,
+    ) -> InvocationJobsResponse: ...
+
+    async def workflows_usage_jobs_summary_workflow_invocation_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsUsageJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None = None,
+    ) -> InvocationJobsResponse: ...
+
+    async def workflows_usage_report_show_workflow_invocation_report(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        run_as: WorkflowsUsageReportShowWorkflowInvocationReportParamRunAs | None = None,
+    ) -> InvocationReport: ...
+
+    async def workflows_usage_report_show_workflow_invocation_report(
+        self,
+        invocation_id: str,
+        workflow_id: str,
+        run_as: WorkflowsUsageReportShowWorkflowInvocationReportParamRunAs | None = None,
+    ) -> InvocationReport: ...
+
+    async def workflows_usage_report_pdf_show_workflow_invocation_report_pdf(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsUsageReportPdfShowWorkflowInvocationReportPdfParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_usage_report_pdf_show_workflow_invocation_report_pdf(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsUsageReportPdfShowWorkflowInvocationReportPdfParamRunAs | None = None,
+    ) -> None: ...
+
+    async def workflows_usage_step_jobs_summary_workflow_invocation_step_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem133]: ...
+
+    async def workflows_usage_step_jobs_summary_workflow_invocation_step_jobs_summary(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        run_as: WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem133]: ...
+
+    async def workflows_usage_steps_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        run_as: WorkflowsUsageStepsWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_usage_steps_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        run_as: WorkflowsUsageStepsWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_usage_steps_update_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        body: InvocationUpdatePayload,
+        run_as: WorkflowsUsageStepsUpdateWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_usage_steps_update_workflow_invocation_step(
+        self,
+        workflow_id: str,
+        invocation_id: str,
+        step_id: str,
+        body: InvocationUpdatePayload,
+        run_as: WorkflowsUsageStepsUpdateWorkflowInvocationStepParamRunAs | None = None,
+    ) -> InvocationStep: ...
+
+    async def workflows_versions_show_versions(
+        self,
+        workflow_id: str,
+        instance: WorkflowsVersionsShowVersionsParamInstance | None = None,
+        run_as: WorkflowsVersionsShowVersionsParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def workflows_versions_show_versions(
+        self,
+        workflow_id: str,
+        instance: WorkflowsVersionsShowVersionsParamInstance | None = None,
+        run_as: WorkflowsVersionsShowVersionsParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+
+class WorkflowsClient(WorkflowsClientProtocol):
     """Client for workflows endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def workflows_index_invocations_2_2(
+    async def workflows_index_invocations(
         self,
         workflow_id: WorkflowsIndexInvocationsParamWorkflowId | None = None,
         history_id: WorkflowsIndexInvocationsParamHistoryId | None = None,
         job_id: WorkflowsIndexInvocationsParamJobId | None = None,
         user_id: WorkflowsIndexInvocationsParamUserId | None = None,
         sort_by: WorkflowsIndexInvocationsParamSortBy | None = None,
-        sort_desc: bool | None = False,
-        include_terminal: WorkflowsIndexInvocationsParamIncludeTerminal | None = True,
-        limit: WorkflowsIndexInvocationsParamLimit | None = 20,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsIndexInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsIndexInvocationsParamLimit | None = None,
         offset: WorkflowsIndexInvocationsParamOffset | None = None,
-        instance: WorkflowsIndexInvocationsParamInstance | None = False,
+        instance: WorkflowsIndexInvocationsParamInstance | None = None,
         view: WorkflowsIndexInvocationsParamView | None = None,
-        step_details: bool | None = False,
-        include_nested_invocations: bool | None = True,
+        step_details: bool | None = None,
+        include_nested_invocations: bool | None = None,
         run_as: WorkflowsIndexInvocationsParamRunAs | None = None,
     ) -> list[WorkflowInvocationResponse]:
         """
         Get the list of a user's workflow invocations.
 
         Args:
-            workflow_id (Optional[WorkflowsIndexInvocationsParamWorkflowId])
+            workflow_id (WorkflowsIndexInvocationsParamWorkflowId | None)
                                      : Return only invocations for this Workflow ID
-            history_id (Optional[WorkflowsIndexInvocationsParamHistoryId])
+            history_id (WorkflowsIndexInvocationsParamHistoryId | None)
                                      : Return only invocations for this History ID
-            job_id (Optional[WorkflowsIndexInvocationsParamJobId])
+            job_id (WorkflowsIndexInvocationsParamJobId | None)
                                      : Return only invocations for this Job ID
-            user_id (Optional[WorkflowsIndexInvocationsParamUserId])
+            user_id (WorkflowsIndexInvocationsParamUserId | None)
                                      : Return invocations for this User ID.
-            sort_by (Optional[WorkflowsIndexInvocationsParamSortBy])
+            sort_by (WorkflowsIndexInvocationsParamSortBy | None)
                                      : Sort Workflow Invocations by this attribute
-            sort_desc (Optional[bool]): Sort in descending order?
-            include_terminal (Optional[WorkflowsIndexInvocationsParamIncludeTerminal])
+            sort_desc (bool | None)  : Sort in descending order?
+            include_terminal (WorkflowsIndexInvocationsParamIncludeTerminal | None)
                                      : Set to false to only include terminal Invocations.
-            limit (Optional[WorkflowsIndexInvocationsParamLimit])
+            limit (WorkflowsIndexInvocationsParamLimit | None)
                                      : Limit the number of invocations to return.
-            offset (Optional[WorkflowsIndexInvocationsParamOffset])
+            offset (WorkflowsIndexInvocationsParamOffset | None)
                                      : Number of invocations to skip.
-            instance (Optional[WorkflowsIndexInvocationsParamInstance])
+            instance (WorkflowsIndexInvocationsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            view (Optional[WorkflowsIndexInvocationsParamView])
+            view (WorkflowsIndexInvocationsParamView | None)
                                      : View to be passed to the serializer
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            include_nested_invocations (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            include_nested_invocations (bool | None)
                                      :
-            run-as (Optional[WorkflowsIndexInvocationsParamRunAs])
+            run-as (WorkflowsIndexInvocationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -310,27 +1199,31 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/invocations"
 
         params: dict[str, Any] = {
-            **({"workflow_id": workflow_id} if workflow_id is not None else {}),
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"job_id": job_id} if job_id is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"include_terminal": include_terminal} if include_terminal is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"instance": instance} if instance is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"step_details": step_details} if step_details is not None else {}),
+            **({"workflow_id": DataclassSerializer.serialize(workflow_id)} if workflow_id is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"job_id": DataclassSerializer.serialize(job_id)} if job_id is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
             **(
-                {"include_nested_invocations": include_nested_invocations}
+                {"include_terminal": DataclassSerializer.serialize(include_terminal)}
+                if include_terminal is not None
+                else {}
+            ),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"include_nested_invocations": DataclassSerializer.serialize(include_nested_invocations)}
                 if include_nested_invocations is not None
                 else {}
             ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -338,61 +1231,60 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_index_invocations_2_2(
+    async def workflows_index_invocations(
         self,
         workflow_id: WorkflowsIndexInvocationsParamWorkflowId | None = None,
         history_id: WorkflowsIndexInvocationsParamHistoryId | None = None,
         job_id: WorkflowsIndexInvocationsParamJobId | None = None,
         user_id: WorkflowsIndexInvocationsParamUserId | None = None,
         sort_by: WorkflowsIndexInvocationsParamSortBy | None = None,
-        sort_desc: bool | None = False,
-        include_terminal: WorkflowsIndexInvocationsParamIncludeTerminal | None = True,
-        limit: WorkflowsIndexInvocationsParamLimit | None = 20,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsIndexInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsIndexInvocationsParamLimit | None = None,
         offset: WorkflowsIndexInvocationsParamOffset | None = None,
-        instance: WorkflowsIndexInvocationsParamInstance | None = False,
+        instance: WorkflowsIndexInvocationsParamInstance | None = None,
         view: WorkflowsIndexInvocationsParamView | None = None,
-        step_details: bool | None = False,
-        include_nested_invocations: bool | None = True,
+        step_details: bool | None = None,
+        include_nested_invocations: bool | None = None,
         run_as: WorkflowsIndexInvocationsParamRunAs | None = None,
     ) -> list[WorkflowInvocationResponse]:
         """
         Get the list of a user's workflow invocations.
 
         Args:
-            workflow_id (Optional[WorkflowsIndexInvocationsParamWorkflowId])
+            workflow_id (WorkflowsIndexInvocationsParamWorkflowId | None)
                                      : Return only invocations for this Workflow ID
-            history_id (Optional[WorkflowsIndexInvocationsParamHistoryId])
+            history_id (WorkflowsIndexInvocationsParamHistoryId | None)
                                      : Return only invocations for this History ID
-            job_id (Optional[WorkflowsIndexInvocationsParamJobId])
+            job_id (WorkflowsIndexInvocationsParamJobId | None)
                                      : Return only invocations for this Job ID
-            user_id (Optional[WorkflowsIndexInvocationsParamUserId])
+            user_id (WorkflowsIndexInvocationsParamUserId | None)
                                      : Return invocations for this User ID.
-            sort_by (Optional[WorkflowsIndexInvocationsParamSortBy])
+            sort_by (WorkflowsIndexInvocationsParamSortBy | None)
                                      : Sort Workflow Invocations by this attribute
-            sort_desc (Optional[bool]): Sort in descending order?
-            include_terminal (Optional[WorkflowsIndexInvocationsParamIncludeTerminal])
+            sort_desc (bool | None)  : Sort in descending order?
+            include_terminal (WorkflowsIndexInvocationsParamIncludeTerminal | None)
                                      : Set to false to only include terminal Invocations.
-            limit (Optional[WorkflowsIndexInvocationsParamLimit])
+            limit (WorkflowsIndexInvocationsParamLimit | None)
                                      : Limit the number of invocations to return.
-            offset (Optional[WorkflowsIndexInvocationsParamOffset])
+            offset (WorkflowsIndexInvocationsParamOffset | None)
                                      : Number of invocations to skip.
-            instance (Optional[WorkflowsIndexInvocationsParamInstance])
+            instance (WorkflowsIndexInvocationsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            view (Optional[WorkflowsIndexInvocationsParamView])
+            view (WorkflowsIndexInvocationsParamView | None)
                                      : View to be passed to the serializer
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            include_nested_invocations (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            include_nested_invocations (bool | None)
                                      :
-            run-as (Optional[WorkflowsIndexInvocationsParamRunAs])
+            run-as (WorkflowsIndexInvocationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -407,27 +1299,31 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/invocations"
 
         params: dict[str, Any] = {
-            **({"workflow_id": workflow_id} if workflow_id is not None else {}),
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"job_id": job_id} if job_id is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"include_terminal": include_terminal} if include_terminal is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"instance": instance} if instance is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"step_details": step_details} if step_details is not None else {}),
+            **({"workflow_id": DataclassSerializer.serialize(workflow_id)} if workflow_id is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"job_id": DataclassSerializer.serialize(job_id)} if job_id is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
             **(
-                {"include_nested_invocations": include_nested_invocations}
+                {"include_terminal": DataclassSerializer.serialize(include_terminal)}
+                if include_terminal is not None
+                else {}
+            ),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"include_nested_invocations": DataclassSerializer.serialize(include_nested_invocations)}
                 if include_nested_invocations is not None
                 else {}
             ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -435,13 +1331,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_from_store_create_invocations_from_store_2_2(
+    async def workflows_from_store_create_invocations_from_store(
         self,
         body: CreateInvocationsFromStorePayload,
         run_as: WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs | None = None,
@@ -452,7 +1348,7 @@ class WorkflowsClient:
         Create invocation(s) from a supplied model store.
 
         Args:
-            run-as (Optional[WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs])
+            run-as (WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -469,7 +1365,7 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/invocations/from_store"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateInvocationsFromStorePayload = DataclassSerializer.serialize(body)
@@ -479,13 +1375,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_from_store_create_invocations_from_store_2_2(
+    async def workflows_from_store_create_invocations_from_store(
         self,
         body: CreateInvocationsFromStorePayload,
         run_as: WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs | None = None,
@@ -496,7 +1392,7 @@ class WorkflowsClient:
         Create invocation(s) from a supplied model store.
 
         Args:
-            run-as (Optional[WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs])
+            run-as (WorkflowsFromStoreCreateInvocationsFromStoreParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -513,7 +1409,7 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/invocations/from_store"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateInvocationsFromStorePayload = DataclassSerializer.serialize(body)
@@ -523,13 +1419,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_steps_step_2_2(
+    async def workflows_steps_step(
         self,
         step_id: str,
         run_as: WorkflowsStepsStepParamRunAs | None = None,
@@ -540,7 +1436,7 @@ class WorkflowsClient:
         Args:
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsStepsStepParamRunAs])
+            run-as (WorkflowsStepsStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -552,10 +1448,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/invocations/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -563,13 +1461,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_steps_step_2_2(
+    async def workflows_steps_step(
         self,
         step_id: str,
         run_as: WorkflowsStepsStepParamRunAs | None = None,
@@ -580,7 +1478,7 @@ class WorkflowsClient:
         Args:
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsStepsStepParamRunAs])
+            run-as (WorkflowsStepsStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -592,10 +1490,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/invocations/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -603,17 +1503,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_cancel_invocation_2_2(
+    async def workflows_cancel_invocation(
         self,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsCancelInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -621,10 +1521,9 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -633,7 +1532,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsCancelInvocationParamRunAs])
+            run-as (WorkflowsCancelInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -645,15 +1544,21 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=params, json=None, data=None, headers=headers)
@@ -661,17 +1566,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_cancel_invocation_2_2(
+    async def workflows_cancel_invocation(
         self,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsCancelInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -679,10 +1584,9 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -691,7 +1595,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsCancelInvocationParamRunAs])
+            run-as (WorkflowsCancelInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -703,15 +1607,21 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=params, json=None, data=None, headers=headers)
@@ -719,17 +1629,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_show_invocation_2_2(
+    async def workflows_show_invocation(
         self,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsShowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -737,10 +1647,9 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -749,7 +1658,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsShowInvocationParamRunAs])
+            run-as (WorkflowsShowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -761,15 +1670,21 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -777,17 +1692,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_show_invocation_2_2(
+    async def workflows_show_invocation(
         self,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsShowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -795,10 +1710,9 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -807,7 +1721,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsShowInvocationParamRunAs])
+            run-as (WorkflowsShowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -819,15 +1733,21 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -835,13 +1755,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_error_report_error_2_2(
+    async def workflows_error_report_error(
         self,
         invocation_id: str,
         body: ReportInvocationErrorPayload,
@@ -852,7 +1772,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsErrorReportErrorParamRunAs])
+            run-as (WorkflowsErrorReportErrorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -863,10 +1783,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/error"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ReportInvocationErrorPayload = DataclassSerializer.serialize(body)
@@ -880,9 +1802,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_error_report_error_2_2(
+    async def workflows_error_report_error(
         self,
         invocation_id: str,
         body: ReportInvocationErrorPayload,
@@ -893,7 +1815,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsErrorReportErrorParamRunAs])
+            run-as (WorkflowsErrorReportErrorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -904,10 +1826,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/error"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ReportInvocationErrorPayload = DataclassSerializer.serialize(body)
@@ -921,9 +1845,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_jobs_summary_invocation_jobs_summary_2_2(
+    async def workflows_jobs_summary_invocation_jobs_summary(
         self,
         invocation_id: str,
         run_as: WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs | None = None,
@@ -938,7 +1862,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs])
+            run-as (WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -950,10 +1874,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -961,13 +1887,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationJobsResponse, response.json())
+                return structure_from_dict(response.json(), InvocationJobsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_jobs_summary_invocation_jobs_summary_2_2(
+    async def workflows_jobs_summary_invocation_jobs_summary(
         self,
         invocation_id: str,
         run_as: WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs | None = None,
@@ -982,7 +1908,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs])
+            run-as (WorkflowsJobsSummaryInvocationJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -994,10 +1920,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1005,13 +1933,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationJobsResponse, response.json())
+                return structure_from_dict(response.json(), InvocationJobsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_metrics_get_invocation_metrics_2_2(
+    async def workflows_metrics_get_invocation_metrics(
         self,
         invocation_id: str,
         run_as: WorkflowsMetricsGetInvocationMetricsParamRunAs | None = None,
@@ -1021,7 +1949,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsMetricsGetInvocationMetricsParamRunAs])
+            run-as (WorkflowsMetricsGetInvocationMetricsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1033,10 +1961,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/metrics"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1044,13 +1974,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowJobMetric], response.json())
+                return structure_from_dict(response.json(), list[WorkflowJobMetric])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_metrics_get_invocation_metrics_2_2(
+    async def workflows_metrics_get_invocation_metrics(
         self,
         invocation_id: str,
         run_as: WorkflowsMetricsGetInvocationMetricsParamRunAs | None = None,
@@ -1060,7 +1990,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsMetricsGetInvocationMetricsParamRunAs])
+            run-as (WorkflowsMetricsGetInvocationMetricsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1072,10 +2002,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/metrics"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1083,13 +2015,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowJobMetric], response.json())
+                return structure_from_dict(response.json(), list[WorkflowJobMetric])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_prepare_store_download_prepare_store_download_2_2(
+    async def workflows_prepare_store_download_prepare_store_download(
         self,
         invocation_id: str,
         body: PrepareStoreDownloadPayload,
@@ -1100,7 +2032,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsPrepareStoreDownloadPrepareStoreDownloadParamRunAs])
+            run-as (WorkflowsPrepareStoreDownloadPrepareStoreDownloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1114,10 +2046,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/prepare_store_download"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: PrepareStoreDownloadPayload = DataclassSerializer.serialize(body)
@@ -1127,13 +2061,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncFile, response.json())
+                return structure_from_dict(response.json(), AsyncFile)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_prepare_store_download_prepare_store_download_2_2(
+    async def workflows_prepare_store_download_prepare_store_download(
         self,
         invocation_id: str,
         body: PrepareStoreDownloadPayload,
@@ -1144,7 +2078,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsPrepareStoreDownloadPrepareStoreDownloadParamRunAs])
+            run-as (WorkflowsPrepareStoreDownloadPrepareStoreDownloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1158,10 +2092,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/prepare_store_download"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: PrepareStoreDownloadPayload = DataclassSerializer.serialize(body)
@@ -1171,13 +2107,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncFile, response.json())
+                return structure_from_dict(response.json(), AsyncFile)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_report_show_invocation_report_2_2(
+    async def workflows_report_show_invocation_report(
         self,
         invocation_id: str,
         run_as: WorkflowsReportShowInvocationReportParamRunAs | None = None,
@@ -1187,7 +2123,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsReportShowInvocationReportParamRunAs])
+            run-as (WorkflowsReportShowInvocationReportParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1199,10 +2135,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/report"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1210,13 +2148,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationReport, response.json())
+                return structure_from_dict(response.json(), InvocationReport)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_report_show_invocation_report_2_2(
+    async def workflows_report_show_invocation_report(
         self,
         invocation_id: str,
         run_as: WorkflowsReportShowInvocationReportParamRunAs | None = None,
@@ -1226,7 +2164,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsReportShowInvocationReportParamRunAs])
+            run-as (WorkflowsReportShowInvocationReportParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1238,10 +2176,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/report"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1249,13 +2189,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationReport, response.json())
+                return structure_from_dict(response.json(), InvocationReport)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_report_pdf_show_invocation_report_pdf_2_2(
+    async def workflows_report_pdf_show_invocation_report_pdf(
         self,
         invocation_id: str,
         run_as: WorkflowsReportPdfShowInvocationReportPdfParamRunAs | None = None,
@@ -1265,7 +2205,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsReportPdfShowInvocationReportPdfParamRunAs])
+            run-as (WorkflowsReportPdfShowInvocationReportPdfParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1274,10 +2214,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/report.pdf"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1289,9 +2231,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_report_pdf_show_invocation_report_pdf_2_2(
+    async def workflows_report_pdf_show_invocation_report_pdf(
         self,
         invocation_id: str,
         run_as: WorkflowsReportPdfShowInvocationReportPdfParamRunAs | None = None,
@@ -1301,7 +2243,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsReportPdfShowInvocationReportPdfParamRunAs])
+            run-as (WorkflowsReportPdfShowInvocationReportPdfParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1310,10 +2252,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/report.pdf"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1325,9 +2269,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_request_invocation_as_request_2_2(
+    async def workflows_request_invocation_as_request(
         self,
         invocation_id: str,
         run_as: WorkflowsRequestInvocationAsRequestParamRunAs | None = None,
@@ -1338,7 +2282,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsRequestInvocationAsRequestParamRunAs])
+            run-as (WorkflowsRequestInvocationAsRequestParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1350,10 +2294,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/request"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1361,13 +2307,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationRequestModel, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationRequestModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_request_invocation_as_request_2_2(
+    async def workflows_request_invocation_as_request(
         self,
         invocation_id: str,
         run_as: WorkflowsRequestInvocationAsRequestParamRunAs | None = None,
@@ -1378,7 +2324,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsRequestInvocationAsRequestParamRunAs])
+            run-as (WorkflowsRequestInvocationAsRequestParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1390,10 +2336,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/request"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1401,17 +2349,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationRequestModel, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationRequestModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_step_jobs_summary_invocation_step_jobs_summary_2_2(
+    async def workflows_step_jobs_summary_invocation_step_jobs_summary(
         self,
         invocation_id: str,
         run_as: WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem202]:
+    ) -> list[AnonymousArrayItem113]:
         """
         Get job state summary info aggregated per step of the workflow invocation.
 
@@ -1421,22 +2369,24 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs])
+            run-as (WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem202]: Successful Response
+            List[AnonymousArrayItem113]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/step_jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1444,17 +2394,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem202], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem113])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_step_jobs_summary_invocation_step_jobs_summary_2_2(
+    async def workflows_step_jobs_summary_invocation_step_jobs_summary(
         self,
         invocation_id: str,
         run_as: WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem202]:
+    ) -> list[AnonymousArrayItem113]:
         """
         Get job state summary info aggregated per step of the workflow invocation.
 
@@ -1464,22 +2414,24 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs])
+            run-as (WorkflowsStepJobsSummaryInvocationStepJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem202]: Successful Response
+            List[AnonymousArrayItem113]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/step_jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1487,13 +2439,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem202], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem113])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_steps_invocation_step_2_2(
+    async def workflows_steps_invocation_step(
         self,
         invocation_id: str,
         step_id: str,
@@ -1508,7 +2460,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsStepsInvocationStepParamRunAs])
+            run-as (WorkflowsStepsInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1520,10 +2472,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1531,13 +2486,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_steps_invocation_step_2_2(
+    async def workflows_steps_invocation_step(
         self,
         invocation_id: str,
         step_id: str,
@@ -1552,7 +2507,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsStepsInvocationStepParamRunAs])
+            run-as (WorkflowsStepsInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1564,10 +2519,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1575,13 +2533,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_steps_update_invocation_step_2_2(
+    async def workflows_steps_update_invocation_step(
         self,
         invocation_id: str,
         step_id: str,
@@ -1596,7 +2554,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsStepsUpdateInvocationStepParamRunAs])
+            run-as (WorkflowsStepsUpdateInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1610,10 +2568,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvocationUpdatePayload = DataclassSerializer.serialize(body)
@@ -1623,13 +2584,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_steps_update_invocation_step_2_2(
+    async def workflows_steps_update_invocation_step(
         self,
         invocation_id: str,
         step_id: str,
@@ -1644,7 +2605,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsStepsUpdateInvocationStepParamRunAs])
+            run-as (WorkflowsStepsUpdateInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1658,10 +2619,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvocationUpdatePayload = DataclassSerializer.serialize(body)
@@ -1671,13 +2635,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_write_store_write_store_2_2(
+    async def workflows_write_store_write_store(
         self,
         invocation_id: str,
         body: WriteInvocationStoreToPayload,
@@ -1688,7 +2652,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsWriteStoreWriteStoreParamRunAs])
+            run-as (WorkflowsWriteStoreWriteStoreParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1702,10 +2666,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/write_store"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: WriteInvocationStoreToPayload = DataclassSerializer.serialize(body)
@@ -1715,13 +2681,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_write_store_write_store_2_2(
+    async def workflows_write_store_write_store(
         self,
         invocation_id: str,
         body: WriteInvocationStoreToPayload,
@@ -1732,7 +2698,7 @@ class WorkflowsClient:
 
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsWriteStoreWriteStoreParamRunAs])
+            run-as (WorkflowsWriteStoreWriteStoreParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1746,10 +2712,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/invocations/{invocation_id}/write_store"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: WriteInvocationStoreToPayload = DataclassSerializer.serialize(body)
@@ -1759,13 +2727,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_create_landing_2_2(
+    async def workflows_create_landing(
         self,
         body: CreateWorkflowLandingRequestPayload,
         run_as: WorkflowsCreateLandingParamRunAs | None = None,
@@ -1774,7 +2742,7 @@ class WorkflowsClient:
         Create Landing
 
         Args:
-            run-as (Optional[WorkflowsCreateLandingParamRunAs])
+            run-as (WorkflowsCreateLandingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1791,7 +2759,7 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/workflow_landings"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateWorkflowLandingRequestPayload = DataclassSerializer.serialize(body)
@@ -1801,13 +2769,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowLandingRequest, response.json())
+                return structure_from_dict(response.json(), WorkflowLandingRequest)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_create_landing_2_2(
+    async def workflows_create_landing(
         self,
         body: CreateWorkflowLandingRequestPayload,
         run_as: WorkflowsCreateLandingParamRunAs | None = None,
@@ -1816,7 +2784,7 @@ class WorkflowsClient:
         Create Landing
 
         Args:
-            run-as (Optional[WorkflowsCreateLandingParamRunAs])
+            run-as (WorkflowsCreateLandingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1833,7 +2801,7 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/workflow_landings"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateWorkflowLandingRequestPayload = DataclassSerializer.serialize(body)
@@ -1843,13 +2811,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowLandingRequest, response.json())
+                return structure_from_dict(response.json(), WorkflowLandingRequest)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_get_landing_2_2(
+    async def workflows_get_landing(
         self,
         uuid_: UUID,
         run_as: WorkflowsGetLandingParamRunAs | None = None,
@@ -1859,7 +2827,7 @@ class WorkflowsClient:
 
         Args:
             uuid (UUID)              : The UUID used to identify a persisted landing request.
-            run-as (Optional[WorkflowsGetLandingParamRunAs])
+            run-as (WorkflowsGetLandingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1871,10 +2839,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        uuid_ = DataclassSerializer.serialize(uuid_)
+
         url = f"{self.base_url}/api/workflow_landings/{uuid_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1882,13 +2852,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowLandingRequest, response.json())
+                return structure_from_dict(response.json(), WorkflowLandingRequest)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_get_landing_2_2(
+    async def workflows_get_landing(
         self,
         uuid_: UUID,
         run_as: WorkflowsGetLandingParamRunAs | None = None,
@@ -1898,7 +2868,7 @@ class WorkflowsClient:
 
         Args:
             uuid (UUID)              : The UUID used to identify a persisted landing request.
-            run-as (Optional[WorkflowsGetLandingParamRunAs])
+            run-as (WorkflowsGetLandingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1910,10 +2880,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        uuid_ = DataclassSerializer.serialize(uuid_)
+
         url = f"{self.base_url}/api/workflow_landings/{uuid_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1921,16 +2893,16 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowLandingRequest, response.json())
+                return structure_from_dict(response.json(), WorkflowLandingRequest)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_claim_claim_landing_2_2(
+    async def workflows_claim_claim_landing(
         self,
         uuid_: UUID,
-        body: WorkflowsClaimClaimLandingRequestBody2 | None,
+        body: WorkflowsClaimClaimLandingRequestBody | None,
         run_as: WorkflowsClaimClaimLandingParamRunAs | None = None,
     ) -> WorkflowLandingRequest:
         """
@@ -1938,11 +2910,11 @@ class WorkflowsClient:
 
         Args:
             uuid (UUID)              : The UUID used to identify a persisted landing request.
-            run-as (Optional[WorkflowsClaimClaimLandingParamRunAs])
+            run-as (WorkflowsClaimClaimLandingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[WorkflowsClaimClaimLandingRequestBody2])
+            body (WorkflowsClaimClaimLandingRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -1952,29 +2924,31 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        uuid_ = DataclassSerializer.serialize(uuid_)
+
         url = f"{self.base_url}/api/workflow_landings/{uuid_}/claim"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: WorkflowsClaimClaimLandingRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: WorkflowsClaimClaimLandingRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("POST", url, params=None, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowLandingRequest, response.json())
+                return structure_from_dict(response.json(), WorkflowLandingRequest)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_claim_claim_landing_2_2(
+    async def workflows_claim_claim_landing(
         self,
         uuid_: UUID,
-        body: WorkflowsClaimClaimLandingRequestBody2 | None,
+        body: WorkflowsClaimClaimLandingRequestBody | None,
         run_as: WorkflowsClaimClaimLandingParamRunAs | None = None,
     ) -> WorkflowLandingRequest:
         """
@@ -1982,11 +2956,11 @@ class WorkflowsClient:
 
         Args:
             uuid (UUID)              : The UUID used to identify a persisted landing request.
-            run-as (Optional[WorkflowsClaimClaimLandingParamRunAs])
+            run-as (WorkflowsClaimClaimLandingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[WorkflowsClaimClaimLandingRequestBody2])
+            body (WorkflowsClaimClaimLandingRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -1996,68 +2970,68 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        uuid_ = DataclassSerializer.serialize(uuid_)
+
         url = f"{self.base_url}/api/workflow_landings/{uuid_}/claim"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: WorkflowsClaimClaimLandingRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: WorkflowsClaimClaimLandingRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("POST", url, params=None, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowLandingRequest, response.json())
+                return structure_from_dict(response.json(), WorkflowLandingRequest)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_index_2_2(
+    async def workflows_index(
         self,
-        show_deleted: bool | None = False,
-        show_hidden: bool | None = False,
-        missing_tools: bool | None = False,
+        show_deleted: bool | None = None,
+        show_hidden: bool | None = None,
+        missing_tools: bool | None = None,
         show_published: WorkflowsIndexParamShowPublished | None = None,
         show_shared: WorkflowsIndexParamShowShared | None = None,
         sort_by: WorkflowsIndexParamSortBy | None = None,
         sort_desc: WorkflowsIndexParamSortDesc | None = None,
         limit: WorkflowsIndexParamLimit | None = None,
-        offset: WorkflowsIndexParamOffset | None = 0,
+        offset: WorkflowsIndexParamOffset | None = None,
         search: WorkflowsIndexParamSearch | None = None,
-        skip_step_counts: bool | None = False,
+        skip_step_counts: bool | None = None,
         run_as: WorkflowsIndexParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem224]:
+    ) -> list[AnonymousArrayItem129]:
         """
         Lists stored workflows viewable by the user.
 
         Lists stored workflows viewable by the user.
 
         Args:
-            show_deleted (Optional[bool])
-                                     : Whether to restrict result to deleted workflows.
-            show_hidden (Optional[bool])
-                                     : Whether to restrict result to hidden workflows.
-            missing_tools (Optional[bool])
+            show_deleted (bool | None): Whether to restrict result to deleted workflows.
+            show_hidden (bool | None): Whether to restrict result to hidden workflows.
+            missing_tools (bool | None)
                                      : Whether to include a list of missing tools per workflow
                                        entry
-            show_published (Optional[WorkflowsIndexParamShowPublished])
+            show_published (WorkflowsIndexParamShowPublished | None)
                                      :
-            show_shared (Optional[WorkflowsIndexParamShowShared])
+            show_shared (WorkflowsIndexParamShowShared | None)
                                      :
-            sort_by (Optional[WorkflowsIndexParamSortBy])
+            sort_by (WorkflowsIndexParamSortBy | None)
                                      : In unspecified, default ordering depends on other
                                        parameters but generally the user's own workflows appear
                                        first based on update time
-            sort_desc (Optional[WorkflowsIndexParamSortDesc])
+            sort_desc (WorkflowsIndexParamSortDesc | None)
                                      : Sort in descending order?
-            limit (Optional[WorkflowsIndexParamLimit])
+            limit (WorkflowsIndexParamLimit | None)
                                      :
-            offset (Optional[WorkflowsIndexParamOffset])
+            offset (WorkflowsIndexParamOffset | None)
                                      :
-            search (Optional[WorkflowsIndexParamSearch])
+            search (WorkflowsIndexParamSearch | None)
                                      : A mix of free text and GitHub-style tags used to filter
                                        the index operation.  ## Query Structure  GitHub-style
                                        filter tags (not be confused with Galaxy tags) are tags
@@ -2096,17 +3070,17 @@ class WorkflowsClient:
                                        ## Free Text  Free text search terms will be searched
                                        against the following attributes of the Stored Workflows:
                                        `name`, `tag`, `user`.
-            skip_step_counts (Optional[bool])
+            skip_step_counts (bool | None)
                                      : Set this to true to skip joining workflow step counts and
                                        optimize the resulting index query. Response objects will
                                        not contain step counts.
-            run-as (Optional[WorkflowsIndexParamRunAs])
+            run-as (WorkflowsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem224]: A list with summary stored workflow information per
+            List[AnonymousArrayItem129]: A list with summary stored workflow information per
                                          viewable entry.
 
         Raises:
@@ -2116,21 +3090,25 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/workflows"
 
         params: dict[str, Any] = {
-            **({"show_deleted": show_deleted} if show_deleted is not None else {}),
-            **({"show_hidden": show_hidden} if show_hidden is not None else {}),
-            **({"missing_tools": missing_tools} if missing_tools is not None else {}),
-            **({"show_published": show_published} if show_published is not None else {}),
-            **({"show_shared": show_shared} if show_shared is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"search": search} if search is not None else {}),
-            **({"skip_step_counts": skip_step_counts} if skip_step_counts is not None else {}),
+            **({"show_deleted": DataclassSerializer.serialize(show_deleted)} if show_deleted is not None else {}),
+            **({"show_hidden": DataclassSerializer.serialize(show_hidden)} if show_hidden is not None else {}),
+            **({"missing_tools": DataclassSerializer.serialize(missing_tools)} if missing_tools is not None else {}),
+            **({"show_published": DataclassSerializer.serialize(show_published)} if show_published is not None else {}),
+            **({"show_shared": DataclassSerializer.serialize(show_shared)} if show_shared is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"search": DataclassSerializer.serialize(search)} if search is not None else {}),
+            **(
+                {"skip_step_counts": DataclassSerializer.serialize(skip_step_counts)}
+                if skip_step_counts is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2138,55 +3116,53 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem224], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem129])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_index_2_2(
+    async def workflows_index(
         self,
-        show_deleted: bool | None = False,
-        show_hidden: bool | None = False,
-        missing_tools: bool | None = False,
+        show_deleted: bool | None = None,
+        show_hidden: bool | None = None,
+        missing_tools: bool | None = None,
         show_published: WorkflowsIndexParamShowPublished | None = None,
         show_shared: WorkflowsIndexParamShowShared | None = None,
         sort_by: WorkflowsIndexParamSortBy | None = None,
         sort_desc: WorkflowsIndexParamSortDesc | None = None,
         limit: WorkflowsIndexParamLimit | None = None,
-        offset: WorkflowsIndexParamOffset | None = 0,
+        offset: WorkflowsIndexParamOffset | None = None,
         search: WorkflowsIndexParamSearch | None = None,
-        skip_step_counts: bool | None = False,
+        skip_step_counts: bool | None = None,
         run_as: WorkflowsIndexParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem224]:
+    ) -> list[AnonymousArrayItem129]:
         """
         Lists stored workflows viewable by the user.
 
         Lists stored workflows viewable by the user.
 
         Args:
-            show_deleted (Optional[bool])
-                                     : Whether to restrict result to deleted workflows.
-            show_hidden (Optional[bool])
-                                     : Whether to restrict result to hidden workflows.
-            missing_tools (Optional[bool])
+            show_deleted (bool | None): Whether to restrict result to deleted workflows.
+            show_hidden (bool | None): Whether to restrict result to hidden workflows.
+            missing_tools (bool | None)
                                      : Whether to include a list of missing tools per workflow
                                        entry
-            show_published (Optional[WorkflowsIndexParamShowPublished])
+            show_published (WorkflowsIndexParamShowPublished | None)
                                      :
-            show_shared (Optional[WorkflowsIndexParamShowShared])
+            show_shared (WorkflowsIndexParamShowShared | None)
                                      :
-            sort_by (Optional[WorkflowsIndexParamSortBy])
+            sort_by (WorkflowsIndexParamSortBy | None)
                                      : In unspecified, default ordering depends on other
                                        parameters but generally the user's own workflows appear
                                        first based on update time
-            sort_desc (Optional[WorkflowsIndexParamSortDesc])
+            sort_desc (WorkflowsIndexParamSortDesc | None)
                                      : Sort in descending order?
-            limit (Optional[WorkflowsIndexParamLimit])
+            limit (WorkflowsIndexParamLimit | None)
                                      :
-            offset (Optional[WorkflowsIndexParamOffset])
+            offset (WorkflowsIndexParamOffset | None)
                                      :
-            search (Optional[WorkflowsIndexParamSearch])
+            search (WorkflowsIndexParamSearch | None)
                                      : A mix of free text and GitHub-style tags used to filter
                                        the index operation.  ## Query Structure  GitHub-style
                                        filter tags (not be confused with Galaxy tags) are tags
@@ -2225,17 +3201,17 @@ class WorkflowsClient:
                                        ## Free Text  Free text search terms will be searched
                                        against the following attributes of the Stored Workflows:
                                        `name`, `tag`, `user`.
-            skip_step_counts (Optional[bool])
+            skip_step_counts (bool | None)
                                      : Set this to true to skip joining workflow step counts and
                                        optimize the resulting index query. Response objects will
                                        not contain step counts.
-            run-as (Optional[WorkflowsIndexParamRunAs])
+            run-as (WorkflowsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem224]: A list with summary stored workflow information per
+            List[AnonymousArrayItem129]: A list with summary stored workflow information per
                                          viewable entry.
 
         Raises:
@@ -2245,21 +3221,25 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/workflows"
 
         params: dict[str, Any] = {
-            **({"show_deleted": show_deleted} if show_deleted is not None else {}),
-            **({"show_hidden": show_hidden} if show_hidden is not None else {}),
-            **({"missing_tools": missing_tools} if missing_tools is not None else {}),
-            **({"show_published": show_published} if show_published is not None else {}),
-            **({"show_shared": show_shared} if show_shared is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"search": search} if search is not None else {}),
-            **({"skip_step_counts": skip_step_counts} if skip_step_counts is not None else {}),
+            **({"show_deleted": DataclassSerializer.serialize(show_deleted)} if show_deleted is not None else {}),
+            **({"show_hidden": DataclassSerializer.serialize(show_hidden)} if show_hidden is not None else {}),
+            **({"missing_tools": DataclassSerializer.serialize(missing_tools)} if missing_tools is not None else {}),
+            **({"show_published": DataclassSerializer.serialize(show_published)} if show_published is not None else {}),
+            **({"show_shared": DataclassSerializer.serialize(show_shared)} if show_shared is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"search": DataclassSerializer.serialize(search)} if search is not None else {}),
+            **(
+                {"skip_step_counts": DataclassSerializer.serialize(skip_step_counts)}
+                if skip_step_counts is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2267,43 +3247,43 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem224], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem129])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_menu_get_workflow_menu_2_2(
+    async def workflows_menu_get_workflow_menu(
         self,
-        show_deleted: WorkflowsMenuGetWorkflowMenuParamShowDeleted | None = False,
-        show_hidden: WorkflowsMenuGetWorkflowMenuParamShowHidden | None = False,
-        missing_tools: WorkflowsMenuGetWorkflowMenuParamMissingTools | None = False,
+        show_deleted: WorkflowsMenuGetWorkflowMenuParamShowDeleted | None = None,
+        show_hidden: WorkflowsMenuGetWorkflowMenuParamShowHidden | None = None,
+        missing_tools: WorkflowsMenuGetWorkflowMenuParamMissingTools | None = None,
         show_published: WorkflowsMenuGetWorkflowMenuParamShowPublished | None = None,
         show_shared: WorkflowsMenuGetWorkflowMenuParamShowShared | None = None,
         run_as: WorkflowsMenuGetWorkflowMenuParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Get workflows present in the tools panel.
 
         Args:
-            show_deleted (Optional[WorkflowsMenuGetWorkflowMenuParamShowDeleted])
+            show_deleted (WorkflowsMenuGetWorkflowMenuParamShowDeleted | None)
                                      : Whether to restrict result to deleted workflows.
-            show_hidden (Optional[WorkflowsMenuGetWorkflowMenuParamShowHidden])
+            show_hidden (WorkflowsMenuGetWorkflowMenuParamShowHidden | None)
                                      : Whether to restrict result to hidden workflows.
-            missing_tools (Optional[WorkflowsMenuGetWorkflowMenuParamMissingTools])
+            missing_tools (WorkflowsMenuGetWorkflowMenuParamMissingTools | None)
                                      : Whether to include a list of missing tools per workflow
                                        entry
-            show_published (Optional[WorkflowsMenuGetWorkflowMenuParamShowPublished])
+            show_published (WorkflowsMenuGetWorkflowMenuParamShowPublished | None)
                                      :
-            show_shared (Optional[WorkflowsMenuGetWorkflowMenuParamShowShared])
+            show_shared (WorkflowsMenuGetWorkflowMenuParamShowShared | None)
                                      :
-            run-as (Optional[WorkflowsMenuGetWorkflowMenuParamRunAs])
+            run-as (WorkflowsMenuGetWorkflowMenuParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
@@ -2312,15 +3292,15 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/workflows/menu"
 
         params: dict[str, Any] = {
-            **({"show_deleted": show_deleted} if show_deleted is not None else {}),
-            **({"show_hidden": show_hidden} if show_hidden is not None else {}),
-            **({"missing_tools": missing_tools} if missing_tools is not None else {}),
-            **({"show_published": show_published} if show_published is not None else {}),
-            **({"show_shared": show_shared} if show_shared is not None else {}),
+            **({"show_deleted": DataclassSerializer.serialize(show_deleted)} if show_deleted is not None else {}),
+            **({"show_hidden": DataclassSerializer.serialize(show_hidden)} if show_hidden is not None else {}),
+            **({"missing_tools": DataclassSerializer.serialize(missing_tools)} if missing_tools is not None else {}),
+            **({"show_published": DataclassSerializer.serialize(show_published)} if show_published is not None else {}),
+            **({"show_shared": DataclassSerializer.serialize(show_shared)} if show_shared is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2328,43 +3308,43 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_menu_get_workflow_menu_2_2(
+    async def workflows_menu_get_workflow_menu(
         self,
-        show_deleted: WorkflowsMenuGetWorkflowMenuParamShowDeleted | None = False,
-        show_hidden: WorkflowsMenuGetWorkflowMenuParamShowHidden | None = False,
-        missing_tools: WorkflowsMenuGetWorkflowMenuParamMissingTools | None = False,
+        show_deleted: WorkflowsMenuGetWorkflowMenuParamShowDeleted | None = None,
+        show_hidden: WorkflowsMenuGetWorkflowMenuParamShowHidden | None = None,
+        missing_tools: WorkflowsMenuGetWorkflowMenuParamMissingTools | None = None,
         show_published: WorkflowsMenuGetWorkflowMenuParamShowPublished | None = None,
         show_shared: WorkflowsMenuGetWorkflowMenuParamShowShared | None = None,
         run_as: WorkflowsMenuGetWorkflowMenuParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Get workflows present in the tools panel.
 
         Args:
-            show_deleted (Optional[WorkflowsMenuGetWorkflowMenuParamShowDeleted])
+            show_deleted (WorkflowsMenuGetWorkflowMenuParamShowDeleted | None)
                                      : Whether to restrict result to deleted workflows.
-            show_hidden (Optional[WorkflowsMenuGetWorkflowMenuParamShowHidden])
+            show_hidden (WorkflowsMenuGetWorkflowMenuParamShowHidden | None)
                                      : Whether to restrict result to hidden workflows.
-            missing_tools (Optional[WorkflowsMenuGetWorkflowMenuParamMissingTools])
+            missing_tools (WorkflowsMenuGetWorkflowMenuParamMissingTools | None)
                                      : Whether to include a list of missing tools per workflow
                                        entry
-            show_published (Optional[WorkflowsMenuGetWorkflowMenuParamShowPublished])
+            show_published (WorkflowsMenuGetWorkflowMenuParamShowPublished | None)
                                      :
-            show_shared (Optional[WorkflowsMenuGetWorkflowMenuParamShowShared])
+            show_shared (WorkflowsMenuGetWorkflowMenuParamShowShared | None)
                                      :
-            run-as (Optional[WorkflowsMenuGetWorkflowMenuParamRunAs])
+            run-as (WorkflowsMenuGetWorkflowMenuParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
@@ -2373,15 +3353,15 @@ class WorkflowsClient:
         url = f"{self.base_url}/api/workflows/menu"
 
         params: dict[str, Any] = {
-            **({"show_deleted": show_deleted} if show_deleted is not None else {}),
-            **({"show_hidden": show_hidden} if show_hidden is not None else {}),
-            **({"missing_tools": missing_tools} if missing_tools is not None else {}),
-            **({"show_published": show_published} if show_published is not None else {}),
-            **({"show_shared": show_shared} if show_shared is not None else {}),
+            **({"show_deleted": DataclassSerializer.serialize(show_deleted)} if show_deleted is not None else {}),
+            **({"show_hidden": DataclassSerializer.serialize(show_hidden)} if show_hidden is not None else {}),
+            **({"missing_tools": DataclassSerializer.serialize(missing_tools)} if missing_tools is not None else {}),
+            **({"show_published": DataclassSerializer.serialize(show_published)} if show_published is not None else {}),
+            **({"show_shared": DataclassSerializer.serialize(show_shared)} if show_shared is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2389,38 +3369,40 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_delete_workflow_2_2(
+    async def workflows_delete_workflow(
         self,
         workflow_id: str,
         run_as: WorkflowsDeleteWorkflowParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Add the deleted flag to a workflow.
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsDeleteWorkflowParamRunAs])
+            run-as (WorkflowsDeleteWorkflowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2428,38 +3410,40 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_delete_workflow_2_2(
+    async def workflows_delete_workflow(
         self,
         workflow_id: str,
         run_as: WorkflowsDeleteWorkflowParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Add the deleted flag to a workflow.
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsDeleteWorkflowParamRunAs])
+            run-as (WorkflowsDeleteWorkflowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2467,17 +3451,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_show_workflow_2_2(
+    async def workflows_show_workflow(
         self,
         workflow_id: str,
-        instance: WorkflowsShowWorkflowParamInstance | None = False,
-        legacy: WorkflowsShowWorkflowParamLegacy | None = False,
+        instance: WorkflowsShowWorkflowParamInstance | None = None,
+        legacy: WorkflowsShowWorkflowParamLegacy | None = None,
         version: WorkflowsShowWorkflowParamVersion | None = None,
         run_as: WorkflowsShowWorkflowParamRunAs | None = None,
     ) -> StoredWorkflowDetailed:
@@ -2486,13 +3470,13 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsShowWorkflowParamInstance])
+            instance (WorkflowsShowWorkflowParamInstance | None)
                                      :
-            legacy (Optional[WorkflowsShowWorkflowParamLegacy])
+            legacy (WorkflowsShowWorkflowParamLegacy | None)
                                      : Use the legacy workflow format.
-            version (Optional[WorkflowsShowWorkflowParamVersion])
+            version (WorkflowsShowWorkflowParamVersion | None)
                                      : The version of the workflow to fetch.
-            run-as (Optional[WorkflowsShowWorkflowParamRunAs])
+            run-as (WorkflowsShowWorkflowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2504,16 +3488,18 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
-            **({"legacy": legacy} if legacy is not None else {}),
-            **({"version": version} if version is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"legacy": DataclassSerializer.serialize(legacy)} if legacy is not None else {}),
+            **({"version": DataclassSerializer.serialize(version)} if version is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2521,17 +3507,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(StoredWorkflowDetailed, response.json())
+                return structure_from_dict(response.json(), StoredWorkflowDetailed)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_show_workflow_2_2(
+    async def workflows_show_workflow(
         self,
         workflow_id: str,
-        instance: WorkflowsShowWorkflowParamInstance | None = False,
-        legacy: WorkflowsShowWorkflowParamLegacy | None = False,
+        instance: WorkflowsShowWorkflowParamInstance | None = None,
+        legacy: WorkflowsShowWorkflowParamLegacy | None = None,
         version: WorkflowsShowWorkflowParamVersion | None = None,
         run_as: WorkflowsShowWorkflowParamRunAs | None = None,
     ) -> StoredWorkflowDetailed:
@@ -2540,13 +3526,13 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsShowWorkflowParamInstance])
+            instance (WorkflowsShowWorkflowParamInstance | None)
                                      :
-            legacy (Optional[WorkflowsShowWorkflowParamLegacy])
+            legacy (WorkflowsShowWorkflowParamLegacy | None)
                                      : Use the legacy workflow format.
-            version (Optional[WorkflowsShowWorkflowParamVersion])
+            version (WorkflowsShowWorkflowParamVersion | None)
                                      : The version of the workflow to fetch.
-            run-as (Optional[WorkflowsShowWorkflowParamRunAs])
+            run-as (WorkflowsShowWorkflowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2558,16 +3544,18 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
-            **({"legacy": legacy} if legacy is not None else {}),
-            **({"version": version} if version is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"legacy": DataclassSerializer.serialize(legacy)} if legacy is not None else {}),
+            **({"version": DataclassSerializer.serialize(version)} if version is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2575,16 +3563,16 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(StoredWorkflowDetailed, response.json())
+                return structure_from_dict(response.json(), StoredWorkflowDetailed)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocation_counts_2_2(
+    async def workflows_invocation_counts(
         self,
         workflow_id: str,
-        instance: WorkflowsInvocationCountsParamInstance | None = False,
+        instance: WorkflowsInvocationCountsParamInstance | None = None,
         run_as: WorkflowsInvocationCountsParamRunAs | None = None,
     ) -> RootModelDictStrInt2:
         """
@@ -2592,10 +3580,10 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsInvocationCountsParamInstance])
+            instance (WorkflowsInvocationCountsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            run-as (Optional[WorkflowsInvocationCountsParamRunAs])
+            run-as (WorkflowsInvocationCountsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2607,14 +3595,16 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/counts"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2622,16 +3612,16 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RootModelDictStrInt2, response.json())
+                return structure_from_dict(response.json(), RootModelDictStrInt2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocation_counts_2_2(
+    async def workflows_invocation_counts(
         self,
         workflow_id: str,
-        instance: WorkflowsInvocationCountsParamInstance | None = False,
+        instance: WorkflowsInvocationCountsParamInstance | None = None,
         run_as: WorkflowsInvocationCountsParamRunAs | None = None,
     ) -> RootModelDictStrInt2:
         """
@@ -2639,10 +3629,10 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsInvocationCountsParamInstance])
+            instance (WorkflowsInvocationCountsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            run-as (Optional[WorkflowsInvocationCountsParamRunAs])
+            run-as (WorkflowsInvocationCountsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2654,14 +3644,16 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/counts"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2669,13 +3661,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RootModelDictStrInt2, response.json())
+                return structure_from_dict(response.json(), RootModelDictStrInt2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_disable_link_access_disable_link_access_2_2(
+    async def workflows_disable_link_access_disable_link_access(
         self,
         workflow_id: str,
         run_as: WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
@@ -2687,7 +3679,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs])
+            run-as (WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2699,10 +3691,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/disable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2710,13 +3704,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_disable_link_access_disable_link_access_2_2(
+    async def workflows_disable_link_access_disable_link_access(
         self,
         workflow_id: str,
         run_as: WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs | None = None,
@@ -2728,7 +3722,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs])
+            run-as (WorkflowsDisableLinkAccessDisableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2740,10 +3734,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/disable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2751,13 +3747,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_enable_link_access_enable_link_access_2_2(
+    async def workflows_enable_link_access_enable_link_access(
         self,
         workflow_id: str,
         run_as: WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
@@ -2769,7 +3765,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs])
+            run-as (WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2781,10 +3777,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/enable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2792,13 +3790,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_enable_link_access_enable_link_access_2_2(
+    async def workflows_enable_link_access_enable_link_access(
         self,
         workflow_id: str,
         run_as: WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs | None = None,
@@ -2810,7 +3808,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs])
+            run-as (WorkflowsEnableLinkAccessEnableLinkAccessParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2822,10 +3820,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/enable_link_access"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2833,26 +3833,26 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_index_workflow_invocations_2_2(
+    async def workflows_invocations_index_workflow_invocations(
         self,
         workflow_id: str,
         history_id: WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId | None = None,
         job_id: WorkflowsInvocationsIndexWorkflowInvocationsParamJobId | None = None,
         user_id: WorkflowsInvocationsIndexWorkflowInvocationsParamUserId | None = None,
         sort_by: WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy | None = None,
-        sort_desc: bool | None = False,
-        include_terminal: WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None = True,
-        limit: WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None = 20,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None = None,
         offset: WorkflowsInvocationsIndexWorkflowInvocationsParamOffset | None = None,
-        instance: WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None = False,
+        instance: WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None = None,
         view: WorkflowsInvocationsIndexWorkflowInvocationsParamView | None = None,
-        step_details: bool | None = False,
+        step_details: bool | None = None,
         run_as: WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs | None = None,
     ) -> list[WorkflowInvocationResponse]:
         """
@@ -2860,30 +3860,29 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            history_id (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId])
+            history_id (WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId | None)
                                      : Return only invocations for this History ID
-            job_id (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamJobId])
+            job_id (WorkflowsInvocationsIndexWorkflowInvocationsParamJobId | None)
                                      : Return only invocations for this Job ID
-            user_id (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamUserId])
+            user_id (WorkflowsInvocationsIndexWorkflowInvocationsParamUserId | None)
                                      : Return invocations for this User ID.
-            sort_by (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy])
+            sort_by (WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy | None)
                                      : Sort Workflow Invocations by this attribute
-            sort_desc (Optional[bool]): Sort in descending order?
-            include_terminal (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal])
+            sort_desc (bool | None)  : Sort in descending order?
+            include_terminal (WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None)
                                      : Set to false to only include terminal Invocations.
-            limit (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamLimit])
+            limit (WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None)
                                      : Limit the number of invocations to return.
-            offset (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamOffset])
+            offset (WorkflowsInvocationsIndexWorkflowInvocationsParamOffset | None)
                                      : Number of invocations to skip.
-            instance (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamInstance])
+            instance (WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            view (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamView])
+            view (WorkflowsInvocationsIndexWorkflowInvocationsParamView | None)
                                      : View to be passed to the serializer
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            run-as (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            run-as (WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2895,24 +3894,30 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations"
 
         params: dict[str, Any] = {
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"job_id": job_id} if job_id is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"include_terminal": include_terminal} if include_terminal is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"instance": instance} if instance is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"step_details": step_details} if step_details is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"job_id": DataclassSerializer.serialize(job_id)} if job_id is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **(
+                {"include_terminal": DataclassSerializer.serialize(include_terminal)}
+                if include_terminal is not None
+                else {}
+            ),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -2920,26 +3925,26 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_index_workflow_invocations_2_2(
+    async def workflows_invocations_index_workflow_invocations(
         self,
         workflow_id: str,
         history_id: WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId | None = None,
         job_id: WorkflowsInvocationsIndexWorkflowInvocationsParamJobId | None = None,
         user_id: WorkflowsInvocationsIndexWorkflowInvocationsParamUserId | None = None,
         sort_by: WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy | None = None,
-        sort_desc: bool | None = False,
-        include_terminal: WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None = True,
-        limit: WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None = 20,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None = None,
         offset: WorkflowsInvocationsIndexWorkflowInvocationsParamOffset | None = None,
-        instance: WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None = False,
+        instance: WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None = None,
         view: WorkflowsInvocationsIndexWorkflowInvocationsParamView | None = None,
-        step_details: bool | None = False,
+        step_details: bool | None = None,
         run_as: WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs | None = None,
     ) -> list[WorkflowInvocationResponse]:
         """
@@ -2947,30 +3952,29 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            history_id (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId])
+            history_id (WorkflowsInvocationsIndexWorkflowInvocationsParamHistoryId | None)
                                      : Return only invocations for this History ID
-            job_id (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamJobId])
+            job_id (WorkflowsInvocationsIndexWorkflowInvocationsParamJobId | None)
                                      : Return only invocations for this Job ID
-            user_id (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamUserId])
+            user_id (WorkflowsInvocationsIndexWorkflowInvocationsParamUserId | None)
                                      : Return invocations for this User ID.
-            sort_by (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy])
+            sort_by (WorkflowsInvocationsIndexWorkflowInvocationsParamSortBy | None)
                                      : Sort Workflow Invocations by this attribute
-            sort_desc (Optional[bool]): Sort in descending order?
-            include_terminal (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal])
+            sort_desc (bool | None)  : Sort in descending order?
+            include_terminal (WorkflowsInvocationsIndexWorkflowInvocationsParamIncludeTerminal | None)
                                      : Set to false to only include terminal Invocations.
-            limit (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamLimit])
+            limit (WorkflowsInvocationsIndexWorkflowInvocationsParamLimit | None)
                                      : Limit the number of invocations to return.
-            offset (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamOffset])
+            offset (WorkflowsInvocationsIndexWorkflowInvocationsParamOffset | None)
                                      : Number of invocations to skip.
-            instance (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamInstance])
+            instance (WorkflowsInvocationsIndexWorkflowInvocationsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            view (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamView])
+            view (WorkflowsInvocationsIndexWorkflowInvocationsParamView | None)
                                      : View to be passed to the serializer
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            run-as (Optional[WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            run-as (WorkflowsInvocationsIndexWorkflowInvocationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2982,24 +3986,30 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations"
 
         params: dict[str, Any] = {
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"job_id": job_id} if job_id is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"include_terminal": include_terminal} if include_terminal is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"instance": instance} if instance is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"step_details": step_details} if step_details is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"job_id": DataclassSerializer.serialize(job_id)} if job_id is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **(
+                {"include_terminal": DataclassSerializer.serialize(include_terminal)}
+                if include_terminal is not None
+                else {}
+            ),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -3007,18 +4017,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_invoke_2_2(
+    async def workflows_invocations_invoke(
         self,
         workflow_id: WorkflowsInvocationsInvokeParamWorkflowId,
         body: InvokeWorkflowPayload,
         run_as: WorkflowsInvocationsInvokeParamRunAs | None = None,
-    ) -> WorkflowsInvocationsInvoke200Response2:
+    ) -> WorkflowsInvocationsInvoke200Response:
         """
         Schedule the workflow specified by `workflow_id` to run.
 
@@ -3026,7 +4036,7 @@ class WorkflowsClient:
             workflow_id (WorkflowsInvocationsInvokeParamWorkflowId)
                                      : The database identifier - UUID or encoded - of the
                                        Workflow.
-            run-as (Optional[WorkflowsInvocationsInvokeParamRunAs])
+            run-as (WorkflowsInvocationsInvokeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3034,16 +4044,18 @@ class WorkflowsClient:
                                      : Request body. (json)
 
         Returns:
-            WorkflowsInvocationsInvoke200Response2: Successful Response
+            WorkflowsInvocationsInvoke200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvokeWorkflowPayload = DataclassSerializer.serialize(body)
@@ -3053,18 +4065,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowsInvocationsInvoke200Response2, response.json())
+                return structure_from_dict(response.json(), WorkflowsInvocationsInvoke200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_invoke_2_2(
+    async def workflows_invocations_invoke(
         self,
         workflow_id: WorkflowsInvocationsInvokeParamWorkflowId,
         body: InvokeWorkflowPayload,
         run_as: WorkflowsInvocationsInvokeParamRunAs | None = None,
-    ) -> WorkflowsInvocationsInvoke200Response2:
+    ) -> WorkflowsInvocationsInvoke200Response:
         """
         Schedule the workflow specified by `workflow_id` to run.
 
@@ -3072,7 +4084,7 @@ class WorkflowsClient:
             workflow_id (WorkflowsInvocationsInvokeParamWorkflowId)
                                      : The database identifier - UUID or encoded - of the
                                        Workflow.
-            run-as (Optional[WorkflowsInvocationsInvokeParamRunAs])
+            run-as (WorkflowsInvocationsInvokeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3080,16 +4092,18 @@ class WorkflowsClient:
                                      : Request body. (json)
 
         Returns:
-            WorkflowsInvocationsInvoke200Response2: Successful Response
+            WorkflowsInvocationsInvoke200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvokeWorkflowPayload = DataclassSerializer.serialize(body)
@@ -3099,18 +4113,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowsInvocationsInvoke200Response2, response.json())
+                return structure_from_dict(response.json(), WorkflowsInvocationsInvoke200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_cancel_workflow_invocation_2_2(
+    async def workflows_invocations_cancel_workflow_invocation(
         self,
         invocation_id: str,
         workflow_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsInvocationsCancelWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -3121,10 +4135,9 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -3133,7 +4146,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsInvocationsCancelWorkflowInvocationParamRunAs])
+            run-as (WorkflowsInvocationsCancelWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3145,15 +4158,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=params, json=None, data=None, headers=headers)
@@ -3161,18 +4181,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_cancel_workflow_invocation_2_2(
+    async def workflows_invocations_cancel_workflow_invocation(
         self,
         invocation_id: str,
         workflow_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsInvocationsCancelWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -3183,10 +4203,9 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -3195,7 +4214,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsInvocationsCancelWorkflowInvocationParamRunAs])
+            run-as (WorkflowsInvocationsCancelWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3207,15 +4226,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=params, json=None, data=None, headers=headers)
@@ -3223,18 +4249,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_show_workflow_invocation_2_2(
+    async def workflows_invocations_show_workflow_invocation(
         self,
         workflow_id: str,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsInvocationsShowWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -3245,10 +4271,9 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -3257,7 +4282,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsInvocationsShowWorkflowInvocationParamRunAs])
+            run-as (WorkflowsInvocationsShowWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3269,15 +4294,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -3285,18 +4317,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_show_workflow_invocation_2_2(
+    async def workflows_invocations_show_workflow_invocation(
         self,
         workflow_id: str,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsInvocationsShowWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -3307,10 +4339,9 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -3319,7 +4350,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsInvocationsShowWorkflowInvocationParamRunAs])
+            run-as (WorkflowsInvocationsShowWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3331,15 +4362,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -3347,13 +4385,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_jobs_summary_workflow_invocation_jobs_summary_2_2(
+    async def workflows_invocations_jobs_summary_workflow_invocation_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3369,7 +4407,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsInvocationsJobsSummaryWorkflowInvocationJobsSummaryParamRunAs])
+            run-as (WorkflowsInvocationsJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3381,10 +4419,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3392,13 +4433,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationJobsResponse, response.json())
+                return structure_from_dict(response.json(), InvocationJobsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_jobs_summary_workflow_invocation_jobs_summary_2_2(
+    async def workflows_invocations_jobs_summary_workflow_invocation_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3414,7 +4455,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsInvocationsJobsSummaryWorkflowInvocationJobsSummaryParamRunAs])
+            run-as (WorkflowsInvocationsJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3426,10 +4467,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3437,13 +4481,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationJobsResponse, response.json())
+                return structure_from_dict(response.json(), InvocationJobsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_report_show_workflow_invocation_report_2_2(
+    async def workflows_invocations_report_show_workflow_invocation_report(
         self,
         invocation_id: str,
         workflow_id: str,
@@ -3457,7 +4501,7 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsInvocationsReportShowWorkflowInvocationReportParamRunAs])
+            run-as (WorkflowsInvocationsReportShowWorkflowInvocationReportParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3469,10 +4513,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/report"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3480,13 +4527,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationReport, response.json())
+                return structure_from_dict(response.json(), InvocationReport)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_report_show_workflow_invocation_report_2_2(
+    async def workflows_invocations_report_show_workflow_invocation_report(
         self,
         invocation_id: str,
         workflow_id: str,
@@ -3500,7 +4547,7 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsInvocationsReportShowWorkflowInvocationReportParamRunAs])
+            run-as (WorkflowsInvocationsReportShowWorkflowInvocationReportParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3512,10 +4559,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/report"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3523,13 +4573,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationReport, response.json())
+                return structure_from_dict(response.json(), InvocationReport)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_report_pdf_show_workflow_invocation_report_pdf_2_2(
+    async def workflows_invocations_report_pdf_show_workflow_invocation_report_pdf(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3544,7 +4594,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsInvocationsReportPdfShowWorkflowInvocationReportPdfParamRunAs])
+            run-as (WorkflowsInvocationsReportPdfShowWorkflowInvocationReportPdfParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3553,10 +4603,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/report.pdf"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3568,9 +4621,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_report_pdf_show_workflow_invocation_report_pdf_2_2(
+    async def workflows_invocations_report_pdf_show_workflow_invocation_report_pdf(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3585,7 +4638,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsInvocationsReportPdfShowWorkflowInvocationReportPdfParamRunAs])
+            run-as (WorkflowsInvocationsReportPdfShowWorkflowInvocationReportPdfParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3594,10 +4647,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/report.pdf"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3609,14 +4665,14 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_step_jobs_summary_workflow_invocation_step_jobs_summary_2_2(
+    async def workflows_invocations_step_jobs_summary_workflow_invocation_step_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
         run_as: WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem226]:
+    ) -> list[AnonymousArrayItem131]:
         """
         Get job state summary info aggregated per step of the workflow invocation.
 
@@ -3626,22 +4682,25 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs])
+            run-as (WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem226]: Successful Response
+            List[AnonymousArrayItem131]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/step_jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3649,18 +4708,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem226], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem131])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_step_jobs_summary_workflow_invocation_step_jobs_summary_2_2(
+    async def workflows_invocations_step_jobs_summary_workflow_invocation_step_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
         run_as: WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem226]:
+    ) -> list[AnonymousArrayItem131]:
         """
         Get job state summary info aggregated per step of the workflow invocation.
 
@@ -3670,22 +4729,25 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs])
+            run-as (WorkflowsInvocationsStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem226]: Successful Response
+            List[AnonymousArrayItem131]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/step_jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3693,13 +4755,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem226], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem131])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_steps_workflow_invocation_step_2_2(
+    async def workflows_invocations_steps_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3717,7 +4779,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsInvocationsStepsWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsInvocationsStepsWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3729,10 +4791,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3740,13 +4806,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_steps_workflow_invocation_step_2_2(
+    async def workflows_invocations_steps_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3764,7 +4830,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsInvocationsStepsWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsInvocationsStepsWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3776,10 +4842,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3787,13 +4857,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_steps_update_workflow_invocation_step_2_2(
+    async def workflows_invocations_steps_update_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3812,7 +4882,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsInvocationsStepsUpdateWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsInvocationsStepsUpdateWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3826,10 +4896,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvocationUpdatePayload = DataclassSerializer.serialize(body)
@@ -3839,13 +4913,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_invocations_steps_update_workflow_invocation_step_2_2(
+    async def workflows_invocations_steps_update_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -3864,7 +4938,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsInvocationsStepsUpdateWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsInvocationsStepsUpdateWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3878,10 +4952,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/invocations/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvocationUpdatePayload = DataclassSerializer.serialize(body)
@@ -3891,13 +4969,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_publish_publish_2_2(
+    async def workflows_publish_publish(
         self,
         workflow_id: str,
         run_as: WorkflowsPublishPublishParamRunAs | None = None,
@@ -3909,7 +4987,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsPublishPublishParamRunAs])
+            run-as (WorkflowsPublishPublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3921,10 +4999,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/publish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -3932,13 +5012,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_publish_publish_2_2(
+    async def workflows_publish_publish(
         self,
         workflow_id: str,
         run_as: WorkflowsPublishPublishParamRunAs | None = None,
@@ -3950,7 +5030,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsPublishPublishParamRunAs])
+            run-as (WorkflowsPublishPublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3962,10 +5042,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/publish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -3973,17 +5055,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_refactor_refactor_2_2(
+    async def workflows_refactor_refactor(
         self,
         workflow_id: str,
         body: RefactorRequest,
-        instance: WorkflowsRefactorRefactorParamInstance | None = False,
+        instance: WorkflowsRefactorRefactorParamInstance | None = None,
         run_as: WorkflowsRefactorRefactorParamRunAs | None = None,
     ) -> RefactorResponse:
         """
@@ -3991,9 +5073,9 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsRefactorRefactorParamInstance])
+            instance (WorkflowsRefactorRefactorParamInstance | None)
                                      :
-            run-as (Optional[WorkflowsRefactorRefactorParamRunAs])
+            run-as (WorkflowsRefactorRefactorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4006,14 +5088,16 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/refactor"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: RefactorRequest = DataclassSerializer.serialize(body)
@@ -4023,17 +5107,17 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RefactorResponse, response.json())
+                return structure_from_dict(response.json(), RefactorResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_refactor_refactor_2_2(
+    async def workflows_refactor_refactor(
         self,
         workflow_id: str,
         body: RefactorRequest,
-        instance: WorkflowsRefactorRefactorParamInstance | None = False,
+        instance: WorkflowsRefactorRefactorParamInstance | None = None,
         run_as: WorkflowsRefactorRefactorParamRunAs | None = None,
     ) -> RefactorResponse:
         """
@@ -4041,9 +5125,9 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsRefactorRefactorParamInstance])
+            instance (WorkflowsRefactorRefactorParamInstance | None)
                                      :
-            run-as (Optional[WorkflowsRefactorRefactorParamRunAs])
+            run-as (WorkflowsRefactorRefactorParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4056,14 +5140,16 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/refactor"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: RefactorRequest = DataclassSerializer.serialize(body)
@@ -4073,13 +5159,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RefactorResponse, response.json())
+                return structure_from_dict(response.json(), RefactorResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_share_with_users_share_with_users_2_2(
+    async def workflows_share_with_users_share_with_users(
         self,
         workflow_id: str,
         body: ShareWithPayload,
@@ -4092,7 +5178,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsShareWithUsersShareWithUsersParamRunAs])
+            run-as (WorkflowsShareWithUsersShareWithUsersParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4105,10 +5191,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/share_with_users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ShareWithPayload = DataclassSerializer.serialize(body)
@@ -4118,13 +5206,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ShareWithStatus, response.json())
+                return structure_from_dict(response.json(), ShareWithStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_share_with_users_share_with_users_2_2(
+    async def workflows_share_with_users_share_with_users(
         self,
         workflow_id: str,
         body: ShareWithPayload,
@@ -4137,7 +5225,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsShareWithUsersShareWithUsersParamRunAs])
+            run-as (WorkflowsShareWithUsersShareWithUsersParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4150,10 +5238,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/share_with_users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ShareWithPayload = DataclassSerializer.serialize(body)
@@ -4163,13 +5253,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ShareWithStatus, response.json())
+                return structure_from_dict(response.json(), ShareWithStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_sharing_sharing_2_2(
+    async def workflows_sharing_sharing(
         self,
         workflow_id: str,
         run_as: WorkflowsSharingSharingParamRunAs | None = None,
@@ -4181,7 +5271,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsSharingSharingParamRunAs])
+            run-as (WorkflowsSharingSharingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4193,10 +5283,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/sharing"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -4204,13 +5296,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_sharing_sharing_2_2(
+    async def workflows_sharing_sharing(
         self,
         workflow_id: str,
         run_as: WorkflowsSharingSharingParamRunAs | None = None,
@@ -4222,7 +5314,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsSharingSharingParamRunAs])
+            run-as (WorkflowsSharingSharingParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4234,10 +5326,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/sharing"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -4245,13 +5339,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_slug_set_slug_2_2(
+    async def workflows_slug_set_slug(
         self,
         workflow_id: str,
         body: SetSlugPayload,
@@ -4264,7 +5358,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsSlugSetSlugParamRunAs])
+            run-as (WorkflowsSlugSetSlugParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4274,10 +5368,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/slug"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SetSlugPayload = DataclassSerializer.serialize(body)
@@ -4291,9 +5387,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_slug_set_slug_2_2(
+    async def workflows_slug_set_slug(
         self,
         workflow_id: str,
         body: SetSlugPayload,
@@ -4306,7 +5402,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsSlugSetSlugParamRunAs])
+            run-as (WorkflowsSlugSetSlugParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4316,10 +5412,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/slug"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SetSlugPayload = DataclassSerializer.serialize(body)
@@ -4333,7 +5431,7 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
     async def workflows_tags_index(
         self,
@@ -4345,7 +5443,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        :
-            run-as (Optional[WorkflowsTagsIndexParamRunAs])
+            run-as (WorkflowsTagsIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4357,10 +5455,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/tags"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -4368,11 +5468,11 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ItemTagsListResponse, response.json())
+                return structure_from_dict(response.json(), ItemTagsListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
     async def workflows_tags_delete(
         self,
@@ -4386,7 +5486,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        :
             tag_name (str)           :
-            run-as (Optional[WorkflowsTagsDeleteParamRunAs])
+            run-as (WorkflowsTagsDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4398,10 +5498,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        tag_name = DataclassSerializer.serialize(tag_name)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/tags/{tag_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -4413,7 +5516,7 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
     async def workflows_tags_show(
         self,
@@ -4427,7 +5530,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        :
             tag_name (str)           :
-            run-as (Optional[WorkflowsTagsShowParamRunAs])
+            run-as (WorkflowsTagsShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4439,10 +5542,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        tag_name = DataclassSerializer.serialize(tag_name)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/tags/{tag_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -4450,11 +5556,11 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ItemTagsResponse, response.json())
+                return structure_from_dict(response.json(), ItemTagsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
     async def workflows_tags_create(
         self,
@@ -4469,11 +5575,11 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        :
             tag_name (str)           :
-            run-as (Optional[WorkflowsTagsCreateParamRunAs])
+            run-as (WorkflowsTagsCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[ItemTagsCreatePayload])
+            body (ItemTagsCreatePayload | None)
                                      : Request body. (json)
 
         Returns:
@@ -4483,10 +5589,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        tag_name = DataclassSerializer.serialize(tag_name)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/tags/{tag_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ItemTagsCreatePayload | None = DataclassSerializer.serialize(body)
@@ -4496,11 +5605,11 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ItemTagsResponse, response.json())
+                return structure_from_dict(response.json(), ItemTagsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
     async def workflows_tags_update(
         self,
@@ -4515,7 +5624,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        :
             tag_name (str)           :
-            run-as (Optional[WorkflowsTagsUpdateParamRunAs])
+            run-as (WorkflowsTagsUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4529,10 +5638,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        tag_name = DataclassSerializer.serialize(tag_name)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/tags/{tag_name}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ItemTagsCreatePayload = DataclassSerializer.serialize(body)
@@ -4542,38 +5654,40 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ItemTagsResponse, response.json())
+                return structure_from_dict(response.json(), ItemTagsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_undelete_undelete_workflow_2_2(
+    async def workflows_undelete_undelete_workflow(
         self,
         workflow_id: str,
         run_as: WorkflowsUndeleteUndeleteWorkflowParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Remove the deleted flag from a workflow.
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsUndeleteUndeleteWorkflowParamRunAs])
+            run-as (WorkflowsUndeleteUndeleteWorkflowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -4581,38 +5695,40 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_undelete_undelete_workflow_2_2(
+    async def workflows_undelete_undelete_workflow(
         self,
         workflow_id: str,
         run_as: WorkflowsUndeleteUndeleteWorkflowParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Remove the deleted flag from a workflow.
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsUndeleteUndeleteWorkflowParamRunAs])
+            run-as (WorkflowsUndeleteUndeleteWorkflowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -4620,13 +5736,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_unpublish_unpublish_2_2(
+    async def workflows_unpublish_unpublish(
         self,
         workflow_id: str,
         run_as: WorkflowsUnpublishUnpublishParamRunAs | None = None,
@@ -4638,7 +5754,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsUnpublishUnpublishParamRunAs])
+            run-as (WorkflowsUnpublishUnpublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4650,10 +5766,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/unpublish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -4661,13 +5779,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_unpublish_unpublish_2_2(
+    async def workflows_unpublish_unpublish(
         self,
         workflow_id: str,
         run_as: WorkflowsUnpublishUnpublishParamRunAs | None = None,
@@ -4679,7 +5797,7 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsUnpublishUnpublishParamRunAs])
+            run-as (WorkflowsUnpublishUnpublishParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4691,10 +5809,12 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/unpublish"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -4702,26 +5822,26 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(SharingStatus, response.json())
+                return structure_from_dict(response.json(), SharingStatus)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_index_workflow_invocations_2_2(
+    async def workflows_usage_index_workflow_invocations(
         self,
         workflow_id: str,
         history_id: WorkflowsUsageIndexWorkflowInvocationsParamHistoryId | None = None,
         job_id: WorkflowsUsageIndexWorkflowInvocationsParamJobId | None = None,
         user_id: WorkflowsUsageIndexWorkflowInvocationsParamUserId | None = None,
         sort_by: WorkflowsUsageIndexWorkflowInvocationsParamSortBy | None = None,
-        sort_desc: bool | None = False,
-        include_terminal: WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None = True,
-        limit: WorkflowsUsageIndexWorkflowInvocationsParamLimit | None = 20,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsUsageIndexWorkflowInvocationsParamLimit | None = None,
         offset: WorkflowsUsageIndexWorkflowInvocationsParamOffset | None = None,
-        instance: WorkflowsUsageIndexWorkflowInvocationsParamInstance | None = False,
+        instance: WorkflowsUsageIndexWorkflowInvocationsParamInstance | None = None,
         view: WorkflowsUsageIndexWorkflowInvocationsParamView | None = None,
-        step_details: bool | None = False,
+        step_details: bool | None = None,
         run_as: WorkflowsUsageIndexWorkflowInvocationsParamRunAs | None = None,
     ) -> list[WorkflowInvocationResponse]:
         """
@@ -4729,30 +5849,29 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            history_id (Optional[WorkflowsUsageIndexWorkflowInvocationsParamHistoryId])
+            history_id (WorkflowsUsageIndexWorkflowInvocationsParamHistoryId | None)
                                      : Return only invocations for this History ID
-            job_id (Optional[WorkflowsUsageIndexWorkflowInvocationsParamJobId])
+            job_id (WorkflowsUsageIndexWorkflowInvocationsParamJobId | None)
                                      : Return only invocations for this Job ID
-            user_id (Optional[WorkflowsUsageIndexWorkflowInvocationsParamUserId])
+            user_id (WorkflowsUsageIndexWorkflowInvocationsParamUserId | None)
                                      : Return invocations for this User ID.
-            sort_by (Optional[WorkflowsUsageIndexWorkflowInvocationsParamSortBy])
+            sort_by (WorkflowsUsageIndexWorkflowInvocationsParamSortBy | None)
                                      : Sort Workflow Invocations by this attribute
-            sort_desc (Optional[bool]): Sort in descending order?
-            include_terminal (Optional[WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal])
+            sort_desc (bool | None)  : Sort in descending order?
+            include_terminal (WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None)
                                      : Set to false to only include terminal Invocations.
-            limit (Optional[WorkflowsUsageIndexWorkflowInvocationsParamLimit])
+            limit (WorkflowsUsageIndexWorkflowInvocationsParamLimit | None)
                                      : Limit the number of invocations to return.
-            offset (Optional[WorkflowsUsageIndexWorkflowInvocationsParamOffset])
+            offset (WorkflowsUsageIndexWorkflowInvocationsParamOffset | None)
                                      : Number of invocations to skip.
-            instance (Optional[WorkflowsUsageIndexWorkflowInvocationsParamInstance])
+            instance (WorkflowsUsageIndexWorkflowInvocationsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            view (Optional[WorkflowsUsageIndexWorkflowInvocationsParamView])
+            view (WorkflowsUsageIndexWorkflowInvocationsParamView | None)
                                      : View to be passed to the serializer
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            run-as (Optional[WorkflowsUsageIndexWorkflowInvocationsParamRunAs])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            run-as (WorkflowsUsageIndexWorkflowInvocationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4764,24 +5883,30 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage"
 
         params: dict[str, Any] = {
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"job_id": job_id} if job_id is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"include_terminal": include_terminal} if include_terminal is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"instance": instance} if instance is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"step_details": step_details} if step_details is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"job_id": DataclassSerializer.serialize(job_id)} if job_id is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **(
+                {"include_terminal": DataclassSerializer.serialize(include_terminal)}
+                if include_terminal is not None
+                else {}
+            ),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -4789,26 +5914,26 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_index_workflow_invocations_2_2(
+    async def workflows_usage_index_workflow_invocations(
         self,
         workflow_id: str,
         history_id: WorkflowsUsageIndexWorkflowInvocationsParamHistoryId | None = None,
         job_id: WorkflowsUsageIndexWorkflowInvocationsParamJobId | None = None,
         user_id: WorkflowsUsageIndexWorkflowInvocationsParamUserId | None = None,
         sort_by: WorkflowsUsageIndexWorkflowInvocationsParamSortBy | None = None,
-        sort_desc: bool | None = False,
-        include_terminal: WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None = True,
-        limit: WorkflowsUsageIndexWorkflowInvocationsParamLimit | None = 20,
+        sort_desc: bool | None = None,
+        include_terminal: WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None = None,
+        limit: WorkflowsUsageIndexWorkflowInvocationsParamLimit | None = None,
         offset: WorkflowsUsageIndexWorkflowInvocationsParamOffset | None = None,
-        instance: WorkflowsUsageIndexWorkflowInvocationsParamInstance | None = False,
+        instance: WorkflowsUsageIndexWorkflowInvocationsParamInstance | None = None,
         view: WorkflowsUsageIndexWorkflowInvocationsParamView | None = None,
-        step_details: bool | None = False,
+        step_details: bool | None = None,
         run_as: WorkflowsUsageIndexWorkflowInvocationsParamRunAs | None = None,
     ) -> list[WorkflowInvocationResponse]:
         """
@@ -4816,30 +5941,29 @@ class WorkflowsClient:
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            history_id (Optional[WorkflowsUsageIndexWorkflowInvocationsParamHistoryId])
+            history_id (WorkflowsUsageIndexWorkflowInvocationsParamHistoryId | None)
                                      : Return only invocations for this History ID
-            job_id (Optional[WorkflowsUsageIndexWorkflowInvocationsParamJobId])
+            job_id (WorkflowsUsageIndexWorkflowInvocationsParamJobId | None)
                                      : Return only invocations for this Job ID
-            user_id (Optional[WorkflowsUsageIndexWorkflowInvocationsParamUserId])
+            user_id (WorkflowsUsageIndexWorkflowInvocationsParamUserId | None)
                                      : Return invocations for this User ID.
-            sort_by (Optional[WorkflowsUsageIndexWorkflowInvocationsParamSortBy])
+            sort_by (WorkflowsUsageIndexWorkflowInvocationsParamSortBy | None)
                                      : Sort Workflow Invocations by this attribute
-            sort_desc (Optional[bool]): Sort in descending order?
-            include_terminal (Optional[WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal])
+            sort_desc (bool | None)  : Sort in descending order?
+            include_terminal (WorkflowsUsageIndexWorkflowInvocationsParamIncludeTerminal | None)
                                      : Set to false to only include terminal Invocations.
-            limit (Optional[WorkflowsUsageIndexWorkflowInvocationsParamLimit])
+            limit (WorkflowsUsageIndexWorkflowInvocationsParamLimit | None)
                                      : Limit the number of invocations to return.
-            offset (Optional[WorkflowsUsageIndexWorkflowInvocationsParamOffset])
+            offset (WorkflowsUsageIndexWorkflowInvocationsParamOffset | None)
                                      : Number of invocations to skip.
-            instance (Optional[WorkflowsUsageIndexWorkflowInvocationsParamInstance])
+            instance (WorkflowsUsageIndexWorkflowInvocationsParamInstance | None)
                                      : Is provided workflow id for Workflow instead of
                                        StoredWorkflow?
-            view (Optional[WorkflowsUsageIndexWorkflowInvocationsParamView])
+            view (WorkflowsUsageIndexWorkflowInvocationsParamView | None)
                                      : View to be passed to the serializer
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            run-as (Optional[WorkflowsUsageIndexWorkflowInvocationsParamRunAs])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            run-as (WorkflowsUsageIndexWorkflowInvocationsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4851,24 +5975,30 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage"
 
         params: dict[str, Any] = {
-            **({"history_id": history_id} if history_id is not None else {}),
-            **({"job_id": job_id} if job_id is not None else {}),
-            **({"user_id": user_id} if user_id is not None else {}),
-            **({"sort_by": sort_by} if sort_by is not None else {}),
-            **({"sort_desc": sort_desc} if sort_desc is not None else {}),
-            **({"include_terminal": include_terminal} if include_terminal is not None else {}),
-            **({"limit": limit} if limit is not None else {}),
-            **({"offset": offset} if offset is not None else {}),
-            **({"instance": instance} if instance is not None else {}),
-            **({"view": view} if view is not None else {}),
-            **({"step_details": step_details} if step_details is not None else {}),
+            **({"history_id": DataclassSerializer.serialize(history_id)} if history_id is not None else {}),
+            **({"job_id": DataclassSerializer.serialize(job_id)} if job_id is not None else {}),
+            **({"user_id": DataclassSerializer.serialize(user_id)} if user_id is not None else {}),
+            **({"sort_by": DataclassSerializer.serialize(sort_by)} if sort_by is not None else {}),
+            **({"sort_desc": DataclassSerializer.serialize(sort_desc)} if sort_desc is not None else {}),
+            **(
+                {"include_terminal": DataclassSerializer.serialize(include_terminal)}
+                if include_terminal is not None
+                else {}
+            ),
+            **({"limit": DataclassSerializer.serialize(limit)} if limit is not None else {}),
+            **({"offset": DataclassSerializer.serialize(offset)} if offset is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
+            **({"view": DataclassSerializer.serialize(view)} if view is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -4876,18 +6006,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[WorkflowInvocationResponse], response.json())
+                return structure_from_dict(response.json(), list[WorkflowInvocationResponse])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_invoke_2_2(
+    async def workflows_usage_invoke(
         self,
         workflow_id: WorkflowsUsageInvokeParamWorkflowId,
         body: InvokeWorkflowPayload,
         run_as: WorkflowsUsageInvokeParamRunAs | None = None,
-    ) -> WorkflowsUsageInvoke200Response2:
+    ) -> WorkflowsUsageInvoke200Response:
         """
         Schedule the workflow specified by `workflow_id` to run.
 
@@ -4895,7 +6025,7 @@ class WorkflowsClient:
             workflow_id (WorkflowsUsageInvokeParamWorkflowId)
                                      : The database identifier - UUID or encoded - of the
                                        Workflow.
-            run-as (Optional[WorkflowsUsageInvokeParamRunAs])
+            run-as (WorkflowsUsageInvokeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4903,16 +6033,18 @@ class WorkflowsClient:
                                      : Request body. (json)
 
         Returns:
-            WorkflowsUsageInvoke200Response2: Successful Response
+            WorkflowsUsageInvoke200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvokeWorkflowPayload = DataclassSerializer.serialize(body)
@@ -4922,18 +6054,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowsUsageInvoke200Response2, response.json())
+                return structure_from_dict(response.json(), WorkflowsUsageInvoke200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_invoke_2_2(
+    async def workflows_usage_invoke(
         self,
         workflow_id: WorkflowsUsageInvokeParamWorkflowId,
         body: InvokeWorkflowPayload,
         run_as: WorkflowsUsageInvokeParamRunAs | None = None,
-    ) -> WorkflowsUsageInvoke200Response2:
+    ) -> WorkflowsUsageInvoke200Response:
         """
         Schedule the workflow specified by `workflow_id` to run.
 
@@ -4941,7 +6073,7 @@ class WorkflowsClient:
             workflow_id (WorkflowsUsageInvokeParamWorkflowId)
                                      : The database identifier - UUID or encoded - of the
                                        Workflow.
-            run-as (Optional[WorkflowsUsageInvokeParamRunAs])
+            run-as (WorkflowsUsageInvokeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -4949,16 +6081,18 @@ class WorkflowsClient:
                                      : Request body. (json)
 
         Returns:
-            WorkflowsUsageInvoke200Response2: Successful Response
+            WorkflowsUsageInvoke200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvokeWorkflowPayload = DataclassSerializer.serialize(body)
@@ -4968,18 +6102,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowsUsageInvoke200Response2, response.json())
+                return structure_from_dict(response.json(), WorkflowsUsageInvoke200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_cancel_workflow_invocation_2_2(
+    async def workflows_usage_cancel_workflow_invocation(
         self,
         invocation_id: str,
         workflow_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsUsageCancelWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -4990,10 +6124,9 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -5002,7 +6135,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsUsageCancelWorkflowInvocationParamRunAs])
+            run-as (WorkflowsUsageCancelWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5014,15 +6147,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=params, json=None, data=None, headers=headers)
@@ -5030,18 +6170,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_cancel_workflow_invocation_2_2(
+    async def workflows_usage_cancel_workflow_invocation(
         self,
         invocation_id: str,
         workflow_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsUsageCancelWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -5052,10 +6192,9 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -5064,7 +6203,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsUsageCancelWorkflowInvocationParamRunAs])
+            run-as (WorkflowsUsageCancelWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5076,15 +6215,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=params, json=None, data=None, headers=headers)
@@ -5092,18 +6238,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_show_workflow_invocation_2_2(
+    async def workflows_usage_show_workflow_invocation(
         self,
         workflow_id: str,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsUsageShowWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -5114,10 +6260,9 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -5126,7 +6271,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsUsageShowWorkflowInvocationParamRunAs])
+            run-as (WorkflowsUsageShowWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5138,15 +6283,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -5154,18 +6306,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_show_workflow_invocation_2_2(
+    async def workflows_usage_show_workflow_invocation(
         self,
         workflow_id: str,
         invocation_id: str,
-        step_details: bool | None = False,
-        legacy_job_state: bool | None = False,
+        step_details: bool | None = None,
+        legacy_job_state: bool | None = None,
         run_as: WorkflowsUsageShowWorkflowInvocationParamRunAs | None = None,
     ) -> WorkflowInvocationResponse:
         """
@@ -5176,10 +6328,9 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            step_details (Optional[bool])
-                                     : Include details for individual invocation steps and
-                                       populate a steps attribute in the resulting dictionary.
-            legacy_job_state (Optional[bool])
+            step_details (bool | None): Include details for individual invocation steps and
+                                        populate a steps attribute in the resulting dictionary.
+            legacy_job_state (bool | None)
                                      : Populate the invocation step state with the job state
                                        instead of the invocation step state.         This will
                                        also produce one step per job in mapping jobs to mimic
@@ -5188,7 +6339,7 @@ class WorkflowsClient:
                                        information and the listed steps outputs         are not
                                        the mapped over step outputs but the individual job
                                        outputs.
-            run-as (Optional[WorkflowsUsageShowWorkflowInvocationParamRunAs])
+            run-as (WorkflowsUsageShowWorkflowInvocationParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5200,15 +6351,22 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}"
 
         params: dict[str, Any] = {
-            **({"step_details": step_details} if step_details is not None else {}),
-            **({"legacy_job_state": legacy_job_state} if legacy_job_state is not None else {}),
+            **({"step_details": DataclassSerializer.serialize(step_details)} if step_details is not None else {}),
+            **(
+                {"legacy_job_state": DataclassSerializer.serialize(legacy_job_state)}
+                if legacy_job_state is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -5216,13 +6374,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(WorkflowInvocationResponse, response.json())
+                return structure_from_dict(response.json(), WorkflowInvocationResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_jobs_summary_workflow_invocation_jobs_summary_2_2(
+    async def workflows_usage_jobs_summary_workflow_invocation_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5238,7 +6396,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsUsageJobsSummaryWorkflowInvocationJobsSummaryParamRunAs])
+            run-as (WorkflowsUsageJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5250,10 +6408,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5261,13 +6422,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationJobsResponse, response.json())
+                return structure_from_dict(response.json(), InvocationJobsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_jobs_summary_workflow_invocation_jobs_summary_2_2(
+    async def workflows_usage_jobs_summary_workflow_invocation_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5283,7 +6444,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsUsageJobsSummaryWorkflowInvocationJobsSummaryParamRunAs])
+            run-as (WorkflowsUsageJobsSummaryWorkflowInvocationJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5295,10 +6456,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5306,13 +6470,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationJobsResponse, response.json())
+                return structure_from_dict(response.json(), InvocationJobsResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_report_show_workflow_invocation_report_2_2(
+    async def workflows_usage_report_show_workflow_invocation_report(
         self,
         invocation_id: str,
         workflow_id: str,
@@ -5326,7 +6490,7 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsUsageReportShowWorkflowInvocationReportParamRunAs])
+            run-as (WorkflowsUsageReportShowWorkflowInvocationReportParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5338,10 +6502,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/report"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5349,13 +6516,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationReport, response.json())
+                return structure_from_dict(response.json(), InvocationReport)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_report_show_workflow_invocation_report_2_2(
+    async def workflows_usage_report_show_workflow_invocation_report(
         self,
         invocation_id: str,
         workflow_id: str,
@@ -5369,7 +6536,7 @@ class WorkflowsClient:
         Args:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            run-as (Optional[WorkflowsUsageReportShowWorkflowInvocationReportParamRunAs])
+            run-as (WorkflowsUsageReportShowWorkflowInvocationReportParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5381,10 +6548,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/report"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5392,13 +6562,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationReport, response.json())
+                return structure_from_dict(response.json(), InvocationReport)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_report_pdf_show_workflow_invocation_report_pdf_2_2(
+    async def workflows_usage_report_pdf_show_workflow_invocation_report_pdf(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5413,7 +6583,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsUsageReportPdfShowWorkflowInvocationReportPdfParamRunAs])
+            run-as (WorkflowsUsageReportPdfShowWorkflowInvocationReportPdfParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5422,10 +6592,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/report.pdf"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5437,9 +6610,9 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_report_pdf_show_workflow_invocation_report_pdf_2_2(
+    async def workflows_usage_report_pdf_show_workflow_invocation_report_pdf(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5454,7 +6627,7 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsUsageReportPdfShowWorkflowInvocationReportPdfParamRunAs])
+            run-as (WorkflowsUsageReportPdfShowWorkflowInvocationReportPdfParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5463,10 +6636,13 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/report.pdf"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5478,14 +6654,14 @@ class WorkflowsClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_step_jobs_summary_workflow_invocation_step_jobs_summary_2_2(
+    async def workflows_usage_step_jobs_summary_workflow_invocation_step_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
         run_as: WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem228]:
+    ) -> list[AnonymousArrayItem133]:
         """
         Get job state summary info aggregated per step of the workflow invocation.
 
@@ -5495,22 +6671,25 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs])
+            run-as (WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem228]: Successful Response
+            List[AnonymousArrayItem133]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/step_jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5518,18 +6697,18 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem228], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem133])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_step_jobs_summary_workflow_invocation_step_jobs_summary_2_2(
+    async def workflows_usage_step_jobs_summary_workflow_invocation_step_jobs_summary(
         self,
         workflow_id: str,
         invocation_id: str,
         run_as: WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem228]:
+    ) -> list[AnonymousArrayItem133]:
         """
         Get job state summary info aggregated per step of the workflow invocation.
 
@@ -5539,22 +6718,25 @@ class WorkflowsClient:
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
             invocation_id (str)      : The encoded database identifier of the Invocation.
-            run-as (Optional[WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs])
+            run-as (WorkflowsUsageStepJobsSummaryWorkflowInvocationStepJobsSummaryParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem228]: Successful Response
+            List[AnonymousArrayItem133]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/step_jobs_summary"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5562,13 +6744,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem228], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem133])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_steps_workflow_invocation_step_2_2(
+    async def workflows_usage_steps_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5586,7 +6768,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsUsageStepsWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsUsageStepsWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5598,10 +6780,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5609,13 +6795,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_steps_workflow_invocation_step_2_2(
+    async def workflows_usage_steps_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5633,7 +6819,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsUsageStepsWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsUsageStepsWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5645,10 +6831,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -5656,13 +6846,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_steps_update_workflow_invocation_step_2_2(
+    async def workflows_usage_steps_update_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5681,7 +6871,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsUsageStepsUpdateWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsUsageStepsUpdateWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5695,10 +6885,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvocationUpdatePayload = DataclassSerializer.serialize(body)
@@ -5708,13 +6902,13 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_usage_steps_update_workflow_invocation_step_2_2(
+    async def workflows_usage_steps_update_workflow_invocation_step(
         self,
         workflow_id: str,
         invocation_id: str,
@@ -5733,7 +6927,7 @@ class WorkflowsClient:
             invocation_id (str)      : The encoded database identifier of the Invocation.
             step_id (str)            : The encoded database identifier of the
                                        WorkflowInvocationStep.
-            run-as (Optional[WorkflowsUsageStepsUpdateWorkflowInvocationStepParamRunAs])
+            run-as (WorkflowsUsageStepsUpdateWorkflowInvocationStepParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -5747,10 +6941,14 @@ class WorkflowsClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+        invocation_id = DataclassSerializer.serialize(invocation_id)
+        step_id = DataclassSerializer.serialize(step_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/usage/{invocation_id}/steps/{step_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: InvocationUpdatePayload = DataclassSerializer.serialize(body)
@@ -5760,45 +6958,47 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(InvocationStep, response.json())
+                return structure_from_dict(response.json(), InvocationStep)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_versions_show_versions_2_2(
+    async def workflows_versions_show_versions(
         self,
         workflow_id: str,
-        instance: WorkflowsVersionsShowVersionsParamInstance | None = False,
+        instance: WorkflowsVersionsShowVersionsParamInstance | None = None,
         run_as: WorkflowsVersionsShowVersionsParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         List all versions of a workflow.
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsVersionsShowVersionsParamInstance])
+            instance (WorkflowsVersionsShowVersionsParamInstance | None)
                                      :
-            run-as (Optional[WorkflowsVersionsShowVersionsParamRunAs])
+            run-as (WorkflowsVersionsShowVersionsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/versions"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -5806,45 +7006,47 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def workflows_versions_show_versions_2_2(
+    async def workflows_versions_show_versions(
         self,
         workflow_id: str,
-        instance: WorkflowsVersionsShowVersionsParamInstance | None = False,
+        instance: WorkflowsVersionsShowVersionsParamInstance | None = None,
         run_as: WorkflowsVersionsShowVersionsParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         List all versions of a workflow.
 
         Args:
             workflow_id (str)        : The encoded database identifier of the Stored Workflow.
-            instance (Optional[WorkflowsVersionsShowVersionsParamInstance])
+            instance (WorkflowsVersionsShowVersionsParamInstance | None)
                                      :
-            run-as (Optional[WorkflowsVersionsShowVersionsParamRunAs])
+            run-as (WorkflowsVersionsShowVersionsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        workflow_id = DataclassSerializer.serialize(workflow_id)
+
         url = f"{self.base_url}/api/workflows/{workflow_id}/versions"
 
         params: dict[str, Any] = {
-            **({"instance": instance} if instance is not None else {}),
+            **({"instance": DataclassSerializer.serialize(instance)} if instance is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -5852,8 +7054,8 @@ class WorkflowsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

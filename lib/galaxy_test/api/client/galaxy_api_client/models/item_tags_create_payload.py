@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .value import Value
+from .item_tags_create_payload_value import ItemTagsCreatePayloadValue
 
 __all__ = ["ItemTagsCreatePayload"]
 
@@ -11,7 +11,18 @@ class ItemTagsCreatePayload:
     Payload schema for creating an item tag.
 
     Args:
-        value (Optional[Value])  : TODO
+        value (ItemTagsCreatePayloadValue | None)
+                                 :
     """
 
-    value: Value | None = False  # TODO
+    value: ItemTagsCreatePayloadValue | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "value": "value",
+        }
+        key_transform_with_dump = {
+            "value": "value",
+        }

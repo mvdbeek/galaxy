@@ -1,9 +1,9 @@
 from typing import TypeAlias
 
-from .exit_code_job_message import ExitCodeJobMessage
-from .max_discovered_files_job_message import MaxDiscoveredFilesJobMessage
-from .regex_job_message import RegexJobMessage
+from .custom_history_view import CustomHistoryView
+from .history_detailed import HistoryDetailed
+from .history_summary import HistorySummary
 
 __all__ = ["AnonymousArrayItem99"]
 
-AnonymousArrayItem99: TypeAlias = ExitCodeJobMessage | MaxDiscoveredFilesJobMessage | RegexJobMessage
+AnonymousArrayItem99: TypeAlias = CustomHistoryView | HistoryDetailed | HistorySummary

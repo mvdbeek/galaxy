@@ -6,23 +6,23 @@ __all__ = ["ElementsStatesDict"]
 @dataclass
 class ElementsStatesDict:
     """
-    ElementsStatesDict dataclass.
+    ElementsStatesDict dataclass
 
     Args:
-        deferred (Optional[int]) :
-        discarded (Optional[int]):
-        empty (Optional[int])    :
-        error (Optional[int])    :
-        failed_metadata (Optional[int])
+        deferred (int | None)    :
+        discarded (int | None)   :
+        empty (int | None)       :
+        error (int | None)       :
+        failed_metadata (int | None)
                                  :
-        new (Optional[int])      :
-        ok (Optional[int])       :
-        paused (Optional[int])   :
-        queued (Optional[int])   :
-        running (Optional[int])  :
-        setting_metadata (Optional[int])
+        new (int | None)         :
+        ok (int | None)          :
+        paused (int | None)      :
+        queued (int | None)      :
+        running (int | None)     :
+        setting_metadata (int | None)
                                  :
-        upload (Optional[int])   :
+        upload (int | None)      :
     """
 
     deferred: int | None = None
@@ -37,3 +37,35 @@ class ElementsStatesDict:
     running: int | None = None
     setting_metadata: int | None = None
     upload: int | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "deferred": "deferred",
+            "discarded": "discarded",
+            "empty": "empty",
+            "error": "error",
+            "failed_metadata": "failed_metadata",
+            "new": "new",
+            "ok": "ok",
+            "paused": "paused",
+            "queued": "queued",
+            "running": "running",
+            "setting_metadata": "setting_metadata",
+            "upload": "upload",
+        }
+        key_transform_with_dump = {
+            "deferred": "deferred",
+            "discarded": "discarded",
+            "empty": "empty",
+            "error": "error",
+            "failed_metadata": "failed_metadata",
+            "new": "new",
+            "ok": "ok",
+            "paused": "paused",
+            "queued": "queued",
+            "running": "running",
+            "setting_metadata": "setting_metadata",
+            "upload": "upload",
+        }

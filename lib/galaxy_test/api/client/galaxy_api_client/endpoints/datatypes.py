@@ -1,16 +1,17 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
+from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
-from ..models.anonymous_array_item_131 import AnonymousArrayItem131
 from ..models.datatype_converter_list import DatatypeConverterList
 from ..models.datatype_visualization_mappings_list import DatatypeVisualizationMappingsList
 from ..models.datatypes_combined_map import DatatypesCombinedMap
-from ..models.datatypes_edam_data_edam_data_200_response_2 import DatatypesEdamDataEdamData200Response2
+from ..models.datatypes_edam_data_edam_data_200_response import DatatypesEdamDataEdamData200Response
 from ..models.datatypes_edam_details_dict_2 import DatatypesEdamDetailsDict2
-from ..models.datatypes_edam_formats_edam_formats_200_response_2 import DatatypesEdamFormatsEdamFormats200Response2
-from ..models.datatypes_index_200_response_2 import DatatypesIndex200Response2
+from ..models.datatypes_edam_formats_edam_formats_200_response import DatatypesEdamFormatsEdamFormats200Response
+from ..models.datatypes_index_200_response import DatatypesIndex200Response
 from ..models.datatypes_index_param_extension_only import DatatypesIndexParamExtensionOnly
 from ..models.datatypes_index_param_upload_only import DatatypesIndexParamUploadOnly
 from ..models.datatypes_map import DatatypesMap
@@ -22,32 +23,137 @@ from ..models.datatypes_types_and_mapping_types_and_mapping_param_upload_only im
 )
 
 
-class DatatypesClient:
+@runtime_checkable
+class DatatypesClientProtocol(Protocol):
+    """Protocol defining the interface of DatatypesClient for dependency injection."""
+
+    async def datatypes_index(
+        self,
+        extension_only: DatatypesIndexParamExtensionOnly | None = None,
+        upload_only: DatatypesIndexParamUploadOnly | None = None,
+    ) -> DatatypesIndex200Response: ...
+
+    async def datatypes_index(
+        self,
+        extension_only: DatatypesIndexParamExtensionOnly | None = None,
+        upload_only: DatatypesIndexParamUploadOnly | None = None,
+    ) -> DatatypesIndex200Response: ...
+
+    async def datatypes_converters_converters(
+        self,
+    ) -> DatatypeConverterList: ...
+
+    async def datatypes_converters_converters(
+        self,
+    ) -> DatatypeConverterList: ...
+
+    async def datatypes_edam_data_edam_data(
+        self,
+    ) -> DatatypesEdamDataEdamData200Response: ...
+
+    async def datatypes_edam_data_edam_data(
+        self,
+    ) -> DatatypesEdamDataEdamData200Response: ...
+
+    async def datatypes_edam_data_detailed_edam_data_detailed(
+        self,
+    ) -> DatatypesEdamDetailsDict2: ...
+
+    async def datatypes_edam_data_detailed_edam_data_detailed(
+        self,
+    ) -> DatatypesEdamDetailsDict2: ...
+
+    async def datatypes_edam_formats_edam_formats(
+        self,
+    ) -> DatatypesEdamFormatsEdamFormats200Response: ...
+
+    async def datatypes_edam_formats_edam_formats(
+        self,
+    ) -> DatatypesEdamFormatsEdamFormats200Response: ...
+
+    async def datatypes_edam_formats_detailed_edam_formats_detailed(
+        self,
+    ) -> DatatypesEdamDetailsDict2: ...
+
+    async def datatypes_edam_formats_detailed_edam_formats_detailed(
+        self,
+    ) -> DatatypesEdamDetailsDict2: ...
+
+    async def datatypes_mapping_mapping(
+        self,
+    ) -> DatatypesMap: ...
+
+    async def datatypes_mapping_mapping(
+        self,
+    ) -> DatatypesMap: ...
+
+    async def datatypes_sniffers_sniffers(
+        self,
+    ) -> list[str]: ...
+
+    async def datatypes_sniffers_sniffers(
+        self,
+    ) -> list[str]: ...
+
+    async def datatypes_types_and_mapping_types_and_mapping(
+        self,
+        extension_only: DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None = None,
+        upload_only: DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None = None,
+    ) -> DatatypesCombinedMap: ...
+
+    async def datatypes_types_and_mapping_types_and_mapping(
+        self,
+        extension_only: DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None = None,
+        upload_only: DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None = None,
+    ) -> DatatypesCombinedMap: ...
+
+    async def datatypes_show(
+        self,
+        datatype: str,
+    ) -> dict[str, Any]: ...
+
+    async def datatypes_show(
+        self,
+        datatype: str,
+    ) -> dict[str, Any]: ...
+
+    async def datatypes_visualizations_visualization_for_datatype(
+        self,
+        datatype: str,
+    ) -> DatatypeVisualizationMappingsList: ...
+
+    async def datatypes_visualizations_visualization_for_datatype(
+        self,
+        datatype: str,
+    ) -> DatatypeVisualizationMappingsList: ...
+
+
+class DatatypesClient(DatatypesClientProtocol):
     """Client for datatypes endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def datatypes_index_2_2(
+    async def datatypes_index(
         self,
-        extension_only: DatatypesIndexParamExtensionOnly | None = True,
-        upload_only: DatatypesIndexParamUploadOnly | None = True,
-    ) -> DatatypesIndex200Response2:
+        extension_only: DatatypesIndexParamExtensionOnly | None = None,
+        upload_only: DatatypesIndexParamUploadOnly | None = None,
+    ) -> DatatypesIndex200Response:
         """
         Lists all available data types
 
         Gets the list of all available data types.
 
         Args:
-            extension_only (Optional[DatatypesIndexParamExtensionOnly])
+            extension_only (DatatypesIndexParamExtensionOnly | None)
                                      : Whether to return only the datatype's extension rather
                                        than the datatype's details
-            upload_only (Optional[DatatypesIndexParamUploadOnly])
+            upload_only (DatatypesIndexParamUploadOnly | None)
                                      : Whether to return only datatypes which can be uploaded
 
         Returns:
-            DatatypesIndex200Response2: List of data types
+            DatatypesIndex200Response: List of data types
 
         Raises:
             HttpError:
@@ -56,8 +162,8 @@ class DatatypesClient:
         url = f"{self.base_url}/api/datatypes"
 
         params: dict[str, Any] = {
-            **({"extension_only": extension_only} if extension_only is not None else {}),
-            **({"upload_only": upload_only} if upload_only is not None else {}),
+            **({"extension_only": DataclassSerializer.serialize(extension_only)} if extension_only is not None else {}),
+            **({"upload_only": DataclassSerializer.serialize(upload_only)} if upload_only is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=None)
@@ -65,31 +171,31 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesIndex200Response2, response.json())
+                return structure_from_dict(response.json(), DatatypesIndex200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_index_2_2(
+    async def datatypes_index(
         self,
-        extension_only: DatatypesIndexParamExtensionOnly | None = True,
-        upload_only: DatatypesIndexParamUploadOnly | None = True,
-    ) -> DatatypesIndex200Response2:
+        extension_only: DatatypesIndexParamExtensionOnly | None = None,
+        upload_only: DatatypesIndexParamUploadOnly | None = None,
+    ) -> DatatypesIndex200Response:
         """
         Lists all available data types
 
         Gets the list of all available data types.
 
         Args:
-            extension_only (Optional[DatatypesIndexParamExtensionOnly])
+            extension_only (DatatypesIndexParamExtensionOnly | None)
                                      : Whether to return only the datatype's extension rather
                                        than the datatype's details
-            upload_only (Optional[DatatypesIndexParamUploadOnly])
+            upload_only (DatatypesIndexParamUploadOnly | None)
                                      : Whether to return only datatypes which can be uploaded
 
         Returns:
-            DatatypesIndex200Response2: List of data types
+            DatatypesIndex200Response: List of data types
 
         Raises:
             HttpError:
@@ -98,8 +204,8 @@ class DatatypesClient:
         url = f"{self.base_url}/api/datatypes"
 
         params: dict[str, Any] = {
-            **({"extension_only": extension_only} if extension_only is not None else {}),
-            **({"upload_only": upload_only} if upload_only is not None else {}),
+            **({"extension_only": DataclassSerializer.serialize(extension_only)} if extension_only is not None else {}),
+            **({"upload_only": DataclassSerializer.serialize(upload_only)} if upload_only is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=None)
@@ -107,13 +213,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesIndex200Response2, response.json())
+                return structure_from_dict(response.json(), DatatypesIndex200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_converters_converters_2_2(
+    async def datatypes_converters_converters(
         self,
     ) -> DatatypeConverterList:
         """
@@ -135,13 +241,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypeConverterList, response.json())
+                return structure_from_dict(response.json(), DatatypeConverterList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_converters_converters_2_2(
+    async def datatypes_converters_converters(
         self,
     ) -> DatatypeConverterList:
         """
@@ -163,22 +269,22 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypeConverterList, response.json())
+                return structure_from_dict(response.json(), DatatypeConverterList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_data_edam_data_2_2(
+    async def datatypes_edam_data_edam_data(
         self,
-    ) -> DatatypesEdamDataEdamData200Response2:
+    ) -> DatatypesEdamDataEdamData200Response:
         """
         Returns a dictionary/map of datatypes and EDAM data
 
         Gets a map of datatypes and their corresponding EDAM data.
 
         Returns:
-            DatatypesEdamDataEdamData200Response2: Dictionary/map of datatypes and EDAM data
+            DatatypesEdamDataEdamData200Response: Dictionary/map of datatypes and EDAM data
 
         Raises:
             HttpError:
@@ -191,22 +297,22 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamDataEdamData200Response2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamDataEdamData200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_data_edam_data_2_2(
+    async def datatypes_edam_data_edam_data(
         self,
-    ) -> DatatypesEdamDataEdamData200Response2:
+    ) -> DatatypesEdamDataEdamData200Response:
         """
         Returns a dictionary/map of datatypes and EDAM data
 
         Gets a map of datatypes and their corresponding EDAM data.
 
         Returns:
-            DatatypesEdamDataEdamData200Response2: Dictionary/map of datatypes and EDAM data
+            DatatypesEdamDataEdamData200Response: Dictionary/map of datatypes and EDAM data
 
         Raises:
             HttpError:
@@ -219,13 +325,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamDataEdamData200Response2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamDataEdamData200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_data_detailed_edam_data_detailed_2_2(
+    async def datatypes_edam_data_detailed_edam_data_detailed(
         self,
     ) -> DatatypesEdamDetailsDict2:
         """
@@ -249,13 +355,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamDetailsDict2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamDetailsDict2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_data_detailed_edam_data_detailed_2_2(
+    async def datatypes_edam_data_detailed_edam_data_detailed(
         self,
     ) -> DatatypesEdamDetailsDict2:
         """
@@ -279,23 +385,23 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamDetailsDict2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamDetailsDict2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_formats_edam_formats_2_2(
+    async def datatypes_edam_formats_edam_formats(
         self,
-    ) -> DatatypesEdamFormatsEdamFormats200Response2:
+    ) -> DatatypesEdamFormatsEdamFormats200Response:
         """
         Returns a dictionary/map of datatypes and EDAM formats
 
         Gets a map of datatypes and their corresponding EDAM formats.
 
         Returns:
-            DatatypesEdamFormatsEdamFormats200Response2: Dictionary/map of datatypes and EDAM
-                                                         formats
+            DatatypesEdamFormatsEdamFormats200Response: Dictionary/map of datatypes and EDAM
+                                                        formats
 
         Raises:
             HttpError:
@@ -308,23 +414,23 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamFormatsEdamFormats200Response2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamFormatsEdamFormats200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_formats_edam_formats_2_2(
+    async def datatypes_edam_formats_edam_formats(
         self,
-    ) -> DatatypesEdamFormatsEdamFormats200Response2:
+    ) -> DatatypesEdamFormatsEdamFormats200Response:
         """
         Returns a dictionary/map of datatypes and EDAM formats
 
         Gets a map of datatypes and their corresponding EDAM formats.
 
         Returns:
-            DatatypesEdamFormatsEdamFormats200Response2: Dictionary/map of datatypes and EDAM
-                                                         formats
+            DatatypesEdamFormatsEdamFormats200Response: Dictionary/map of datatypes and EDAM
+                                                        formats
 
         Raises:
             HttpError:
@@ -337,13 +443,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamFormatsEdamFormats200Response2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamFormatsEdamFormats200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_formats_detailed_edam_formats_detailed_2_2(
+    async def datatypes_edam_formats_detailed_edam_formats_detailed(
         self,
     ) -> DatatypesEdamDetailsDict2:
         """
@@ -367,13 +473,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamDetailsDict2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamDetailsDict2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_edam_formats_detailed_edam_formats_detailed_2_2(
+    async def datatypes_edam_formats_detailed_edam_formats_detailed(
         self,
     ) -> DatatypesEdamDetailsDict2:
         """
@@ -397,13 +503,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesEdamDetailsDict2, response.json())
+                return structure_from_dict(response.json(), DatatypesEdamDetailsDict2)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_mapping_mapping_2_2(
+    async def datatypes_mapping_mapping(
         self,
     ) -> DatatypesMap:
         """
@@ -425,13 +531,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesMap, response.json())
+                return structure_from_dict(response.json(), DatatypesMap)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_mapping_mapping_2_2(
+    async def datatypes_mapping_mapping(
         self,
     ) -> DatatypesMap:
         """
@@ -453,22 +559,22 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesMap, response.json())
+                return structure_from_dict(response.json(), DatatypesMap)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_sniffers_sniffers_2_2(
+    async def datatypes_sniffers_sniffers(
         self,
-    ) -> list[AnonymousArrayItem131]:
+    ) -> list[str]:
         """
         Returns the list of all installed sniffers
 
         Gets the list of all installed data type sniffers.
 
         Returns:
-            List[AnonymousArrayItem131]: List of datatype sniffers
+            List[str]: List of datatype sniffers
 
         Raises:
             HttpError:
@@ -481,22 +587,22 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem131], response.json())
+                return cast(list[str], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_sniffers_sniffers_2_2(
+    async def datatypes_sniffers_sniffers(
         self,
-    ) -> list[AnonymousArrayItem131]:
+    ) -> list[str]:
         """
         Returns the list of all installed sniffers
 
         Gets the list of all installed data type sniffers.
 
         Returns:
-            List[AnonymousArrayItem131]: List of datatype sniffers
+            List[str]: List of datatype sniffers
 
         Raises:
             HttpError:
@@ -509,16 +615,16 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem131], response.json())
+                return cast(list[str], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_types_and_mapping_types_and_mapping_2_2(
+    async def datatypes_types_and_mapping_types_and_mapping(
         self,
-        extension_only: DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None = True,
-        upload_only: DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None = True,
+        extension_only: DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None = None,
+        upload_only: DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None = None,
     ) -> DatatypesCombinedMap:
         """
         Returns all the data types extensions and their mappings
@@ -527,10 +633,10 @@ class DatatypesClient:
         (/api/datatypes/mapping) into a single response.
 
         Args:
-            extension_only (Optional[DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly])
+            extension_only (DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None)
                                      : Whether to return only the datatype's extension rather
                                        than the datatype's details
-            upload_only (Optional[DatatypesTypesAndMappingTypesAndMappingParamUploadOnly])
+            upload_only (DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None)
                                      : Whether to return only datatypes which can be uploaded
 
         Returns:
@@ -543,8 +649,8 @@ class DatatypesClient:
         url = f"{self.base_url}/api/datatypes/types_and_mapping"
 
         params: dict[str, Any] = {
-            **({"extension_only": extension_only} if extension_only is not None else {}),
-            **({"upload_only": upload_only} if upload_only is not None else {}),
+            **({"extension_only": DataclassSerializer.serialize(extension_only)} if extension_only is not None else {}),
+            **({"upload_only": DataclassSerializer.serialize(upload_only)} if upload_only is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=None)
@@ -552,16 +658,16 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesCombinedMap, response.json())
+                return structure_from_dict(response.json(), DatatypesCombinedMap)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_types_and_mapping_types_and_mapping_2_2(
+    async def datatypes_types_and_mapping_types_and_mapping(
         self,
-        extension_only: DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None = True,
-        upload_only: DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None = True,
+        extension_only: DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None = None,
+        upload_only: DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None = None,
     ) -> DatatypesCombinedMap:
         """
         Returns all the data types extensions and their mappings
@@ -570,10 +676,10 @@ class DatatypesClient:
         (/api/datatypes/mapping) into a single response.
 
         Args:
-            extension_only (Optional[DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly])
+            extension_only (DatatypesTypesAndMappingTypesAndMappingParamExtensionOnly | None)
                                      : Whether to return only the datatype's extension rather
                                        than the datatype's details
-            upload_only (Optional[DatatypesTypesAndMappingTypesAndMappingParamUploadOnly])
+            upload_only (DatatypesTypesAndMappingTypesAndMappingParamUploadOnly | None)
                                      : Whether to return only datatypes which can be uploaded
 
         Returns:
@@ -586,8 +692,8 @@ class DatatypesClient:
         url = f"{self.base_url}/api/datatypes/types_and_mapping"
 
         params: dict[str, Any] = {
-            **({"extension_only": extension_only} if extension_only is not None else {}),
-            **({"upload_only": upload_only} if upload_only is not None else {}),
+            **({"extension_only": DataclassSerializer.serialize(extension_only)} if extension_only is not None else {}),
+            **({"upload_only": DataclassSerializer.serialize(upload_only)} if upload_only is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=None)
@@ -595,16 +701,16 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypesCombinedMap, response.json())
+                return structure_from_dict(response.json(), DatatypesCombinedMap)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_show_2_2(
+    async def datatypes_show(
         self,
         datatype: str,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Get details for a specific datatype
 
@@ -616,12 +722,14 @@ class DatatypesClient:
             datatype (str)           : Datatype extension to get information for
 
         Returns:
-            Any: Detailed information about a datatype
+            dict[str, Any]: Detailed information about a datatype
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        datatype = DataclassSerializer.serialize(datatype)
+
         url = f"{self.base_url}/api/datatypes/{datatype}"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -629,16 +737,16 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_show_2_2(
+    async def datatypes_show(
         self,
         datatype: str,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Get details for a specific datatype
 
@@ -650,12 +758,14 @@ class DatatypesClient:
             datatype (str)           : Datatype extension to get information for
 
         Returns:
-            Any: Detailed information about a datatype
+            dict[str, Any]: Detailed information about a datatype
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        datatype = DataclassSerializer.serialize(datatype)
+
         url = f"{self.base_url}/api/datatypes/{datatype}"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -663,13 +773,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_visualizations_visualization_for_datatype_2_2(
+    async def datatypes_visualizations_visualization_for_datatype(
         self,
         datatype: str,
     ) -> DatatypeVisualizationMappingsList:
@@ -689,6 +799,8 @@ class DatatypesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        datatype = DataclassSerializer.serialize(datatype)
+
         url = f"{self.base_url}/api/datatypes/{datatype}/visualizations"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -696,13 +808,13 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypeVisualizationMappingsList, response.json())
+                return structure_from_dict(response.json(), DatatypeVisualizationMappingsList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def datatypes_visualizations_visualization_for_datatype_2_2(
+    async def datatypes_visualizations_visualization_for_datatype(
         self,
         datatype: str,
     ) -> DatatypeVisualizationMappingsList:
@@ -722,6 +834,8 @@ class DatatypesClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        datatype = DataclassSerializer.serialize(datatype)
+
         url = f"{self.base_url}/api/datatypes/{datatype}/visualizations"
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=None)
@@ -729,8 +843,8 @@ class DatatypesClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DatatypeVisualizationMappingsList, response.json())
+                return structure_from_dict(response.json(), DatatypeVisualizationMappingsList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

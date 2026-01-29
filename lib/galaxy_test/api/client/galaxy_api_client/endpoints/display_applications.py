@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -11,18 +12,55 @@ from ..models.display_applications_create_link_create_link_param_run_as import (
     DisplayApplicationsCreateLinkCreateLinkParamRunAs,
 )
 from ..models.display_applications_reload_reload_param_run_as import DisplayApplicationsReloadReloadParamRunAs
-from ..models.display_applications_reload_reload_request_body_2 import DisplayApplicationsReloadReloadRequestBody2
+from ..models.display_applications_reload_reload_request_body import DisplayApplicationsReloadReloadRequestBody
 from ..models.reload_feedback import ReloadFeedback
 
 
-class DisplayApplicationsClient:
+@runtime_checkable
+class DisplayApplicationsClientProtocol(Protocol):
+    """Protocol defining the interface of DisplayApplicationsClient for dependency injection."""
+
+    async def display_applications_index(
+        self,
+    ) -> list[DisplayApplication]: ...
+
+    async def display_applications_index(
+        self,
+    ) -> list[DisplayApplication]: ...
+
+    async def display_applications_create_link_create_link(
+        self,
+        body: CreateLinkIncoming,
+        run_as: DisplayApplicationsCreateLinkCreateLinkParamRunAs | None = None,
+    ) -> CreateLinkFeedback: ...
+
+    async def display_applications_create_link_create_link(
+        self,
+        body: CreateLinkIncoming,
+        run_as: DisplayApplicationsCreateLinkCreateLinkParamRunAs | None = None,
+    ) -> CreateLinkFeedback: ...
+
+    async def display_applications_reload_reload(
+        self,
+        run_as: DisplayApplicationsReloadReloadParamRunAs | None = None,
+        body: DisplayApplicationsReloadReloadRequestBody | None = None,
+    ) -> ReloadFeedback: ...
+
+    async def display_applications_reload_reload(
+        self,
+        run_as: DisplayApplicationsReloadReloadParamRunAs | None = None,
+        body: DisplayApplicationsReloadReloadRequestBody | None = None,
+    ) -> ReloadFeedback: ...
+
+
+class DisplayApplicationsClient(DisplayApplicationsClientProtocol):
     """Client for display_applications endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def display_applications_index_2_2(
+    async def display_applications_index(
         self,
     ) -> list[DisplayApplication]:
         """
@@ -44,13 +82,13 @@ class DisplayApplicationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[DisplayApplication], response.json())
+                return structure_from_dict(response.json(), list[DisplayApplication])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def display_applications_index_2_2(
+    async def display_applications_index(
         self,
     ) -> list[DisplayApplication]:
         """
@@ -72,13 +110,13 @@ class DisplayApplicationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[DisplayApplication], response.json())
+                return structure_from_dict(response.json(), list[DisplayApplication])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def display_applications_create_link_create_link_2_2(
+    async def display_applications_create_link_create_link(
         self,
         body: CreateLinkIncoming,
         run_as: DisplayApplicationsCreateLinkCreateLinkParamRunAs | None = None,
@@ -89,7 +127,7 @@ class DisplayApplicationsClient:
         Creates a link for display applications.
 
         Args:
-            run-as (Optional[DisplayApplicationsCreateLinkCreateLinkParamRunAs])
+            run-as (DisplayApplicationsCreateLinkCreateLinkParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -105,7 +143,7 @@ class DisplayApplicationsClient:
         url = f"{self.base_url}/api/display_applications/create_link"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateLinkIncoming = DataclassSerializer.serialize(body)
@@ -115,13 +153,13 @@ class DisplayApplicationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CreateLinkFeedback, response.json())
+                return structure_from_dict(response.json(), CreateLinkFeedback)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def display_applications_create_link_create_link_2_2(
+    async def display_applications_create_link_create_link(
         self,
         body: CreateLinkIncoming,
         run_as: DisplayApplicationsCreateLinkCreateLinkParamRunAs | None = None,
@@ -132,7 +170,7 @@ class DisplayApplicationsClient:
         Creates a link for display applications.
 
         Args:
-            run-as (Optional[DisplayApplicationsCreateLinkCreateLinkParamRunAs])
+            run-as (DisplayApplicationsCreateLinkCreateLinkParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -148,7 +186,7 @@ class DisplayApplicationsClient:
         url = f"{self.base_url}/api/display_applications/create_link"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateLinkIncoming = DataclassSerializer.serialize(body)
@@ -158,16 +196,16 @@ class DisplayApplicationsClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CreateLinkFeedback, response.json())
+                return structure_from_dict(response.json(), CreateLinkFeedback)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def display_applications_reload_reload_2_2(
+    async def display_applications_reload_reload(
         self,
         run_as: DisplayApplicationsReloadReloadParamRunAs | None = None,
-        body: DisplayApplicationsReloadReloadRequestBody2 | None = None,
+        body: DisplayApplicationsReloadReloadRequestBody | None = None,
     ) -> ReloadFeedback:
         """
         Reloads the list of display applications.
@@ -175,11 +213,11 @@ class DisplayApplicationsClient:
         Reloads the list of display applications.
 
         Args:
-            run-as (Optional[DisplayApplicationsReloadReloadParamRunAs])
+            run-as (DisplayApplicationsReloadReloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[DisplayApplicationsReloadReloadRequestBody2])
+            body (DisplayApplicationsReloadReloadRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -192,26 +230,26 @@ class DisplayApplicationsClient:
         url = f"{self.base_url}/api/display_applications/reload"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: DisplayApplicationsReloadReloadRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: DisplayApplicationsReloadReloadRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("POST", url, params=None, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ReloadFeedback, response.json())
+                return structure_from_dict(response.json(), ReloadFeedback)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def display_applications_reload_reload_2_2(
+    async def display_applications_reload_reload(
         self,
         run_as: DisplayApplicationsReloadReloadParamRunAs | None = None,
-        body: DisplayApplicationsReloadReloadRequestBody2 | None = None,
+        body: DisplayApplicationsReloadReloadRequestBody | None = None,
     ) -> ReloadFeedback:
         """
         Reloads the list of display applications.
@@ -219,11 +257,11 @@ class DisplayApplicationsClient:
         Reloads the list of display applications.
 
         Args:
-            run-as (Optional[DisplayApplicationsReloadReloadParamRunAs])
+            run-as (DisplayApplicationsReloadReloadParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[DisplayApplicationsReloadReloadRequestBody2])
+            body (DisplayApplicationsReloadReloadRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -236,18 +274,18 @@ class DisplayApplicationsClient:
         url = f"{self.base_url}/api/display_applications/reload"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: DisplayApplicationsReloadReloadRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: DisplayApplicationsReloadReloadRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("POST", url, params=None, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ReloadFeedback, response.json())
+                return structure_from_dict(response.json(), ReloadFeedback)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

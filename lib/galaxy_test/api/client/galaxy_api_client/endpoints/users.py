@@ -1,11 +1,12 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
 
-from ..models.anonymous_array_item_220 import AnonymousArrayItem220
-from ..models.anonymous_array_item_222 import AnonymousArrayItem222
+from ..models.anonymous_array_item_125 import AnonymousArrayItem125
+from ..models.anonymous_array_item_127 import AnonymousArrayItem127
 from ..models.api_key_model_2 import ApiKeyModel2
 from ..models.async_task_result_summary import AsyncTaskResultSummary
 from ..models.create_source_credentials_payload import CreateSourceCredentialsPayload
@@ -32,7 +33,7 @@ from ..models.users_api_key_get_or_create_api_key_param_run_as import UsersApiKe
 from ..models.users_beacon_get_beacon_param_run_as import UsersBeaconGetBeaconParamRunAs
 from ..models.users_beacon_set_beacon_param_run_as import UsersBeaconSetBeaconParamRunAs
 from ..models.users_create_param_run_as import UsersCreateParamRunAs
-from ..models.users_create_request_body_2 import UsersCreateRequestBody2
+from ..models.users_create_request_body import UsersCreateRequestBody
 from ..models.users_credentials_delete_service_credentials_param_run_as import (
     UsersCredentialsDeleteServiceCredentialsParamRunAs,
 )
@@ -51,9 +52,7 @@ from ..models.users_credentials_groups_update_user_credentials_param_run_as impo
 from ..models.users_credentials_groups_update_user_credentials_param_user_id import (
     UsersCredentialsGroupsUpdateUserCredentialsParamUserId,
 )
-from ..models.users_credentials_list_user_credentials_200_response_2 import (
-    UsersCredentialsListUserCredentials200Response2,
-)
+from ..models.users_credentials_list_user_credentials_200_response import UsersCredentialsListUserCredentials200Response
 from ..models.users_credentials_list_user_credentials_param_run_as import UsersCredentialsListUserCredentialsParamRunAs
 from ..models.users_credentials_list_user_credentials_param_source_id import (
     UsersCredentialsListUserCredentialsParamSourceId,
@@ -82,12 +81,12 @@ from ..models.users_custom_builds_add_custom_builds_param_run_as import UsersCus
 from ..models.users_custom_builds_delete_custom_builds_param_run_as import UsersCustomBuildsDeleteCustomBuildsParamRunAs
 from ..models.users_custom_builds_get_custom_builds_param_run_as import UsersCustomBuildsGetCustomBuildsParamRunAs
 from ..models.users_delete_param_run_as import UsersDeleteParamRunAs
-from ..models.users_delete_request_body_2 import UsersDeleteRequestBody2
+from ..models.users_delete_request_body import UsersDeleteRequestBody
 from ..models.users_deleted_index_deleted_param_f_any import UsersDeletedIndexDeletedParamFAny
 from ..models.users_deleted_index_deleted_param_f_email import UsersDeletedIndexDeletedParamFEmail
 from ..models.users_deleted_index_deleted_param_f_name import UsersDeletedIndexDeletedParamFName
 from ..models.users_deleted_index_deleted_param_run_as import UsersDeletedIndexDeletedParamRunAs
-from ..models.users_deleted_show_deleted_200_response_2 import UsersDeletedShowDeleted200Response2
+from ..models.users_deleted_show_deleted_200_response import UsersDeletedShowDeleted200Response
 from ..models.users_deleted_show_deleted_param_run_as import UsersDeletedShowDeletedParamRunAs
 from ..models.users_deleted_undelete_undelete_param_run_as import UsersDeletedUndeleteUndeleteParamRunAs
 from ..models.users_favorites_remove_favorite_param_run_as import UsersFavoritesRemoveFavoriteParamRunAs
@@ -112,7 +111,7 @@ from ..models.users_roles_get_user_roles_param_run_as import UsersRolesGetUserRo
 from ..models.users_send_activation_email_send_activation_email_param_run_as import (
     UsersSendActivationEmailSendActivationEmailParamRunAs,
 )
-from ..models.users_show_200_response_2 import UsersShow200Response2
+from ..models.users_show_200_response import UsersShow200Response
 from ..models.users_show_param_deleted import UsersShowParamDeleted
 from ..models.users_show_param_run_as import UsersShowParamRunAs
 from ..models.users_show_param_user_id import UsersShowParamUserId
@@ -120,28 +119,501 @@ from ..models.users_theme_set_theme_param_run_as import UsersThemeSetThemeParamR
 from ..models.users_update_param_deleted import UsersUpdateParamDeleted
 from ..models.users_update_param_run_as import UsersUpdateParamRunAs
 from ..models.users_update_param_user_id import UsersUpdateParamUserId
-from ..models.users_usage_usage_for_200_response_2 import UsersUsageUsageFor200Response2
+from ..models.users_usage_usage_for_200_response import UsersUsageUsageFor200Response
 from ..models.users_usage_usage_for_param_run_as import UsersUsageUsageForParamRunAs
 from ..models.users_usage_usage_for_param_user_id import UsersUsageUsageForParamUserId
 from ..models.users_usage_usage_param_run_as import UsersUsageUsageParamRunAs
 from ..models.users_usage_usage_param_user_id import UsersUsageUsageParamUserId
 
 
-class UsersClient:
+@runtime_checkable
+class UsersClientProtocol(Protocol):
+    """Protocol defining the interface of UsersClient for dependency injection."""
+
+    async def users_index(
+        self,
+        deleted: bool | None = None,
+        f_email: UsersIndexParamFEmail | None = None,
+        f_name: UsersIndexParamFName | None = None,
+        f_any: UsersIndexParamFAny | None = None,
+        run_as: UsersIndexParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem125]: ...
+
+    async def users_index(
+        self,
+        deleted: bool | None = None,
+        f_email: UsersIndexParamFEmail | None = None,
+        f_name: UsersIndexParamFName | None = None,
+        f_any: UsersIndexParamFAny | None = None,
+        run_as: UsersIndexParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem125]: ...
+
+    async def users_create(
+        self,
+        body: UsersCreateRequestBody,
+        run_as: UsersCreateParamRunAs | None = None,
+    ) -> CreatedUserModel: ...
+
+    async def users_create(
+        self,
+        body: UsersCreateRequestBody,
+        run_as: UsersCreateParamRunAs | None = None,
+    ) -> CreatedUserModel: ...
+
+    async def users_current_recalculate_disk_usage_recalculate_disk_usage(
+        self,
+        run_as: UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def users_current_recalculate_disk_usage_recalculate_disk_usage(
+        self,
+        run_as: UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def users_deleted_index_deleted(
+        self,
+        f_email: UsersDeletedIndexDeletedParamFEmail | None = None,
+        f_name: UsersDeletedIndexDeletedParamFName | None = None,
+        f_any: UsersDeletedIndexDeletedParamFAny | None = None,
+        run_as: UsersDeletedIndexDeletedParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem127]: ...
+
+    async def users_deleted_index_deleted(
+        self,
+        f_email: UsersDeletedIndexDeletedParamFEmail | None = None,
+        f_name: UsersDeletedIndexDeletedParamFName | None = None,
+        f_any: UsersDeletedIndexDeletedParamFAny | None = None,
+        run_as: UsersDeletedIndexDeletedParamRunAs | None = None,
+    ) -> list[AnonymousArrayItem127]: ...
+
+    async def users_deleted_show_deleted(
+        self,
+        user_id: str,
+        run_as: UsersDeletedShowDeletedParamRunAs | None = None,
+    ) -> UsersDeletedShowDeleted200Response: ...
+
+    async def users_deleted_show_deleted(
+        self,
+        user_id: str,
+        run_as: UsersDeletedShowDeletedParamRunAs | None = None,
+    ) -> UsersDeletedShowDeleted200Response: ...
+
+    async def users_deleted_undelete_undelete(
+        self,
+        user_id: str,
+        run_as: UsersDeletedUndeleteUndeleteParamRunAs | None = None,
+    ) -> DetailedUserModel: ...
+
+    async def users_deleted_undelete_undelete(
+        self,
+        user_id: str,
+        run_as: UsersDeletedUndeleteUndeleteParamRunAs | None = None,
+    ) -> DetailedUserModel: ...
+
+    async def users_recalculate_disk_usage_recalculate_disk_usage(
+        self,
+        run_as: UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def users_recalculate_disk_usage_recalculate_disk_usage(
+        self,
+        run_as: UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def users_delete(
+        self,
+        user_id: str,
+        purge: bool | None = None,
+        run_as: UsersDeleteParamRunAs | None = None,
+        body: UsersDeleteRequestBody | None = None,
+    ) -> DetailedUserModel: ...
+
+    async def users_delete(
+        self,
+        user_id: str,
+        purge: bool | None = None,
+        run_as: UsersDeleteParamRunAs | None = None,
+        body: UsersDeleteRequestBody | None = None,
+    ) -> DetailedUserModel: ...
+
+    async def users_show(
+        self,
+        user_id: UsersShowParamUserId,
+        deleted: UsersShowParamDeleted | None = None,
+        run_as: UsersShowParamRunAs | None = None,
+    ) -> UsersShow200Response: ...
+
+    async def users_show(
+        self,
+        user_id: UsersShowParamUserId,
+        deleted: UsersShowParamDeleted | None = None,
+        run_as: UsersShowParamRunAs | None = None,
+    ) -> UsersShow200Response: ...
+
+    async def users_update(
+        self,
+        user_id: UsersUpdateParamUserId,
+        body: UserUpdatePayload,
+        deleted: UsersUpdateParamDeleted | None = None,
+        run_as: UsersUpdateParamRunAs | None = None,
+    ) -> DetailedUserModel: ...
+
+    async def users_update(
+        self,
+        user_id: UsersUpdateParamUserId,
+        body: UserUpdatePayload,
+        deleted: UsersUpdateParamDeleted | None = None,
+        run_as: UsersUpdateParamRunAs | None = None,
+    ) -> DetailedUserModel: ...
+
+    async def users_api_key_delete_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyDeleteApiKeyParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_api_key_delete_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyDeleteApiKeyParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_api_key_get_or_create_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyGetOrCreateApiKeyParamRunAs | None = None,
+    ) -> str: ...
+
+    async def users_api_key_get_or_create_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyGetOrCreateApiKeyParamRunAs | None = None,
+    ) -> str: ...
+
+    async def users_api_key_create_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyCreateApiKeyParamRunAs | None = None,
+    ) -> str: ...
+
+    async def users_api_key_create_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyCreateApiKeyParamRunAs | None = None,
+    ) -> str: ...
+
+    async def users_api_key_detailed_get_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyDetailedGetApiKeyParamRunAs | None = None,
+    ) -> ApiKeyModel2: ...
+
+    async def users_api_key_detailed_get_api_key(
+        self,
+        user_id: str,
+        run_as: UsersApiKeyDetailedGetApiKeyParamRunAs | None = None,
+    ) -> ApiKeyModel2: ...
+
+    async def users_beacon_get_beacon(
+        self,
+        user_id: str,
+        run_as: UsersBeaconGetBeaconParamRunAs | None = None,
+    ) -> UserBeaconSetting: ...
+
+    async def users_beacon_get_beacon(
+        self,
+        user_id: str,
+        run_as: UsersBeaconGetBeaconParamRunAs | None = None,
+    ) -> UserBeaconSetting: ...
+
+    async def users_beacon_set_beacon(
+        self,
+        user_id: str,
+        body: UserBeaconSetting,
+        run_as: UsersBeaconSetBeaconParamRunAs | None = None,
+    ) -> UserBeaconSetting: ...
+
+    async def users_beacon_set_beacon(
+        self,
+        user_id: str,
+        body: UserBeaconSetting,
+        run_as: UsersBeaconSetBeaconParamRunAs | None = None,
+    ) -> UserBeaconSetting: ...
+
+    async def users_credentials_list_user_credentials(
+        self,
+        user_id: UsersCredentialsListUserCredentialsParamUserId,
+        source_type: UsersCredentialsListUserCredentialsParamSourceType | None = None,
+        source_id: UsersCredentialsListUserCredentialsParamSourceId | None = None,
+        source_version: UsersCredentialsListUserCredentialsParamSourceVersion | None = None,
+        include_definition: bool | None = None,
+        run_as: UsersCredentialsListUserCredentialsParamRunAs | None = None,
+    ) -> UsersCredentialsListUserCredentials200Response: ...
+
+    async def users_credentials_list_user_credentials(
+        self,
+        user_id: UsersCredentialsListUserCredentialsParamUserId,
+        source_type: UsersCredentialsListUserCredentialsParamSourceType | None = None,
+        source_id: UsersCredentialsListUserCredentialsParamSourceId | None = None,
+        source_version: UsersCredentialsListUserCredentialsParamSourceVersion | None = None,
+        include_definition: bool | None = None,
+        run_as: UsersCredentialsListUserCredentialsParamRunAs | None = None,
+    ) -> UsersCredentialsListUserCredentials200Response: ...
+
+    async def users_credentials_provide_credential(
+        self,
+        user_id: UsersCredentialsProvideCredentialParamUserId,
+        body: CreateSourceCredentialsPayload,
+        run_as: UsersCredentialsProvideCredentialParamRunAs | None = None,
+    ) -> ServiceCredentialGroupResponse: ...
+
+    async def users_credentials_provide_credential(
+        self,
+        user_id: UsersCredentialsProvideCredentialParamUserId,
+        body: CreateSourceCredentialsPayload,
+        run_as: UsersCredentialsProvideCredentialParamRunAs | None = None,
+    ) -> ServiceCredentialGroupResponse: ...
+
+    async def users_credentials_update_user_credentials_group(
+        self,
+        user_id: UsersCredentialsUpdateUserCredentialsGroupParamUserId,
+        body: SelectServiceCredentialPayload,
+        run_as: UsersCredentialsUpdateUserCredentialsGroupParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_credentials_update_user_credentials_group(
+        self,
+        user_id: UsersCredentialsUpdateUserCredentialsGroupParamUserId,
+        body: SelectServiceCredentialPayload,
+        run_as: UsersCredentialsUpdateUserCredentialsGroupParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_credentials_delete_service_credentials(
+        self,
+        user_id: UsersCredentialsDeleteServiceCredentialsParamUserId,
+        user_credentials_id: str,
+        run_as: UsersCredentialsDeleteServiceCredentialsParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_credentials_delete_service_credentials(
+        self,
+        user_id: UsersCredentialsDeleteServiceCredentialsParamUserId,
+        user_credentials_id: str,
+        run_as: UsersCredentialsDeleteServiceCredentialsParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_credentials_groups_delete_credentials(
+        self,
+        user_id: UsersCredentialsGroupsDeleteCredentialsParamUserId,
+        user_credentials_id: str,
+        group_id: str,
+        run_as: UsersCredentialsGroupsDeleteCredentialsParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_credentials_groups_delete_credentials(
+        self,
+        user_id: UsersCredentialsGroupsDeleteCredentialsParamUserId,
+        user_credentials_id: str,
+        group_id: str,
+        run_as: UsersCredentialsGroupsDeleteCredentialsParamRunAs | None = None,
+    ) -> None: ...
+
+    async def users_credentials_groups_update_user_credentials(
+        self,
+        user_id: UsersCredentialsGroupsUpdateUserCredentialsParamUserId,
+        user_credentials_id: str,
+        group_id: str,
+        body: ServiceCredentialGroupPayload,
+        run_as: UsersCredentialsGroupsUpdateUserCredentialsParamRunAs | None = None,
+    ) -> ServiceCredentialGroupResponse: ...
+
+    async def users_credentials_groups_update_user_credentials(
+        self,
+        user_id: UsersCredentialsGroupsUpdateUserCredentialsParamUserId,
+        user_credentials_id: str,
+        group_id: str,
+        body: ServiceCredentialGroupPayload,
+        run_as: UsersCredentialsGroupsUpdateUserCredentialsParamRunAs | None = None,
+    ) -> ServiceCredentialGroupResponse: ...
+
+    async def users_custom_builds_get_custom_builds(
+        self,
+        user_id: str,
+        run_as: UsersCustomBuildsGetCustomBuildsParamRunAs | None = None,
+    ) -> CustomBuildsCollection: ...
+
+    async def users_custom_builds_get_custom_builds(
+        self,
+        user_id: str,
+        run_as: UsersCustomBuildsGetCustomBuildsParamRunAs | None = None,
+    ) -> CustomBuildsCollection: ...
+
+    async def users_custom_builds_delete_custom_builds(
+        self,
+        user_id: str,
+        key: str,
+        run_as: UsersCustomBuildsDeleteCustomBuildsParamRunAs | None = None,
+    ) -> DeletedCustomBuild: ...
+
+    async def users_custom_builds_delete_custom_builds(
+        self,
+        user_id: str,
+        key: str,
+        run_as: UsersCustomBuildsDeleteCustomBuildsParamRunAs | None = None,
+    ) -> DeletedCustomBuild: ...
+
+    async def users_custom_builds_add_custom_builds(
+        self,
+        user_id: str,
+        key: str,
+        body: CustomBuildCreationPayload,
+        run_as: UsersCustomBuildsAddCustomBuildsParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def users_custom_builds_add_custom_builds(
+        self,
+        user_id: str,
+        key: str,
+        body: CustomBuildCreationPayload,
+        run_as: UsersCustomBuildsAddCustomBuildsParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def users_favorites_set_favorite(
+        self,
+        user_id: str,
+        object_type: FavoriteObjectType,
+        body: FavoriteObject,
+        run_as: UsersFavoritesSetFavoriteParamRunAs | None = None,
+    ) -> FavoriteObjectsSummary: ...
+
+    async def users_favorites_set_favorite(
+        self,
+        user_id: str,
+        object_type: FavoriteObjectType,
+        body: FavoriteObject,
+        run_as: UsersFavoritesSetFavoriteParamRunAs | None = None,
+    ) -> FavoriteObjectsSummary: ...
+
+    async def users_favorites_remove_favorite(
+        self,
+        user_id: str,
+        object_type: FavoriteObjectType,
+        object_id: str,
+        run_as: UsersFavoritesRemoveFavoriteParamRunAs | None = None,
+    ) -> FavoriteObjectsSummary: ...
+
+    async def users_favorites_remove_favorite(
+        self,
+        user_id: str,
+        object_type: FavoriteObjectType,
+        object_id: str,
+        run_as: UsersFavoritesRemoveFavoriteParamRunAs | None = None,
+    ) -> FavoriteObjectsSummary: ...
+
+    async def users_objectstore_usage_objectstore_usage(
+        self,
+        user_id: UsersObjectstoreUsageObjectstoreUsageParamUserId,
+        run_as: UsersObjectstoreUsageObjectstoreUsageParamRunAs | None = None,
+    ) -> list[UserObjectstoreUsage]: ...
+
+    async def users_objectstore_usage_objectstore_usage(
+        self,
+        user_id: UsersObjectstoreUsageObjectstoreUsageParamUserId,
+        run_as: UsersObjectstoreUsageObjectstoreUsageParamRunAs | None = None,
+    ) -> list[UserObjectstoreUsage]: ...
+
+    async def users_recalculate_disk_usage_recalculate_disk_usage_by_user_id(
+        self,
+        user_id: str,
+        run_as: UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def users_recalculate_disk_usage_recalculate_disk_usage_by_user_id(
+        self,
+        user_id: str,
+        run_as: UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs | None = None,
+    ) -> AsyncTaskResultSummary: ...
+
+    async def users_roles_get_user_roles(
+        self,
+        user_id: str,
+        run_as: UsersRolesGetUserRolesParamRunAs | None = None,
+    ) -> RoleListResponse: ...
+
+    async def users_roles_get_user_roles(
+        self,
+        user_id: str,
+        run_as: UsersRolesGetUserRolesParamRunAs | None = None,
+    ) -> RoleListResponse: ...
+
+    async def users_send_activation_email_send_activation_email(
+        self,
+        user_id: str,
+        run_as: UsersSendActivationEmailSendActivationEmailParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def users_send_activation_email_send_activation_email(
+        self,
+        user_id: str,
+        run_as: UsersSendActivationEmailSendActivationEmailParamRunAs | None = None,
+    ) -> dict[str, Any]: ...
+
+    async def users_theme_set_theme(
+        self,
+        user_id: str,
+        theme: str,
+        run_as: UsersThemeSetThemeParamRunAs | None = None,
+    ) -> str: ...
+
+    async def users_theme_set_theme(
+        self,
+        user_id: str,
+        theme: str,
+        run_as: UsersThemeSetThemeParamRunAs | None = None,
+    ) -> str: ...
+
+    async def users_usage_usage(
+        self,
+        user_id: UsersUsageUsageParamUserId,
+        run_as: UsersUsageUsageParamRunAs | None = None,
+    ) -> list[UserQuotaUsage]: ...
+
+    async def users_usage_usage(
+        self,
+        user_id: UsersUsageUsageParamUserId,
+        run_as: UsersUsageUsageParamRunAs | None = None,
+    ) -> list[UserQuotaUsage]: ...
+
+    async def users_usage_usage_for(
+        self,
+        user_id: UsersUsageUsageForParamUserId,
+        label: str,
+        run_as: UsersUsageUsageForParamRunAs | None = None,
+    ) -> UsersUsageUsageFor200Response | None: ...
+
+    async def users_usage_usage_for(
+        self,
+        user_id: UsersUsageUsageForParamUserId,
+        label: str,
+        run_as: UsersUsageUsageForParamRunAs | None = None,
+    ) -> UsersUsageUsageFor200Response | None: ...
+
+
+class UsersClient(UsersClientProtocol):
     """Client for users endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def users_index_2_2(
+    async def users_index(
         self,
-        deleted: bool | None = False,
+        deleted: bool | None = None,
         f_email: UsersIndexParamFEmail | None = None,
         f_name: UsersIndexParamFName | None = None,
         f_any: UsersIndexParamFAny | None = None,
         run_as: UsersIndexParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem220]:
+    ) -> list[AnonymousArrayItem125]:
         """
         Get Users
 
@@ -149,20 +621,20 @@ class UsersClient:
         admin.
 
         Args:
-            deleted (Optional[bool]) : Indicates if the collection will be about deleted users
-            f_email (Optional[UsersIndexParamFEmail])
+            deleted (bool | None)    : Indicates if the collection will be about deleted users
+            f_email (UsersIndexParamFEmail | None)
                                      : An email address to filter on
-            f_name (Optional[UsersIndexParamFName])
+            f_name (UsersIndexParamFName | None)
                                      : An username address to filter on
-            f_any (Optional[UsersIndexParamFAny])
+            f_any (UsersIndexParamFAny | None)
                                      : Filter on username OR email
-            run-as (Optional[UsersIndexParamRunAs])
+            run-as (UsersIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem220]: Successful Response
+            List[AnonymousArrayItem125]: Successful Response
 
         Raises:
             HttpError:
@@ -171,14 +643,14 @@ class UsersClient:
         url = f"{self.base_url}/api/users"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
-            **({"f_email": f_email} if f_email is not None else {}),
-            **({"f_name": f_name} if f_name is not None else {}),
-            **({"f_any": f_any} if f_any is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
+            **({"f_email": DataclassSerializer.serialize(f_email)} if f_email is not None else {}),
+            **({"f_name": DataclassSerializer.serialize(f_name)} if f_name is not None else {}),
+            **({"f_any": DataclassSerializer.serialize(f_any)} if f_any is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -186,20 +658,20 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem220], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem125])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_index_2_2(
+    async def users_index(
         self,
-        deleted: bool | None = False,
+        deleted: bool | None = None,
         f_email: UsersIndexParamFEmail | None = None,
         f_name: UsersIndexParamFName | None = None,
         f_any: UsersIndexParamFAny | None = None,
         run_as: UsersIndexParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem220]:
+    ) -> list[AnonymousArrayItem125]:
         """
         Get Users
 
@@ -207,20 +679,20 @@ class UsersClient:
         admin.
 
         Args:
-            deleted (Optional[bool]) : Indicates if the collection will be about deleted users
-            f_email (Optional[UsersIndexParamFEmail])
+            deleted (bool | None)    : Indicates if the collection will be about deleted users
+            f_email (UsersIndexParamFEmail | None)
                                      : An email address to filter on
-            f_name (Optional[UsersIndexParamFName])
+            f_name (UsersIndexParamFName | None)
                                      : An username address to filter on
-            f_any (Optional[UsersIndexParamFAny])
+            f_any (UsersIndexParamFAny | None)
                                      : Filter on username OR email
-            run-as (Optional[UsersIndexParamRunAs])
+            run-as (UsersIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem220]: Successful Response
+            List[AnonymousArrayItem125]: Successful Response
 
         Raises:
             HttpError:
@@ -229,14 +701,14 @@ class UsersClient:
         url = f"{self.base_url}/api/users"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
-            **({"f_email": f_email} if f_email is not None else {}),
-            **({"f_name": f_name} if f_name is not None else {}),
-            **({"f_any": f_any} if f_any is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
+            **({"f_email": DataclassSerializer.serialize(f_email)} if f_email is not None else {}),
+            **({"f_name": DataclassSerializer.serialize(f_name)} if f_name is not None else {}),
+            **({"f_any": DataclassSerializer.serialize(f_any)} if f_any is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -244,26 +716,26 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem220], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem125])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_create_2_2(
+    async def users_create(
         self,
-        body: UsersCreateRequestBody2,
+        body: UsersCreateRequestBody,
         run_as: UsersCreateParamRunAs | None = None,
     ) -> CreatedUserModel:
         """
         Create a new Galaxy user. Only admins can create users for now.
 
         Args:
-            run-as (Optional[UsersCreateParamRunAs])
+            run-as (UsersCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (UsersCreateRequestBody2)
+            body (UsersCreateRequestBody)
                                      : Request body. (json)
 
         Returns:
@@ -276,36 +748,36 @@ class UsersClient:
         url = f"{self.base_url}/api/users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: UsersCreateRequestBody2 = DataclassSerializer.serialize(body)
+        json_body: UsersCreateRequestBody = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("POST", url, params=None, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CreatedUserModel, response.json())
+                return structure_from_dict(response.json(), CreatedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_create_2_2(
+    async def users_create(
         self,
-        body: UsersCreateRequestBody2,
+        body: UsersCreateRequestBody,
         run_as: UsersCreateParamRunAs | None = None,
     ) -> CreatedUserModel:
         """
         Create a new Galaxy user. Only admins can create users for now.
 
         Args:
-            run-as (Optional[UsersCreateParamRunAs])
+            run-as (UsersCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (UsersCreateRequestBody2)
+            body (UsersCreateRequestBody)
                                      : Request body. (json)
 
         Returns:
@@ -318,23 +790,23 @@ class UsersClient:
         url = f"{self.base_url}/api/users"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: UsersCreateRequestBody2 = DataclassSerializer.serialize(body)
+        json_body: UsersCreateRequestBody = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("POST", url, params=None, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CreatedUserModel, response.json())
+                return structure_from_dict(response.json(), CreatedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_current_recalculate_disk_usage_recalculate_disk_usage_2_2(
+    async def users_current_recalculate_disk_usage_recalculate_disk_usage(
         self,
         run_as: UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
     ) -> AsyncTaskResultSummary:
@@ -345,7 +817,7 @@ class UsersClient:
         `/api/users/current/recalculate_disk_usage` instead.
 
         Args:
-            run-as (Optional[UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs])
+            run-as (UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -360,7 +832,7 @@ class UsersClient:
         url = f"{self.base_url}/api/users/current/recalculate_disk_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -368,15 +840,15 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_current_recalculate_disk_usage_recalculate_disk_usage_2_2(
+    async def users_current_recalculate_disk_usage_recalculate_disk_usage(
         self,
         run_as: UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
     ) -> AsyncTaskResultSummary:
@@ -387,7 +859,7 @@ class UsersClient:
         `/api/users/current/recalculate_disk_usage` instead.
 
         Args:
-            run-as (Optional[UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs])
+            run-as (UsersCurrentRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -402,7 +874,7 @@ class UsersClient:
         url = f"{self.base_url}/api/users/current/recalculate_disk_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -410,40 +882,40 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_deleted_index_deleted_2_2(
+    async def users_deleted_index_deleted(
         self,
         f_email: UsersDeletedIndexDeletedParamFEmail | None = None,
         f_name: UsersDeletedIndexDeletedParamFName | None = None,
         f_any: UsersDeletedIndexDeletedParamFAny | None = None,
         run_as: UsersDeletedIndexDeletedParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem222]:
+    ) -> list[AnonymousArrayItem127]:
         """
         Get Deleted Users
 
         Return a collection of deleted users. Only admins can see deleted users.
 
         Args:
-            f_email (Optional[UsersDeletedIndexDeletedParamFEmail])
+            f_email (UsersDeletedIndexDeletedParamFEmail | None)
                                      : An email address to filter on
-            f_name (Optional[UsersDeletedIndexDeletedParamFName])
+            f_name (UsersDeletedIndexDeletedParamFName | None)
                                      : An username address to filter on
-            f_any (Optional[UsersDeletedIndexDeletedParamFAny])
+            f_any (UsersDeletedIndexDeletedParamFAny | None)
                                      : Filter on username OR email
-            run-as (Optional[UsersDeletedIndexDeletedParamRunAs])
+            run-as (UsersDeletedIndexDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem222]: Successful Response
+            List[AnonymousArrayItem127]: Successful Response
 
         Raises:
             HttpError:
@@ -452,13 +924,13 @@ class UsersClient:
         url = f"{self.base_url}/api/users/deleted"
 
         params: dict[str, Any] = {
-            **({"f_email": f_email} if f_email is not None else {}),
-            **({"f_name": f_name} if f_name is not None else {}),
-            **({"f_any": f_any} if f_any is not None else {}),
+            **({"f_email": DataclassSerializer.serialize(f_email)} if f_email is not None else {}),
+            **({"f_name": DataclassSerializer.serialize(f_name)} if f_name is not None else {}),
+            **({"f_any": DataclassSerializer.serialize(f_any)} if f_any is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -466,38 +938,38 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem222], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem127])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_deleted_index_deleted_2_2(
+    async def users_deleted_index_deleted(
         self,
         f_email: UsersDeletedIndexDeletedParamFEmail | None = None,
         f_name: UsersDeletedIndexDeletedParamFName | None = None,
         f_any: UsersDeletedIndexDeletedParamFAny | None = None,
         run_as: UsersDeletedIndexDeletedParamRunAs | None = None,
-    ) -> list[AnonymousArrayItem222]:
+    ) -> list[AnonymousArrayItem127]:
         """
         Get Deleted Users
 
         Return a collection of deleted users. Only admins can see deleted users.
 
         Args:
-            f_email (Optional[UsersDeletedIndexDeletedParamFEmail])
+            f_email (UsersDeletedIndexDeletedParamFEmail | None)
                                      : An email address to filter on
-            f_name (Optional[UsersDeletedIndexDeletedParamFName])
+            f_name (UsersDeletedIndexDeletedParamFName | None)
                                      : An username address to filter on
-            f_any (Optional[UsersDeletedIndexDeletedParamFAny])
+            f_any (UsersDeletedIndexDeletedParamFAny | None)
                                      : Filter on username OR email
-            run-as (Optional[UsersDeletedIndexDeletedParamRunAs])
+            run-as (UsersDeletedIndexDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            List[AnonymousArrayItem222]: Successful Response
+            List[AnonymousArrayItem127]: Successful Response
 
         Raises:
             HttpError:
@@ -506,13 +978,13 @@ class UsersClient:
         url = f"{self.base_url}/api/users/deleted"
 
         params: dict[str, Any] = {
-            **({"f_email": f_email} if f_email is not None else {}),
-            **({"f_name": f_name} if f_name is not None else {}),
-            **({"f_any": f_any} if f_any is not None else {}),
+            **({"f_email": DataclassSerializer.serialize(f_email)} if f_email is not None else {}),
+            **({"f_name": DataclassSerializer.serialize(f_name)} if f_name is not None else {}),
+            **({"f_any": DataclassSerializer.serialize(f_any)} if f_any is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -520,38 +992,40 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[AnonymousArrayItem222], response.json())
+                return structure_from_dict(response.json(), list[AnonymousArrayItem127])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_deleted_show_deleted_2_2(
+    async def users_deleted_show_deleted(
         self,
         user_id: str,
         run_as: UsersDeletedShowDeletedParamRunAs | None = None,
-    ) -> UsersDeletedShowDeleted200Response2:
+    ) -> UsersDeletedShowDeleted200Response:
         """
         Return information about a deleted user. Only admins can see deleted users.
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersDeletedShowDeletedParamRunAs])
+            run-as (UsersDeletedShowDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersDeletedShowDeleted200Response2: Successful Response
+            UsersDeletedShowDeleted200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/deleted/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -559,38 +1033,40 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersDeletedShowDeleted200Response2, response.json())
+                return structure_from_dict(response.json(), UsersDeletedShowDeleted200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_deleted_show_deleted_2_2(
+    async def users_deleted_show_deleted(
         self,
         user_id: str,
         run_as: UsersDeletedShowDeletedParamRunAs | None = None,
-    ) -> UsersDeletedShowDeleted200Response2:
+    ) -> UsersDeletedShowDeleted200Response:
         """
         Return information about a deleted user. Only admins can see deleted users.
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersDeletedShowDeletedParamRunAs])
+            run-as (UsersDeletedShowDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersDeletedShowDeleted200Response2: Successful Response
+            UsersDeletedShowDeleted200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/deleted/{user_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -598,13 +1074,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersDeletedShowDeleted200Response2, response.json())
+                return structure_from_dict(response.json(), UsersDeletedShowDeleted200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_deleted_undelete_undelete_2_2(
+    async def users_deleted_undelete_undelete(
         self,
         user_id: str,
         run_as: UsersDeletedUndeleteUndeleteParamRunAs | None = None,
@@ -614,7 +1090,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersDeletedUndeleteUndeleteParamRunAs])
+            run-as (UsersDeletedUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -626,10 +1102,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/deleted/{user_id}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -637,13 +1115,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DetailedUserModel, response.json())
+                return structure_from_dict(response.json(), DetailedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_deleted_undelete_undelete_2_2(
+    async def users_deleted_undelete_undelete(
         self,
         user_id: str,
         run_as: UsersDeletedUndeleteUndeleteParamRunAs | None = None,
@@ -653,7 +1131,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersDeletedUndeleteUndeleteParamRunAs])
+            run-as (UsersDeletedUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -665,10 +1143,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/deleted/{user_id}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -676,13 +1156,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DetailedUserModel, response.json())
+                return structure_from_dict(response.json(), DetailedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_recalculate_disk_usage_recalculate_disk_usage_2_2(
+    async def users_recalculate_disk_usage_recalculate_disk_usage(
         self,
         run_as: UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
     ) -> AsyncTaskResultSummary:
@@ -693,7 +1173,7 @@ class UsersClient:
         `/api/users/current/recalculate_disk_usage` instead.
 
         Args:
-            run-as (Optional[UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs])
+            run-as (UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -708,7 +1188,7 @@ class UsersClient:
         url = f"{self.base_url}/api/users/recalculate_disk_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -716,15 +1196,15 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_recalculate_disk_usage_recalculate_disk_usage_2_2(
+    async def users_recalculate_disk_usage_recalculate_disk_usage(
         self,
         run_as: UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None = None,
     ) -> AsyncTaskResultSummary:
@@ -735,7 +1215,7 @@ class UsersClient:
         `/api/users/current/recalculate_disk_usage` instead.
 
         Args:
-            run-as (Optional[UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs])
+            run-as (UsersRecalculateDiskUsageRecalculateDiskUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -750,7 +1230,7 @@ class UsersClient:
         url = f"{self.base_url}/api/users/recalculate_disk_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -758,33 +1238,33 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_delete_2_2(
+    async def users_delete(
         self,
         user_id: str,
-        purge: bool | None = False,
+        purge: bool | None = None,
         run_as: UsersDeleteParamRunAs | None = None,
-        body: UsersDeleteRequestBody2 | None = None,
+        body: UsersDeleteRequestBody | None = None,
     ) -> DetailedUserModel:
         """
         Delete a user. Only admins can delete others or purge users.
 
         Args:
             user_id (str)            : The ID of the user.
-            purge (Optional[bool])   : Whether to definitely remove this user. Only deleted
+            purge (bool | None)      : Whether to definitely remove this user. Only deleted
                                        users can be purged.
-            run-as (Optional[UsersDeleteParamRunAs])
+            run-as (UsersDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[UsersDeleteRequestBody2])
+            body (UsersDeleteRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -794,48 +1274,50 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}"
 
         params: dict[str, Any] = {
-            **({"purge": purge} if purge is not None else {}),
+            **({"purge": DataclassSerializer.serialize(purge)} if purge is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: UsersDeleteRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: UsersDeleteRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("DELETE", url, params=params, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DetailedUserModel, response.json())
+                return structure_from_dict(response.json(), DetailedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_delete_2_2(
+    async def users_delete(
         self,
         user_id: str,
-        purge: bool | None = False,
+        purge: bool | None = None,
         run_as: UsersDeleteParamRunAs | None = None,
-        body: UsersDeleteRequestBody2 | None = None,
+        body: UsersDeleteRequestBody | None = None,
     ) -> DetailedUserModel:
         """
         Delete a user. Only admins can delete others or purge users.
 
         Args:
             user_id (str)            : The ID of the user.
-            purge (Optional[bool])   : Whether to definitely remove this user. Only deleted
+            purge (bool | None)      : Whether to definitely remove this user. Only deleted
                                        users can be purged.
-            run-as (Optional[UsersDeleteParamRunAs])
+            run-as (UsersDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[UsersDeleteRequestBody2])
+            body (UsersDeleteRequestBody | None)
                                      : Request body. (json)
 
         Returns:
@@ -845,35 +1327,37 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}"
 
         params: dict[str, Any] = {
-            **({"purge": purge} if purge is not None else {}),
+            **({"purge": DataclassSerializer.serialize(purge)} if purge is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
-        json_body: UsersDeleteRequestBody2 | None = DataclassSerializer.serialize(body)
+        json_body: UsersDeleteRequestBody | None = DataclassSerializer.serialize(body)
 
         response = await self._transport.request("DELETE", url, params=params, json=json_body, headers=headers)
 
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DetailedUserModel, response.json())
+                return structure_from_dict(response.json(), DetailedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_show_2_2(
+    async def users_show(
         self,
         user_id: UsersShowParamUserId,
         deleted: UsersShowParamDeleted | None = None,
         run_as: UsersShowParamRunAs | None = None,
-    ) -> UsersShow200Response2:
+    ) -> UsersShow200Response:
         """
         Return information about a specified or the current user. Only admin can see deleted or
         other users
@@ -881,28 +1365,30 @@ class UsersClient:
         Args:
             user_id (UsersShowParamUserId)
                                      : The ID of the user to get or 'current'.
-            deleted (Optional[UsersShowParamDeleted])
+            deleted (UsersShowParamDeleted | None)
                                      : Indicates if the user is deleted
-            run-as (Optional[UsersShowParamRunAs])
+            run-as (UsersShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersShow200Response2: Successful Response
+            UsersShow200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -910,18 +1396,18 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersShow200Response2, response.json())
+                return structure_from_dict(response.json(), UsersShow200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_show_2_2(
+    async def users_show(
         self,
         user_id: UsersShowParamUserId,
         deleted: UsersShowParamDeleted | None = None,
         run_as: UsersShowParamRunAs | None = None,
-    ) -> UsersShow200Response2:
+    ) -> UsersShow200Response:
         """
         Return information about a specified or the current user. Only admin can see deleted or
         other users
@@ -929,28 +1415,30 @@ class UsersClient:
         Args:
             user_id (UsersShowParamUserId)
                                      : The ID of the user to get or 'current'.
-            deleted (Optional[UsersShowParamDeleted])
+            deleted (UsersShowParamDeleted | None)
                                      : Indicates if the user is deleted
-            run-as (Optional[UsersShowParamRunAs])
+            run-as (UsersShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersShow200Response2: Successful Response
+            UsersShow200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -958,13 +1446,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersShow200Response2, response.json())
+                return structure_from_dict(response.json(), UsersShow200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_update_2_2(
+    async def users_update(
         self,
         user_id: UsersUpdateParamUserId,
         body: UserUpdatePayload,
@@ -977,9 +1465,9 @@ class UsersClient:
         Args:
             user_id (UsersUpdateParamUserId)
                                      : The ID of the user to get or 'current'.
-            deleted (Optional[UsersUpdateParamDeleted])
+            deleted (UsersUpdateParamDeleted | None)
                                      : Indicates if the user is deleted
-            run-as (Optional[UsersUpdateParamRunAs])
+            run-as (UsersUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -992,14 +1480,16 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserUpdatePayload = DataclassSerializer.serialize(body)
@@ -1009,13 +1499,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DetailedUserModel, response.json())
+                return structure_from_dict(response.json(), DetailedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_update_2_2(
+    async def users_update(
         self,
         user_id: UsersUpdateParamUserId,
         body: UserUpdatePayload,
@@ -1028,9 +1518,9 @@ class UsersClient:
         Args:
             user_id (UsersUpdateParamUserId)
                                      : The ID of the user to get or 'current'.
-            deleted (Optional[UsersUpdateParamDeleted])
+            deleted (UsersUpdateParamDeleted | None)
                                      : Indicates if the user is deleted
-            run-as (Optional[UsersUpdateParamRunAs])
+            run-as (UsersUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1043,14 +1533,16 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}"
 
         params: dict[str, Any] = {
-            **({"deleted": deleted} if deleted is not None else {}),
+            **({"deleted": DataclassSerializer.serialize(deleted)} if deleted is not None else {}),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserUpdatePayload = DataclassSerializer.serialize(body)
@@ -1060,13 +1552,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DetailedUserModel, response.json())
+                return structure_from_dict(response.json(), DetailedUserModel)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_delete_api_key_2_2(
+    async def users_api_key_delete_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyDeleteApiKeyParamRunAs | None = None,
@@ -1076,7 +1568,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyDeleteApiKeyParamRunAs])
+            run-as (UsersApiKeyDeleteApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1085,10 +1577,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1100,9 +1594,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_delete_api_key_2_2(
+    async def users_api_key_delete_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyDeleteApiKeyParamRunAs | None = None,
@@ -1112,7 +1606,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyDeleteApiKeyParamRunAs])
+            run-as (UsersApiKeyDeleteApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1121,10 +1615,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1136,9 +1632,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_get_or_create_api_key_2_2(
+    async def users_api_key_get_or_create_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyGetOrCreateApiKeyParamRunAs | None = None,
@@ -1148,7 +1644,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyGetOrCreateApiKeyParamRunAs])
+            run-as (UsersApiKeyGetOrCreateApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1160,10 +1656,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1171,13 +1669,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_get_or_create_api_key_2_2(
+    async def users_api_key_get_or_create_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyGetOrCreateApiKeyParamRunAs | None = None,
@@ -1187,7 +1685,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyGetOrCreateApiKeyParamRunAs])
+            run-as (UsersApiKeyGetOrCreateApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1199,10 +1697,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1210,13 +1710,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_create_api_key_2_2(
+    async def users_api_key_create_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyCreateApiKeyParamRunAs | None = None,
@@ -1226,7 +1726,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyCreateApiKeyParamRunAs])
+            run-as (UsersApiKeyCreateApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1238,10 +1738,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -1249,13 +1751,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_create_api_key_2_2(
+    async def users_api_key_create_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyCreateApiKeyParamRunAs | None = None,
@@ -1265,7 +1767,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyCreateApiKeyParamRunAs])
+            run-as (UsersApiKeyCreateApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1277,10 +1779,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -1288,13 +1792,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_detailed_get_api_key_2_2(
+    async def users_api_key_detailed_get_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyDetailedGetApiKeyParamRunAs | None = None,
@@ -1304,7 +1808,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyDetailedGetApiKeyParamRunAs])
+            run-as (UsersApiKeyDetailedGetApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1316,10 +1820,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key/detailed"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1327,15 +1833,15 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ApiKeyModel2, response.json())
+                return structure_from_dict(response.json(), ApiKeyModel2)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_api_key_detailed_get_api_key_2_2(
+    async def users_api_key_detailed_get_api_key(
         self,
         user_id: str,
         run_as: UsersApiKeyDetailedGetApiKeyParamRunAs | None = None,
@@ -1345,7 +1851,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersApiKeyDetailedGetApiKeyParamRunAs])
+            run-as (UsersApiKeyDetailedGetApiKeyParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1357,10 +1863,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/api_key/detailed"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1368,15 +1876,15 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ApiKeyModel2, response.json())
+                return structure_from_dict(response.json(), ApiKeyModel2)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_beacon_get_beacon_2_2(
+    async def users_beacon_get_beacon(
         self,
         user_id: str,
         run_as: UsersBeaconGetBeaconParamRunAs | None = None,
@@ -1388,7 +1896,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersBeaconGetBeaconParamRunAs])
+            run-as (UsersBeaconGetBeaconParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1400,10 +1908,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/beacon"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1411,13 +1921,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserBeaconSetting, response.json())
+                return structure_from_dict(response.json(), UserBeaconSetting)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_beacon_get_beacon_2_2(
+    async def users_beacon_get_beacon(
         self,
         user_id: str,
         run_as: UsersBeaconGetBeaconParamRunAs | None = None,
@@ -1429,7 +1939,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersBeaconGetBeaconParamRunAs])
+            run-as (UsersBeaconGetBeaconParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1441,10 +1951,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/beacon"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -1452,13 +1964,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserBeaconSetting, response.json())
+                return structure_from_dict(response.json(), UserBeaconSetting)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_beacon_set_beacon_2_2(
+    async def users_beacon_set_beacon(
         self,
         user_id: str,
         body: UserBeaconSetting,
@@ -1471,7 +1983,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersBeaconSetBeaconParamRunAs])
+            run-as (UsersBeaconSetBeaconParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1484,10 +1996,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/beacon"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserBeaconSetting = DataclassSerializer.serialize(body)
@@ -1497,13 +2011,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserBeaconSetting, response.json())
+                return structure_from_dict(response.json(), UserBeaconSetting)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_beacon_set_beacon_2_2(
+    async def users_beacon_set_beacon(
         self,
         user_id: str,
         body: UserBeaconSetting,
@@ -1516,7 +2030,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersBeaconSetBeaconParamRunAs])
+            run-as (UsersBeaconSetBeaconParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1529,10 +2043,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/beacon"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UserBeaconSetting = DataclassSerializer.serialize(body)
@@ -1542,60 +2058,66 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UserBeaconSetting, response.json())
+                return structure_from_dict(response.json(), UserBeaconSetting)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_list_user_credentials_2_2(
+    async def users_credentials_list_user_credentials(
         self,
         user_id: UsersCredentialsListUserCredentialsParamUserId,
         source_type: UsersCredentialsListUserCredentialsParamSourceType | None = None,
         source_id: UsersCredentialsListUserCredentialsParamSourceId | None = None,
         source_version: UsersCredentialsListUserCredentialsParamSourceVersion | None = None,
-        include_definition: bool | None = False,
+        include_definition: bool | None = None,
         run_as: UsersCredentialsListUserCredentialsParamRunAs | None = None,
-    ) -> UsersCredentialsListUserCredentials200Response2:
+    ) -> UsersCredentialsListUserCredentials200Response:
         """
         Lists all credentials the user has provided
 
         Args:
             user_id (UsersCredentialsListUserCredentialsParamUserId)
                                      :
-            source_type (Optional[UsersCredentialsListUserCredentialsParamSourceType])
+            source_type (UsersCredentialsListUserCredentialsParamSourceType | None)
                                      : The type of source to filter by.
-            source_id (Optional[UsersCredentialsListUserCredentialsParamSourceId])
+            source_id (UsersCredentialsListUserCredentialsParamSourceId | None)
                                      : The ID of the source to filter by.
-            source_version (Optional[UsersCredentialsListUserCredentialsParamSourceVersion])
+            source_version (UsersCredentialsListUserCredentialsParamSourceVersion | None)
                                      : The version of the source to filter by. By default it is
                                        the latest version.
-            include_definition (Optional[bool])
+            include_definition (bool | None)
                                      : Whether to include extended credential definition
                                        information.
-            run-as (Optional[UsersCredentialsListUserCredentialsParamRunAs])
+            run-as (UsersCredentialsListUserCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersCredentialsListUserCredentials200Response2: Successful Response
+            UsersCredentialsListUserCredentials200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials"
 
         params: dict[str, Any] = {
-            **({"source_type": source_type} if source_type is not None else {}),
-            **({"source_id": source_id} if source_id is not None else {}),
-            **({"source_version": source_version} if source_version is not None else {}),
-            **({"include_definition": include_definition} if include_definition is not None else {}),
+            **({"source_type": DataclassSerializer.serialize(source_type)} if source_type is not None else {}),
+            **({"source_id": DataclassSerializer.serialize(source_id)} if source_id is not None else {}),
+            **({"source_version": DataclassSerializer.serialize(source_version)} if source_version is not None else {}),
+            **(
+                {"include_definition": DataclassSerializer.serialize(include_definition)}
+                if include_definition is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1603,60 +2125,66 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersCredentialsListUserCredentials200Response2, response.json())
+                return structure_from_dict(response.json(), UsersCredentialsListUserCredentials200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_list_user_credentials_2_2(
+    async def users_credentials_list_user_credentials(
         self,
         user_id: UsersCredentialsListUserCredentialsParamUserId,
         source_type: UsersCredentialsListUserCredentialsParamSourceType | None = None,
         source_id: UsersCredentialsListUserCredentialsParamSourceId | None = None,
         source_version: UsersCredentialsListUserCredentialsParamSourceVersion | None = None,
-        include_definition: bool | None = False,
+        include_definition: bool | None = None,
         run_as: UsersCredentialsListUserCredentialsParamRunAs | None = None,
-    ) -> UsersCredentialsListUserCredentials200Response2:
+    ) -> UsersCredentialsListUserCredentials200Response:
         """
         Lists all credentials the user has provided
 
         Args:
             user_id (UsersCredentialsListUserCredentialsParamUserId)
                                      :
-            source_type (Optional[UsersCredentialsListUserCredentialsParamSourceType])
+            source_type (UsersCredentialsListUserCredentialsParamSourceType | None)
                                      : The type of source to filter by.
-            source_id (Optional[UsersCredentialsListUserCredentialsParamSourceId])
+            source_id (UsersCredentialsListUserCredentialsParamSourceId | None)
                                      : The ID of the source to filter by.
-            source_version (Optional[UsersCredentialsListUserCredentialsParamSourceVersion])
+            source_version (UsersCredentialsListUserCredentialsParamSourceVersion | None)
                                      : The version of the source to filter by. By default it is
                                        the latest version.
-            include_definition (Optional[bool])
+            include_definition (bool | None)
                                      : Whether to include extended credential definition
                                        information.
-            run-as (Optional[UsersCredentialsListUserCredentialsParamRunAs])
+            run-as (UsersCredentialsListUserCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersCredentialsListUserCredentials200Response2: Successful Response
+            UsersCredentialsListUserCredentials200Response: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials"
 
         params: dict[str, Any] = {
-            **({"source_type": source_type} if source_type is not None else {}),
-            **({"source_id": source_id} if source_id is not None else {}),
-            **({"source_version": source_version} if source_version is not None else {}),
-            **({"include_definition": include_definition} if include_definition is not None else {}),
+            **({"source_type": DataclassSerializer.serialize(source_type)} if source_type is not None else {}),
+            **({"source_id": DataclassSerializer.serialize(source_id)} if source_id is not None else {}),
+            **({"source_version": DataclassSerializer.serialize(source_version)} if source_version is not None else {}),
+            **(
+                {"include_definition": DataclassSerializer.serialize(include_definition)}
+                if include_definition is not None
+                else {}
+            ),
         }
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=params, json=None, data=None, headers=headers)
@@ -1664,13 +2192,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersCredentialsListUserCredentials200Response2, response.json())
+                return structure_from_dict(response.json(), UsersCredentialsListUserCredentials200Response)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_provide_credential_2_2(
+    async def users_credentials_provide_credential(
         self,
         user_id: UsersCredentialsProvideCredentialParamUserId,
         body: CreateSourceCredentialsPayload,
@@ -1682,7 +2210,7 @@ class UsersClient:
         Args:
             user_id (UsersCredentialsProvideCredentialParamUserId)
                                      :
-            run-as (Optional[UsersCredentialsProvideCredentialParamRunAs])
+            run-as (UsersCredentialsProvideCredentialParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1696,10 +2224,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateSourceCredentialsPayload = DataclassSerializer.serialize(body)
@@ -1709,13 +2239,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ServiceCredentialGroupResponse, response.json())
+                return structure_from_dict(response.json(), ServiceCredentialGroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_provide_credential_2_2(
+    async def users_credentials_provide_credential(
         self,
         user_id: UsersCredentialsProvideCredentialParamUserId,
         body: CreateSourceCredentialsPayload,
@@ -1727,7 +2257,7 @@ class UsersClient:
         Args:
             user_id (UsersCredentialsProvideCredentialParamUserId)
                                      :
-            run-as (Optional[UsersCredentialsProvideCredentialParamRunAs])
+            run-as (UsersCredentialsProvideCredentialParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1741,10 +2271,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateSourceCredentialsPayload = DataclassSerializer.serialize(body)
@@ -1754,13 +2286,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ServiceCredentialGroupResponse, response.json())
+                return structure_from_dict(response.json(), ServiceCredentialGroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_update_user_credentials_group_2_2(
+    async def users_credentials_update_user_credentials_group(
         self,
         user_id: UsersCredentialsUpdateUserCredentialsGroupParamUserId,
         body: SelectServiceCredentialPayload,
@@ -1772,7 +2304,7 @@ class UsersClient:
         Args:
             user_id (UsersCredentialsUpdateUserCredentialsGroupParamUserId)
                                      :
-            run-as (Optional[UsersCredentialsUpdateUserCredentialsGroupParamRunAs])
+            run-as (UsersCredentialsUpdateUserCredentialsGroupParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1783,10 +2315,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SelectServiceCredentialPayload = DataclassSerializer.serialize(body)
@@ -1800,9 +2334,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_update_user_credentials_group_2_2(
+    async def users_credentials_update_user_credentials_group(
         self,
         user_id: UsersCredentialsUpdateUserCredentialsGroupParamUserId,
         body: SelectServiceCredentialPayload,
@@ -1814,7 +2348,7 @@ class UsersClient:
         Args:
             user_id (UsersCredentialsUpdateUserCredentialsGroupParamUserId)
                                      :
-            run-as (Optional[UsersCredentialsUpdateUserCredentialsGroupParamRunAs])
+            run-as (UsersCredentialsUpdateUserCredentialsGroupParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1825,10 +2359,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: SelectServiceCredentialPayload = DataclassSerializer.serialize(body)
@@ -1842,9 +2378,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_delete_service_credentials_2_2(
+    async def users_credentials_delete_service_credentials(
         self,
         user_id: UsersCredentialsDeleteServiceCredentialsParamUserId,
         user_credentials_id: str,
@@ -1857,7 +2393,7 @@ class UsersClient:
             user_id (UsersCredentialsDeleteServiceCredentialsParamUserId)
                                      :
             user_credentials_id (str):
-            run-as (Optional[UsersCredentialsDeleteServiceCredentialsParamRunAs])
+            run-as (UsersCredentialsDeleteServiceCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1866,10 +2402,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        user_credentials_id = DataclassSerializer.serialize(user_credentials_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials/{user_credentials_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1881,9 +2420,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_delete_service_credentials_2_2(
+    async def users_credentials_delete_service_credentials(
         self,
         user_id: UsersCredentialsDeleteServiceCredentialsParamUserId,
         user_credentials_id: str,
@@ -1896,7 +2435,7 @@ class UsersClient:
             user_id (UsersCredentialsDeleteServiceCredentialsParamUserId)
                                      :
             user_credentials_id (str):
-            run-as (Optional[UsersCredentialsDeleteServiceCredentialsParamRunAs])
+            run-as (UsersCredentialsDeleteServiceCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1905,10 +2444,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        user_credentials_id = DataclassSerializer.serialize(user_credentials_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials/{user_credentials_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1920,9 +2462,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_groups_delete_credentials_2_2(
+    async def users_credentials_groups_delete_credentials(
         self,
         user_id: UsersCredentialsGroupsDeleteCredentialsParamUserId,
         user_credentials_id: str,
@@ -1937,7 +2479,7 @@ class UsersClient:
                                      :
             user_credentials_id (str):
             group_id (str)           :
-            run-as (Optional[UsersCredentialsGroupsDeleteCredentialsParamRunAs])
+            run-as (UsersCredentialsGroupsDeleteCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1946,10 +2488,14 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        user_credentials_id = DataclassSerializer.serialize(user_credentials_id)
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials/{user_credentials_id}/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -1961,9 +2507,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_groups_delete_credentials_2_2(
+    async def users_credentials_groups_delete_credentials(
         self,
         user_id: UsersCredentialsGroupsDeleteCredentialsParamUserId,
         user_credentials_id: str,
@@ -1978,7 +2524,7 @@ class UsersClient:
                                      :
             user_credentials_id (str):
             group_id (str)           :
-            run-as (Optional[UsersCredentialsGroupsDeleteCredentialsParamRunAs])
+            run-as (UsersCredentialsGroupsDeleteCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -1987,10 +2533,14 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        user_credentials_id = DataclassSerializer.serialize(user_credentials_id)
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials/{user_credentials_id}/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2002,9 +2552,9 @@ class UsersClient:
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_groups_update_user_credentials_2_2(
+    async def users_credentials_groups_update_user_credentials(
         self,
         user_id: UsersCredentialsGroupsUpdateUserCredentialsParamUserId,
         user_credentials_id: str,
@@ -2020,7 +2570,7 @@ class UsersClient:
                                      :
             user_credentials_id (str):
             group_id (str)           :
-            run-as (Optional[UsersCredentialsGroupsUpdateUserCredentialsParamRunAs])
+            run-as (UsersCredentialsGroupsUpdateUserCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2034,10 +2584,14 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        user_credentials_id = DataclassSerializer.serialize(user_credentials_id)
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials/{user_credentials_id}/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ServiceCredentialGroupPayload = DataclassSerializer.serialize(body)
@@ -2047,13 +2601,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ServiceCredentialGroupResponse, response.json())
+                return structure_from_dict(response.json(), ServiceCredentialGroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_credentials_groups_update_user_credentials_2_2(
+    async def users_credentials_groups_update_user_credentials(
         self,
         user_id: UsersCredentialsGroupsUpdateUserCredentialsParamUserId,
         user_credentials_id: str,
@@ -2069,7 +2623,7 @@ class UsersClient:
                                      :
             user_credentials_id (str):
             group_id (str)           :
-            run-as (Optional[UsersCredentialsGroupsUpdateUserCredentialsParamRunAs])
+            run-as (UsersCredentialsGroupsUpdateUserCredentialsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2083,10 +2637,14 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        user_credentials_id = DataclassSerializer.serialize(user_credentials_id)
+        group_id = DataclassSerializer.serialize(group_id)
+
         url = f"{self.base_url}/api/users/{user_id}/credentials/{user_credentials_id}/groups/{group_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: ServiceCredentialGroupPayload = DataclassSerializer.serialize(body)
@@ -2096,13 +2654,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(ServiceCredentialGroupResponse, response.json())
+                return structure_from_dict(response.json(), ServiceCredentialGroupResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_custom_builds_get_custom_builds_2_2(
+    async def users_custom_builds_get_custom_builds(
         self,
         user_id: str,
         run_as: UsersCustomBuildsGetCustomBuildsParamRunAs | None = None,
@@ -2112,7 +2670,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersCustomBuildsGetCustomBuildsParamRunAs])
+            run-as (UsersCustomBuildsGetCustomBuildsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2124,10 +2682,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/custom_builds"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2135,13 +2695,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CustomBuildsCollection, response.json())
+                return structure_from_dict(response.json(), CustomBuildsCollection)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_custom_builds_get_custom_builds_2_2(
+    async def users_custom_builds_get_custom_builds(
         self,
         user_id: str,
         run_as: UsersCustomBuildsGetCustomBuildsParamRunAs | None = None,
@@ -2151,7 +2711,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersCustomBuildsGetCustomBuildsParamRunAs])
+            run-as (UsersCustomBuildsGetCustomBuildsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2163,10 +2723,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/custom_builds"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2174,13 +2736,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CustomBuildsCollection, response.json())
+                return structure_from_dict(response.json(), CustomBuildsCollection)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_custom_builds_delete_custom_builds_2_2(
+    async def users_custom_builds_delete_custom_builds(
         self,
         user_id: str,
         key: str,
@@ -2192,7 +2754,7 @@ class UsersClient:
         Args:
             user_id (str)            : The ID of the user.
             key (str)                : The key of the custom build to be deleted.
-            run-as (Optional[UsersCustomBuildsDeleteCustomBuildsParamRunAs])
+            run-as (UsersCustomBuildsDeleteCustomBuildsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2204,10 +2766,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        key = DataclassSerializer.serialize(key)
+
         url = f"{self.base_url}/api/users/{user_id}/custom_builds/{key}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2215,13 +2780,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DeletedCustomBuild, response.json())
+                return structure_from_dict(response.json(), DeletedCustomBuild)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_custom_builds_delete_custom_builds_2_2(
+    async def users_custom_builds_delete_custom_builds(
         self,
         user_id: str,
         key: str,
@@ -2233,7 +2798,7 @@ class UsersClient:
         Args:
             user_id (str)            : The ID of the user.
             key (str)                : The key of the custom build to be deleted.
-            run-as (Optional[UsersCustomBuildsDeleteCustomBuildsParamRunAs])
+            run-as (UsersCustomBuildsDeleteCustomBuildsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2245,10 +2810,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        key = DataclassSerializer.serialize(key)
+
         url = f"{self.base_url}/api/users/{user_id}/custom_builds/{key}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2256,26 +2824,26 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(DeletedCustomBuild, response.json())
+                return structure_from_dict(response.json(), DeletedCustomBuild)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_custom_builds_add_custom_builds_2_2(
+    async def users_custom_builds_add_custom_builds(
         self,
         user_id: str,
         key: str,
         body: CustomBuildCreationPayload,
         run_as: UsersCustomBuildsAddCustomBuildsParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Add new custom build.
 
         Args:
             user_id (str)            : The ID of the user.
             key (str)                : The key of the custom build to be deleted.
-            run-as (Optional[UsersCustomBuildsAddCustomBuildsParamRunAs])
+            run-as (UsersCustomBuildsAddCustomBuildsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2283,16 +2851,19 @@ class UsersClient:
                                      : Request body. (json)
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        key = DataclassSerializer.serialize(key)
+
         url = f"{self.base_url}/api/users/{user_id}/custom_builds/{key}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CustomBuildCreationPayload = DataclassSerializer.serialize(body)
@@ -2302,26 +2873,26 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_custom_builds_add_custom_builds_2_2(
+    async def users_custom_builds_add_custom_builds(
         self,
         user_id: str,
         key: str,
         body: CustomBuildCreationPayload,
         run_as: UsersCustomBuildsAddCustomBuildsParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Add new custom build.
 
         Args:
             user_id (str)            : The ID of the user.
             key (str)                : The key of the custom build to be deleted.
-            run-as (Optional[UsersCustomBuildsAddCustomBuildsParamRunAs])
+            run-as (UsersCustomBuildsAddCustomBuildsParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2329,16 +2900,19 @@ class UsersClient:
                                      : Request body. (json)
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        key = DataclassSerializer.serialize(key)
+
         url = f"{self.base_url}/api/users/{user_id}/custom_builds/{key}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CustomBuildCreationPayload = DataclassSerializer.serialize(body)
@@ -2348,13 +2922,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_favorites_set_favorite_2_2(
+    async def users_favorites_set_favorite(
         self,
         user_id: str,
         object_type: FavoriteObjectType,
@@ -2368,7 +2942,7 @@ class UsersClient:
             user_id (str)            : The ID of the user.
             object_type (FavoriteObjectType)
                                      : The object type the user wants to favorite
-            run-as (Optional[UsersFavoritesSetFavoriteParamRunAs])
+            run-as (UsersFavoritesSetFavoriteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2381,10 +2955,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        object_type = DataclassSerializer.serialize(object_type)
+
         url = f"{self.base_url}/api/users/{user_id}/favorites/{object_type}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: FavoriteObject = DataclassSerializer.serialize(body)
@@ -2394,13 +2971,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(FavoriteObjectsSummary, response.json())
+                return structure_from_dict(response.json(), FavoriteObjectsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_favorites_set_favorite_2_2(
+    async def users_favorites_set_favorite(
         self,
         user_id: str,
         object_type: FavoriteObjectType,
@@ -2414,7 +2991,7 @@ class UsersClient:
             user_id (str)            : The ID of the user.
             object_type (FavoriteObjectType)
                                      : The object type the user wants to favorite
-            run-as (Optional[UsersFavoritesSetFavoriteParamRunAs])
+            run-as (UsersFavoritesSetFavoriteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2427,10 +3004,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        object_type = DataclassSerializer.serialize(object_type)
+
         url = f"{self.base_url}/api/users/{user_id}/favorites/{object_type}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: FavoriteObject = DataclassSerializer.serialize(body)
@@ -2440,13 +3020,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(FavoriteObjectsSummary, response.json())
+                return structure_from_dict(response.json(), FavoriteObjectsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_favorites_remove_favorite_2_2(
+    async def users_favorites_remove_favorite(
         self,
         user_id: str,
         object_type: FavoriteObjectType,
@@ -2462,7 +3042,7 @@ class UsersClient:
                                      : The object type the user wants to favorite
             object_id (str)          : The ID of an object the user wants to remove from
                                        favorites
-            run-as (Optional[UsersFavoritesRemoveFavoriteParamRunAs])
+            run-as (UsersFavoritesRemoveFavoriteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2474,10 +3054,14 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        object_type = DataclassSerializer.serialize(object_type)
+        object_id = DataclassSerializer.serialize(object_id)
+
         url = f"{self.base_url}/api/users/{user_id}/favorites/{object_type}/{object_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2485,13 +3069,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(FavoriteObjectsSummary, response.json())
+                return structure_from_dict(response.json(), FavoriteObjectsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_favorites_remove_favorite_2_2(
+    async def users_favorites_remove_favorite(
         self,
         user_id: str,
         object_type: FavoriteObjectType,
@@ -2507,7 +3091,7 @@ class UsersClient:
                                      : The object type the user wants to favorite
             object_id (str)          : The ID of an object the user wants to remove from
                                        favorites
-            run-as (Optional[UsersFavoritesRemoveFavoriteParamRunAs])
+            run-as (UsersFavoritesRemoveFavoriteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2519,10 +3103,14 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        object_type = DataclassSerializer.serialize(object_type)
+        object_id = DataclassSerializer.serialize(object_id)
+
         url = f"{self.base_url}/api/users/{user_id}/favorites/{object_type}/{object_id}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("DELETE", url, params=None, json=None, data=None, headers=headers)
@@ -2530,13 +3118,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(FavoriteObjectsSummary, response.json())
+                return structure_from_dict(response.json(), FavoriteObjectsSummary)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_objectstore_usage_objectstore_usage_2_2(
+    async def users_objectstore_usage_objectstore_usage(
         self,
         user_id: UsersObjectstoreUsageObjectstoreUsageParamUserId,
         run_as: UsersObjectstoreUsageObjectstoreUsageParamRunAs | None = None,
@@ -2547,7 +3135,7 @@ class UsersClient:
         Args:
             user_id (UsersObjectstoreUsageObjectstoreUsageParamUserId)
                                      : The ID of the user to get or 'current'.
-            run-as (Optional[UsersObjectstoreUsageObjectstoreUsageParamRunAs])
+            run-as (UsersObjectstoreUsageObjectstoreUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2559,10 +3147,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/objectstore_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2570,13 +3160,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[UserObjectstoreUsage], response.json())
+                return structure_from_dict(response.json(), list[UserObjectstoreUsage])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_objectstore_usage_objectstore_usage_2_2(
+    async def users_objectstore_usage_objectstore_usage(
         self,
         user_id: UsersObjectstoreUsageObjectstoreUsageParamUserId,
         run_as: UsersObjectstoreUsageObjectstoreUsageParamRunAs | None = None,
@@ -2587,7 +3177,7 @@ class UsersClient:
         Args:
             user_id (UsersObjectstoreUsageObjectstoreUsageParamUserId)
                                      : The ID of the user to get or 'current'.
-            run-as (Optional[UsersObjectstoreUsageObjectstoreUsageParamRunAs])
+            run-as (UsersObjectstoreUsageObjectstoreUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2599,10 +3189,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/objectstore_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2610,13 +3202,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[UserObjectstoreUsage], response.json())
+                return structure_from_dict(response.json(), list[UserObjectstoreUsage])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_recalculate_disk_usage_recalculate_disk_usage_by_user_id_2_2(
+    async def users_recalculate_disk_usage_recalculate_disk_usage_by_user_id(
         self,
         user_id: str,
         run_as: UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs | None = None,
@@ -2626,7 +3218,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs])
+            run-as (UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2638,10 +3230,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/recalculate_disk_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2649,15 +3243,15 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_recalculate_disk_usage_recalculate_disk_usage_by_user_id_2_2(
+    async def users_recalculate_disk_usage_recalculate_disk_usage_by_user_id(
         self,
         user_id: str,
         run_as: UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs | None = None,
@@ -2667,7 +3261,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs])
+            run-as (UsersRecalculateDiskUsageRecalculateDiskUsageByUserIdParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2679,10 +3273,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/recalculate_disk_usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2690,15 +3286,15 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(AsyncTaskResultSummary, response.json())
+                return structure_from_dict(response.json(), AsyncTaskResultSummary)
             case 204:
                 return None
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_roles_get_user_roles_2_2(
+    async def users_roles_get_user_roles(
         self,
         user_id: str,
         run_as: UsersRolesGetUserRolesParamRunAs | None = None,
@@ -2710,7 +3306,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersRolesGetUserRolesParamRunAs])
+            run-as (UsersRolesGetUserRolesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2722,10 +3318,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/roles"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2733,13 +3331,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleListResponse, response.json())
+                return structure_from_dict(response.json(), RoleListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_roles_get_user_roles_2_2(
+    async def users_roles_get_user_roles(
         self,
         user_id: str,
         run_as: UsersRolesGetUserRolesParamRunAs | None = None,
@@ -2751,7 +3349,7 @@ class UsersClient:
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersRolesGetUserRolesParamRunAs])
+            run-as (UsersRolesGetUserRolesParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2763,10 +3361,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/roles"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2774,38 +3374,40 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(RoleListResponse, response.json())
+                return structure_from_dict(response.json(), RoleListResponse)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_send_activation_email_send_activation_email_2_2(
+    async def users_send_activation_email_send_activation_email(
         self,
         user_id: str,
         run_as: UsersSendActivationEmailSendActivationEmailParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Sends activation email to user.
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersSendActivationEmailSendActivationEmailParamRunAs])
+            run-as (UsersSendActivationEmailSendActivationEmailParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/send_activation_email"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -2813,38 +3415,40 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_send_activation_email_send_activation_email_2_2(
+    async def users_send_activation_email_send_activation_email(
         self,
         user_id: str,
         run_as: UsersSendActivationEmailSendActivationEmailParamRunAs | None = None,
-    ) -> Any:
+    ) -> dict[str, Any]:
         """
         Sends activation email to user.
 
         Args:
             user_id (str)            : The ID of the user.
-            run-as (Optional[UsersSendActivationEmailSendActivationEmailParamRunAs])
+            run-as (UsersSendActivationEmailSendActivationEmailParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            Any: Successful Response
+            dict[str, Any]: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/send_activation_email"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -2852,13 +3456,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.json()  # Type is Any
+                return cast(dict[str, Any], response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_theme_set_theme_2_2(
+    async def users_theme_set_theme(
         self,
         user_id: str,
         theme: str,
@@ -2870,7 +3474,7 @@ class UsersClient:
         Args:
             user_id (str)            : The ID of the user.
             theme (str)              : The theme of the GUI
-            run-as (Optional[UsersThemeSetThemeParamRunAs])
+            run-as (UsersThemeSetThemeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2882,10 +3486,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        theme = DataclassSerializer.serialize(theme)
+
         url = f"{self.base_url}/api/users/{user_id}/theme/{theme}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2893,13 +3500,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_theme_set_theme_2_2(
+    async def users_theme_set_theme(
         self,
         user_id: str,
         theme: str,
@@ -2911,7 +3518,7 @@ class UsersClient:
         Args:
             user_id (str)            : The ID of the user.
             theme (str)              : The theme of the GUI
-            run-as (Optional[UsersThemeSetThemeParamRunAs])
+            run-as (UsersThemeSetThemeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2923,10 +3530,13 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        theme = DataclassSerializer.serialize(theme)
+
         url = f"{self.base_url}/api/users/{user_id}/theme/{theme}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("PUT", url, params=None, json=None, data=None, headers=headers)
@@ -2934,13 +3544,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_usage_usage_2_2(
+    async def users_usage_usage(
         self,
         user_id: UsersUsageUsageParamUserId,
         run_as: UsersUsageUsageParamRunAs | None = None,
@@ -2951,7 +3561,7 @@ class UsersClient:
         Args:
             user_id (UsersUsageUsageParamUserId)
                                      : The ID of the user to get or 'current'.
-            run-as (Optional[UsersUsageUsageParamRunAs])
+            run-as (UsersUsageUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -2963,10 +3573,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -2974,13 +3586,13 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[UserQuotaUsage], response.json())
+                return structure_from_dict(response.json(), list[UserQuotaUsage])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_usage_usage_2_2(
+    async def users_usage_usage(
         self,
         user_id: UsersUsageUsageParamUserId,
         run_as: UsersUsageUsageParamRunAs | None = None,
@@ -2991,7 +3603,7 @@ class UsersClient:
         Args:
             user_id (UsersUsageUsageParamUserId)
                                      : The ID of the user to get or 'current'.
-            run-as (Optional[UsersUsageUsageParamRunAs])
+            run-as (UsersUsageUsageParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -3003,10 +3615,12 @@ class UsersClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+
         url = f"{self.base_url}/api/users/{user_id}/usage"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3014,18 +3628,18 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(list[UserQuotaUsage], response.json())
+                return structure_from_dict(response.json(), list[UserQuotaUsage])
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_usage_usage_for_2_2(
+    async def users_usage_usage_for(
         self,
         user_id: UsersUsageUsageForParamUserId,
         label: str,
         run_as: UsersUsageUsageForParamRunAs | None = None,
-    ) -> UsersUsageUsageFor200Response2:
+    ) -> UsersUsageUsageFor200Response | None:
         """
         Return the user's quota usage summary for a given quota source label
 
@@ -3034,22 +3648,25 @@ class UsersClient:
                                      : The ID of the user to get or 'current'.
             label (str)              : The label corresponding to the quota source to fetch
                                        usage information about.
-            run-as (Optional[UsersUsageUsageForParamRunAs])
+            run-as (UsersUsageUsageForParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersUsageUsageFor200Response2: Successful Response
+            UsersUsageUsageFor200Response | None: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        label = DataclassSerializer.serialize(label)
+
         url = f"{self.base_url}/api/users/{user_id}/usage/{label}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3057,18 +3674,22 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersUsageUsageFor200Response2, response.json())
+                return (
+                    structure_from_dict(response.json(), UsersUsageUsageFor200Response)
+                    if response.json() is not None
+                    else None
+                )
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def users_usage_usage_for_2_2(
+    async def users_usage_usage_for(
         self,
         user_id: UsersUsageUsageForParamUserId,
         label: str,
         run_as: UsersUsageUsageForParamRunAs | None = None,
-    ) -> UsersUsageUsageFor200Response2:
+    ) -> UsersUsageUsageFor200Response | None:
         """
         Return the user's quota usage summary for a given quota source label
 
@@ -3077,22 +3698,25 @@ class UsersClient:
                                      : The ID of the user to get or 'current'.
             label (str)              : The label corresponding to the quota source to fetch
                                        usage information about.
-            run-as (Optional[UsersUsageUsageForParamRunAs])
+            run-as (UsersUsageUsageForParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
 
         Returns:
-            UsersUsageUsageFor200Response2: Successful Response
+            UsersUsageUsageFor200Response | None: Successful Response
 
         Raises:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        user_id = DataclassSerializer.serialize(user_id)
+        label = DataclassSerializer.serialize(label)
+
         url = f"{self.base_url}/api/users/{user_id}/usage/{label}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -3100,8 +3724,12 @@ class UsersClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(UsersUsageUsageFor200Response2, response.json())
+                return (
+                    structure_from_dict(response.json(), UsersUsageUsageFor200Response)
+                    if response.json() is not None
+                    else None
+                )
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

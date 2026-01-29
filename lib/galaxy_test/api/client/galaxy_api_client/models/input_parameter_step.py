@@ -1,12 +1,12 @@
 from dataclasses import dataclass
 
-from .annotation import Annotation
+from .input_parameter_step_annotation import InputParameterStepAnnotation
 from .input_parameter_step_input_steps import InputParameterStepInputSteps
-from .tool_id import ToolId
-from .tool_inputs import ToolInputs
-from .tool_uuid import ToolUuid
-from .tool_version import ToolVersion
-from .when import When
+from .input_parameter_step_tool_id import InputParameterStepToolId
+from .input_parameter_step_tool_inputs import InputParameterStepToolInputs
+from .input_parameter_step_tool_uuid import InputParameterStepToolUuid
+from .input_parameter_step_tool_version import InputParameterStepToolVersion
+from .input_parameter_step_when import InputParameterStepWhen
 
 __all__ = ["InputParameterStep"]
 
@@ -14,36 +14,65 @@ __all__ = ["InputParameterStep"]
 @dataclass
 class InputParameterStep:
     """
-    InputParameterStep dataclass.
+    InputParameterStep dataclass
 
     Args:
-        annotation (Optional[Annotation])
-                                 : The annotation of this Visualization.
+        annotation (InputParameterStepAnnotation)
+                                 : An annotation to provide details or to help understand
+                                   the purpose and usage of this item.
         id_ (int)                : The identifier of the step. It matches the index order of
-                                   the step inside the workflow.
+                                   the step inside the workflow. (maps from 'id')
         input_steps (InputParameterStepInputSteps)
                                  : A dictionary containing information about the inputs
                                    connected to this workflow step.
-        type_ (str)              :
-        when (Optional[When])    :
-        tool_id (Optional[ToolId]): The unique name of the tool associated with this step.
-        tool_inputs (Optional[ToolInputs])
+        type_ (str)              : Maps from 'type'
+        when (InputParameterStepWhen)
+                                 :
+        tool_id (InputParameterStepToolId | None)
+                                 : The unique name of the tool associated with this step.
+        tool_inputs (InputParameterStepToolInputs | None)
                                  : TODO
-        tool_uuid (Optional[ToolUuid])
+        tool_uuid (InputParameterStepToolUuid | None)
                                  : The universal unique identifier of the tool associated
                                    with this step. Takes precedence over tool_id if set.
-        tool_version (Optional[ToolVersion])
+        tool_version (InputParameterStepToolVersion | None)
                                  : The version of the tool associated with this step.
     """
 
-    annotation: Annotation | None  # The annotation of this Visualization.
-    id_: int  # The identifier of the step. It matches the index order of the step inside the workflow.
+    annotation: InputParameterStepAnnotation  # An annotation to provide details or to help understand the purpose and usage of this item.
+    id_: int  # The identifier of the step. It matches the index order of the step inside the workflow. (maps from 'id')
     input_steps: InputParameterStepInputSteps  # A dictionary containing information about the inputs connected to this workflow step.
-    type_: str
-    when: When | None
-    tool_id: ToolId | None = None  # The unique name of the tool associated with this step.
-    tool_inputs: ToolInputs | None = None  # TODO
-    tool_uuid: ToolUuid | None = (
+    type_: str  # Maps from 'type'
+    when: InputParameterStepWhen
+    tool_id: InputParameterStepToolId | None = None  # The unique name of the tool associated with this step.
+    tool_inputs: InputParameterStepToolInputs | None = None  # TODO
+    tool_uuid: InputParameterStepToolUuid | None = (
         None  # The universal unique identifier of the tool associated with this step. Takes precedence over tool_id if set.
     )
-    tool_version: ToolVersion | None = None  # The version of the tool associated with this step.
+    tool_version: InputParameterStepToolVersion | None = None  # The version of the tool associated with this step.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "annotation": "annotation",
+            "id": "id_",
+            "input_steps": "input_steps",
+            "tool_id": "tool_id",
+            "tool_inputs": "tool_inputs",
+            "tool_uuid": "tool_uuid",
+            "tool_version": "tool_version",
+            "type": "type_",
+            "when": "when",
+        }
+        key_transform_with_dump = {
+            "annotation": "annotation",
+            "id_": "id",
+            "input_steps": "input_steps",
+            "tool_id": "tool_id",
+            "tool_inputs": "tool_inputs",
+            "tool_uuid": "tool_uuid",
+            "tool_version": "tool_version",
+            "type_": "type",
+            "when": "when",
+        }

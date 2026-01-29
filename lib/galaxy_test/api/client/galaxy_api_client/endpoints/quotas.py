@@ -1,5 +1,6 @@
-from typing import Any, cast
+from typing import Any, Protocol, cast, runtime_checkable
 
+from galaxy_test.api.client.galaxy_api_client.core.cattrs_converter import structure_from_dict
 from galaxy_test.api.client.galaxy_api_client.core.exceptions import HTTPError
 from galaxy_test.api.client.galaxy_api_client.core.http_transport import HttpTransport
 from galaxy_test.api.client.galaxy_api_client.core.utils import DataclassSerializer
@@ -21,14 +22,127 @@ from ..models.quotas_update_param_run_as import QuotasUpdateParamRunAs
 from ..models.update_quota_params import UpdateQuotaParams
 
 
-class QuotasClient:
+@runtime_checkable
+class QuotasClientProtocol(Protocol):
+    """Protocol defining the interface of QuotasClient for dependency injection."""
+
+    async def quotas_index(
+        self,
+        run_as: QuotasIndexParamRunAs | None = None,
+    ) -> QuotaSummaryList: ...
+
+    async def quotas_index(
+        self,
+        run_as: QuotasIndexParamRunAs | None = None,
+    ) -> QuotaSummaryList: ...
+
+    async def quotas_create(
+        self,
+        body: CreateQuotaParams,
+        run_as: QuotasCreateParamRunAs | None = None,
+    ) -> CreateQuotaResult: ...
+
+    async def quotas_create(
+        self,
+        body: CreateQuotaParams,
+        run_as: QuotasCreateParamRunAs | None = None,
+    ) -> CreateQuotaResult: ...
+
+    async def quotas_deleted_index_deleted(
+        self,
+        run_as: QuotasDeletedIndexDeletedParamRunAs | None = None,
+    ) -> QuotaSummaryList: ...
+
+    async def quotas_deleted_index_deleted(
+        self,
+        run_as: QuotasDeletedIndexDeletedParamRunAs | None = None,
+    ) -> QuotaSummaryList: ...
+
+    async def quotas_deleted_show_deleted(
+        self,
+        id_: str,
+        run_as: QuotasDeletedShowDeletedParamRunAs | None = None,
+    ) -> QuotaDetails: ...
+
+    async def quotas_deleted_show_deleted(
+        self,
+        id_: str,
+        run_as: QuotasDeletedShowDeletedParamRunAs | None = None,
+    ) -> QuotaDetails: ...
+
+    async def quotas_deleted_undelete_undelete(
+        self,
+        id_: str,
+        run_as: QuotasDeletedUndeleteUndeleteParamRunAs | None = None,
+    ) -> str: ...
+
+    async def quotas_deleted_undelete_undelete(
+        self,
+        id_: str,
+        run_as: QuotasDeletedUndeleteUndeleteParamRunAs | None = None,
+    ) -> str: ...
+
+    async def quotas_delete(
+        self,
+        id_: str,
+        run_as: QuotasDeleteParamRunAs | None = None,
+        body: DeleteQuotaPayload | None = None,
+    ) -> str: ...
+
+    async def quotas_delete(
+        self,
+        id_: str,
+        run_as: QuotasDeleteParamRunAs | None = None,
+        body: DeleteQuotaPayload | None = None,
+    ) -> str: ...
+
+    async def quotas_show(
+        self,
+        id_: str,
+        run_as: QuotasShowParamRunAs | None = None,
+    ) -> QuotaDetails: ...
+
+    async def quotas_show(
+        self,
+        id_: str,
+        run_as: QuotasShowParamRunAs | None = None,
+    ) -> QuotaDetails: ...
+
+    async def quotas_update(
+        self,
+        id_: str,
+        body: UpdateQuotaParams,
+        run_as: QuotasUpdateParamRunAs | None = None,
+    ) -> str: ...
+
+    async def quotas_update(
+        self,
+        id_: str,
+        body: UpdateQuotaParams,
+        run_as: QuotasUpdateParamRunAs | None = None,
+    ) -> str: ...
+
+    async def quotas_purge_purge(
+        self,
+        id_: str,
+        run_as: QuotasPurgePurgeParamRunAs | None = None,
+    ) -> str: ...
+
+    async def quotas_purge_purge(
+        self,
+        id_: str,
+        run_as: QuotasPurgePurgeParamRunAs | None = None,
+    ) -> str: ...
+
+
+class QuotasClient(QuotasClientProtocol):
     """Client for quotas endpoints. Uses HttpTransport for all HTTP and header management."""
 
     def __init__(self, transport: HttpTransport, base_url: str) -> None:
         self._transport = transport
         self.base_url: str = base_url
 
-    async def quotas_index_2_2(
+    async def quotas_index(
         self,
         run_as: QuotasIndexParamRunAs | None = None,
     ) -> QuotaSummaryList:
@@ -38,7 +152,7 @@ class QuotasClient:
         Displays a list with information of quotas that are currently active.
 
         Args:
-            run-as (Optional[QuotasIndexParamRunAs])
+            run-as (QuotasIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -53,7 +167,7 @@ class QuotasClient:
         url = f"{self.base_url}/api/quotas"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -61,13 +175,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaSummaryList, response.json())
+                return structure_from_dict(response.json(), QuotaSummaryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_index_2_2(
+    async def quotas_index(
         self,
         run_as: QuotasIndexParamRunAs | None = None,
     ) -> QuotaSummaryList:
@@ -77,7 +191,7 @@ class QuotasClient:
         Displays a list with information of quotas that are currently active.
 
         Args:
-            run-as (Optional[QuotasIndexParamRunAs])
+            run-as (QuotasIndexParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -92,7 +206,7 @@ class QuotasClient:
         url = f"{self.base_url}/api/quotas"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -100,13 +214,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaSummaryList, response.json())
+                return structure_from_dict(response.json(), QuotaSummaryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_create_2_2(
+    async def quotas_create(
         self,
         body: CreateQuotaParams,
         run_as: QuotasCreateParamRunAs | None = None,
@@ -117,7 +231,7 @@ class QuotasClient:
         Creates a new quota.
 
         Args:
-            run-as (Optional[QuotasCreateParamRunAs])
+            run-as (QuotasCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -133,7 +247,7 @@ class QuotasClient:
         url = f"{self.base_url}/api/quotas"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateQuotaParams = DataclassSerializer.serialize(body)
@@ -143,13 +257,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CreateQuotaResult, response.json())
+                return structure_from_dict(response.json(), CreateQuotaResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_create_2_2(
+    async def quotas_create(
         self,
         body: CreateQuotaParams,
         run_as: QuotasCreateParamRunAs | None = None,
@@ -160,7 +274,7 @@ class QuotasClient:
         Creates a new quota.
 
         Args:
-            run-as (Optional[QuotasCreateParamRunAs])
+            run-as (QuotasCreateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -176,7 +290,7 @@ class QuotasClient:
         url = f"{self.base_url}/api/quotas"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: CreateQuotaParams = DataclassSerializer.serialize(body)
@@ -186,13 +300,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(CreateQuotaResult, response.json())
+                return structure_from_dict(response.json(), CreateQuotaResult)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_deleted_index_deleted_2_2(
+    async def quotas_deleted_index_deleted(
         self,
         run_as: QuotasDeletedIndexDeletedParamRunAs | None = None,
     ) -> QuotaSummaryList:
@@ -202,7 +316,7 @@ class QuotasClient:
         Displays a list with information of quotas that have been deleted.
 
         Args:
-            run-as (Optional[QuotasDeletedIndexDeletedParamRunAs])
+            run-as (QuotasDeletedIndexDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -217,7 +331,7 @@ class QuotasClient:
         url = f"{self.base_url}/api/quotas/deleted"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -225,13 +339,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaSummaryList, response.json())
+                return structure_from_dict(response.json(), QuotaSummaryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_deleted_index_deleted_2_2(
+    async def quotas_deleted_index_deleted(
         self,
         run_as: QuotasDeletedIndexDeletedParamRunAs | None = None,
     ) -> QuotaSummaryList:
@@ -241,7 +355,7 @@ class QuotasClient:
         Displays a list with information of quotas that have been deleted.
 
         Args:
-            run-as (Optional[QuotasDeletedIndexDeletedParamRunAs])
+            run-as (QuotasDeletedIndexDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -256,7 +370,7 @@ class QuotasClient:
         url = f"{self.base_url}/api/quotas/deleted"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -264,13 +378,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaSummaryList, response.json())
+                return structure_from_dict(response.json(), QuotaSummaryList)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_deleted_show_deleted_2_2(
+    async def quotas_deleted_show_deleted(
         self,
         id_: str,
         run_as: QuotasDeletedShowDeletedParamRunAs | None = None,
@@ -282,7 +396,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasDeletedShowDeletedParamRunAs])
+            run-as (QuotasDeletedShowDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -294,10 +408,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/deleted/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -305,13 +421,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaDetails, response.json())
+                return structure_from_dict(response.json(), QuotaDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_deleted_show_deleted_2_2(
+    async def quotas_deleted_show_deleted(
         self,
         id_: str,
         run_as: QuotasDeletedShowDeletedParamRunAs | None = None,
@@ -323,7 +439,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasDeletedShowDeletedParamRunAs])
+            run-as (QuotasDeletedShowDeletedParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -335,10 +451,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/deleted/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -346,13 +464,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaDetails, response.json())
+                return structure_from_dict(response.json(), QuotaDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_deleted_undelete_undelete_2_2(
+    async def quotas_deleted_undelete_undelete(
         self,
         id_: str,
         run_as: QuotasDeletedUndeleteUndeleteParamRunAs | None = None,
@@ -364,7 +482,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasDeletedUndeleteUndeleteParamRunAs])
+            run-as (QuotasDeletedUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -376,10 +494,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/deleted/{id_}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -387,13 +507,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_deleted_undelete_undelete_2_2(
+    async def quotas_deleted_undelete_undelete(
         self,
         id_: str,
         run_as: QuotasDeletedUndeleteUndeleteParamRunAs | None = None,
@@ -405,7 +525,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasDeletedUndeleteUndeleteParamRunAs])
+            run-as (QuotasDeletedUndeleteUndeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -417,10 +537,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/deleted/{id_}/undelete"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -428,13 +550,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_delete_2_2(
+    async def quotas_delete(
         self,
         id_: str,
         run_as: QuotasDeleteParamRunAs | None = None,
@@ -447,11 +569,11 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasDeleteParamRunAs])
+            run-as (QuotasDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[DeleteQuotaPayload])
+            body (DeleteQuotaPayload | None)
                                      : Request body. (json)
 
         Returns:
@@ -461,10 +583,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: DeleteQuotaPayload | None = DataclassSerializer.serialize(body)
@@ -474,13 +598,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_delete_2_2(
+    async def quotas_delete(
         self,
         id_: str,
         run_as: QuotasDeleteParamRunAs | None = None,
@@ -493,11 +617,11 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasDeleteParamRunAs])
+            run-as (QuotasDeleteParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
-            body (Optional[DeleteQuotaPayload])
+            body (DeleteQuotaPayload | None)
                                      : Request body. (json)
 
         Returns:
@@ -507,10 +631,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: DeleteQuotaPayload | None = DataclassSerializer.serialize(body)
@@ -520,13 +646,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_show_2_2(
+    async def quotas_show(
         self,
         id_: str,
         run_as: QuotasShowParamRunAs | None = None,
@@ -538,7 +664,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasShowParamRunAs])
+            run-as (QuotasShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -550,10 +676,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -561,13 +689,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaDetails, response.json())
+                return structure_from_dict(response.json(), QuotaDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_show_2_2(
+    async def quotas_show(
         self,
         id_: str,
         run_as: QuotasShowParamRunAs | None = None,
@@ -579,7 +707,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasShowParamRunAs])
+            run-as (QuotasShowParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -591,10 +719,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("GET", url, params=None, json=None, data=None, headers=headers)
@@ -602,13 +732,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return cast(QuotaDetails, response.json())
+                return structure_from_dict(response.json(), QuotaDetails)
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_update_2_2(
+    async def quotas_update(
         self,
         id_: str,
         body: UpdateQuotaParams,
@@ -621,7 +751,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasUpdateParamRunAs])
+            run-as (QuotasUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -634,10 +764,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UpdateQuotaParams = DataclassSerializer.serialize(body)
@@ -647,13 +779,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_update_2_2(
+    async def quotas_update(
         self,
         id_: str,
         body: UpdateQuotaParams,
@@ -666,7 +798,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasUpdateParamRunAs])
+            run-as (QuotasUpdateParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -679,10 +811,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         json_body: UpdateQuotaParams = DataclassSerializer.serialize(body)
@@ -692,13 +826,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_purge_purge_2_2(
+    async def quotas_purge_purge(
         self,
         id_: str,
         run_as: QuotasPurgePurgeParamRunAs | None = None,
@@ -708,7 +842,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasPurgePurgeParamRunAs])
+            run-as (QuotasPurgePurgeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -720,10 +854,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}/purge"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -731,13 +867,13 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover
 
-    async def quotas_purge_purge_2_2(
+    async def quotas_purge_purge(
         self,
         id_: str,
         run_as: QuotasPurgePurgeParamRunAs | None = None,
@@ -747,7 +883,7 @@ class QuotasClient:
 
         Args:
             id (str)                 : The ID of the Quota.
-            run-as (Optional[QuotasPurgePurgeParamRunAs])
+            run-as (QuotasPurgePurgeParamRunAs | None)
                                      : The user ID that will be used to effectively make this
                                        API call. Only admins and designated users can make API
                                        calls on behalf of other users.
@@ -759,10 +895,12 @@ class QuotasClient:
             HttpError:
                 HTTPError: If the server returns a non-2xx HTTP response.
         """
+        id_ = DataclassSerializer.serialize(id_)
+
         url = f"{self.base_url}/api/quotas/{id_}/purge"
 
         headers: dict[str, Any] = {
-            **({"run-as": run_as} if run_as is not None else {}),
+            **({"run-as": DataclassSerializer.serialize(run_as)} if run_as is not None else {}),
         }
 
         response = await self._transport.request("POST", url, params=None, json=None, data=None, headers=headers)
@@ -770,8 +908,8 @@ class QuotasClient:
         # Check response status code and handle accordingly
         match response.status_code:
             case 200:
-                return response.text
+                return cast(str, response.json())
             case _:
                 raise HTTPError(response=response, message="Unhandled status code", status_code=response.status_code)
         # All paths above should return or raise - this should never execute
-        assert False, "Unexpected code path"  # pragma: no cover
+        raise RuntimeError("Unexpected code path")  # pragma: no cover

@@ -1,11 +1,12 @@
 from dataclasses import dataclass, field
 
-from .argument import Argument
-from .help_ import Help_
-from .label import Label
+from .galaxy_tool_parameter_model_output_type_enum import GalaxyToolParameterModelOutputTypeEnum
+from .help__2 import Help2
 from .label_value import LabelValue
-from .validators import Validators
-from .value import Value
+from .text_parameter_model_argument import TextParameterModelArgument
+from .text_parameter_model_label import TextParameterModelLabel
+from .text_parameter_model_validators import TextParameterModelValidators
+from .text_parameter_model_value import TextParameterModelValue
 
 __all__ = ["TextParameterModel"]
 
@@ -13,14 +14,15 @@ __all__ = ["TextParameterModel"]
 @dataclass
 class TextParameterModel:
     """
-    TextParameterModel dataclass.
+    TextParameterModel dataclass
 
     Args:
         name (str)               : Parameter name. Used when referencing parameter in
                                    workflows or inside command templating.
-        type_ (str)              :
-        area (Optional[bool])    :
-        argument (Optional[Argument])
+        type_ (GalaxyToolParameterModelOutputTypeEnum)
+                                 : Maps from 'type'
+        area (bool | None)       :
+        argument (TextParameterModelArgument | None)
                                  : If the parameter reflects just one command line argument
                                    of a certain tool, this tag should be set to that
                                    particular argument. It is rendered in parenthesis after
@@ -29,33 +31,73 @@ class TextParameterModel:
                                    stripping leading dashes and replacing all remaining
                                    dashes by underscores (e.g. if argument="--long-
                                    parameter" then name="long_parameter" is implicit).
-        default_options (Optional[List[LabelValue]])
+        default_options (List[LabelValue] | None)
                                  :
-        help_ (Optional[Help_])  : Help text shown below the tool interface.
-        hidden (Optional[bool])  :
-        is_dynamic (Optional[bool])
+        help_ (Help2 | None)     : Short bit of text, rendered on the tool form just below
+                                   the associated field to provide information about the
+                                   field. (maps from 'help')
+        hidden (bool | None)     :
+        is_dynamic (bool | None) :
+        label (TextParameterModelLabel | None)
+                                 : Will be displayed on the tool page as the label of the
+                                   parameter.
+        optional (bool | None)   : If `false`, parameter must have a value.
+        parameter_type (str | None)
                                  :
-        label (Optional[Label])  : Label of the input.
-        optional (Optional[bool]): If `false`, parameter must have a value.
-        parameter_type (Optional[str])
+        validators (TextParameterModelValidators | None)
                                  :
-        validators (Optional[Validators])
+        value (TextParameterModelValue | None)
                                  :
-        value (Optional[Value])  : TODO
     """
 
     name: str  # Parameter name. Used when referencing parameter in workflows or inside command templating.
-    type_: str
+    type_: GalaxyToolParameterModelOutputTypeEnum  # Maps from 'type'
     area: bool | None = False
-    argument: Argument | None = (
+    argument: TextParameterModelArgument | None = (
         None  # If the parameter reflects just one command line argument of a certain tool, this tag should be set to that particular argument. It is rendered in parenthesis after the help section, and it will create the name attribute (if not given explicitly) from the argument attribute by stripping leading dashes and replacing all remaining dashes by underscores (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
     )
     default_options: list[LabelValue] | None = field(default_factory=list)
-    help_: Help_ | None = None  # Help text shown below the tool interface.
+    help_: Help2 | None = (
+        None  # Short bit of text, rendered on the tool form just below the associated field to provide information about the field. (maps from 'help')
+    )
     hidden: bool | None = False
     is_dynamic: bool | None = False
-    label: Label | None = None  # Label of the input.
+    label: TextParameterModelLabel | None = None  # Will be displayed on the tool page as the label of the parameter.
     optional: bool | None = False  # If `false`, parameter must have a value.
     parameter_type: str | None = "gx_text"
-    validators: Validators | None = None
-    value: Value | None = False  # TODO
+    validators: TextParameterModelValidators | None = None
+    value: TextParameterModelValue | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "area": "area",
+            "argument": "argument",
+            "default_options": "default_options",
+            "help": "help_",
+            "hidden": "hidden",
+            "is_dynamic": "is_dynamic",
+            "label": "label",
+            "name": "name",
+            "optional": "optional",
+            "parameter_type": "parameter_type",
+            "type": "type_",
+            "validators": "validators",
+            "value": "value",
+        }
+        key_transform_with_dump = {
+            "area": "area",
+            "argument": "argument",
+            "default_options": "default_options",
+            "help_": "help",
+            "hidden": "hidden",
+            "is_dynamic": "is_dynamic",
+            "label": "label",
+            "name": "name",
+            "optional": "optional",
+            "parameter_type": "parameter_type",
+            "type_": "type",
+            "validators": "validators",
+            "value": "value",
+        }

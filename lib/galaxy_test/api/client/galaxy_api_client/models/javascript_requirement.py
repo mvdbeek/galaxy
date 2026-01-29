@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .expression_lib import ExpressionLib
+from .javascript_requirement_expression_lib import JavascriptRequirementExpressionLib
 
 __all__ = ["JavascriptRequirement"]
 
@@ -8,13 +8,25 @@ __all__ = ["JavascriptRequirement"]
 @dataclass
 class JavascriptRequirement:
     """
-    JavascriptRequirement dataclass.
+    JavascriptRequirement dataclass
 
     Args:
-        expression_lib (Optional[ExpressionLib])
+        expression_lib (JavascriptRequirementExpressionLib)
                                  :
-        type_ (str)              :
+        type_ (str)              : Maps from 'type'
     """
 
-    expression_lib: ExpressionLib | None
-    type_: str
+    expression_lib: JavascriptRequirementExpressionLib
+    type_: str  # Maps from 'type'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "expression_lib": "expression_lib",
+            "type": "type_",
+        }
+        key_transform_with_dump = {
+            "expression_lib": "expression_lib",
+            "type_": "type",
+        }

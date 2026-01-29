@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .collection_element_collection_request_uri_elements_item import CollectionElementCollectionRequestUriElementsItem
+
+__all__ = ["CollectionElementCollectionRequestUriElements"]
+
+CollectionElementCollectionRequestUriElements: TypeAlias = list[CollectionElementCollectionRequestUriElementsItem]

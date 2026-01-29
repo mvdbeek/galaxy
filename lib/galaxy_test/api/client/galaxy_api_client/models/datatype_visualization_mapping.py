@@ -6,7 +6,7 @@ __all__ = ["DatatypeVisualizationMapping"]
 @dataclass
 class DatatypeVisualizationMapping:
     """
-    DatatypeVisualizationMapping dataclass.
+    DatatypeVisualizationMapping dataclass
 
     Args:
         datatype (str)           : The datatype extension this visualization applies to
@@ -15,3 +15,15 @@ class DatatypeVisualizationMapping:
 
     datatype: str  # The datatype extension this visualization applies to
     visualization: str  # The visualization plugin to use
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "datatype": "datatype",
+            "visualization": "visualization",
+        }
+        key_transform_with_dump = {
+            "datatype": "datatype",
+            "visualization": "visualization",
+        }

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from .source import Source
+from .import_tool_data_bundle_source import ImportToolDataBundleSource
 
 __all__ = ["ImportToolDataBundle"]
 
@@ -8,11 +8,21 @@ __all__ = ["ImportToolDataBundle"]
 @dataclass
 class ImportToolDataBundle:
     """
-    ImportToolDataBundle dataclass.
+    ImportToolDataBundle dataclass
 
     Args:
-        source (Source)          : The source of the notification. Represents the agent that
-                                   created the notification.
+        source (ImportToolDataBundleSource)
+                                 :
     """
 
-    source: Source  # The source of the notification. Represents the agent that created the notification.
+    source: ImportToolDataBundleSource
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "source": "source",
+        }
+        key_transform_with_dump = {
+            "source": "source",
+        }

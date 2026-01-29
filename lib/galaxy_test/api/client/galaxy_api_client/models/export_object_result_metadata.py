@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 
-from .error import Error
-from .uri import Uri
+from .export_object_result_metadata_error import ExportObjectResultMetadataError
+from .export_object_result_metadata_uri import ExportObjectResultMetadataUri
 
 __all__ = ["ExportObjectResultMetadata"]
 
@@ -9,14 +9,30 @@ __all__ = ["ExportObjectResultMetadata"]
 @dataclass
 class ExportObjectResultMetadata:
     """
-    ExportObjectResultMetadata dataclass.
+    ExportObjectResultMetadata dataclass
 
     Args:
         success (bool)           :
-        error (Optional[Error])  :
-        uri (Optional[Uri])      :
+        error (ExportObjectResultMetadataError | None)
+                                 :
+        uri (ExportObjectResultMetadataUri | None)
+                                 :
     """
 
     success: bool
-    error: Error | None = None
-    uri: Uri | None = None
+    error: ExportObjectResultMetadataError | None = None
+    uri: ExportObjectResultMetadataUri | None = None
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "error": "error",
+            "success": "success",
+            "uri": "uri",
+        }
+        key_transform_with_dump = {
+            "error": "error",
+            "success": "success",
+            "uri": "uri",
+        }

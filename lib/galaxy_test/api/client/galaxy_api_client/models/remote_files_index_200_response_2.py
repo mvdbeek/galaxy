@@ -5,4 +5,4 @@ from .list_uri_response import ListUriResponse
 
 __all__ = ["RemoteFilesIndex200Response2"]
 
-RemoteFilesIndex200Response2: TypeAlias = ListJstreeResponse | ListUriResponse
+RemoteFilesIndex200Response2: TypeAlias = ListUriResponse | ListJstreeResponse

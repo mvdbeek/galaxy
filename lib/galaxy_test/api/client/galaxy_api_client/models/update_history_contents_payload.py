@@ -1,10 +1,10 @@
 from dataclasses import dataclass
 
-from .annotation import Annotation
-from .deleted import Deleted
-from .name import Name
-from .tags import Tags
-from .visible import Visible
+from .update_history_contents_payload_annotation import UpdateHistoryContentsPayloadAnnotation
+from .update_history_contents_payload_deleted import UpdateHistoryContentsPayloadDeleted
+from .update_history_contents_payload_name import UpdateHistoryContentsPayloadName
+from .update_history_contents_payload_tags import UpdateHistoryContentsPayloadTags
+from .update_history_contents_payload_visible import UpdateHistoryContentsPayloadVisible
 
 __all__ = ["UpdateHistoryContentsPayload"]
 
@@ -15,18 +15,38 @@ class UpdateHistoryContentsPayload:
     Can contain arbitrary/dynamic fields that will be updated for a particular history item.
 
     Args:
-        annotation (Optional[Annotation])
-                                 : The annotation of this Visualization.
-        deleted (Optional[Deleted])
-                                 : Whether this Visualization has been deleted.
-        name (Optional[Name])    : The name of the creator.
-        tags (Optional[Tags])    : A list of tags to add to this item.
-        visible (Optional[Visible])
+        annotation (UpdateHistoryContentsPayloadAnnotation | None)
+                                 : A user-defined annotation for this item.
+        deleted (UpdateHistoryContentsPayloadDeleted | None)
+                                 : Whether this item is marked as deleted.
+        name (UpdateHistoryContentsPayloadName | None)
+                                 : The new name of the item.
+        tags (UpdateHistoryContentsPayloadTags | None)
+                                 : A list of tags to add to this item.
+        visible (UpdateHistoryContentsPayloadVisible | None)
                                  : Whether this item is visible in the history.
     """
 
-    annotation: Annotation | None = None  # The annotation of this Visualization.
-    deleted: Deleted | None = False  # Whether this Visualization has been deleted.
-    name: Name | None = None  # The name of the creator.
-    tags: Tags | None = None  # A list of tags to add to this item.
-    visible: Visible | None = None  # Whether this item is visible in the history.
+    annotation: UpdateHistoryContentsPayloadAnnotation | None = None  # A user-defined annotation for this item.
+    deleted: UpdateHistoryContentsPayloadDeleted | None = None  # Whether this item is marked as deleted.
+    name: UpdateHistoryContentsPayloadName | None = None  # The new name of the item.
+    tags: UpdateHistoryContentsPayloadTags | None = None  # A list of tags to add to this item.
+    visible: UpdateHistoryContentsPayloadVisible | None = None  # Whether this item is visible in the history.
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "annotation": "annotation",
+            "deleted": "deleted",
+            "name": "name",
+            "tags": "tags",
+            "visible": "visible",
+        }
+        key_transform_with_dump = {
+            "annotation": "annotation",
+            "deleted": "deleted",
+            "name": "name",
+            "tags": "tags",
+            "visible": "visible",
+        }

@@ -1,23 +1,23 @@
 from dataclasses import dataclass
 
-from .create_type import CreateType
-from .dbkey import Dbkey
-from .extended_metadata import ExtendedMetadata
-from .file_type import FileType
-from .files import Files
-from .filesystem_paths import FilesystemPaths
-from .folder_id import FolderId
-from .from_hda_id import FromHdaId
-from .from_hdca_id import FromHdcaId
-from .ldda_message import LddaMessage
-from .link_data_only import LinkDataOnly
-from .roles import Roles
-from .server_dir import ServerDir
-from .tag_using_filenames import TagUsingFilenames
-from .tags import Tags
-from .upload_files import UploadFiles
-from .upload_option import UploadOption
-from .uuid_ import Uuid_
+from .body_libraries_contents_create_form_create_type import BodyLibrariesContentsCreateFormCreateType
+from .body_libraries_contents_create_form_dbkey import BodyLibrariesContentsCreateFormDbkey
+from .body_libraries_contents_create_form_extended_metadata import BodyLibrariesContentsCreateFormExtendedMetadata
+from .body_libraries_contents_create_form_file_type import BodyLibrariesContentsCreateFormFileType
+from .body_libraries_contents_create_form_files import BodyLibrariesContentsCreateFormFiles
+from .body_libraries_contents_create_form_filesystem_paths import BodyLibrariesContentsCreateFormFilesystemPaths
+from .body_libraries_contents_create_form_folder_id import BodyLibrariesContentsCreateFormFolderId
+from .body_libraries_contents_create_form_from_hda_id import BodyLibrariesContentsCreateFormFromHdaId
+from .body_libraries_contents_create_form_from_hdca_id import BodyLibrariesContentsCreateFormFromHdcaId
+from .body_libraries_contents_create_form_ldda_message import BodyLibrariesContentsCreateFormLddaMessage
+from .body_libraries_contents_create_form_link_data_only import BodyLibrariesContentsCreateFormLinkDataOnly
+from .body_libraries_contents_create_form_roles import BodyLibrariesContentsCreateFormRoles
+from .body_libraries_contents_create_form_server_dir import BodyLibrariesContentsCreateFormServerDir
+from .body_libraries_contents_create_form_tag_using_filenames import BodyLibrariesContentsCreateFormTagUsingFilenames
+from .body_libraries_contents_create_form_tags import BodyLibrariesContentsCreateFormTags
+from .body_libraries_contents_create_form_upload_files import BodyLibrariesContentsCreateFormUploadFiles
+from .body_libraries_contents_create_form_upload_option import BodyLibrariesContentsCreateFormUploadOption
+from .uuid__11 import Uuid11
 
 __all__ = ["BodyLibrariesContentsCreateForm2"]
 
@@ -25,67 +25,105 @@ __all__ = ["BodyLibrariesContentsCreateForm2"]
 @dataclass
 class BodyLibrariesContentsCreateForm2:
     """
-    BodyLibrariesContentsCreateForm2 dataclass.
+    BodyLibrariesContentsCreateForm2 dataclass
 
     Args:
-        create_type (CreateType) :
-        folder_id (FolderId)     : The ID of the library folder that will contain the
-                                   collection. Required if `instance_type=library`.
-        dbkey (Optional[Dbkey])  : The database key of the visualization.
-        extended_metadata (Optional[ExtendedMetadata])
-                                 : sub-dictionary containing any extended metadata to
-                                   associate with the item
-        file_type (Optional[FileType])
+        create_type (BodyLibrariesContentsCreateFormCreateType)
                                  :
-        files (Optional[Files])  :
-        filesystem_paths (Optional[FilesystemPaths])
+        folder_id (BodyLibrariesContentsCreateFormFolderId)
                                  :
-        from_hda_id (Optional[FromHdaId])
-                                 : (only if create_type is 'file') the encoded id of an
-                                   accessible HDA to copy into the library
-        from_hdca_id (Optional[FromHdcaId])
-                                 : (only if create_type is 'file') the encoded id of an
-                                   accessible HDCA to copy into the library
-        ldda_message (Optional[LddaMessage])
-                                 : The new message attribute of the LDDA created.
-        link_data_only (Optional[LinkDataOnly])
+        dbkey (BodyLibrariesContentsCreateFormDbkey | None)
                                  :
-        roles (Optional[Roles])  :
-        server_dir (Optional[ServerDir])
+        extended_metadata (BodyLibrariesContentsCreateFormExtendedMetadata | None)
                                  :
-        tag_using_filenames (Optional[TagUsingFilenames])
+        file_type (BodyLibrariesContentsCreateFormFileType | None)
                                  :
-        tags (Optional[Tags])    : The collection of tags associated with an item.
-        upload_files (Optional[UploadFiles])
+        files (BodyLibrariesContentsCreateFormFiles | None)
                                  :
-        upload_option (Optional[UploadOption])
+        filesystem_paths (BodyLibrariesContentsCreateFormFilesystemPaths | None)
                                  :
-        uuid_ (Optional[Uuid_])  : Universal unique identifier of the workflow invocation.
+        from_hda_id (BodyLibrariesContentsCreateFormFromHdaId | None)
+                                 :
+        from_hdca_id (BodyLibrariesContentsCreateFormFromHdcaId | None)
+                                 :
+        ldda_message (BodyLibrariesContentsCreateFormLddaMessage | None)
+                                 :
+        link_data_only (BodyLibrariesContentsCreateFormLinkDataOnly | None)
+                                 :
+        roles (BodyLibrariesContentsCreateFormRoles | None)
+                                 :
+        server_dir (BodyLibrariesContentsCreateFormServerDir | None)
+                                 :
+        tag_using_filenames (BodyLibrariesContentsCreateFormTagUsingFilenames | None)
+                                 :
+        tags (BodyLibrariesContentsCreateFormTags | None)
+                                 :
+        upload_files (BodyLibrariesContentsCreateFormUploadFiles | None)
+                                 :
+        upload_option (BodyLibrariesContentsCreateFormUploadOption | None)
+                                 :
+        uuid_ (Uuid11 | None)    : Maps from 'uuid'
     """
 
-    create_type: CreateType
-    folder_id: (
-        FolderId  # The ID of the library folder that will contain the collection. Required if `instance_type=library`.
-    )
-    dbkey: Dbkey | None = "?"  # The database key of the visualization.
-    extended_metadata: ExtendedMetadata | None = (
-        None  # sub-dictionary containing any extended metadata to associate with the item
-    )
-    file_type: FileType | None = None
-    files: Files | None = None
-    filesystem_paths: FilesystemPaths | None = ""
-    from_hda_id: FromHdaId | None = (
-        None  # (only if create_type is 'file') the encoded id of an accessible HDA to copy into the library
-    )
-    from_hdca_id: FromHdcaId | None = (
-        None  # (only if create_type is 'file') the encoded id of an accessible HDCA to copy into the library
-    )
-    ldda_message: LddaMessage | None = ""  # The new message attribute of the LDDA created.
-    link_data_only: LinkDataOnly | None = "copy_files"
-    roles: Roles | None = ""
-    server_dir: ServerDir | None = ""
-    tag_using_filenames: TagUsingFilenames | None = False
-    tags: Tags | None = None  # The collection of tags associated with an item.
-    upload_files: UploadFiles | None = None
-    upload_option: UploadOption | None = "upload_file"
-    uuid_: Uuid_ | None = None  # Universal unique identifier of the workflow invocation.
+    create_type: BodyLibrariesContentsCreateFormCreateType
+    folder_id: BodyLibrariesContentsCreateFormFolderId
+    dbkey: BodyLibrariesContentsCreateFormDbkey | None = "?"
+    extended_metadata: BodyLibrariesContentsCreateFormExtendedMetadata | None = None
+    file_type: BodyLibrariesContentsCreateFormFileType | None = None
+    files: BodyLibrariesContentsCreateFormFiles | None = None
+    filesystem_paths: BodyLibrariesContentsCreateFormFilesystemPaths | None = ""
+    from_hda_id: BodyLibrariesContentsCreateFormFromHdaId | None = None
+    from_hdca_id: BodyLibrariesContentsCreateFormFromHdcaId | None = None
+    ldda_message: BodyLibrariesContentsCreateFormLddaMessage | None = ""
+    link_data_only: BodyLibrariesContentsCreateFormLinkDataOnly | None = "copy_files"
+    roles: BodyLibrariesContentsCreateFormRoles | None = ""
+    server_dir: BodyLibrariesContentsCreateFormServerDir | None = ""
+    tag_using_filenames: BodyLibrariesContentsCreateFormTagUsingFilenames | None = False
+    tags: BodyLibrariesContentsCreateFormTags | None = None
+    upload_files: BodyLibrariesContentsCreateFormUploadFiles | None = None
+    upload_option: BodyLibrariesContentsCreateFormUploadOption | None = "upload_file"
+    uuid_: Uuid11 | None = None  # Maps from 'uuid'
+
+    class Meta:
+        """Configure field name mapping for JSON conversion."""
+
+        key_transform_with_load = {
+            "create_type": "create_type",
+            "dbkey": "dbkey",
+            "extended_metadata": "extended_metadata",
+            "file_type": "file_type",
+            "files": "files",
+            "filesystem_paths": "filesystem_paths",
+            "folder_id": "folder_id",
+            "from_hda_id": "from_hda_id",
+            "from_hdca_id": "from_hdca_id",
+            "ldda_message": "ldda_message",
+            "link_data_only": "link_data_only",
+            "roles": "roles",
+            "server_dir": "server_dir",
+            "tag_using_filenames": "tag_using_filenames",
+            "tags": "tags",
+            "upload_files": "upload_files",
+            "upload_option": "upload_option",
+            "uuid": "uuid_",
+        }
+        key_transform_with_dump = {
+            "create_type": "create_type",
+            "dbkey": "dbkey",
+            "extended_metadata": "extended_metadata",
+            "file_type": "file_type",
+            "files": "files",
+            "filesystem_paths": "filesystem_paths",
+            "folder_id": "folder_id",
+            "from_hda_id": "from_hda_id",
+            "from_hdca_id": "from_hdca_id",
+            "ldda_message": "ldda_message",
+            "link_data_only": "link_data_only",
+            "roles": "roles",
+            "server_dir": "server_dir",
+            "tag_using_filenames": "tag_using_filenames",
+            "tags": "tags",
+            "upload_files": "upload_files",
+            "upload_option": "upload_option",
+            "uuid_": "uuid",
+        }
