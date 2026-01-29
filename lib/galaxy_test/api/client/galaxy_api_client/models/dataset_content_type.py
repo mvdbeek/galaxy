@@ -1,11 +1,21 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["DatasetContentType"]
 
 
+@unique
 class DatasetContentType(str, Enum):
-    ATTR = "attr"
-    DATA = "data"
-    META = "meta"
-    STATS = "stats"
+    """
+    For retrieving content from a structured dataset (e.g. HDF5)
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        meta (str)               : Value for META
+        attr (str)               : Value for ATTR
+        stats (str)              : Value for STATS
+        data (str)               : Value for DATA
+    """
+
+    META = "meta"
+    ATTR = "attr"
+    STATS = "stats"
+    DATA = "data"

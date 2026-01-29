@@ -1,10 +1,19 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["ConfidenceLevel"]
 
 
+@unique
 class ConfidenceLevel(str, Enum):
-    HIGH = "high"
+    """
+    Confidence levels for agent responses.
+
+    Args:
+        low (str)                : Value for LOW
+        medium (str)             : Value for MEDIUM
+        high (str)               : Value for HIGH
+    """
+
     LOW = "low"
     MEDIUM = "medium"
-
-    def __str__(self) -> str:
-        return str(self.value)
+    HIGH = "high"

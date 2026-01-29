@@ -1,10 +1,19 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["ToolRequestState"]
 
 
+@unique
 class ToolRequestState(str, Enum):
-    FAILED = "failed"
+    """
+    ToolRequestState Enum
+
+    Args:
+        new (str)                : Value for NEW
+        submitted (str)          : Value for SUBMITTED
+        failed (str)             : Value for FAILED
+    """
+
     NEW = "new"
     SUBMITTED = "submitted"
-
-    def __str__(self) -> str:
-        return str(self.value)
+    FAILED = "failed"

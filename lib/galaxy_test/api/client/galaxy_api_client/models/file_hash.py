@@ -1,52 +1,20 @@
-from __future__ import annotations
+from dataclasses import dataclass
 
-from collections.abc import Mapping
-from typing import Any, TypeVar
+from .hash_function import HashFunction
 
-from attrs import define as _attrs_define
-
-from ..models.file_hash_hash_function import FileHashHashFunction
-
-T = TypeVar("T", bound="FileHash")
+__all__ = ["FileHash"]
 
 
-@_attrs_define
+@dataclass
 class FileHash:
     """
-    Attributes:
-        hash_function (FileHashHashFunction):
-        hash_value (str):
+    FileHash dataclass.
+
+    Args:
+        hash_function (HashFunction)
+                                 : Hash function name to use to compute dataset hashes.
+        hash_value (str)         :
     """
 
-    hash_function: FileHashHashFunction
+    hash_function: HashFunction  # Hash function name to use to compute dataset hashes.
     hash_value: str
-
-    def to_dict(self) -> dict[str, Any]:
-        hash_function = self.hash_function.value
-
-        hash_value = self.hash_value
-
-        field_dict: dict[str, Any] = {}
-
-        field_dict.update(
-            {
-                "hash_function": hash_function,
-                "hash_value": hash_value,
-            }
-        )
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        hash_function = FileHashHashFunction(d.pop("hash_function"))
-
-        hash_value = d.pop("hash_value")
-
-        file_hash = cls(
-            hash_function=hash_function,
-            hash_value=hash_value,
-        )
-
-        return file_hash

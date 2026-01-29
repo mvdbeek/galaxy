@@ -1,71 +1,19 @@
-from __future__ import annotations
+from dataclasses import dataclass
 
-from collections.abc import Mapping
-from typing import Any, TypeVar
+from .format_ import Format_
 
-from attrs import define as _attrs_define
-from attrs import field as _attrs_field
-
-from ..models.help_content_format import HelpContentFormat
-
-T = TypeVar("T", bound="HelpContent")
+__all__ = ["HelpContent"]
 
 
-@_attrs_define
+@dataclass
 class HelpContent:
     """
-    Attributes:
-        content (str):
-        format_ (HelpContentFormat):
+    HelpContent dataclass.
+
+    Args:
+        content (str)            :
+        format_ (Format_)        : The short name for the output datatype.
     """
 
     content: str
-    format_: HelpContentFormat
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        content = self.content
-
-        format_ = self.format_.value
-
-        field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "content": content,
-                "format": format_,
-            }
-        )
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        d = dict(src_dict)
-        content = d.pop("content")
-
-        format_ = HelpContentFormat(d.pop("format"))
-
-        help_content = cls(
-            content=content,
-            format_=format_,
-        )
-
-        help_content.additional_properties = d
-        return help_content
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> Any:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties
+    format_: Format_  # The short name for the output datatype.

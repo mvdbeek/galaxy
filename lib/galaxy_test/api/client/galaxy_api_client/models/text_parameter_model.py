@@ -1,330 +1,61 @@
-from __future__ import annotations
+from dataclasses import dataclass, field
 
-from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, Literal, TypeVar, cast
+from .argument import Argument
+from .help_ import Help_
+from .label import Label
+from .label_value import LabelValue
+from .validators import Validators
+from .value import Value
 
-from attrs import define as _attrs_define
-from attrs import field as _attrs_field
-
-from ..types import UNSET, Unset
-
-if TYPE_CHECKING:
-    from ..models.empty_field_parameter_validator_model import EmptyFieldParameterValidatorModel
-    from ..models.expression_parameter_validator_model import ExpressionParameterValidatorModel
-    from ..models.label_value import LabelValue
-    from ..models.length_parameter_validator_model import LengthParameterValidatorModel
-    from ..models.regex_parameter_validator_model import RegexParameterValidatorModel
+__all__ = ["TextParameterModel"]
 
 
-T = TypeVar("T", bound="TextParameterModel")
-
-
-@_attrs_define
+@dataclass
 class TextParameterModel:
     """
-    Attributes:
-        name (str): Parameter name. Used when referencing parameter in workflows or inside command templating.
-        type_ (Literal['text']):
-        area (bool | Unset):  Default: False.
-        argument (None | str | Unset): If the parameter reflects just one command line argument of a certain tool, this
-            tag should be set to that particular argument. It is rendered in parenthesis after the help section, and it will
-            create the name attribute (if not given explicitly) from the argument attribute by stripping leading dashes and
-            replacing all remaining dashes by underscores (e.g. if argument="--long-parameter" then name="long_parameter" is
-            implicit).
-        default_options (list[LabelValue] | Unset):
-        help_ (None | str | Unset): Short bit of text, rendered on the tool form just below the associated field to
-            provide information about the field.
-        hidden (bool | Unset):  Default: False.
-        is_dynamic (bool | Unset):  Default: False.
-        label (None | str | Unset): Will be displayed on the tool page as the label of the parameter.
-        optional (bool | Unset): If `false`, parameter must have a value. Default: False.
-        parameter_type (Literal['gx_text'] | Unset):  Default: 'gx_text'.
-        validators (list[EmptyFieldParameterValidatorModel | ExpressionParameterValidatorModel |
-            LengthParameterValidatorModel | RegexParameterValidatorModel] | Unset):
-        value (None | str | Unset):
+    TextParameterModel dataclass.
+
+    Args:
+        name (str)               : Parameter name. Used when referencing parameter in
+                                   workflows or inside command templating.
+        type_ (str)              :
+        area (Optional[bool])    :
+        argument (Optional[Argument])
+                                 : If the parameter reflects just one command line argument
+                                   of a certain tool, this tag should be set to that
+                                   particular argument. It is rendered in parenthesis after
+                                   the help section, and it will create the name attribute
+                                   (if not given explicitly) from the argument attribute by
+                                   stripping leading dashes and replacing all remaining
+                                   dashes by underscores (e.g. if argument="--long-
+                                   parameter" then name="long_parameter" is implicit).
+        default_options (Optional[List[LabelValue]])
+                                 :
+        help_ (Optional[Help_])  : Help text shown below the tool interface.
+        hidden (Optional[bool])  :
+        is_dynamic (Optional[bool])
+                                 :
+        label (Optional[Label])  : Label of the input.
+        optional (Optional[bool]): If `false`, parameter must have a value.
+        parameter_type (Optional[str])
+                                 :
+        validators (Optional[Validators])
+                                 :
+        value (Optional[Value])  : TODO
     """
 
-    name: str
-    type_: Literal["text"]
-    area: bool | Unset = False
-    argument: None | str | Unset = UNSET
-    default_options: list[LabelValue] | Unset = UNSET
-    help_: None | str | Unset = UNSET
-    hidden: bool | Unset = False
-    is_dynamic: bool | Unset = False
-    label: None | str | Unset = UNSET
-    optional: bool | Unset = False
-    parameter_type: Literal["gx_text"] | Unset = "gx_text"
-    validators: (
-        list[
-            EmptyFieldParameterValidatorModel
-            | ExpressionParameterValidatorModel
-            | LengthParameterValidatorModel
-            | RegexParameterValidatorModel
-        ]
-        | Unset
-    ) = UNSET
-    value: None | str | Unset = UNSET
-    additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        from ..models.expression_parameter_validator_model import ExpressionParameterValidatorModel
-        from ..models.length_parameter_validator_model import LengthParameterValidatorModel
-        from ..models.regex_parameter_validator_model import RegexParameterValidatorModel
-
-        name = self.name
-
-        type_ = self.type_
-
-        area = self.area
-
-        argument: None | str | Unset
-        if isinstance(self.argument, Unset):
-            argument = UNSET
-        else:
-            argument = self.argument
-
-        default_options: list[dict[str, Any]] | Unset = UNSET
-        if not isinstance(self.default_options, Unset):
-            default_options = []
-            for default_options_item_data in self.default_options:
-                default_options_item = default_options_item_data.to_dict()
-                default_options.append(default_options_item)
-
-        help_: None | str | Unset
-        if isinstance(self.help_, Unset):
-            help_ = UNSET
-        else:
-            help_ = self.help_
-
-        hidden = self.hidden
-
-        is_dynamic = self.is_dynamic
-
-        label: None | str | Unset
-        if isinstance(self.label, Unset):
-            label = UNSET
-        else:
-            label = self.label
-
-        optional = self.optional
-
-        parameter_type = self.parameter_type
-
-        validators: list[dict[str, Any]] | Unset = UNSET
-        if not isinstance(self.validators, Unset):
-            validators = []
-            for validators_item_data in self.validators:
-                validators_item: dict[str, Any]
-                if isinstance(validators_item_data, LengthParameterValidatorModel):
-                    validators_item = validators_item_data.to_dict()
-                elif isinstance(validators_item_data, RegexParameterValidatorModel):
-                    validators_item = validators_item_data.to_dict()
-                elif isinstance(validators_item_data, ExpressionParameterValidatorModel):
-                    validators_item = validators_item_data.to_dict()
-                else:
-                    validators_item = validators_item_data.to_dict()
-
-                validators.append(validators_item)
-
-        value: None | str | Unset
-        if isinstance(self.value, Unset):
-            value = UNSET
-        else:
-            value = self.value
-
-        field_dict: dict[str, Any] = {}
-        field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "name": name,
-                "type": type_,
-            }
-        )
-        if area is not UNSET:
-            field_dict["area"] = area
-        if argument is not UNSET:
-            field_dict["argument"] = argument
-        if default_options is not UNSET:
-            field_dict["default_options"] = default_options
-        if help_ is not UNSET:
-            field_dict["help"] = help_
-        if hidden is not UNSET:
-            field_dict["hidden"] = hidden
-        if is_dynamic is not UNSET:
-            field_dict["is_dynamic"] = is_dynamic
-        if label is not UNSET:
-            field_dict["label"] = label
-        if optional is not UNSET:
-            field_dict["optional"] = optional
-        if parameter_type is not UNSET:
-            field_dict["parameter_type"] = parameter_type
-        if validators is not UNSET:
-            field_dict["validators"] = validators
-        if value is not UNSET:
-            field_dict["value"] = value
-
-        return field_dict
-
-    @classmethod
-    def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
-        from ..models.empty_field_parameter_validator_model import EmptyFieldParameterValidatorModel
-        from ..models.expression_parameter_validator_model import ExpressionParameterValidatorModel
-        from ..models.label_value import LabelValue
-        from ..models.length_parameter_validator_model import LengthParameterValidatorModel
-        from ..models.regex_parameter_validator_model import RegexParameterValidatorModel
-
-        d = dict(src_dict)
-        name = d.pop("name")
-
-        type_ = cast(Literal["text"], d.pop("type"))
-        if type_ != "text":
-            raise ValueError(f"type must match const 'text', got '{type_}'")
-
-        area = d.pop("area", UNSET)
-
-        def _parse_argument(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        argument = _parse_argument(d.pop("argument", UNSET))
-
-        _default_options = d.pop("default_options", UNSET)
-        default_options: list[LabelValue] | Unset = UNSET
-        if _default_options is not UNSET:
-            default_options = []
-            for default_options_item_data in _default_options:
-                default_options_item = LabelValue.from_dict(default_options_item_data)
-
-                default_options.append(default_options_item)
-
-        def _parse_help_(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        help_ = _parse_help_(d.pop("help", UNSET))
-
-        hidden = d.pop("hidden", UNSET)
-
-        is_dynamic = d.pop("is_dynamic", UNSET)
-
-        def _parse_label(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        label = _parse_label(d.pop("label", UNSET))
-
-        optional = d.pop("optional", UNSET)
-
-        parameter_type = cast(Literal["gx_text"] | Unset, d.pop("parameter_type", UNSET))
-        if parameter_type != "gx_text" and not isinstance(parameter_type, Unset):
-            raise ValueError(f"parameter_type must match const 'gx_text', got '{parameter_type}'")
-
-        _validators = d.pop("validators", UNSET)
-        validators: (
-            list[
-                EmptyFieldParameterValidatorModel
-                | ExpressionParameterValidatorModel
-                | LengthParameterValidatorModel
-                | RegexParameterValidatorModel
-            ]
-            | Unset
-        ) = UNSET
-        if _validators is not UNSET:
-            validators = []
-            for validators_item_data in _validators:
-
-                def _parse_validators_item(
-                    data: object,
-                ) -> (
-                    EmptyFieldParameterValidatorModel
-                    | ExpressionParameterValidatorModel
-                    | LengthParameterValidatorModel
-                    | RegexParameterValidatorModel
-                ):
-                    try:
-                        if not isinstance(data, dict):
-                            raise TypeError()
-                        validators_item_type_0 = LengthParameterValidatorModel.from_dict(data)
-
-                        return validators_item_type_0
-                    except (TypeError, ValueError, AttributeError, KeyError):
-                        pass
-                    try:
-                        if not isinstance(data, dict):
-                            raise TypeError()
-                        validators_item_type_1 = RegexParameterValidatorModel.from_dict(data)
-
-                        return validators_item_type_1
-                    except (TypeError, ValueError, AttributeError, KeyError):
-                        pass
-                    try:
-                        if not isinstance(data, dict):
-                            raise TypeError()
-                        validators_item_type_2 = ExpressionParameterValidatorModel.from_dict(data)
-
-                        return validators_item_type_2
-                    except (TypeError, ValueError, AttributeError, KeyError):
-                        pass
-                    if not isinstance(data, dict):
-                        raise TypeError()
-                    validators_item_type_3 = EmptyFieldParameterValidatorModel.from_dict(data)
-
-                    return validators_item_type_3
-
-                validators_item = _parse_validators_item(validators_item_data)
-
-                validators.append(validators_item)
-
-        def _parse_value(data: object) -> None | str | Unset:
-            if data is None:
-                return data
-            if isinstance(data, Unset):
-                return data
-            return cast(None | str | Unset, data)
-
-        value = _parse_value(d.pop("value", UNSET))
-
-        text_parameter_model = cls(
-            name=name,
-            type_=type_,
-            area=area,
-            argument=argument,
-            default_options=default_options,
-            help_=help_,
-            hidden=hidden,
-            is_dynamic=is_dynamic,
-            label=label,
-            optional=optional,
-            parameter_type=parameter_type,
-            validators=validators,
-            value=value,
-        )
-
-        text_parameter_model.additional_properties = d
-        return text_parameter_model
-
-    @property
-    def additional_keys(self) -> list[str]:
-        return list(self.additional_properties.keys())
-
-    def __getitem__(self, key: str) -> Any:
-        return self.additional_properties[key]
-
-    def __setitem__(self, key: str, value: Any) -> None:
-        self.additional_properties[key] = value
-
-    def __delitem__(self, key: str) -> None:
-        del self.additional_properties[key]
-
-    def __contains__(self, key: str) -> bool:
-        return key in self.additional_properties
+    name: str  # Parameter name. Used when referencing parameter in workflows or inside command templating.
+    type_: str
+    area: bool | None = False
+    argument: Argument | None = (
+        None  # If the parameter reflects just one command line argument of a certain tool, this tag should be set to that particular argument. It is rendered in parenthesis after the help section, and it will create the name attribute (if not given explicitly) from the argument attribute by stripping leading dashes and replacing all remaining dashes by underscores (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
+    )
+    default_options: list[LabelValue] | None = field(default_factory=list)
+    help_: Help_ | None = None  # Help text shown below the tool interface.
+    hidden: bool | None = False
+    is_dynamic: bool | None = False
+    label: Label | None = None  # Label of the input.
+    optional: bool | None = False  # If `false`, parameter must have a value.
+    parameter_type: str | None = "gx_text"
+    validators: Validators | None = None
+    value: Value | None = False  # TODO

@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["InvocationSerializationView"]
 
 
+@unique
 class InvocationSerializationView(str, Enum):
-    COLLECTION = "collection"
-    ELEMENT = "element"
+    """
+    InvocationSerializationView Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        element (str)            : Value for ELEMENT
+        collection (str)         : Value for COLLECTION
+    """
+
+    ELEMENT = "element"
+    COLLECTION = "collection"

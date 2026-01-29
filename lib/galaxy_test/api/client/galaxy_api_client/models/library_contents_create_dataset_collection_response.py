@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+from .library_contents_create_dataset_response import LibraryContentsCreateDatasetResponse
+
+__all__ = ["LibraryContentsCreateDatasetCollectionResponse"]
+
+LibraryContentsCreateDatasetCollectionResponse: TypeAlias = list[LibraryContentsCreateDatasetResponse]

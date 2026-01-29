@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["LibraryPermissionScope"]
 
 
+@unique
 class LibraryPermissionScope(str, Enum):
-    AVAILABLE = "available"
-    CURRENT = "current"
+    """
+    LibraryPermissionScope Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        current (str)            : Value for CURRENT
+        available (str)          : Value for AVAILABLE
+    """
+
+    CURRENT = "current"
+    AVAILABLE = "available"

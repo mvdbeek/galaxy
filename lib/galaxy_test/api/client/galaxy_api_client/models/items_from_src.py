@@ -1,12 +1,23 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["ItemsFromSrc"]
 
 
+@unique
 class ItemsFromSrc(str, Enum):
-    FILES = "files"
-    FTP_IMPORT = "ftp_import"
-    PATH = "path"
-    SERVER_DIR = "server_dir"
-    URL = "url"
+    """
+    ItemsFromSrc Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        url (str)                : Value for URL
+        files (str)              : Value for FILES
+        path (str)               : Value for PATH
+        ftp_import (str)         : Value for FTP_IMPORT
+        server_dir (str)         : Value for SERVER_DIR
+    """
+
+    URL = "url"
+    FILES = "files"
+    PATH = "path"
+    FTP_IMPORT = "ftp_import"
+    SERVER_DIR = "server_dir"

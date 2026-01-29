@@ -1,10 +1,19 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["CustomBuildLenType"]
 
 
+@unique
 class CustomBuildLenType(str, Enum):
-    FASTA = "fasta"
-    FILE = "file"
-    TEXT = "text"
+    """
+    CustomBuildLenType Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        file (str)               : Value for FILE
+        fasta (str)              : Value for FASTA
+        text (str)               : Value for TEXT
+    """
+
+    FILE = "file"
+    FASTA = "fasta"
+    TEXT = "text"

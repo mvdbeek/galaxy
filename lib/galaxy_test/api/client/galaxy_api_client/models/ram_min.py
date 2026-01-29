@@ -1,0 +1,7 @@
+from typing import TypeAlias
+
+__all__ = ["RamMin"]
+
+RamMin: TypeAlias = float | int | None
+"""Alias for Minimum reserved RAM in mebibytes (2**20).
+May be a fractional value. If so, the actual RAM request is rounded up to the next whole number. The reported amount of RAM reserved for the process is a non-zero integer."""

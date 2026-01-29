@@ -163,7 +163,7 @@ dev = [
     "isort",
     "markdown-it-reporter",
     "myst-parser",
-    "openapi-python-client>=0.23.0",  # Python API client generator
+    "pyopenapi-gen>=5.0.3",  # Python API client generator (async-first, type-safe)
     "Sphinx>=4.0",  # support docutils 0.17
     "sphinx-rtd-theme",
 ]

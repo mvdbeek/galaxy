@@ -1,14 +1,6 @@
-from enum import Enum
+from typing import Any, TypeAlias
 
+__all__ = ["Src"]
 
-class Src(str, Enum):
-    COMPOSITE = "composite"
-    FILES = "files"
-    FTP_IMPORT = "ftp_import"
-    PASTED = "pasted"
-    PATH = "path"
-    SERVER_DIR = "server_dir"
-    URL = "url"
-
-    def __str__(self) -> str:
-        return str(self.value)
+Src: TypeAlias = Any
+"""Alias for Source type of the input dataset/dataset collection."""

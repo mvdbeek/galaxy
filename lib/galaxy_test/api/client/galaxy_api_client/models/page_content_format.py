@@ -1,9 +1,17 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["PageContentFormat"]
 
 
+@unique
 class PageContentFormat(str, Enum):
-    HTML = "html"
-    MARKDOWN = "markdown"
+    """
+    PageContentFormat Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        markdown (str)           : Value for MARKDOWN
+        html (str)               : Value for HTML
+    """
+
+    MARKDOWN = "markdown"
+    HTML = "html"

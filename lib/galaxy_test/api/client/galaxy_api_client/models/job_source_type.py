@@ -1,10 +1,6 @@
-from enum import Enum
+from typing import Optional, TypeAlias
 
+__all__ = ["JobSourceType"]
 
-class JobSourceType(str, Enum):
-    IMPLICITCOLLECTIONJOBS = "ImplicitCollectionJobs"
-    JOB = "Job"
-    WORKFLOWINVOCATION = "WorkflowInvocation"
-
-    def __str__(self) -> str:
-        return str(self.value)
+JobSourceType: TypeAlias = Optional["JobSourceType"]
+"""Alias for The type of job (model class) that produced this dataset collection. Used to track the state of the job."""

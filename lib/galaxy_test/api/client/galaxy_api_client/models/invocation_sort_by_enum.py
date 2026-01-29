@@ -1,10 +1,19 @@
-from enum import Enum
+from enum import Enum, unique
+
+__all__ = ["InvocationSortByEnum"]
 
 
+@unique
 class InvocationSortByEnum(str, Enum):
-    CREATE_TIME = "create_time"
-    NONE = "None"
-    UPDATE_TIME = "update_time"
+    """
+    InvocationSortByEnum Enum
 
-    def __str__(self) -> str:
-        return str(self.value)
+    Args:
+        create_time (str)        : Value for CREATE_TIME
+        update_time (str)        : Value for UPDATE_TIME
+        None (str)               : Value for NONE
+    """
+
+    CREATE_TIME = "create_time"
+    UPDATE_TIME = "update_time"
+    NONE = "None"
