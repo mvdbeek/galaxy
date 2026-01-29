@@ -1,0 +1,87 @@
+openapi: 3.1.0
+info:
+  title: Minimal Reproducer for pyopenapi-gen Missing Module Bug
+  version: 1.0.0
+  description: |
+    This schema demonstrates a bug in pyopenapi-gen 5.0.3 where:
+    1. A model (Model1) has a nullable string property with title "help"
+    2. Another model (Model2) has the same nullable string property
+    3. The generator creates a reference to a model-specific type that doesn't exist
+
+    Expected: Both models should use a shared type like Help_ or Help2
+    Actual: Model1 uses Model1Help which is never generated
+
+paths:
+  /test:
+    get:
+      operationId: testEndpoint
+      summary: Test endpoint
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Model1'
+
+components:
+  schemas:
+    # Model1 - This model's help property will cause the bug
+    # The generator will create "from .model1_help import Model1Help"
+    # but won't generate model1_help.py
+    Model1:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        argument:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: argument
+          description: Model1 argument field
+        help:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: help
+          description: Help text for model1
+        label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: label
+          description: Label for model1
+      required:
+        - name
+      title: Model1
+
+    # Model2 - Same structure as Model1 to trigger type deduplication
+    Model2:
+      type: object
+      properties:
+        name:
+          type: string
+          title: name
+        argument:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: argument
+          description: Model2 argument field
+        help:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: help
+          description: Help text for model2
+        label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: label
+          description: Label for model2
+      required:
+        - name
+      title: Model2

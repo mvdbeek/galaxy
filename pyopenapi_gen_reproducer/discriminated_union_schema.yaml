@@ -1,0 +1,165 @@
+openapi: 3.1.0
+info:
+  title: Reproducer for pyopenapi-gen Missing Module Bug
+  version: 1.0.0
+  description: |
+    This schema demonstrates a bug in pyopenapi-gen 5.0.3 where:
+    1. A discriminated union contains schemas with -Input/-Output suffixes
+    2. Those schemas have nullable string properties (help, argument, label)
+    3. The schemas are recursive (contain references to themselves)
+
+    Bug: The generator creates imports for model-specific types (e.g.,
+    ConditionalModelInputHelp) that are never generated.
+
+paths:
+  /parameters:
+    get:
+      operationId: getParameters
+      summary: Get parameters
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ParameterModel-Input'
+
+components:
+  schemas:
+    # Discriminated union - like Galaxy's GalaxyToolParameterModel-Input
+    ParameterModel-Input:
+      discriminator:
+        mapping:
+          text: '#/components/schemas/TextModel'
+          conditional: '#/components/schemas/ConditionalModel-Input'
+          section: '#/components/schemas/SectionModel-Input'
+        propertyName: type
+      oneOf:
+        - $ref: '#/components/schemas/TextModel'
+        - $ref: '#/components/schemas/ConditionalModel-Input'
+        - $ref: '#/components/schemas/SectionModel-Input'
+      title: ParameterModel
+
+    # Simple model - no suffix
+    TextModel:
+      type: object
+      properties:
+        type:
+          const: text
+          type: string
+        name:
+          type: string
+        argument:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: argument
+        help:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: help
+          description: Help text
+        label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: label
+      required:
+        - type
+        - name
+      title: TextModel
+
+    # Model with -Input suffix containing parameters array (recursive)
+    ConditionalModel-Input:
+      type: object
+      properties:
+        type:
+          const: conditional
+          type: string
+        name:
+          type: string
+        argument:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: argument
+          description: Argument for conditional
+        help:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: help
+          description: Help text for conditional
+        label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: label
+        test_parameter:
+          $ref: '#/components/schemas/TextModel'
+        whens:
+          type: array
+          items:
+            $ref: '#/components/schemas/ConditionalWhen-Input'
+      required:
+        - type
+        - name
+        - test_parameter
+        - whens
+      title: ConditionalModel
+
+    # Recursive: SectionModel contains parameters which can include SectionModel
+    SectionModel-Input:
+      type: object
+      properties:
+        type:
+          const: section
+          type: string
+        name:
+          type: string
+        argument:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: argument
+        help:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: help
+          description: Help for section
+        label:
+          anyOf:
+            - type: string
+            - type: 'null'
+          title: label
+        parameters:
+          type: array
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/TextModel'
+              - $ref: '#/components/schemas/ConditionalModel-Input'
+              - $ref: '#/components/schemas/SectionModel-Input'
+      required:
+        - type
+        - name
+        - parameters
+      title: SectionModel
+
+    ConditionalWhen-Input:
+      type: object
+      properties:
+        value:
+          type: string
+        parameters:
+          type: array
+          items:
+            anyOf:
+              - $ref: '#/components/schemas/TextModel'
+              - $ref: '#/components/schemas/ConditionalModel-Input'
+              - $ref: '#/components/schemas/SectionModel-Input'
+      required:
+        - value
+        - parameters
+      title: ConditionalWhen
