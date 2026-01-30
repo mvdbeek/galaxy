@@ -767,33 +767,33 @@ class DynamicOptions:
     def get_user_options(self, user: User):
         # stored metadata are key: value pairs, turn into flat lists of correct order
         fields = []
-        if self.tool_data_table_name:
-            hdas = user.get_user_data_tables(self.tool_data_table_name)
-            by_dbkey = {}
-            for hda in hdas:
-                try:
-                    table_entries = self.hda_to_table_entries(hda, self.tool_data_table_name)
-                except Exception as e:
-                    # This is a bug, `hda_to_table_entries` is not generic enough for certain loc file
-                    # structures, such as for the dada2_species, which doesn't have a dbkey column
-                    table_entries = {}
-                    log.warning("Failed to read data table bundle entries: %s", e)
-                by_dbkey.update(table_entries)
-            for data_table_entry in by_dbkey.values():
-                field_entry = []
-                if hda := data_table_entry.get("__hda__"):
-                    field_entry.append(hda)
-                missing_columns = False
-                for column_key in self.tool_data_table.columns.keys():
-                    if column_key not in data_table_entry:
-                        # currrent data table definition (as in self.tool_data_table)
-                        # may not match against the data manager bundle.
-                        # Breaking here fixes https://github.com/galaxyproject/galaxy/issues/18749.
-                        missing_columns = True
-                        break
-                    field_entry.append(data_table_entry[column_key])
-                if not missing_columns:
-                    fields.append(field_entry)
+        # if self.tool_data_table_name:
+        #     hdas = user.get_user_data_tables(self.tool_data_table_name)
+        #     by_dbkey = {}
+        #     for hda in hdas:
+        #         try:
+        #             table_entries = self.hda_to_table_entries(hda, self.tool_data_table_name)
+        #         except Exception as e:
+        #             # This is a bug, `hda_to_table_entries` is not generic enough for certain loc file
+        #             # structures, such as for the dada2_species, which doesn't have a dbkey column
+        #             table_entries = {}
+        #             log.warning("Failed to read data table bundle entries: %s", e)
+        #         by_dbkey.update(table_entries)
+        #     for data_table_entry in by_dbkey.values():
+        #         field_entry = []
+        #         if hda := data_table_entry.get("__hda__"):
+        #             field_entry.append(hda)
+        #         missing_columns = False
+        #         for column_key in self.tool_data_table.columns.keys():
+        #             if column_key not in data_table_entry:
+        #                 # currrent data table definition (as in self.tool_data_table)
+        #                 # may not match against the data manager bundle.
+        #                 # Breaking here fixes https://github.com/galaxyproject/galaxy/issues/18749.
+        #                 missing_columns = True
+        #                 break
+        #             field_entry.append(data_table_entry[column_key])
+        #         if not missing_columns:
+        #             fields.append(field_entry)
         return fields
 
     @staticmethod
