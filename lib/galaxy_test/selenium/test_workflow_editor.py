@@ -1132,6 +1132,47 @@ steps:
         self.assert_connected("param_input#output", f"{child_workflow_name}#when")
         self.assert_workflow_has_changes_and_save()
 
+    @selenium_only("Not yet migrated to support Playwright backend")
+    @selenium_test
+    def test_best_practices_warns_on_disconnected_when_input(self):
+        """Test that the best practices panel warns when a 'when' conditional input is not connected.
+
+        This tests the scenario from https://github.com/galaxyproject/galaxy/issues/17962 where
+        a workflow step has a conditional (when) toggle enabled but the when input is not connected,
+        which would cause unclear error messages at runtime.
+        """
+        editor = self.components.workflow_editor
+        self.workflow_create_new(annotation="test disconnected when input")
+        # Insert a data input
+        self.workflow_editor_add_input(item_name="data_input")
+        editor.label_input.wait_for_and_send_keys("data_input")
+        # Insert cat tool
+        self.tool_open("head")
+        self.sleep_for(self.wait_types.UX_RENDER)
+        editor.label_input.wait_for_and_send_keys("conditional_step")
+        # Connect data input to tool
+        self.workflow_editor_connect("data_input#output", "conditional_step#input")
+        self.assert_connected("data_input#output", "conditional_step#input")
+        # Make the tool step conditional
+        conditional_node = editor.node._(label="conditional_step")
+        conditional_node.wait_for_and_click()
+        conditional_toggle = editor.step_when.wait_for_present()
+        self.action_chains().move_to_element(conditional_toggle).click().perform()
+        # Verify the when input terminal appears
+        conditional_node.input_terminal(name="when").wait_for_present()
+        # Do NOT connect the when input - this is the bug scenario
+        # Open best practices panel
+        editor.tool_bar.best_practices.wait_for_and_click()
+        best_practices = editor.best_practices
+        # The disconnected inputs section should show a warning about the disconnected 'when' input
+        section_element = best_practices.section_disconnected_inputs.wait_for_present()
+        assert section_element.get_attribute("data-lint-status") == "warning"
+        # The warning item should reference the conditional_step's when input
+        item = best_practices.item_disconnected_input(index=0)
+        element = item.wait_for_present()
+        # The warning should mention the conditional_step and the when input
+        assert "conditional_step" in element.text.lower() or "when" in element.text.lower()
+
     def switch_param_type(self, element, param_type):
         self.action_chains().move_to_element(element).click().pause(1).send_keys(param_type).pause(1).send_keys(
             Keys.ENTER

@@ -2865,6 +2865,46 @@ should_run:
             assert message["details"] == "Type is: str"
             assert message["workflow_step_id"] == 2
 
+    def test_run_workflow_fails_when_input_disconnected(self):
+        """Test that a workflow with a when expression referencing a disconnected input fails with a clear error.
+
+        This tests the scenario from https://github.com/galaxyproject/galaxy/issues/17962 where
+        a workflow step has a when expression that references an input that isn't connected,
+        leading to unclear error messages at runtime.
+        """
+        with self.dataset_populator.test_history() as history_id:
+            summary = self._run_workflow(
+                """class: GalaxyWorkflow
+inputs:
+  some_file:
+    type: data
+steps:
+  cat1:
+    tool_id: cat1
+    in:
+      input1: some_file
+    when: $(inputs.should_run)
+""",
+                test_data="""
+some_file:
+  value: 1.bed
+  type: File
+""",
+                history_id=history_id,
+                wait=True,
+                assert_ok=False,
+            )
+            invocation_details = self.workflow_populator.get_invocation(summary.invocation_id, step_details=True)
+            assert invocation_details["state"] == "failed"
+            assert len(invocation_details["messages"]) == 1
+            message = invocation_details["messages"][0]
+            # The error should indicate that the when input is missing/disconnected
+            assert message["reason"] == "expression_evaluation_failed"
+            assert message["workflow_step_id"] == 1
+            # Ideally the details should mention the missing input 'should_run'
+            # Once validation is improved, this test should be updated to check for
+            # a more specific error message about the disconnected when input
+
     def test_run_workflow_subworkflow_conditional_with_simple_mapping_step(self):
         with self.dataset_populator.test_history() as history_id:
             summary = self._run_workflow(
