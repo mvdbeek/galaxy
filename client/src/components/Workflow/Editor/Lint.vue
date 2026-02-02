@@ -57,6 +57,14 @@
             @onMouseLeave="onUnhighlight"
             @onClick="onFixDisconnectedInput" />
         <LintSection
+            data-description="linting when inputs"
+            success-message="All conditional step inputs are properly connected."
+            :warning-message="bestPracticeWarningDisconnectedWhenInputs"
+            :warning-items="warningDisconnectedWhenInputs"
+            @onMouseOver="onHighlight"
+            @onMouseLeave="onUnhighlight"
+            @onClick="openAndFocus" />
+        <LintSection
             data-description="linting input metadata"
             success-message="All workflow inputs have labels and annotations."
             warning-message="Some workflow inputs are missing labels and/or annotations:"
@@ -95,6 +103,7 @@ import {
     bestPracticeWarningAnnotation,
     bestPracticeWarningAnnotationLength,
     bestPracticeWarningCreator,
+    bestPracticeWarningDisconnectedWhenInputs,
     bestPracticeWarningLicense,
     bestPracticeWarningReadme,
     fixAllIssues,
@@ -102,6 +111,7 @@ import {
     fixUnlabeledOutputs,
     fixUntypedParameter,
     getDisconnectedInputs,
+    getDisconnectedWhenInputs,
     getMissingMetadata,
     getUnlabeledOutputs,
     getUntypedParameters,
@@ -161,6 +171,7 @@ export default {
             bestPracticeWarningAnnotation: bestPracticeWarningAnnotation,
             bestPracticeWarningAnnotationLength: bestPracticeWarningAnnotationLength,
             bestPracticeWarningCreator: bestPracticeWarningCreator,
+            bestPracticeWarningDisconnectedWhenInputs: bestPracticeWarningDisconnectedWhenInputs,
             bestPracticeWarningLicense: bestPracticeWarningLicense,
             bestPracticeWarningReadme: bestPracticeWarningReadme,
             faExclamationTriangle,
@@ -216,6 +227,9 @@ export default {
         },
         warningDisconnectedInputs() {
             return getDisconnectedInputs(this.steps, this.datatypesMapper, this.stores);
+        },
+        warningDisconnectedWhenInputs() {
+            return getDisconnectedWhenInputs(this.steps);
         },
         warningMissingMetadata() {
             return getMissingMetadata(this.steps);

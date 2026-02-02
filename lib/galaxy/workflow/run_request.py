@@ -32,6 +32,7 @@ from galaxy.tools.parameters.meta import expand_workflow_inputs
 from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.workflow.modules import WorkflowModuleInjector
 from galaxy.workflow.resources import get_resource_mapper_function
+from galaxy.workflow.validation import validate_workflow_for_run
 
 if TYPE_CHECKING:
     from galaxy.model import (
@@ -306,11 +307,8 @@ def build_workflow_run_configs(
     allow_tool_state_corrections = payload.get("allow_tool_state_corrections", False)
     use_cached_job = payload.get("use_cached_job", False)
 
-    # Sanity checks.
-    if len(workflow.steps) == 0:
-        raise exceptions.MessageException("Workflow cannot be run because it does not have any steps")
-    if workflow.has_cycles:
-        raise exceptions.MessageException("Workflow cannot be run because it contains cycles")
+    # Validate workflow (includes subworkflows)
+    validate_workflow_for_run(workflow)
 
     if "step_parameters" in payload and "parameters" in payload:
         raise exceptions.RequestParameterInvalidException(

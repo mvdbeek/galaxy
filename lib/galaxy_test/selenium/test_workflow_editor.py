@@ -1161,11 +1161,11 @@ steps:
         # Open best practices panel
         editor.tool_bar.best_practices.wait_for_and_click()
         best_practices = editor.best_practices
-        # The disconnected inputs section should show a warning about the disconnected 'when' input
-        section_element = best_practices.section_disconnected_inputs.wait_for_present()
+        # The disconnected when inputs section should show a warning about the disconnected 'when' input
+        section_element = best_practices.section_disconnected_when_inputs.wait_for_present()
         assert section_element.get_attribute("data-lint-status") == "warning"
         # The warning item should reference the conditional_step's when input
-        item = best_practices.item_disconnected_input(index=0)
+        item = best_practices.item_disconnected_when_input(index=0)
         element = item.wait_for_present()
         # The warning should mention the conditional_step or the missing input
         assert "conditional_step" in element.text.lower() or "should_run" in element.text.lower()

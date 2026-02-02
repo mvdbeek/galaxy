@@ -458,12 +458,33 @@ function stepToConnections(step: Step): Connection[] {
     return connections;
 }
 
+/**
+ * Extract input names referenced in a when expression.
+ * When expressions use patterns like $(inputs.name) or ${inputs.name}.
+ */
+function getWhenExpressionInputs(whenExpression: string | null | undefined): Set<string> {
+    if (!whenExpression) {
+        return new Set();
+    }
+    const pattern = /\$[\(\{]inputs\.(\w+)[\)\}]/g;
+    const inputs = new Set<string>();
+    let match;
+    while ((match = pattern.exec(whenExpression)) !== null) {
+        inputs.add(match[1]!);
+    }
+    return inputs;
+}
+
 function findStepExtraInputs(step: Step) {
     const extraInputs: InputTerminalSource[] = [];
-    if (step.when !== undefined) {
-        Object.keys(step.input_connections).forEach((inputName) => {
-            if (!step.inputs.find((input) => input.name === inputName) && step.when?.includes(inputName)) {
-                const terminalSource = {
+    if (step.when !== undefined && step.when !== null) {
+        // Parse the when expression to find ALL referenced inputs (connected or not)
+        const referencedInputs = getWhenExpressionInputs(step.when);
+
+        referencedInputs.forEach((inputName) => {
+            // Only add if not already in regular inputs
+            if (!step.inputs.find((input) => input.name === inputName)) {
+                const terminalSource: InputTerminalSource = {
                     name: inputName,
                     optional: false,
                     input_type: "parameter" as const,

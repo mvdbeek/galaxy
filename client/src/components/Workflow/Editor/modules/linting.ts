@@ -26,6 +26,52 @@ export const bestPracticeWarningLicense =
     "This workflow does not specify a license. This is important metadata for workflows that will be published and/or shared to help workflow executors understand how it may be used.";
 export const bestPracticeWarningReadme =
     "This workflow does not provide a readme. Providing a detailed readme helps workflow executors understand the details, purpose, and limitations of the workflow.";
+export const bestPracticeWarningDisconnectedWhenInputs =
+    "Some conditional steps reference inputs that are not connected. This will cause the workflow to fail at runtime:";
+
+/**
+ * Extract input names referenced in a when expression.
+ * When expressions use patterns like $(inputs.name) or ${inputs.name}.
+ */
+function getWhenExpressionInputs(whenExpression: string | null | undefined): Set<string> {
+    if (!whenExpression) {
+        return new Set();
+    }
+    const pattern = /\$[\(\{]inputs\.(\w+)[\)\}]/g;
+    const inputs = new Set<string>();
+    let match;
+    while ((match = pattern.exec(whenExpression)) !== null) {
+        inputs.add(match[1]!);
+    }
+    return inputs;
+}
+
+export function getDisconnectedWhenInputs(steps: Steps = {}): LintState[] {
+    const issues: LintState[] = [];
+
+    Object.values(steps).forEach((step) => {
+        if (!step.when) {
+            return;
+        }
+
+        const referencedInputs = getWhenExpressionInputs(step.when);
+        const connectedInputs = new Set(Object.keys(step.input_connections || {}));
+
+        referencedInputs.forEach((inputName) => {
+            if (!connectedInputs.has(inputName)) {
+                issues.push({
+                    stepId: step.id,
+                    stepLabel: step.label || step.content_id || step.name,
+                    warningLabel: `Conditional references disconnected input '${inputName}'`,
+                    inputName: inputName,
+                    autofix: false,
+                });
+            }
+        });
+    });
+
+    return issues;
+}
 
 export function getDisconnectedInputs(
     steps: Steps = {},

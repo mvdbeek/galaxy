@@ -909,6 +909,8 @@ workflow_editor:
       item_input_metadata: '[data-description="linting input metadata"] [data-item-index="${index}"]'
       section_disconnected_inputs: '[data-description="linting connected"]'
       item_disconnected_input: '[data-description="linting connected"] [data-item-index="${index}"]'
+      section_disconnected_when_inputs: '[data-description="linting when inputs"]'
+      item_disconnected_when_input: '[data-description="linting when inputs"] [data-item-index="${index}"]'
 
   comment:
     selectors:
