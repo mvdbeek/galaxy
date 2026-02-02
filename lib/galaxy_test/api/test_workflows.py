@@ -2866,14 +2866,14 @@ should_run:
             assert message["workflow_step_id"] == 2
 
     def test_run_workflow_fails_when_input_disconnected(self):
-        """Test that a workflow with a when expression referencing a disconnected input fails with a clear error.
+        """Test that a workflow with a when expression referencing a disconnected input fails on submission.
 
         This tests the scenario from https://github.com/galaxyproject/galaxy/issues/17962 where
-        a workflow step has a when expression that references an input that isn't connected,
-        leading to unclear error messages at runtime.
+        a workflow step has a when expression that references an input that isn't connected.
+        The workflow should fail validation on submission, not during execution.
         """
         with self.dataset_populator.test_history() as history_id:
-            summary = self._run_workflow(
+            error = self._run_jobs(
                 """class: GalaxyWorkflow
 inputs:
   some_file:
@@ -2891,19 +2891,13 @@ some_file:
   type: File
 """,
                 history_id=history_id,
-                wait=True,
+                wait=False,
                 assert_ok=False,
+                expected_response=400,
             )
-            invocation_details = self.workflow_populator.get_invocation(summary.invocation_id, step_details=True)
-            assert invocation_details["state"] == "failed"
-            assert len(invocation_details["messages"]) == 1
-            message = invocation_details["messages"][0]
-            # The error should indicate that the when input is missing/disconnected
-            assert message["reason"] == "expression_evaluation_failed"
-            assert message["workflow_step_id"] == 1
-            # Ideally the details should mention the missing input 'should_run'
-            # Once validation is improved, this test should be updated to check for
-            # a more specific error message about the disconnected when input
+            # The error should indicate that the when input 'should_run' is missing/disconnected
+            assert "err_msg" in error
+            assert "should_run" in error["err_msg"] or "when" in error["err_msg"].lower()
 
     def test_run_workflow_subworkflow_conditional_with_simple_mapping_step(self):
         with self.dataset_populator.test_history() as history_id:
