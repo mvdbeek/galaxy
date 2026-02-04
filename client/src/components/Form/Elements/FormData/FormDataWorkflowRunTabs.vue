@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { faEye, faUpload } from "@fortawesome/free-solid-svg-icons";
+import { faEye, faLink, faUpload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
@@ -14,6 +14,7 @@ import type { VariantInterface } from "./variants";
 
 import CollectionCreatorIndex from "@/components/Collections/CollectionCreatorIndex.vue";
 import CollectionCreatorShowExtensions from "@/components/Collections/common/CollectionCreatorShowExtensions.vue";
+import FormDataInvocationOutput from "./FormDataInvocationOutput.vue";
 import Heading from "@/components/Common/Heading.vue";
 import GenericItem from "@/components/History/Content/GenericItem.vue";
 import DefaultBox from "@/components/Upload/DefaultBox.vue";
@@ -21,6 +22,7 @@ import DefaultBox from "@/components/Upload/DefaultBox.vue";
 const WorkflowRunTabs: Record<string, number> = {
     view: 0,
     create: 1,
+    invocation: 2,
 };
 
 const props = defineProps<{
@@ -38,6 +40,7 @@ const emit = defineEmits<{
     (e: "focus"): void;
     (e: "uploaded-data", data: any): void;
     (e: "update:workflow-tab", value: string): void;
+    (e: "invocation-output-selected", value: any): void;
 }>();
 
 const currentWorkflowTab = computed({
@@ -74,6 +77,13 @@ const creatorIndex = ref();
 function goToFirstWorkflowTab() {
     emit("focus");
     currentWorkflowTab.value = WorkflowRunTabs.view;
+}
+
+function onInvocationOutputSelected(value: any) {
+    if (value) {
+        emit("invocation-output-selected", value);
+        emit("focus");
+    }
 }
 
 // hack for AG grid - it doesn't resize automatically so we need to force it
@@ -145,6 +155,15 @@ watch(
                 :extended-collection-type="extendedCollectionType"
                 @created-collection="collectionCreated"
                 @on-hide="goToFirstWorkflowTab" />
+        </div>
+        <div v-show="currentWorkflowTab === WorkflowRunTabs.invocation">
+            <Heading separator size="sm">
+                <FontAwesomeIcon :icon="faLink" fixed-width />
+                Use output from another workflow invocation
+            </Heading>
+            <FormDataInvocationOutput
+                :extensions="props.extensions"
+                @update:value="onInvocationOutputSelected" />
         </div>
     </div>
 </template>

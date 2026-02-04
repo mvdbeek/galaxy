@@ -9364,6 +9364,17 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         back_populates="workflow_invocation",
         uselist=False,
     )
+    input_dependencies: Mapped[list["WorkflowInvocationInputDependency"]] = relationship(
+        "WorkflowInvocationInputDependency",
+        foreign_keys="WorkflowInvocationInputDependency.workflow_invocation_id",
+        back_populates="workflow_invocation",
+        cascade="all, delete-orphan",
+    )
+    dependent_invocations: Mapped[list["WorkflowInvocationInputDependency"]] = relationship(
+        "WorkflowInvocationInputDependency",
+        foreign_keys="WorkflowInvocationInputDependency.source_invocation_id",
+        back_populates="source_invocation",
+    )
 
     dict_collection_visible_keys = [
         "id",
@@ -9385,7 +9396,7 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
     ]
 
     states = InvocationState
-    non_terminal_states = [states.NEW, states.READY]
+    non_terminal_states = [states.NEW, states.READY, states.WAITING_FOR_INPUT]
 
     def __strict_check_before_flush__(self):
         if self.state is None:
@@ -9450,6 +9461,20 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
             return False
 
         return all(step.is_complete for step in self.steps)
+
+    def has_unresolved_input_dependencies(self) -> bool:
+        """Check if any input dependencies are still unresolved."""
+        return any(
+            dep.resolved_dataset_id is None and dep.resolved_collection_id is None
+            for dep in self.input_dependencies
+        )
+
+    def get_unresolved_dependencies(self) -> list["WorkflowInvocationInputDependency"]:
+        """Return list of unresolved input dependencies."""
+        return [
+            dep for dep in self.input_dependencies
+            if dep.resolved_dataset_id is None and dep.resolved_collection_id is None
+        ]
 
     def compute_recursive_job_state_summary(self) -> dict[str, int]:
         """
@@ -9594,6 +9619,7 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
             or_(
                 WorkflowInvocation.state == WorkflowInvocation.states.NEW,
                 WorkflowInvocation.state == WorkflowInvocation.states.REQUIRES_MATERIALIZATION,
+                WorkflowInvocation.state == WorkflowInvocation.states.WAITING_FOR_INPUT,
                 WorkflowInvocation.state == WorkflowInvocation.states.READY,
                 WorkflowInvocation.state == WorkflowInvocation.states.CANCELLING,
             ),
@@ -9882,6 +9908,32 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
                     continue
                 output_values[label] = output_param.value
             rval["output_values"] = output_values
+
+            # Include input dependencies from other workflow invocations
+            input_dependencies = []
+            for dep in self.input_dependencies:
+                dep_dict = {
+                    "workflow_step_id": dep.workflow_step_id,
+                    "input_name": dep.input_name,
+                    "source_invocation_id": dep.source_invocation_id,
+                    "source_invocation_state": dep.source_invocation.state,
+                    "resolved": dep.is_resolved,
+                }
+                # Add output reference info
+                if dep.source_workflow_output_id and dep.source_workflow_output:
+                    dep_dict["output_name"] = dep.source_workflow_output.label
+                if dep.source_step_id:
+                    dep_dict["step_id"] = dep.source_step_id
+                    dep_dict["step_output_name"] = dep.source_output_name
+                # Add resolved content info
+                if dep.resolved_dataset_id:
+                    dep_dict["resolved_id"] = dep.resolved_dataset_id
+                    dep_dict["resolved_src"] = "hda"
+                elif dep.resolved_collection_id:
+                    dep_dict["resolved_id"] = dep.resolved_collection_id
+                    dep_dict["resolved_src"] = "hdca"
+                input_dependencies.append(dep_dict)
+            rval["input_dependencies"] = input_dependencies
 
         return rval
 
@@ -10681,6 +10733,87 @@ class WorkflowInvocationStepOutputDatasetCollectionAssociation(Base, Dictifiable
     dataset_collection: Mapped[Optional["HistoryDatasetCollectionAssociation"]] = relationship()
 
     dict_collection_visible_keys = ["id", "workflow_invocation_step_id", "dataset_collection_id", "output_name"]
+
+
+class WorkflowInvocationInputDependency(Base, RepresentById):
+    """
+    Tracks dependencies between workflow invocations where one invocation
+    uses outputs from another (potentially still running) invocation as inputs.
+    """
+
+    __tablename__ = "workflow_invocation_input_dependency"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    # The invocation that is waiting for input
+    workflow_invocation_id: Mapped[int] = mapped_column(
+        ForeignKey("workflow_invocation.id"), index=True
+    )
+    # The workflow step that needs the input
+    workflow_step_id: Mapped[int] = mapped_column(
+        ForeignKey("workflow_step.id"), index=True
+    )
+    # Input name on the step
+    input_name: Mapped[str] = mapped_column(String(255))
+    # The source invocation providing the output
+    source_invocation_id: Mapped[int] = mapped_column(
+        ForeignKey("workflow_invocation.id"), index=True
+    )
+    # The workflow output ID (if referencing labeled output)
+    source_workflow_output_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("workflow_output.id"), index=True, nullable=True
+    )
+    # Alternative: reference step output directly
+    source_step_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("workflow_step.id"), index=True, nullable=True
+    )
+    source_output_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    # Resolved dataset/collection when available
+    resolved_dataset_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("history_dataset_association.id"), index=True, nullable=True
+    )
+    resolved_collection_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("history_dataset_collection_association.id"), index=True, nullable=True
+    )
+    # Timestamps
+    create_time: Mapped[datetime] = mapped_column(default=now, nullable=True)
+    update_time: Mapped[datetime] = mapped_column(default=now, onupdate=now, nullable=True)
+
+    # Relationships
+    workflow_invocation: Mapped["WorkflowInvocation"] = relationship(
+        "WorkflowInvocation",
+        foreign_keys=[workflow_invocation_id],
+        back_populates="input_dependencies",
+    )
+    source_invocation: Mapped["WorkflowInvocation"] = relationship(
+        "WorkflowInvocation",
+        foreign_keys=[source_invocation_id],
+        back_populates="dependent_invocations",
+    )
+    workflow_step: Mapped["WorkflowStep"] = relationship("WorkflowStep", foreign_keys=[workflow_step_id])
+    source_workflow_output: Mapped[Optional["WorkflowOutput"]] = relationship("WorkflowOutput")
+    source_step: Mapped[Optional["WorkflowStep"]] = relationship("WorkflowStep", foreign_keys=[source_step_id])
+    resolved_dataset: Mapped[Optional["HistoryDatasetAssociation"]] = relationship("HistoryDatasetAssociation")
+    resolved_collection: Mapped[Optional["HistoryDatasetCollectionAssociation"]] = relationship(
+        "HistoryDatasetCollectionAssociation"
+    )
+
+    dict_collection_visible_keys = [
+        "id",
+        "workflow_invocation_id",
+        "workflow_step_id",
+        "input_name",
+        "source_invocation_id",
+        "source_workflow_output_id",
+        "source_step_id",
+        "source_output_name",
+        "resolved_dataset_id",
+        "resolved_collection_id",
+    ]
+
+    @property
+    def is_resolved(self) -> bool:
+        """Check if this dependency has been resolved to an actual dataset/collection."""
+        return self.resolved_dataset_id is not None or self.resolved_collection_id is not None
 
 
 class MetadataFile(Base, StorableObject, Serializable):

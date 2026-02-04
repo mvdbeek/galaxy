@@ -25,6 +25,8 @@ from galaxy.model import (
     LibraryDataset,
     LibraryDatasetDatasetAssociation,
     WorkflowInvocation,
+    WorkflowInvocationInputDependency,
+    WorkflowOutput,
     WorkflowRequestInputParameter,
     WorkflowRequestStepState,
 )
@@ -100,6 +102,7 @@ class WorkflowRunConfig:
         preferred_intermediate_object_store_id: Optional[str] = None,
         effective_outputs: Optional[list[EffectiveOutput]] = None,
         on_complete: Optional[list[dict[str, Any]]] = None,
+        input_dependencies: Optional[list["WorkflowInvocationInputDependency"]] = None,
     ) -> None:
         self.target_history = target_history
         self.replacement_dict = replacement_dict or {}
@@ -115,6 +118,7 @@ class WorkflowRunConfig:
         self.preferred_intermediate_object_store_id = preferred_intermediate_object_store_id
         self.effective_outputs = effective_outputs
         self.on_complete = on_complete
+        self.input_dependencies = input_dependencies or []
 
 
 def _normalize_inputs(
@@ -307,6 +311,120 @@ def _get_target_history(
     return target_history
 
 
+def _resolve_invocation_output_reference(
+    trans: "GalaxyWebTransaction",
+    input_dict: dict[str, Any],
+    step: "WorkflowStep",
+    workflow: "Workflow",
+) -> tuple[Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]], Optional[WorkflowInvocationInputDependency]]:
+    """
+    Resolve an invocation output reference to an actual dataset/collection.
+
+    Returns a tuple of (content, dependency) where:
+    - content: The resolved dataset/collection if available, None if not yet available
+    - dependency: A WorkflowInvocationInputDependency record to track the dependency
+    """
+    sa_session = trans.sa_session
+    src = input_dict.get("src")
+    input_name = input_dict.get("input_name", "input")
+
+    # Decode and fetch source invocation
+    source_invocation_id_encoded = input_dict.get("invocation_id")
+    if not source_invocation_id_encoded:
+        raise exceptions.RequestParameterInvalidException(
+            "invocation_id is required for invocation output references"
+        )
+
+    source_invocation_id = trans.security.decode_id(source_invocation_id_encoded)
+    source_invocation = sa_session.get(WorkflowInvocation, source_invocation_id)
+
+    if source_invocation is None:
+        raise exceptions.RequestParameterInvalidException(
+            f"Source invocation '{source_invocation_id_encoded}' not found"
+        )
+
+    # Verify user has access to source invocation
+    if source_invocation.user_id != trans.user.id and not trans.user_is_admin:
+        raise exceptions.ItemAccessibilityException(
+            f"Cannot access invocation '{source_invocation_id_encoded}'"
+        )
+
+    # Create dependency record
+    dependency = WorkflowInvocationInputDependency()
+    dependency.workflow_step = step
+    dependency.input_name = input_name
+    dependency.source_invocation_id = source_invocation_id
+
+    content = None
+
+    if src == "invocation_output":
+        # Reference by workflow output label
+        output_name = input_dict.get("output_name")
+        if not output_name:
+            raise exceptions.RequestParameterInvalidException(
+                "output_name is required for invocation_output references"
+            )
+
+        # Find the workflow output definition
+        workflow_output = None
+        for wo in source_invocation.workflow.workflow_outputs:
+            if wo.label == output_name:
+                workflow_output = wo
+                break
+
+        if workflow_output is None:
+            raise exceptions.RequestParameterInvalidException(
+                f"Output '{output_name}' not found in source workflow"
+            )
+
+        dependency.source_workflow_output_id = workflow_output.id
+
+        # Try to resolve immediately if output is already available
+        for output_assoc in source_invocation.output_datasets:
+            if output_assoc.workflow_output_id == workflow_output.id:
+                dependency.resolved_dataset_id = output_assoc.dataset_id
+                content = output_assoc.dataset
+                break
+        if content is None:
+            for output_assoc in source_invocation.output_dataset_collections:
+                if output_assoc.workflow_output_id == workflow_output.id:
+                    dependency.resolved_collection_id = output_assoc.dataset_collection_id
+                    content = output_assoc.dataset_collection
+                    break
+
+    elif src == "invocation_step_output":
+        # Reference by step + output name
+        source_step_id_encoded = input_dict.get("step_id")
+        if not source_step_id_encoded:
+            raise exceptions.RequestParameterInvalidException(
+                "step_id is required for invocation_step_output references"
+            )
+
+        source_step_id = trans.security.decode_id(source_step_id_encoded)
+        output_name = input_dict.get("output_name", "output")
+
+        dependency.source_step_id = source_step_id
+        dependency.source_output_name = output_name
+
+        # Try to resolve immediately
+        for step_inv in source_invocation.steps:
+            if step_inv.workflow_step_id == source_step_id:
+                for output in step_inv.output_datasets:
+                    if output.output_name == output_name:
+                        dependency.resolved_dataset_id = output.dataset_id
+                        content = output.dataset
+                        break
+                if content is None:
+                    for output in step_inv.output_dataset_collections:
+                        if output.output_name == output_name:
+                            dependency.resolved_collection_id = output.dataset_collection_id
+                            content = output.dataset_collection
+                            break
+                break
+
+    return content, dependency
+
+
 def build_workflow_run_configs(
     trans: "GalaxyWebTransaction", workflow: "Workflow", payload: dict[str, Any]
 ) -> list[WorkflowRunConfig]:
@@ -359,6 +477,8 @@ def build_workflow_run_configs(
     )
     for index, (param_map, inputs) in enumerate(zip(expanded_params, expanded_inputs)):
         history = _get_target_history(trans, workflow, payload, expanded_param_keys, index)
+        # Track input dependencies on other workflow invocations
+        input_dependencies: list[WorkflowInvocationInputDependency] = []
         if inputs or not already_normalized:
             normalized_inputs = _normalize_inputs(workflow.steps, inputs, inputs_by)
         else:
@@ -447,6 +567,17 @@ def build_workflow_run_configs(
                     )
                     if not data_request.deferred:
                         requires_materialization = True
+                elif input_dict.get("src") in ("invocation_output", "invocation_step_output"):
+                    # Handle input from another workflow invocation's output
+                    content, dependency = _resolve_invocation_output_reference(
+                        trans, input_dict, step, workflow
+                    )
+                    if dependency:
+                        input_dependencies.append(dependency)
+                    if content is None:
+                        # Output not yet available - skip adding to inputs
+                        # The scheduler will handle waiting for it
+                        continue
                 else:
                     raise exceptions.RequestParameterInvalidException(
                         f"Unknown workflow input source for '{key}' specified."
@@ -527,6 +658,7 @@ def build_workflow_run_configs(
                 preferred_outputs_object_store_id=preferred_outputs_object_store_id,
                 preferred_intermediate_object_store_id=preferred_intermediate_object_store_id,
                 on_complete=payload.get("on_complete"),
+                input_dependencies=input_dependencies,
             )
         )
 
@@ -639,6 +771,15 @@ def workflow_run_config_to_request(
     if run_config.effective_outputs is not None:
         # empty list needs to come through here...
         add_parameter("effective_outputs", json.dumps(run_config.effective_outputs), param_types.META_PARAMETERS)
+
+    # Add input dependencies from other workflow invocations
+    for dependency in run_config.input_dependencies:
+        dependency.workflow_invocation = workflow_invocation
+        workflow_invocation.input_dependencies.append(dependency)
+
+    # If there are unresolved dependencies, set state to WAITING_FOR_INPUT
+    if workflow_invocation.has_unresolved_input_dependencies():
+        workflow_invocation.state = WorkflowInvocation.states.WAITING_FOR_INPUT
 
     return workflow_invocation
 

@@ -90,6 +90,10 @@ export type DataOption = {
     src: string;
     tags: Array<string>;
     column_definitions?: SampleSheetColumnDefinition[] | null;
+    // Invocation output reference fields (for src: invocation_output or invocation_step_output)
+    invocation_id?: string;
+    output_name?: string;
+    step_id?: string;
 };
 
 export function isDataOption(item: object): item is DataOption {

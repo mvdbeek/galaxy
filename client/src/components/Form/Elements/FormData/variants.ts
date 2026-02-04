@@ -15,7 +15,14 @@ export interface VariantInterface {
 export const BATCH = { DISABLED: "disabled", ENABLED: "enabled", LINKED: "linked" };
 
 /** Data source variations */
-export const SOURCE = { DATASET: "hda", COLLECTION: "hdca", COLLECTION_ELEMENT: "dce", LIBRARY_DATASET: "ldda" };
+export const SOURCE = {
+    DATASET: "hda",
+    COLLECTION: "hdca",
+    COLLECTION_ELEMENT: "dce",
+    LIBRARY_DATASET: "ldda",
+    INVOCATION_OUTPUT: "invocation_output",
+    INVOCATION_STEP_OUTPUT: "invocation_step_output",
+};
 
 /** List of available data input variations */
 export const VARIANTS: Record<string, Array<VariantInterface>> = {

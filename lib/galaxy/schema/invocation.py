@@ -89,6 +89,7 @@ class FailureReason(str, Enum):
     when_not_boolean = "when_not_boolean"
     unexpected_failure = "unexpected_failure"
     workflow_parameter_invalid = "workflow_parameter_invalid"
+    input_dependency_failed = "input_dependency_failed"  # Source invocation for queued input failed
 
 
 # The reasons below are attached to the invocation and user-actionable.
@@ -236,6 +237,26 @@ class GenericInvocationFailureWorkflowParameterInvalid(InvocationFailureMessageB
     details: str = Field(..., description="Message raised by validator")
 
 
+class GenericInvocationFailureInputDependencyFailed(InvocationFailureMessageBase[DatabaseIdT], Generic[DatabaseIdT]):
+    """Failure message when a source invocation that this invocation depends on has failed."""
+
+    reason: Literal[FailureReason.input_dependency_failed]
+    source_invocation_id: DatabaseIdT = Field(
+        ...,
+        title="Source Invocation ID",
+        description="The ID of the source invocation that failed.",
+    )
+    input_name: str = Field(
+        ...,
+        title="Input Name",
+        description="The name of the input that depends on the failed invocation.",
+    )
+    details: Optional[str] = Field(
+        None,
+        description="Additional details about the failure.",
+    )
+
+
 InvocationCancellationReviewFailed = GenericInvocationCancellationReviewFailed[int]
 InvocationCancellationHistoryDeleted = GenericInvocationCancellationHistoryDeleted[int]
 InvocationCancellationUserRequest = GenericInvocationCancellationUserRequest[int]
@@ -248,6 +269,7 @@ InvocationFailureWhenNotBoolean = GenericInvocationFailureWhenNotBoolean[int]
 InvocationUnexpectedFailure = GenericInvocationUnexpectedFailure[int]
 InvocationWarningWorkflowOutputNotFound = GenericInvocationEvaluationWarningWorkflowOutputNotFound[int]
 InvocationFailureWorkflowParameterInvalid = GenericInvocationFailureWorkflowParameterInvalid[int]
+InvocationFailureInputDependencyFailed = GenericInvocationFailureInputDependencyFailed[int]
 
 InvocationMessageUnion = Union[
     InvocationCancellationReviewFailed,
@@ -262,6 +284,7 @@ InvocationMessageUnion = Union[
     InvocationUnexpectedFailure,
     InvocationWarningWorkflowOutputNotFound,
     InvocationFailureWorkflowParameterInvalid,
+    InvocationFailureInputDependencyFailed,
 ]
 
 InvocationCancellationReviewFailedResponseModel = GenericInvocationCancellationReviewFailed[EncodedDatabaseIdField]
@@ -282,6 +305,9 @@ InvocationWarningWorkflowOutputNotFoundResponseModel = GenericInvocationEvaluati
 InvocationFailureWorkflowParameterInvalidResponseModel = GenericInvocationFailureWorkflowParameterInvalid[
     EncodedDatabaseIdField
 ]
+InvocationFailureInputDependencyFailedResponseModel = GenericInvocationFailureInputDependencyFailed[
+    EncodedDatabaseIdField
+]
 
 _InvocationMessageResponseUnion = Annotated[
     Union[
@@ -297,6 +323,7 @@ _InvocationMessageResponseUnion = Annotated[
         InvocationUnexpectedFailureResponseModel,
         InvocationWarningWorkflowOutputNotFoundResponseModel,
         InvocationFailureWorkflowParameterInvalidResponseModel,
+        InvocationFailureInputDependencyFailedResponseModel,
     ],
     Field(discriminator="reason"),
 ]
@@ -312,6 +339,7 @@ class InvocationMessageResponseModel(RootModel):
 class InvocationState(str, Enum):
     NEW = "new"  # Brand new workflow invocation... maybe this should be same as READY
     REQUIRES_MATERIALIZATION = "requires_materialization"  # an otherwise NEW or READY workflow that requires inputs to be materialized (undeferred)
+    WAITING_FOR_INPUT = "waiting_for_input"  # Waiting for outputs from upstream workflow invocations
     READY = "ready"  # Workflow ready for another iteration of scheduling.
     SCHEDULED = "scheduled"  # Workflow has been scheduled.
     CANCELLED = "cancelled"
@@ -581,6 +609,61 @@ InvocationWorkflowIdField = Field(
 )
 
 
+class InvocationInputDependencyView(Model):
+    """View model for an input dependency on another workflow invocation."""
+
+    workflow_step_id: EncodedDatabaseIdField = Field(
+        ...,
+        title="Workflow Step ID",
+        description="The encoded ID of the workflow step that requires this input.",
+    )
+    input_name: str = Field(
+        ...,
+        title="Input Name",
+        description="The name of the input on the workflow step.",
+    )
+    source_invocation_id: EncodedDatabaseIdField = Field(
+        ...,
+        title="Source Invocation ID",
+        description="The encoded ID of the source workflow invocation providing the output.",
+    )
+    source_invocation_state: InvocationState = Field(
+        ...,
+        title="Source Invocation State",
+        description="The current state of the source workflow invocation.",
+    )
+    output_name: Optional[str] = Field(
+        default=None,
+        title="Output Name",
+        description="The label of the workflow output being referenced (for labeled outputs).",
+    )
+    step_id: Optional[EncodedDatabaseIdField] = Field(
+        default=None,
+        title="Step ID",
+        description="The encoded ID of the source step (for step output references).",
+    )
+    step_output_name: Optional[str] = Field(
+        default=None,
+        title="Step Output Name",
+        description="The name of the step output (for step output references).",
+    )
+    resolved: bool = Field(
+        ...,
+        title="Resolved",
+        description="Whether the dependency has been resolved to an actual dataset/collection.",
+    )
+    resolved_id: Optional[EncodedDatabaseIdField] = Field(
+        default=None,
+        title="Resolved ID",
+        description="The encoded ID of the resolved dataset or collection.",
+    )
+    resolved_src: Optional[Literal["hda", "hdca"]] = Field(
+        default=None,
+        title="Resolved Source",
+        description="The source type of the resolved input (hda or hdca).",
+    )
+
+
 class WorkflowInvocationCollectionView(Model, WithModelClass):
     id: EncodedDatabaseIdField = InvocationIdField
     create_time: datetime = CreateTimeField
@@ -632,6 +715,11 @@ class WorkflowInvocationElementView(WorkflowInvocationCollectionView):
         default=...,
         title="Messages",
         description="A list of messages about why the invocation did not succeed.",
+    )
+    input_dependencies: list[InvocationInputDependencyView] = Field(
+        default_factory=list,
+        title="Input Dependencies",
+        description="Dependencies on outputs from other workflow invocations.",
     )
 
 

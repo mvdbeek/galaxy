@@ -438,6 +438,41 @@ function handleIncoming(incoming: Record<string, unknown> | Record<string, unkno
     return true;
 }
 
+/** Handle invocation output selection from the invocation output tab */
+function handleInvocationOutputSelected(selection: {
+    src: "invocation_output" | "invocation_step_output";
+    invocation_id: string;
+    output_name?: string;
+    step_id?: string;
+}) {
+    // For invocation outputs, we emit a special value that includes the invocation reference
+    // The workflow run form will need to handle this differently from regular dataset inputs
+    const invocationValue: DataOption = {
+        id: selection.invocation_id,
+        src: selection.src,
+        batch: false,
+        map_over_type: undefined,
+        name: `Invocation output: ${selection.output_name || "output"}`,
+        keep: true,
+        tags: [],
+        // Store additional invocation-specific data
+        invocation_id: selection.invocation_id,
+        output_name: selection.output_name,
+        step_id: selection.step_id,
+    };
+
+    // Add to keepOptions for display
+    const keepKey = `${selection.invocation_id}_${selection.src}_${selection.output_name}`;
+    keepOptions[keepKey] = {
+        label: `Invocation output: ${selection.output_name || "output"}`,
+        value: invocationValue,
+    };
+    keepOptionsUpdate.value++;
+
+    // Set as the current value
+    currentValue.value = [invocationValue];
+}
+
 function toDataOption(item: HistoryOrCollectionItem): DataOption | null {
     const { newSrc, datasetCollectionDataset } = getElementAttributes(item);
 
@@ -1002,7 +1037,8 @@ const noOptionsWarningMessage = computed(() => {
             :step-title="props.userDefinedTitle"
             :workflow-tab.sync="workflowTab"
             @focus="$emit('focus')"
-            @uploaded-data="($event) => handleIncoming($event, !$event?.length || $event.length <= 1)" />
+            @uploaded-data="($event) => handleIncoming($event, !$event?.length || $event.length <= 1)"
+            @invocation-output-selected="handleInvocationOutputSelected" />
     </div>
 </template>
 

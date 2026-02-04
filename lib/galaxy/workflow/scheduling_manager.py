@@ -19,6 +19,7 @@ from galaxy.jobs.handler import InvocationGrabber
 from galaxy.schema.invocation import (
     FailureReason,
     InvocationFailureDatasetFailed,
+    InvocationFailureInputDependencyFailed,
     InvocationState,
     InvocationUnexpectedFailure,
 )
@@ -429,6 +430,119 @@ class WorkflowRequestMonitor(Monitors):
             session.commit()
         return False
 
+    def __attempt_resolve_input_dependencies(
+        self, workflow_invocation: model.WorkflowInvocation, session: Session
+    ) -> bool:
+        """
+        Attempt to resolve any pending input dependencies from upstream invocations.
+
+        Returns True if all dependencies are resolved, False otherwise.
+        If a source invocation has failed, this will fail the dependent invocation.
+        """
+        all_resolved = True
+
+        for dependency in workflow_invocation.get_unresolved_dependencies():
+            source_invocation = dependency.source_invocation
+
+            # Check if source invocation has failed
+            if source_invocation.state == InvocationState.FAILED.value:
+                # Fail this invocation too
+                workflow_invocation.fail()
+                workflow_invocation.add_message(
+                    InvocationFailureInputDependencyFailed(
+                        workflow_step_id=dependency.workflow_step_id,
+                        reason=FailureReason.input_dependency_failed,
+                        source_invocation_id=source_invocation.id,
+                        input_name=dependency.input_name,
+                        details="Source invocation failed",
+                    )
+                )
+                session.add(workflow_invocation)
+                session.commit()
+                return False
+
+            # Check if source invocation was cancelled
+            if source_invocation.state in (InvocationState.CANCELLED.value, InvocationState.CANCELLING.value):
+                workflow_invocation.fail()
+                workflow_invocation.add_message(
+                    InvocationFailureInputDependencyFailed(
+                        workflow_step_id=dependency.workflow_step_id,
+                        reason=FailureReason.input_dependency_failed,
+                        source_invocation_id=source_invocation.id,
+                        input_name=dependency.input_name,
+                        details="Source invocation was cancelled",
+                    )
+                )
+                session.add(workflow_invocation)
+                session.commit()
+                return False
+
+            # Try to resolve the output
+            if not self.__try_resolve_dependency(dependency, source_invocation, session):
+                all_resolved = False
+
+        if all_resolved and workflow_invocation.state == InvocationState.WAITING_FOR_INPUT.value:
+            # All dependencies resolved - transition to READY
+            workflow_invocation.set_state(model.WorkflowInvocation.states.READY)
+
+            # Also add the resolved inputs to the invocation
+            for dependency in workflow_invocation.input_dependencies:
+                if dependency.resolved_dataset_id:
+                    resolved_content = session.get(model.HistoryDatasetAssociation, dependency.resolved_dataset_id)
+                elif dependency.resolved_collection_id:
+                    resolved_content = session.get(
+                        model.HistoryDatasetCollectionAssociation, dependency.resolved_collection_id
+                    )
+                else:
+                    continue
+
+                if resolved_content:
+                    workflow_invocation.add_input(resolved_content, dependency.workflow_step_id)
+
+            session.add(workflow_invocation)
+            session.commit()
+
+        return all_resolved
+
+    def __try_resolve_dependency(
+        self,
+        dependency: model.WorkflowInvocationInputDependency,
+        source_invocation: model.WorkflowInvocation,
+        session: Session,
+    ) -> bool:
+        """Try to resolve a single dependency."""
+        if dependency.source_workflow_output_id:
+            # Resolve by workflow output label
+            workflow_output = session.get(model.WorkflowOutput, dependency.source_workflow_output_id)
+            if workflow_output:
+                for output_assoc in source_invocation.output_datasets:
+                    if output_assoc.workflow_output_id == workflow_output.id:
+                        dependency.resolved_dataset_id = output_assoc.dataset_id
+                        session.add(dependency)
+                        return True
+                for output_assoc in source_invocation.output_dataset_collections:
+                    if output_assoc.workflow_output_id == workflow_output.id:
+                        dependency.resolved_collection_id = output_assoc.dataset_collection_id
+                        session.add(dependency)
+                        return True
+
+        elif dependency.source_step_id:
+            # Resolve by step output
+            for step_inv in source_invocation.steps:
+                if step_inv.workflow_step_id == dependency.source_step_id:
+                    for output in step_inv.output_datasets:
+                        if output.output_name == dependency.source_output_name:
+                            dependency.resolved_dataset_id = output.dataset_id
+                            session.add(dependency)
+                            return True
+                    for output in step_inv.output_dataset_collections:
+                        if output.output_name == dependency.source_output_name:
+                            dependency.resolved_collection_id = output.dataset_collection_id
+                            session.add(dependency)
+                            return True
+
+        return False
+
     def __attempt_schedule(self, invocation_id, workflow_scheduler):
         with self.app.model.context() as session:
             workflow_invocation = session.get(model.WorkflowInvocation, invocation_id)
@@ -436,6 +550,10 @@ class WorkflowRequestMonitor(Monitors):
                 if not self.__attempt_materialize(workflow_invocation, session):
                     return None
                 if self.app.config.workflow_scheduling_separate_materialization_iteration:
+                    return None
+            if workflow_invocation.state == workflow_invocation.states.WAITING_FOR_INPUT:
+                if not self.__attempt_resolve_input_dependencies(workflow_invocation, session):
+                    # Dependencies not yet resolved or invocation failed due to failed source
                     return None
             try:
                 if workflow_invocation.state == workflow_invocation.states.CANCELLING:
