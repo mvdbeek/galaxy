@@ -9,38 +9,8 @@ from galaxy_test.base.populators import (
     DatasetPopulator,
     WorkflowPopulator,
 )
+from galaxy_test.base.workflow_fixtures import WORKFLOW_WITH_OUTPUTS
 from ._framework import ApiTestCase
-
-
-WORKFLOW_SIMPLE_WITH_OUTPUT = """
-class: GalaxyWorkflow
-name: Simple Workflow With Output
-inputs:
-  input1: data
-outputs:
-  output1:
-    outputSource: first_cat/out_file1
-steps:
-  first_cat:
-    tool_id: cat1
-    in:
-      input1: input1
-"""
-
-WORKFLOW_CONSUMER = """
-class: GalaxyWorkflow
-name: Consumer Workflow
-inputs:
-  input1: data
-outputs:
-  output1:
-    outputSource: second_cat/out_file1
-steps:
-  second_cat:
-    tool_id: cat1
-    in:
-      input1: input1
-"""
 
 
 class TestWorkflowInvocationQueuing(ApiTestCase):
@@ -57,115 +27,81 @@ class TestWorkflowInvocationQueuing(ApiTestCase):
     def test_invoke_with_invocation_output_reference(self):
         """Test invoking a workflow with an output from another invocation."""
         with self.dataset_populator.test_history() as history_id:
-            # Create and run first workflow
-            workflow1_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_WITH_OUTPUT)
-
-            hda = self.dataset_populator.new_dataset(history_id, content="test content")
-            invocation1 = self.workflow_populator.invoke_workflow(
-                workflow1_id,
-                inputs={"input1": {"src": "hda", "id": hda["id"]}},
+            # Run first workflow with test_data
+            summary1 = self.workflow_populator.run_workflow(
+                WORKFLOW_WITH_OUTPUTS,
+                test_data={"input1": "test content"},
                 history_id=history_id,
             )
+            invocation1_id = summary1.invocation_id
+            workflow1_id = summary1.workflow_id
 
             # Create second workflow and invoke with reference to first invocation's output
-            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_CONSUMER)
+            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
 
             # Invoke with invocation output reference
-            invoke_response = self._post(
-                f"workflows/{workflow2_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": invocation1["id"],
-                            "output_name": "output1",
-                        }
-                    },
-                },
-                json=True,
-            )
-            self._assert_status_code_is(invoke_response, 200)
-            invocation2 = invoke_response.json()
-
-            # Verify invocation was created
-            assert invocation2["id"] is not None
-            assert invocation2["state"] in ("new", "waiting_for_input", "ready")
-
-            # Wait for first invocation to complete
-            self.workflow_populator.wait_for_invocation_and_jobs(
+            invocation2_id = self.workflow_populator.invoke_workflow_and_assert_ok(
+                workflow2_id,
                 history_id=history_id,
-                workflow_id=workflow1_id,
-                invocation_id=invocation1["id"],
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": invocation1_id,
+                        "output_name": "wf_output_1",
+                    }
+                },
+                inputs_by="name",
             )
 
             # Wait for second invocation to complete
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow2_id,
-                invocation_id=invocation2["id"],
-            )
+            self.workflow_populator.wait_for_invocation_and_completion(invocation2_id)
 
             # Verify second invocation completed successfully
-            final_invocation = self._get(f"invocations/{invocation2['id']}").json()
-            assert final_invocation["state"] == "scheduled"
+            final_invocation = self.workflow_populator.get_invocation(invocation2_id)
+            assert final_invocation["state"] == "completed"
 
     def test_invoke_with_invocation_output_reference_before_completion(self):
         """Test invoking a workflow referencing an output before source invocation completes."""
         with self.dataset_populator.test_history() as history_id:
-            # Create workflow that will take some time (uses sleep tool if available)
-            workflow1_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_WITH_OUTPUT)
-
-            hda = self.dataset_populator.new_dataset(history_id, content="test content")
-            invocation1 = self.workflow_populator.invoke_workflow(
-                workflow1_id,
-                inputs={"input1": {"src": "hda", "id": hda["id"]}},
+            # Run first workflow without waiting for completion
+            summary1 = self.workflow_populator.run_workflow(
+                WORKFLOW_WITH_OUTPUTS,
+                test_data={"input1": "test content"},
                 history_id=history_id,
+                wait=False,
             )
+            invocation1_id = summary1.invocation_id
 
             # Immediately invoke second workflow (before first completes)
-            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_CONSUMER)
+            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
 
-            invoke_response = self._post(
-                f"workflows/{workflow2_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": invocation1["id"],
-                            "output_name": "output1",
-                        }
-                    },
+            invocation2_id = self.workflow_populator.invoke_workflow_and_assert_ok(
+                workflow2_id,
+                history_id=history_id,
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": invocation1_id,
+                        "output_name": "wf_output_1",
+                    }
                 },
-                json=True,
+                inputs_by="name",
             )
-            self._assert_status_code_is(invoke_response, 200)
-            invocation2 = invoke_response.json()
 
             # Check that second invocation has input dependencies
-            invocation2_details = self._get(f"invocations/{invocation2['id']}").json()
+            invocation2_details = self.workflow_populator.get_invocation(invocation2_id)
             assert "input_dependencies" in invocation2_details
             assert len(invocation2_details["input_dependencies"]) == 1
 
             dep = invocation2_details["input_dependencies"][0]
-            assert dep["source_invocation_id"] == invocation1["id"]
-            assert dep["output_name"] == "output1"
+            assert dep["source_invocation_id"] == invocation1_id
+            assert dep["output_name"] == "wf_output_1"
 
-            # Wait for both to complete
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow1_id,
-                invocation_id=invocation1["id"],
-            )
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow2_id,
-                invocation_id=invocation2["id"],
-            )
+            # Wait for second invocation to complete (it will wait for first internally)
+            self.workflow_populator.wait_for_invocation_and_completion(invocation2_id)
 
             # Verify dependency was resolved
-            final_invocation = self._get(f"invocations/{invocation2['id']}").json()
+            final_invocation = self.workflow_populator.get_invocation(invocation2_id)
             if final_invocation.get("input_dependencies"):
                 dep = final_invocation["input_dependencies"][0]
                 assert dep["resolved"] is True
@@ -173,31 +109,27 @@ class TestWorkflowInvocationQueuing(ApiTestCase):
     def test_invocation_output_reference_invalid_output_name(self):
         """Test error handling for invalid output name reference."""
         with self.dataset_populator.test_history() as history_id:
-            workflow1_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_WITH_OUTPUT)
-
-            hda = self.dataset_populator.new_dataset(history_id, content="test")
-            invocation1 = self.workflow_populator.invoke_workflow(
-                workflow1_id,
-                inputs={"input1": {"src": "hda", "id": hda["id"]}},
+            summary1 = self.workflow_populator.run_workflow(
+                WORKFLOW_WITH_OUTPUTS,
+                test_data={"input1": "test"},
                 history_id=history_id,
             )
+            invocation1_id = summary1.invocation_id
 
-            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_CONSUMER)
+            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
 
             # Try to reference non-existent output
-            invoke_response = self._post(
-                f"workflows/{workflow2_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": invocation1["id"],
-                            "output_name": "nonexistent_output",
-                        }
-                    },
+            invoke_response = self.workflow_populator.invoke_workflow(
+                workflow2_id,
+                history_id=history_id,
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": invocation1_id,
+                        "output_name": "nonexistent_output",
+                    }
                 },
-                json=True,
+                inputs_by="name",
             )
 
             self._assert_status_code_is(invoke_response, 400)
@@ -206,22 +138,20 @@ class TestWorkflowInvocationQueuing(ApiTestCase):
     def test_invocation_output_reference_invalid_invocation(self):
         """Test error handling for invalid invocation ID reference."""
         with self.dataset_populator.test_history() as history_id:
-            workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_CONSUMER)
+            workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
 
             # Try to reference non-existent invocation
-            invoke_response = self._post(
-                f"workflows/{workflow_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": "nonexistent_id",
-                            "output_name": "output1",
-                        }
-                    },
+            invoke_response = self.workflow_populator.invoke_workflow(
+                workflow_id,
+                history_id=history_id,
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": "nonexistent_id",
+                        "output_name": "wf_output_1",
+                    }
                 },
-                json=True,
+                inputs_by="name",
             )
 
             self._assert_status_code_is(invoke_response, 400)
@@ -229,106 +159,79 @@ class TestWorkflowInvocationQueuing(ApiTestCase):
     def test_chained_invocations(self):
         """Test chaining multiple invocations together."""
         with self.dataset_populator.test_history() as history_id:
-            # Create three workflows
-            workflow1_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_WITH_OUTPUT)
-            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_WITH_OUTPUT)
-            workflow3_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_CONSUMER)
-
-            # Start first workflow
-            hda = self.dataset_populator.new_dataset(history_id, content="initial")
-            inv1 = self.workflow_populator.invoke_workflow(
-                workflow1_id,
-                inputs={"input1": {"src": "hda", "id": hda["id"]}},
+            # Start first workflow with test_data
+            summary1 = self.workflow_populator.run_workflow(
+                WORKFLOW_WITH_OUTPUTS,
+                test_data={"input1": "initial"},
                 history_id=history_id,
+                wait=False,
             )
+            inv1_id = summary1.invocation_id
 
             # Chain second workflow to first
-            inv2_response = self._post(
-                f"workflows/{workflow2_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": inv1["id"],
-                            "output_name": "output1",
-                        }
-                    },
+            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
+            inv2_id = self.workflow_populator.invoke_workflow_and_assert_ok(
+                workflow2_id,
+                history_id=history_id,
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": inv1_id,
+                        "output_name": "wf_output_1",
+                    }
                 },
-                json=True,
+                inputs_by="name",
             )
-            self._assert_status_code_is(inv2_response, 200)
-            inv2 = inv2_response.json()
 
             # Chain third workflow to second
-            inv3_response = self._post(
-                f"workflows/{workflow3_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": inv2["id"],
-                            "output_name": "output1",
-                        }
-                    },
+            workflow3_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
+            inv3_id = self.workflow_populator.invoke_workflow_and_assert_ok(
+                workflow3_id,
+                history_id=history_id,
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": inv2_id,
+                        "output_name": "wf_output_1",
+                    }
                 },
-                json=True,
+                inputs_by="name",
             )
-            self._assert_status_code_is(inv3_response, 200)
-            inv3 = inv3_response.json()
 
-            # Wait for all to complete
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow1_id,
-                invocation_id=inv1["id"],
-            )
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow2_id,
-                invocation_id=inv2["id"],
-            )
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow3_id,
-                invocation_id=inv3["id"],
-            )
+            # Wait for final invocation (it will wait for the chain)
+            self.workflow_populator.wait_for_invocation_and_completion(inv3_id)
 
             # Verify all completed
-            for inv_id in [inv1["id"], inv2["id"], inv3["id"]]:
-                state = self._get(f"invocations/{inv_id}").json()
-                assert state["state"] == "scheduled"
+            for inv_id in [inv1_id, inv2_id, inv3_id]:
+                state = self.workflow_populator.get_invocation(inv_id)
+                assert state["state"] == "completed"
 
     def test_waiting_for_input_state(self):
         """Test that WAITING_FOR_INPUT state is set correctly."""
         with self.dataset_populator.test_history() as history_id:
-            # Create first workflow
-            workflow1_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_WITH_OUTPUT)
-
-            hda = self.dataset_populator.new_dataset(history_id, content="test")
-            invocation1 = self.workflow_populator.invoke_workflow(
-                workflow1_id,
-                inputs={"input1": {"src": "hda", "id": hda["id"]}},
+            # Start first workflow without waiting
+            summary1 = self.workflow_populator.run_workflow(
+                WORKFLOW_WITH_OUTPUTS,
+                test_data={"input1": "test"},
                 history_id=history_id,
+                wait=False,
             )
+            invocation1_id = summary1.invocation_id
 
             # Immediately create dependent invocation
-            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_CONSUMER)
+            workflow2_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_WITH_OUTPUTS)
 
-            invoke_response = self._post(
-                f"workflows/{workflow2_id}/invocations",
-                data={
-                    "history_id": history_id,
-                    "inputs": {
-                        "input1": {
-                            "src": "invocation_output",
-                            "invocation_id": invocation1["id"],
-                            "output_name": "output1",
-                        }
-                    },
+            invoke_response = self.workflow_populator.invoke_workflow(
+                workflow2_id,
+                history_id=history_id,
+                inputs={
+                    "input1": {
+                        "src": "invocation_output",
+                        "invocation_id": invocation1_id,
+                        "output_name": "wf_output_1",
+                    }
                 },
-                json=True,
+                inputs_by="name",
             )
             self._assert_status_code_is(invoke_response, 200)
             invocation2 = invoke_response.json()
@@ -338,13 +241,4 @@ class TestWorkflowInvocationQueuing(ApiTestCase):
             assert invocation2["state"] in ("new", "waiting_for_input", "ready", "scheduled")
 
             # Wait for completion
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow1_id,
-                invocation_id=invocation1["id"],
-            )
-            self.workflow_populator.wait_for_invocation_and_jobs(
-                history_id=history_id,
-                workflow_id=workflow2_id,
-                invocation_id=invocation2["id"],
-            )
+            self.workflow_populator.wait_for_invocation_and_completion(invocation2["id"])

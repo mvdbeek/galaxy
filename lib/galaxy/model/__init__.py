@@ -9465,14 +9465,14 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
     def has_unresolved_input_dependencies(self) -> bool:
         """Check if any input dependencies are still unresolved."""
         return any(
-            dep.resolved_dataset_id is None and dep.resolved_collection_id is None
-            for dep in self.input_dependencies
+            dep.resolved_dataset_id is None and dep.resolved_collection_id is None for dep in self.input_dependencies
         )
 
     def get_unresolved_dependencies(self) -> list["WorkflowInvocationInputDependency"]:
         """Return list of unresolved input dependencies."""
         return [
-            dep for dep in self.input_dependencies
+            dep
+            for dep in self.input_dependencies
             if dep.resolved_dataset_id is None and dep.resolved_collection_id is None
         ]
 
@@ -9627,7 +9627,14 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         if scheduler is not None:
             and_conditions.append(WorkflowInvocation.scheduler == scheduler)
         if handler is not None:
-            and_conditions.append(WorkflowInvocation.handler == handler)
+            # Also include invocations with the default handler tag "_default_"
+            # since those are assigned to be processed by any handler
+            and_conditions.append(
+                or_(
+                    WorkflowInvocation.handler == handler,
+                    WorkflowInvocation.handler == "_default_",
+                )
+            )
 
         stmt = select(WorkflowInvocation.id).filter(and_(*and_conditions)).order_by(WorkflowInvocation.id.asc())
         # Immediately just load all ids into memory so time slicing logic
@@ -10745,27 +10752,19 @@ class WorkflowInvocationInputDependency(Base, RepresentById):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     # The invocation that is waiting for input
-    workflow_invocation_id: Mapped[int] = mapped_column(
-        ForeignKey("workflow_invocation.id"), index=True
-    )
+    workflow_invocation_id: Mapped[int] = mapped_column(ForeignKey("workflow_invocation.id"), index=True)
     # The workflow step that needs the input
-    workflow_step_id: Mapped[int] = mapped_column(
-        ForeignKey("workflow_step.id"), index=True
-    )
+    workflow_step_id: Mapped[int] = mapped_column(ForeignKey("workflow_step.id"), index=True)
     # Input name on the step
     input_name: Mapped[str] = mapped_column(String(255))
     # The source invocation providing the output
-    source_invocation_id: Mapped[int] = mapped_column(
-        ForeignKey("workflow_invocation.id"), index=True
-    )
+    source_invocation_id: Mapped[int] = mapped_column(ForeignKey("workflow_invocation.id"), index=True)
     # The workflow output ID (if referencing labeled output)
     source_workflow_output_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("workflow_output.id"), index=True, nullable=True
     )
     # Alternative: reference step output directly
-    source_step_id: Mapped[Optional[int]] = mapped_column(
-        ForeignKey("workflow_step.id"), index=True, nullable=True
-    )
+    source_step_id: Mapped[Optional[int]] = mapped_column(ForeignKey("workflow_step.id"), index=True, nullable=True)
     source_output_name: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     # Resolved dataset/collection when available
     resolved_dataset_id: Mapped[Optional[int]] = mapped_column(

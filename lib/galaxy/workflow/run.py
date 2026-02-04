@@ -146,6 +146,8 @@ def queue_invoke(
     initial_state = model.WorkflowInvocation.states.NEW
     if workflow_run_config.requires_materialization:
         initial_state = model.WorkflowInvocation.states.REQUIRES_MATERIALIZATION
+    elif workflow_invocation.has_unresolved_input_dependencies():
+        initial_state = model.WorkflowInvocation.states.WAITING_FOR_INPUT
     return trans.app.workflow_scheduling_manager.queue(
         workflow_invocation, request_params, flush=flush, initial_state=initial_state
     )

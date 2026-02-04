@@ -198,6 +198,10 @@ class WorkflowSchedulingManager(ConfiguresHandlers):
         except HandlerAssignmentError:
             raise RuntimeError(f"Unable to set a handler for workflow invocation '{workflow_invocation.id}'")
 
+        log.debug(
+            f"Queued workflow invocation {workflow_invocation.id} with state={initial_state}, handler={workflow_invocation.handler}, scheduler={workflow_invocation.scheduler}"
+        )
+
         return workflow_invocation
 
     def __start_schedulers(self):
@@ -442,7 +446,12 @@ class WorkflowRequestMonitor(Monitors):
         all_resolved = True
 
         for dependency in workflow_invocation.get_unresolved_dependencies():
-            source_invocation = dependency.source_invocation
+            # Explicitly fetch source invocation from session to ensure fresh data
+            source_invocation = session.get(model.WorkflowInvocation, dependency.source_invocation_id)
+            if source_invocation is None:
+                log.warning(f"Source invocation {dependency.source_invocation_id} not found for dependency")
+                all_resolved = False
+                continue
 
             # Check if source invocation has failed
             if source_invocation.state == InvocationState.FAILED.value:
@@ -487,6 +496,9 @@ class WorkflowRequestMonitor(Monitors):
 
             # Also add the resolved inputs to the invocation
             for dependency in workflow_invocation.input_dependencies:
+                resolved_content: Union[
+                    model.HistoryDatasetAssociation, model.HistoryDatasetCollectionAssociation, None
+                ] = None
                 if dependency.resolved_dataset_id:
                     resolved_content = session.get(model.HistoryDatasetAssociation, dependency.resolved_dataset_id)
                 elif dependency.resolved_collection_id:
@@ -511,11 +523,20 @@ class WorkflowRequestMonitor(Monitors):
         session: Session,
     ) -> bool:
         """Try to resolve a single dependency."""
+        log.debug(
+            f"Trying to resolve dependency: source_workflow_output_id={dependency.source_workflow_output_id}, "
+            f"source_step_id={dependency.source_step_id}, source_invocation_id={source_invocation.id}"
+        )
         if dependency.source_workflow_output_id:
             # Resolve by workflow output label
             workflow_output = session.get(model.WorkflowOutput, dependency.source_workflow_output_id)
+            log.debug(f"Found workflow_output: {workflow_output}, id={workflow_output.id if workflow_output else None}")
             if workflow_output:
+                log.debug(f"Source invocation has {len(source_invocation.output_datasets)} output_datasets")
                 for output_assoc in source_invocation.output_datasets:
+                    log.debug(
+                        f"Checking output_assoc: workflow_output_id={output_assoc.workflow_output_id}, dataset_id={output_assoc.dataset_id}"
+                    )
                     if output_assoc.workflow_output_id == workflow_output.id:
                         dependency.resolved_dataset_id = output_assoc.dataset_id
                         session.add(dependency)
@@ -589,11 +610,15 @@ class WorkflowRequestMonitor(Monitors):
 
     def __active_invocation_ids(self, scheduler_id):
         handler = self.app.config.server_name
-        return model.WorkflowInvocation.poll_active_workflow_ids(
+        invocation_ids = model.WorkflowInvocation.poll_active_workflow_ids(
             self.app.model.engine,
             scheduler=scheduler_id,
             handler=handler,
         )
+        log.debug(
+            f"Poll for scheduler={scheduler_id}, handler={handler} returned {len(invocation_ids)} invocations: {invocation_ids}"
+        )
+        return invocation_ids
 
     def start(self):
         self.monitor_thread.start()

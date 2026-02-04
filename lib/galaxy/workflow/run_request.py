@@ -316,7 +316,10 @@ def _resolve_invocation_output_reference(
     input_dict: dict[str, Any],
     step: "WorkflowStep",
     workflow: "Workflow",
-) -> tuple[Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]], Optional[WorkflowInvocationInputDependency]]:
+) -> tuple[
+    Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]],
+    Optional[WorkflowInvocationInputDependency],
+]:
     """
     Resolve an invocation output reference to an actual dataset/collection.
 
@@ -331,9 +334,7 @@ def _resolve_invocation_output_reference(
     # Decode and fetch source invocation
     source_invocation_id_encoded = input_dict.get("invocation_id")
     if not source_invocation_id_encoded:
-        raise exceptions.RequestParameterInvalidException(
-            "invocation_id is required for invocation output references"
-        )
+        raise exceptions.RequestParameterInvalidException("invocation_id is required for invocation output references")
 
     source_invocation_id = trans.security.decode_id(source_invocation_id_encoded)
     source_invocation = sa_session.get(WorkflowInvocation, source_invocation_id)
@@ -343,11 +344,9 @@ def _resolve_invocation_output_reference(
             f"Source invocation '{source_invocation_id_encoded}' not found"
         )
 
-    # Verify user has access to source invocation
-    if source_invocation.user_id != trans.user.id and not trans.user_is_admin:
-        raise exceptions.ItemAccessibilityException(
-            f"Cannot access invocation '{source_invocation_id_encoded}'"
-        )
+    # Verify user has access to source invocation (check through history)
+    if source_invocation.history and source_invocation.history.user_id != trans.user.id and not trans.user_is_admin:
+        raise exceptions.ItemAccessibilityException(f"Cannot access invocation '{source_invocation_id_encoded}'")
 
     # Create dependency record
     dependency = WorkflowInvocationInputDependency()
@@ -373,9 +372,7 @@ def _resolve_invocation_output_reference(
                 break
 
         if workflow_output is None:
-            raise exceptions.RequestParameterInvalidException(
-                f"Output '{output_name}' not found in source workflow"
-            )
+            raise exceptions.RequestParameterInvalidException(f"Output '{output_name}' not found in source workflow")
 
         dependency.source_workflow_output_id = workflow_output.id
 
@@ -517,61 +514,12 @@ def build_workflow_run_configs(
                 continue
             try:
                 added_to_history = False
-                try:
-                    data_request = DataOrCollectionRequestAdapter.validate_python(input_dict)
-                except ValidationError as e:
-                    raise validation_error_to_message_exception(e)
-                if data_request.src == "ldda":
-                    ldda = trans.sa_session.get(
-                        LibraryDatasetDatasetAssociation, trans.security.decode_id(data_request.id)
-                    )
-                    assert ldda
-                    assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
-                        trans.get_current_user_roles(), ldda.dataset
-                    )
-                    content = ldda.to_history_dataset_association(history, add_to_history=add_to_history)
-                elif data_request.src == "hda":
-                    # Get dataset handle, add to dict and history if necessary
-                    content = trans.sa_session.get(HistoryDatasetAssociation, trans.security.decode_id(data_request.id))
-                    assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
-                        trans.get_current_user_roles(), content.dataset
-                    )
-                elif data_request.src == "ld":
-                    library_dataset = trans.sa_session.get(LibraryDataset, trans.security.decode_id(data_request.id))
-                    assert library_dataset
-                    ldda = library_dataset.library_dataset_dataset_association
-                    assert ldda
-                    assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
-                        trans.get_current_user_roles(), ldda.dataset
-                    )
-                    content = ldda.to_history_dataset_association(history, add_to_history=add_to_history)
-                elif data_request.src == "hdca":
-                    content = app.dataset_collection_manager.get_dataset_collection_instance(
-                        trans, "history", data_request.id
-                    )
-                elif isinstance(data_request, DataRequestCollectionUri):
-                    hdca_input = dereference_input_to_hdca(trans, data_request, history)
-                    added_to_history = True
-                    content = InputWithRequest(
-                        input=hdca_input,
-                        request=data_request.model_dump(mode="json"),
-                    )
-                    if not data_request.deferred:
-                        requires_materialization = True
-                elif isinstance(data_request, (DataRequestUri, FileRequestUri)):
-                    hda_input = dereference_input_to_hda(trans, data_request, history)
-                    added_to_history = True
-                    content = InputWithRequest(
-                        input=hda_input,
-                        request=data_request.model_dump(mode="json"),
-                    )
-                    if not data_request.deferred:
-                        requires_materialization = True
-                elif input_dict.get("src") in ("invocation_output", "invocation_step_output"):
+                content: Any = None
+                # Check for invocation output references BEFORE standard validation
+                src = input_dict.get("src") if isinstance(input_dict, dict) else None
+                if src in ("invocation_output", "invocation_step_output"):
                     # Handle input from another workflow invocation's output
-                    content, dependency = _resolve_invocation_output_reference(
-                        trans, input_dict, step, workflow
-                    )
+                    content, dependency = _resolve_invocation_output_reference(trans, input_dict, step, workflow)
                     if dependency:
                         input_dependencies.append(dependency)
                     if content is None:
@@ -579,9 +527,59 @@ def build_workflow_run_configs(
                         # The scheduler will handle waiting for it
                         continue
                 else:
-                    raise exceptions.RequestParameterInvalidException(
-                        f"Unknown workflow input source for '{key}' specified."
-                    )
+                    try:
+                        data_request = DataOrCollectionRequestAdapter.validate_python(input_dict)
+                    except ValidationError as e:
+                        raise validation_error_to_message_exception(e)
+                    if data_request.src == "ldda":
+                        ldda = trans.sa_session.get(
+                            LibraryDatasetDatasetAssociation, trans.security.decode_id(data_request.id)
+                        )
+                        assert ldda
+                        assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
+                            trans.get_current_user_roles(), ldda.dataset
+                        )
+                        content = ldda.to_history_dataset_association(history, add_to_history=add_to_history)
+                    elif data_request.src == "hda":
+                        # Get dataset handle, add to dict and history if necessary
+                        content = trans.sa_session.get(
+                            HistoryDatasetAssociation, trans.security.decode_id(data_request.id)
+                        )
+                        assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
+                            trans.get_current_user_roles(), content.dataset
+                        )
+                    elif data_request.src == "ld":
+                        library_dataset = trans.sa_session.get(
+                            LibraryDataset, trans.security.decode_id(data_request.id)
+                        )
+                        assert library_dataset
+                        ldda = library_dataset.library_dataset_dataset_association
+                        assert ldda
+                        assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
+                            trans.get_current_user_roles(), ldda.dataset
+                        )
+                        content = ldda.to_history_dataset_association(history, add_to_history=add_to_history)
+                    elif data_request.src == "hdca":
+                        content = app.dataset_collection_manager.get_dataset_collection_instance(
+                            trans, "history", data_request.id
+                        )
+                    elif (
+                        data_request.src == "url"
+                        or data_request.class_ == "File"
+                        or data_request.class_ == "Collection"
+                    ):
+                        request_input = dereference_input(trans, data_request, history)
+                        added_to_history = True
+                        content = InputWithRequest(
+                            input=request_input,
+                            request=data_request.model_dump(mode="json"),
+                        )
+                        if not data_request.deferred:
+                            requires_materialization = True
+                    else:
+                        raise exceptions.RequestParameterInvalidException(
+                            f"Unknown workflow input source for '{key}' specified."
+                        )
                 if not added_to_history and add_to_history and content.history != history:
                     if isinstance(content, HistoryDatasetCollectionAssociation):
                         content = content.copy(element_destination=history, flush=False)
@@ -777,10 +775,6 @@ def workflow_run_config_to_request(
         dependency.workflow_invocation = workflow_invocation
         workflow_invocation.input_dependencies.append(dependency)
 
-    # If there are unresolved dependencies, set state to WAITING_FOR_INPUT
-    if workflow_invocation.has_unresolved_input_dependencies():
-        workflow_invocation.state = WorkflowInvocation.states.WAITING_FOR_INPUT
-
     return workflow_invocation
 
 
@@ -830,6 +824,10 @@ def workflow_request_to_run_config(
         assert collection_input_association.workflow_step_id
         inputs[collection_input_association.workflow_step_id] = collection_input_association.dataset_collection
     for input_association in workflow_invocation.input_step_parameters:
+        # Skip input_step_parameters if the input was already resolved from input_datasets
+        # This handles cases like invocation_output references that are resolved later
+        if input_association.workflow_step_id in inputs:
+            continue
         parameter_value = input_association.parameter_value
         inputs[input_association.workflow_step_id] = parameter_value
         step_label = input_association.workflow_step.label

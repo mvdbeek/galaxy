@@ -10,7 +10,10 @@ This module provides the WorkflowCompletionManager class which handles:
 import logging
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import (
+    or_,
+    select,
+)
 from sqlalchemy.orm.scoping import scoped_session
 
 from galaxy.model import (
@@ -109,7 +112,14 @@ class WorkflowCompletionManager:
             .where(WorkflowInvocationCompletion.id.is_(None))
         )
         if handler is not None:
-            stmt = stmt.where(WorkflowInvocation.handler == handler)
+            # Also include invocations with the default handler tag "_default_"
+            # since those are assigned to be processed by any handler
+            stmt = stmt.where(
+                or_(
+                    WorkflowInvocation.handler == handler,
+                    WorkflowInvocation.handler == "_default_",
+                )
+            )
         stmt = stmt.limit(limit)
         session = self.sa_session
         return list(session.execute(stmt).scalars())
