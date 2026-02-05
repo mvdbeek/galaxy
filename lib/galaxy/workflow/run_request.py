@@ -26,7 +26,6 @@ from galaxy.model import (
     LibraryDatasetDatasetAssociation,
     WorkflowInvocation,
     WorkflowInvocationInputDependency,
-    WorkflowOutput,
     WorkflowRequestInputParameter,
     WorkflowRequestStepState,
 )
@@ -40,6 +39,10 @@ from galaxy.tool_util_models.parameters import (
 from galaxy.tools.parameters.basic import ParameterValueError
 from galaxy.tools.parameters.meta import expand_workflow_inputs
 from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
+from galaxy.workflow.invocation_output_resolver import (
+    resolve_output_by_step,
+    resolve_output_by_workflow_output,
+)
 from galaxy.workflow.modules import WorkflowModuleInjector
 from galaxy.workflow.resources import get_resource_mapper_function
 
@@ -311,31 +314,18 @@ def _get_target_history(
     return target_history
 
 
-def _resolve_invocation_output_reference(
+def _get_source_invocation(
     trans: "GalaxyWebTransaction",
-    input_dict: dict[str, Any],
-    step: "WorkflowStep",
-    workflow: "Workflow",
-) -> tuple[
-    Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]],
-    Optional[WorkflowInvocationInputDependency],
-]:
+    source_invocation_id_encoded: str,
+) -> WorkflowInvocation:
     """
-    Resolve an invocation output reference to an actual dataset/collection.
+    Fetch and validate access to a source invocation.
 
-    Returns a tuple of (content, dependency) where:
-    - content: The resolved dataset/collection if available, None if not yet available
-    - dependency: A WorkflowInvocationInputDependency record to track the dependency
+    Raises:
+        RequestParameterInvalidException: If invocation not found
+        ItemAccessibilityException: If user cannot access the invocation
     """
     sa_session = trans.sa_session
-    src = input_dict.get("src")
-    input_name = input_dict.get("input_name", "input")
-
-    # Decode and fetch source invocation
-    source_invocation_id_encoded = input_dict.get("invocation_id")
-    if not source_invocation_id_encoded:
-        raise exceptions.RequestParameterInvalidException("invocation_id is required for invocation output references")
-
     source_invocation_id = trans.security.decode_id(source_invocation_id_encoded)
     source_invocation = sa_session.get(WorkflowInvocation, source_invocation_id)
 
@@ -348,76 +338,171 @@ def _resolve_invocation_output_reference(
     if source_invocation.history and source_invocation.history.user_id != trans.user.id and not trans.user_is_admin:
         raise exceptions.ItemAccessibilityException(f"Cannot access invocation '{source_invocation_id_encoded}'")
 
+    return source_invocation
+
+
+def _check_circular_dependency(
+    source_invocation: WorkflowInvocation,
+    current_invocation_id: Optional[int],
+) -> None:
+    """
+    Check for circular dependencies in the invocation chain.
+
+    Raises:
+        RequestParameterInvalidException: If a circular dependency is detected
+    """
+    if current_invocation_id is None:
+        # New invocation being created, can't have a circular dependency yet
+        return
+
+    # Check for self-reference
+    if source_invocation.id == current_invocation_id:
+        raise exceptions.RequestParameterInvalidException(
+            "Circular dependency detected: invocation cannot reference its own outputs"
+        )
+
+    # Check for longer cycles by traversing the dependency chain
+    visited = {current_invocation_id}
+    to_check = [source_invocation]
+
+    while to_check:
+        inv = to_check.pop()
+        if inv.id in visited:
+            raise exceptions.RequestParameterInvalidException("Circular dependency detected in invocation chain")
+        visited.add(inv.id)
+
+        # Add any invocations that this one depends on
+        for dep in inv.input_dependencies:
+            if dep.source_invocation and dep.source_invocation.id not in visited:
+                to_check.append(dep.source_invocation)
+
+
+def _resolve_labeled_output(
+    source_invocation: WorkflowInvocation,
+    output_name: str,
+    dependency: WorkflowInvocationInputDependency,
+) -> Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]]:
+    """
+    Resolve an output by workflow output label.
+
+    Returns the resolved content if available, None otherwise.
+    Updates the dependency record with resolved IDs.
+    """
+    # Find the workflow output definition
+    workflow_output = None
+    for wo in source_invocation.workflow.workflow_outputs:
+        if wo.label == output_name:
+            workflow_output = wo
+            break
+
+    if workflow_output is None:
+        raise exceptions.RequestParameterInvalidException(f"Output '{output_name}' not found in source workflow")
+
+    dependency.source_workflow_output_id = workflow_output.id
+
+    # Try to resolve immediately using shared utility
+    content, resolved_dataset_id, resolved_collection_id = resolve_output_by_workflow_output(
+        source_invocation, workflow_output
+    )
+
+    if resolved_dataset_id is not None:
+        dependency.resolved_dataset_id = resolved_dataset_id
+    elif resolved_collection_id is not None:
+        dependency.resolved_collection_id = resolved_collection_id
+
+    return content
+
+
+def _resolve_step_output(
+    trans: "GalaxyWebTransaction",
+    source_invocation: WorkflowInvocation,
+    input_dict: dict[str, Any],
+    dependency: WorkflowInvocationInputDependency,
+) -> Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]]:
+    """
+    Resolve an output by step ID and output name.
+
+    Returns the resolved content if available, None otherwise.
+    Updates the dependency record with resolved IDs.
+    """
+    source_step_id_encoded = input_dict.get("step_id")
+    if not source_step_id_encoded:
+        raise exceptions.RequestParameterInvalidException("step_id is required for invocation_step_output references")
+
+    source_step_id = trans.security.decode_id(source_step_id_encoded)
+    output_name = input_dict.get("output_name", "output")
+
+    dependency.source_step_id = source_step_id
+    dependency.source_output_name = output_name
+
+    # Try to resolve immediately using shared utility
+    content, resolved_dataset_id, resolved_collection_id = resolve_output_by_step(
+        source_invocation, source_step_id, output_name
+    )
+
+    if resolved_dataset_id is not None:
+        dependency.resolved_dataset_id = resolved_dataset_id
+    elif resolved_collection_id is not None:
+        dependency.resolved_collection_id = resolved_collection_id
+
+    return content
+
+
+def _resolve_invocation_output_reference(
+    trans: "GalaxyWebTransaction",
+    input_dict: dict[str, Any],
+    step: "WorkflowStep",
+    workflow: "Workflow",
+    current_invocation_id: Optional[int] = None,
+) -> tuple[
+    Optional[Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation]],
+    Optional[WorkflowInvocationInputDependency],
+]:
+    """
+    Resolve an invocation output reference to an actual dataset/collection.
+
+    Args:
+        trans: The Galaxy web transaction
+        input_dict: The input dictionary containing the reference details
+        step: The workflow step that needs the input
+        workflow: The workflow being invoked
+        current_invocation_id: The ID of the invocation being created (for circular dependency check)
+
+    Returns a tuple of (content, dependency) where:
+    - content: The resolved dataset/collection if available, None if not yet available
+    - dependency: A WorkflowInvocationInputDependency record to track the dependency
+    """
+    src = input_dict.get("src")
+    input_name = input_dict.get("input_name", "input")
+
+    # Validate and fetch source invocation
+    source_invocation_id_encoded = input_dict.get("invocation_id")
+    if not source_invocation_id_encoded:
+        raise exceptions.RequestParameterInvalidException("invocation_id is required for invocation output references")
+
+    source_invocation = _get_source_invocation(trans, source_invocation_id_encoded)
+
+    # Check for circular dependencies
+    _check_circular_dependency(source_invocation, current_invocation_id)
+
     # Create dependency record
     dependency = WorkflowInvocationInputDependency()
     dependency.workflow_step = step
     dependency.input_name = input_name
-    dependency.source_invocation_id = source_invocation_id
+    dependency.source_invocation_id = source_invocation.id
 
     content = None
 
     if src == "invocation_output":
-        # Reference by workflow output label
         output_name = input_dict.get("output_name")
         if not output_name:
             raise exceptions.RequestParameterInvalidException(
                 "output_name is required for invocation_output references"
             )
-
-        # Find the workflow output definition
-        workflow_output = None
-        for wo in source_invocation.workflow.workflow_outputs:
-            if wo.label == output_name:
-                workflow_output = wo
-                break
-
-        if workflow_output is None:
-            raise exceptions.RequestParameterInvalidException(f"Output '{output_name}' not found in source workflow")
-
-        dependency.source_workflow_output_id = workflow_output.id
-
-        # Try to resolve immediately if output is already available
-        for output_assoc in source_invocation.output_datasets:
-            if output_assoc.workflow_output_id == workflow_output.id:
-                dependency.resolved_dataset_id = output_assoc.dataset_id
-                content = output_assoc.dataset
-                break
-        if content is None:
-            for output_assoc in source_invocation.output_dataset_collections:
-                if output_assoc.workflow_output_id == workflow_output.id:
-                    dependency.resolved_collection_id = output_assoc.dataset_collection_id
-                    content = output_assoc.dataset_collection
-                    break
+        content = _resolve_labeled_output(source_invocation, output_name, dependency)
 
     elif src == "invocation_step_output":
-        # Reference by step + output name
-        source_step_id_encoded = input_dict.get("step_id")
-        if not source_step_id_encoded:
-            raise exceptions.RequestParameterInvalidException(
-                "step_id is required for invocation_step_output references"
-            )
-
-        source_step_id = trans.security.decode_id(source_step_id_encoded)
-        output_name = input_dict.get("output_name", "output")
-
-        dependency.source_step_id = source_step_id
-        dependency.source_output_name = output_name
-
-        # Try to resolve immediately
-        for step_inv in source_invocation.steps:
-            if step_inv.workflow_step_id == source_step_id:
-                for output in step_inv.output_datasets:
-                    if output.output_name == output_name:
-                        dependency.resolved_dataset_id = output.dataset_id
-                        content = output.dataset
-                        break
-                if content is None:
-                    for output in step_inv.output_dataset_collections:
-                        if output.output_name == output_name:
-                            dependency.resolved_collection_id = output.dataset_collection_id
-                            content = output.dataset_collection
-                            break
-                break
+        content = _resolve_step_output(trans, source_invocation, input_dict, dependency)
 
     return content, dependency
 

@@ -36,6 +36,7 @@ from galaxy.util.monitors import Monitors
 from galaxy.util.xml_macros import load
 from galaxy.web_stack.handlers import ConfiguresHandlers
 from galaxy.web_stack.message import WorkflowSchedulingMessage
+from galaxy.workflow.invocation_output_resolver import resolve_dependency
 
 if TYPE_CHECKING:
     from galaxy.structured_app import MinimalManagerApp
@@ -449,9 +450,23 @@ class WorkflowRequestMonitor(Monitors):
             # Explicitly fetch source invocation from session to ensure fresh data
             source_invocation = session.get(model.WorkflowInvocation, dependency.source_invocation_id)
             if source_invocation is None:
-                log.warning(f"Source invocation {dependency.source_invocation_id} not found for dependency")
-                all_resolved = False
-                continue
+                # Source invocation was deleted - this is a data integrity issue, fail the invocation
+                log.error(
+                    f"Source invocation {dependency.source_invocation_id} not found for dependency - failing invocation"
+                )
+                workflow_invocation.fail()
+                workflow_invocation.add_message(
+                    InvocationFailureInputDependencyFailed(
+                        workflow_step_id=dependency.workflow_step_id,
+                        reason=FailureReason.input_dependency_failed,
+                        source_invocation_id=dependency.source_invocation_id,
+                        input_name=dependency.input_name,
+                        details="Source invocation no longer exists",
+                    )
+                )
+                session.add(workflow_invocation)
+                session.commit()
+                return False
 
             # Check if source invocation has failed
             if source_invocation.state == InvocationState.FAILED.value:
@@ -522,47 +537,21 @@ class WorkflowRequestMonitor(Monitors):
         source_invocation: model.WorkflowInvocation,
         session: Session,
     ) -> bool:
-        """Try to resolve a single dependency."""
-        log.debug(
-            f"Trying to resolve dependency: source_workflow_output_id={dependency.source_workflow_output_id}, "
-            f"source_step_id={dependency.source_step_id}, source_invocation_id={source_invocation.id}"
-        )
+        """Try to resolve a single dependency using the shared resolver utility."""
+        # Get workflow output if resolving by label
+        workflow_output = None
         if dependency.source_workflow_output_id:
-            # Resolve by workflow output label
             workflow_output = session.get(model.WorkflowOutput, dependency.source_workflow_output_id)
-            log.debug(f"Found workflow_output: {workflow_output}, id={workflow_output.id if workflow_output else None}")
-            if workflow_output:
-                log.debug(f"Source invocation has {len(source_invocation.output_datasets)} output_datasets")
-                for output_assoc in source_invocation.output_datasets:
-                    log.debug(
-                        f"Checking output_assoc: workflow_output_id={output_assoc.workflow_output_id}, dataset_id={output_assoc.dataset_id}"
-                    )
-                    if output_assoc.workflow_output_id == workflow_output.id:
-                        dependency.resolved_dataset_id = output_assoc.dataset_id
-                        session.add(dependency)
-                        return True
-                for output_assoc in source_invocation.output_dataset_collections:
-                    if output_assoc.workflow_output_id == workflow_output.id:
-                        dependency.resolved_collection_id = output_assoc.dataset_collection_id
-                        session.add(dependency)
-                        return True
+            if workflow_output is None:
+                return False
 
-        elif dependency.source_step_id:
-            # Resolve by step output
-            for step_inv in source_invocation.steps:
-                if step_inv.workflow_step_id == dependency.source_step_id:
-                    for output in step_inv.output_datasets:
-                        if output.output_name == dependency.source_output_name:
-                            dependency.resolved_dataset_id = output.dataset_id
-                            session.add(dependency)
-                            return True
-                    for output in step_inv.output_dataset_collections:
-                        if output.output_name == dependency.source_output_name:
-                            dependency.resolved_collection_id = output.dataset_collection_id
-                            session.add(dependency)
-                            return True
+        # Use shared utility to resolve
+        _, resolved = resolve_dependency(dependency, source_invocation, workflow_output)
 
-        return False
+        if resolved:
+            session.add(dependency)
+
+        return resolved
 
     def __attempt_schedule(self, invocation_id, workflow_scheduler):
         with self.app.model.context() as session:

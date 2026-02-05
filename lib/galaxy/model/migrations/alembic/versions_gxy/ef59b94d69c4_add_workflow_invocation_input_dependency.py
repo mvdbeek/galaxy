@@ -1,6 +1,6 @@
 """Add workflow_invocation_input_dependency table
 
-Revision ID: a1b2c3d4e5f6
+Revision ID: ef59b94d69c4
 Revises: 9930b68c85af
 Create Date: 2026-02-04 10:00:00.000000
 
@@ -23,7 +23,7 @@ from galaxy.model.migrations.util import (
 )
 
 # revision identifiers, used by Alembic.
-revision = "a1b2c3d4e5f6"
+revision = "ef59b94d69c4"
 down_revision = "9930b68c85af"
 branch_labels = None
 depends_on = None
@@ -40,7 +40,7 @@ def upgrade():
         Column(
             "workflow_invocation_id",
             Integer,
-            ForeignKey("workflow_invocation.id"),
+            ForeignKey("workflow_invocation.id", onupdate="CASCADE", ondelete="CASCADE"),
             index=True,
             nullable=False,
         ),
@@ -48,7 +48,7 @@ def upgrade():
         Column(
             "workflow_step_id",
             Integer,
-            ForeignKey("workflow_step.id"),
+            ForeignKey("workflow_step.id", onupdate="CASCADE", ondelete="CASCADE"),
             index=True,
             nullable=False,
         ),
@@ -58,7 +58,7 @@ def upgrade():
         Column(
             "source_invocation_id",
             Integer,
-            ForeignKey("workflow_invocation.id"),
+            ForeignKey("workflow_invocation.id", onupdate="CASCADE", ondelete="CASCADE"),
             index=True,
             nullable=False,
         ),
@@ -66,7 +66,7 @@ def upgrade():
         Column(
             "source_workflow_output_id",
             Integer,
-            ForeignKey("workflow_output.id"),
+            ForeignKey("workflow_output.id", onupdate="CASCADE", ondelete="SET NULL"),
             index=True,
             nullable=True,
         ),
@@ -74,7 +74,7 @@ def upgrade():
         Column(
             "source_step_id",
             Integer,
-            ForeignKey("workflow_step.id"),
+            ForeignKey("workflow_step.id", onupdate="CASCADE", ondelete="SET NULL"),
             index=True,
             nullable=True,
         ),
@@ -83,14 +83,14 @@ def upgrade():
         Column(
             "resolved_dataset_id",
             Integer,
-            ForeignKey("history_dataset_association.id"),
+            ForeignKey("history_dataset_association.id", onupdate="CASCADE", ondelete="SET NULL"),
             index=True,
             nullable=True,
         ),
         Column(
             "resolved_collection_id",
             Integer,
-            ForeignKey("history_dataset_collection_association.id"),
+            ForeignKey("history_dataset_collection_association.id", onupdate="CASCADE", ondelete="SET NULL"),
             index=True,
             nullable=True,
         ),
