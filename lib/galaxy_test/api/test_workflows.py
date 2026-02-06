@@ -3351,6 +3351,130 @@ test_data:
                 if step["workflow_step_label"].startswith("consume_expression_parameter_"):
                     assert sum(1 for j in step["jobs"] if j["state"] == "skipped") == 1
 
+    @skip_without_tool("empty_list")
+    def test_zero_length_collection_pick_value(self):
+        """Test that a 0-length collection acts as 'not provided' for optional inputs.
+
+        When pick_value receives a collection of length 1 and a collection of length 0,
+        the 0-length collection should be treated as a null/not-provided optional dataset,
+        allowing pick_value to select the value from the non-empty collection.
+        """
+        with self.dataset_populator.test_history() as history_id:
+            summary = self._run_workflow(
+                """
+class: GalaxyWorkflow
+inputs:
+  input_collection:
+    type: collection
+    collection_type: list
+  input_file: data
+outputs:
+  my_output:
+    outputSource: pick_value/data_param
+steps:
+  empty_list:
+    tool_id: empty_list
+    in:
+      input1: input_file
+  pick_value:
+    tool_id: pick_value
+    tool_state:
+      style_cond:
+        __current_case__: 0
+        pick_style: first
+        type_cond:
+          __current_case__: 4
+          param_type: data
+          pick_from:
+          - __index__: 0
+            value:
+              __class__: RuntimeValue
+          - __index__: 1
+            value:
+              __class__: RuntimeValue
+    in:
+      style_cond|type_cond|pick_from_0|value:
+        source: input_collection
+      style_cond|type_cond|pick_from_1|value:
+        source: empty_list/output
+""",
+                test_data="""
+input_collection:
+  collection_type: list
+  elements:
+    - identifier: element1
+      content: "Hello World"
+input_file:
+  value: 1.bed
+  type: File
+""",
+                history_id=history_id,
+            )
+            invocation_details = self.workflow_populator.get_invocation(summary.invocation_id, step_details=True)
+            output_collection_id = invocation_details["output_collections"]["my_output"]["id"]
+            hdca_details = self.dataset_populator.get_history_collection_details(
+                history_id=history_id, content_id=output_collection_id
+            )
+            elements = hdca_details["elements"]
+            assert len(elements) == 1
+            content = self.dataset_populator.get_history_dataset_content(
+                history_id, content_id=elements[0]["object"]["id"]
+            )
+            assert content.strip() == "Hello World"
+
+    @skip_without_tool("empty_list")
+    def test_zero_length_collection_with_non_optional_fails(self):
+        """Test that a 0-length collection still fails for non-optional inputs.
+
+        When cat1 (which has required input1) is mapped over with the required
+        input1 connected to a 0-length collection and the repeat input connected
+        to a 1-length collection, the cat1 job should fail because a
+        non-optional input receives a null/missing value.
+        """
+        with self.dataset_populator.test_history() as history_id:
+            summary = self._run_workflow(
+                """
+class: GalaxyWorkflow
+inputs:
+  input_collection:
+    type: collection
+    collection_type: list
+  input_file: data
+outputs:
+  my_output:
+    outputSource: cat1/out_file1
+steps:
+  empty_list:
+    tool_id: empty_list
+    in:
+      input1: input_file
+  cat1:
+    tool_id: cat1
+    in:
+      input1: empty_list/output
+      queries_0|input2: input_collection
+""",
+                test_data="""
+input_collection:
+  collection_type: list
+  elements:
+    - identifier: element1
+      content: "Hello World"
+input_file:
+  value: 1.bed
+  type: File
+""",
+                history_id=history_id,
+                assert_ok=False,
+                wait=True,
+            )
+            invocation_details = self.workflow_populator.get_invocation(summary.invocation_id, step_details=True)
+            cat1_steps = [s for s in invocation_details["steps"] if s["workflow_step_label"] == "cat1"]
+            assert len(cat1_steps) == 1
+            cat1_jobs = cat1_steps[0]["jobs"]
+            assert len(cat1_jobs) == 1
+            assert cat1_jobs[0]["state"] == "error"
+
     def test_run_subworkflow_simple(self) -> None:
         with self.dataset_populator.test_history() as history_id:
             summary = self._run_workflow(

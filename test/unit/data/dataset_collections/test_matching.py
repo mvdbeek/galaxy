@@ -34,6 +34,13 @@ def test_lists_of_different_cardinality_do_not_match():
     assert_cannot_match(list_2, list_1)
 
 
+def test_zero_length_list_can_match_any_list():
+    empty = list_instance(ids=[])
+    non_empty = list_instance(ids=["data1"])
+    assert_can_match(empty, non_empty)
+    assert_can_match(non_empty, empty)
+
+
 def test_valid_collection_subcollection_matching():
     flat_list = list_instance(ids=["data1", "data2", "data3"])
     nested_list = example_list_of_paired_datasets()
@@ -246,6 +253,7 @@ class MockCollection:
     def __init__(self, collection_type, elements):
         self.collection_type = collection_type
         self.elements = elements
+        self.element_count = len(elements)
         self.populated = True
         self.column_definitions = None
 

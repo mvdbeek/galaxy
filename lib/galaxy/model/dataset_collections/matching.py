@@ -64,6 +64,15 @@ class MatchingCollections:
         else:
             if not self.linked_structure.can_match(structure):
                 raise exceptions.MessageException(CANNOT_MATCH_ERROR_MESSAGE)
+            # Prefer a non-empty structure as the linked_structure since it
+            # drives the iteration count during walk_collections.
+            if (
+                self.linked_structure.children_known
+                and not self.linked_structure.children
+                and structure.children_known
+                and structure.children
+            ):
+                self.linked_structure = structure
             self.collections[input_name] = hdca
             self.subcollection_types[input_name] = subcollection_type
 

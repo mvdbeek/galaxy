@@ -107,6 +107,10 @@ class Tree(BaseTree):
         for index, (_identifier, substructure) in enumerate(self.children):
 
             def get_element(collection):
+                # A 0-length collection yields None for all elements, acting as
+                # "not provided" for optional inputs.
+                if collection.element_count == 0:
+                    return None
                 return collection[index]  # noqa: B023
 
             when_value = None
@@ -119,7 +123,14 @@ class Tree(BaseTree):
             if substructure.is_leaf:
                 yield dict_map(get_element, collection_dict), when_value
             else:
-                sub_collections = dict_map(lambda collection: get_element(collection).child_collection, collection_dict)
+
+                def _get_child_or_passthrough(collection):
+                    elem = get_element(collection)
+                    # For 0-length collections, pass through the empty collection
+                    # so recursive walks continue to yield None at leaf level.
+                    return elem.child_collection if elem is not None else collection
+
+                sub_collections = dict_map(_get_child_or_passthrough, collection_dict)
                 for element, _when_value in substructure._walk_collections(sub_collections):
                     yield element, when_value
 
@@ -130,6 +141,12 @@ class Tree(BaseTree):
     def can_match(self, other_structure):
         if not self.collection_type_description.can_match_type(other_structure.collection_type_description):
             return False
+
+        # A 0-length collection can match any other collection of compatible type.
+        # When walked, it will yield None for its elements (acting as "not provided"
+        # for optional inputs).
+        if len(self.children) == 0 or len(other_structure.children) == 0:
+            return True
 
         if len(self.children) != len(other_structure.children):
             return False
