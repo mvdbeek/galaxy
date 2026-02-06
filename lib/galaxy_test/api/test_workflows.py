@@ -3474,6 +3474,10 @@ input_file:
             cat1_jobs = cat1_steps[0]["jobs"]
             assert len(cat1_jobs) == 1
             assert cat1_jobs[0]["state"] == "error"
+            job_details = self.dataset_populator.get_job_details(cat1_jobs[0]["id"], full=True).json()
+            # Job should have errored before execution — required input1 was null
+            assert job_details["params"]["input1"] is None
+            assert job_details["command_line"] is None
 
     def test_run_subworkflow_simple(self) -> None:
         with self.dataset_populator.test_history() as history_id:
