@@ -35,6 +35,10 @@ from galaxy.job_execution.output_collect import (
 )
 from galaxy.jobs.command_factory import build_command
 from galaxy.jobs.job_destination import JobDestination
+from galaxy.jobs.signals import (
+    _StopSignal,
+    STOP_SIGNAL,
+)
 from galaxy.jobs.runners.util import runner_states
 from galaxy.jobs.runners.util.env import env_to_statement
 from galaxy.jobs.runners.util.job_script import (
@@ -71,21 +75,6 @@ if TYPE_CHECKING:
     from galaxy.schema.schema import JobState as JobStateEnum
 
 log = get_logger(__name__)
-
-
-class _StopSignal:
-    """Sentinel type for signaling monitor/worker threads to shut down.
-
-    Using a dedicated class instead of a bare ``object()`` ensures the
-    queue type annotation (``Queue[Union[T, _StopSignal]]``) is
-    expressible and prevents subclasses from accidentally shadowing the
-    sentinel with their own ``object()`` instance.
-    """
-
-    pass
-
-
-STOP_SIGNAL = _StopSignal()
 
 
 JOB_RUNNER_PARAMETER_UNKNOWN_MESSAGE = "Invalid job runner parameter for this plugin: %s"

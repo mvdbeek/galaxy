@@ -38,6 +38,10 @@ from galaxy.jobs import (
 )
 from galaxy.jobs.job_destination import JobDestination
 from galaxy.jobs.mapper import JobNotReadyException
+from galaxy.jobs.signals import (
+    _StopSignal,
+    STOP_SIGNAL,
+)
 from galaxy.managers.jobs import get_jobs_to_check_at_startup
 from galaxy.model.base import check_database_connection
 from galaxy.structured_app import MinimalManagerApp
@@ -237,8 +241,6 @@ class StopSignalException(Exception):
 
 
 class BaseJobHandlerQueue(JobQueueI, Monitors):
-    STOP_SIGNAL = object()
-
     def __init__(self, app: MinimalManagerApp, dispatcher: "DefaultJobDispatcher"):
         """
         Initializes the Queue, creates (unstarted) monitoring thread.
@@ -250,7 +252,7 @@ class BaseJobHandlerQueue(JobQueueI, Monitors):
         # Keep track of the pid that started the job manager, only it has valid threads
         self.parent_pid = os.getpid()
         # This queue is not used if track_jobs_in_database is True.
-        self.queue: Queue[tuple[int, Optional[str]]] = Queue()
+        self.queue: Queue[Union[tuple[int, Optional[str]], _StopSignal]] = Queue()
 
 
 class JobHandlerQueue(BaseJobHandlerQueue):
@@ -520,7 +522,7 @@ class JobHandlerQueue(BaseJobHandlerQueue):
             try:
                 while 1:
                     message = self.queue.get_nowait()
-                    if message is self.STOP_SIGNAL:
+                    if message is STOP_SIGNAL:
                         raise StopSignalException()
                     # Unpack the message
                     job_id, tool_id = message
@@ -1051,7 +1053,7 @@ class JobHandlerQueue(BaseJobHandlerQueue):
             log.info("sending stop signal to worker thread")
             self.stop_monitoring()
             if not self.track_jobs_in_database:
-                self.queue.put(self.STOP_SIGNAL)
+                self.queue.put(STOP_SIGNAL)
             # A message could still be received while shutting down, should be ok since they will be picked up on next startup.
             self.sleeper.wake()
             self.shutdown_monitor()
@@ -1131,7 +1133,7 @@ class JobHandlerStopQueue(BaseJobHandlerQueue):
             log.info("sending stop signal to worker thread")
             self.stop_monitoring()
             if not self.track_jobs_in_database:
-                self.queue.put(self.STOP_SIGNAL)
+                self.queue.put(STOP_SIGNAL)
             self.shutdown_monitor()
             log.info("job handler stop queue stopped")
 
@@ -1156,7 +1158,7 @@ class JobHandlerStopQueue(BaseJobHandlerQueue):
         try:
             while 1:
                 message = self.queue.get_nowait()
-                if message is self.STOP_SIGNAL:
+                if message is STOP_SIGNAL:
                     raise StopSignalException()
                 job_id, error_msg = message
                 job = self.sa_session.get(model.Job, job_id)
