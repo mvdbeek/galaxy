@@ -72,7 +72,20 @@ if TYPE_CHECKING:
 
 log = get_logger(__name__)
 
-STOP_SIGNAL = object()
+
+class _StopSignal:
+    """Sentinel type for signaling monitor/worker threads to shut down.
+
+    Using a dedicated class instead of a bare ``object()`` ensures the
+    queue type annotation (``Queue[Union[T, _StopSignal]]``) is
+    expressible and prevents subclasses from accidentally shadowing the
+    sentinel with their own ``object()`` instance.
+    """
+
+    pass
+
+
+STOP_SIGNAL = _StopSignal()
 
 
 JOB_RUNNER_PARAMETER_UNKNOWN_MESSAGE = "Invalid job runner parameter for this plugin: %s"
@@ -855,7 +868,7 @@ class AsynchronousJobRunner(BaseJobRunner, Monitors, Generic[T]):
     to the correct methods (queue, finish, cleanup) at appropriate times..
     """
 
-    monitor_queue: Queue[T]
+    monitor_queue: Queue[Union[T, _StopSignal]]
     watched: list[T]
 
     def __init__(self, app: "GalaxyManagerApplication", nworkers: int, **kwargs) -> None:
