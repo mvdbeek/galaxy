@@ -20,6 +20,7 @@ from galaxy.jobs.runners import (
     AsynchronousJobRunner,
     AsynchronousJobState,
     JobState,
+    STOP_SIGNAL,
 )
 from galaxy.util import (
     smart_str,
@@ -44,8 +45,6 @@ except ImportError as e:
 
 __all__ = ("AWSBatchJobRunner",)
 log = logging.getLogger(__name__)
-
-STOP_SIGNAL = object()
 
 
 class AWSBatchRunnerException(Exception):
