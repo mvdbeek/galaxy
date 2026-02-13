@@ -1937,15 +1937,12 @@ class SectionParameterModel(BaseGalaxyToolParameterModelDefinition):
         return any_request_parameters_required
 
 
-LiteralNone: Type = Literal[None]  # type: ignore[assignment]
-
-
 class CwlNullParameterModel(BaseToolParameterModelDefinition):
     parameter_type: Literal["cwl_null"] = "cwl_null"
 
     @property
     def py_type(self) -> Type:
-        return LiteralNone
+        return type(None)
 
     def pydantic_template(self, state_representation: StateRepresentationT) -> DynamicModelInformation:
         return DynamicModelInformation(
@@ -2047,15 +2044,11 @@ class CwlUnionParameterModel(BaseToolParameterModelDefinition):
         return union_type(union_of_cwl_types)
 
     def pydantic_template(self, state_representation: StateRepresentationT) -> DynamicModelInformation:
-        return DynamicModelInformation(
-            self.name,
-            (self.py_type, ...),
-            {},
-        )
+        return dynamic_model_information_from_py_type(self, self.py_type)
 
     @property
     def request_requires_value(self) -> bool:
-        return False  # TODO:
+        return not any(p.parameter_type == "cwl_null" for p in self.parameters)
 
 
 class CwlFileParameterModel(BaseGalaxyToolParameterModelDefinition):
