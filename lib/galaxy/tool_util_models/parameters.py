@@ -620,6 +620,32 @@ class DataInternalJson(StrictModel):
     size: int
 
 
+class CwlFileRuntimeJson(StrictModel):
+    """CWL native File format — fields match cwltool's normalizeFilesDirs output."""
+
+    class_: Annotated[Literal["File"], Field(alias="class")]
+    location: str
+    basename: str
+    nameroot: str
+    nameext: str  # can be ""
+    path: Optional[str] = None
+    size: Optional[int] = None
+    checksum: Optional[str] = None
+    format: Optional[str] = None
+    contents: Optional[str] = None
+    secondaryFiles: Optional[List[Any]] = None
+
+
+class CwlDirectoryRuntimeJson(StrictModel):
+    """CWL native Directory format — fields match cwltool's normalizeFilesDirs output."""
+
+    class_: Annotated[Literal["Directory"], Field(alias="class")]
+    location: str
+    basename: str
+    path: Optional[str] = None
+    listing: Optional[List[Any]] = None
+
+
 class DataCollectionElementInternalJson(DataInternalJson):
     """A file within a collection element - adds collection-specific metadata."""
 
@@ -2084,7 +2110,7 @@ class CwlFileParameterModel(BaseGalaxyToolParameterModelDefinition):
 
     @property
     def py_type_internal_json(self) -> Type:
-        return DataInternalJson
+        return CwlFileRuntimeJson
 
     def py_type_for_state(self, state_representation: StateRepresentationT) -> Type:
         if state_representation in ("request_internal", "request_internal_dereferenced", "job_internal"):
@@ -2129,7 +2155,7 @@ class CwlDirectoryParameterModel(BaseGalaxyToolParameterModelDefinition):
 
     @property
     def py_type_internal_json(self) -> Type:
-        return DataInternalJson
+        return CwlDirectoryRuntimeJson
 
     def py_type_for_state(self, state_representation: StateRepresentationT) -> Type:
         if state_representation in ("request_internal", "request_internal_dereferenced", "job_internal"):
@@ -2209,6 +2235,9 @@ class CwlArrayParameterModel(BaseToolParameterModelDefinition):
     def py_type(self) -> Type:
         return list_type(self.item_type.py_type)
 
+    def py_type_for_state(self, state_representation: StateRepresentationT) -> Type:
+        return list_type(self.item_type.py_type_for_state(state_representation))
+
     def pydantic_template(self, state_representation: StateRepresentationT) -> DynamicModelInformation:
         item_py_type = self.item_type.py_type_for_state(state_representation)
         arr_type = list_type(item_py_type)
@@ -2238,6 +2267,9 @@ class CwlRecordParameterModel(BaseToolParameterModelDefinition):
             alias = field_param.name if field_param.name != name else None
             kwd[name] = (field_param.py_type, Field(..., alias=alias))
         return create_model_strict(f"CwlRecord_{self.name}", **kwd)
+
+    def py_type_for_state(self, state_representation: StateRepresentationT) -> Type:
+        return self._record_type_for_state(state_representation)
 
     def _record_type_for_state(self, state_representation: StateRepresentationT) -> Type:
         kwd = {}
