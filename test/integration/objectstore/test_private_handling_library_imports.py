@@ -9,14 +9,10 @@ with private permissions, regardless of the input's origin.
 import string
 
 from galaxy_test.base import api_asserts
-from galaxy_test.base.populators import (
-    DatasetPopulator,
-    LibraryPopulator,
-)
+from galaxy_test.base.populators import LibraryPopulator
 from ._base import BaseObjectStoreIntegrationTestCase
 
-DISTRIBUTED_OBJECT_STORE_WITH_PRIVATE_CONFIG_TEMPLATE = string.Template(
-    """<?xml version="1.0"?>
+DISTRIBUTED_OBJECT_STORE_WITH_PRIVATE_CONFIG_TEMPLATE = string.Template("""<?xml version="1.0"?>
 <object_store type="distributed" id="primary" order="0">
     <backends>
         <backend id="default" allow_selection="true" type="disk" weight="1" name="Default Store">
@@ -31,8 +27,7 @@ DISTRIBUTED_OBJECT_STORE_WITH_PRIVATE_CONFIG_TEMPLATE = string.Template(
         </backend>
     </backends>
 </object_store>
-"""
-)
+""")
 
 
 class TestToolOutputFromLibraryImportWithPrivateObjectStore(BaseObjectStoreIntegrationTestCase):
@@ -54,7 +49,6 @@ class TestToolOutputFromLibraryImportWithPrivateObjectStore(BaseObjectStoreInteg
 
     def setUp(self):
         super().setUp()
-        self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
         self.library_populator = LibraryPopulator(self.galaxy_interactor)
 
     def test_tool_output_uses_history_preferred_private_store_with_library_input(self):
@@ -67,9 +61,9 @@ class TestToolOutputFromLibraryImportWithPrivateObjectStore(BaseObjectStoreInteg
             # Upload a dataset directly — should work and land in the private store
             hda_direct = self.dataset_populator.new_dataset(history_id, content="1 2 3", wait=True)
             direct_storage = self.dataset_populator.dataset_storage_info(hda_direct["id"])
-            assert direct_storage["object_store_id"] == "private", (
-                f"Direct upload should go to private store, got {direct_storage['object_store_id']}"
-            )
+            assert (
+                direct_storage["object_store_id"] == "private"
+            ), f"Direct upload should go to private store, got {direct_storage['object_store_id']}"
 
             # Run a tool on the directly-uploaded dataset — should succeed
             run_response = self.dataset_populator.run_tool(
@@ -94,9 +88,9 @@ class TestToolOutputFromLibraryImportWithPrivateObjectStore(BaseObjectStoreInteg
 
             # Verify the copied dataset is from the default (public) store
             copied_storage = self.dataset_populator.dataset_storage_info(copied_hda["id"])
-            assert copied_storage["object_store_id"] == "default", (
-                f"Library import should retain default store, got {copied_storage['object_store_id']}"
-            )
+            assert (
+                copied_storage["object_store_id"] == "default"
+            ), f"Library import should retain default store, got {copied_storage['object_store_id']}"
 
             # Make the imported dataset public — simulating a dataset from a public
             # data library where datasets are accessible to all users. This is the
@@ -126,6 +120,6 @@ class TestToolOutputFromLibraryImportWithPrivateObjectStore(BaseObjectStoreInteg
             outputs = job_details["outputs"]
             output = list(outputs.values())[0] if isinstance(outputs, dict) else outputs[0]
             output_storage = self.dataset_populator.dataset_storage_info(output["id"])
-            assert output_storage["object_store_id"] == "private", (
-                f"Tool output should be in the private store, got {output_storage['object_store_id']}"
-            )
+            assert (
+                output_storage["object_store_id"] == "private"
+            ), f"Tool output should be in the private store, got {output_storage['object_store_id']}"
