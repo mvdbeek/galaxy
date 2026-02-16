@@ -513,6 +513,14 @@ class DefaultToolAction(ToolAction):
             # Determine output dataset permission/roles list
             if all_permissions:
                 output_permissions = app.security_agent.guess_derived_permissions(all_permissions)
+                # Ensure history default access restrictions are applied even when
+                # inputs are less restrictive (e.g. public library datasets). The
+                # history defaults reflect the user's intent for output privacy.
+                # See https://github.com/galaxyproject/galaxy/issues/21802
+                history_permissions = app.security_agent.history_get_default_permissions(history)
+                access_action = app.security_agent.get_action("access")
+                if access_action in history_permissions and access_action not in output_permissions:
+                    output_permissions[access_action] = history_permissions[access_action]
             else:
                 # No valid inputs, we will use history defaults
                 output_permissions = app.security_agent.history_get_default_permissions(history)
