@@ -1812,6 +1812,31 @@ class MinimalJobWrapper(HasResourceParameters):
     ) -> None:
         """Subclasses should implement this to persist a destination, if necessary."""
 
+    def _make_job_output_datasets_private(self, job: Job) -> None:
+        """Make all output datasets private to the job's user.
+
+        When a job targets a private object store but output permissions were
+        derived from non-private inputs (e.g. public library datasets), the
+        permissions need to be tightened to match the store's privacy requirement.
+        """
+        security_agent = self.app.security_agent
+        user = job.user
+        if user is None:
+            return
+        private_role = security_agent.get_private_user_role(user)
+        if private_role is None:
+            return
+        access_action = security_agent.permitted_actions.DATASET_ACCESS
+        manage_action = security_agent.permitted_actions.DATASET_MANAGE_PERMISSIONS
+        private_permissions = {
+            access_action: [private_role],
+            manage_action: [private_role],
+        }
+        for dataset_assoc in job.output_datasets + job.output_library_datasets:
+            security_agent.set_all_dataset_permissions(
+                dataset_assoc.dataset.dataset, private_permissions, flush=False
+            )
+
     def _set_object_store_ids(self, job: Job):
         if job.object_store_id:
             # We aren't setting this during job creation anymore, but some existing
@@ -1905,6 +1930,16 @@ class MinimalJobWrapper(HasResourceParameters):
                 object_store_id = user.preferred_object_store_id
 
         require_shareable = job.requires_shareable_storage(self.app.security_agent)
+        if require_shareable and object_store_id:
+            # The target store was explicitly selected (by history, user, or workflow preference).
+            # If it's private but output permissions (derived from inputs) are non-private,
+            # make the outputs private to match the store. This handles the case where inputs
+            # come from a public source (e.g. data library) but the user's history is configured
+            # with a private object store. See https://github.com/galaxyproject/galaxy/issues/21802
+            concrete_store = self.app.object_store.get_concrete_store_by_object_store_id(object_store_id)
+            if concrete_store is not None and concrete_store.private:
+                self._make_job_output_datasets_private(job)
+                require_shareable = False
         if split_object_stores is None:
             object_store_populator = ObjectStorePopulator(self.app, user)
 
