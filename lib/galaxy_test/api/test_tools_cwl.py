@@ -110,6 +110,7 @@ class TestCwlTools(ApiTestCase):
         run_object = self._run(tool_id, history_id, inputs, **kwds)
         assert isinstance(run_object, CwlToolRun)
         run_object.wait()
+        assert isinstance(run_object, CwlToolRun)
         return self._get_job_stdout(run_object.job_id)
 
     def _get_job_stdout(self, job_id: str) -> str:
