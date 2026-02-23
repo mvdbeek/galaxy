@@ -109,6 +109,7 @@ class TestCwlTools(ApiTestCase):
     def _run_and_get_stdout(self, tool_id: str, history_id: str, inputs: dict[str, Any], **kwds) -> str:
         run_object = self._run(tool_id, history_id, inputs, **kwds)
         run_object.wait()
+        assert isinstance(run_object, CwlToolRun)
         return self._get_job_stdout(run_object.job_id)
 
     def _get_job_stdout(self, job_id: str) -> str:
