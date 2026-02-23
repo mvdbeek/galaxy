@@ -1122,23 +1122,8 @@ class InputDataModule(InputModule):
         return dict(input=input_param)
 
     def get_inputs(self):
-        parameter_def = self._parse_state_into_dict()
-        tag = parameter_def["tag"]
-        tag_source = dict(
-            name="tag",
-            label="Tag filter",
-            type="text",
-            optional="true",
-            value=tag,
-            help="Tags to automatically filter inputs",
-        )
-        input_tag = TextToolParameter(None, tag_source)
-        optional = parameter_def["optional"]
-        inputs = {}
-        inputs["optional"] = optional_param(optional)
-        inputs["format"] = format_param(self.trans, parameter_def.get("format"))
-        inputs["tag"] = input_tag
-        return inputs
+        # migrated to frontend
+        return {}
 
 
 class InputDataCollectionModule(InputModule):

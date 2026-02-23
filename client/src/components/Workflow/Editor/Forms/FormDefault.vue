@@ -43,8 +43,14 @@
                 v-if="isSubworkflow"
                 :step="step"
                 @onUpdateStep="(id, step) => emit('onUpdateStep', id, step)" />
+            <FormInputDataInput
+                v-if="type == 'data_input'"
+                :step="step"
+                :datatypes="datatypes"
+                @onChange="onChange">
+            </FormInputDataInput>
             <FormInputCollection
-                v-if="type == 'data_collection_input'"
+                v-else-if="type == 'data_collection_input'"
                 :step="step"
                 :datatypes="datatypes"
                 :inputs="configForm?.inputs"
@@ -86,6 +92,7 @@ import FormCard from "@/components/Form/FormCard.vue";
 import FormDisplay from "@/components/Form/FormDisplay.vue";
 import FormElement from "@/components/Form/FormElement.vue";
 import FormInputCollection from "@/components/Workflow/Editor/Forms/FormInputCollection.vue";
+import FormInputDataInput from "@/components/Workflow/Editor/Forms/FormInputDataInput.vue";
 import FormOutputLabel from "@/components/Workflow/Editor/Forms/FormOutputLabel.vue";
 
 const props = defineProps<{
