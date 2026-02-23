@@ -1797,6 +1797,10 @@ class ConditionalParameterModel(BaseGalaxyToolParameterModelDefinition):
     test_parameter: Union[BooleanParameterModel, SelectParameterModel]
     whens: List[ConditionalWhen]
 
+    @property
+    def py_type(self) -> Type:
+        raise NotImplementedError("Container parameter - use pydantic_template instead")
+
     def pydantic_template(self, state_representation: StateRepresentationT) -> DynamicModelInformation:
         is_boolean = isinstance(self.test_parameter, BooleanParameterModel)
         test_param_name = self.test_parameter.name
@@ -1904,6 +1908,10 @@ class RepeatParameterModel(BaseGalaxyToolParameterModelDefinition):
     min: Optional[int] = None
     max: Optional[int] = None
 
+    @property
+    def py_type(self) -> Type:
+        raise NotImplementedError("Container parameter - use pydantic_template instead")
+
     def pydantic_template(self, state_representation: StateRepresentationT) -> DynamicModelInformation:
         # Maybe validators for min and max...
         instance_class: Type[BaseModel] = create_field_model(
@@ -1949,6 +1957,10 @@ class SectionParameterModel(BaseGalaxyToolParameterModelDefinition):
     parameter_type: Literal["gx_section"] = "gx_section"
     type: Literal["section"]
     parameters: List["ToolParameterT"]
+
+    @property
+    def py_type(self) -> Type:
+        raise NotImplementedError("Container parameter - use pydantic_template instead")
 
     def pydantic_template(self, state_representation: StateRepresentationT) -> DynamicModelInformation:
         instance_class: Type[BaseModel] = create_field_model(
