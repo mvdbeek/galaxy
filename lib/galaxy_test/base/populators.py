@@ -1602,10 +1602,9 @@ class BaseDatasetPopulator(BasePopulator):
         return users[0]["email"]
 
     def user_id(self) -> str:
-        users_response = self._get("users")
-        users = users_response.json()
-        assert len(users) == 1
-        return users[0]["id"]
+        user_response = self._get("users/current")
+        user_response.raise_for_status()
+        return user_response.json()["id"]
 
     def user_private_role_id(self) -> str:
         userid = self.user_id()
