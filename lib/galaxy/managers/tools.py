@@ -203,12 +203,20 @@ class DynamicToolManager(ModelManager[DynamicTool]):
                 "Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools."
             )
 
+    DEFAULT_CWL_DOCKER_IMAGE = "debian:stable-slim"
+
     @staticmethod
-    def _ensure_cwl_container(proxy: "ToolProxy"):
-        if proxy.docker_identifier() is None:
-            raise exceptions.RequestParameterInvalidException(
-                "User-defined CWL tools must specify a DockerRequirement."
-            )
+    def _ensure_cwl_docker_requirement(raw_tool: dict):
+        """Inject a default DockerRequirement if the CWL tool doesn't declare one."""
+        requirements = raw_tool.get("requirements", [])
+        hints = raw_tool.get("hints", [])
+        for entry in requirements + hints:
+            if isinstance(entry, dict) and entry.get("class") == "DockerRequirement":
+                return
+        raw_tool.setdefault("requirements", [])
+        raw_tool["requirements"].append(
+            {"class": "DockerRequirement", "dockerPull": DynamicToolManager.DEFAULT_CWL_DOCKER_IMAGE}
+        )
 
     def create_unprivileged_tool(
         self, user: model.User, tool_payload: DynamicUnprivilegedToolCreatePayload
@@ -222,9 +230,8 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         if tool_format in ("CommandLineTool", "ExpressionTool"):
             uuid = model.get_uuid()
             raw_cwl = representation.raw_process_reference
+            self._ensure_cwl_docker_requirement(raw_cwl)
             proxy = tool_proxy(tool_object=raw_cwl, uuid=uuid)
-            if tool_format == "CommandLineTool":
-                self._ensure_cwl_container(proxy)
             tool_id = representation.id or proxy.galaxy_id()
             tool_version = representation.version or raw_cwl.get("version")
             value = proxy.to_persistent_representation()
@@ -261,6 +268,7 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         if existing:
             return existing
 
+        self._ensure_cwl_docker_requirement(proxy._tool.tool)
         representation = proxy.to_persistent_representation()
         dynamic_tool = self.create(
             tool_format=proxy._class,

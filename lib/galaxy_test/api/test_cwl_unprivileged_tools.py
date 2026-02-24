@@ -56,9 +56,8 @@ class TestCwlUnprivilegedTools(ApiTestCase):
         # Verify the representation round-trips
         assert result["representation"]["class"] == cwl_doc["class"]
 
-    def test_create_cwl_tool_without_docker_rejected(self):
-        """CWL tools without DockerRequirement must be rejected."""
-        # cwl_int.cwl is an ExpressionTool with no DockerRequirement
+    def test_create_cwl_tool_without_docker_gets_default(self):
+        """CWL tools without DockerRequirement get a default container."""
         cwl_doc = _load_cwl(_cwl_tool_path("parameters/cwl_int.cwl"))
         payload = {
             "src": "representation",
@@ -68,7 +67,14 @@ class TestCwlUnprivilegedTools(ApiTestCase):
             },
         }
         response = self.dataset_populator._post("unprivileged_tools", data=payload, json=True)
-        assert response.status_code != 200, "Expected rejection for CWL tool without DockerRequirement"
+        assert response.status_code == 200, response.text
+        result = response.json()
+        # The persisted raw_process_reference should have a DockerRequirement injected
+        raw_ref = result["representation"]["raw_process_reference"]
+        reqs = raw_ref.get("requirements", [])
+        docker_reqs = [r for r in reqs if r.get("class") == "DockerRequirement"]
+        assert docker_reqs, "Expected a default DockerRequirement to be injected"
+        assert docker_reqs[0]["dockerPull"] == "debian:stable-slim"
 
     def test_list_user_cwl_tools(self):
         """Verify imported CWL tools appear in GET /api/unprivileged_tools."""
