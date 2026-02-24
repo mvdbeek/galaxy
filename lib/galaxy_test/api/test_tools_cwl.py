@@ -21,11 +21,15 @@ class TestCwlTools(ApiTestCase):
     require_admin_user = True
 
     def setUp(self):
-        """Setup dataset populator."""
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
         workflow_populator = WorkflowPopulator(self.galaxy_interactor)
         self.cwl_populator = CwlPopulator(self.dataset_populator, workflow_populator)
+        self.cwl_populator.setup_permissions()
+
+    def tearDown(self):
+        self.cwl_populator.teardown_permissions()
+        super().tearDown()
 
     @skip_without_tool("cat1-tool.cwl")
     def test_cat1_number(self, history_id: str) -> None:

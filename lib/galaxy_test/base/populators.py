@@ -3043,6 +3043,21 @@ class CwlPopulator:
     def __init__(self, dataset_populator: DatasetPopulator, workflow_populator: WorkflowPopulator):
         self.dataset_populator = dataset_populator
         self.workflow_populator = workflow_populator
+        self._permissions_ctx: Optional[contextlib.AbstractContextManager] = None
+
+    def setup_permissions(self):
+        """Set up user_tool_execute permissions required for CWL operations.
+
+        Call from test setUp(), paired with teardown_permissions() in tearDown().
+        """
+        self._permissions_ctx = self.dataset_populator.user_tool_execute_permissions()
+        self._permissions_ctx.__enter__()
+
+    def teardown_permissions(self):
+        """Clean up user_tool_execute permissions. Call from test tearDown()."""
+        if self._permissions_ctx is not None:
+            self._permissions_ctx.__exit__(None, None, None)
+            self._permissions_ctx = None
 
     def create_unprivileged_cwl_tool(self, cwl_tool_path: str, assert_ok=True) -> dict[str, Any]:
         """Create a user-scoped CWL tool from a file path via the unprivileged tools API."""
