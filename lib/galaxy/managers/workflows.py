@@ -673,8 +673,12 @@ class WorkflowContentsManager(UsesAnnotations):
                 wf_proxy = workflow_proxy(workflow_path)
             tool_reference_proxies = wf_proxy.tool_reference_proxies()
             for tool_reference_proxy in tool_reference_proxies:
-                # TODO: Namespace IDS in workflows.
-                self.app.dynamic_tool_manager.create_tool_from_proxy(tool_reference_proxy)
+                if trans.user:
+                    self.app.dynamic_tool_manager.create_unprivileged_tool_from_proxy(
+                        trans.user, tool_reference_proxy
+                    )
+                else:
+                    self.app.dynamic_tool_manager.create_tool_from_proxy(tool_reference_proxy)
             as_dict = wf_proxy.to_dict()
 
         return RawWorkflowDescription(as_dict, workflow_path)

@@ -121,10 +121,7 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         return self.session().scalars(stmt).one_or_none()
 
     def create_tool(self, tool_payload: DynamicToolPayload) -> DynamicTool:
-        if not getattr(self.app.config, "enable_beta_tool_formats", False):
-            raise exceptions.ConfigDoesNotAllowException(
-                "Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools."
-            )
+        self._ensure_beta_tool_formats()
 
         uuid = model.get_uuid()
         target_object = None
@@ -184,10 +181,7 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         return dynamic_tool
 
     def create_tool_from_proxy(self, proxy: "ToolProxy") -> DynamicTool:
-        if not getattr(self.app.config, "enable_beta_tool_formats", False):
-            raise exceptions.ConfigDoesNotAllowException(
-                "Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools."
-            )
+        self._ensure_beta_tool_formats()
         dynamic_tool = self.get_tool_by_uuid(proxy.uuid)
         if not dynamic_tool:
             representation = proxy.to_persistent_representation()
@@ -203,22 +197,79 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         self.app.toolbox.load_dynamic_tool(dynamic_tool)
         return dynamic_tool
 
-    def create_unprivileged_tool(
-        self, user: model.User, tool_payload: DynamicUnprivilegedToolCreatePayload
-    ) -> DynamicTool:
+    def _ensure_beta_tool_formats(self):
         if not getattr(self.app.config, "enable_beta_tool_formats", False):
             raise exceptions.ConfigDoesNotAllowException(
                 "Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools."
             )
+
+    @staticmethod
+    def _ensure_cwl_container(proxy: "ToolProxy"):
+        if proxy.docker_identifier() is None:
+            raise exceptions.RequestParameterInvalidException(
+                "User-defined CWL tools must specify a DockerRequirement."
+            )
+
+    def create_unprivileged_tool(
+        self, user: model.User, tool_payload: DynamicUnprivilegedToolCreatePayload
+    ) -> DynamicTool:
+        self._ensure_beta_tool_formats()
         self.ensure_can_use_unprivileged_tool(user)
+
+        representation = tool_payload.representation
+        tool_format = representation.class_
+
+        if tool_format in ("CommandLineTool", "ExpressionTool"):
+            uuid = model.get_uuid()
+            raw_cwl = representation.raw_process_reference
+            proxy = tool_proxy(tool_object=raw_cwl, uuid=uuid)
+            self._ensure_cwl_container(proxy)
+            tool_id = representation.id or proxy.galaxy_id()
+            tool_version = representation.version or raw_cwl.get("version")
+            value = proxy.to_persistent_representation()
+        else:
+            uuid = None
+            proxy = None
+            tool_id = representation.id
+            tool_version = representation.version
+            value = representation.model_dump(by_alias=True)
+
         dynamic_tool = self.create(
-            tool_format=tool_payload.representation.class_,
-            tool_id=tool_payload.representation.id,
-            tool_version=tool_payload.representation.version,
+            tool_format=tool_format,
+            tool_id=tool_id,
+            tool_version=tool_version,
             active=tool_payload.active,
             hidden=tool_payload.hidden,
-            value=tool_payload.representation.model_dump(by_alias=True),
+            value=value,
             public=False,
+            uuid=uuid,
+            proxy=proxy,
+            flush=True,
+        )
+        session = self.session()
+        session.add(UserDynamicToolAssociation(user_id=user.id, dynamic_tool_id=dynamic_tool.id))
+        session.commit()
+        return dynamic_tool
+
+    def create_unprivileged_tool_from_proxy(self, user: model.User, proxy: "ToolProxy") -> DynamicTool:
+        """Create a user-scoped CWL tool from a ToolProxy (used during CWL workflow import)."""
+        self._ensure_beta_tool_formats()
+        self.ensure_can_use_unprivileged_tool(user)
+        self._ensure_cwl_container(proxy)
+
+        existing = self.get_unprivileged_tool_by_uuid(user, proxy.uuid)
+        if existing:
+            return existing
+
+        representation = proxy.to_persistent_representation()
+        dynamic_tool = self.create(
+            tool_format=proxy._class,
+            tool_id=proxy.galaxy_id(),
+            tool_version=representation.get("version"),
+            uuid=proxy.uuid,
+            value=representation,
+            public=False,
+            proxy=proxy,
             flush=True,
         )
         session = self.session()

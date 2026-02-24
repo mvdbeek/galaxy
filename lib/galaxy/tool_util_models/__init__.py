@@ -154,7 +154,22 @@ class AdminToolSource(ToolSourceBase):
     command: str
 
 
+class CwlUserToolSource(BaseModel):
+    """Pydantic model for CWL tools submitted via the unprivileged tools API.
+
+    The ``raw_process_reference`` field holds the full CWL document (the same
+    structure produced by ``ToolProxy.to_persistent_representation()``).
+    """
+
+    class_: Annotated[Literal["CommandLineTool", "ExpressionTool"], Field(alias="class")]
+    raw_process_reference: Dict[str, Any]
+    id: Optional[str] = None
+    version: Optional[str] = None
+
+
 DynamicToolSources = Annotated[Union[UserToolSource, AdminToolSource], Field(discriminator="class_")]
+
+UnprivilegedToolSources = Annotated[Union[UserToolSource, CwlUserToolSource], Field(discriminator="class_")]
 
 
 class ParsedTool(ToolSourceBaseModel):

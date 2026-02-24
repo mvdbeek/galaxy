@@ -2203,10 +2203,23 @@ class ToolModule(WorkflowModule):
         if tool_id is None and tool_uuid is None:
             tool_representation = d.get("tool_representation")
             if tool_representation:
-                create_request = DynamicToolCreatePayload(src="representation", representation=tool_representation)
-                if not trans.user_is_admin:
+                tool_format = tool_representation.get("class", "")
+                if tool_format in ("CommandLineTool", "ExpressionTool") and trans.user:
+                    from galaxy.tool_util.cwl import tool_proxy as cwl_tool_proxy
+
+                    raw_cwl = tool_representation.get("raw_process_reference", tool_representation)
+                    uuid_str = tool_representation.get("uuid")
+                    proxy = cwl_tool_proxy(tool_object=raw_cwl, uuid=uuid_str)
+                    dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool_from_proxy(
+                        trans.user, proxy
+                    )
+                elif trans.user_is_admin:
+                    create_request = DynamicToolCreatePayload(
+                        src="representation", representation=tool_representation
+                    )
+                    dynamic_tool = trans.app.dynamic_tool_manager.create_tool(create_request)
+                else:
                     raise exceptions.AdminRequiredException("Only admin users can create tools dynamically.")
-                dynamic_tool = trans.app.dynamic_tool_manager.create_tool(create_request)
                 tool_uuid = dynamic_tool.uuid
         if tool_id is None and tool_uuid is None:
             raise exceptions.RequestParameterInvalidException(f"No content id could be located for for step [{d}]")

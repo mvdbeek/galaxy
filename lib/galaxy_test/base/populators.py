@@ -1087,6 +1087,23 @@ class BaseDatasetPopulator(BasePopulator):
             assert response.status_code == 200, response.text
         return response.json()
 
+    def create_unprivileged_cwl_tool(self, cwl_tool_path: str, assert_ok=True) -> dict[str, Any]:
+        """Create a user-scoped CWL tool from a file path via the unprivileged tools API."""
+        with open(cwl_tool_path) as f:
+            cwl_doc = yaml.safe_load(f)
+        cwl_class = cwl_doc.get("class", "CommandLineTool")
+        payload = {
+            "src": "representation",
+            "representation": {
+                "class": cwl_class,
+                "raw_process_reference": cwl_doc,
+            },
+        }
+        response = self._post("unprivileged_tools", data=payload, json=True)
+        if assert_ok:
+            assert response.status_code == 200, response.text
+        return response.json()
+
     def deactivate_unprivileged_tool(self, uuid: str, assert_ok=True):
         response = self._delete(f"unprivileged_tools/{uuid}", json=True)
         if assert_ok:
@@ -3068,7 +3085,7 @@ class CwlPopulator:
             if tool_versions:
                 galaxy_tool_id = raw_tool_id
             else:
-                dynamic_tool = self.dataset_populator.create_tool_from_path(tool_id)
+                dynamic_tool = self.dataset_populator.create_unprivileged_cwl_tool(tool_id)
                 galaxy_tool_id = None
                 tool_uuid = dynamic_tool["uuid"]
 

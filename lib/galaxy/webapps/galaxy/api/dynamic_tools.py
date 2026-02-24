@@ -26,10 +26,13 @@ from galaxy.schema.fields import (
     DecodedDatabaseIdField,
     EncodedDatabaseIdField,
 )
+from galaxy.tool_util.cwl import tool_proxy as cwl_tool_proxy
 from galaxy.tool_util.parameters import input_models_for_tool_source
 from galaxy.tool_util.parameters.convert import cwl_runtime_model
+from galaxy.tool_util.parser.cwl import CwlToolSource
 from galaxy.tool_util.parser.yaml import YamlToolSource
-from galaxy.tool_util_models import UserToolSource
+from galaxy.tools import create_tool_from_source
+from galaxy.tool_util_models import UnprivilegedToolSources
 from galaxy.tool_util_models.dynamic_tool_models import (
     DynamicToolPayload,
     DynamicUnprivilegedToolCreatePayload,
@@ -56,7 +59,7 @@ class UnprivilegedToolResponse(BaseModel):
     tool_id: Optional[str]
     tool_format: Optional[str]
     create_time: datetime
-    representation: UserToolSource
+    representation: UnprivilegedToolSources
 
 
 @router.cbv
@@ -96,15 +99,29 @@ class UnprivilegedToolsApi:
         trans: ProvidesHistoryContext = DependsOnTrans,
     ):
         history = trans.app.history_manager.get_owned(history_id, trans.user)
-        tool = tool_payload_to_tool(trans.app, payload.representation.model_dump(by_alias=True))
+        repr_dict = payload.representation.model_dump(by_alias=True)
+        tool_format = repr_dict.get("class", "")
+        if tool_format in ("CommandLineTool", "ExpressionTool"):
+            raw_cwl = repr_dict.get("raw_process_reference", repr_dict)
+            proxy = cwl_tool_proxy(tool_object=raw_cwl)
+            tool_source = CwlToolSource(tool_proxy=proxy)
+            tool = create_tool_from_source(trans.app, tool_source=tool_source, tool_dir=None)
+        else:
+            tool = tool_payload_to_tool(trans.app, repr_dict)
         if tool:
             return tool.to_json(trans=trans, history=history or trans.history)
 
     @router.post("/api/unprivileged_tools/runtime_model")
     def runtime_model(self, payload: DynamicUnprivilegedToolCreatePayload, user: User = DependsOnUser):
         self.dynamic_tools_manager.ensure_can_use_unprivileged_tool(user)
-        represention = payload.representation.model_dump(by_alias=True)
-        tool_source = YamlToolSource(root_dict=represention)
+        repr_dict = payload.representation.model_dump(by_alias=True)
+        tool_format = repr_dict.get("class", "")
+        if tool_format in ("CommandLineTool", "ExpressionTool"):
+            raw_cwl = repr_dict.get("raw_process_reference", repr_dict)
+            proxy = cwl_tool_proxy(tool_object=raw_cwl)
+            tool_source = CwlToolSource(tool_proxy=proxy)
+        else:
+            tool_source = YamlToolSource(root_dict=repr_dict)
         input_bundle = input_models_for_tool_source(tool_source)
         return cwl_runtime_model(input_bundle)
 
