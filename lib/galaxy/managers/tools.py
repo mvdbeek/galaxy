@@ -230,7 +230,8 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         if tool_format in ("CommandLineTool", "ExpressionTool"):
             uuid = model.get_uuid()
             raw_cwl = representation.raw_process_reference
-            self._ensure_cwl_docker_requirement(raw_cwl)
+            if tool_format == "CommandLineTool":
+                self._ensure_cwl_docker_requirement(raw_cwl)
             proxy = tool_proxy(tool_object=raw_cwl, uuid=uuid)
             tool_id = representation.id or proxy.galaxy_id()
             tool_version = representation.version or raw_cwl.get("version")
@@ -268,7 +269,8 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         if existing:
             return existing
 
-        self._ensure_cwl_docker_requirement(proxy._tool.tool)
+        if proxy._class == "CommandLineTool":
+            self._ensure_cwl_docker_requirement(proxy._tool.tool)
         representation = proxy.to_persistent_representation()
         dynamic_tool = self.create(
             tool_format=proxy._class,

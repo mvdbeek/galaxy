@@ -56,9 +56,9 @@ class TestCwlUnprivilegedTools(ApiTestCase):
         # Verify the representation round-trips
         assert result["representation"]["class"] == cwl_doc["class"]
 
-    def test_create_cwl_tool_without_docker_gets_default(self):
-        """CWL tools without DockerRequirement get a default container."""
-        cwl_doc = _load_cwl(_cwl_tool_path("parameters/cwl_int.cwl"))
+    def test_create_cwl_command_line_tool_without_docker_gets_default(self):
+        """CommandLineTool without DockerRequirement gets a default container."""
+        cwl_doc = _load_cwl(_cwl_tool_path("cwl_tools/v1.0_custom/any1.cwl"))
         payload = {
             "src": "representation",
             "representation": {
