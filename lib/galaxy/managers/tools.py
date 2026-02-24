@@ -256,8 +256,6 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         """Create a user-scoped CWL tool from a ToolProxy (used during CWL workflow import)."""
         self._ensure_beta_tool_formats()
         self.ensure_can_use_unprivileged_tool(user)
-        if proxy._class == "CommandLineTool":
-            self._ensure_cwl_container(proxy)
 
         existing = self.get_unprivileged_tool_by_uuid(user, proxy.uuid)
         if existing:
