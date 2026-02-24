@@ -223,7 +223,8 @@ class DynamicToolManager(ModelManager[DynamicTool]):
             uuid = model.get_uuid()
             raw_cwl = representation.raw_process_reference
             proxy = tool_proxy(tool_object=raw_cwl, uuid=uuid)
-            self._ensure_cwl_container(proxy)
+            if tool_format == "CommandLineTool":
+                self._ensure_cwl_container(proxy)
             tool_id = representation.id or proxy.galaxy_id()
             tool_version = representation.version or raw_cwl.get("version")
             value = proxy.to_persistent_representation()
@@ -255,7 +256,8 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         """Create a user-scoped CWL tool from a ToolProxy (used during CWL workflow import)."""
         self._ensure_beta_tool_formats()
         self.ensure_can_use_unprivileged_tool(user)
-        self._ensure_cwl_container(proxy)
+        if proxy._class == "CommandLineTool":
+            self._ensure_cwl_container(proxy)
 
         existing = self.get_unprivileged_tool_by_uuid(user, proxy.uuid)
         if existing:
