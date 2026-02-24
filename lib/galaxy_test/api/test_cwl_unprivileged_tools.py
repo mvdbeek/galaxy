@@ -45,7 +45,7 @@ class TestCwlUnprivilegedTools(ApiTestCase):
         """Import a CWL CommandLineTool via POST /api/unprivileged_tools."""
         with self.dataset_populator.user_tool_execute_permissions():
             cwl_doc = _load_cwl(CAT1_TOOL_PATH)
-            result = self.dataset_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
+            result = self.cwl_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
             assert result["uuid"]
             assert result["tool_format"] in ("CommandLineTool",)
             assert result["active"] is True
@@ -70,14 +70,14 @@ class TestCwlUnprivilegedTools(ApiTestCase):
     def test_list_user_cwl_tools(self):
         """Verify imported CWL tools appear in GET /api/unprivileged_tools."""
         with self.dataset_populator.user_tool_execute_permissions():
-            created = self.dataset_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
+            created = self.cwl_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
             tools = self.dataset_populator.get_unprivileged_tools()
             assert any(t["uuid"] == created["uuid"] for t in tools)
 
     def test_show_user_cwl_tool(self):
         """Verify tool details via GET /api/unprivileged_tools/{uuid}."""
         with self.dataset_populator.user_tool_execute_permissions():
-            created = self.dataset_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
+            created = self.cwl_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
             shown = self.dataset_populator.show_unprivileged_tool(created["uuid"])
             assert shown["uuid"] == created["uuid"]
             assert shown["tool_format"] == "CommandLineTool"
@@ -85,7 +85,7 @@ class TestCwlUnprivilegedTools(ApiTestCase):
     def test_deactivate_cwl_tool(self):
         """Verify deactivation via DELETE /api/unprivileged_tools/{uuid}."""
         with self.dataset_populator.user_tool_execute_permissions():
-            created = self.dataset_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
+            created = self.cwl_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
             self.dataset_populator.deactivate_unprivileged_tool(created["uuid"])
             tools = self.dataset_populator.get_unprivileged_tools()
             assert not any(t["uuid"] == created["uuid"] for t in tools)
@@ -93,15 +93,12 @@ class TestCwlUnprivilegedTools(ApiTestCase):
     def test_cwl_tool_not_in_global_toolbox(self):
         """User-scoped CWL tools must not appear in the global tool panel."""
         with self.dataset_populator.user_tool_execute_permissions():
-            created = self.dataset_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
+            created = self.cwl_populator.create_unprivileged_cwl_tool(CAT1_TOOL_PATH)
             tool_id = created.get("tool_id")
             # Query the global toolbox
             get_response = self.dataset_populator._get("tools", data=dict(tool_id=tool_id))
             get_response.raise_for_status()
-            # The tool should not show up in the global toolbox (it may match pre-registered tools
-            # from tool_conf.xml, but the UUID should not match)
-            tools = get_response.json()
-            # At minimum, the created dynamic tool's UUID should not be findable through
+            # The created dynamic tool's UUID should not be findable through
             # the global toolbox query by UUID
             toolbox_response = self.dataset_populator._get("tools", data=dict(tool_id=created["uuid"]))
             toolbox_response.raise_for_status()
