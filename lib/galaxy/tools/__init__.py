@@ -1120,6 +1120,10 @@ class Tool(UsesDictVisibleKeys, ToolParameterBundle):
         self.credentials: Optional[list[CredentialsRequirement]] = None
         self._is_workflow_compatible = None
         self.__tests: Optional[str] = None
+        self.parameters: Optional[list] = None
+        self.template_macro_params: dict = {}
+        self._macro_paths: list = []
+        self.ports: list = []
         try:
             self.parse(tool_source, guid=guid, dynamic=dynamic)
         except Exception as e:
@@ -1598,7 +1602,7 @@ class Tool(UsesDictVisibleKeys, ToolParameterBundle):
     def parse_tests(self):
         if self.tool_source:
             test_descriptions = parse_tool_test_descriptions(
-                self.tool_source, self.id, getattr(self, "parameters", None)
+                self.tool_source, self.id, self.parameters
             )
             try:
                 self.__tests = json.dumps([t.to_dict() for t in test_descriptions], indent=None)

@@ -2144,7 +2144,7 @@ CwlUnionParameterModel.model_rebuild()
 class ToolParameterBundle(Protocol):
     """An object having a dictionary of input models (i.e. a 'Tool')"""
 
-    parameters: List[ToolParameterT]
+    parameters: Optional[List[ToolParameterT]]
 
 
 class ToolParameterBundleModel(BaseModel):

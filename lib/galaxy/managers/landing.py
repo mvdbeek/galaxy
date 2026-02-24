@@ -104,7 +104,7 @@ class LandingRequestManager:
         landing_request_state = LandingRequestToolState(request_state or {})
         # Okay this is a hack until tool request API commit is merged, tools don't yet have a parameter
         # schema - so we can't do this properly.
-        if hasattr(tool, "parameters"):
+        if tool.parameters is not None:
             internal_landing_request_state = landing_decode(landing_request_state, tool, self.security.decode_id)
         else:
             assert tool.id == FETCH_TOOL_ID

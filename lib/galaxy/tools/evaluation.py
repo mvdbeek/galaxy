@@ -672,7 +672,7 @@ class ToolEvaluator:
         Populate InteractiveTools templated values.
         """
         it = []
-        for ep in getattr(self.tool, "ports", []):
+        for ep in self.tool.ports:
             ep_dict = {}
             for key in (
                 "port",
