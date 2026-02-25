@@ -278,7 +278,7 @@ def handle_outputs(job_directory: Optional[str] = None):
                     # param_evaluation_noexpr
                     handle_known_output_json(record_value, record_value_output_key)
 
-        elif isinstance(output, list):
+        elif isinstance(output, list) and output_name not in any_typed_outputs:
             provided_metadata[output_name] = _build_list_elements(
                 output, output_name, tool_working_directory, job_proxy
             )
