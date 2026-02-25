@@ -86,11 +86,18 @@ def test_deserialize_xml_tool(tool_app):
     assert tool.name == "xml tool"
 
 
+def _get_parameter(tool, name):
+    for p in tool.parameters:
+        if p.name == name:
+            return p
+    raise KeyError(name)
+
+
 def test_deserialize_yaml_tool(tool_app):
     tool = _deserialize(tool_app, tool_source_class="YamlToolSource", raw_tool_source=YAML_TOOL)
     assert tool.id == "simple_constructs_y"
     assert tool.name == "simple_constructs_y"
-    assert tool.inputs["data_input"].extensions == ["tabular", "csv"]
+    assert _get_parameter(tool, "data_input").extensions == ["tabular", "csv"]
 
 
 def test_deserialize_user_defined_tool(tool_app):
@@ -98,5 +105,5 @@ def test_deserialize_user_defined_tool(tool_app):
     assert tool.tool_type == "user_defined"
     assert tool.id == "samtools-reference"
     assert tool.name == "samtools reference"
-    assert tool.inputs["alignment"].type == "data"
+    assert _get_parameter(tool, "alignment").type == "data"
     assert tool.outputs["output1"].format == "fasta.gz"

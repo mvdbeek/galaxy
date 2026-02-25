@@ -144,7 +144,9 @@ export function useAgentActions() {
                 return;
             }
 
-            toast.success(`Tool "${data.representation.name}" saved successfully!`);
+            const toolName =
+                "name" in data.representation ? data.representation.name : (data.representation.id ?? "Tool");
+            toast.success(`Tool "${toolName}" saved successfully!`);
             unprivilegedToolStore.load(true);
             router.push(`/tools/editor/${data.uuid}`);
         } catch (err) {

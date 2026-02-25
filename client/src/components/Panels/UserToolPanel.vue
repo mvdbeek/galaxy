@@ -50,12 +50,28 @@ const currentItemId = computed(() => {
     return match ? match[0] : undefined;
 });
 
+function getToolName(tool: UnprivilegedToolResponse): string {
+    const rep = tool.representation;
+    if ("name" in rep && rep.name) {
+        return rep.name;
+    }
+    return rep.id ?? "Unnamed Tool";
+}
+
+function getToolDescription(tool: UnprivilegedToolResponse): string {
+    const rep = tool.representation;
+    if ("description" in rep && rep.description) {
+        return rep.description;
+    }
+    return "";
+}
+
 function cardClicked(tool: UnprivilegedToolResponse) {
     if (props.inPanel) {
         emit("unprivileged-tool-clicked", tool);
     }
     if (props.inWorkflowEditor) {
-        emit("onInsertTool", tool.representation.id, tool.representation.name, tool.uuid);
+        emit("onInsertTool", tool.representation.id, getToolName(tool), tool.uuid);
     } else {
         router.push(`/?tool_uuid=${tool.uuid}`);
     }
@@ -81,7 +97,7 @@ function getToolBadges(tool: UnprivilegedToolResponse) {
     return [
         {
             id: "version",
-            label: tool.representation.version,
+            label: tool.representation.version ?? "",
             title: "Version of this custom tool",
         },
     ];
@@ -141,7 +157,7 @@ function getToolSecondaryActions(tool: UnprivilegedToolResponse) {
                     :active="tool.uuid === currentItemId"
                     :badges="getToolBadges(tool)"
                     :secondary-actions="getToolSecondaryActions(tool)"
-                    :title="tool.representation.name"
+                    :title="getToolName(tool)"
                     :title-icon="{ icon: faWrench }"
                     title-size="text"
                     :update-time="tool.create_time"
@@ -150,7 +166,7 @@ function getToolSecondaryActions(tool: UnprivilegedToolResponse) {
                     <template v-slot:description>
                         <Heading class="m-0" size="text">
                             <small class="text-muted truncate-n-lines two-lines">
-                                {{ tool.representation.description }}
+                                {{ getToolDescription(tool) }}
                             </small>
                         </Heading>
                     </template>

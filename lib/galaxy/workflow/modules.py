@@ -53,6 +53,7 @@ from galaxy.schema.invocation import (
     InvocationFailureWhenNotBoolean,
     InvocationFailureWorkflowParameterInvalid,
 )
+from galaxy.tool_util.cwl import tool_proxy as cwl_tool_proxy
 from galaxy.tool_util.cwl.util import set_basename_and_derived_properties
 from galaxy.tool_util.parameters.state import JobInternalToolState
 from galaxy.tool_util.parser import get_input_source
@@ -61,7 +62,7 @@ from galaxy.tool_util.parser.output_objects import (
     ToolOutput,
     ToolOutputCollection,
 )
-from galaxy.tool_util_models.dynamic_tool_models import DynamicToolCreatePayload
+from galaxy.tool_util_models.dynamic_tool_models import DynamicUnprivilegedToolCreatePayload
 from galaxy.tools import (
     DatabaseOperationTool,
     DefaultToolState,
@@ -2262,10 +2263,19 @@ class ToolModule(WorkflowModule):
         if tool_id is None and tool_uuid is None:
             tool_representation = d.get("tool_representation")
             if tool_representation:
-                create_request = DynamicToolCreatePayload(src="representation", representation=tool_representation)
-                if not trans.user_is_admin:
-                    raise exceptions.AdminRequiredException("Only admin users can create tools dynamically.")
-                dynamic_tool = trans.app.dynamic_tool_manager.create_tool(create_request)
+                if not trans.user:
+                    raise exceptions.MessageException("Must be logged in to use embedded tools in workflows.")
+                tool_format = tool_representation.get("class", "")
+                if tool_format in ("CommandLineTool", "ExpressionTool"):
+                    raw_cwl = tool_representation.get("raw_process_reference", tool_representation)
+                    uuid_str = tool_representation.get("uuid")
+                    proxy = cwl_tool_proxy(tool_object=raw_cwl, uuid=uuid_str)
+                    dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool_from_proxy(trans.user, proxy)
+                else:
+                    create_request = DynamicUnprivilegedToolCreatePayload(
+                        src="representation", representation=tool_representation
+                    )
+                    dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool(trans.user, create_request)
                 tool_uuid = dynamic_tool.uuid
         if tool_id is None and tool_uuid is None:
             raise exceptions.RequestParameterInvalidException(f"No content id could be located for for step [{d}]")

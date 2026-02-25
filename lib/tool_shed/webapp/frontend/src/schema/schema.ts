@@ -1146,6 +1146,10 @@ export interface components {
                 | components["schemas"]["CwlFileParameterModel"]
                 | components["schemas"]["CwlDirectoryParameterModel"]
                 | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
                 | components["schemas"]["TextParameterModel"]
                 | components["schemas"]["IntegerParameterModel"]
                 | components["schemas"]["FloatParameterModel"]
@@ -1204,8 +1208,71 @@ export interface components {
             /** Username */
             username: string
         }
+        /** CwlAnyParameterModel */
+        CwlAnyParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
+            /**
+             * name
+             * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
+             */
+            name: string
+            /**
+             * parameter_type
+             * @default cwl_any
+             * @constant
+             */
+            parameter_type: "cwl_any"
+        }
+        /** CwlArrayParameterModel */
+        CwlArrayParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
+            /** item_type */
+            item_type:
+                | components["schemas"]["CwlIntegerParameterModel"]
+                | components["schemas"]["CwlFloatParameterModel"]
+                | components["schemas"]["CwlStringParameterModel"]
+                | components["schemas"]["CwlBooleanParameterModel"]
+                | components["schemas"]["CwlNullParameterModel"]
+                | components["schemas"]["CwlFileParameterModel"]
+                | components["schemas"]["CwlDirectoryParameterModel"]
+                | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
+            /**
+             * name
+             * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
+             */
+            name: string
+            /**
+             * parameter_type
+             * @default cwl_array
+             * @constant
+             */
+            parameter_type: "cwl_array"
+        }
         /** CwlBooleanParameterModel */
         CwlBooleanParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * name
              * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
@@ -1225,6 +1292,13 @@ export interface components {
              * @description If the parameter reflects just one command line argument of a certain tool, this tag should be set to that particular argument. It is rendered in parenthesis after the help section, and it will create the name attribute (if not given explicitly) from the argument attribute by stripping leading dashes and replacing all remaining dashes by underscores (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
              */
             argument?: string | null
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * help
              * @description Short bit of text, rendered on the tool form just below the associated field to provide information about the field.
@@ -1263,6 +1337,29 @@ export interface components {
              */
             parameter_type: "cwl_directory"
         }
+        /** CwlEnumParameterModel */
+        CwlEnumParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
+            /**
+             * name
+             * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
+             */
+            name: string
+            /**
+             * parameter_type
+             * @default cwl_enum
+             * @constant
+             */
+            parameter_type: "cwl_enum"
+            /** symbols */
+            symbols: string[]
+        }
         /** CwlFileParameterModel */
         CwlFileParameterModel: {
             /**
@@ -1270,6 +1367,13 @@ export interface components {
              * @description If the parameter reflects just one command line argument of a certain tool, this tag should be set to that particular argument. It is rendered in parenthesis after the help section, and it will create the name attribute (if not given explicitly) from the argument attribute by stripping leading dashes and replacing all remaining dashes by underscores (e.g. if argument="--long-parameter" then name="long_parameter" is implicit).
              */
             argument?: string | null
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * help
              * @description Short bit of text, rendered on the tool form just below the associated field to provide information about the field.
@@ -1310,6 +1414,13 @@ export interface components {
         }
         /** CwlFloatParameterModel */
         CwlFloatParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * name
              * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
@@ -1324,6 +1435,13 @@ export interface components {
         }
         /** CwlIntegerParameterModel */
         CwlIntegerParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * name
              * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
@@ -1339,6 +1457,11 @@ export interface components {
         /** CwlNullParameterModel */
         CwlNullParameterModel: {
             /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
+            /**
              * name
              * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
              */
@@ -1350,8 +1473,51 @@ export interface components {
              */
             parameter_type: "cwl_null"
         }
+        /** CwlRecordParameterModel */
+        CwlRecordParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /** fields */
+            fields: (
+                | components["schemas"]["CwlIntegerParameterModel"]
+                | components["schemas"]["CwlFloatParameterModel"]
+                | components["schemas"]["CwlStringParameterModel"]
+                | components["schemas"]["CwlBooleanParameterModel"]
+                | components["schemas"]["CwlNullParameterModel"]
+                | components["schemas"]["CwlFileParameterModel"]
+                | components["schemas"]["CwlDirectoryParameterModel"]
+                | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
+            )[]
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
+            /**
+             * name
+             * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
+             */
+            name: string
+            /**
+             * parameter_type
+             * @default cwl_record
+             * @constant
+             */
+            parameter_type: "cwl_record"
+        }
         /** CwlStringParameterModel */
         CwlStringParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * name
              * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
@@ -1366,6 +1532,13 @@ export interface components {
         }
         /** CwlUnionParameterModel */
         CwlUnionParameterModel: {
+            /** default_value */
+            default_value?: unknown | null
+            /**
+             * has_default
+             * @default false
+             */
+            has_default: boolean
             /**
              * name
              * @description Parameter name. Used when referencing parameter in workflows or inside command templating.
@@ -1387,6 +1560,10 @@ export interface components {
                 | components["schemas"]["CwlFileParameterModel"]
                 | components["schemas"]["CwlDirectoryParameterModel"]
                 | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
             )[]
         }
         /** DataCollectionParameterModel */
@@ -2398,6 +2575,10 @@ export interface components {
                 | components["schemas"]["CwlFileParameterModel"]
                 | components["schemas"]["CwlDirectoryParameterModel"]
                 | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
                 | components["schemas"]["TextParameterModel"]
                 | components["schemas"]["IntegerParameterModel"]
                 | components["schemas"]["FloatParameterModel"]
@@ -2856,6 +3037,10 @@ export interface components {
                 | components["schemas"]["CwlFileParameterModel"]
                 | components["schemas"]["CwlDirectoryParameterModel"]
                 | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
                 | components["schemas"]["TextParameterModel"]
                 | components["schemas"]["IntegerParameterModel"]
                 | components["schemas"]["FloatParameterModel"]
@@ -3049,6 +3234,10 @@ export interface components {
                 | components["schemas"]["CwlFileParameterModel"]
                 | components["schemas"]["CwlDirectoryParameterModel"]
                 | components["schemas"]["CwlUnionParameterModel"]
+                | components["schemas"]["CwlAnyParameterModel"]
+                | components["schemas"]["CwlEnumParameterModel"]
+                | components["schemas"]["CwlArrayParameterModel"]
+                | components["schemas"]["CwlRecordParameterModel"]
                 | components["schemas"]["TextParameterModel"]
                 | components["schemas"]["IntegerParameterModel"]
                 | components["schemas"]["FloatParameterModel"]

@@ -114,7 +114,11 @@ from galaxy.tool_util.verify.wait import (
     TimeoutAssertionError,
     wait_on as tool_util_wait_on,
 )
-from galaxy.tool_util_models import UserToolSource
+from galaxy.tool_util_models import (
+    CwlUserToolSource,
+    UnprivilegedToolSources,
+    UserToolSource,
+)
 from galaxy.tool_util_models.dynamic_tool_models import DynamicUnprivilegedToolCreatePayload
 from galaxy.tool_util_models.sample_sheet import SampleSheetColumnDefinitions
 from galaxy.util import (
@@ -1086,7 +1090,7 @@ class BaseDatasetPopulator(BasePopulator):
         return self._create_tool_raw(payload)
 
     def create_unprivileged_tool(
-        self, representation: UserToolSource, active=True, hidden=False, uuid=None, assert_ok=True
+        self, representation: UnprivilegedToolSources, active=True, hidden=False, uuid=None, assert_ok=True
     ):
         data = DynamicUnprivilegedToolCreatePayload(
             active=active, hidden=hidden, uuid=uuid, src="representation", representation=representation
@@ -1145,6 +1149,29 @@ class BaseDatasetPopulator(BasePopulator):
         response = self._get(f"unprivileged_tools/{uuid}")
         if assert_ok:
             assert response.status_code == 200, response.text
+        return response.json()
+
+    def get_tools(
+        self, tool_id: Optional[str] = None, in_panel: Optional[bool] = None, assert_ok=True
+    ) -> list[dict[str, Any]]:
+        """Query the global toolbox.
+
+        Args:
+            tool_id: Filter by tool_id. Returns list of matching tool version strings.
+            in_panel: If False, returns flat list of tools. If True/None, returns panel structure.
+            assert_ok: Assert the response is successful.
+
+        Returns:
+            List of tools or tool versions depending on parameters.
+        """
+        data: dict[str, Any] = {}
+        if tool_id is not None:
+            data["tool_id"] = tool_id
+        if in_panel is not None:
+            data["in_panel"] = in_panel
+        response = self._get("tools", data=data)
+        if assert_ok:
+            response.raise_for_status()
         return response.json()
 
     def create_tool(self, representation) -> dict[str, Any]:
@@ -1611,10 +1638,9 @@ class BaseDatasetPopulator(BasePopulator):
         return users[0]["email"]
 
     def user_id(self) -> str:
-        users_response = self._get("users")
-        users = users_response.json()
-        assert len(users) == 1
-        return users[0]["id"]
+        user_response = self._get("users/current")
+        user_response.raise_for_status()
+        return user_response.json()["id"]
 
     def user_private_role_id(self) -> str:
         userid = self.user_id()
@@ -3052,6 +3078,29 @@ class CwlPopulator:
     def __init__(self, dataset_populator: DatasetPopulator, workflow_populator: WorkflowPopulator):
         self.dataset_populator = dataset_populator
         self.workflow_populator = workflow_populator
+        self._permissions_ctx: Optional[contextlib.AbstractContextManager] = None
+
+    def setup_permissions(self):
+        """Set up user_tool_execute permissions required for CWL operations.
+
+        Call from test setUp(), paired with teardown_permissions() in tearDown().
+        """
+        self._permissions_ctx = self.dataset_populator.user_tool_execute_permissions()
+        self._permissions_ctx.__enter__()
+
+    def teardown_permissions(self):
+        """Clean up user_tool_execute permissions. Call from test tearDown()."""
+        if self._permissions_ctx is not None:
+            self._permissions_ctx.__exit__(None, None, None)
+            self._permissions_ctx = None
+
+    def create_unprivileged_cwl_tool(self, cwl_tool_path: str, assert_ok=True) -> dict[str, Any]:
+        """Create a user-scoped CWL tool from a file path via the unprivileged tools API."""
+        with open(cwl_tool_path) as f:
+            cwl_doc = yaml.safe_load(f)
+        cwl_class = cwl_doc.get("class", "CommandLineTool")
+        representation = CwlUserToolSource(raw_process_reference=cwl_doc, **{"class": cwl_class})
+        return self.dataset_populator.create_unprivileged_tool(representation, assert_ok=assert_ok)
 
     def get_conformance_test(self, version: str, doc: str):
         for test in conformance_tests_gen(os.path.join(CWL_TOOL_DIRECTORY, version)):
@@ -3071,13 +3120,11 @@ class CwlPopulator:
 
         if os.path.exists(tool_id):
             raw_tool_id = os.path.basename(tool_id)
-            get_response = self.dataset_populator._get("tools", data=dict(tool_id=raw_tool_id))
-            get_response.raise_for_status()
-            tool_versions: list[str] = get_response.json()
+            tool_versions = self.dataset_populator.get_tools(tool_id=raw_tool_id)
             if tool_versions:
                 galaxy_tool_id = raw_tool_id
             else:
-                dynamic_tool = self.dataset_populator.create_tool_from_path(tool_id)
+                dynamic_tool = self.create_unprivileged_cwl_tool(tool_id)
                 galaxy_tool_id = None
                 tool_uuid = dynamic_tool["uuid"]
 

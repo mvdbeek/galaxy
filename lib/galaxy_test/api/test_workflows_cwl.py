@@ -22,6 +22,11 @@ class BaseCwlWorkflowsApiTestCase(BaseWorkflowsApiTestCase):
     def setUp(self):
         super().setUp()
         self.cwl_populator = CwlPopulator(self.dataset_populator, self.workflow_populator)
+        self.cwl_populator.setup_permissions()
+
+    def tearDown(self):
+        self.cwl_populator.teardown_permissions()
+        super().tearDown()
 
 
 class TestCwlWorkflows(BaseCwlWorkflowsApiTestCase):

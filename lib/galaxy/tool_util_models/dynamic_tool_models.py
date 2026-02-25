@@ -8,7 +8,7 @@ from typing_extensions import Literal
 
 from galaxy.tool_util_models import (
     DynamicToolSources,
-    UserToolSource,
+    UnprivilegedToolSources,
 )
 
 
@@ -24,8 +24,11 @@ class DynamicToolCreatePayload(BaseDynamicToolCreatePayload):
     hidden: Optional[bool] = False
 
 
-class DynamicUnprivilegedToolCreatePayload(DynamicToolCreatePayload):
-    representation: UserToolSource
+class DynamicUnprivilegedToolCreatePayload(BaseDynamicToolCreatePayload):
+    src: Literal["representation"] = "representation"
+    representation: UnprivilegedToolSources
+    active: Optional[bool] = True
+    hidden: Optional[bool] = False
 
 
 class PathBasedDynamicToolCreatePayload(BaseDynamicToolCreatePayload):
