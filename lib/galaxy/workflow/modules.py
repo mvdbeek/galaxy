@@ -420,7 +420,13 @@ def find_cwl_scatter_collections(
             continue
         hdca = trans.sa_session.get(model.HistoryDatasetCollectionAssociation, ref["id"])
         if hdca and hdca.collection.allow_implicit_mapping:
-            collections_to_match.add(name, hdca)
+            # For nested collections (e.g. list:list from merge_nested), scatter
+            # at the top level only — each element is a subcollection.
+            subcollection_type = None
+            collection_type = hdca.collection.collection_type
+            if ":" in collection_type:
+                subcollection_type = collection_type.split(":", 1)[1]
+            collections_to_match.add(name, hdca, subcollection_type=subcollection_type)
     return collections_to_match
 
 
@@ -2702,7 +2708,19 @@ class ToolModule(WorkflowModule):
                 slice_dict = dict(cwl_input_dict)
                 if iteration_elements:
                     for name, element in iteration_elements.items():
-                        slice_dict[name] = _galaxy_to_cwl_ref(element.element_object)
+                        obj = element.element_object
+                        if isinstance(obj, model.DatasetCollection):
+                            # Subcollection from scatter over nested collection (e.g. list:list).
+                            # Wrap in an HDCA so downstream code can reference it by ID.
+                            ephemeral = EphemeralCollection(
+                                collection=obj,
+                                history=invocation.history,
+                            )
+                            sa_session = get_object_session(step)
+                            sa_session.add(ephemeral.persistent_object)
+                            sa_session.flush()
+                            obj = ephemeral
+                        slice_dict[name] = _galaxy_to_cwl_ref(obj)
                 if has_scatter:
                     slice_dict = evaluate_cwl_value_from_expressions(step, slice_dict, progress, trans)
                 if step.when_expression and when_value is not False:
