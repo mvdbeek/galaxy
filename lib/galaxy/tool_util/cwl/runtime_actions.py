@@ -251,12 +251,20 @@ def handle_outputs(job_directory: Optional[str] = None):
             "ext": "expression.json",
         }
 
+    # Build set of output names whose CWL type is "Any" — these may produce
+    # plain dicts/lists that should be JSON-serialized, not split as records.
+    any_typed_outputs = set()
+    for output_instance in job_proxy._tool_proxy.output_instances():
+        odt = str(output_instance.output_data_type)
+        if odt == "Any" or odt.endswith(".Any"):
+            any_typed_outputs.add(output_instance.name)
+
     handled_outputs = []
     for output_name, output in outputs.items():
         handled_outputs.append(output_name)
         if isinstance(output, dict) and "location" in output:
             handle_known_output(output, output_name)
-        elif isinstance(output, dict):
+        elif isinstance(output, dict) and output_name not in any_typed_outputs:
             prefix = f"{output_name}|__part__|"
             for record_key, record_value in output.items():
                 record_value_output_key = f"{prefix}{record_key}"
