@@ -319,6 +319,29 @@ def test_encode_cwl_record_with_file():
     assert external.input_state["parameter"]["name"] == "hello"
 
 
+def test_decode_cwl_record_with_file_array():
+    input_bundle = parameter_bundle_for_file("cwl_record_with_file_array")
+    request_tool_state = RequestToolState(
+        {"parameter": {"name": "hello", "input_files": [{"src": "hda", "id": "abcdabcd"}]}}
+    )
+    internal = decode(request_tool_state, input_bundle, decode_val)
+    assert internal.input_state["parameter"]["input_files"][0]["id"] == 5
+    assert internal.input_state["parameter"]["name"] == "hello"
+
+
+def test_encode_cwl_record_with_file_array():
+    input_bundle = parameter_bundle_for_file("cwl_record_with_file_array")
+
+    def encode_val(val: int) -> str:
+        assert val == 5
+        return "abcdabcd"
+
+    internal = RequestInternalToolState({"parameter": {"name": "hello", "input_files": [{"src": "hda", "id": 5}]}})
+    external = encode(internal, input_bundle, encode_val)
+    assert external.input_state["parameter"]["input_files"][0]["id"] == "abcdabcd"
+    assert external.input_state["parameter"]["name"] == "hello"
+
+
 def test_decode_cwl_file_optional():
     input_bundle = parameter_bundle_for_file("cwl_file_optional")
     # With file

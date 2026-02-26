@@ -4488,6 +4488,36 @@ cwl_record_with_file:
   job_runtime_invalid:
     - parameter: {name: "hello", input_file: {src: hda, id: 5}}
 
+cwl_record_with_file_array:
+  request_valid:
+    - parameter: {name: "hello", input_files: [{src: hda, id: abcdabcd}]}
+    - parameter: {name: "hello", input_files: [{src: hda, id: abcdabcd}, {src: hda, id: abcdabcd}]}
+    - parameter: {name: "hello", input_files: []}
+  request_invalid:
+    - parameter: {name: "hello"}
+    - parameter: {name: "hello", input_files: {src: hda, id: abcdabcd}}
+    - {}
+  request_internal_valid:
+    - parameter: {name: "hello", input_files: [{src: hda, id: 5}]}
+    - parameter: {name: "hello", input_files: [{src: hda, id: 5}, {src: hda, id: 6}]}
+    - parameter: {name: "hello", input_files: []}
+  request_internal_invalid:
+    - parameter: {name: "hello", input_files: [{src: hda, id: "abcabc"}]}
+  job_internal_valid:
+    - parameter: {name: "hello", input_files: [{src: hda, id: 5}]}
+    - parameter: {name: "hello", input_files: []}
+  job_internal_invalid:
+    - {}
+  job_runtime_valid:
+    - parameter: {name: "hello", input_files: [{class: File, basename: "f.txt",
+        location: "step_input://0", nameroot: "f", nameext: ".txt"}]}
+    - parameter: {name: "hello", input_files: [{class: File, basename: "f.txt",
+        location: "step_input://0", path: "/tmp/f.txt", nameroot: "f",
+        nameext: ".txt", format: "txt", size: 100}]}
+    - parameter: {name: "hello", input_files: []}
+  job_runtime_invalid:
+    - parameter: {name: "hello", input_files: {src: hda, id: 5}}
+
 cwl_file_optional:
   request_valid:
     - parameter: {src: hda, id: abcdabcd}
