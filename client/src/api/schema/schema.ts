@@ -10311,6 +10311,19 @@ export interface components {
              */
             parameter_type: "cwl_array";
         };
+        /** CwlArrayType */
+        CwlArrayType: {
+            /**
+             * Items
+             * @enum {string}
+             */
+            items: "File" | "null" | "boolean" | "int" | "float" | "string";
+            /**
+             * Type
+             * @constant
+             */
+            type: "array";
+        };
         /** CwlBooleanParameterModel */
         CwlBooleanParameterModel: {
             /** default_value */
@@ -12713,7 +12726,8 @@ export interface components {
             /** Type */
             type:
                 | ("File" | "null" | "boolean" | "int" | "float" | "string")
-                | ("File" | "null" | "boolean" | "int" | "float" | "string")[];
+                | ("File" | "null" | "boolean" | "int" | "float" | "string")[]
+                | components["schemas"]["CwlArrayType"];
         };
         /** FileDataElement */
         FileDataElement: {
@@ -21289,6 +21303,11 @@ export interface components {
             ram_min: number | null;
             /** shm_size */
             shm_size?: number | null;
+            /**
+             * timelimit
+             * @description Maximum time in seconds the tool is allowed to run. Job will be terminated if exceeded.
+             */
+            timelimit?: number | null;
             /** tmpdir_max */
             tmpdir_max?: number | null;
             /** tmpdir_min */
