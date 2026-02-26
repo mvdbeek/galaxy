@@ -2395,7 +2395,29 @@ class DirectoryModelExportStore(ModelExportStore):
         has_collection = (
             collection.collection if isinstance(collection, model.HistoryDatasetCollectionAssociation) else collection
         )
-        for collection_dataset in has_collection.dataset_instances:
+
+        def collect_datasets_recursively(dc: model.DatasetCollection) -> list[model.DatasetInstance]:
+            """Recursively collect all dataset instances from a collection, handling nested collections."""
+            instances: list[model.DatasetInstance] = []
+            for element in dc.elements:
+                if element.is_collection:
+                    # Element is a nested collection (like a list inside a record)
+                    instances.extend(collect_datasets_recursively(element.child_collection))
+                else:
+                    instance = element.dataset_instance
+                    instances.append(instance)
+            return instances
+
+        # Use recursive traversal for record collections which may have heterogeneous nested collections
+        # that the SQL-based dataset_instances query doesn't handle correctly.
+        # The SQL query relies on collection_type having ":" separators to detect nesting depth,
+        # but record collections have nested child collections without this indicator in the type string.
+        if has_collection.collection_type == "record":
+            dataset_instances = collect_datasets_recursively(has_collection)
+        else:
+            dataset_instances = has_collection.dataset_instances
+
+        for collection_dataset in dataset_instances:
             # ignoring include_hidden since the datasets will default to hidden for this collection.
             if collection_dataset.deleted and not include_deleted:
                 include_files = False
