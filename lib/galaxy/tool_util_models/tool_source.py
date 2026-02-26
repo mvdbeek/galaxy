@@ -169,7 +169,14 @@ class DrillDownOptionsDict(TypedDict):
 # For fields... just implementing a subset of CWL for Galaxy flavors of these objects
 # so far.
 CwlType = Literal["File", "null", "boolean", "int", "float", "string"]
-FieldType = Union[CwlType, List[CwlType]]
+
+
+class CwlArrayType(TypedDict):
+    type: Literal["array"]
+    items: CwlType
+
+
+FieldType = Union[CwlType, List[CwlType], CwlArrayType]
 
 
 # type ignore because mypy can't handle closed TypedDicts yet
