@@ -38,11 +38,11 @@ from galaxy.model import (
     WorkflowStepConnection,
 )
 from galaxy.model.base import ensure_object_added_to_session
-from galaxy.model.orm.util import get_object_session
 from galaxy.model.dataset_collections import matching
 from galaxy.model.dataset_collections.query import HistoryQuery
 from galaxy.model.dataset_collections.type_description import COLLECTION_TYPE_DESCRIPTION_FACTORY
 from galaxy.model.dataset_collections.types.sample_sheet_util import validate_column_definitions
+from galaxy.model.orm.util import get_object_session
 from galaxy.schema.invocation import (
     CancelReason,
     FailureReason,
