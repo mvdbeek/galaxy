@@ -217,13 +217,15 @@ class DynamicToolManager(ModelManager[DynamicTool]):
             assert isinstance(representation, CwlUserToolSource)
             uuid = model.get_uuid()
             raw_cwl = representation.raw_process_reference
-            proxy = tool_proxy(tool_object=raw_cwl, uuid=uuid)
+            tool_directory = representation.tool_directory
+            proxy = tool_proxy(tool_object=raw_cwl, tool_directory=tool_directory, uuid=uuid)
             tool_id = representation.id or proxy.galaxy_id()
             tool_version = representation.version or raw_cwl.get("version")
             value = proxy.to_persistent_representation()
         else:
             uuid = None
             proxy = None
+            tool_directory = None
             assert representation.id is not None
             tool_id = representation.id
             tool_version = representation.version
@@ -233,6 +235,7 @@ class DynamicToolManager(ModelManager[DynamicTool]):
             tool_format=tool_format,
             tool_id=tool_id,
             tool_version=tool_version,
+            tool_directory=tool_directory,
             active=tool_payload.active,
             hidden=tool_payload.hidden,
             value=value,

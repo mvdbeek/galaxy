@@ -3099,7 +3099,10 @@ class CwlPopulator:
         with open(cwl_tool_path) as f:
             cwl_doc = yaml.safe_load(f)
         cwl_class = cwl_doc.get("class", "CommandLineTool")
-        representation = CwlUserToolSource(raw_process_reference=cwl_doc, **{"class": cwl_class})
+        tool_directory = os.path.dirname(os.path.abspath(cwl_tool_path))
+        representation = CwlUserToolSource(
+            raw_process_reference=cwl_doc, tool_directory=tool_directory, **{"class": cwl_class}
+        )
         return self.dataset_populator.create_unprivileged_tool(representation, assert_ok=assert_ok)
 
     def get_conformance_test(self, version: str, doc: str):
