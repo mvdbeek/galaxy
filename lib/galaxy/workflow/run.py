@@ -754,7 +754,9 @@ class WorkflowProgress:
         if not invocation.has_input_for_step(step.id):
             content = outputs.get("output", NO_REPLACEMENT)
             if content is not NO_REPLACEMENT:
-                log.info("ADDING INPUT FOR STEP %s: %s", step.id, content, exc_info=True)
+                # Unwrap EphemeralCollection to its persistent HDCA for DB storage
+                if isinstance(content, modules.EphemeralCollection):
+                    content = content.persistent_object
                 invocation.add_input(content, step.id)
 
         output = outputs.get("output")
@@ -893,16 +895,38 @@ class WorkflowProgress:
             connection_found = False
             subworkflow_step_id = input_subworkflow_step.id
             input_connections = step.input_connections
-            for input_connection in input_connections:
-                if input_connection.input_subworkflow_step_id == subworkflow_step_id:
-                    is_data = input_connection.output_step.type != "parameter_input"
-                    replacement = self.replacement_for_connection(
-                        input_connection,
-                        is_data=is_data,
-                    )
+            # Collect ALL connections targeting this subworkflow input step
+            # (CWL MultipleInputFeatureRequirement can map multiple outer
+            # sources to a single subworkflow input, e.g. [file1, file2]).
+            matching_connections = [
+                ic for ic in input_connections if ic.input_subworkflow_step_id == subworkflow_step_id
+            ]
+            if len(matching_connections) == 1:
+                input_connection = matching_connections[0]
+                is_data = input_connection.output_step.type != "parameter_input"
+                replacement = self.replacement_for_connection(
+                    input_connection,
+                    is_data=is_data,
+                )
+                subworkflow_inputs[subworkflow_step_id] = replacement
+                connection_found = True
+            elif len(matching_connections) > 1:
+                # Multiple connections → merge via replacement_for_input_connections
+                # (same logic as CWL MultipleInputFeatureRequirement merge).
+                input_name = input_subworkflow_step.label or str(subworkflow_step_id)
+                input_dict: dict[str, Any] = {
+                    "name": input_name,
+                    "input_type": "dataset",
+                    "multiple": False,
+                }
+                replacement = self.replacement_for_input_connections(step, input_dict, matching_connections)
+                if not isinstance(replacement, NoReplacement):
+                    # Flush EphemeralCollection so it gets a DB id for downstream refs
+                    if isinstance(replacement, modules.EphemeralCollection):
+                        self.trans.sa_session.add(replacement.persistent_object)
+                        self.trans.sa_session.flush()
                     subworkflow_inputs[subworkflow_step_id] = replacement
                     connection_found = True
-                    break
 
             if not input_subworkflow_step.input_optional and not connection_found:
                 # Check if input has a default value (matching pattern from run_request.py).
