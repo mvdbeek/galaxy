@@ -367,6 +367,15 @@ def queue_jobs(request: QueueJobs, app: MinimalManagerApp, job_submitter: JobSub
         tool_id=request.tool_id,
         tool_uuid=request.tool_uuid,
     )
+    if request.tool_uuid:
+        dynamic_tool = app.dynamic_tool_manager.get_tool_by_uuid(request.tool_uuid)
+        if dynamic_tool is None:
+            sa_session = app.model.context
+            user = sa_session.get(User, request.user.user_id)
+            if user:
+                dynamic_tool = app.dynamic_tool_manager.get_unprivileged_tool_by_uuid(user, request.tool_uuid)
+        if dynamic_tool:
+            tool.dynamic_tool = dynamic_tool
 
     job_submitter.queue_jobs(
         tool,
