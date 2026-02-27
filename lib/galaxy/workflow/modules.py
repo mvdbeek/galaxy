@@ -429,14 +429,17 @@ def find_cwl_scatter_collections(
             if isinstance(p, (CwlArrayParameterModel, CwlRecordParameterModel)):
                 collection_param_names.add(p.name)
 
+    # Does this step have any explicit CWL scatter annotations?
+    # If so, "disabled" inputs must keep the full collection (e.g. for
+    # valueFrom expressions like self[0] that need the whole array).
+    has_explicit_scatter = any(si.scatter_type and si.scatter_type != "disabled" for si in step.inputs)
+
     for name, ref in cwl_input_dict.items():
         if not isinstance(ref, dict) or ref.get("src") != "hdca":
             continue
 
         step_input = step_inputs_by_name.get(name)
         scatter_type = (step_input.scatter_type if step_input else None) or "dotproduct"
-        if scatter_type == "disabled":
-            continue
 
         hdca = trans.sa_session.get(model.HistoryDatasetCollectionAssociation, ref["id"])
         if not hdca or not hdca.collection.allow_implicit_mapping:
@@ -449,12 +452,19 @@ def find_cwl_scatter_collections(
         if ":" in collection_type:
             subcollection_type = collection_type.split(":", 1)[1]
 
-        if step_input:
-            # Explicit scatter annotation (WorkflowStepInput exists)
+        if scatter_type != "disabled":
+            # Explicit scatter — this input is in the step's scatter list.
             collections_to_match.add(name, hdca, subcollection_type=subcollection_type)
-        elif name not in collection_param_names:
-            # Implicit mapping: HDCA passed to a scalar parameter
-            # (e.g. inside a subworkflow with outer scatter)
+        elif not has_explicit_scatter and name not in collection_param_names:
+            # Implicit mapping: HDCA passed to a scalar (non-array/record)
+            # parameter on a step with NO explicit scatter.  This handles
+            # inner steps of a subworkflow whose parent step scatters — the
+            # inner tools receive HDCAs that need to be mapped over even
+            # though they have no scatter annotation.
+            #
+            # When the step DOES have explicit scatter, "disabled" means
+            # "not part of the scatter" and the full collection must be
+            # preserved (e.g. for valueFrom expressions accessing self[0]).
             collections_to_match.add(name, hdca, subcollection_type=subcollection_type)
 
     return collections_to_match
@@ -2726,7 +2736,6 @@ class ToolModule(WorkflowModule):
                     collection_info.when_values = progress.subworkflow_collection_info.when_values
                 else:
                     collection_info.when_values = progress.when_values
-
             if collection_info:
                 iteration_elements_iter = collection_info.slice_collections()
             else:
