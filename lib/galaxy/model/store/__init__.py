@@ -2400,7 +2400,7 @@ class DirectoryModelExportStore(ModelExportStore):
             """Recursively collect all dataset instances from a collection, handling nested collections."""
             instances: list[model.DatasetInstance] = []
             for element in dc.elements:
-                if element.is_collection:
+                if element.is_collection and element.child_collection:
                     # Element is a nested collection (like a list inside a record)
                     instances.extend(collect_datasets_recursively(element.child_collection))
                 else:
