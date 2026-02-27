@@ -165,6 +165,7 @@ class CwlUserToolSource(BaseModel):
     raw_process_reference: Dict[str, Any]
     id: Optional[str] = None
     version: Optional[str] = None
+    tool_directory: Optional[str] = None
 
 
 DynamicToolSources = Annotated[Union[UserToolSource, AdminToolSource], Field(discriminator="class_")]

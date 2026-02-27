@@ -381,6 +381,8 @@ do
       -cwl|--cwl)
           GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE="True"  # Run these tests with a non-trivial object store.
           export GALAXY_TEST_USE_HIERARCHICAL_OBJECT_STORE
+          GALAXY_TEST_JOB_CONFIG_FILE="test/functional/tools/cwl_job_conf.yml"
+          export GALAXY_TEST_JOB_CONFIG_FILE
           GALAXY_TEST_TOOL_CONF="lib/galaxy/config/sample/tool_conf.xml.sample,test/functional/tools/sample_tool_conf.xml"
           marker="cwl_conformance"
           report_file="./run_cwl_tests.html"

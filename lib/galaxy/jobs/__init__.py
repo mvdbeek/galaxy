@@ -1144,7 +1144,7 @@ class MinimalJobWrapper(HasResourceParameters):
 
     @property
     def requires_containerization(self):
-        return util.asbool(self.get_destination_configuration("require_container", "False"))
+        return self.is_cwl_job or util.asbool(self.get_destination_configuration("require_container", "False"))
 
     @property
     def use_metadata_binary(self):

@@ -335,9 +335,6 @@ class CommandLineToolProxy(ToolProxy):
 
         return [_simple_field_to_output(output) for output in outputs_schema["fields"]]
 
-    # Default container for CWL tools that don't specify one
-    DEFAULT_DOCKER_IMAGE = "debian:stable-slim"
-
     def docker_identifier(self):
         for hint in self.hints_or_requirements_of_class("DockerRequirement"):
             if "dockerImageId" in hint:
@@ -345,9 +342,6 @@ class CommandLineToolProxy(ToolProxy):
             else:
                 return hint["dockerPull"]
 
-        # Return default container for CommandLineTool (but not ExpressionTool)
-        if self._class == "CommandLineTool":
-            return self.DEFAULT_DOCKER_IMAGE
         return None
 
 
