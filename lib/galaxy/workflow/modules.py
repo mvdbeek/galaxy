@@ -62,7 +62,10 @@ from galaxy.tool_util.parser.output_objects import (
     ToolOutput,
     ToolOutputCollection,
 )
-from galaxy.tool_util_models.dynamic_tool_models import DynamicUnprivilegedToolCreatePayload
+from galaxy.tool_util_models.dynamic_tool_models import (
+    DynamicToolCreatePayload,
+    DynamicUnprivilegedToolCreatePayload,
+)
 from galaxy.tools import (
     DatabaseOperationTool,
     DefaultToolState,
@@ -2271,11 +2274,18 @@ class ToolModule(WorkflowModule):
                     uuid_str = tool_representation.get("uuid")
                     proxy = cwl_tool_proxy(tool_object=raw_cwl, uuid=uuid_str)
                     dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool_from_proxy(trans.user, proxy)
-                else:
+                elif tool_format == "GalaxyUserTool":
                     create_request = DynamicUnprivilegedToolCreatePayload(
                         src="representation", representation=tool_representation
                     )
                     dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool(trans.user, create_request)
+                elif tool_format == "GalaxyTool" and trans.user_is_admin:
+                    privileged_request = DynamicToolCreatePayload(
+                        src="representation", representation=tool_representation
+                    )
+                    dynamic_tool = trans.app.dynamic_tool_manager.create_tool(privileged_request)
+                else:
+                    raise exceptions.AdminRequiredException("Only admin users can create tools dynamically.")
                 tool_uuid = dynamic_tool.uuid
         if tool_id is None and tool_uuid is None:
             raise exceptions.RequestParameterInvalidException(f"No content id could be located for for step [{d}]")
