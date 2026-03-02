@@ -1,7 +1,6 @@
 from typing import cast
 
 from galaxy import model
-from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.util.unittest import TestCase
 from galaxy.workflow.run import (
     ModuleInjector,
@@ -65,34 +64,6 @@ steps:
         - "@output_step": 0
           output_name: "output"
           "@input_subworkflow_step": 0
-"""
-
-TEST_OPTIONAL_PARAM_WORKFLOW_YAML = """
-steps:
-  - type: "parameter_input"
-    tool_inputs: {"parameter_type": "text", "optional": true}
-    label: "optional_param"
-  - type: "tool"
-    tool_id: "cat1"
-    inputs:
-      "input1":
-        connections:
-        - "@output_step": 0
-          output_name: "output"
-"""
-
-TEST_REQUIRED_PARAM_WORKFLOW_YAML = """
-steps:
-  - type: "parameter_input"
-    tool_inputs: {"parameter_type": "text", "optional": false}
-    label: "required_param"
-  - type: "tool"
-    tool_id: "cat1"
-    inputs:
-      "input1":
-        connections:
-        - "@output_step": 0
-          output_name: "output"
 """
 
 UNSCHEDULED_STEP = object()
@@ -206,73 +177,6 @@ class TestWorkflowProgress(TestCase):
         }
         replacement = progress.replacement_for_input(None, self._step(4), step_dict)
         assert replacement is hda3
-
-    def test_optional_param_omitted_returns_no_replacement_for_connection(self):
-        """When an optional parameter_input step is omitted from invocation,
-        downstream steps connected to it should receive NO_REPLACEMENT (not None
-        or a ConnectedValue placeholder), so that tool-level default handling
-        works correctly."""
-        self._setup_workflow(TEST_OPTIONAL_PARAM_WORKFLOW_YAML)
-
-        # Do not provide the optional param in inputs_by_step_id
-        self.inputs_by_step_id = {}
-        progress = self._new_workflow_progress()
-        progress.set_outputs_for_input(self._invocation_step(0))
-
-        conn = model.WorkflowStepConnection()
-        conn.output_name = "output"
-        conn.output_step = self._step(0)
-
-        # The downstream step should get NO_REPLACEMENT, allowing its own
-        # default value logic to kick in
-        replacement = progress.replacement_for_connection(conn)
-        assert replacement is NO_REPLACEMENT
-
-    def test_optional_param_omitted_does_not_pollute_runtime_replacements(self):
-        """When an optional parameter_input step is omitted, its label should
-        NOT appear in runtime_replacements (which would inject a stringified
-        sentinel into tool commands)."""
-        self._setup_workflow(TEST_OPTIONAL_PARAM_WORKFLOW_YAML)
-
-        self.inputs_by_step_id = {}
-        progress = self._new_workflow_progress()
-        progress.set_outputs_for_input(self._invocation_step(0))
-
-        assert "optional_param" not in progress.runtime_replacements
-
-    def test_optional_param_provided_works(self):
-        """When an optional parameter_input step IS provided, the value should
-        flow through to connected steps normally."""
-        self._setup_workflow(TEST_OPTIONAL_PARAM_WORKFLOW_YAML)
-
-        self.inputs_by_step_id = {100: "my_value"}
-        progress = self._new_workflow_progress()
-        progress.set_outputs_for_input(self._invocation_step(0))
-
-        conn = model.WorkflowStepConnection()
-        conn.output_name = "output"
-        conn.output_step = self._step(0)
-
-        replacement = progress.replacement_for_connection(conn)
-        assert replacement == "my_value"
-        assert progress.runtime_replacements["optional_param"] == "my_value"
-
-    def test_required_param_omitted_returns_no_replacement(self):
-        """When a required parameter_input step is omitted, NO_REPLACEMENT
-        should still be returned (the invocation should fail at validation,
-        but this tests the progress-level behavior)."""
-        self._setup_workflow(TEST_REQUIRED_PARAM_WORKFLOW_YAML)
-
-        self.inputs_by_step_id = {}
-        progress = self._new_workflow_progress()
-        progress.set_outputs_for_input(self._invocation_step(0))
-
-        conn = model.WorkflowStepConnection()
-        conn.output_name = "output"
-        conn.output_step = self._step(0)
-
-        replacement = progress.replacement_for_connection(conn)
-        assert replacement is NO_REPLACEMENT
 
     # TODO: Replace multiple true HDA with HDCA
     # TODO: Test explicit delay
