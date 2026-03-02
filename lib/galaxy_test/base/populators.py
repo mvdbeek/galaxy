@@ -4036,16 +4036,16 @@ def load_data_dict(
                 if "name" not in element_data:
                     identifier = element_data.pop("identifier")
                     element_data["name"] = identifier
-                input_type = element_data.pop("type", "raw")
+                input_type = element_data.pop("type", None) or element_data.pop("class", "raw")
                 content = None
-                if input_type == "File":
+                if input_type == "File" and "value" in element_data:
                     content = open_test_data(element_data)
                     element_data["src"] = "files"
                     if "__files" not in new_collection_kwds:
                         new_collection_kwds["__files"] = {}
                     new_collection_kwds["__files"][f"file_{i}|file_data"] = content
                 else:
-                    content = element_data.pop("content")
+                    content = element_data.pop("content", element_data.pop("contents", None))
                     if content is not None:
                         element_data["src"] = "pasted"
                         element_data["paste_content"] = content
@@ -4069,6 +4069,20 @@ def load_data_dict(
                 fetch_response = dataset_collection_populator.create_list_in_history(
                     history_id, contents=elements, direct_upload=True, wait=True, **new_collection_kwds
                 ).json()
+            elif collection_type == "sample_sheet":
+                rows = value.get("rows", {})
+                column_definitions = value.get("column_definitions", [])
+                contents_tuples = [(e["name"], e.get("paste_content", "")) for e in elements]
+                fetch_response = {
+                    "outputs": [
+                        dataset_collection_populator.create_sample_sheet(
+                            history_id,
+                            contents=contents_tuples,
+                            column_definitions=column_definitions,
+                            rows=rows,
+                        ).json()
+                    ]
+                }
             else:
                 fetch_response = dataset_collection_populator.create_pair_in_history(
                     history_id, contents=elements or None, direct_upload=True, wait=True, **new_collection_kwds
