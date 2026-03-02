@@ -3,6 +3,8 @@
 import logging
 import re
 
+from humanfriendly import parse_timespan
+
 log = logging.getLogger(__name__)
 
 # Default values for GCP Batch runner configuration
@@ -14,6 +16,23 @@ DEFAULT_CVMFS_DOCKER_VOLUME = (
     '-v "/cvmfs/data.galaxyproject.org:/cvmfs/data.galaxyproject.org:ro" '
     '-v "/cvmfs/cloud.galaxyproject.org:/cvmfs/cloud.galaxyproject.org:ro"'
 )
+DEFAULT_MAX_RUN_DURATION = 3600
+
+
+def convert_duration_to_seconds(duration_str) -> int:
+    """
+    Convert a duration string to integer seconds using humanfriendly.
+
+    Supports formats like: "3600", "3600s", "60m", "2h", "1d", "1.5 hours", etc.
+    Returns DEFAULT_MAX_RUN_DURATION if the input is empty or invalid.
+    """
+    if not duration_str:
+        return DEFAULT_MAX_RUN_DURATION
+    try:
+        return int(parse_timespan(str(duration_str)))
+    except Exception:
+        log.warning("Invalid duration format: %s, using default %ds", duration_str, DEFAULT_MAX_RUN_DURATION)
+        return DEFAULT_MAX_RUN_DURATION
 
 
 def parse_volume_spec(volume_spec):

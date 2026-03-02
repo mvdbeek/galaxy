@@ -4,6 +4,7 @@ import pytest
 
 from galaxy.jobs.runners.util.gcp_batch import (
     convert_cpu_to_milli,
+    convert_duration_to_seconds,
     convert_memory_to_mib,
     parse_docker_volumes_param,
     parse_volume_spec,
@@ -82,6 +83,30 @@ class TestConvertMemoryToMib:
     )
     def test_convert_memory_to_mib(self, input_value, expected):
         result = convert_memory_to_mib(input_value)
+        assert result == expected
+
+
+class TestConvertDurationToSeconds:
+    """Tests for convert_duration_to_seconds helper function."""
+
+    @pytest.mark.parametrize(
+        "input_value,expected",
+        [
+            ("3600", 3600),  # plain number (seconds)
+            ("3600s", 3600),  # explicit seconds
+            ("60m", 3600),  # minutes
+            ("2h", 7200),  # hours
+            ("1d", 86400),  # days
+            ("1.5h", 5400),  # fractional hours
+            ("2 hours", 7200),  # long-form
+            ("30 minutes", 1800),  # long-form minutes
+            ("", 3600),  # empty -> default
+            (None, 3600),  # None -> default
+            ("invalid", 3600),  # invalid -> default
+        ],
+    )
+    def test_convert_duration_to_seconds(self, input_value, expected):
+        result = convert_duration_to_seconds(input_value)
         assert result == expected
 
 

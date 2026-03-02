@@ -25,6 +25,7 @@ from galaxy.jobs.runners.util.gcp_batch import (
     compute_machine_type,
     CONTAINER_SCRIPT_TEMPLATE,
     convert_cpu_to_milli,
+    convert_duration_to_seconds,
     convert_memory_to_mib,
     DEFAULT_CVMFS_DOCKER_VOLUME,
     DEFAULT_MEMORY_MIB,
@@ -282,7 +283,7 @@ class GoogleCloudBatchJobRunner(AsynchronousJobRunner):
         task_spec = batch_v1.TaskSpec()
         task_spec.runnables = [runnable]
         task_spec.max_retry_count = params["max_retry_count"]
-        task_spec.max_run_duration = params["max_run_duration"]
+        task_spec.max_run_duration = f"{convert_duration_to_seconds(params['max_run_duration'])}s"
 
         # Set compute resources
         compute_resource = batch_v1.ComputeResource()
