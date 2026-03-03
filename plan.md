@@ -20,10 +20,13 @@ When a handler restarts while its thread is blocked on `set_job_metadata.delay()
 
 ### Key insight for the fix
 
-The core issue is that `_handle_metadata_externally` with celery uses a synchronous `.get()` call that blocks the handler thread. If this is interrupted, there's no persistent record that metadata setting was in progress, and no mechanism to retry it on restart. The fix should:
+The core issue is that `_handle_metadata_externally` with celery uses a synchronous `.get()` call that blocks the handler thread. If this is interrupted, there's no persistent record that metadata setting was in progress, and no mechanism to retry it on restart.
 
+However, the **dataset-level** `SETTING_METADATA` state IS already persisted in the DB. When `setup_external_metadata` is called (line 453 in `runners/__init__.py`), it sets output datasets to `SETTING_METADATA` state before dispatching the celery task. If celery dies, those datasets remain in `SETTING_METADATA`. This state should be used for recovery — no marker files needed.
+
+The fix should:
 1. Make the metadata celery dispatch failure **not silently swallow the error** — at minimum, the job should be failed with a clear message rather than left in running state
-2. Add a recovery mechanism for jobs that were in the middle of celery metadata setting when Galaxy restarted
+2. Add a recovery mechanism: on startup, detect jobs in `RUNNING` state whose output datasets are in `SETTING_METADATA` state, and retry metadata or fail them cleanly
 3. Add logging for celery set_meta dispatches (as noted in the issue)
 
 ## Implementation Plan
@@ -34,25 +37,37 @@ The core issue is that `_handle_metadata_externally` with celery uses a synchron
 
 Create integration tests that verify:
 
-1. **Test: Job completes after celery metadata failure** — When celery metadata setting fails (e.g., task raises exception), the job should not be left in a non-terminal state. It should either retry metadata internally or be set to an error/failed_metadata state.
+1. **Test: Job recovery after handler restart during celery metadata** — Run a tool whose datatype has a slow `set_meta` (sleeps), restart Galaxy while metadata is being set, verify the job reaches a terminal state after recovery.
 
-2. **Test: Job recovery after handler restart during celery metadata** — Simulate a handler restart while a job's metadata is being set via celery. After restart, the job should be recovered (either re-run metadata or fail cleanly).
+2. **Test: Job completes after celery metadata failure** — When celery metadata setting fails (e.g., task raises exception), the job should not be left in a non-terminal state.
 
-The test strategy:
-- Use `handle_galaxy_config_kwds` to configure `metadata_strategy: celery_extended`
-- Run a tool that produces output
-- Before the celery metadata task completes, simulate the failure scenario
-- Verify the job reaches a terminal state after recovery/restart
+**Test strategy — injecting a slow datatype:**
+- Register a custom datatype (e.g., `SlowMetadata`) whose `set_meta` method sleeps for a configurable number of seconds. This guarantees the restart will always interrupt metadata setting.
+- Use `handle_galaxy_config_kwds` to configure `metadata_strategy: directory_celery` and register the custom datatype.
+- Run a tool that produces output with this datatype.
+- While `set_meta` is sleeping (datasets in `SETTING_METADATA` state), call `self.restart()` to restart Galaxy.
+- After restart, verify the job reaches a terminal state (either OK with re-run metadata, or ERROR/FAILED_METADATA).
 
-To simulate celery metadata failure without actually killing celery, we can:
-- Use a mock/monkeypatch approach on `set_job_metadata` to raise an exception
-- Or use the `restart()` test infrastructure to restart Galaxy while a job is in progress
-
-Following the pattern from `test_job_recovery.py`, the restart-based test is the most realistic integration test approach.
+**Slow datatype implementation:**
+- Add a datatype class in the test file (or a test helper) that extends `Text` and overrides `set_meta` to sleep:
+  ```python
+  class SlowMetadata(Text):
+      file_ext = "slow_metadata"
+      def set_meta(self, dataset, **kwd):
+          import time
+          time.sleep(30)  # long enough to guarantee restart interrupts it
+          super().set_meta(dataset, **kwd)
+  ```
+- Register it via `datatypes_conf_override` in the galaxy config or by dynamically adding it to the datatypes registry.
 
 **Test abstractions to build:**
-- A base class `CeleryMetadataRecoveryTestCase` that configures `metadata_strategy: celery_extended` and provides helper methods
-- Helper to set a job to the state where it's post-execution but metadata hasn't been set
+- A base test class `CeleryMetadataRecoveryTestCase` that:
+  - Configures `metadata_strategy: directory_celery` (or `celery_extended`)
+  - Registers the slow datatype
+  - Provides a helper to run a tool that produces slow-metadata output
+  - Provides a helper to wait until datasets are in `SETTING_METADATA` state
+- Reuse `UsesCeleryTasks` mixin for celery setup
+- Use the `restart()` infrastructure from `IntegrationTestCase`
 
 ### Step 2: Fix `_handle_metadata_externally` to not silently fail
 
@@ -60,19 +75,21 @@ Following the pattern from `test_job_recovery.py`, the restart-based test is the
 
 Changes:
 - Add logging when dispatching celery metadata task (line ~468): `log.debug("dispatching set_job_metadata celery task for job %d", job_wrapper.job_id)`
-- When the celery task raises an exception, instead of just `return`, **re-raise** the exception or set a flag so the caller knows metadata failed. The caller (`_finish_or_resubmit_job` / local runner) should then handle it appropriately (fail the job or retry metadata internally).
+- When the celery task raises an exception, instead of just `return`, **re-raise** the exception so the caller can handle it. The caller (`_finish_or_resubmit_job` / local runner) will then catch it and fail the job properly.
 
 ### Step 3: Add recovery for jobs stuck after celery metadata interruption
 
 **File:** `lib/galaxy/jobs/handler.py` and/or `lib/galaxy/managers/jobs.py`
 
-The `_check_job_at_startup` method needs to handle the case where a job is in RUNNING state but its compute job already completed (external job finished), and it was interrupted during metadata setting.
+Use the existing `SETTING_METADATA` dataset state for recovery:
 
-Two approaches:
-- **Approach A (preferred):** Modify `_handle_metadata_externally` to record the celery task state (e.g., via a flag on the job or a marker file in the working directory). On recovery, detect this and re-dispatch the celery metadata task or retry internally.
-- **Approach B:** On recovery, if the working directory still exists and has compute outputs but metadata wasn't finalized, attempt to re-run `finish()` for the job.
+- When `_check_job_at_startup` finds a job in `RUNNING` state, check if any of its output datasets are in `SETTING_METADATA` state. If so, this job was interrupted during metadata setting.
+- For these jobs, instead of dispatching to the runner's `recover()` method (which may not know how to handle this — e.g., local runner just errors, Pulsar tries to re-monitor a completed job), handle recovery directly:
+  - Re-dispatch the celery metadata task, OR
+  - Call `finish()` with `retry_metadata_internally=True`, OR
+  - At minimum, fail the job with a clear error message instead of leaving it stuck.
 
-The simplest approach: when `_handle_metadata_externally` dispatches a celery task, write a marker file. When recovery runs and finds a job in RUNNING state whose external job is complete but has this marker, re-attempt metadata setting or just call `finish()` which will retry metadata internally.
+The preferred approach is to attempt `finish()` again since the compute outputs are already available — this allows `retry_metadata_internally` (which defaults to `True`) to re-set metadata in-process.
 
 ### Step 4: Run and verify tests
 
@@ -81,9 +98,9 @@ Run with:
 ./run_tests.sh -integration test/integration/test_celery_metadata_recovery.py
 ```
 
-## Files to Modify
+## Files to Modify/Create
 
-1. **`test/integration/test_celery_metadata_recovery.py`** (NEW) — Integration tests
+1. **`test/integration/test_celery_metadata_recovery.py`** (NEW) — Integration tests with slow datatype injection
 2. **`lib/galaxy/jobs/runners/__init__.py`** — Fix `_handle_metadata_externally` to not silently swallow celery failures, add logging
-3. **`lib/galaxy/jobs/handler.py`** — Enhance `_check_job_at_startup` to handle post-compute-pre-metadata jobs
+3. **`lib/galaxy/jobs/handler.py`** — Enhance `_check_job_at_startup` to detect jobs interrupted during celery metadata (output datasets in `SETTING_METADATA`) and recover them
 4. **`lib/galaxy/managers/jobs.py`** — Possibly extend `get_jobs_to_check_at_startup` if needed
