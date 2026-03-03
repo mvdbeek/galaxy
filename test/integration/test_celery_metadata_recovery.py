@@ -5,7 +5,7 @@ import os
 from sqlalchemy import select
 
 from galaxy import model
-from galaxy.model.orm.util import ensure_object_added_to_session
+from galaxy.model.base import ensure_object_added_to_session
 from galaxy_test.base.populators import DatasetPopulator
 from galaxy_test.driver import integration_util
 
