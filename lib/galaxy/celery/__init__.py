@@ -17,6 +17,7 @@ from celery import (
     shared_task,
     Task,
 )
+from celery.exceptions import TimeoutError as CeleryTimeoutError
 from celery.signals import (
     worker_init,
     worker_shutting_down,
@@ -271,8 +272,6 @@ def get_or_raise_if_workers_lost(async_result, poll_interval: float = WORKER_POL
 
     Raises ``WorkersLostError`` if no workers respond to ping.
     """
-    from celery.exceptions import TimeoutError as CeleryTimeoutError
-
     while True:
         try:
             return async_result.get(timeout=poll_interval)
