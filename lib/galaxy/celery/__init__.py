@@ -253,3 +253,35 @@ def setup_periodic_tasks(config, celery_app):
 
 
 celery_app = init_celery_app()
+
+# Default interval (in seconds) between liveness checks while waiting for a celery result.
+WORKER_POLL_INTERVAL = 30
+
+
+def get_or_raise_if_workers_lost(async_result, poll_interval: float = WORKER_POLL_INTERVAL):
+    """Block until *async_result* is ready, raising if all Celery workers disappear.
+
+    ``AsyncResult.get()`` blocks forever when the worker that accepted the
+    task dies (OOM-kill, ``kill -9``, etc.) because no result is ever
+    written to the backend.  This helper polls with a timeout and, between
+    polls, checks whether *any* worker is still alive via
+    ``control.ping()``.
+
+    Returns the task result on success; propagates task exceptions normally.
+
+    Raises ``WorkersLostError`` if no workers respond to ping.
+    """
+    from celery.exceptions import TimeoutError as CeleryTimeoutError
+
+    while True:
+        try:
+            return async_result.get(timeout=poll_interval)
+        except CeleryTimeoutError:
+            if not celery_app.control.ping(timeout=2.0):
+                raise WorkersLostError(
+                    f"Celery task {async_result.id} will never complete: no workers responded to ping"
+                )
+
+
+class WorkersLostError(Exception):
+    """Raised when no Celery workers are available to complete a task."""

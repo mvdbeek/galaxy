@@ -460,18 +460,21 @@ class BaseJobRunner:
             metadata_strategy = job_wrapper.metadata_strategy
             if "celery" in metadata_strategy:
                 self._verify_celery_config()
+                from galaxy.celery import get_or_raise_if_workers_lost
                 from galaxy.celery.tasks import set_job_metadata
 
                 # We're synchronously waiting for a task here. This means we have to have a result backend.
                 # That is bad practice and also means this can never become part of another task.
                 try:
-                    set_job_metadata.delay(
+                    result = set_job_metadata.delay(
                         tool_job_working_directory=job_wrapper.working_directory,
                         job_id=job_wrapper.job_id,
                         extended_metadata_collection="extended" in metadata_strategy,
-                    ).get()
+                    )
+                    log.debug("Dispatched set_job_metadata celery task %s for job %d", result.id, job_wrapper.job_id)
+                    get_or_raise_if_workers_lost(result)
                 except Exception:
-                    log.exception("Metadata task failed")
+                    log.exception("Metadata task failed for job %d", job_wrapper.job_id)
                     return
             else:
                 lib_adjust = GALAXY_LIB_ADJUST_TEMPLATE % job_wrapper.galaxy_lib_dir
