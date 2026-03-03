@@ -4,22 +4,19 @@
 
 When `metadata_strategy: directory_celery` (or `celery_extended`) is configured, if the Celery process is interrupted (OOM killed, process restart, etc.) while executing a `set_job_metadata` task, jobs become permanently stuck in a non-terminal state (`running`) with no recovery mechanism.
 
-### Root Causes
+### Root Cause
 
-**Problem 1: Worker death is undetectable**
-The handler calls `set_job_metadata.delay(...).get()` which blocks forever. If the worker is OOM-killed, no result is ever written to the backend, so `.get()` hangs indefinitely. The handler thread is stuck, the job stays in `RUNNING`, and there's no way to detect this without restarting Galaxy.
+**The handler blocks forever on `.get()` when a worker dies.**
 
-**Problem 2: Silent error swallowing**
-In `lib/galaxy/jobs/runners/__init__.py:473-475`, when the celery task does raise an exception (normal failure, not worker death), it's caught with a bare `except Exception` that logs and **returns early**. No job state update occurs.
+The handler calls `set_job_metadata.delay(...).get()` which blocks indefinitely. If the worker is OOM-killed, no result is ever written to the backend, so `.get()` hangs forever. The handler thread is stuck, and the job stays in `RUNNING`.
 
-**Problem 3: No logging on dispatch**
-There's no log message when the celery metadata task is dispatched, making troubleshooting difficult.
+Note: when the celery task raises a normal exception (not worker death), `.get()` does propagate it. The `except Exception` on line 473 catches it and returns, but execution continues to `_finish_or_resubmit_job` → `finish()` which retries metadata internally (via `retry_metadata_internally`, default `True`). So **normal task failures are already handled** — the problem is specifically worker death causing `.get()` to hang forever.
 
-### Key insight for the fix
+Additionally, there's no logging when the celery metadata task is dispatched, making troubleshooting difficult.
 
-Replace the blocking `.get()` with a **`.get(timeout=N)` polling loop** that periodically checks celery worker liveness via `celery_app.control.ping()`. If all workers are dead, the task will never complete — fail immediately instead of hanging forever. This detects worker death in real-time without requiring a Galaxy restart.
+### Approaches considered and rejected
 
-Additionally, use the existing **dataset-level** `SETTING_METADATA` state as defense-in-depth for handler restarts. When `setup_external_metadata` is called, it sets output datasets to `SETTING_METADATA` before dispatching. On handler startup, detect jobs with outputs stuck in this state and recover them.
+**`acks_late=True` + `reject_on_worker_lost=True`**: Would automatically requeue the task when a worker dies, giving it a chance to succeed on another worker. However, broker-level requeue bypasses Celery's `max_retries` entirely (the broker sees a fresh message), creating an infinite death loop if the task consistently OOMs. This is a [known Celery issue](https://github.com/celery/celery/issues/9082) with no clean solution — workarounds require broker-specific features (RabbitMQ DLX) that aren't portable.
 
 ## Implementation Plan
 
@@ -31,7 +28,7 @@ Create integration tests that verify:
 
 1. **Test: Job recovery after handler restart during celery metadata** — Run a tool whose datatype has a slow `set_meta` (sleeps), restart Galaxy while metadata is being set, verify the job reaches a terminal state after recovery.
 
-2. **Test: Job completes after celery metadata failure** — When celery metadata setting fails (e.g., task raises exception), the job should not be left in a non-terminal state.
+2. **Test: Job reaches terminal state when celery worker dies** — Verify the polling loop detects dead workers and the job is failed/recovered.
 
 **Test strategy — injecting a slow datatype:**
 - Register a custom datatype (e.g., `SlowMetadata`) whose `set_meta` method sleeps for a configurable number of seconds. This guarantees the restart will always interrupt metadata setting.
@@ -94,8 +91,9 @@ while True:
 This:
 - Detects worker death within one poll interval (no hanging forever)
 - `control.ping()` returns an empty list if no workers respond
-- Normal task exceptions from `.get()` propagate up (no more silent swallowing)
-- The caller (`_finish_or_resubmit_job` / local runner) handles the exception by failing the job
+- Normal task exceptions from `.get()` propagate up naturally (they already did — `finish()` handles them via `retry_metadata_internally`)
+- When all workers are dead, raises an exception; the caller proceeds to `finish()` which retries metadata internally
+- Adds dispatch logging for troubleshooting
 
 ### Step 3: Add recovery for jobs stuck after handler restart (defense-in-depth)
 
@@ -103,7 +101,7 @@ This:
 
 Use the existing `SETTING_METADATA` dataset state for recovery on startup:
 
-- When `_check_job_at_startup` finds a job in `RUNNING` state, check if any of its output datasets are in `SETTING_METADATA` state. If so, this job was interrupted during metadata setting.
+- When `_check_job_at_startup` finds a job in `RUNNING` state, check if any of its output datasets are in `SETTING_METADATA` state. If so, this job was interrupted during metadata setting (the handler restarted while blocked on `.get()`).
 - For these jobs, instead of dispatching to the runner's `recover()` method, handle recovery directly by calling `finish()` which will retry metadata internally (via `retry_metadata_internally` which defaults to `True`).
 
 This is defense-in-depth for the handler-restart case, which can't be handled by the polling loop since the polling thread itself is gone.
