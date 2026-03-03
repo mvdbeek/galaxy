@@ -70,6 +70,39 @@ mapping:
         desc: |
           Where temporary files are stored.
 
+      clone_bundles_enabled:
+        type: bool
+        default: false
+        required: false
+        desc: |
+          Enable pre-generated Mercurial clone bundles. When enabled,
+          the Tool Shed will generate static bundle files for each
+          repository and advertise them via Mercurial's clonebundles
+          extension. This reduces server CPU load during clone
+          operations as clients download pre-built bundles instead
+          of the server generating them on-the-fly.
+
+      clone_bundles_dir:
+        type: str
+        default: database/clone_bundles
+        required: false
+        desc: |
+          Directory where pre-generated clone bundle files are stored.
+          Each repository's bundle is stored in a hashed subdirectory
+          matching the repository storage layout.
+
+      clone_bundles_external_url:
+        type: str
+        default: ''
+        required: false
+        desc: |
+          If set, this base URL will be used in clone bundle manifests
+          instead of the Tool Shed's own API endpoint. Use this when
+          serving bundles via a CDN, nginx, or other static file server.
+
+          Example: https://cdn.example.com/bundles
+          Manifests will point to: {base_url}/{hash_dir}/repo_{id}/bundle.hg
+
       builds_file_path:
         type: str
         default: tool-data/shared/ucsc/builds.txt

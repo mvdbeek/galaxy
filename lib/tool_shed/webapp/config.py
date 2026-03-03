@@ -54,6 +54,8 @@ class ToolShedAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
             self.template_cache_path,
             os.path.join(self.tool_data_path, "shared", "jars"),
         ]
+        if self.clone_bundles_enabled:
+            paths_to_check.append(self.clone_bundles_dir)
         for path in paths_to_check:
             self._ensure_directory(path)
         # Check that required files exist.
@@ -78,6 +80,8 @@ class ToolShedAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
         # Where dataset files are stored
         self.file_path = self._in_root_dir(self.file_path)
         self.new_file_path = self._in_root_dir(self.new_file_path)
+        # Clone bundles
+        self.clone_bundles_dir = self._in_root_dir(self.clone_bundles_dir)
         self.cookie_path = kwargs.get("cookie_path")
         self.cookie_domain = kwargs.get("cookie_domain")
         self.enable_quotas = string_as_bool(kwargs.get("enable_quotas", False))

@@ -96,7 +96,9 @@ def create_hgrc_file(app, repository, repo_path):
         fp.write(f"name = {repository.name}\n")
         fp.write("push_ssl = false\n")
         fp.write("[extensions]\n")
-        fp.write("hgext.purge=")
+        fp.write("hgext.purge=\n")
+        if app.config.clone_bundles_enabled:
+            fp.write("clonebundles=\n")
 
 
 def get_named_tmpfile_from_ctx(ctx, filename, dir):

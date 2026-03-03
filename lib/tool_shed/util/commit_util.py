@@ -229,6 +229,10 @@ def handle_directory_changes(
                     undesirable_files_removed,
                 )
     hg_util.commit_changeset(repo_path, full_path_to_changeset=full_path, username=username, message=commit_message)
+    if app.config.clone_bundles_enabled and not dry_run:
+        from tool_shed.util.clone_bundles import regenerate_bundle
+
+        regenerate_bundle(app, repository)
     admin_only = len(repository.downloadable_revisions) != 1
     if not dry_run:
         suc.handle_email_alerts(
