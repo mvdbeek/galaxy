@@ -195,18 +195,17 @@ def visit_input_values(
         if replace:
             input_values[input.name] = new_value
         elif replace_optional_connections:
-            # Only used in workflow context
-            has_default = hasattr(input, "value")
-            if new_value is value is NO_REPLACEMENT or is_runtime_value(value):
-                # NO_REPLACEMENT means value was connected but left unspecified
-                if has_default:
-                    # Use default if we have one
-                    input_values[input.name] = input.value
-                else:
-                    # Should fail if input is not optional and does not have default value
-                    # Effectively however depends on parameter implementation.
-                    # We might want to raise an exception here, instead of depending on a tool parameter value error.
-                    input_values[input.name] = None
+            # Only used in workflow context.
+            # If we reach here the callback returned no_replacement_value,
+            # meaning the connected step did not produce a value (e.g. an
+            # omitted optional parameter_input).  Replace the current value
+            # (typically ConnectedValue or NO_REPLACEMENT) with the tool
+            # parameter's own default so downstream code (InputValueWrapper,
+            # json_wrap, expression tools …) receives a usable value.
+            if hasattr(input, "value"):
+                input_values[input.name] = input.value
+            else:
+                input_values[input.name] = None
 
     def get_current_case(input, input_values):
         test_parameter = input.test_param
