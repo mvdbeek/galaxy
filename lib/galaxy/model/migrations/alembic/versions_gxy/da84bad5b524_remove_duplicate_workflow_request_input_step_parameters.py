@@ -1,7 +1,7 @@
 """Remove duplicate rows from workflow_request_input_step_parameter
 
 Revision ID: da84bad5b524
-Revises: 04288b6a5b25
+Revises: 9930b68c85af
 Create Date: 2026-03-06 00:00:00.000000
 
 """
@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 
 # revision identifiers, used by Alembic.
 revision = "da84bad5b524"
-down_revision = "04288b6a5b25"
+down_revision = "9930b68c85af"
 branch_labels = None
 depends_on = None
 
