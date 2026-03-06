@@ -198,14 +198,15 @@ def visit_input_values(
             # Only used in workflow context.
             # If we reach here the callback returned no_replacement_value,
             # meaning the connected step did not produce a value (e.g. an
-            # omitted optional parameter_input).  Replace the current value
-            # (typically ConnectedValue or NO_REPLACEMENT) with the tool
-            # parameter's own default so downstream code (InputValueWrapper,
-            # json_wrap, expression tools …) receives a usable value.
-            if hasattr(input, "value"):
-                input_values[input.name] = input.value
-            else:
-                input_values[input.name] = None
+            # omitted optional parameter_input).  Only replace sentinel
+            # values (ConnectedValue, RuntimeValue, NO_REPLACEMENT) with
+            # the tool parameter's own default — preserve valid tool-state
+            # values for unconnected inputs.
+            if value is NO_REPLACEMENT or is_runtime_value(value):
+                if hasattr(input, "value"):
+                    input_values[input.name] = input.value
+                else:
+                    input_values[input.name] = None
 
     def get_current_case(input, input_values):
         test_parameter = input.test_param
