@@ -9,8 +9,8 @@
   outputs:
     out:
       asserts:
-        has_size:
-          value: 0
+        has_text:
+          text: "null"
 - doc: |
     Test that providing an optional text parameter connected to an expression
     tool that converts text to boolean produces true, so the conditional
