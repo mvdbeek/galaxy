@@ -19,6 +19,7 @@
     "dev-testtoolshed": "TOOL_SHED_URL=https://testtoolshed.g2.bx.psu.edu CHANGE_ORIGIN=true yarn vite dev"
   },
   "devDependencies": {
+    "@playwright/test": "^1.58.2",
     "@quasar/vite-plugin": "^1.0.4",
     "@types/node": "^22.10.5",
     "@typescript-eslint/eslint-plugin": "^5.47.1",

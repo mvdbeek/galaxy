@@ -1,0 +1,1191 @@
+{
+  "environment_variables": {
+    "additionalProperties": false,
+    "properties": {
+      "inttest": {
+        "default": null,
+        "title": "Inttest",
+        "type": "integer"
+      }
+    },
+    "title": "DynamicModelForTool",
+    "type": "object",
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "boolean_conditional": {
+    "$defs": {
+      "ConditionalType": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/When_p1use_True"
+          },
+          {
+            "$ref": "#/$defs/When_p1use_False"
+          },
+          {
+            "$ref": "#/$defs/When_p1use___absent"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "When_p1use_False": {
+        "additionalProperties": false,
+        "properties": {
+          "p1use": {
+            "const": false,
+            "default": null,
+            "title": "P1Use",
+            "type": "boolean"
+          },
+          "p1val": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "P1Val"
+          }
+        },
+        "title": "When_p1use_False",
+        "type": "object"
+      },
+      "When_p1use_True": {
+        "additionalProperties": false,
+        "properties": {
+          "p1use": {
+            "const": true,
+            "default": null,
+            "title": "P1Use",
+            "type": "boolean"
+          },
+          "p1val": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "P1Val"
+          }
+        },
+        "title": "When_p1use_True",
+        "type": "object"
+      },
+      "When_p1use___absent": {
+        "additionalProperties": false,
+        "properties": {
+          "p1val": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "P1Val"
+          }
+        },
+        "title": "When_p1use___absent",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "p1": {
+        "$ref": "#/$defs/ConditionalType",
+        "default": null
+      }
+    },
+    "title": "DynamicModelForTool",
+    "type": "object",
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "color_param": {
+    "additionalProperties": false,
+    "properties": {
+      "color_default": {
+        "default": null,
+        "title": "Color Default",
+        "type": "string"
+      },
+      "color_rgb": {
+        "default": null,
+        "title": "Color Rgb",
+        "type": "string"
+      }
+    },
+    "title": "DynamicModelForTool",
+    "type": "object",
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "disambiguate_cond": {
+    "$defs": {
+      "BatchDataInstance": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "enum": [
+              "hda",
+              "ldda",
+              "hdca"
+            ],
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "id"
+        ],
+        "title": "BatchDataInstance",
+        "type": "object"
+      },
+      "BatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "__class__": {
+            "const": "Batch",
+            "title": "Class",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/$defs/BatchDataInstance"
+            },
+            "title": "Values",
+            "type": "array"
+          },
+          "linked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Linked"
+          }
+        },
+        "required": [
+          "__class__",
+          "values"
+        ],
+        "title": "BatchRequest",
+        "type": "object"
+      },
+      "DataRequestHda": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "const": "hda",
+            "default": "hda",
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "DataRequestHda",
+        "type": "object"
+      },
+      "DataRequestLd": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "const": "ld",
+            "deprecated": true,
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "id"
+        ],
+        "title": "DataRequestLd",
+        "type": "object"
+      },
+      "DataRequestLdda": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "const": "ldda",
+            "default": "ldda",
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "DataRequestLdda",
+        "type": "object"
+      },
+      "DataRequestUri": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "ext": {
+            "title": "Ext",
+            "type": "string"
+          },
+          "dbkey": {
+            "default": "?",
+            "title": "Dbkey",
+            "type": "string"
+          },
+          "deferred": {
+            "default": false,
+            "title": "Deferred",
+            "type": "boolean"
+          },
+          "created_from_basename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created From Basename"
+          },
+          "info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Info"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tags"
+          },
+          "hashes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/FileHash"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hashes"
+          },
+          "space_to_tab": {
+            "default": false,
+            "title": "Space To Tab",
+            "type": "boolean"
+          },
+          "to_posix_lines": {
+            "default": false,
+            "title": "To Posix Lines",
+            "type": "boolean"
+          },
+          "src": {
+            "const": "url",
+            "default": "url",
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "ext"
+        ],
+        "title": "DataRequestUri",
+        "type": "object"
+      },
+      "FileHash": {
+        "additionalProperties": false,
+        "properties": {
+          "hash_function": {
+            "enum": [
+              "MD5",
+              "SHA-1",
+              "SHA-256",
+              "SHA-512"
+            ],
+            "title": "Hash Function",
+            "type": "string"
+          },
+          "hash_value": {
+            "title": "Hash Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash_function",
+          "hash_value"
+        ],
+        "title": "FileHash",
+        "type": "object"
+      },
+      "When_attach_files_False": {
+        "additionalProperties": false,
+        "properties": {
+          "attach_files": {
+            "const": false,
+            "default": null,
+            "title": "Attach Files",
+            "type": "boolean"
+          }
+        },
+        "title": "When_attach_files_False",
+        "type": "object"
+      },
+      "When_attach_files_True": {
+        "additionalProperties": false,
+        "properties": {
+          "attach_files": {
+            "const": true,
+            "default": null,
+            "title": "Attach Files",
+            "type": "boolean"
+          },
+          "p4": {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__1",
+            "default": null
+          }
+        },
+        "title": "When_attach_files_True",
+        "type": "object"
+      },
+      "When_attach_files___absent": {
+        "additionalProperties": false,
+        "properties": {
+          "p4": {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__2",
+            "default": null
+          }
+        },
+        "title": "When_attach_files___absent",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__1": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_True__4"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_False__4"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use___absent__4"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__2": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_True__5"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_False__5"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use___absent__5"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__3": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_True__1"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_False__1"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use___absent__1"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__4": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_True__2"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_False__2"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use___absent__2"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__5": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_True__3"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use_False__3"
+          },
+          {
+            "$ref": "#/$defs/galaxy__tool_util_models__parameters__When_use___absent__3"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__6": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/When_attach_files_True"
+          },
+          {
+            "$ref": "#/$defs/When_attach_files___absent"
+          },
+          {
+            "$ref": "#/$defs/When_attach_files_False"
+          }
+        ],
+        "title": "ConditionalType"
+      },
+      "galaxy__tool_util_models__parameters__When_use_False__1": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": false,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "p1v": {
+            "default": null,
+            "title": "P1V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use_False",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_False__2": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": false,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "p2v": {
+            "default": null,
+            "title": "P2V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use_False",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_False__3": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": false,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "p3v": {
+            "default": null,
+            "title": "P3V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use_False",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_False__4": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": false,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          }
+        },
+        "title": "When_use_False",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_False__5": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": false,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          }
+        },
+        "title": "When_use_False",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_True__1": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": true,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "p1v": {
+            "default": null,
+            "title": "P1V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use_True",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_True__2": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": true,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "p2v": {
+            "default": null,
+            "title": "P2V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use_True",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_True__3": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": true,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "p3v": {
+            "default": null,
+            "title": "P3V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use_True",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_True__4": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": true,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "hda": "#/$defs/DataRequestHda",
+                    "ld": "#/$defs/DataRequestLd",
+                    "ldda": "#/$defs/DataRequestLdda",
+                    "url": "#/$defs/DataRequestUri"
+                  },
+                  "propertyName": "src"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/DataRequestHda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLdda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLd"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestUri"
+                  }
+                ]
+              },
+              {
+                "$ref": "#/$defs/BatchRequest"
+              }
+            ],
+            "title": "File"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "When_use_True",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use_True__5": {
+        "additionalProperties": false,
+        "properties": {
+          "use": {
+            "const": true,
+            "default": null,
+            "title": "Use",
+            "type": "boolean"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "hda": "#/$defs/DataRequestHda",
+                    "ld": "#/$defs/DataRequestLd",
+                    "ldda": "#/$defs/DataRequestLdda",
+                    "url": "#/$defs/DataRequestUri"
+                  },
+                  "propertyName": "src"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/DataRequestHda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLdda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLd"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestUri"
+                  }
+                ]
+              },
+              {
+                "$ref": "#/$defs/BatchRequest"
+              }
+            ],
+            "title": "File"
+          }
+        },
+        "required": [
+          "file"
+        ],
+        "title": "When_use_True",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use___absent__1": {
+        "additionalProperties": false,
+        "properties": {
+          "p1v": {
+            "default": null,
+            "title": "P1V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use___absent",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use___absent__2": {
+        "additionalProperties": false,
+        "properties": {
+          "p2v": {
+            "default": null,
+            "title": "P2V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use___absent",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use___absent__3": {
+        "additionalProperties": false,
+        "properties": {
+          "p3v": {
+            "default": null,
+            "title": "P3V",
+            "type": "integer"
+          }
+        },
+        "title": "When_use___absent",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use___absent__4": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "When_use___absent",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__When_use___absent__5": {
+        "additionalProperties": false,
+        "properties": {},
+        "title": "When_use___absent",
+        "type": "object"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "p1": {
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__3",
+        "default": null
+      },
+      "p2": {
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__4",
+        "default": null
+      },
+      "p3": {
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__5",
+        "default": null
+      },
+      "files": {
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__6",
+        "default": null
+      }
+    },
+    "title": "DynamicModelForTool",
+    "type": "object",
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  },
+  "disambiguate_repeats": {
+    "$defs": {
+      "BatchDataInstance": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "enum": [
+              "hda",
+              "ldda",
+              "hdca"
+            ],
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "id"
+        ],
+        "title": "BatchDataInstance",
+        "type": "object"
+      },
+      "BatchRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "__class__": {
+            "const": "Batch",
+            "title": "Class",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/$defs/BatchDataInstance"
+            },
+            "title": "Values",
+            "type": "array"
+          },
+          "linked": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Linked"
+          }
+        },
+        "required": [
+          "__class__",
+          "values"
+        ],
+        "title": "BatchRequest",
+        "type": "object"
+      },
+      "DataRequestHda": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "const": "hda",
+            "default": "hda",
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "DataRequestHda",
+        "type": "object"
+      },
+      "DataRequestLd": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "const": "ld",
+            "deprecated": true,
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "src",
+          "id"
+        ],
+        "title": "DataRequestLd",
+        "type": "object"
+      },
+      "DataRequestLdda": {
+        "additionalProperties": false,
+        "properties": {
+          "src": {
+            "const": "ldda",
+            "default": "ldda",
+            "title": "Src",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "DataRequestLdda",
+        "type": "object"
+      },
+      "DataRequestUri": {
+        "additionalProperties": false,
+        "properties": {
+          "location": {
+            "title": "Location",
+            "type": "string"
+          },
+          "name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Name"
+          },
+          "ext": {
+            "title": "Ext",
+            "type": "string"
+          },
+          "dbkey": {
+            "default": "?",
+            "title": "Dbkey",
+            "type": "string"
+          },
+          "deferred": {
+            "default": false,
+            "title": "Deferred",
+            "type": "boolean"
+          },
+          "created_from_basename": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Created From Basename"
+          },
+          "info": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Info"
+          },
+          "tags": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Tags"
+          },
+          "hashes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/$defs/FileHash"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Hashes"
+          },
+          "space_to_tab": {
+            "default": false,
+            "title": "Space To Tab",
+            "type": "boolean"
+          },
+          "to_posix_lines": {
+            "default": false,
+            "title": "To Posix Lines",
+            "type": "boolean"
+          },
+          "src": {
+            "const": "url",
+            "default": "url",
+            "title": "Src",
+            "type": "string"
+          }
+        },
+        "required": [
+          "location",
+          "ext"
+        ],
+        "title": "DataRequestUri",
+        "type": "object"
+      },
+      "FileHash": {
+        "additionalProperties": false,
+        "properties": {
+          "hash_function": {
+            "enum": [
+              "MD5",
+              "SHA-1",
+              "SHA-256",
+              "SHA-512"
+            ],
+            "title": "Hash Function",
+            "type": "string"
+          },
+          "hash_value": {
+            "title": "Hash Value",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hash_function",
+          "hash_value"
+        ],
+        "title": "FileHash",
+        "type": "object"
+      },
+      "Repeat_more_queries": {
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "hda": "#/$defs/DataRequestHda",
+                    "ld": "#/$defs/DataRequestLd",
+                    "ldda": "#/$defs/DataRequestLdda",
+                    "url": "#/$defs/DataRequestUri"
+                  },
+                  "propertyName": "src"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/DataRequestHda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLdda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLd"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestUri"
+                  }
+                ]
+              },
+              {
+                "$ref": "#/$defs/BatchRequest"
+              }
+            ],
+            "title": "Input"
+          }
+        },
+        "required": [
+          "input"
+        ],
+        "title": "Repeat_more_queries",
+        "type": "object"
+      },
+      "Repeat_queries": {
+        "additionalProperties": false,
+        "properties": {
+          "input": {
+            "anyOf": [
+              {
+                "discriminator": {
+                  "mapping": {
+                    "hda": "#/$defs/DataRequestHda",
+                    "ld": "#/$defs/DataRequestLd",
+                    "ldda": "#/$defs/DataRequestLdda",
+                    "url": "#/$defs/DataRequestUri"
+                  },
+                  "propertyName": "src"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/$defs/DataRequestHda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLdda"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestLd"
+                  },
+                  {
+                    "$ref": "#/$defs/DataRequestUri"
+                  }
+                ]
+              },
+              {
+                "$ref": "#/$defs/BatchRequest"
+              }
+            ],
+            "title": "Input"
+          }
+        },
+        "required": [
+          "input"
+        ],
+        "title": "Repeat_queries",
+        "type": "object"
+      },
+      "galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__1": {
+        "default": null,
+        "items": {
+          "$ref": "#/$defs/Repeat_queries"
+        },
+        "title": "RepeatType",
+        "type": "array"
+      },
+      "galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__2": {
+        "default": null,
+        "items": {
+          "$ref": "#/$defs/Repeat_more_queries"
+        },
+        "title": "RepeatType",
+        "type": "array"
+      }
+    },
+    "additionalProperties": false,
+    "properties": {
+      "queries": {
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__1"
+      },
+      "more_queries": {
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__2"
+      }
+    },
+    "title": "DynamicModelForTool",
+    "type": "object",
+    "$schema": "https://json-schema.org/draft/2020-12/schema"
+  }
+}
