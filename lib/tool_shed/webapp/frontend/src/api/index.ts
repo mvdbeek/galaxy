@@ -54,3 +54,19 @@ export async function getParsedTool(trsToolId: string, version: string): Promise
     }
     return data
 }
+
+export async function getToolParameterRequestSchema(
+    trsToolId: string,
+    version: string
+): Promise<Record<string, unknown>> {
+    const { data } = await ToolShedApi().GET(
+        "/api/tools/{tool_id}/versions/{tool_version}/parameter_request_schema",
+        {
+            params: { path: { tool_id: trsToolId, tool_version: version } },
+        }
+    )
+    if (!data) {
+        throw Error("Failed to fetch tool parameter request schema")
+    }
+    return data as Record<string, unknown>
+}

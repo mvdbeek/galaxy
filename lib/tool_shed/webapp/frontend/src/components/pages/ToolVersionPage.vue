@@ -9,6 +9,7 @@ import BioToolsLink from "@/components/BioToolsLink.vue"
 import BioconductorLink from "@/components/BioconductorLink.vue"
 import EdamLink from "@/components/EdamLink.vue"
 import LicenseLink from "@/components/LicenseLink.vue"
+import ToolParameterSchemaForm from "@/components/ToolParameterSchemaForm.vue"
 
 interface Props {
     trsToolId: string
@@ -204,6 +205,14 @@ const linkedFromOlderRevision = computed(() => {
                         </q-item-section>
                     </q-item>
                 </q-list>
+            </q-card-section>
+            <q-separator />
+            <q-card-section>
+                <q-expansion-item label="Parameter Request Schema Form (PoC)" icon="tune" header-class="text-h6">
+                    <div class="q-pa-md">
+                        <tool-parameter-schema-form :trs-tool-id="trsToolId" :version="version" />
+                    </div>
+                </q-expansion-item>
             </q-card-section>
         </q-card>
     </q-page>
