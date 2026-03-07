@@ -165,6 +165,50 @@ def safe_field_name(name: str) -> str:
     return name
 
 
+def _field_kwargs_for_param_model(param_model: ParamModel) -> Dict[str, Any]:
+    """Extract JSON Schema metadata from a parameter model for use in Field()."""
+    kwargs: Dict[str, Any] = {}
+    label = getattr(param_model, "label", None)
+    if label:
+        kwargs["title"] = label
+    help_text = getattr(param_model, "help", None)
+    argument = getattr(param_model, "argument", None)
+    description_parts = []
+    if help_text:
+        description_parts.append(help_text)
+    if argument:
+        description_parts.append(f"({argument})")
+    if description_parts:
+        kwargs["description"] = " ".join(description_parts)
+    json_schema_extra: Dict[str, Any] = {}
+    json_schema_extra["gx_type"] = getattr(param_model, "parameter_type", None)
+    if hasattr(param_model, "options") and param_model.options is not None:
+        options = param_model.options
+        if options and hasattr(options[0], "label"):
+            json_schema_extra["gx_options"] = [
+                {"label": o.label, "value": o.value, "selected": o.selected} for o in options
+            ]
+    if hasattr(param_model, "extensions"):
+        json_schema_extra["gx_extensions"] = param_model.extensions
+    if hasattr(param_model, "multiple"):
+        json_schema_extra["gx_multiple"] = param_model.multiple
+    if hasattr(param_model, "min") and param_model.min is not None:
+        json_schema_extra["gx_min"] = param_model.min
+    if hasattr(param_model, "max") and param_model.max is not None:
+        json_schema_extra["gx_max"] = param_model.max
+    if hasattr(param_model, "area"):
+        json_schema_extra["gx_area"] = param_model.area
+    if hasattr(param_model, "default_options") and param_model.default_options:
+        default_options = param_model.default_options
+        if default_options and hasattr(default_options[0], "label"):
+            json_schema_extra["gx_default_options"] = [
+                {"label": o.label, "value": o.value, "selected": o.selected} for o in default_options
+            ]
+    if json_schema_extra:
+        kwargs["json_schema_extra"] = json_schema_extra
+    return kwargs
+
+
 def dynamic_model_information_from_py_type(
     param_model: ParamModel, py_type: Type, requires_value: Optional[bool] = None, validators=None
 ):
@@ -177,9 +221,10 @@ def dynamic_model_information_from_py_type(
     if not py_type_is_optional and not requires_value:
         validators["not_null"] = field_validator(name)(Validators.validate_not_none)
 
+    field_kwargs = _field_kwargs_for_param_model(param_model)
     return DynamicModelInformation(
         name,
-        (py_type, Field(initialize, alias=param_model.name if param_model.name != name else None)),
+        (py_type, Field(initialize, alias=param_model.name if param_model.name != name else None, **field_kwargs)),
         validators,
     )
 
@@ -1294,9 +1339,10 @@ class ColorParameterModel(BaseGalaxyToolParameterModelDefinition):
             validators = {"color_format": field_validator(self.name)(ColorParameterModel.validate_color_str_if_value)}
         else:
             validators = {"color_format": field_validator(self.name)(ColorParameterModel.validate_color_str)}
+        field_kwargs = _field_kwargs_for_param_model(self)
         return DynamicModelInformation(
             self.name,
-            (py_type, initialize),
+            (py_type, Field(initialize, **field_kwargs)),
             validators,
         )
 
@@ -1846,9 +1892,10 @@ class ConditionalParameterModel(BaseGalaxyToolParameterModelDefinition):
             else:
                 initialize_cond = None
 
+        field_kwargs = _field_kwargs_for_param_model(self)
         return DynamicModelInformation(
             self.name,
-            (py_type, initialize_cond),
+            (py_type, Field(initialize_cond, **field_kwargs)),
             {},
         )
 
@@ -1887,9 +1934,10 @@ class RepeatParameterModel(BaseGalaxyToolParameterModelDefinition):
         class RepeatType(RootModel):
             root: List[instance_class] = Field(initialize_repeat, min_length=min_length, max_length=max_length)  # type: ignore[valid-type]
 
+        field_kwargs = _field_kwargs_for_param_model(self)
         return DynamicModelInformation(
             self.name,
-            (RepeatType, initialize_repeat),
+            (RepeatType, Field(initialize_repeat, **field_kwargs)),
             {},
         )
 
@@ -1921,9 +1969,10 @@ class SectionParameterModel(BaseGalaxyToolParameterModelDefinition):
             initialize_section = ...
         else:
             initialize_section = None
+        field_kwargs = _field_kwargs_for_param_model(self)
         return DynamicModelInformation(
             self.name,
-            (instance_class, initialize_section),
+            (instance_class, Field(initialize_section, **field_kwargs)),
             {},
         )
 
