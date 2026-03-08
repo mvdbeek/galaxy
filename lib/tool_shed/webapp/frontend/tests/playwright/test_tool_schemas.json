@@ -4,6 +4,7 @@
     "properties": {
       "inttest": {
         "default": null,
+        "gx_type": "gx_integer",
         "title": "Inttest",
         "type": "integer"
       }
@@ -47,6 +48,8 @@
               }
             ],
             "default": null,
+            "gx_area": false,
+            "gx_type": "gx_text",
             "title": "P1Val"
           }
         },
@@ -72,6 +75,8 @@
               }
             ],
             "default": null,
+            "gx_area": false,
+            "gx_type": "gx_text",
             "title": "P1Val"
           }
         },
@@ -91,6 +96,8 @@
               }
             ],
             "default": null,
+            "gx_area": false,
+            "gx_type": "gx_text",
             "title": "P1Val"
           }
         },
@@ -102,7 +109,8 @@
     "properties": {
       "p1": {
         "$ref": "#/$defs/ConditionalType",
-        "default": null
+        "default": null,
+        "gx_type": "gx_conditional"
       }
     },
     "title": "DynamicModelForTool",
@@ -114,11 +122,13 @@
     "properties": {
       "color_default": {
         "default": null,
+        "gx_type": "gx_color",
         "title": "Color Default",
         "type": "string"
       },
       "color_rgb": {
         "default": null,
+        "gx_type": "gx_color",
         "title": "Color Rgb",
         "type": "string"
       }
@@ -409,7 +419,8 @@
           },
           "p4": {
             "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__1",
-            "default": null
+            "default": null,
+            "gx_type": "gx_conditional"
           }
         },
         "title": "When_attach_files_True",
@@ -420,7 +431,8 @@
         "properties": {
           "p4": {
             "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__2",
-            "default": null
+            "default": null,
+            "gx_type": "gx_conditional"
           }
         },
         "title": "When_attach_files___absent",
@@ -521,6 +533,7 @@
           },
           "p1v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P1V",
             "type": "integer"
           }
@@ -539,6 +552,7 @@
           },
           "p2v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P2V",
             "type": "integer"
           }
@@ -557,6 +571,7 @@
           },
           "p3v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P3V",
             "type": "integer"
           }
@@ -601,6 +616,7 @@
           },
           "p1v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P1V",
             "type": "integer"
           }
@@ -619,6 +635,7 @@
           },
           "p2v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P2V",
             "type": "integer"
           }
@@ -637,6 +654,7 @@
           },
           "p3v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P3V",
             "type": "integer"
           }
@@ -684,6 +702,11 @@
                 "$ref": "#/$defs/BatchRequest"
               }
             ],
+            "gx_extensions": [
+              "data"
+            ],
+            "gx_multiple": false,
+            "gx_type": "gx_data",
             "title": "File"
           }
         },
@@ -733,6 +756,11 @@
                 "$ref": "#/$defs/BatchRequest"
               }
             ],
+            "gx_extensions": [
+              "data"
+            ],
+            "gx_multiple": false,
+            "gx_type": "gx_data",
             "title": "File"
           }
         },
@@ -747,6 +775,7 @@
         "properties": {
           "p1v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P1V",
             "type": "integer"
           }
@@ -759,6 +788,7 @@
         "properties": {
           "p2v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P2V",
             "type": "integer"
           }
@@ -771,6 +801,7 @@
         "properties": {
           "p3v": {
             "default": null,
+            "gx_type": "gx_integer",
             "title": "P3V",
             "type": "integer"
           }
@@ -795,19 +826,23 @@
     "properties": {
       "p1": {
         "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__3",
-        "default": null
+        "default": null,
+        "gx_type": "gx_conditional"
       },
       "p2": {
         "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__4",
-        "default": null
+        "default": null,
+        "gx_type": "gx_conditional"
       },
       "p3": {
         "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__5",
-        "default": null
+        "default": null,
+        "gx_type": "gx_conditional"
       },
       "files": {
         "$ref": "#/$defs/galaxy__tool_util_models__parameters__ConditionalParameterModel__pydantic_template___locals___ConditionalType__6",
-        "default": null
+        "default": null,
+        "gx_type": "gx_conditional"
       }
     },
     "title": "DynamicModelForTool",
@@ -1106,6 +1141,11 @@
                 "$ref": "#/$defs/BatchRequest"
               }
             ],
+            "gx_extensions": [
+              "data"
+            ],
+            "gx_multiple": false,
+            "gx_type": "gx_data",
             "title": "Input"
           }
         },
@@ -1149,6 +1189,11 @@
                 "$ref": "#/$defs/BatchRequest"
               }
             ],
+            "gx_extensions": [
+              "data"
+            ],
+            "gx_multiple": false,
+            "gx_type": "gx_data",
             "title": "Input"
           }
         },
@@ -1178,10 +1223,12 @@
     "additionalProperties": false,
     "properties": {
       "queries": {
-        "$ref": "#/$defs/galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__1"
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__1",
+        "gx_type": "gx_repeat"
       },
       "more_queries": {
-        "$ref": "#/$defs/galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__2"
+        "$ref": "#/$defs/galaxy__tool_util_models__parameters__RepeatParameterModel__pydantic_template___locals___RepeatType__2",
+        "gx_type": "gx_repeat"
       }
     },
     "title": "DynamicModelForTool",
