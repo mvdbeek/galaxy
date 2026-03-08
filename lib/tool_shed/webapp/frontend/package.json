@@ -16,7 +16,8 @@
     "test": "vitest",
     "test:ui": "vitest --ui",
     "test:run": "vitest run",
-    "dev-testtoolshed": "TOOL_SHED_URL=https://testtoolshed.g2.bx.psu.edu CHANGE_ORIGIN=true yarn vite dev"
+    "dev-testtoolshed": "TOOL_SHED_URL=https://testtoolshed.g2.bx.psu.edu CHANGE_ORIGIN=true yarn vite dev",
+    "schema-viewer": "npx vite --config tests/playwright/vite.config.ts --port 5199 --open /schema-viewer.html"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
