@@ -197,7 +197,7 @@
             overflow: auto;
         }
 
-        /* JsonForms vanilla styles */
+        /* Galaxy form controls */
         .control { margin-bottom: 12px; }
         .control label {
             display: block;
@@ -208,35 +208,128 @@
         }
         .control input[type="text"],
         .control input[type="number"],
-        .control select {
+        .control select,
+        .control textarea {
             width: 100%;
             padding: 6px 10px;
             border: 1px solid #ced4da;
             border-radius: 4px;
             font-size: 0.9rem;
+            font-family: inherit;
+        }
+        .control input[type="text"]:focus,
+        .control input[type="number"]:focus,
+        .control select:focus,
+        .control textarea:focus {
+            outline: none;
+            border-color: #4a90d9;
+            box-shadow: 0 0 0 2px rgba(74,144,217,0.15);
+        }
+        .control input[type="color"] {
+            width: 60px;
+            height: 32px;
+            padding: 2px;
+            border: 1px solid #ced4da;
+            border-radius: 4px;
+            cursor: pointer;
         }
         .control input[type="checkbox"] {
             margin-right: 8px;
         }
-        .vertical-layout, .group-layout {
-            display: flex;
-            flex-direction: column;
+
+        /* Data placeholder */
+        .data-placeholder {
+            padding: 8px 12px;
+            background: #f8f9fa;
+            border: 1px dashed #ced4da;
+            border-radius: 4px;
+            font-size: 0.82rem;
+            color: #6c757d;
+            font-style: italic;
         }
-        .group-layout {
+
+        /* Conditional sections */
+        .gx-conditional {
+            border-left: 3px solid #4a90d9;
+            padding-left: 12px;
+            margin-bottom: 12px;
+        }
+
+        /* Repeat sections */
+        .gx-repeat {
             border: 1px solid #e9ecef;
             border-radius: 6px;
             padding: 12px;
             margin-bottom: 12px;
         }
-        .group-layout legend, .group-layout label.group-label {
+        .gx-repeat legend {
             font-weight: 700;
+            font-size: 0.9rem;
             color: #495057;
+            display: flex;
+            align-items: center;
+            gap: 8px;
         }
-        .array-layout .array-item {
-            border: 1px solid #e9ecef;
-            padding: 8px;
-            margin-bottom: 8px;
+        .btn-add {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 24px;
+            height: 24px;
+            border: 1px solid #4a90d9;
             border-radius: 4px;
+            background: white;
+            color: #4a90d9;
+            font-size: 1rem;
+            cursor: pointer;
+            line-height: 1;
+        }
+        .btn-add:hover { background: #e8f0fe; }
+        .repeat-empty {
+            padding: 12px;
+            color: #6c757d;
+            font-size: 0.85rem;
+            font-style: italic;
+        }
+        .repeat-item {
+            border: 1px solid #e9ecef;
+            border-radius: 4px;
+            padding: 10px;
+            margin-top: 8px;
+            background: #fafbfc;
+        }
+        .repeat-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.82rem;
+            color: #6c757d;
+        }
+        .btn-remove {
+            background: none;
+            border: 1px solid #dc3545;
+            color: #dc3545;
+            border-radius: 4px;
+            width: 22px;
+            height: 22px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            line-height: 1;
+        }
+        .btn-remove:hover { background: #fdf0f0; }
+
+        /* Object section */
+        .gx-section {
+            border: 1px solid #e9ecef;
+            border-radius: 6px;
+            padding: 12px;
+            margin-bottom: 12px;
+        }
+        .gx-section legend {
+            font-weight: 700;
+            font-size: 0.9rem;
+            color: #495057;
         }
 
         /* Empty state */

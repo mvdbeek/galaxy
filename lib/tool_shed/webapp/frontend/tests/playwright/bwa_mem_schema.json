@@ -1,0 +1,250 @@
+{
+  "$defs": {
+    "BatchDataInstance": {
+      "additionalProperties": false,
+      "properties": {
+        "src": { "enum": ["hda", "ldda", "hdca"], "title": "Src", "type": "string" },
+        "id": { "title": "Id", "type": "string" }
+      },
+      "required": ["src", "id"],
+      "title": "BatchDataInstance",
+      "type": "object"
+    },
+    "DataRequestHda": {
+      "additionalProperties": false,
+      "properties": {
+        "src": { "const": "hda", "default": "hda", "title": "Src", "type": "string" },
+        "id": { "title": "Id", "type": "string" }
+      },
+      "required": ["id"],
+      "title": "DataRequestHda",
+      "type": "object"
+    },
+    "BatchRequest": {
+      "additionalProperties": false,
+      "properties": {
+        "__class__": { "const": "Batch", "title": "Class", "type": "string" },
+        "values": { "items": { "$ref": "#/$defs/BatchDataInstance" }, "title": "Values", "type": "array" },
+        "linked": { "anyOf": [{ "type": "boolean" }, { "type": "null" }], "default": null, "title": "Linked" }
+      },
+      "required": ["__class__", "values"],
+      "title": "BatchRequest",
+      "type": "object"
+    },
+    "When_reference_source_selector_cached": {
+      "additionalProperties": false,
+      "properties": {
+        "reference_source_selector": { "const": "cached", "default": null, "title": "Reference Source Selector", "type": "string" },
+        "ref_file": { "default": null, "gx_multiple": false, "gx_type": "gx_select", "title": "Ref File", "type": "string" }
+      },
+      "title": "When_reference_source_selector_cached",
+      "type": "object"
+    },
+    "When_reference_source_selector_history": {
+      "additionalProperties": false,
+      "properties": {
+        "reference_source_selector": { "const": "history", "default": null, "title": "Reference Source Selector", "type": "string" },
+        "ref_file": {
+          "anyOf": [
+            { "oneOf": [{ "$ref": "#/$defs/DataRequestHda" }] },
+            { "$ref": "#/$defs/BatchRequest" }
+          ],
+          "gx_extensions": ["data"], "gx_multiple": false, "gx_type": "gx_data", "title": "Ref File"
+        }
+      },
+      "required": ["ref_file"],
+      "title": "When_reference_source_selector_history",
+      "type": "object"
+    },
+    "When_reference_source_selector___absent": {
+      "additionalProperties": false,
+      "properties": {
+        "ref_file": { "default": null, "gx_multiple": false, "gx_type": "gx_select", "title": "Ref File", "type": "string" }
+      },
+      "title": "When_reference_source_selector___absent",
+      "type": "object"
+    },
+    "ConditionalType_ref": {
+      "oneOf": [
+        { "$ref": "#/$defs/When_reference_source_selector_cached" },
+        { "$ref": "#/$defs/When_reference_source_selector___absent" },
+        { "$ref": "#/$defs/When_reference_source_selector_history" }
+      ],
+      "title": "ConditionalType"
+    },
+    "When_fastq_input_selector_paired": {
+      "additionalProperties": false,
+      "properties": {
+        "fastq_input_selector": { "const": "paired", "default": null, "title": "Fastq Input Selector", "type": "string" },
+        "fastq_input1": {
+          "anyOf": [
+            { "oneOf": [{ "$ref": "#/$defs/DataRequestHda" }] },
+            { "$ref": "#/$defs/BatchRequest" }
+          ],
+          "gx_extensions": ["fastqsanger", "fastqsanger.gz"], "gx_multiple": false, "gx_type": "gx_data", "title": "Fastq Input1"
+        },
+        "fastq_input2": {
+          "anyOf": [
+            { "oneOf": [{ "$ref": "#/$defs/DataRequestHda" }] },
+            { "$ref": "#/$defs/BatchRequest" }
+          ],
+          "gx_extensions": ["fastqsanger", "fastqsanger.gz"], "gx_multiple": false, "gx_type": "gx_data", "title": "Fastq Input2"
+        },
+        "iset_stats": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null, "gx_area": false, "gx_type": "gx_text", "title": "Iset Stats" }
+      },
+      "required": ["fastq_input1", "fastq_input2"],
+      "title": "When_fastq_input_selector_paired",
+      "type": "object"
+    },
+    "When_fastq_input_selector_single": {
+      "additionalProperties": false,
+      "properties": {
+        "fastq_input_selector": { "const": "single", "default": null, "title": "Fastq Input Selector", "type": "string" },
+        "fastq_input1": {
+          "anyOf": [
+            { "oneOf": [{ "$ref": "#/$defs/DataRequestHda" }] },
+            { "$ref": "#/$defs/BatchRequest" }
+          ],
+          "gx_extensions": ["fastqsanger", "fastqsanger.gz"], "gx_multiple": false, "gx_type": "gx_data", "title": "Fastq Input1"
+        }
+      },
+      "required": ["fastq_input1"],
+      "title": "When_fastq_input_selector_single",
+      "type": "object"
+    },
+    "When_fastq_input_selector___absent": {
+      "additionalProperties": false,
+      "properties": {
+        "fastq_input1": {
+          "anyOf": [
+            { "oneOf": [{ "$ref": "#/$defs/DataRequestHda" }] },
+            { "$ref": "#/$defs/BatchRequest" }
+          ],
+          "gx_extensions": ["data"], "gx_multiple": false, "gx_type": "gx_data", "title": "Fastq Input1"
+        },
+        "fastq_input2": {
+          "anyOf": [
+            { "oneOf": [{ "$ref": "#/$defs/DataRequestHda" }] },
+            { "$ref": "#/$defs/BatchRequest" }
+          ],
+          "gx_extensions": ["data"], "gx_multiple": false, "gx_type": "gx_data", "title": "Fastq Input2"
+        },
+        "iset_stats": { "anyOf": [{ "type": "string" }, { "type": "null" }], "default": null, "gx_area": false, "gx_type": "gx_text", "title": "Iset Stats" }
+      },
+      "required": ["fastq_input1", "fastq_input2"],
+      "title": "When_fastq_input_selector___absent",
+      "type": "object"
+    },
+    "ConditionalType_fastq": {
+      "oneOf": [
+        { "$ref": "#/$defs/When_fastq_input_selector_paired" },
+        { "$ref": "#/$defs/When_fastq_input_selector___absent" },
+        { "$ref": "#/$defs/When_fastq_input_selector_single" }
+      ],
+      "title": "ConditionalType"
+    },
+    "When_algo_set": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithmic_options_selector": { "const": "set", "default": null, "title": "Algorithmic Options Selector", "type": "string" },
+        "k": { "default": null, "gx_type": "gx_integer", "title": "K", "type": "integer" },
+        "w": { "default": null, "gx_type": "gx_integer", "title": "W", "type": "integer" },
+        "r": { "anyOf": [{ "type": "integer" }, { "type": "number" }], "default": null, "gx_type": "gx_float", "title": "R" },
+        "S": { "default": null, "gx_type": "gx_boolean", "title": "S", "type": "boolean" },
+        "P": { "default": null, "gx_type": "gx_boolean", "title": "P", "type": "boolean" }
+      },
+      "title": "When_algorithmic_options_selector_set",
+      "type": "object"
+    },
+    "When_algo_do_not_set": {
+      "additionalProperties": false,
+      "properties": {
+        "algorithmic_options_selector": { "const": "do_not_set", "default": null, "title": "Algorithmic Options Selector", "type": "string" }
+      },
+      "title": "When_algorithmic_options_selector_do_not_set",
+      "type": "object"
+    },
+    "When_algo___absent": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "When_algorithmic_options_selector___absent",
+      "type": "object"
+    },
+    "ConditionalType_algo": {
+      "oneOf": [
+        { "$ref": "#/$defs/When_algo_set" },
+        { "$ref": "#/$defs/When_algo_do_not_set" },
+        { "$ref": "#/$defs/When_algo___absent" }
+      ],
+      "title": "ConditionalType"
+    },
+    "When_analysis_type_illumina": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_type_selector": { "const": "illumina", "default": null, "title": "Analysis Type Selector", "type": "string" }
+      },
+      "title": "When_analysis_type_selector_illumina",
+      "type": "object"
+    },
+    "When_analysis_type_full": {
+      "additionalProperties": false,
+      "properties": {
+        "analysis_type_selector": { "const": "full", "default": null, "title": "Analysis Type Selector", "type": "string" },
+        "algorithmic_options": { "$ref": "#/$defs/ConditionalType_algo", "default": null, "gx_type": "gx_conditional" }
+      },
+      "title": "When_analysis_type_selector_full",
+      "type": "object"
+    },
+    "When_analysis_type___absent": {
+      "additionalProperties": false,
+      "properties": {},
+      "title": "When_analysis_type_selector___absent",
+      "type": "object"
+    },
+    "ConditionalType_analysis": {
+      "oneOf": [
+        { "$ref": "#/$defs/When_analysis_type_illumina" },
+        { "$ref": "#/$defs/When_analysis_type___absent" },
+        { "$ref": "#/$defs/When_analysis_type_full" }
+      ],
+      "title": "ConditionalType"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "reference_source": {
+      "$ref": "#/$defs/ConditionalType_ref",
+      "default": null,
+      "gx_type": "gx_conditional"
+    },
+    "fastq_input": {
+      "$ref": "#/$defs/ConditionalType_fastq",
+      "default": null,
+      "gx_type": "gx_conditional"
+    },
+    "analysis_type": {
+      "$ref": "#/$defs/ConditionalType_analysis",
+      "default": null,
+      "gx_type": "gx_conditional"
+    },
+    "output_sort": {
+      "anyOf": [
+        { "const": "coordinate", "type": "string" },
+        { "const": "name", "type": "string" },
+        { "const": "unsorted", "type": "string" }
+      ],
+      "default": null,
+      "gx_multiple": false,
+      "gx_options": [
+        { "label": "Sort by chromosomal coordinates", "selected": true, "value": "coordinate" },
+        { "label": "Sort by read names", "selected": false, "value": "name" },
+        { "label": "Not sorted (sorted as input)", "selected": false, "value": "unsorted" }
+      ],
+      "gx_type": "gx_select",
+      "title": "Output Sort"
+    }
+  },
+  "title": "DynamicModelForTool",
+  "type": "object",
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

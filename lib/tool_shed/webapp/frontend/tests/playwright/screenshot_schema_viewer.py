@@ -81,6 +81,22 @@ def take_screenshots():
         page.screenshot(path=str(path), full_page=True)
         print(f"  Saved: {path}")
 
+        # Test with external BWA schema if available
+        bwa_schema = SCRIPT_DIR / "bwa_mem_schema.json"
+        if bwa_schema.exists():
+            page.click("button.chip >> text=color_param")  # reset
+            page.wait_for_timeout(300)
+            # Switch to paste mode and paste BWA schema
+            page.click("button.tab >> text=Paste JSON")
+            textarea = page.query_selector(".input-panel textarea")
+            if textarea:
+                textarea.fill(bwa_schema.read_text())
+                page.click("button.btn-primary >> text=Render")
+                page.wait_for_timeout(1500)
+                path = SCREENSHOTS_DIR / "schema_viewer_bwa_mem.png"
+                page.screenshot(path=str(path), full_page=True)
+                print(f"  Saved: {path}")
+
         browser.close()
 
 
