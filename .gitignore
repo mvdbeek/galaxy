@@ -1,4 +1,5 @@
 .hg*
+.claude/
 
 # Downloaded and locally built eggs
 eggs
