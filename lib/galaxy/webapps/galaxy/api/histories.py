@@ -29,6 +29,9 @@ from galaxy.managers.context import (
     ProvidesHistoryContext,
     ProvidesUserContext,
 )
+from galaxy.schema.citations import (
+    CitationItem,
+)
 from galaxy.schema import (
     FilterQueryParams,
     SerializationParams,
@@ -371,7 +374,7 @@ class FastAPIHistories:
         self,
         history_id: HistoryIDPathParam,
         trans: ProvidesHistoryContext = DependsOnTrans,
-    ) -> list[Any]:
+    ) -> list[CitationItem]:
         return self.service.citations(trans, history_id)
 
     @router.get(
