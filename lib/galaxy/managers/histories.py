@@ -5,6 +5,7 @@ Histories are containers for datasets or dataset collections
 created (or copied) by users over the course of an analysis.
 """
 
+import json
 import logging
 from typing import (
     Any,
@@ -686,6 +687,8 @@ class HistoryExportManager:
         metadata = export.export_metadata
         if not metadata:
             return None
+        if isinstance(metadata, str):
+            metadata = json.loads(metadata)
         # Use model_construct to skip validation and avoid double-encoding of ID fields
         request_data_raw = metadata.get("request_data", {})
         result_data_raw = metadata.get("result_data")
