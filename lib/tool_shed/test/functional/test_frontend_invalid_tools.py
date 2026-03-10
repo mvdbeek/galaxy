@@ -49,5 +49,5 @@ class TestFrontendInvalidTools(PlaywrightTestCase):
         # Verify the tool config filename is displayed
         expect(page.locator("body")).to_contain_text(invalid_tool.tool_config)
 
-        # Verify the error message is displayed
-        expect(page.locator("body")).to_contain_text("tool_data_table_conf.xml")
+        # Verify the error message is displayed (bismark tools reference missing .loc files)
+        expect(page.locator("body")).to_contain_text(invalid_tool.error_message)
