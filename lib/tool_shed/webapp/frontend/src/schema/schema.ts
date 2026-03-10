@@ -2171,6 +2171,13 @@ export interface components {
             /** value */
             value?: number | null
         }
+        /** InvalidTool */
+        InvalidTool: {
+            /** Error Message */
+            error_message: string
+            /** Tool Config */
+            tool_config: string
+        }
         /** LabelValue */
         LabelValue: {
             /** Label */
@@ -2419,13 +2426,6 @@ export interface components {
             update_time: string
             /** User Id */
             user_id: string
-        }
-        /** InvalidTool */
-        InvalidTool: {
-            /** Tool Config */
-            tool_config: string
-            /** Error Message */
-            error_message: string
         }
         /** RepositoryDependency */
         RepositoryDependency: {

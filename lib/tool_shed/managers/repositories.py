@@ -452,10 +452,12 @@ def get_repository_revision_metadata_dict(
     invalid_tools = []
     for item in raw_invalid_tools:
         if isinstance(item, str):
-            invalid_tools.append({
-                "tool_config": item,
-                "error_message": invalid_tool_errors.get(item, ""),
-            })
+            invalid_tools.append(
+                {
+                    "tool_config": item,
+                    "error_message": invalid_tool_errors.get(item, ""),
+                }
+            )
         elif isinstance(item, dict):
             invalid_tools.append(item)
     metadata_dict["invalid_tools"] = invalid_tools

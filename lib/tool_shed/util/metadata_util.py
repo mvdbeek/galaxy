@@ -52,10 +52,12 @@ def get_all_dependencies(app: "ToolShedApp", metadata_entry, processed_dependenc
         invalid_tools = []
         for item in raw_invalid_tools:
             if isinstance(item, str):
-                invalid_tools.append({
-                    "tool_config": item,
-                    "error_message": invalid_tool_errors.get(item, ""),
-                })
+                invalid_tools.append(
+                    {
+                        "tool_config": item,
+                        "error_message": invalid_tool_errors.get(item, ""),
+                    }
+                )
             elif isinstance(item, dict):
                 invalid_tools.append(item)
         dependency_dict["invalid_tools"] = invalid_tools
