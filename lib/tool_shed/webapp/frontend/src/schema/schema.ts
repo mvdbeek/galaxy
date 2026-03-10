@@ -2420,6 +2420,13 @@ export interface components {
             /** User Id */
             user_id: string
         }
+        /** InvalidTool */
+        InvalidTool: {
+            /** Tool Config */
+            tool_config: string
+            /** Error Message */
+            error_message: string
+        }
         /** RepositoryDependency */
         RepositoryDependency: {
             /** Changeset Revision */
@@ -2441,7 +2448,7 @@ export interface components {
             /** Includes Workflows */
             includes_workflows?: boolean | null
             /** Invalid Tools */
-            invalid_tools: string[]
+            invalid_tools: components["schemas"]["InvalidTool"][]
             /** Malicious */
             malicious: boolean
             /** Missing Test Components */
@@ -2532,7 +2539,7 @@ export interface components {
             /** Includes Workflows */
             includes_workflows?: boolean | null
             /** Invalid Tools */
-            invalid_tools: string[]
+            invalid_tools: components["schemas"]["InvalidTool"][]
             /** Malicious */
             malicious: boolean
             /** Missing Test Components */
