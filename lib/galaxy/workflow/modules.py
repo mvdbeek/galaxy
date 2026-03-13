@@ -861,7 +861,7 @@ class SubWorkflowModule(WorkflowModule):
         collection_info = self.compute_collection_info(progress, step, all_inputs)
 
         if collection_info:
-            iteration_elements_iter = collection_info.slice_collections()
+            iteration_elements_iter = list(collection_info.slice_collections())
         else:
             if progress.when_values:
                 # If we have more than one item in when_values it must have come from an expression.json
@@ -2425,7 +2425,7 @@ class ToolModule(WorkflowModule):
 
         param_combinations = []
         if collection_info:
-            iteration_elements_iter = collection_info.slice_collections()
+            iteration_elements_iter = list(collection_info.slice_collections())
         else:
             if progress.when_values:
                 assert len(progress.when_values) == 1, "Got more than 1 when value, this shouldn't be possible"

@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from galaxy.exceptions import MessageException
+
 if TYPE_CHECKING:
     from .type_description import CollectionTypeDescription
 
@@ -104,6 +106,12 @@ class Tree(BaseTree):
         return self._walk_collections(dict_map(lambda hdca: hdca.collection, hdca_dict))
 
     def _walk_collections(self, collection_dict):
+        element_counts = {collection.element_count or 0 for collection in collection_dict.values()}
+        if len(element_counts) > 1:
+            raise MessageException(f"Collections with mismatched element counts {element_counts} cannot be walked together")
+        if 0 in element_counts and self.children:
+            raise MessageException("Empty collection cannot be matched to non-empty collection")
+
         for index, (_identifier, substructure) in enumerate(self.children):
 
             def get_element(collection):

@@ -4866,6 +4866,67 @@ input1:
             )
             assert "0\n" == self.dataset_populator.get_history_dataset_content(history_id)
 
+    @skip_without_tool("empty_list")
+    @skip_without_tool("cat1")
+    def test_empty_list_mapping_with_two_inputs(self):
+        with self.dataset_populator.test_history() as history_id:
+            summary = self._run_workflow(
+                """
+class: GalaxyWorkflow
+inputs:
+  input1: data
+  input_collection:
+    collection_type: list
+    type: collection
+steps:
+  empty_list:
+    tool_id: empty_list
+    in:
+      input1: input1
+  nested_workflow:
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_input1: data
+        inner_input2: data
+      outputs:
+        workflow_output:
+          outputSource: inner_cat/out_file1
+      steps:
+        inner_cat:
+          tool_id: cat1
+          in:
+            input1: inner_input1
+            queries_0|input2: inner_input2
+    in:
+      inner_input1: input_collection
+      inner_input2: empty_list/output
+""",
+                test_data="""
+input1:
+  value: 1.bed
+  type: File
+input_collection:
+  collection_type: list
+  elements:
+    - identifier: i1
+      content: "0"
+      ext: tabular
+    - identifier: i2
+      content: "1"
+      ext: tabular
+""",
+                history_id=history_id,
+                wait=True,
+                assert_ok=False,
+            )
+            invocation_details = self.workflow_populator.get_invocation(summary.invocation_id, step_details=True)
+            assert invocation_details["state"] == "failed"
+            assert len(invocation_details["messages"]) == 1
+            message = invocation_details["messages"][0]
+            assert message["reason"] == "unexpected_failure"
+            assert message["details"] == "Empty collection cannot be matched to non-empty collection"
+
     def test_subworkflow_map_over_data_column(self):
         with self.dataset_populator.test_history() as history_id:
             self._run_workflow(

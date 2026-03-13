@@ -1,9 +1,13 @@
+import pytest
+
+from galaxy.exceptions import MessageException
 from galaxy.model.dataset_collections import (
     matching,
     query,
     registry,
     type_description,
 )
+from galaxy.model.dataset_collections.structure import Tree
 
 TYPE_REGISTRY = registry.DatasetCollectionTypesRegistry()
 TYPE_DESCRIPTION_FACTORY = type_description.CollectionTypeDescriptionFactory(TYPE_REGISTRY)
@@ -246,6 +250,7 @@ class MockCollection:
     def __init__(self, collection_type, elements):
         self.collection_type = collection_type
         self.elements = elements
+        self.element_count = len(elements)
         self.populated = True
         self.column_definitions = None
 
@@ -270,3 +275,41 @@ collection_instance = MockCollectionInstance
 collection = MockCollection
 collection_element = MockCollectionElement
 hda_element = MockHDAElement
+
+
+def _list_type_description():
+    return TYPE_DESCRIPTION_FACTORY.for_collection_type("list")
+
+
+def test_walk_empty_collection_raises_clear_error():
+    # Tree built from a non-empty collection (2 elements)
+    non_empty_collection = MockCollection("list", [hda_element("data1"), hda_element("data2")])
+    tree = Tree.for_dataset_collection(non_empty_collection, _list_type_description())
+    assert len(tree.children) == 2
+
+    # Try to walk with an empty collection — should raise a clear error, not KeyError
+    empty_collection = MockCollection("list", [])
+    with pytest.raises(MessageException, match="Empty collection cannot be matched to non-empty collection"):
+        list(tree._walk_collections({"input_0": empty_collection}))
+
+
+def test_walk_collections_mismatched_element_counts():
+    # Tree built from a 2-element collection
+    collection_2 = MockCollection("list", [hda_element("data1"), hda_element("data2")])
+    tree = Tree.for_dataset_collection(collection_2, _list_type_description())
+
+    # Walk with two collections of different sizes
+    collection_0 = MockCollection("list", [])
+    with pytest.raises(MessageException, match="mismatched element counts"):
+        list(tree._walk_collections({"input_0": collection_2, "input_1": collection_0}))
+
+
+def test_walk_empty_collections_with_empty_tree():
+    # Tree built from an empty collection (0 children)
+    empty_collection = MockCollection("list", [])
+    tree = Tree.for_dataset_collection(empty_collection, _list_type_description())
+    assert len(tree.children) == 0
+
+    # Walking an empty tree with an empty collection should yield nothing (not an error)
+    result = list(tree._walk_collections({"input_0": empty_collection}))
+    assert result == []
