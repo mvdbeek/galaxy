@@ -9410,6 +9410,42 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         )
         return session.execute(stmt).scalar_one_or_none()
 
+    def _all_invocation_ids(self) -> list[int]:
+        """Return IDs of this invocation and all nested subworkflow invocations."""
+        session = required_object_session(self)
+        ids = [self.id]
+        stmt = select(WorkflowInvocationToSubworkflowInvocationAssociation.subworkflow_invocation_id).where(
+            WorkflowInvocationToSubworkflowInvocationAssociation.workflow_invocation_id == self.id
+        )
+        for (sub_id,) in session.execute(stmt):
+            ids.append(sub_id)
+        return ids
+
+    def get_last_job_update_time(self) -> Optional[datetime]:
+        """Return the most recent update_time of any job associated with this invocation's steps."""
+        session = required_object_session(self)
+        invocation_ids = self._all_invocation_ids()
+
+        # Check direct jobs on invocation steps
+        stmt = select(func.max(Job.update_time)).where(
+            WorkflowInvocationStep.workflow_invocation_id.in_(invocation_ids),
+            WorkflowInvocationStep.job_id == Job.id,
+        )
+        result = session.execute(stmt).scalar_one_or_none()
+
+        # Also check implicit collection jobs
+        stmt2 = select(func.max(Job.update_time)).where(
+            WorkflowInvocationStep.workflow_invocation_id.in_(invocation_ids),
+            WorkflowInvocationStep.implicit_collection_jobs_id == ImplicitCollectionJobs.id,
+            ImplicitCollectionJobsJobAssociation.implicit_collection_jobs_id == ImplicitCollectionJobs.id,
+            Job.id == ImplicitCollectionJobsJobAssociation.job_id,
+        )
+        result2 = session.execute(stmt2).scalar_one_or_none()
+
+        if result and result2:
+            return max(result, result2)
+        return result or result2
+
     def create_subworkflow_invocation_for_step(self, step):
         assert step.type == "subworkflow"
         subworkflow_invocation = WorkflowInvocation()

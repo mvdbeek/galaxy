@@ -46,6 +46,50 @@ class TestMaximumWorkflowInvocationDuration(integration_util.IntegrationTestCase
         assert state == "failed", state
 
 
+class TestNoBackfillRequired(integration_util.IntegrationTestCase):
+    """Test that primary scheduling detection (job/step/history updates) catches state changes
+    without falling back to the backfill timeout."""
+
+    dataset_populator: DatasetPopulator
+    framework_tool_and_types = True
+
+    def setUp(self):
+        super().setUp()
+        self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
+        self.workflow_populator = WorkflowPopulator(self.galaxy_interactor)
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        config["error_on_backfill_workflow_scheduling"] = True
+
+    def test_sequential_steps_no_backfill(self):
+        with self.dataset_populator.test_history() as history_id:
+            self.workflow_populator.run_workflow(
+                """
+class: GalaxyWorkflow
+inputs:
+  input1: data
+steps:
+  first_cat:
+    tool_id: cat1
+    in:
+      input1: input1
+  second_cat:
+    tool_id: cat1
+    in:
+      input1: first_cat/out_file1
+""",
+                test_data="""
+input1:
+  value: 1.fasta
+  type: File
+  name: fasta1
+""",
+                history_id=history_id,
+            )
+
+
 class TestMaximumWorkflowJobsPerSchedulingIteration(integration_util.IntegrationTestCase):
     dataset_populator: DatasetPopulator
     framework_tool_and_types = True

@@ -322,6 +322,7 @@ class WorkflowRequestMonitor(Monitors):
             else DEFAULT_SCHEDULER_BACKFILL_SECONDS
         )
         self.timedelta = timedelta(seconds=backfill_seconds)
+        self.error_on_backfill = getattr(app.config, "error_on_backfill_workflow_scheduling", False)
         self_handler_tags = set(self.app.job_config.self_handler_tags)
         self_handler_tags.add(self.workflow_scheduling_manager.default_handler_id)
         handler_assignment_method = InvocationGrabber.get_grabbable_handler_assignment_method(
@@ -337,27 +338,43 @@ class WorkflowRequestMonitor(Monitors):
             )
 
     def ready_to_schedule_more(self, invocation: model.WorkflowInvocation):
-        # Improve reactivity of scheduling using the history update_time as a heuristic.
-        # If there wasn't a change in the history we're unlikely to be able to make more progress.
         if invocation.id not in self.update_time_tracking_dict:
             return True
-        else:
-            last_schedule_time = self.update_time_tracking_dict[invocation.id]
-            last_history_update_time = invocation.history.update_time
-            do_schedule = last_history_update_time > last_schedule_time
-            if not do_schedule and (
-                invocation_step_update_time := invocation.get_last_workflow_invocation_step_update_time()
-            ):
-                do_schedule = invocation_step_update_time > last_schedule_time
-            if not do_schedule and (datetime.now() - last_schedule_time) > self.timedelta:
-                # If we haven't scheduled in a while, schedule anyway.
-                log.debug(
-                    "Scheduling workflow invocation [%s] after %s seconds without scheduling.",
-                    invocation.id,
-                    (datetime.now() - last_schedule_time).total_seconds(),
+
+        last_schedule_time = self.update_time_tracking_dict[invocation.id]
+
+        # Check if any job associated with this invocation has been updated.
+        # This directly detects the state change we care about: job completion.
+        last_job_update_time = invocation.get_last_job_update_time()
+        if last_job_update_time and last_job_update_time > last_schedule_time:
+            return True
+
+        # Check invocation step updates (catches non-job changes like pause release).
+        invocation_step_update_time = invocation.get_last_workflow_invocation_step_update_time()
+        if invocation_step_update_time and invocation_step_update_time > last_schedule_time:
+            return True
+
+        # Keep history update check as additional signal for edge cases.
+        last_history_update_time = invocation.history.update_time
+        if last_history_update_time and last_history_update_time > last_schedule_time:
+            return True
+
+        # Backfill: schedule anyway after timeout (safety net).
+        if (datetime.now() - last_schedule_time) > self.timedelta:
+            if self.error_on_backfill:
+                raise Exception(
+                    f"Workflow invocation [{invocation.id}] required backfill scheduling after "
+                    f"{(datetime.now() - last_schedule_time).total_seconds()}s - "
+                    f"primary detection failed."
                 )
-                do_schedule = True
-            return do_schedule
+            log.debug(
+                "Scheduling workflow invocation [%s] after %s seconds without scheduling.",
+                invocation.id,
+                (datetime.now() - last_schedule_time).total_seconds(),
+            )
+            return True
+
+        return False
 
     def __monitor(self):
         to_monitor = self.workflow_scheduling_manager.active_workflow_schedulers
