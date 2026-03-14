@@ -322,7 +322,7 @@ class WorkflowRequestMonitor(Monitors):
             else DEFAULT_SCHEDULER_BACKFILL_SECONDS
         )
         self.timedelta = timedelta(seconds=backfill_seconds)
-        self.error_on_backfill = getattr(app.config, "error_on_backfill_workflow_scheduling", False)
+        self.error_on_backfill = os.environ.get("GALAXY_TEST_RAISE_ON_BACKFILL", "0") == "1"
         self_handler_tags = set(self.app.job_config.self_handler_tags)
         self_handler_tags.add(self.workflow_scheduling_manager.default_handler_id)
         handler_assignment_method = InvocationGrabber.get_grabbable_handler_assignment_method(

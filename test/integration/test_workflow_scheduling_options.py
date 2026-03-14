@@ -1,5 +1,6 @@
 """Integration tests for workflow scheduling configuration option."""
 
+import os
 import time
 from json import dumps
 
@@ -61,7 +62,12 @@ class TestNoBackfillRequired(integration_util.IntegrationTestCase):
     @classmethod
     def handle_galaxy_config_kwds(cls, config):
         super().handle_galaxy_config_kwds(config)
-        config["error_on_backfill_workflow_scheduling"] = True
+        os.environ["GALAXY_TEST_RAISE_ON_BACKFILL"] = "1"
+
+    @classmethod
+    def tearDownClass(cls):
+        os.environ.pop("GALAXY_TEST_RAISE_ON_BACKFILL", None)
+        super().tearDownClass()
 
     def test_sequential_steps_no_backfill(self):
         with self.dataset_populator.test_history() as history_id:

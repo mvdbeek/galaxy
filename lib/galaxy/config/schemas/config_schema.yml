@@ -3041,15 +3041,6 @@ mapping:
           are expunged from the SQL alchemy session between workflow invocation scheduling iterations.
           Set to -1 to disable any such maximum.
 
-      error_on_backfill_workflow_scheduling:
-        type: bool
-        default: false
-        required: false
-        desc: |
-          If true, raise an error if workflow scheduling falls back to the backfill
-          timeout instead of detecting state changes through primary mechanisms
-          (job updates, step updates, history updates). For testing only.
-
       flush_per_n_datasets:
         type: int
         default: 1000
