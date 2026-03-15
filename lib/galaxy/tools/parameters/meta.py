@@ -452,7 +452,12 @@ def __expand_collection_parameter(
         item = trans.sa_session.get_one(HistoryDatasetCollectionAssociation, decoded_id)
         collection = item.collection
     if not collection.populated_optimized:
-        raise exceptions.ToolInputsNotReadyException("An input collection is not populated.")
+        raise exceptions.ToolInputsNotReadyException(
+            "An input collection is not populated.",
+            src=src,
+            id=decoded_id,
+            input_name=input_key,
+        )
     collections_to_match.add(input_key, item, subcollection_type=subcollection_type, linked=linked)
     if subcollection_type is not None:
         subcollection_elements: list[Union[DatasetCollectionElement, PromoteCollectionElementToCollectionAdapter]] = (

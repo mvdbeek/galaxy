@@ -5795,6 +5795,7 @@ class HistoryDatasetAssociation(DatasetInstance, HasTags, Dictifiable, UsesAnnot
     Resource class that creates a relation between a dataset and a user history.
     """
 
+    src_type = "hda"
     history_id: Mapped[Optional[int]]
     dataset_id: Mapped[Optional[int]]
     extension: Mapped[str]
@@ -6584,6 +6585,7 @@ class LibraryDataset(Base, Serializable):
 
 
 class LibraryDatasetDatasetAssociation(DatasetInstance, HasName, Serializable):
+    src_type = "ldda"
     message: Mapped[Optional[str]]
     tags: Mapped[list["LibraryDatasetDatasetAssociationTagAssociation"]]
 
@@ -7580,6 +7582,7 @@ class HistoryDatasetCollectionAssociation(
 ):
     """Associates a DatasetCollection with a History."""
 
+    src_type = "hdca"
     __tablename__ = "history_dataset_collection_association"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -8027,6 +8030,7 @@ class LibraryDatasetCollectionAssociation(Base, DatasetCollectionInstance, Repre
 class DatasetCollectionElement(Base, Dictifiable, Serializable):
     """Associates a DatasetInstance (hda or ldda) with a DatasetCollection."""
 
+    src_type = "dce"
     __tablename__ = "dataset_collection_element"
 
     id: Mapped[int] = mapped_column(primary_key=True)

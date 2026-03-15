@@ -2584,9 +2584,12 @@ class ToolModule(WorkflowModule):
         except PartialJobExecution as pje:
             execution_tracker = pje.execution_tracker
 
-        except ToolInputsNotReadyException:
+        except ToolInputsNotReadyException as e:
             delayed_why = f"tool [{tool.id}] inputs are not ready, this special tool requires inputs to be ready"
-            raise DelayedWorkflowEvaluation(why=delayed_why)
+            raise DelayedWorkflowEvaluation(
+                why=delayed_why,
+                dependency=SchedulingDependency(DependencyType(e.src), e.id),
+            )
 
         progress.record_executed_job_count(len(execution_tracker.successful_jobs))
         step_outputs: dict[str, Union[model.HistoryDatasetCollectionAssociation, model.HistoryDatasetAssociation]] = {}
@@ -2794,6 +2797,8 @@ class DependencyType(str, Enum):
     JOB = "job"
     HDA = "hda"
     HDCA = "hdca"
+    LDDA = "ldda"
+    DCE = "dce"
     WORKFLOW_INVOCATION_STEP = "workflow_invocation_step"
 
 

@@ -380,6 +380,8 @@ class WorkflowRequestMonitor(Monitors):
         job_ids = {d.id for d in dependencies if d.dependency_type == DependencyType.JOB}
         hda_ids = {d.id for d in dependencies if d.dependency_type == DependencyType.HDA}
         hdca_ids = {d.id for d in dependencies if d.dependency_type == DependencyType.HDCA}
+        ldda_ids = {d.id for d in dependencies if d.dependency_type == DependencyType.LDDA}
+        dce_ids = {d.id for d in dependencies if d.dependency_type == DependencyType.DCE}
         step_ids = {d.id for d in dependencies if d.dependency_type == DependencyType.WORKFLOW_INVOCATION_STEP}
 
         if job_ids:
@@ -421,6 +423,41 @@ class WorkflowRequestMonitor(Monitors):
                 .join(model.DatasetCollection)
                 .where(
                     model.HistoryDatasetCollectionAssociation.id.in_(hdca_ids),
+                    model.DatasetCollection.populated_state == model.DatasetCollection.populated_states.OK,
+                )
+            ).scalar()
+            if populated_count:
+                return True
+
+        if ldda_ids:
+            ready_count = session.execute(
+                select(func.count())
+                .select_from(model.LibraryDatasetDatasetAssociation)
+                .join(model.Dataset)
+                .where(
+                    model.LibraryDatasetDatasetAssociation.id.in_(ldda_ids),
+                    case(
+                        (
+                            model.LibraryDatasetDatasetAssociation._state.isnot(None),
+                            model.LibraryDatasetDatasetAssociation._state,
+                        ),
+                        else_=model.Dataset.state,
+                    ).notin_(model.Dataset.non_ready_states),
+                )
+            ).scalar()
+            if ready_count:
+                return True
+
+        if dce_ids:
+            populated_count = session.execute(
+                select(func.count())
+                .select_from(model.DatasetCollectionElement)
+                .join(
+                    model.DatasetCollection,
+                    model.DatasetCollectionElement.child_collection_id == model.DatasetCollection.id,
+                )
+                .where(
+                    model.DatasetCollectionElement.id.in_(dce_ids),
                     model.DatasetCollection.populated_state == model.DatasetCollection.populated_states.OK,
                 )
             ).scalar()

@@ -149,6 +149,14 @@ class RequestParameterInvalidException(MessageException):
 
 
 class ToolInputsNotReadyException(MessageException):
+    def __init__(
+        self, err_msg: Optional[str] = None, type="info", *, src: str, id: int, input_name: str, **extra_error_info
+    ):
+        super().__init__(err_msg, type, src=src, id=id, input_name=input_name, **extra_error_info)
+        self.src = src
+        self.id = id
+        self.input_name = input_name
+
     status_code = 400
     error_code = error_codes_by_name["TOOL_INPUTS_NOT_READY"]
 

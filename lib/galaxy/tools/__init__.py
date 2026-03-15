@@ -3844,9 +3844,14 @@ class DatabaseOperationTool(Tool):
         return not self.require_dataset_ok
 
     def check_inputs_ready(self, input_datasets, input_dataset_collections, security):
-        def check_dataset_state(input_key, state):
+        def check_dataset_state(input_key, state, src, id):
             if self.require_terminal_states and state in model.Dataset.non_ready_states:
-                raise ToolInputsNotReadyException("An input dataset is pending.")
+                raise ToolInputsNotReadyException(
+                    "An input dataset is pending.",
+                    src=src,
+                    id=id,
+                    input_name=input_key,
+                )
 
             if self.require_dataset_ok:
                 if state != model.Dataset.states.OK:
@@ -3861,17 +3866,24 @@ class DatabaseOperationTool(Tool):
         for input_key, input_dataset in input_datasets.items():
             if input_dataset:
                 # None is a possible input for optional inputs
-                check_dataset_state(input_key, input_dataset.state)
+                check_dataset_state(input_key, input_dataset.state, src=input_dataset.src_type, id=input_dataset.id)
 
         for input_key, input_dataset_collection_pairs in input_dataset_collections.items():
             for input_dataset_collection, _ in input_dataset_collection_pairs:
                 if not input_dataset_collection.collection.populated_optimized:
-                    raise ToolInputsNotReadyException("An input collection is not populated.")
+                    raise ToolInputsNotReadyException(
+                        "An input collection is not populated.",
+                        src=input_dataset_collection.src_type,
+                        id=input_dataset_collection.id,
+                        input_name=input_key,
+                    )
 
             summary = input_dataset_collection.collection.dataset_states_and_extensions_summary
             states = summary.states
             for state in states.keys():
-                check_dataset_state(input_key, state)
+                check_dataset_state(
+                    input_key, state, src=input_dataset_collection.src_type, id=input_dataset_collection.id
+                )
 
     def _add_datasets_to_history(self, history, elements, datasets_visible=False):
         for element_object in elements:
@@ -4357,7 +4369,12 @@ class KeepSuccessDatasetsTool(FilterDatasetsTool):
             element_object.state != model.Dataset.states.PAUSED
             and element_object.state in model.Dataset.non_ready_states
         ):
-            raise ToolInputsNotReadyException("An input dataset is pending.")
+            raise ToolInputsNotReadyException(
+                "An input dataset is pending.",
+                src=element_object.src_type,
+                id=element_object.id,
+                input_name="input",
+            )
         return element_object.is_ok
 
 
