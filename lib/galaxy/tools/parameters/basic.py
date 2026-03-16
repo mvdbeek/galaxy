@@ -1474,6 +1474,21 @@ class ColumnListParameter(SelectToolParameter):
             column = column.lower()[1:]
         return column
 
+    @staticmethod
+    def _dataset_from_value(
+        value: Union[HistoryDatasetCollectionAssociation, DatasetCollectionElement, DatasetInstance, Any],
+    ) -> Optional[DatasetInstance]:
+        """Resolve an HDCA or DatasetCollectionElement to a representative HDA.
+
+        Returns ``None`` when *value* is an empty HDCA (i.e.
+        ``to_hda_representative()`` finds no elements).
+        """
+        if isinstance(value, HistoryDatasetCollectionAssociation):
+            value = value.to_hda_representative()
+        if isinstance(value, DatasetCollectionElement):
+            value = value.first_dataset_instance()
+        return value
+
     def get_column_list(self, trans, other_values):
         """
         Generate a select list containing the columns of the associated
@@ -1487,10 +1502,7 @@ class ColumnListParameter(SelectToolParameter):
         column_list = None
         for dataset in util.listify(datasets):
             # Use representative dataset if a dataset collection is parsed
-            if isinstance(dataset, HistoryDatasetCollectionAssociation):
-                dataset = dataset.to_hda_representative()
-            if isinstance(dataset, DatasetCollectionElement):
-                dataset = dataset.first_dataset_instance()
+            dataset = self._dataset_from_value(dataset)
             if isinstance(dataset, HistoryDatasetAssociation) and self.ref_input and self.ref_input.formats:
                 direct_match, target_ext, converted_dataset = dataset.find_conversion_destination(
                     self.ref_input.formats
@@ -1501,7 +1513,7 @@ class ColumnListParameter(SelectToolParameter):
                     else:
                         dataset = converted_dataset
             # Columns can only be identified if the dataset is ready and metadata is available
-            if not hasattr(dataset, "metadata") or not dataset.metadata.get_if_set("columns"):
+            if not dataset or not hasattr(dataset, "metadata") or not dataset.metadata.get_if_set("columns"):
                 return []
             # Build up possible columns for this dataset
             this_column_list = []
@@ -1533,27 +1545,24 @@ class ColumnListParameter(SelectToolParameter):
         # if available use column_names metadata for option names
         # otherwise read first row - assume is a header with tab separated names
         if self.usecolnames:
-            dataset = other_values.get(self.data_ref, None)
-            if isinstance(dataset, HistoryDatasetCollectionAssociation):
-                dataset = dataset.to_hda_representative()
-            if isinstance(dataset, DatasetCollectionElement):
-                dataset = dataset.first_dataset_instance()
-            column_names = getattr(dataset, "metadata", None) and dataset.metadata.get_if_set("column_names")
-            if column_names:
-                try:
-                    options = [ParameterOption(f"c{c}: {column_names[int(c) - 1]}", c, False) for c in column_list]
-                except IndexError:
-                    # ignore and rely on fallback
-                    pass
-            else:
-                try:
-                    with open(dataset.get_file_name()) as f:
-                        head = f.readline()
-                    cnames = head.rstrip("\n\r ").split("\t")
-                    options = [ParameterOption(f"c{c}: {cnames[int(c) - 1]}", c, False) for c in column_list]
-                except Exception:
-                    # ignore and rely on fallback
-                    pass
+            dataset = self._dataset_from_value(other_values.get(self.data_ref, None))
+            if dataset is not None:
+                column_names = getattr(dataset, "metadata", None) and dataset.metadata.get_if_set("column_names")
+                if column_names:
+                    try:
+                        options = [ParameterOption(f"c{c}: {column_names[int(c) - 1]}", c, False) for c in column_list]
+                    except IndexError:
+                        # ignore and rely on fallback
+                        pass
+                else:
+                    try:
+                        with open(dataset.get_file_name()) as f:
+                            head = f.readline()
+                        cnames = head.rstrip("\n\r ").split("\t")
+                        options = [ParameterOption(f"c{c}: {cnames[int(c) - 1]}", c, False) for c in column_list]
+                    except Exception:
+                        # ignore and rely on fallback
+                        pass
         if not options:
             # fallback if no options list could be built so far
             options = [ParameterOption(f"Column: {col}", col, False) for col in column_list]
@@ -1581,14 +1590,10 @@ class ColumnListParameter(SelectToolParameter):
     def is_file_empty(self, trans, other_values):
         for dataset in util.listify(other_values.get(self.data_ref)):
             # Use representative dataset if a dataset collection is parsed
-            if isinstance(dataset, HistoryDatasetCollectionAssociation):
-                if dataset.populated:
-                    dataset = dataset.to_hda_representative()
-                else:
-                    # That's fine, we'll check again on execution
-                    return True
-            if isinstance(dataset, DatasetCollectionElement):
-                dataset = dataset.first_dataset_instance()
+            if isinstance(dataset, HistoryDatasetCollectionAssociation) and not dataset.populated:
+                # That's fine, we'll check again on execution
+                return True
+            dataset = self._dataset_from_value(dataset)
             if isinstance(dataset, DatasetInstance):
                 return not dataset.has_data()
             if is_runtime_value(dataset):
