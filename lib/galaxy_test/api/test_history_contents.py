@@ -1479,10 +1479,14 @@ class TestHistoryContentsApiBulkOperation(ApiTestCase):
 
             assert original_collection_update_times != new_collection_update_times
 
-    def test_bulk_datatype_change_should_skip_set_metadata_on_deferred_data(self):
+    def test_bulk_datatype_change_should_skip_set_metadata_on_deferred_data(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+                file_path="test-data/1.bed",
+            )
             details = self.dataset_populator.create_deferred_hda(
-                history_id, "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed", ext="bed"
+                history_id, url, ext="bed"
             )
             assert details["state"] == "deferred"
             assert details["extension"] == "bed"

@@ -8,7 +8,6 @@ from selenium.webdriver.common.by import By
 
 from galaxy.model.unittest_utils.store_fixtures import one_hda_model_store_dict
 from galaxy.selenium.navigates_galaxy import retry_call_during_transitions
-from galaxy.util.unittest_utils import skip_if_github_down
 from galaxy_test.base import rules_test_data
 from galaxy_test.base.populators import (
     flakey,
@@ -422,23 +421,32 @@ class TestLoggedInToolForm(SeleniumTestCase):
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
-    @skip_if_github_down
     @pytest.mark.gtn_screenshot
     @pytest.mark.local
-    def test_run_apply_rules_tutorial(self):
+    def test_run_apply_rules_tutorial(self, mock_http_server):
+        base_remote = "https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules"
+        files = [
+            ("treated1fb.txt", "treated_single_1"),
+            ("treated2fb.txt", "treated_paired_2"),
+            ("treated3fb.txt", "treated_paired_3"),
+            ("untreated1fb.txt", "untreated_single_4"),
+            ("untreated2fb.txt", "untreated_single_5"),
+            ("untreated3fb.txt", "untreated_paired_6"),
+            ("untreated4fb.txt", "untreated_paired_7"),
+        ]
+        lines = []
+        for filename, label in files:
+            url = mock_http_server.get_url(
+                remote_url=f"{base_remote}/{filename}",
+                file_path=f"test-data/rules/{filename}",
+                content_type="text/plain",
+            )
+            lines.append(f"{url} {label}")
+        pasted_content = "\n".join(lines) + "\n"
         self.home()
         self.upload_rule_start()
         self.upload_rule_set_data_type("Collections")
-        self.components.upload.rule_source_content.wait_for_and_send_keys(
-            """https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/treated1fb.txt treated_single_1
-https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/treated2fb.txt treated_paired_2
-https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/treated3fb.txt treated_paired_3
-https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/untreated1fb.txt untreated_single_4
-https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/untreated2fb.txt untreated_single_5
-https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/untreated3fb.txt untreated_paired_6
-https://raw.githubusercontent.com/jmchilton/galaxy/apply_rules_tutorials/test-data/rules/untreated4fb.txt untreated_paired_7
-"""
-        )
+        self.components.upload.rule_source_content.wait_for_and_send_keys(pasted_content)
         self.screenshot("rules_apply_rules_example_4_1_input_paste")
         self.upload_rule_build()
         rule_builder = self.components.rule_builder

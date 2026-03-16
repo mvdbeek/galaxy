@@ -45,7 +45,6 @@ from galaxy.util import (
     classproperty,
     DEFAULT_SOCKET_TIMEOUT,
 )
-from galaxy.util.unittest_utils import skip_if_github_down
 from galaxy_test.base import populators
 from galaxy_test.base.api import (
     UsesApiTestCaseMixin,
@@ -715,8 +714,13 @@ class UsesWorkflowAssertions(NavigatesGalaxyMixin):
             message = f"Expected {n} workflows to be displayed, based on DOM found {actual_count} workflow rows."
             raise AssertionError(message)
 
-    @skip_if_github_down
-    def _workflow_import_from_url(self, url=EXAMPLE_WORKFLOW_URL_1):
+    def _workflow_import_from_url(self, url=EXAMPLE_WORKFLOW_URL_1, mock_http_server=None):
+        if mock_http_server is not None:
+            url = mock_http_server.get_url(
+                remote_url=EXAMPLE_WORKFLOW_URL_1,
+                file_path="lib/galaxy_test/base/data/test_workflow_1.ga",
+                content_type="application/json",
+            )
         self.workflow_index_click_import()
         self.workflow_import_submit_url(url)
 

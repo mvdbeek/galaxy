@@ -70,6 +70,8 @@ from galaxy_test.base.workflow_fixtures import (
     WORKFLOW_WITH_OUTPUT_COLLECTION_MAPPING,
     WORKFLOW_WITH_RULES_1,
     WORKFLOW_WITH_STEP_DEFAULT_FILE_DATASET_INPUT,
+    workflow_with_default_file_dataset_input,
+    workflow_with_step_default_file_dataset_input,
 )
 from ._framework import ApiTestCase
 from .sharable import SharingApiTests
@@ -6301,10 +6303,14 @@ data_input:
             content = self.dataset_populator.get_history_dataset_content(history_id)
             assert len(content.splitlines()) == 3, content
 
-    def test_run_with_default_file_dataset_input(self):
+    def test_run_with_default_file_dataset_input(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+                file_path="test-data/1.bed",
+            )
             run_response = self._run_workflow(
-                WORKFLOW_WITH_DEFAULT_FILE_DATASET_INPUT,
+                workflow_with_default_file_dataset_input(url),
                 history_id=history_id,
                 wait=True,
                 assert_ok=True,
@@ -6317,10 +6323,14 @@ data_input:
             assert dataset_details["file_ext"] == "txt"
             assert "chr1" in dataset_details["peek"]
 
-    def test_run_with_default_file_dataset_input_and_explicit_input(self):
+    def test_run_with_default_file_dataset_input_and_explicit_input(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+                file_path="test-data/1.bed",
+            )
             run_response = self._run_workflow(
-                WORKFLOW_WITH_DEFAULT_FILE_DATASET_INPUT,
+                workflow_with_default_file_dataset_input(url),
                 test_data="""
 default_file_input:
   value: 1.fasta
@@ -6341,10 +6351,14 @@ default_file_input:
                 in dataset_details["peek"]
             )
 
-    def test_run_with_default_file_in_step_inline(self):
+    def test_run_with_default_file_in_step_inline(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+                file_path="test-data/1.bed",
+            )
             self._run_workflow(
-                WORKFLOW_WITH_STEP_DEFAULT_FILE_DATASET_INPUT,
+                workflow_with_step_default_file_dataset_input(url),
                 history_id=history_id,
                 wait=True,
                 assert_ok=True,

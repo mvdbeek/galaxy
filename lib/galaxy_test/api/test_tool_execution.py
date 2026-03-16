@@ -46,15 +46,21 @@ class TestToolExecution(ApiTestCase):
             self.dataset_populator.wait_for_jobs(jobs, assert_ok=True)
 
     @skip_without_tool("gx_data")
-    def test_execution_with_src_urls(self):
+    def test_execution_with_src_urls(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/planemo/7be1bf5b3971a43eaa73f483125bfb8cabf1c440/tests/data/hello.txt",
+                status=200,
+                body="Hello World!",
+                content_type="text/plain",
+            )
             response = self._run(
                 "gx_data",
                 history_id,
                 {
                     "parameter": {
                         "src": "url",
-                        "url": "https://raw.githubusercontent.com/galaxyproject/planemo/7be1bf5b3971a43eaa73f483125bfb8cabf1c440/tests/data/hello.txt",
+                        "url": url,
                         "ext": "txt",
                     }
                 },
@@ -84,15 +90,21 @@ class TestToolExecution(ApiTestCase):
             assert input_dataset_details["state"] == "ok", input_dataset_details
 
     @skip_without_tool("gx_data")
-    def test_execution_with_deferred_src_urls(self):
+    def test_execution_with_deferred_src_urls(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/planemo/7be1bf5b3971a43eaa73f483125bfb8cabf1c440/tests/data/hello.txt",
+                status=200,
+                body="Hello World!",
+                content_type="text/plain",
+            )
             response = self._run(
                 "gx_data",
                 history_id,
                 {
                     "parameter": {
                         "src": "url",
-                        "url": "https://raw.githubusercontent.com/galaxyproject/planemo/7be1bf5b3971a43eaa73f483125bfb8cabf1c440/tests/data/hello.txt",
+                        "url": url,
                         "ext": "txt",
                         "deferred": True,
                     }

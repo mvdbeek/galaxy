@@ -1,7 +1,6 @@
 from selenium.webdriver.common.by import By
 
 from .framework import (
-    EXAMPLE_WORKFLOW_URL_1,
     retry_assertion_during_transitions,
     selenium_only,
     selenium_test,
@@ -16,9 +15,9 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_import_from_url(self):
+    def test_import_from_url(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
 
         workflow_cards = self.workflow_card_elements()
         assert len(workflow_cards) == 1
@@ -42,12 +41,11 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_view(self):
+    def test_view(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_index_view_external_link()
         self.driver.switch_to.window(self.driver.window_handles[1])
-        assert self.driver.current_url == EXAMPLE_WORKFLOW_URL_1
         self.driver.close()
         self.driver.switch_to.window(self.driver.window_handles[0])
         self.components.workflows.external_link.wait_for_visible()
@@ -59,9 +57,9 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_rename(self):
+    def test_rename(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_rename("CoolNewName")
 
         @retry_assertion_during_transitions
@@ -82,18 +80,18 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_download(self):
+    def test_download(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         # TODO: fill this test out - getting downloaded files in general through Selenium is a bit tough,
         # going through the motions though should catch a couple potential problems.
         self.components.workflows.download_button.wait_for_and_click()
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_tagging(self):
+    def test_tagging(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
 
         self.workflow_index_add_tag("cooltag")
 
@@ -106,17 +104,17 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_tag_filtering(self):
+    def test_tag_filtering(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_index_add_tag("mytag")
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_index_open()
         self.workflow_index_add_tag("mytag")
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_index_open()
         self.workflow_index_add_tag("mytaglonger")
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_index_open()
 
         self.workflow_index_search_for("mytag")
@@ -138,9 +136,9 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_index_search(self):
+    def test_index_search(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_rename("searchforthis")
         self._assert_showing_n_workflows(1)
         self.screenshot("workflow_manage_search")
@@ -156,9 +154,9 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_index_search_filters(self):
+    def test_index_search_filters(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_rename("searchforthis")
         self._assert_showing_n_workflows(1)
 
@@ -183,9 +181,9 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_index_advanced_search(self):
+    def test_index_advanced_search(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_rename("searchforthis")
         self._assert_showing_n_workflows(1)
 
@@ -213,9 +211,9 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_workflow_delete(self):
+    def test_workflow_delete(self, mock_http_server):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_rename("fordelete")
         self._assert_showing_n_workflows(1)
         self.workflow_delete_by_name("fordelete")
@@ -226,11 +224,11 @@ class TestWorkflowManagement(SeleniumTestCase, TestsGalaxyPagers, UsesWorkflowAs
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_workflow_bookmark_filtering(self):
+    def test_workflow_bookmark_filtering(self, mock_http_server):
         self.workflow_index_open()
         # Import 2 workflows
-        self._workflow_import_from_url()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self._assert_showing_n_workflows(2)
         # Rename and bookmark one
         self.workflow_rename("forbookmark")

@@ -361,9 +361,13 @@ class TestDatasetsApi(ApiTestCase):
         extra_files_response.raise_for_status()
         assert extra_files_response.text == fasta_contents
 
-    def test_display_error_handling(self, history_id):
+    def test_display_error_handling(self, history_id, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+            file_path="test-data/1.bed",
+        )
         hda1 = self.dataset_populator.create_deferred_hda(
-            history_id, "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed"
+            history_id, url
         )
         display_response = self._get(f"histories/{history_id}/contents/{hda1['id']}/display", {"raw": "True"})
         self._assert_status_code_is(display_response, 409)

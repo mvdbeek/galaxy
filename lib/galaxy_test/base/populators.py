@@ -3341,12 +3341,12 @@ class LibraryPopulator:
         create_response = self.galaxy_interactor.post("libraries", data=data, admin=True, json=True)
         return create_response.json()
 
-    def fetch_single_url_to_folder(self, file_type="auto", assert_ok=True):
+    def fetch_single_url_to_folder(self, file_type="auto", assert_ok=True, url=None):
         history_id, library, destination = self.setup_fetch_to_folder("single_url")
         items = [
             {
                 "src": "url",
-                "url": FILE_URL,
+                "url": url or FILE_URL,
                 "MD5": FILE_MD5,
                 "ext": file_type,
             }

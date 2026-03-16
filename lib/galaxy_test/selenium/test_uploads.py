@@ -37,8 +37,12 @@ class TestUploads(SeleniumTestCase, UsesHistoryItemAssertions):
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_upload_pasted_url_content(self):
-        pasted_content = "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/LICENSE.txt"
+    def test_upload_pasted_url_content(self, mock_http_server):
+        pasted_content = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/LICENSE.txt",
+            file_path="LICENSE.txt",
+            content_type="text/plain",
+        )
         self.perform_upload_of_pasted_content(pasted_content)
 
         self.history_panel_wait_for_hid_ok(1)
@@ -120,10 +124,12 @@ class TestUploads(SeleniumTestCase, UsesHistoryItemAssertions):
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    def test_upload_deferred(self):
-        self.perform_upload_of_pasted_content(
-            "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed", deferred=True
+    def test_upload_deferred(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed",
+            file_path="test-data/1.bed",
         )
+        self.perform_upload_of_pasted_content(url, deferred=True)
         hid = 1
         self.history_panel_wait_for_hid_deferred(hid)
         self.history_panel_click_item_title(hid=hid, wait=True)

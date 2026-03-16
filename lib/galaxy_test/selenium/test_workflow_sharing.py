@@ -40,8 +40,8 @@ class TestWorkflowSharingRedirect(SeleniumTestCase):
 
 class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
     @selenium_test
-    def test_sharing_workflow_by_email(self):
-        _, user2_email = self.setup_two_users_with_one_shared_workflow(screenshot=True)
+    def test_sharing_workflow_by_email(self, mock_http_server):
+        _, user2_email = self.setup_two_users_with_one_shared_workflow(screenshot=True, mock_http_server=mock_http_server)
         self.submit_login(user2_email)
         self.workflow_shared_with_me_open()
         # refine this to restrict checking for that workflow so published workflow don't break this test
@@ -49,16 +49,16 @@ class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
         self.screenshot("workflow_shared_workflow")
 
     @selenium_test
-    def test_sharing_workflow_by_id(self):
-        _, user2_email = self.setup_two_users_with_one_shared_workflow(share_by_id=True)
+    def test_sharing_workflow_by_id(self, mock_http_server):
+        _, user2_email = self.setup_two_users_with_one_shared_workflow(share_by_id=True, mock_http_server=mock_http_server)
         self.submit_login(user2_email)
         # refine this to restrict checking for that workflow so published workflow don't break this test
         self.workflow_shared_with_me_open()
         self._assert_showing_n_workflows(1)
 
     @selenium_test
-    def test_unsharing_workflow(self):
-        user1_email, user2_email = self.setup_two_users_with_one_shared_workflow(share_by_id=True)
+    def test_unsharing_workflow(self, mock_http_server):
+        user1_email, user2_email = self.setup_two_users_with_one_shared_workflow(share_by_id=True, mock_http_server=mock_http_server)
         self.submit_login(user1_email)
         self.workflow_index_open()
         # refine this to restrict checking for that workflow so published workflow don't break this test
@@ -84,10 +84,10 @@ class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
         self.components.workflows.workflows_list_empty.wait_for_visible()
 
     @selenium_test
-    def test_sharing_with_invalid_user(self):
+    def test_sharing_with_invalid_user(self, mock_http_server):
         user1_email = self._get_random_email()
         self.register(user1_email)
-        self._import_workflow_open_sharing()
+        self._import_workflow_open_sharing(mock_http_server=mock_http_server)
         self._share_workflow_with_user(
             user_email="invalid_user@test.com",
             assert_valid=False,
@@ -96,10 +96,10 @@ class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
         self.screenshot("workflow_sharing_invalid_user")
 
     @selenium_test
-    def test_sharing_with_self(self):
+    def test_sharing_with_self(self, mock_http_server):
         user1_email = self._get_random_email()
         self.register(user1_email)
-        self._import_workflow_open_sharing()
+        self._import_workflow_open_sharing(mock_http_server=mock_http_server)
         self._share_workflow_with_user(
             user_email=user1_email,
             assert_valid=False,
@@ -107,7 +107,7 @@ class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
         self.assert_error_message(contains="You cannot share resources with yourself")
         self.screenshot("workflow_sharing_invalid_sharing_with_self")
 
-    def setup_two_users_with_one_shared_workflow(self, screenshot=False, share_by_id=False):
+    def setup_two_users_with_one_shared_workflow(self, screenshot=False, share_by_id=False, mock_http_server=None):
         user1_email = self._get_random_email()
         user2_email = self._get_random_email()
 
@@ -121,7 +121,7 @@ class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
 
         self.submit_login(user1_email)
 
-        self._import_workflow_open_sharing()
+        self._import_workflow_open_sharing(mock_http_server=mock_http_server)
         self._share_workflow_with_user(
             user_email=user2_email,
             user_id=user2_id,
@@ -143,7 +143,7 @@ class TestWorkflowSharing(SeleniumTestCase, UsesWorkflowAssertions):
             self.components.histories.sharing, user_email=user_email, user_id=user_id, assert_valid=assert_valid, **kwd
         )
 
-    def _import_workflow_open_sharing(self):
+    def _import_workflow_open_sharing(self, mock_http_server=None):
         self.workflow_index_open()
-        self._workflow_import_from_url()
+        self._workflow_import_from_url(mock_http_server=mock_http_server)
         self.workflow_share_click()

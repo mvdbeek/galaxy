@@ -1191,7 +1191,11 @@ outputs:
     outputSource: subworkflow/inner_output_2
 """
 
-WORKFLOW_WITH_DEFAULT_FILE_DATASET_INPUT = """
+DEFAULT_FILE_DATASET_URL = "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed"
+
+
+def workflow_with_default_file_dataset_input(url=DEFAULT_FILE_DATASET_URL):
+    return f"""
 class: GalaxyWorkflow
 inputs:
   default_file_input:
@@ -1199,7 +1203,7 @@ inputs:
       class: File
       basename: a file
       format: txt
-      location: https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed
+      location: {url}
 steps:
   cat1:
     tool_id: cat1
@@ -1207,7 +1211,12 @@ steps:
       input1: default_file_input
 """
 
-WORKFLOW_WITH_STEP_DEFAULT_FILE_DATASET_INPUT = """
+
+WORKFLOW_WITH_DEFAULT_FILE_DATASET_INPUT = workflow_with_default_file_dataset_input()
+
+
+def workflow_with_step_default_file_dataset_input(url=DEFAULT_FILE_DATASET_URL):
+    return f"""
 class: GalaxyWorkflow
 steps:
   cat1:
@@ -1218,8 +1227,11 @@ steps:
           class: File
           basename: a file
           format: txt
-          location: https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed
+          location: {url}
 """
+
+
+WORKFLOW_WITH_STEP_DEFAULT_FILE_DATASET_INPUT = workflow_with_step_default_file_dataset_input()
 
 WORKFLOW_FLAT_CROSS_PRODUCT = """
 class: GalaxyWorkflow

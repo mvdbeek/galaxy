@@ -2,6 +2,11 @@ import os
 
 import pytest
 
+from galaxy_test.base.mock_http_server import (
+    MockHTTPRequestHandler,
+    MockHttpServer,
+    start_mock_http_server,
+)
 from galaxy_test.selenium.framework import SeleniumTestCase
 
 
@@ -18,6 +23,18 @@ def real_driver():
             driver.tear_down()
     else:
         yield None
+
+
+@pytest.fixture(scope="session")
+def mock_http_server():
+    if os.environ.get("GALAXY_TEST_EXTERNAL"):
+        yield MockHttpServer(base_url=None, handler_class=None, is_remote=True)
+    else:
+        server, base_url = start_mock_http_server()
+        try:
+            yield MockHttpServer(base_url=base_url, handler_class=MockHTTPRequestHandler, is_remote=False)
+        finally:
+            server.shutdown()
 
 
 @pytest.fixture(scope="class")

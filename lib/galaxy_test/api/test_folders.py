@@ -25,8 +25,12 @@ class TestFoldersApi(ApiTestCase):
         response.raise_for_status()
 
     @requires_new_library
-    def test_list_library(self):
-        library, _ = self.library_populator.fetch_single_url_to_folder()
+    def test_list_library(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed",
+            file_path="test-data/4.bed",
+        )
+        library, _ = self.library_populator.fetch_single_url_to_folder(url=url)
         library = self._list_library(library["id"])
         assert len(library) == 2
         folders = [folder for folder in library if folder["type"] == "folder"]
@@ -106,8 +110,12 @@ class TestFoldersApi(ApiTestCase):
         assert undeleted_folder["deleted"] is False
 
     @requires_new_library
-    def test_import_folder_to_history(self):
-        library, response = self.library_populator.fetch_single_url_to_folder()
+    def test_import_folder_to_history(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed",
+            file_path="test-data/4.bed",
+        )
+        library, response = self.library_populator.fetch_single_url_to_folder(url=url)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
         with self.dataset_populator.test_history() as history_id:
             create_data = {"source": "library_folder", "content": dataset["folder_id"]}

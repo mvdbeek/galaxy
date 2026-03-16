@@ -353,12 +353,16 @@ class TestToolsApi(ApiTestCase, TestsTools):
             assert output_details["file_ext"] == "bed"
 
     @skip_without_tool("test_data_source")
-    def test_data_source_sniff_fastqsanger(self):
+    def test_data_source_sniff_fastqsanger(self, mock_http_server):
         with self.dataset_populator.test_history() as history_id:
+            url = mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.fastqsanger.gz",
+                file_path="test-data/1.fastqsanger.gz",
+            )
             payload = self.dataset_populator.run_tool_payload(
                 tool_id="test_data_source",
                 inputs={
-                    "URL": "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.fastqsanger.gz",
+                    "URL": url,
                     "URL_method": "get",
                 },
                 history_id=history_id,
@@ -3185,12 +3189,16 @@ class TestToolsApi(ApiTestCase, TestsTools):
 
     @pytest.mark.xfail
     @skip_without_tool("pileup")
-    def test_metadata_validator_can_fail_on_deferred_input(self, history_id):
+    def test_metadata_validator_can_fail_on_deferred_input(self, history_id, mock_http_server):
         # This test fails because we just skip the validator
         # Fixing this is a TODO
+        url = mock_http_server.get_url(
+            remote_url="https://github.com/galaxyproject/galaxy/blob/dev/test-data/3unsorted.bam?raw=true",
+            file_path="test-data/3unsorted.bam",
+        )
         deferred_bam_details = self.dataset_populator.create_deferred_hda(
             history_id,
-            "https://github.com/galaxyproject/galaxy/blob/dev/test-data/3unsorted.bam?raw=true",
+            url,
             ext="unsorted.bam",
         )
         fasta1_contents = open(self.get_filename("1.fasta")).read()
@@ -3203,8 +3211,11 @@ class TestToolsApi(ApiTestCase, TestsTools):
         assert job_details["state"] == "failed"
 
     @skip_without_tool("gx_allow_uri_if_protocol")
-    def test_allow_uri_if_protocol_on_deferred_input(self, history_id):
-        source_uri = "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/simple_line.txt"
+    def test_allow_uri_if_protocol_on_deferred_input(self, history_id, mock_http_server):
+        source_uri = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/simple_line.txt",
+            file_path="test-data/simple_line.txt",
+        )
         deferred_hda = self.dataset_populator.create_deferred_hda(history_id, source_uri, ext="txt")
 
         inputs = {"input1": dataset_to_param(deferred_hda)}
@@ -3221,10 +3232,16 @@ class TestToolsApi(ApiTestCase, TestsTools):
         assert output_content.strip() == source_uri.strip()
 
     @skip_without_tool("gx_allow_uri_if_protocol")
-    def test_allow_uri_if_protocol_on_collection_with_deferred(self, history_id):
+    def test_allow_uri_if_protocol_on_collection_with_deferred(self, history_id, mock_http_server):
         source_uris = [
-            "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/simple_line.txt",
-            "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/simple_line_alternative.txt",
+            mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/simple_line.txt",
+                file_path="test-data/simple_line.txt",
+            ),
+            mock_http_server.get_url(
+                remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/simple_line_alternative.txt",
+                file_path="test-data/simple_line_alternative.txt",
+            ),
         ]
         elements = [
             {

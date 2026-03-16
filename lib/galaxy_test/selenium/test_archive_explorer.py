@@ -1,6 +1,5 @@
 from selenium.webdriver.common.by import By
 
-from galaxy.util.unittest_utils import skip_if_github_down
 from .framework import (
     selenium_only,
     selenium_test,
@@ -45,11 +44,17 @@ class TestArchiveExplorer(SeleniumTestCase, UsesHistoryItemAssertions):
 
     @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
-    @skip_if_github_down
-    def test_import_from_remote_zip(self):
+    def test_import_from_remote_zip(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url=REMOTE_ZIP_URL,
+            file_path="test-data/rocrate-test.zip",
+            content_type="application/zip",
+            support_ranges=True,
+            support_head=True,
+        )
         self.login()
         self.ensure_empty_history()
-        self.explore_remote_zip(REMOTE_ZIP_URL)
+        self.explore_remote_zip(url)
         self.go_to_next_step()
         self.wait_for_loading_indicator_to_finish()
         self.expect_preview_title_to_be("Simple Workflow")
@@ -64,12 +69,18 @@ class TestArchiveExplorer(SeleniumTestCase, UsesHistoryItemAssertions):
         self.expect_workflow_to_be_imported_with_name(name="Simple Workflow")
 
     @selenium_test
-    @skip_if_github_down
-    def test_explore_remote_zip_paste_url(self):
+    def test_explore_remote_zip_paste_url(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url=REMOTE_ZIP_URL,
+            file_path="test-data/rocrate-test.zip",
+            content_type="application/zip",
+            support_ranges=True,
+            support_head=True,
+        )
         self.login()
         self.ensure_empty_history()
         self.upload_start_click()
-        self.upload_paste_data(REMOTE_ZIP_URL)
+        self.upload_paste_data(url)
         self.components.upload.explore_archive_button.wait_for_and_click()
         self.wait_for_loading_indicator_to_finish()
         self.expect_preview_title_to_be("Simple Workflow")

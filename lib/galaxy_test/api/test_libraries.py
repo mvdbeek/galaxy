@@ -9,7 +9,6 @@ from galaxy_test.base.decorators import requires_new_library
 from galaxy_test.base.populators import (
     DatasetCollectionPopulator,
     DatasetPopulator,
-    FILE_URL,
     LibraryPopulator,
     skip_without_asgi,
 )
@@ -288,29 +287,41 @@ class TestLibrariesApi(ApiTestCase):
         assert dataset["file_size"] == 61, dataset
 
     @requires_new_library
-    def test_fetch_single_url_to_folder(self):
-        library, response = self.library_populator.fetch_single_url_to_folder()
+    def test_fetch_single_url_to_folder(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed",
+            file_path="test-data/4.bed",
+        )
+        library, response = self.library_populator.fetch_single_url_to_folder(url=url)
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
         assert dataset["file_size"] == 61, dataset
 
     @requires_new_library
-    def test_fetch_single_url_with_invalid_datatype(self):
-        _, response = self.library_populator.fetch_single_url_to_folder("xxx", assert_ok=False)
+    def test_fetch_single_url_with_invalid_datatype(self, mock_http_server):
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed",
+            file_path="test-data/4.bed",
+        )
+        _, response = self.library_populator.fetch_single_url_to_folder("xxx", assert_ok=False, url=url)
         self._assert_status_code_is(response, 400)
         assert response.json()["err_msg"] == "Requested extension 'xxx' unknown, cannot upload dataset."
 
     @requires_new_library
-    def test_legacy_upload_unknown_datatype(self):
+    def test_legacy_upload_unknown_datatype(self, mock_http_server):
         library = self.library_populator.new_private_library("ForLegacyUpload")
         folder_response = self._create_folder(library)
         self._assert_status_code_is(folder_response, 200)
         folder_id = folder_response.json()[0]["id"]
+        url = mock_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed",
+            file_path="test-data/4.bed",
+        )
         payload = {
             "folder_id": folder_id,
             "create_type": "file",
             "file_type": "xxx",
             "upload_option": "upload_file",
-            "files_0|url_paste": FILE_URL,
+            "files_0|url_paste": url,
         }
         create_response = self._post(f"libraries/{library['id']}/contents", payload, json=True)
         self._assert_status_code_is(create_response, 400)
