@@ -1,3 +1,4 @@
+from galaxy.exceptions import MessageException
 from galaxy.util import rules_dsl
 
 
@@ -28,7 +29,7 @@ def test_rules():
                         assert final_source == expected_final_source, msg
             except AssertionError:
                 raise
-            except Exception as e:
+            except MessageException as e:
                 found_error = e
 
             if expect_errors and found_error is None:
