@@ -2,6 +2,9 @@ from typing import (
     Any,
 )
 
+import pytest
+
+from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.tools.parameters.wrapped import (
     nested_key_to_path,
     process_key,
@@ -57,6 +60,21 @@ class TestProcessKey:
             "directory_content": [],
         }
         assert nested_dict == expected_dict
+
+    def test_process_key_conflicting_flat_and_prefixed_key(self):
+        """Test that a bare key conflicting with a prefixed key raises a clear error.
+
+        Regression test for https://github.com/galaxyproject/galaxy/issues/22132.
+        API clients (e.g. Python Requests) may send 'adata_format' instead of
+        'in|adata_format', creating a conflict when 'in|tenx|use' tries to
+        recurse into d["in"] which was set to a string.
+        """
+        nested_dict: dict[str, Any] = {}
+        # Bare key sets d["in"] to a string
+        process_key("in", "custom", nested_dict)
+        # Prefixed key tries to recurse into d["in"] — should raise, not crash
+        with pytest.raises(RequestParameterInvalidException, match="was already assigned a plain value"):
+            process_key("in|tenx|use", "legacy_10x", nested_dict)
 
 
 class TestParameterParsing(BaseParameterTestCase):
