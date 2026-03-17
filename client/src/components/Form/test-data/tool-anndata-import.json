@@ -1,0 +1,101 @@
+{
+    "id": "anndata_import",
+    "name": "Import Anndata",
+    "version": "0.10.9+galaxy2",
+    "description": "Import anndata from different format",
+    "inputs": [
+        {
+            "name": "in",
+            "type": "conditional",
+            "test_param": {
+                "name": "adata_format",
+                "type": "select",
+                "value": "mtx",
+                "options": [
+                    ["loom", "loom", false],
+                    ["mtx", "mtx", false],
+                    ["hdf5", "hdf5", false]
+                ]
+            },
+            "cases": [
+                {
+                    "value": "loom",
+                    "inputs": [
+                        {
+                            "name": "input",
+                            "type": "data",
+                            "value": null
+                        }
+                    ]
+                },
+                {
+                    "value": "mtx",
+                    "inputs": [
+                        {
+                            "name": "matrix",
+                            "type": "data",
+                            "value": null
+                        },
+                        {
+                            "name": "tenx",
+                            "type": "conditional",
+                            "test_param": {
+                                "name": "use",
+                                "type": "select",
+                                "value": "legacy_10x",
+                                "options": [
+                                    ["legacy_10x", "legacy_10x", false],
+                                    ["no", "no", false]
+                                ]
+                            },
+                            "cases": [
+                                {
+                                    "value": "legacy_10x",
+                                    "inputs": [
+                                        {
+                                            "name": "genes",
+                                            "type": "data",
+                                            "value": null
+                                        },
+                                        {
+                                            "name": "barcodes",
+                                            "type": "data",
+                                            "value": null
+                                        }
+                                    ]
+                                },
+                                {
+                                    "value": "no",
+                                    "inputs": []
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    "value": "hdf5",
+                    "inputs": [
+                        {
+                            "name": "input",
+                            "type": "data",
+                            "value": null
+                        },
+                        {
+                            "name": "hdf5_key",
+                            "type": "text",
+                            "value": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "output_format",
+            "type": "select",
+            "value": "anndata.h5ad",
+            "options": [
+                ["anndata.h5ad", "anndata.h5ad", false]
+            ]
+        }
+    ]
+}

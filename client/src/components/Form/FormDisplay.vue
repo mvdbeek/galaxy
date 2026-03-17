@@ -145,7 +145,13 @@ export default {
                     Vue.set(input, "attributes", newValue);
                 }
             });
-            this.onChangeForm();
+            // Only rebuild the form index and data without forcing a server
+            // refresh.  The inputs watcher fires in response to a server
+            // response that already reflects the current state, so triggering
+            // another refresh (via onChangeForm / onChange(true)) creates a
+            // feedback loop that can race with user-initiated changes and
+            // produce malformed payloads with conflicting flat keys.
+            this.onChange();
         },
         validationScrollTo() {
             this.onHighlight(this.validationScrollTo);

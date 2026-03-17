@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import toolModel from "./test-data/tool";
+import annDataModel from "./test-data/tool-anndata-import";
 import { matchCase, matchInputs, validateInputs, visitInputs } from "./utilities";
 
 function visitInputsString(inputs) {
@@ -428,5 +429,54 @@ describe("form component utilities", () => {
         values = { required_field: "" };
         result = validateInputs(index, values, true);
         expect(result).toEqual(["required_field", "Please provide a value for this option."]);
+    });
+
+    it("test visitInputs produces non-conflicting keys for nested conditionals", () => {
+        const visits = [];
+        visitInputs(annDataModel.inputs, (node, name) => {
+            visits.push(name);
+        });
+
+        // With adata_format=mtx and use=legacy_10x, the active keys should be:
+        expect(visits).toEqual([
+            "in|adata_format",
+            "in|matrix",
+            "in|tenx|use",
+            "in|tenx|genes",
+            "in|tenx|barcodes",
+            "output_format",
+        ]);
+
+        // Verify no key is a prefix-parent of another key (the condition that
+        // triggers the process_key crash in the backend).
+        for (const key of visits) {
+            for (const other of visits) {
+                if (key !== other) {
+                    expect(other.startsWith(key + "|")).toBe(false);
+                }
+            }
+        }
+    });
+
+    it("test visitInputs keys change cleanly on conditional switch", () => {
+        // Deep-clone and switch the outer conditional to "hdf5"
+        const model = JSON.parse(JSON.stringify(annDataModel));
+        model.inputs[0].test_param.value = "hdf5";
+
+        const visits = [];
+        visitInputs(model.inputs, (node, name) => {
+            visits.push(name);
+        });
+
+        expect(visits).toEqual(["in|adata_format", "in|input", "in|hdf5_key", "output_format"]);
+
+        // Verify no prefix conflicts
+        for (const key of visits) {
+            for (const other of visits) {
+                if (key !== other) {
+                    expect(other.startsWith(key + "|")).toBe(false);
+                }
+            }
+        }
     });
 });

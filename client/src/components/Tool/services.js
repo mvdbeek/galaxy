@@ -8,7 +8,11 @@ export async function updateToolFormData(tool_id, tool_uuid, tool_version, histo
         tool_id: tool_id,
         tool_uuid: tool_uuid,
         tool_version: tool_version,
-        inputs: inputs,
+        // Ensure inputs is always an object so that the server-side
+        // `kwd.get("inputs", kwd)` never falls back to the full payload
+        // dict, which would feed tool_id/tool_version/etc. into
+        // process_key and potentially produce conflicting flat keys.
+        inputs: inputs || {},
         history_id: history_id,
     };
     const url = `${getAppRoot()}api/tools/${tool_uuid || tool_id}/build`;
