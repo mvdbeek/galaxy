@@ -1839,9 +1839,7 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
                 if obj.name not in out_data:
                     out_collections[obj.name] = obj.dataset_collection_instance
                 # else this is a mapped over output
-        if not exclude_implicit_outputs:
-            out_collections.update([(obj.name, obj.dataset_collection) for obj in self.output_dataset_collections])
-        else:
+        if exclude_implicit_outputs:
             # Include implicit output dataset collections only when they represent
             # a tool's collection output (name not in out_data). Exclude shared DCs
             # for mapped dataset outputs (name in out_data) which have N precreated
@@ -1849,6 +1847,8 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
             for obj in self.output_dataset_collections:
                 if obj.name not in out_data:
                     out_collections[obj.name] = obj.dataset_collection
+        else:
+            out_collections.update([(obj.name, obj.dataset_collection) for obj in self.output_dataset_collections])
         return IoDicts(inp_data, out_data, out_collections)
 
     # TODO: Add accessors for members defined in SQL Alchemy for the Job table and
