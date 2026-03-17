@@ -157,6 +157,13 @@ class CollectionBuilder:
     def add_dataset(
         self, identifier: str, dataset_instance: DatasetInstance, row: Optional["SampleSheetRow"] = None
     ) -> None:
+        if self._nested_collection:
+            raise Exception(
+                f"Cannot add dataset with identifier '{identifier}' directly to a collection "
+                f"of type [{self._collection_type_description.collection_type}]. "
+                f"The discover_datasets pattern does not produce enough identifier levels "
+                f"for the nesting depth of this collection type."
+            )
         self._current_elements[identifier] = dataset_instance
         self._current_row_data[identifier] = row
 
