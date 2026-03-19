@@ -15,8 +15,8 @@ from sqlalchemy import (
     exists,
     false,
     select,
+    update,
 )
-from sqlalchemy.orm import joinedload
 
 from galaxy import model
 from galaxy.celery import (
@@ -123,44 +123,53 @@ def purge_datasets(
 
 @galaxy_task(ignore_result=True, action="purge all datasets in a history")
 def purge_history_datasets(
-    hda_manager: HDAManager,
+    sa_session: galaxy_scoped_session,
     dataset_manager: DatasetManager,
+    object_store: BaseObjectStore,
     request: PurgeHistoryDatasetsTaskRequest,
     task_user_id: Optional[int] = None,
 ):
     """Batch purge all HDAs in a history in a single task.
 
-    Marks all unpurged HDAs as deleted/purged, adjusts quotas,
+    Bulk-marks all unpurged HDAs as deleted/purged, recalculates user quota,
     and removes underlying dataset files from the object store.
     """
-    sa_session = hda_manager.session()
     history = sa_session.get(model.History, request.history_id)
     if not history:
         log.error(f"Purge history datasets task failed, history {request.history_id} not found")
         return
-    user = history.user
-    # Query only unpurged HDAs with their datasets eagerly loaded
-    stmt = (
-        select(model.HistoryDatasetAssociation)
+    # Collect dataset IDs before the bulk update
+    dataset_id_stmt = (
+        select(model.HistoryDatasetAssociation.dataset_id)
         .where(
             and_(
                 model.HistoryDatasetAssociation.history_id == request.history_id,
                 model.HistoryDatasetAssociation.purged == false(),
             )
         )
-        .options(joinedload(model.HistoryDatasetAssociation.dataset))
+        .distinct()
     )
-    hdas = sa_session.scalars(stmt).unique().all()
-    dataset_ids_to_remove: set[int] = set()
-    for hda in hdas:
-        if user:
-            hda.purge_usage_from_quota(user, hda.dataset.quota_source_info)
-        hda.deleted = True
-        hda.purged = True
-        dataset_ids_to_remove.add(hda.dataset.id)
+    dataset_ids = list(sa_session.scalars(dataset_id_stmt))
+    if not dataset_ids:
+        return
+    # Bulk mark all unpurged HDAs as deleted and purged
+    sa_session.execute(
+        update(model.HistoryDatasetAssociation)
+        .where(
+            and_(
+                model.HistoryDatasetAssociation.history_id == request.history_id,
+                model.HistoryDatasetAssociation.purged == false(),
+            )
+        )
+        .values(deleted=True, purged=True)
+    )
     sa_session.commit()
-    if dataset_ids_to_remove:
-        dataset_manager.purge_datasets(PurgeDatasetsTaskRequest(dataset_ids=list(dataset_ids_to_remove)))
+    # Recalculate user disk usage from scratch
+    user = history.user
+    if user:
+        user.calculate_and_set_disk_usage(object_store)
+    # Remove underlying dataset files from object store
+    dataset_manager.purge_datasets(PurgeDatasetsTaskRequest(dataset_ids=dataset_ids))
 
 
 @galaxy_task(ignore_result=True, action="materializing dataset instance")
