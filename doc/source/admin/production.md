@@ -258,6 +258,7 @@ The correct implementation is selected automatically based on the configured `da
 - **Clock precision.** The mechanism relies on `datetime.datetime.now()` on the worker. Clock skew between workers could cause minor scheduling inaccuracies, though this is unlikely to matter in practice.
 - **No priority or reordering.** Tasks are scheduled in the order they reserve slots (first-come, first-served within a user). There is no mechanism to prioritize certain task types over others for the same user.
 - **Worker restarts.** If a worker is terminated while holding deferred tasks, Celery's broker (e.g., Redis, RabbitMQ) will redeliver them. The tasks will re-enter the `before_start` hook, read their reserved timeslot from the message header, and continue waiting or execute as appropriate — no slots are lost or duplicated.
+- **Database overhead.** Each task execution requires one or two queries to the `celery_user_rate_limit` table to reserve a timeslot (one for PostgreSQL's atomic upsert, two for the standard `SELECT FOR UPDATE` + `UPDATE` path). On PostgreSQL at 100 tasks/second this adds ~100 small writes/second; the standard backend doubles that. For most Galaxy deployments (typically fewer than 10 tasks/second) this is negligible. Additionally, tasks that are deferred via `task.retry` re-enter the broker and are redelivered to a worker, adding a small amount of broker traffic proportional to the deferral rate.
 
 #### Per-user task concurrency limiting
 
