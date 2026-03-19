@@ -296,9 +296,9 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
             from galaxy.celery.tasks import purge_history_datasets
             from galaxy.schema.tasks import PurgeHistoryDatasetsTaskRequest
 
-            user = item.user
             request = PurgeHistoryDatasetsTaskRequest(history_id=item.id)
-            purge_history_datasets.delay(request=request, task_user_id=getattr(user, "id", None))
+            user = item.user
+            purge_history_datasets.delay(request=request, task_user_id=user.id if user else None)
         else:
             for hda in item.datasets:
                 if not hda.purged:
