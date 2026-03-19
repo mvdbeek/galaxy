@@ -4172,7 +4172,9 @@ mapping:
         path_resolves_to: config_dir
         required: false
         desc: |
-          Vault config file.
+          Vault config file. For Hashicorp Vault, the config file supports
+          ``token_renewal`` (bool, default true) and ``token_renewal_interval``
+          (int, seconds) options to enable automatic token renewal.
 
       url_headers_config_file:
         type: str

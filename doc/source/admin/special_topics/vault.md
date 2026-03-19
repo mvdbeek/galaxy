@@ -47,7 +47,35 @@ type: hashicorp
 path_prefix: /my_galaxy_instance
 vault_address: http://localhost:8200
 vault_token: vault_application_token
+token_renewal: true  # optional, default: true
+token_renewal_interval: 1800  # optional, in seconds; default: half the token TTL
 ```
+
+### Token Renewal
+
+Galaxy supports automatic renewal of Hashicorp Vault tokens. When enabled (the default), Galaxy will:
+
+1. Check on startup whether the configured token is renewable
+2. If renewable, start a background thread that periodically calls Vault's `renew-self` endpoint before the token's TTL expires
+
+**Recommended token creation for production use:**
+
+Create a renewable token with a short TTL but a long max TTL. This allows Galaxy to automatically renew the token without requiring manual rotation:
+
+```bash
+vault token create -policy=galaxy -ttl=1h -explicit-max-ttl=720h -renewable
+```
+
+This creates a token that must be renewed every hour, but can be renewed for up to 30 days. Galaxy will automatically renew it at half the TTL (every 30 minutes by default).
+
+**Configuration options:**
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `token_renewal` | `true` | Set to `false` to disable automatic token renewal |
+| `token_renewal_interval` | half the token TTL | Override the renewal interval in seconds |
+
+If the token is not renewable, Galaxy logs a warning at startup but continues to operate normally. If renewal fails at runtime, Galaxy retries with exponential backoff and logs errors to help diagnose the issue.
 
 ## Vault configuration for database
 

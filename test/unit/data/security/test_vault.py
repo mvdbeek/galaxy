@@ -1,6 +1,10 @@
 import os
 import string
 import tempfile
+from unittest.mock import (
+    MagicMock,
+    patch,
+)
 
 import pytest
 from cryptography.fernet import InvalidToken
@@ -10,6 +14,7 @@ from galaxy.model.unittest_utils.data_app import (
     GalaxyDataTestConfig,
 )
 from galaxy.security.vault import (
+    HashicorpVault,
     InvalidVaultKeyException,
     Vault,
     VaultFactory,
@@ -110,3 +115,117 @@ class TestDatabaseVault(AbstractTestCases.VaultTestBase):
         vault = VaultFactory.from_app(app)
         with self.assertRaises(InvalidToken):
             vault.read_secret("my/incorrect/secret")
+
+
+@patch("galaxy.security.vault.hvac")
+class TestHashicorpVaultTokenRenewal:
+    def _make_vault(self, hvac_mock, config_overrides=None, token_lookup_data=None):
+        mock_client = MagicMock()
+        hvac_mock.Client.return_value = mock_client
+        if token_lookup_data is not None:
+            mock_client.auth.token.lookup_self.return_value = {"data": token_lookup_data}
+        config = {
+            "vault_address": "http://localhost:8200",
+            "vault_token": "s.test-token",
+        }
+        if config_overrides:
+            config.update(config_overrides)
+        vault = HashicorpVault(config)
+        return vault, mock_client
+
+    def test_renewable_token_starts_renewal_thread(self, hvac_mock):
+        vault, mock_client = self._make_vault(
+            hvac_mock,
+            token_lookup_data={"renewable": True, "ttl": 3600},
+        )
+        try:
+            assert vault._token_renewable is True
+            assert vault._token_ttl == 3600
+            assert vault._renewal_thread is not None
+            assert vault._renewal_thread.is_alive()
+        finally:
+            vault.shutdown()
+
+    def test_non_renewable_token_no_thread(self, hvac_mock):
+        vault, mock_client = self._make_vault(
+            hvac_mock,
+            token_lookup_data={"renewable": False, "ttl": 3600},
+        )
+        assert vault._token_renewable is False
+        assert vault._renewal_thread is None
+
+    def test_zero_ttl_token_no_thread(self, hvac_mock):
+        vault, mock_client = self._make_vault(
+            hvac_mock,
+            token_lookup_data={"renewable": True, "ttl": 0},
+        )
+        assert vault._renewal_thread is None
+
+    def test_token_renewal_disabled_by_config(self, hvac_mock):
+        vault, mock_client = self._make_vault(
+            hvac_mock,
+            config_overrides={"token_renewal": False},
+            token_lookup_data={"renewable": True, "ttl": 3600},
+        )
+        mock_client.auth.token.lookup_self.assert_not_called()
+        assert vault._renewal_thread is None
+
+    def test_token_lookup_failure_disables_renewal(self, hvac_mock):
+        mock_client = MagicMock()
+        hvac_mock.Client.return_value = mock_client
+        mock_client.auth.token.lookup_self.side_effect = Exception("connection refused")
+        config = {
+            "vault_address": "http://localhost:8200",
+            "vault_token": "s.test-token",
+        }
+        vault = HashicorpVault(config)
+        assert vault._renewal_thread is None
+
+    def test_renewal_interval_override(self, hvac_mock):
+        vault, _ = self._make_vault(
+            hvac_mock,
+            config_overrides={"token_renewal_interval": 600},
+            token_lookup_data={"renewable": True, "ttl": 3600},
+        )
+        try:
+            assert vault._compute_renewal_interval(3600) == 600
+        finally:
+            vault.shutdown()
+
+    def test_renewal_interval_minimum_enforced(self, hvac_mock):
+        vault, _ = self._make_vault(
+            hvac_mock,
+            config_overrides={"token_renewal_interval": 2},
+            token_lookup_data={"renewable": True, "ttl": 10},
+        )
+        try:
+            assert vault._compute_renewal_interval(10) == HashicorpVault.MIN_RENEWAL_INTERVAL_SECONDS
+        finally:
+            vault.shutdown()
+
+    def test_shutdown_stops_thread(self, hvac_mock):
+        vault, _ = self._make_vault(
+            hvac_mock,
+            token_lookup_data={"renewable": True, "ttl": 3600},
+        )
+        assert vault._renewal_thread is not None
+        vault.shutdown()
+        assert not vault._renewal_thread.is_alive()
+
+    def test_read_secret_forbidden_returns_none(self, hvac_mock):
+        vault, mock_client = self._make_vault(
+            hvac_mock,
+            config_overrides={"token_renewal": False},
+        )
+        mock_client.secrets.kv.read_secret_version.side_effect = hvac_mock.exceptions.Forbidden
+        result = vault.read_secret("some/key")
+        assert result is None
+
+    def test_write_secret_forbidden_raises(self, hvac_mock):
+        vault, mock_client = self._make_vault(
+            hvac_mock,
+            config_overrides={"token_renewal": False},
+        )
+        mock_client.secrets.kv.v2.create_or_update_secret.side_effect = hvac_mock.exceptions.Forbidden
+        with pytest.raises(hvac_mock.exceptions.Forbidden):
+            vault.write_secret("some/key", "value")
