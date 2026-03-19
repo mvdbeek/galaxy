@@ -11,6 +11,7 @@ from typing import (
 )
 
 from sqlalchemy import (
+    delete,
     exists,
     select,
 )
@@ -619,16 +620,12 @@ def cleanup_stale_concurrency_slots(
     for their active tasks and removes tracking rows for any task that
     is no longer executing on any worker.
     """
-    from sqlalchemy import delete
-
-    from galaxy.model import CeleryUserActiveTask
-
     now = datetime.datetime.now()
     threshold = now - datetime.timedelta(minutes=stale_threshold_minutes)
 
     # Only consider rows older than the threshold — recent tasks are likely still running
     stale_rows = session.execute(
-        select(CeleryUserActiveTask.task_id).where(CeleryUserActiveTask.started_at < threshold)
+        select(model.CeleryUserActiveTask.task_id).where(model.CeleryUserActiveTask.started_at < threshold)
     ).scalars().all()
 
     if not stale_rows:
@@ -647,7 +644,7 @@ def cleanup_stale_concurrency_slots(
     stale_task_ids = [tid for tid in stale_rows if tid not in active_task_ids]
     if stale_task_ids:
         session.execute(
-            delete(CeleryUserActiveTask).where(CeleryUserActiveTask.task_id.in_(stale_task_ids))
+            delete(model.CeleryUserActiveTask).where(model.CeleryUserActiveTask.task_id.in_(stale_task_ids))
         )
         session.commit()
         log.info(f"Cleaned up {len(stale_task_ids)} stale concurrency tracking rows")
