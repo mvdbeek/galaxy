@@ -58,6 +58,7 @@ from galaxy.schema.tasks import (
     MaterializeDatasetInstanceTaskRequest,
     PrepareDatasetCollectionDownload,
     PurgeDatasetsTaskRequest,
+    PurgeHistoryDatasetsTaskRequest,
     QueueJobs,
     SetupHistoryExportJob,
     TOOL_SOURCE_CLASS,
@@ -115,6 +116,39 @@ def purge_datasets(
     dataset_manager: DatasetManager, request: PurgeDatasetsTaskRequest, task_user_id: Optional[int] = None
 ):
     dataset_manager.purge_datasets(request)
+
+
+@galaxy_task(ignore_result=True, action="purge all datasets in a history")
+def purge_history_datasets(
+    hda_manager: HDAManager,
+    dataset_manager: DatasetManager,
+    request: PurgeHistoryDatasetsTaskRequest,
+    task_user_id: Optional[int] = None,
+):
+    """Batch purge all HDAs in a history in a single task.
+
+    Marks all unpurged HDAs as deleted/purged, adjusts quotas, stops jobs,
+    and removes underlying dataset files from the object store.
+    """
+    sa_session = hda_manager.session()
+    history = sa_session.get(model.History, request.history_id)
+    if not history:
+        log.error(f"Purge history datasets task failed, history {request.history_id} not found")
+        return
+    user = history.user
+    dataset_ids_to_remove: set[int] = set()
+    for hda in history.datasets:
+        if hda.purged:
+            continue
+        if user:
+            hda.purge_usage_from_quota(user, hda.dataset.quota_source_info)
+        hda.deleted = True
+        hda.purged = True
+        hda_manager.stop_creating_job(hda)
+        dataset_ids_to_remove.add(hda.dataset.id)
+    sa_session.commit()
+    if dataset_ids_to_remove:
+        dataset_manager.purge_datasets(PurgeDatasetsTaskRequest(dataset_ids=list(dataset_ids_to_remove)))
 
 
 @galaxy_task(ignore_result=True, action="materializing dataset instance")

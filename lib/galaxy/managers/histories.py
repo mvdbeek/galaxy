@@ -292,9 +292,17 @@ class HistoryManager(sharable.SharableModelManager[model.History], deletable.Pur
         self.error_unless_mutable(item)
         self.hda_manager.dataset_manager.error_unless_dataset_purge_allowed()
         # First purge all the datasets
-        for hda in item.datasets:
-            if not hda.purged:
-                self.hda_manager.purge(hda, flush=True, **kwargs)
+        if self.app.config.enable_celery_tasks:
+            from galaxy.celery.tasks import purge_history_datasets
+            from galaxy.schema.tasks import PurgeHistoryDatasetsTaskRequest
+
+            user = item.user
+            request = PurgeHistoryDatasetsTaskRequest(history_id=item.id)
+            purge_history_datasets.delay(request=request, task_user_id=getattr(user, "id", None))
+        else:
+            for hda in item.datasets:
+                if not hda.purged:
+                    self.hda_manager.purge(hda, flush=True, **kwargs)
 
         # Now mark the history as purged
         super().purge(item, flush=flush, **kwargs)
