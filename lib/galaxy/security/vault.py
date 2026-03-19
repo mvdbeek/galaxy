@@ -2,7 +2,6 @@ import abc
 import logging
 import os
 import re
-import threading
 from typing import (
     Optional,
 )
@@ -99,9 +98,6 @@ class NullVault(Vault):
 
 
 class HashicorpVault(Vault):
-    # Minimum renewal interval to avoid tight loops on very short TTLs
-    MIN_RENEWAL_INTERVAL_SECONDS = 10
-
     def __init__(self, config):
         if not hvac:
             raise InvalidVaultConfigException(
@@ -110,95 +106,40 @@ class HashicorpVault(Vault):
         self.vault_address = config.get("vault_address")
         self.vault_token = config.get("vault_token")
         self.client = hvac.Client(url=self.vault_address, token=self.vault_token)
-        self._stop_event = threading.Event()
-        self._renewal_thread: Optional[threading.Thread] = None
-        self._token_renewable = False
-        self._token_ttl = 0
+        self._check_token_renewable()
 
-        token_renewal = config.get("token_renewal", True)
-        self._renewal_interval_override: Optional[int] = config.get("token_renewal_interval")
-
-        if token_renewal:
-            self._init_token_renewal()
-
-    def _init_token_renewal(self):
+    def _check_token_renewable(self):
         try:
             token_info = self.client.auth.token.lookup_self()
             data = token_info.get("data", {})
-            self._token_renewable = data.get("renewable", False)
-            self._token_ttl = data.get("ttl", 0)
-
-            if not self._token_renewable:
+            renewable = data.get("renewable", False)
+            ttl = data.get("ttl", 0)
+            if not renewable:
                 log.warning(
                     "Hashicorp Vault token is not renewable. "
-                    "Consider generating a renewable token with a short TTL and long max TTL for automatic renewal."
+                    "Consider generating a renewable token with a short TTL and long max TTL "
+                    "and enabling the vault_token_renewal_interval config option."
                 )
-                return
-
-            if self._token_ttl <= 0:
-                log.warning("Hashicorp Vault token has no TTL set, skipping token renewal.")
-                return
-
-            renewal_interval = self._compute_renewal_interval(self._token_ttl)
-            log.info(
-                "Hashicorp Vault token is renewable (TTL: %ds). "
-                "Starting background renewal every %ds.",
-                self._token_ttl,
-                renewal_interval,
-            )
-            self._start_renewal_thread(renewal_interval)
+            elif ttl > 0:
+                log.info("Hashicorp Vault token is renewable (TTL: %ds).", ttl)
+            else:
+                log.info("Hashicorp Vault token is renewable (no TTL).")
         except Exception:
-            log.warning("Failed to look up Hashicorp Vault token info, token renewal disabled.", exc_info=True)
+            log.warning("Failed to look up Hashicorp Vault token info.", exc_info=True)
 
-    def _compute_renewal_interval(self, ttl: int) -> int:
-        if self._renewal_interval_override is not None:
-            return max(self._renewal_interval_override, self.MIN_RENEWAL_INTERVAL_SECONDS)
-        return max(ttl // 2, self.MIN_RENEWAL_INTERVAL_SECONDS)
-
-    def _start_renewal_thread(self, interval: int):
-        self._renewal_thread = threading.Thread(
-            target=self._renewal_loop,
-            args=(interval,),
-            daemon=True,
-            name="vault-token-renewal",
-        )
-        self._renewal_thread.start()
-
-    def _renewal_loop(self, interval: int):
-        backoff = 1
-        max_backoff = 300
-        while not self._stop_event.is_set():
-            if self._stop_event.wait(timeout=interval):
-                break
-            try:
-                result = self.client.auth.token.renew_self()
-                new_ttl = result.get("auth", {}).get("lease_duration", 0)
-                renewable = result.get("auth", {}).get("renewable", False)
-                if new_ttl > 0:
-                    self._token_ttl = new_ttl
-                    interval = self._compute_renewal_interval(new_ttl)
-                if not renewable:
-                    log.warning(
-                        "Hashicorp Vault token is no longer renewable (max TTL likely reached). "
-                        "Stopping renewal thread."
-                    )
-                    break
-                log.debug("Hashicorp Vault token renewed successfully (new TTL: %ds).", new_ttl)
-                backoff = 1
-            except Exception:
-                log.error(
-                    "Failed to renew Hashicorp Vault token, retrying in %ds.",
-                    backoff,
-                    exc_info=True,
-                )
-                if self._stop_event.wait(timeout=backoff):
-                    break
-                backoff = min(backoff * 2, max_backoff)
-
-    def shutdown(self):
-        self._stop_event.set()
-        if self._renewal_thread is not None:
-            self._renewal_thread.join(timeout=5)
+    def renew_token(self):
+        """Renew the Vault token. Intended to be called periodically by a Celery Beat task."""
+        result = self.client.auth.token.renew_self()
+        auth_data = result.get("auth", {})
+        new_ttl = auth_data.get("lease_duration", 0)
+        renewable = auth_data.get("renewable", False)
+        if not renewable:
+            log.warning(
+                "Hashicorp Vault token is no longer renewable (max TTL likely reached). "
+                "A new token must be configured."
+            )
+        else:
+            log.debug("Hashicorp Vault token renewed successfully (new TTL: %ds).", new_ttl)
 
     def read_secret(self, key: str) -> Optional[str]:
         try:
@@ -385,3 +326,20 @@ class VaultFactory:
 
 def is_vault_configured(vault: Vault) -> bool:
     return not isinstance(vault, NullVault)
+
+
+def _unwrap_vault(vault: Vault) -> Vault:
+    """Unwrap decorator layers to get the underlying vault implementation."""
+    while hasattr(vault, "vault"):
+        vault = vault.vault
+    return vault
+
+
+def renew_vault_token_if_needed(vault: Vault) -> None:
+    """Renew the Hashicorp Vault token if the vault is a HashicorpVault.
+
+    Intended to be called from a Celery Beat periodic task.
+    """
+    inner = _unwrap_vault(vault)
+    if isinstance(inner, HashicorpVault):
+        inner.renew_token()

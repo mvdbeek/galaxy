@@ -47,35 +47,34 @@ type: hashicorp
 path_prefix: /my_galaxy_instance
 vault_address: http://localhost:8200
 vault_token: vault_application_token
-token_renewal: true  # optional, default: true
-token_renewal_interval: 1800  # optional, in seconds; default: half the token TTL
 ```
 
 ### Token Renewal
 
-Galaxy supports automatic renewal of Hashicorp Vault tokens. When enabled (the default), Galaxy will:
+Galaxy supports automatic renewal of Hashicorp Vault tokens via a Celery Beat periodic task. This is the recommended approach for production deployments using renewable tokens with a short TTL.
 
-1. Check on startup whether the configured token is renewable
-2. If renewable, start a background thread that periodically calls Vault's `renew-self` endpoint before the token's TTL expires
+On startup, Galaxy checks whether the configured token is renewable and logs a warning if it is not.
+
+To enable automatic renewal, set `vault_token_renewal_interval` in `galaxy.yml`:
+
+```yaml
+galaxy:
+  vault_token_renewal_interval: 1800  # renew every 30 minutes
+```
+
+This requires Celery Beat to be running. The periodic task calls Vault's `renew-self` endpoint at the configured interval.
 
 **Recommended token creation for production use:**
 
-Create a renewable token with a short TTL but a long max TTL. This allows Galaxy to automatically renew the token without requiring manual rotation:
+Create a renewable token with a short TTL but a long max TTL:
 
 ```bash
 vault token create -policy=galaxy -ttl=1h -explicit-max-ttl=720h -renewable
 ```
 
-This creates a token that must be renewed every hour, but can be renewed for up to 30 days. Galaxy will automatically renew it at half the TTL (every 30 minutes by default).
+This creates a token that must be renewed every hour, but can be renewed for up to 30 days. Set `vault_token_renewal_interval` to half the TTL (e.g. 1800 for a 1-hour TTL).
 
-**Configuration options:**
-
-| Option | Default | Description |
-|--------|---------|-------------|
-| `token_renewal` | `true` | Set to `false` to disable automatic token renewal |
-| `token_renewal_interval` | half the token TTL | Override the renewal interval in seconds |
-
-If the token is not renewable, Galaxy logs a warning at startup but continues to operate normally. If renewal fails at runtime, Galaxy retries with exponential backoff and logs errors to help diagnose the issue.
+If the token is not renewable, Galaxy logs a warning at startup but continues to operate normally. If renewal fails at runtime, the Celery task will retry at the next scheduled interval.
 
 ## Vault configuration for database
 

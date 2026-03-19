@@ -65,6 +65,10 @@ from galaxy.schema.tasks import (
     WriteHistoryTo,
     WriteInvocationTo,
 )
+from galaxy.security.vault import (
+    Vault,
+    renew_vault_token_if_needed,
+)
 from galaxy.short_term_storage import ShortTermStorageMonitor
 from galaxy.structured_app import MinimalManagerApp
 from galaxy.tools import create_tool_from_representation
@@ -575,6 +579,12 @@ def cleanup_jwds(sa_session: galaxy_scoped_session, object_store: BaseObjectStor
     for job in failed_jobs:
         delete_jwd(job)
         log.info("Deleted job working directory for job %s", job.id)
+
+
+@galaxy_task(action="renewing Hashicorp Vault token")
+def renew_vault_token(vault: Vault):
+    """Renew the Hashicorp Vault token if configured and renewable."""
+    renew_vault_token_if_needed(vault)
 
 
 @galaxy_task(action="execute workflow completion hook")
