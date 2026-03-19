@@ -311,4 +311,50 @@ When both `celery_user_rate_limit` and `celery_user_concurrency_limit` are set, 
 - **Worker crash recovery is not instant.** If a worker is killed (SIGKILL, OOM), its tracking rows remain until the periodic cleanup task runs (every 5 minutes by default). During this window, those slots are "leaked" and reduce the user's effective concurrency limit.
 - **Retry polling interval is fixed.** Deferred tasks retry every 5 seconds. Under heavy load with many deferred tasks, this creates periodic bursts of retry attempts.
 - **No queue ordering guarantees.** When multiple tasks are waiting for a concurrency slot, the order in which they acquire slots depends on Celery's delivery order and retry timing — not submission order.
-- **Database overhead.** Each task execution requires an INSERT (on start) and DELETE (on completion) in the tracking table, plus a COUNT query for admission. This is minimal for typical workloads but could become significant at very high task throughput.
+- **Database overhead.** Each task execution requires an INSERT (on start) and DELETE (on completion) in the tracking table, plus a COUNT query for admission. At 100 tasks/second this adds ~300 small queries/second to the database. For most Galaxy deployments (which typically sustain fewer than 10 tasks/second) this is negligible. Deployments processing hundreds of tasks per second should monitor database connection pool utilization and query latency on the `celery_user_active_task` table.
+
+##### Administrative operations
+
+Admins can directly manage the concurrency tracking table and the Celery queue to recover from stuck states or clear backlogs.
+
+**Clearing leaked concurrency slots manually:**
+
+If a worker crashes and the periodic cleanup hasn't run yet (or Celery beat is not running), admins can free slots directly:
+
+```sql
+-- View all currently tracked active tasks
+SELECT * FROM celery_user_active_task ORDER BY started_at;
+
+-- Remove all slots for a specific user (e.g., user_id 42)
+DELETE FROM celery_user_active_task WHERE user_id = 42;
+
+-- Remove all stale slots older than 1 hour
+DELETE FROM celery_user_active_task
+WHERE started_at < NOW() - INTERVAL '1 hour';
+
+-- Nuclear option: clear ALL tracking rows (resets all concurrency counters)
+DELETE FROM celery_user_active_task;
+```
+
+After clearing rows, deferred tasks waiting for slots will acquire them on their next retry (within 5 seconds).
+
+**Purging tasks from the Celery queue:**
+
+To remove pending (not yet started) tasks from the broker queue:
+
+```bash
+# Purge all pending tasks from the default Galaxy queue
+celery -A galaxy.celery purge -Q galaxy.internal
+
+# Purge all pending tasks from all queues
+celery -A galaxy.celery purge
+
+# Revoke a specific task by ID (prevents it from executing even if already delivered)
+celery -A galaxy.celery call celery.backend_cleanup  # or use the control interface:
+celery -A galaxy.celery control revoke <task-id>
+
+# Revoke all pending tasks for inspection first
+celery -A galaxy.celery inspect reserved
+```
+
+Note: `purge` only removes tasks that have not yet been delivered to a worker. Tasks already being executed or waiting in a worker's prefetch buffer require `revoke`. Revoking a task that is mid-execution requires the `--terminate` flag, which sends SIGTERM to the worker process — use with caution.
