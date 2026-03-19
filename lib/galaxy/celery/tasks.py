@@ -11,9 +11,12 @@ from typing import (
 )
 
 from sqlalchemy import (
+    and_,
     exists,
+    false,
     select,
 )
+from sqlalchemy.orm import joinedload
 
 from galaxy import model
 from galaxy.celery import (
@@ -127,7 +130,7 @@ def purge_history_datasets(
 ):
     """Batch purge all HDAs in a history in a single task.
 
-    Marks all unpurged HDAs as deleted/purged, adjusts quotas, stops jobs,
+    Marks all unpurged HDAs as deleted/purged, adjusts quotas,
     and removes underlying dataset files from the object store.
     """
     sa_session = hda_manager.session()
@@ -136,15 +139,24 @@ def purge_history_datasets(
         log.error(f"Purge history datasets task failed, history {request.history_id} not found")
         return
     user = history.user
+    # Query only unpurged HDAs with their datasets eagerly loaded
+    stmt = (
+        select(model.HistoryDatasetAssociation)
+        .where(
+            and_(
+                model.HistoryDatasetAssociation.history_id == request.history_id,
+                model.HistoryDatasetAssociation.purged == false(),
+            )
+        )
+        .options(joinedload(model.HistoryDatasetAssociation.dataset))
+    )
+    hdas = sa_session.scalars(stmt).unique().all()
     dataset_ids_to_remove: set[int] = set()
-    for hda in history.datasets:
-        if hda.purged:
-            continue
+    for hda in hdas:
         if user:
             hda.purge_usage_from_quota(user, hda.dataset.quota_source_info)
         hda.deleted = True
         hda.purged = True
-        hda_manager.stop_creating_job(hda)
         dataset_ids_to_remove.add(hda.dataset.id)
     sa_session.commit()
     if dataset_ids_to_remove:
