@@ -17,6 +17,8 @@ from sqlalchemy.orm import scoped_session
 
 from galaxy.model import CeleryUserRateLimit
 
+HEADER_SCHEDULED_TIME = "_gxy_rate_limit_scheduled_time"
+
 
 class GalaxyTaskBeforeStart:
     """
@@ -42,6 +44,11 @@ class GalaxyTaskBeforeStartUserRateLimit(GalaxyTaskBeforeStart):
     by doing a task.retry.
     If the last scheduled execution was far enough in the past
     then we allow the task to run immediately.
+
+    The reserved timeslot is stored in a message header so that on
+    retry the task can verify it has reached its scheduled time
+    without re-reserving a new slot. This ensures tasks are never
+    lost and will keep retrying until their timeslot arrives.
     """
 
     def __init__(
@@ -56,17 +63,41 @@ class GalaxyTaskBeforeStartUserRateLimit(GalaxyTaskBeforeStart):
         self.ga_scoped_session = ga_scoped_session
 
     def __call__(self, task: Task, task_id, args, kwargs):
-        if task.request.retries > 0:
-            return
         usr = kwargs.get("task_user_id")
         if not usr:
             return
         now = datetime.datetime.now()
-        sa_session = self.ga_scoped_session
-        next_scheduled_time = self.calculate_task_start_time(usr, sa_session, self.task_exec_countdown_secs, now)
-        if next_scheduled_time > now:
-            count_down = next_scheduled_time - now
-            task.retry(countdown=count_down.total_seconds())
+
+        # Check if this task already has a reserved timeslot from a previous attempt
+        headers = task.request.headers or {}
+        reserved_time_str = headers.get(HEADER_SCHEDULED_TIME)
+
+        if reserved_time_str:
+            # Retry path: verify we've reached our reserved timeslot
+            reserved_time = datetime.datetime.fromisoformat(reserved_time_str)
+            if now >= reserved_time:
+                return  # Timeslot reached, proceed with execution
+            # Not yet time — retry with remaining countdown
+            remaining = (reserved_time - now).total_seconds()
+            task.retry(
+                countdown=remaining,
+                max_retries=None,
+                headers={HEADER_SCHEDULED_TIME: reserved_time_str},
+            )
+        else:
+            # First attempt: reserve a timeslot atomically in the DB
+            sa_session = self.ga_scoped_session
+            next_scheduled_time = self.calculate_task_start_time(
+                usr, sa_session, self.task_exec_countdown_secs, now
+            )
+            if next_scheduled_time > now:
+                count_down = next_scheduled_time - now
+                task.retry(
+                    countdown=count_down.total_seconds(),
+                    max_retries=None,
+                    headers={HEADER_SCHEDULED_TIME: next_scheduled_time.isoformat()},
+                )
+            # else: scheduled time is now or in the past, execute immediately
 
     @abstractmethod
     def calculate_task_start_time(
