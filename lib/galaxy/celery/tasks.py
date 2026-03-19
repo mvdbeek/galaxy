@@ -606,3 +606,48 @@ def execute_workflow_completion_hook(
         log.info(f"Successfully executed hook '{hook_name}' for invocation {invocation_id}")
     else:
         log.error(f"Failed to execute hook '{hook_name}' for invocation {invocation_id}")
+
+
+@galaxy_task(action="clean up stale concurrency tracking rows")
+def cleanup_stale_concurrency_slots(
+    session: galaxy_scoped_session,
+    stale_threshold_minutes: int = 30,
+):
+    """
+    Periodic task that reclaims concurrency slots from tasks that are
+    no longer running (e.g., due to worker crashes). Queries all workers
+    for their active tasks and removes tracking rows for any task that
+    is no longer executing on any worker.
+    """
+    from sqlalchemy import delete
+
+    from galaxy.model import CeleryUserActiveTask
+
+    now = datetime.datetime.now()
+    threshold = now - datetime.timedelta(minutes=stale_threshold_minutes)
+
+    # Only consider rows older than the threshold — recent tasks are likely still running
+    stale_rows = session.execute(
+        select(CeleryUserActiveTask.task_id).where(CeleryUserActiveTask.started_at < threshold)
+    ).scalars().all()
+
+    if not stale_rows:
+        return
+
+    # Ask all workers what they're currently running
+    try:
+        active_response = celery_app.control.inspect().active() or {}
+    except Exception:
+        log.warning("Failed to inspect active tasks on workers; skipping stale cleanup")
+        return
+
+    active_task_ids = {t["id"] for tasks in active_response.values() for t in tasks}
+
+    # Remove tracking rows for tasks that are NOT on any worker
+    stale_task_ids = [tid for tid in stale_rows if tid not in active_task_ids]
+    if stale_task_ids:
+        session.execute(
+            delete(CeleryUserActiveTask).where(CeleryUserActiveTask.task_id.in_(stale_task_ids))
+        )
+        session.commit()
+        log.info(f"Cleaned up {len(stale_task_ids)} stale concurrency tracking rows")
