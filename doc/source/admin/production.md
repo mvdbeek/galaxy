@@ -196,3 +196,65 @@ To enable Celery in your instance you need to follow some additional steps:
 -   Set `enable_celery_tasks: true` in the Galaxy config.
 -   Configure the `backend` under `celery_conf` to store the results of the tasks. For example, you can use [`redis` as the backend](https://docs.celeryq.dev/en/stable/getting-started/backends-and-brokers/redis.html#broker-redis). If you are using `redis`, make sure to install the `redis` dependency in your Galaxy environment with `pip install redis`. You can find more information on how to configure other backends in the [Celery documentation](https://docs.celeryq.dev/en/stable/userguide/tasks.html#task-result-backends). Keep in mind that you should not reuse the main Galaxy database as a backend for Celery.
 -   Configure one or more workers to handle the tasks. You can find more information on how to configure workers in the [Celery documentation](https://docs.celeryq.dev/en/stable/userguide/workers.html). If you are using [Gravity](https://github.com/galaxyproject/gravity) it will simplify the process of setting up Celery workers.
+
+#### Per-user task rate limiting
+
+Galaxy supports limiting the rate at which Celery tasks are executed per user. This prevents a single user from monopolizing worker capacity and ensures fair scheduling across all users.
+
+##### Configuration
+
+Set `celery_user_rate_limit` in the Galaxy configuration to a non-zero float representing the maximum number of tasks per user per second. For example:
+
+```yaml
+celery_user_rate_limit: 0.1
+```
+
+This allows each user at most one task execution every 10 seconds. The default value of `0.0` disables rate limiting entirely.
+
+##### How it works
+
+Rate limiting is implemented in Celery's `before_start` hook via the `GalaxyTaskBeforeStart` class hierarchy. The mechanism works in two phases:
+
+1. **Slot reservation (first attempt):** When a task is about to execute for the first time, Galaxy atomically reserves the next available timeslot for that user in the `celery_user_rate_limit` database table. The reserved time is calculated as `max(last_scheduled_time + interval, now)`. If the reserved timeslot is in the future, the task is deferred using `task.retry(countdown=...)` and the reserved time is stored in a Celery message header.
+
+2. **Execution gating (retries):** On each subsequent retry, the task reads its reserved timeslot from the message header and checks whether the current time has reached it. If not, it retries again with the remaining countdown. Once the timeslot is reached, the task proceeds to execute.
+
+This two-phase design ensures that:
+- Each task reserves a slot in the DB exactly once, avoiding cascading delays from re-reservation.
+- Tasks from different users are scheduled independently — user A's tasks do not delay user B's tasks.
+- Tasks are retried with `max_retries=None` for rate-limit retries, so they are never lost due to Celery's default retry limit.
+
+The flow for a single task looks like this:
+
+```
+Task arrives (retries=0, no header)
+  → Atomically reserve timeslot in DB
+  → Timeslot is now? Execute immediately.
+  → Timeslot is in the future?
+      → Store timeslot in message header
+      → task.retry(countdown=timeslot - now)
+
+Task wakes up (retry, header present)
+  → Read reserved timeslot from header
+  → now >= timeslot? Execute.
+  → now < timeslot? retry(countdown=remaining)
+```
+
+##### Database backends
+
+Galaxy provides two implementations of the timeslot reservation logic:
+
+- **PostgreSQL** (`GalaxyTaskBeforeStartUserRateLimitPostgres`): Uses `UPDATE ... RETURNING` with `greatest()` for an atomic, single-statement slot reservation. Falls back to `INSERT ... ON CONFLICT DO UPDATE` (upsert) for the first task by a given user. This is the most efficient implementation.
+
+- **Standard SQL** (`GalaxyTaskBeforeStartUserRateLimitStandard`): Uses `SELECT ... FOR UPDATE` followed by a separate `UPDATE` (or `INSERT` for new users). This works with SQLite and other databases but requires two statements and explicit locking.
+
+The correct implementation is selected automatically based on the configured `database_connection`.
+
+##### Limitations
+
+- **Rate limiting, not concurrency limiting.** The mechanism controls the *rate* at which tasks are scheduled (tasks per second per user), not how many tasks run concurrently. If a user submits 100 tasks, they will all eventually execute — just spaced apart by the configured interval.
+- **Tasks without `task_user_id` are not rate-limited.** Only tasks that receive a `task_user_id` keyword argument participate in rate limiting. System tasks and tasks without a user context bypass the check entirely.
+- **Timeslots are not released on failure.** If a task fails after its timeslot was reserved, that slot is consumed. The next task for the same user will be scheduled after it. This means task failures still "use up" rate-limit capacity.
+- **Clock precision.** The mechanism relies on `datetime.datetime.now()` on the worker. Clock skew between workers could cause minor scheduling inaccuracies, though this is unlikely to matter in practice.
+- **No priority or reordering.** Tasks are scheduled in the order they reserve slots (first-come, first-served within a user). There is no mechanism to prioritize certain task types over others for the same user.
+- **Worker restarts.** If a worker is terminated while holding deferred tasks, Celery's broker (e.g., Redis, RabbitMQ) will redeliver them. The tasks will re-enter the `before_start` hook, read their reserved timeslot from the message header, and continue waiting or execute as appropriate — no slots are lost or duplicated.
