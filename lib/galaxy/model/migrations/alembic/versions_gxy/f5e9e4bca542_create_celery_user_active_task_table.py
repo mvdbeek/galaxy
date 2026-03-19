@@ -1,7 +1,7 @@
 """create celery_user_active_task table
 
 Revision ID: f5e9e4bca542
-Revises: 98621a25ab75
+Revises: 9930b68c85af
 Create Date: 2026-03-19 10:00:00.000000
 
 """
@@ -15,7 +15,7 @@ from galaxy.model.migrations.util import (
 
 # revision identifiers, used by Alembic.
 revision = "f5e9e4bca542"
-down_revision = "98621a25ab75"
+down_revision = "9930b68c85af"
 branch_labels = None
 depends_on = None
 
