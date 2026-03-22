@@ -208,9 +208,9 @@ class NotificationManager:
         if not self._sse_send_control_task or not user_ids:
             return
         try:
-            from galaxy.schema.notifications import UserNotificationResponse
+            from galaxy.schema.notifications import NotificationResponse
 
-            payload = UserNotificationResponse.model_validate(
+            payload = NotificationResponse.model_validate(
                 notification
             ).model_dump_json()
             self._sse_send_control_task(
