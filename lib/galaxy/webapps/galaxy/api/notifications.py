@@ -2,7 +2,9 @@
 API operations on Notification objects.
 """
 
+import asyncio
 import logging
+from datetime import datetime
 from typing import (
     Optional,
     Union,
@@ -10,12 +12,16 @@ from typing import (
 
 from fastapi import (
     Body,
+    Header,
     Query,
+    Request,
     Response,
     status,
 )
+from starlette.responses import StreamingResponse
 
 from galaxy.managers.context import ProvidesUserContext
+from galaxy.managers.sse import SSEEvent
 from galaxy.schema.notifications import (
     BroadcastNotificationCreateRequest,
     BroadcastNotificationListResponse,
@@ -51,6 +57,74 @@ router = Router(tags=["notifications"])
 @router.cbv
 class FastAPINotifications:
     service: NotificationService = depends(NotificationService)
+
+    @router.get(
+        "/api/notifications/stream",
+        summary="Server-Sent Events stream for real-time notification updates.",
+        response_class=StreamingResponse,
+    )
+    async def stream_notifications(
+        self,
+        request: Request,
+        trans: ProvidesUserContext = DependsOnTrans,
+        last_event_id: Optional[str] = Header(None, alias="Last-Event-ID"),
+    ):
+        """Opens a Server-Sent Events (SSE) connection that pushes notification updates in real-time.
+
+        On reconnect, the browser sends the ``Last-Event-ID`` header automatically.
+        Any notifications created since that timestamp are delivered as a catch-up
+        ``notification_status`` event before the stream begins.
+
+        Anonymous users receive only broadcast events.
+        """
+        self.service.notification_manager.ensure_notifications_enabled()
+        user_id = trans.user.id if not trans.anonymous else None
+        sse_manager = trans.app.sse_connection_manager
+        queue = sse_manager.connect(user_id)
+
+        # On reconnect, send any missed notifications since Last-Event-ID
+        if last_event_id:
+            try:
+                since = datetime.fromisoformat(last_event_id)
+                catchup = self.service.get_notifications_status(trans, since)
+                await queue.put(
+                    SSEEvent(
+                        event="notification_status",
+                        data=catchup.model_dump_json(),
+                        id=datetime.utcnow().isoformat(),
+                    )
+                )
+            except (ValueError, TypeError):
+                pass  # Invalid Last-Event-ID, skip catch-up
+
+        async def event_generator():
+            try:
+                while True:
+                    if await request.is_disconnected():
+                        break
+                    try:
+                        event: SSEEvent = await asyncio.wait_for(
+                            queue.get(), timeout=30.0
+                        )
+                        yield f"event: {event.event}\ndata: {event.data}\n"
+                        if event.id:
+                            yield f"id: {event.id}\n"
+                        yield "\n"
+                    except asyncio.TimeoutError:
+                        # Send keepalive comment to prevent proxy/client timeout
+                        yield ": keepalive\n\n"
+            finally:
+                sse_manager.disconnect(user_id, queue)
+
+        return StreamingResponse(
+            event_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
     @router.get(
         "/api/notifications/status",
@@ -191,7 +265,9 @@ class FastAPINotifications:
         trans: ProvidesUserContext = DependsOnTrans,
         payload: UserNotificationsBatchUpdateRequest = Body(),
     ) -> NotificationsBatchUpdateResponse:
-        return self.service.update_user_notifications(trans, set(payload.notification_ids), payload.changes)
+        return self.service.update_user_notifications(
+            trans, set(payload.notification_ids), payload.changes
+        )
 
     @router.delete(
         "/api/notifications/{notification_id}",
@@ -223,7 +299,9 @@ class FastAPINotifications:
         payload: NotificationsBatchRequest = Body(),
     ) -> NotificationsBatchUpdateResponse:
         delete_request = UserNotificationUpdateRequest(deleted=True)
-        return self.service.update_user_notifications(trans, set(payload.notification_ids), delete_request)
+        return self.service.update_user_notifications(
+            trans, set(payload.notification_ids), delete_request
+        )
 
     @router.post(
         "/api/notifications",

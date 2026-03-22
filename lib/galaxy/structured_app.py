@@ -57,7 +57,9 @@ if TYPE_CHECKING:
         WorkflowsManager,
     )
     from galaxy.tool_shed.galaxy_install.client import DataManagersInterface
-    from galaxy.tool_shed.galaxy_install.installed_repository_manager import InstalledRepositoryManager
+    from galaxy.tool_shed.galaxy_install.installed_repository_manager import (
+        InstalledRepositoryManager,
+    )
     from galaxy.tool_util.data import ToolDataTableManager
     from galaxy.tools import ToolBox
     from galaxy.tools.cache import ToolCache
@@ -174,11 +176,18 @@ class StructuredApp(MinimalManagerApp):
     vault: Vault
     webhooks_registry: WebhooksRegistry
     queue_worker: Any  # 'galaxy.queue_worker.GalaxyQueueWorker'
-    data_provider_registry: Any  # 'galaxy.visualization.data_providers.registry.DataProviderRegistry'
+    sse_connection_manager: Any  # 'galaxy.managers.sse.SSEConnectionManager'
+    data_provider_registry: (
+        Any  # 'galaxy.visualization.data_providers.registry.DataProviderRegistry'
+    )
     tool_cache: "ToolCache"
     tool_shed_repository_cache: Optional[ToolShedRepositoryCache]
     watchers: "ConfigWatchers"
-    workflow_scheduling_manager: Any  # 'galaxy.workflow.scheduling_manager.WorkflowSchedulingManager'
+    workflow_scheduling_manager: (
+        Any  # 'galaxy.workflow.scheduling_manager.WorkflowSchedulingManager'
+    )
     api_keys_manager: Any  # 'galaxy.managers.api_keys.ApiKeyManager'
-    visualizations_registry: Any  # 'galaxy.visualization.plugins.registry.VisualizationsRegistry'
+    visualizations_registry: (
+        Any  # 'galaxy.visualization.plugins.registry.VisualizationsRegistry'
+    )
     _toolbox_lock: threading.RLock

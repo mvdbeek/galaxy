@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Callable
 from datetime import datetime
 from enum import Enum
 from typing import (
@@ -94,10 +95,15 @@ class NotificationChannelPlugin(Protocol):
 class NotificationManager:
     """Manager class to interact with the database models related with Notifications."""
 
-    def __init__(self, sa_session: galaxy_scoped_session, config: GalaxyAppConfiguration):
+    def __init__(
+        self, sa_session: galaxy_scoped_session, config: GalaxyAppConfiguration
+    ):
         self.sa_session = sa_session
         self.config = config
-        self.recipient_resolver = NotificationRecipientResolver(strategy=DefaultStrategy(sa_session))
+        self._sse_send_control_task: Optional[Callable] = None
+        self.recipient_resolver = NotificationRecipientResolver(
+            strategy=DefaultStrategy(sa_session)
+        )
         self.user_notification_columns: list[InstrumentedAttribute] = [
             Notification.id,
             Notification.source,
@@ -142,13 +148,17 @@ class NotificationManager:
 
     def ensure_notifications_enabled(self):
         if not self.notifications_enabled:
-            raise ConfigDoesNotAllowException("Notifications are disabled in this Galaxy.")
+            raise ConfigDoesNotAllowException(
+                "Notifications are disabled in this Galaxy."
+            )
 
     @property
     def can_send_notifications_async(self):
         return self.config.enable_celery_tasks
 
-    def send_notification_to_recipients(self, request: NotificationCreateRequest) -> tuple[Optional[Notification], int]:
+    def send_notification_to_recipients(
+        self, request: NotificationCreateRequest
+    ) -> tuple[Optional[Notification], int]:
         """
         Creates a new notification and associates it with all the recipient users.
 
@@ -157,27 +167,82 @@ class NotificationManager:
         """
         self.ensure_notifications_enabled()
         recipient_users = self.recipient_resolver.resolve(request.recipients)
-        notification = self._create_notification_model(request.notification, request.galaxy_url)
+        notification = self._create_notification_model(
+            request.notification, request.galaxy_url
+        )
         self.sa_session.add(notification)
         self.sa_session.commit()
 
         notifications_sent = self._create_associations(notification, recipient_users)
         self.sa_session.commit()
 
+        # Push SSE events to connected users via control queue
+        user_ids = [user.id for user in recipient_users]
+        self._notify_users_via_sse(user_ids, notification)
+
         return notification, notifications_sent
 
-    def _create_associations(self, notification: Notification, users: list[User]) -> int:
+    def _create_associations(
+        self, notification: Notification, users: list[User]
+    ) -> int:
         success_count = 0
         for user in users:
             try:
                 if self._is_user_subscribed_to_notification(user, notification):
-                    user_notification_association = UserNotificationAssociation(user, notification)
+                    user_notification_association = UserNotificationAssociation(
+                        user, notification
+                    )
                     self.sa_session.add(user_notification_association)
                     success_count += 1
             except Exception as e:
-                log.error(f"Error sending notification to user {user.id}. Reason: {util.unicodify(e)}")
+                log.error(
+                    f"Error sending notification to user {user.id}. Reason: {util.unicodify(e)}"
+                )
                 continue
         return success_count
+
+    def _notify_users_via_sse(
+        self, user_ids: list[int], notification: Notification
+    ) -> None:
+        """Broadcast a control task to all workers to push SSE events to connected users."""
+        if not self._sse_send_control_task or not user_ids:
+            return
+        try:
+            from galaxy.schema.notifications import UserNotificationResponse
+
+            payload = UserNotificationResponse.model_validate(
+                notification
+            ).model_dump_json()
+            self._sse_send_control_task(
+                "notify_users",
+                kwargs={
+                    "user_ids": user_ids,
+                    "payload": payload,
+                    "event_id": datetime.utcnow().isoformat(),
+                },
+            )
+        except Exception:
+            log.debug("Failed to send SSE notification event", exc_info=True)
+
+    def _notify_broadcast_via_sse(self, notification: Notification) -> None:
+        """Broadcast a control task to all workers to push SSE broadcast events."""
+        if not self._sse_send_control_task:
+            return
+        try:
+            from galaxy.schema.notifications import BroadcastNotificationResponse
+
+            payload = BroadcastNotificationResponse.model_validate(
+                notification
+            ).model_dump_json()
+            self._sse_send_control_task(
+                "notify_broadcast",
+                kwargs={
+                    "payload": payload,
+                    "event_id": datetime.utcnow().isoformat(),
+                },
+            )
+        except Exception:
+            log.debug("Failed to send SSE broadcast event", exc_info=True)
 
     def dispatch_pending_notifications_via_channels(self) -> int:
         """
@@ -205,7 +270,9 @@ class NotificationManager:
         Returns all pending notifications that have not been dispatched yet
         but are due and ready to be sent to the users.
         """
-        stmt = select(Notification).where(Notification.dispatched == false(), self._notification_is_active)
+        stmt = select(Notification).where(
+            Notification.dispatched == false(), self._notification_is_active
+        )
         return self.sa_session.execute(stmt).scalars().all()
 
     def _dispatch_notification_to_users(self, notification: Notification):
@@ -213,10 +280,14 @@ class NotificationManager:
         for user in users:
             try:
                 if self._is_user_subscribed_to_notification(user, notification):
-                    settings = self._get_user_category_settings(user, notification.category)  # type: ignore[arg-type]
+                    settings = self._get_user_category_settings(
+                        user, notification.category
+                    )  # type: ignore[arg-type]
                     self._send_via_channels(notification, user, settings.channels)
             except Exception as e:
-                log.error(f"Error sending notification to user {user.id}. Reason: {util.unicodify(e)}")
+                log.error(
+                    f"Error sending notification to user {user.id}. Reason: {util.unicodify(e)}"
+                )
                 continue
 
     def _get_associated_users(self, notification: Notification):
@@ -232,14 +303,23 @@ class NotificationManager:
         )
         return self.sa_session.execute(stmt).scalars().all()
 
-    def _is_user_subscribed_to_notification(self, user: User, notification: Notification) -> bool:
+    def _is_user_subscribed_to_notification(
+        self, user: User, notification: Notification
+    ) -> bool:
         if self._is_urgent(notification):
             # Urgent notifications are always sent
             return True
-        category_settings = self._get_user_category_settings(user, notification.category)  # type: ignore[arg-type]
+        category_settings = self._get_user_category_settings(
+            user, notification.category
+        )  # type: ignore[arg-type]
         return self._is_subscribed_to_category(category_settings)
 
-    def _send_via_channels(self, notification: Notification, user: User, channel_settings: NotificationChannelSettings):
+    def _send_via_channels(
+        self,
+        notification: Notification,
+        user: User,
+        channel_settings: NotificationChannelSettings,
+    ):
         channels = channel_settings.model_fields_set
         for channel in channels:
             if channel not in self.channel_plugins:
@@ -255,7 +335,9 @@ class NotificationManager:
                     f"Error sending notification to user {user.id} via channel '{channel}'. Reason: {util.unicodify(e)}"
                 )
 
-    def _is_subscribed_to_category(self, category_settings: NotificationCategorySettings) -> bool:
+    def _is_subscribed_to_category(
+        self, category_settings: NotificationCategorySettings
+    ) -> bool:
         return category_settings.enabled
 
     def _is_urgent(self, notification: Notification) -> bool:
@@ -268,7 +350,9 @@ class NotificationManager:
         category_settings = notification_preferences.get(category)
         return category_settings
 
-    def create_broadcast_notification(self, request: BroadcastNotificationCreateRequest):
+    def create_broadcast_notification(
+        self, request: BroadcastNotificationCreateRequest
+    ):
         """Creates a broadcasted notification.
 
         This kind of notification is not explicitly associated with any specific user but it is accessible by all users.
@@ -277,9 +361,12 @@ class NotificationManager:
         notification = self._create_notification_model(request)
         self.sa_session.add(notification)
         self.sa_session.commit()
+        self._notify_broadcast_via_sse(notification)
         return notification
 
-    def get_user_notification(self, user: User, notification_id: int, active_only: Optional[bool] = True):
+    def get_user_notification(
+        self, user: User, notification_id: int, active_only: Optional[bool] = True
+    ):
         """
         Displays a notification belonging to the user.
         """
@@ -333,7 +420,9 @@ class NotificationManager:
         )
         return self.sa_session.execute(stmt).scalar() or 0
 
-    def get_broadcasted_notification(self, notification_id: int, active_only: Optional[bool] = True):
+    def get_broadcasted_notification(
+        self, notification_id: int, active_only: Optional[bool] = True
+    ):
         stmt = (
             select(*self.broadcast_notification_columns)
             .select_from(Notification)
@@ -351,13 +440,18 @@ class NotificationManager:
             raise ObjectNotFound
         return result
 
-    def get_all_broadcasted_notifications(self, since: Optional[datetime] = None, active_only: Optional[bool] = True):
+    def get_all_broadcasted_notifications(
+        self, since: Optional[datetime] = None, active_only: Optional[bool] = True
+    ):
         stmt = self._broadcasted_notifications_query(since, active_only)
         result = self.sa_session.execute(stmt).fetchall()
         return result
 
     def update_user_notifications(
-        self, user: User, notification_ids: set[int], request: UserNotificationUpdateRequest
+        self,
+        user: User,
+        notification_ids: set[int],
+        request: UserNotificationUpdateRequest,
     ) -> int:
         """Updates a batch of notifications associated with the user using the requested values."""
         updated_row_count = 0
@@ -377,7 +471,9 @@ class NotificationManager:
         self.sa_session.commit()
         return updated_row_count
 
-    def update_broadcasted_notification(self, notification_id: int, request: NotificationBroadcastUpdateRequest) -> int:
+    def update_broadcasted_notification(
+        self, notification_id: int, request: NotificationBroadcastUpdateRequest
+    ) -> int:
         """Updates a single broadcasted notification with the requested values."""
         updated_row_count = 0
         stmt = update(Notification).where(
@@ -401,12 +497,18 @@ class NotificationManager:
         self.sa_session.commit()
         return updated_row_count
 
-    def get_user_notification_preferences(self, user: User) -> UserNotificationPreferences:
+    def get_user_notification_preferences(
+        self, user: User
+    ) -> UserNotificationPreferences:
         """Gets the user's current notification preferences or the default ones if no preferences are set."""
-        current_notification_preferences = user.preferences.get(NOTIFICATION_PREFERENCES_SECTION_NAME)
+        current_notification_preferences = user.preferences.get(
+            NOTIFICATION_PREFERENCES_SECTION_NAME
+        )
         if current_notification_preferences:
             try:
-                return UserNotificationPreferences.model_validate_json(current_notification_preferences)
+                return UserNotificationPreferences.model_validate_json(
+                    current_notification_preferences
+                )
             except ValidationError:
                 pass
         # Gracefully return default preferences is they don't exist or get corrupted
@@ -418,7 +520,9 @@ class NotificationManager:
         """Updates the user's notification preferences with the requested changes."""
         preferences = self.get_user_notification_preferences(user)
         preferences.update(request.preferences)
-        user.preferences[NOTIFICATION_PREFERENCES_SECTION_NAME] = preferences.model_dump_json()
+        user.preferences[NOTIFICATION_PREFERENCES_SECTION_NAME] = (
+            preferences.model_dump_json()
+        )
         self.sa_session.commit()
         return preferences
 
@@ -446,12 +550,17 @@ class NotificationManager:
         """
         notification_has_expired = Notification.expiration_time <= self._now
 
-        expired_notifications_stmt = select(Notification.id).where(notification_has_expired)
+        expired_notifications_stmt = select(Notification.id).where(
+            notification_has_expired
+        )
         delete_stmt = delete(UserNotificationAssociation).where(
             UserNotificationAssociation.notification_id.in_(expired_notifications_stmt)
         )
         result = cast(
-            CursorResult, self.sa_session.execute(delete_stmt, execution_options={"synchronize_session": False})
+            CursorResult,
+            self.sa_session.execute(
+                delete_stmt, execution_options={"synchronize_session": False}
+            ),
         )
         deleted_associations_count = result.rowcount
 
@@ -461,7 +570,9 @@ class NotificationManager:
 
         self.sa_session.commit()
 
-        return CleanupResultSummary(deleted_notifications_count, deleted_associations_count)
+        return CleanupResultSummary(
+            deleted_notifications_count, deleted_associations_count
+        )
 
     def _create_notification_model(
         self, payload: NotificationCreateData, galaxy_url: Optional[str] = None
@@ -478,7 +589,10 @@ class NotificationManager:
         return notification
 
     def _user_notifications_query(
-        self, user: User, since: Optional[datetime] = None, active_only: Optional[bool] = True
+        self,
+        user: User,
+        since: Optional[datetime] = None,
+        active_only: Optional[bool] = True,
     ):
         stmt = (
             select(*self.user_notification_columns)
@@ -502,7 +616,9 @@ class NotificationManager:
 
         return stmt
 
-    def _broadcasted_notifications_query(self, since: Optional[datetime] = None, active_only: Optional[bool] = True):
+    def _broadcasted_notifications_query(
+        self, since: Optional[datetime] = None, active_only: Optional[bool] = True
+    ):
         stmt = (
             select(*self.broadcast_notification_columns)
             .select_from(Notification)
@@ -552,11 +668,15 @@ class DefaultStrategy(NotificationRecipientResolverStrategy):
             set(recipients.group_ids), set(recipients.role_ids)
         )
 
-        user_ids_from_groups_stmt = self._get_all_user_ids_from_groups_query(all_group_ids)
+        user_ids_from_groups_stmt = self._get_all_user_ids_from_groups_query(
+            all_group_ids
+        )
         user_ids_from_roles_stmt = self._get_all_user_ids_from_roles_query(all_role_ids)
 
         union_stmt = union(user_ids_from_groups_stmt, user_ids_from_roles_stmt)
-        user_ids_from_groups_and_roles = {id for id, in self.sa_session.execute(union_stmt)}
+        user_ids_from_groups_and_roles = {
+            id for (id,) in self.sa_session.execute(union_stmt)
+        }
         unique_user_ids.update(user_ids_from_groups_and_roles)
 
         stmt = select(User).where(User.id.in_(unique_user_ids))
@@ -580,7 +700,9 @@ class DefaultStrategy(NotificationRecipientResolverStrategy):
         )
         return stmt
 
-    def _expand_group_and_roles_ids(self, group_ids: set[int], role_ids: set[int]) -> tuple[set[int], set[int]]:
+    def _expand_group_and_roles_ids(
+        self, group_ids: set[int], role_ids: set[int]
+    ) -> tuple[set[int], set[int]]:
         """Given a set of group and roles IDs, it expands those sets (non-recursively) by including sub-groups or sub-roles
         indirectly associated with them.
         """
@@ -595,7 +717,9 @@ class DefaultStrategy(NotificationRecipientResolverStrategy):
                 .where(GroupRoleAssociation.role_id.in_(role_ids))
                 .distinct()
             )
-            group_ids_from_roles = {id for id, in self.sa_session.execute(stmt) if id is not None}
+            group_ids_from_roles = {
+                id for (id,) in self.sa_session.execute(stmt) if id is not None
+            }
             new_group_ids = group_ids_from_roles - processed_group_ids
 
             # Get role IDs associated with any of the given group IDs
@@ -605,7 +729,9 @@ class DefaultStrategy(NotificationRecipientResolverStrategy):
                 .where(GroupRoleAssociation.group_id.in_(group_ids))
                 .distinct()
             )
-            role_ids_from_groups = {id for id, in self.sa_session.execute(stmt) if id is not None}
+            role_ids_from_groups = {
+                id for (id,) in self.sa_session.execute(stmt) if id is not None
+            }
             new_role_ids = role_ids_from_groups - processed_role_ids
 
             # Stop if there are no new group or role IDs to process
@@ -662,7 +788,9 @@ class EmailNotificationTemplateBuilder(Protocol):
     notification: Notification
     user: User
 
-    def __init__(self, config: GalaxyAppConfiguration, notification: Notification, user: User):
+    def __init__(
+        self, config: GalaxyAppConfiguration, notification: Notification, user: User
+    ):
         self.config = config
         self.notification = notification
         self.user = user
@@ -684,9 +812,15 @@ class EmailNotificationTemplateBuilder(Protocol):
     def build_context(self, template_format: TemplateFormats) -> NotificationContext:
         notification = self.notification
         user = self.user
-        notification_date = notification.publication_time if notification.publication_time else notification.create_time
+        notification_date = (
+            notification.publication_time
+            if notification.publication_time
+            else notification.create_time
+        )
         hostname = (
-            urlparse(self.notification.galaxy_url).hostname if self.notification.galaxy_url else self.config.server_name
+            urlparse(self.notification.galaxy_url).hostname
+            if self.notification.galaxy_url
+            else self.config.server_name
         )
         notification_settings_url = (
             f"{self.notification.galaxy_url}/user/notifications?preferences=true"
@@ -717,37 +851,44 @@ class EmailNotificationTemplateBuilder(Protocol):
 
 
 class MessageEmailNotificationTemplateBuilder(EmailNotificationTemplateBuilder):
-
     markdown_to = {
         TemplateFormats.HTML: to_html,
         TemplateFormats.TXT: lambda x: x,  # TODO: strip markdown?
     }
 
     def get_content(self, template_format: TemplateFormats) -> AnyNotificationContent:
-        content = MessageNotificationContent.model_construct(**self.notification.content)  # type: ignore[arg-type]
+        content = MessageNotificationContent.model_construct(
+            **self.notification.content
+        )  # type: ignore[arg-type]
         content.message = self.markdown_to[template_format](content.message)
         return content
 
     def get_subject(self) -> str:
-        content = cast(MessageNotificationContent, self.get_content(TemplateFormats.TXT))
+        content = cast(
+            MessageNotificationContent, self.get_content(TemplateFormats.TXT)
+        )
         return f"[Galaxy] New message: {content.subject}"
 
 
 class NewSharedItemEmailNotificationTemplateBuilder(EmailNotificationTemplateBuilder):
-
     def get_content(self, template_format: TemplateFormats) -> AnyNotificationContent:
-        content = NewSharedItemNotificationContent.model_construct(**self.notification.content)  # type: ignore[arg-type]
+        content = NewSharedItemNotificationContent.model_construct(
+            **self.notification.content
+        )  # type: ignore[arg-type]
         return content
 
     def get_subject(self) -> str:
-        content = cast(NewSharedItemNotificationContent, self.get_content(TemplateFormats.TXT))
+        content = cast(
+            NewSharedItemNotificationContent, self.get_content(TemplateFormats.TXT)
+        )
         return f"[Galaxy] New {content.item_type} shared with you: {content.item_name}"
 
 
 class EmailNotificationChannelPlugin(NotificationChannelPlugin):
-
     # Register the supported email templates here
-    email_templates_by_category: dict[PersonalNotificationCategory, type[EmailNotificationTemplateBuilder]] = {
+    email_templates_by_category: dict[
+        PersonalNotificationCategory, type[EmailNotificationTemplateBuilder]
+    ] = {
         PersonalNotificationCategory.message: MessageEmailNotificationTemplateBuilder,
         PersonalNotificationCategory.new_shared_item: NewSharedItemEmailNotificationTemplateBuilder,
     }
@@ -757,7 +898,9 @@ class EmailNotificationChannelPlugin(NotificationChannelPlugin):
             category = cast(PersonalNotificationCategory, notification.category)
             email_template_builder = self.email_templates_by_category.get(category)
             if email_template_builder is None:
-                log.warning(f"No email template found for notification category '{notification.category}'.")
+                log.warning(
+                    f"No email template found for notification category '{notification.category}'."
+                )
                 return
             template_builder = email_template_builder(self.config, notification, user)
             subject = template_builder.get_subject()
@@ -772,5 +915,7 @@ class EmailNotificationChannelPlugin(NotificationChannelPlugin):
                 html=html_body,
             )
         except Exception as e:
-            log.error(f"Error sending email notification to user {user.id}. Reason: {util.unicodify(e)}")
+            log.error(
+                f"Error sending email notification to user {user.id}. Reason: {util.unicodify(e)}"
+            )
             pass

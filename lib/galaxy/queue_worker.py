@@ -43,21 +43,32 @@ if TYPE_CHECKING:
     )
 
 
-def send_local_control_task(app: "StructuredApp", task: str, get_response: bool = False, kwargs: Optional[dict] = None):
+def send_local_control_task(
+    app: "StructuredApp",
+    task: str,
+    get_response: bool = False,
+    kwargs: Optional[dict] = None,
+):
     """
     This sends a message to the process-local control worker, which is useful
     for one-time asynchronous tasks like recalculating user disk usage.
     """
     if kwargs is None:
         kwargs = {}
-    log.info(f"Queuing {'sync' if get_response else 'async'} task {task} for {app.config.server_name}.")
+    log.info(
+        f"Queuing {'sync' if get_response else 'async'} task {task} for {app.config.server_name}."
+    )
     payload = {"task": task, "kwargs": kwargs}
     routing_key = f"control.{app.config.server_name}@{socket.gethostname()}"
     control_task = ControlTask(app.queue_worker)
-    return control_task.send_task(payload, routing_key, local=True, get_response=get_response)
+    return control_task.send_task(
+        payload, routing_key, local=True, get_response=get_response
+    )
 
 
-def send_control_task(app, task, noop_self=False, get_response=False, routing_key="control.*", kwargs=None):
+def send_control_task(
+    app, task, noop_self=False, get_response=False, routing_key="control.*", kwargs=None
+):
     """
     This sends a control task out to all processes, useful for things like
     reloading a data table, which needs to happen individually in all
@@ -73,7 +84,9 @@ def send_control_task(app, task, noop_self=False, get_response=False, routing_ke
     if noop_self:
         payload["noop"] = app.config.server_name
     control_task = ControlTask(app.queue_worker)
-    return control_task.send_task(payload=payload, routing_key=routing_key, get_response=get_response)
+    return control_task.send_task(
+        payload=payload, routing_key=routing_key, get_response=get_response
+    )
 
 
 class ControlTask:
@@ -107,7 +120,9 @@ class ControlTask:
         if message.properties["correlation_id"] == self.correlation_id:
             self.response = message.payload["result"]
 
-    def send_task(self, payload, routing_key, local=False, get_response=False, timeout=10):
+    def send_task(
+        self, payload, routing_key, local=False, get_response=False, timeout=10
+    ):
         if local:
             declare_queues = self.control_queues
         else:
@@ -131,14 +146,25 @@ class ControlTask:
                     headers={"epoch": time.time()},
                 )
             if get_response:
-                with Consumer(self.connection, on_message=self.on_response, queues=callback_queue, no_ack=True):
+                with Consumer(
+                    self.connection,
+                    on_message=self.on_response,
+                    queues=callback_queue,
+                    no_ack=True,
+                ):
                     while self.response is self._response:
                         self.connection.drain_events(timeout=timeout)
                 return self.response
         except TimeoutError:
-            log.exception("Error waiting for task: '%s' sent with routing key '%s'", payload, routing_key)
+            log.exception(
+                "Error waiting for task: '%s' sent with routing key '%s'",
+                payload,
+                routing_key,
+            )
         except Exception:
-            log.exception("Error queueing async task: '%s'. for %s", payload, routing_key)
+            log.exception(
+                "Error queueing async task: '%s'. for %s", payload, routing_key
+            )
 
 
 # Tasks -- to be reorganized into a separate module as appropriate.  This is
@@ -169,7 +195,9 @@ def reload_tool(app, **kwargs):
         log.error("Reload tool invoked without tool id.")
 
 
-def reload_toolbox(app: "UniverseApplication", save_integrated_tool_panel: bool = True, **kwargs) -> None:
+def reload_toolbox(
+    app: "UniverseApplication", save_integrated_tool_panel: bool = True, **kwargs
+) -> None:
     reload_timer = util.ExecutionTimer()
     log.debug("Executing toolbox reload on '%s'", app.config.server_name)
     reload_count = app.toolbox._reload_count
@@ -181,7 +209,9 @@ def reload_toolbox(app: "UniverseApplication", save_integrated_tool_panel: bool 
     log.debug("Toolbox reload %s", reload_timer)
 
 
-def _get_new_toolbox(app: "UniverseApplication", save_integrated_tool_panel: bool = True) -> None:
+def _get_new_toolbox(
+    app: "UniverseApplication", save_integrated_tool_panel: bool = True
+) -> None:
     """
     Generate a new toolbox, by constructing a toolbox from the config files,
     and then adding pre-existing data managers from the old toolbox to the new toolbox.
@@ -189,7 +219,10 @@ def _get_new_toolbox(app: "UniverseApplication", save_integrated_tool_panel: boo
     tool_configs = app.config.tool_configs
 
     new_toolbox = ToolBox(
-        tool_configs, app.config.tool_path, app, save_integrated_tool_panel=save_integrated_tool_panel
+        tool_configs,
+        app.config.tool_path,
+        app,
+        save_integrated_tool_panel=save_integrated_tool_panel,
     )
     new_toolbox.data_manager_tools = app.toolbox.data_manager_tools
     app.datatypes_registry.load_datatype_converters(new_toolbox, use_cached=True)
@@ -216,7 +249,9 @@ def reload_data_managers(app, **kwargs):
 
 def reload_display_application(app, **kwargs):
     display_application_ids = kwargs.get("display_application_ids", None)
-    log.debug(f"Executing display application reload task for {display_application_ids}")
+    log.debug(
+        f"Executing display application reload task for {display_application_ids}"
+    )
     app.datatypes_registry.reload_display_applications(display_application_ids)
 
 
@@ -232,7 +267,9 @@ def recalculate_user_disk_usage(app, **kwargs):
         if user:
             user.calculate_and_set_disk_usage(app.object_store)
         else:
-            log.error(f"Recalculate user disk usage task failed, user {user_id} not found")
+            log.error(
+                f"Recalculate user disk usage task failed, user {user_id} not found"
+            )
     else:
         log.error("Recalculate user disk usage task received without user_id.")
 
@@ -259,7 +296,9 @@ def reload_job_rules(app: "MinimalManagerApp", **kwargs):
     for module in job_rule_modules(app):
         rules_module_name = module.__name__
         for name, module in sys.modules.items():
-            if (name == rules_module_name or name.startswith(f"{rules_module_name}.")) and ismodule(module):
+            if (
+                name == rules_module_name or name.startswith(f"{rules_module_name}.")
+            ) and ismodule(module):
                 log.debug("Reloading job rules module: %s", name)
                 importlib.reload(module)
     log.debug("Job rules reloaded %s", reload_timer)
@@ -306,7 +345,37 @@ def admin_job_lock(app, **kwargs):
     # job_queue is exposed in the root app, but this will be 'fixed' at some
     # point, so we're using the reference from the handler.
     app.job_manager.job_lock = job_lock
-    log.info(f"Administrative Job Lock is now set to {job_lock}. Jobs will {'not' if job_lock else 'now'} dispatch.")
+    log.info(
+        f"Administrative Job Lock is now set to {job_lock}. Jobs will {'not' if job_lock else 'now'} dispatch."
+    )
+
+
+def notify_users(app, **kwargs):
+    """Push SSE events to connected users on this worker process."""
+    sse_manager = getattr(app, "sse_connection_manager", None)
+    if sse_manager is None:
+        return
+    user_ids = kwargs.get("user_ids", [])
+    payload = kwargs.get("payload", "{}")
+    event_id = kwargs.get("event_id")
+    from galaxy.managers.sse import SSEEvent
+
+    event = SSEEvent(event="notification_update", data=payload, id=event_id)
+    for user_id in user_ids:
+        sse_manager.push_to_user(user_id, event)
+
+
+def notify_broadcast(app, **kwargs):
+    """Push SSE broadcast events to all connected clients on this worker process."""
+    sse_manager = getattr(app, "sse_connection_manager", None)
+    if sse_manager is None:
+        return
+    payload = kwargs.get("payload", "{}")
+    event_id = kwargs.get("event_id")
+    from galaxy.managers.sse import SSEEvent
+
+    event = SSEEvent(event="broadcast_update", data=payload, id=event_id)
+    sse_manager.push_broadcast(event)
 
 
 control_message_to_task = {
@@ -324,6 +393,8 @@ control_message_to_task = {
     "reconfigure_watcher": reconfigure_watcher,
     "reload_tour": reload_tour,
     "reload_core_config": reload_core_config,
+    "notify_users": notify_users,
+    "notify_broadcast": notify_broadcast,
 }
 
 
@@ -354,7 +425,14 @@ class GalaxyQueueWorker(ConsumerProducerMixin, threading.Thread):
         self.control_queues = []
         self.epoch = 0
 
-    def send_control_task(self, task, noop_self=False, get_response=False, routing_key="control.*", kwargs=None):
+    def send_control_task(
+        self,
+        task,
+        noop_self=False,
+        get_response=False,
+        routing_key="control.*",
+        kwargs=None,
+    ):
         return send_control_task(
             app=self.app,
             task=task,
@@ -365,7 +443,9 @@ class GalaxyQueueWorker(ConsumerProducerMixin, threading.Thread):
         )
 
     def send_local_control_task(self, task, get_response=False, kwargs=None):
-        return send_local_control_task(app=self.app, get_response=get_response, task=task, kwargs=kwargs)
+        return send_local_control_task(
+            app=self.app, get_response=get_response, task=task, kwargs=kwargs
+        )
 
     @property
     def declare_queues(self):
@@ -374,15 +454,22 @@ class GalaxyQueueWorker(ConsumerProducerMixin, threading.Thread):
 
     def bind_and_start(self):
         # This is post-forking, so we got the correct sever name
-        log.info("Binding and starting galaxy control worker for %s", self.app.config.server_name)
-        self.exchange_queue, self.direct_queue = galaxy.queues.control_queues_from_config(self.app.config)
+        log.info(
+            "Binding and starting galaxy control worker for %s",
+            self.app.config.server_name,
+        )
+        self.exchange_queue, self.direct_queue = (
+            galaxy.queues.control_queues_from_config(self.app.config)
+        )
         self.control_queues = [self.exchange_queue, self.direct_queue]
         self.epoch = time.time()
         self.start()
 
     def get_consumers(self, Consumer, channel):
         return [
-            Consumer(queues=[q], callbacks=[self.process_task], accept={"application/json"})
+            Consumer(
+                queues=[q], callbacks=[self.process_task], accept={"application/json"}
+            )
             for q in self.control_queues
         ]
 
