@@ -41,10 +41,12 @@ from galaxy.schema.notifications import (
 )
 from galaxy.schema.schema import AsyncTaskResultSummary
 from galaxy.schema.types import OffsetNaiveDatetime
+from galaxy.structured_app import StructuredApp
 from galaxy.webapps.galaxy.api.common import NotificationIdPathParam
 from galaxy.webapps.galaxy.services.notifications import NotificationService
 from . import (
     depends,
+    DependsOnApp,
     DependsOnTrans,
     Router,
 )
@@ -56,6 +58,7 @@ router = Router(tags=["notifications"])
 
 @router.cbv
 class FastAPINotifications:
+    app: StructuredApp = DependsOnApp
     service: NotificationService = depends(NotificationService)
 
     @router.get(
@@ -79,7 +82,7 @@ class FastAPINotifications:
         """
         self.service.notification_manager.ensure_notifications_enabled()
         user_id = trans.user.id if not trans.anonymous else None
-        sse_manager = trans.app.sse_connection_manager
+        sse_manager = self.app.sse_connection_manager
         queue = sse_manager.connect(user_id)
 
         # On reconnect, send any missed notifications since Last-Event-ID

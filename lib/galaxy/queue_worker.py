@@ -4,6 +4,7 @@ reloading the toolbox, etc., across multiple processes.
 """
 
 import importlib
+import json
 import logging
 import math
 import socket
@@ -67,7 +68,7 @@ def send_local_control_task(
 
 
 def send_control_task(
-    app, task, noop_self=False, get_response=False, routing_key="control.*", kwargs=None
+    app, task, noop_self=False, get_response=False, routing_key="control.*", kwargs=None, expiration=None
 ):
     """
     This sends a control task out to all processes, useful for things like
@@ -76,6 +77,7 @@ def send_control_task(
     Set noop_self to True to not run task for current process.
     Set get_response to True to wait for and return the task results
     as a list.
+    Set expiration to a number of seconds for message TTL.
     """
     if kwargs is None:
         kwargs = {}
@@ -85,7 +87,7 @@ def send_control_task(
         payload["noop"] = app.config.server_name
     control_task = ControlTask(app.queue_worker)
     return control_task.send_task(
-        payload=payload, routing_key=routing_key, get_response=get_response
+        payload=payload, routing_key=routing_key, get_response=get_response, expiration=expiration
     )
 
 
@@ -121,7 +123,7 @@ class ControlTask:
             self.response = message.payload["result"]
 
     def send_task(
-        self, payload, routing_key, local=False, get_response=False, timeout=10
+        self, payload, routing_key, local=False, get_response=False, timeout=10, expiration=None
     ):
         if local:
             declare_queues = self.control_queues
@@ -144,6 +146,7 @@ class ControlTask:
                     correlation_id=self.correlation_id,
                     retry=True,
                     headers={"epoch": time.time()},
+                    expiration=expiration,
                 )
             if get_response:
                 with Consumer(
@@ -378,6 +381,22 @@ def notify_broadcast(app, **kwargs):
     sse_manager.push_broadcast(event)
 
 
+def history_update(app, **kwargs):
+    """Push SSE history update events to connected users on this worker process."""
+    sse_manager = getattr(app, "sse_connection_manager", None)
+    if sse_manager is None:
+        return
+    user_updates = kwargs.get("user_updates", {})
+    event_id = kwargs.get("event_id")
+    from galaxy.managers.sse import SSEEvent
+
+    for user_id_str, history_ids in user_updates.items():
+        user_id = int(user_id_str)
+        data = json.dumps({"history_ids": history_ids})
+        event = SSEEvent(event="history_update", data=data, id=event_id)
+        sse_manager.push_to_user(user_id, event)
+
+
 control_message_to_task = {
     "create_panel_section": create_panel_section,
     "reload_tool": reload_tool,
@@ -395,6 +414,7 @@ control_message_to_task = {
     "reload_core_config": reload_core_config,
     "notify_users": notify_users,
     "notify_broadcast": notify_broadcast,
+    "history_update": history_update,
 }
 
 

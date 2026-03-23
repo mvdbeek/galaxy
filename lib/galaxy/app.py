@@ -862,6 +862,7 @@ class UniverseApplication(
             ("queue worker", self._shutdown_queue_worker),
             ("file watcher", self._shutdown_watcher),
             ("database heartbeat", self._shutdown_database_heartbeat),
+            ("history audit monitor", self._shutdown_history_audit_monitor),
             ("workflow scheduler", self._shutdown_scheduling_manager),
             ("object store", self._shutdown_object_store),
             ("job manager", self._shutdown_job_manager),
@@ -1056,6 +1057,15 @@ class UniverseApplication(
         self.database_heartbeat.add_change_callback(self.watchers.change_state)
         self.application_stack.register_postfork_function(self.database_heartbeat.start)
 
+        # History audit monitor for SSE-based history updates
+        if self.config.enable_sse_history_updates:
+            from galaxy.managers.history_audit_monitor import HistoryAuditMonitor
+
+            self.history_audit_monitor = HistoryAuditMonitor(self)
+            self.application_stack.register_postfork_function(
+                self.history_audit_monitor.start
+            )
+
         # Start web stack message handling
         self.application_stack.register_postfork_function(self.application_stack.start)
         self.application_stack.register_postfork_function(
@@ -1091,6 +1101,11 @@ class UniverseApplication(
 
     def _shutdown_database_heartbeat(self):
         self.database_heartbeat.shutdown()
+
+    def _shutdown_history_audit_monitor(self):
+        monitor = getattr(self, "history_audit_monitor", None)
+        if monitor:
+            monitor.shutdown()
 
     def _shutdown_scheduling_manager(self):
         self.workflow_scheduling_manager.shutdown()

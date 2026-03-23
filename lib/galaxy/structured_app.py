@@ -177,6 +177,7 @@ class StructuredApp(MinimalManagerApp):
     webhooks_registry: WebhooksRegistry
     queue_worker: Any  # 'galaxy.queue_worker.GalaxyQueueWorker'
     sse_connection_manager: Any  # 'galaxy.managers.sse.SSEConnectionManager'
+    history_audit_monitor: Any  # 'galaxy.managers.history_audit_monitor.HistoryAuditMonitor'
     data_provider_registry: (
         Any  # 'galaxy.visualization.data_providers.registry.DataProviderRegistry'
     )

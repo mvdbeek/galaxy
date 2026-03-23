@@ -3,8 +3,8 @@ import { computed, ref, watch } from "vue";
 
 import { GalaxyApi } from "@/api";
 import type { NotificationChanges, UserNotification, UserNotificationsBatchUpdateRequest } from "@/api/notifications";
-import { useNotificationSSE } from "@/composables/useNotificationSSE";
 import { useResourceWatcher } from "@/composables/resourceWatcher";
+import { useSSE } from "@/composables/useNotificationSSE";
 import { rethrowSimple } from "@/utils/simple-error";
 import { mergeObjectListsById } from "@/utils/utils";
 
@@ -21,36 +21,34 @@ export const useNotificationsStore = defineStore("notificationsStore", () => {
 
     const loadingNotifications = ref<boolean>(false);
     const lastNotificationUpdate = ref<Date | null>(null);
-    const useSSE = ref(true);
+    const wantSSE = ref(true);
 
     const unreadNotifications = computed(() => notifications.value.filter((n) => !n.seen_time));
 
-    // --- SSE setup ---
+    // --- SSE setup (listen only for notification event types) ---
+    const NOTIFICATION_EVENT_TYPES = ["notification_update", "broadcast_update", "notification_status"] as const;
     const {
         connect: sseConnect,
         disconnect: sseDisconnect,
         connected: sseConnected,
-    } = useNotificationSSE(handleSSEEvent);
+    } = useSSE(handleSSEEvent, NOTIFICATION_EVENT_TYPES);
 
     // --- Polling fallback ---
-    const { startWatchingResource: startPolling } = useResourceWatcher(
-        getNotificationStatus,
-        {
-            shortPollingInterval: ACTIVE_POLLING_INTERVAL,
-            longPollingInterval: INACTIVE_POLLING_INTERVAL,
-        },
-    );
+    const { startWatchingResource: startPolling } = useResourceWatcher(getNotificationStatus, {
+        shortPollingInterval: ACTIVE_POLLING_INTERVAL,
+        longPollingInterval: INACTIVE_POLLING_INTERVAL,
+    });
 
     // When SSE connection drops and doesn't recover, fall back to polling
     watch(sseConnected, (isConnected) => {
-        if (!isConnected && useSSE.value) {
+        if (!isConnected && wantSSE.value) {
             // SSE disconnected but we still want updates — don't start polling
             // immediately, EventSource will auto-reconnect. Only if useSSE is
             // set to false (after too many errors) do we fall back.
         }
     });
 
-    watch(useSSE, (wantSSE) => {
+    watch(wantSSE, (wantSSE) => {
         if (!wantSSE) {
             sseDisconnect();
             startPolling();
@@ -155,7 +153,7 @@ export const useNotificationsStore = defineStore("notificationsStore", () => {
             }
         }
 
-        if (useSSE.value) {
+        if (wantSSE.value) {
             sseConnect();
         } else {
             startPolling();
