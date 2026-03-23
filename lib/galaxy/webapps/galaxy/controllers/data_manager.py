@@ -167,55 +167,6 @@ class DataManager(BaseUIController):
 
     @web.expose
     @web.json
-    def tool_data_table_info(self, trans, **kwd):
-        return self.tool_data_table_info_1(trans, **kwd)
-
-    def tool_data_table_info_1(self, trans, **kwd):
-        not_is_admin = not trans.user_is_admin
-        if not_is_admin and not trans.app.config.enable_data_manager_user_view:
-            raise paste.httpexceptions.HTTPUnauthorized(
-                "This Galaxy instance is not configured to allow non-admins to view the data manager."
-            )
-        message = kwd.get("message", "")
-        status = kwd.get("status", "info")
-        data_table_name = kwd.get("table_name", None)
-        if not data_table_name:
-            return {"message": "No data table was requested.", "status": "error"}
-        data_table = trans.app.tool_data_tables.get(data_table_name, None)
-        if data_table is None:
-            return {"message": f"Invalid data table '{data_table_name}' was requested.", "status": "error"}
-        return {
-            "dataTable": {
-                "name": data_table.name,
-                "columns": data_table.get_column_name_list(),
-                "data": data_table.data,
-            },
-            "viewOnly": not_is_admin,
-            "message": message,
-            "status": status,
-        }
-
-    @web.expose
-    @web.json
-    @web.require_admin
-    def reload_tool_data_tables(self, trans, table_name=None, **kwd):
-        if table_name and isinstance(table_name, str):
-            table_name = table_name.split(",")
-        # Reload the tool data tables
-        table_names = self.app.tool_data_tables.reload_tables(table_names=table_name)
-        trans.app.queue_worker.send_control_task(
-            "reload_tool_data_tables", noop_self=True, kwargs={"table_name": table_name}
-        )
-        data = None
-        if table_names:
-            message = "Reloaded data table{} '{}'.".format("s"[len(table_names) == 1 :], ", ".join(table_names))
-            data = self.tool_data_table_info_1(trans, table_name=table_names[0], message=message, status="done")
-        else:
-            data = {"message": "No data tables have been reloaded.", "status": "error"}
-        return data
-
-    @web.expose
-    @web.json
     @web.require_admin
     def tool_data_table_items(self, trans, **kwd):
         data = {"columns": [], "items": []}
