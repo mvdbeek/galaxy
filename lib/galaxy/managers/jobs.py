@@ -593,10 +593,18 @@ class JobSearch:
                     return None
 
         stmt = stmt.where(*data_conditions).group_by(model.Job.id, *used_ids)
+        if log.isEnabledFor(logging.DEBUG):
+            input_match_count = self.sa_session.scalar(select(func.count()).select_from(stmt.subquery()))
+            log.debug("Job search: %d jobs match input datasets", input_match_count)
         stmt = self._filter_jobs(stmt, tool_id, user.id, tool_version, job_state, wildcard_param_dump, history_id)
+        if log.isEnabledFor(logging.DEBUG):
+            filtered_count = self.sa_session.scalar(select(func.count()).select_from(stmt.subquery()))
+            log.debug("Job search: %d jobs remain after _filter_jobs (tool_id=%s, state=%s, history=%s)", filtered_count, tool_id, job_state, history_id)
         stmt = self._exclude_jobs_with_deleted_outputs(stmt)
 
+        candidate_count = 0
         for job in self.sa_session.execute(stmt):
+            candidate_count += 1
             # We found a job that is equal in terms of tool_id, user, state and input datasets,
             # but to be able to verify that the parameters match we need to modify all instances of
             # dataset_ids (HDA, LDDA, HDCA) in the incoming param_dump to point to those used by the
@@ -637,6 +645,7 @@ class JobSearch:
                 job_parameter_conditions = [model.Job.id == job[0]]
             job = get_job(self.sa_session, *job_parameter_conditions)
             if job is None:
+                log.debug("Candidate job %s matched inputs but failed parameter value check", job_id if len(job_parameter_conditions) > 1 else job_parameter_conditions[0])
                 continue
             n_parameters = 0
             # Verify that equivalent jobs had the same number of job parameters
@@ -649,15 +658,25 @@ class JobSearch:
                 if parameter.name in {"chromInfo", "dbkey"} or parameter.name.endswith("|__identifier__"):
                     continue
                 n_parameters += 1
-            if not n_parameters == sum(
+            expected_n_parameters = sum(
                 1
                 for k in param_dump
                 if not k.startswith("__") and not k.endswith("|__identifier__") and k not in {"chromInfo", "dbkey"}
-            ):
+            )
+            if not n_parameters == expected_n_parameters:
+                log.debug(
+                    "Candidate job %s matched inputs and params but has %d parameters (expected %d). "
+                    "Job params: %s, search params: %s",
+                    job.id,
+                    n_parameters,
+                    expected_n_parameters,
+                    [p.name for p in job.parameters],
+                    list(param_dump.keys()),
+                )
                 continue
             log.info("Found equivalent job %s", search_timer)
             return job
-        log.info("No equivalent jobs found %s", search_timer)
+        log.info("No equivalent jobs found (query returned %d candidate rows) %s", candidate_count, search_timer)
         return None
 
     def _filter_jobs(
