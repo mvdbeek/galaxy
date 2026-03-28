@@ -941,6 +941,7 @@ class JobSearch:
             .where(model.HistoryDatasetCollectionAssociation.id == v)
         )
         depth = collection_type.count(":") if collection_type else 0
+        log.debug("HDCA search: v=%s, collection_type=%s, depth=%d", v, collection_type, depth)
 
         a = safe_aliased(model.JobToInputDatasetCollectionAssociation, name=f"jtidc_1_{k}_{value_index}")
         hdca_input = safe_aliased(
@@ -981,6 +982,14 @@ class JobSearch:
         reference_all_dataset_ids_cte = reference_all_dataset_ids_select.cte(
             safe_label_or_none(f"ref_all_ds_ids_{k}_{value_index}")
         )
+        if log.isEnabledFor(logging.DEBUG):
+            ref_ds_ids = [
+                row[0]
+                for row in self.sa_session.execute(
+                    select(reference_all_dataset_ids_cte.c.ref_dataset_id_for_overlap)
+                )
+            ]
+            log.debug("HDCA search: reference dataset_ids=%s", ref_ds_ids)
         # --- END NEW CTE ---
 
         # CTE 1: signature_elements_cte (for the reference HDCA)
@@ -1018,6 +1027,14 @@ class JobSearch:
         signature_elements_cte = signature_elements_select.cte(
             safe_label_or_none(f"signature_elements_{k}_{value_index}")
         )
+        if log.isEnabledFor(logging.DEBUG):
+            ref_sigs = [
+                row[0]
+                for row in self.sa_session.execute(
+                    select(signature_elements_cte.c.path_signature_string)
+                )
+            ]
+            log.debug("HDCA search: reference signature elements=%s", ref_sigs)
 
         # CTE 2: reference_full_signature_cte
         # This CTE aggregates the path signature strings of the reference HDCA into a
@@ -1027,6 +1044,9 @@ class JobSearch:
             .select_from(signature_elements_cte)
             .cte(safe_label_or_none(f"reference_full_signature_{k}_{value_index}"))
         )
+        if log.isEnabledFor(logging.DEBUG):
+            ref_sig = self.sa_session.scalar(select(reference_full_signature_cte.c.signature_array))
+            log.debug("HDCA search: reference full signature=%s", ref_sig)
 
         candidate_hdca = aliased(model.HistoryDatasetCollectionAssociation, name="candidate_hdca")
         candidate_hdca_history = aliased(model.History, name="candidate_hdca_history")
@@ -1067,6 +1087,14 @@ class JobSearch:
         candidate_hdca_pre_filter_ids_cte = candidate_hdca_pre_filter_ids_select.cte(
             safe_label_or_none(f"cand_hdca_pre_filter_ids_{k}_{value_index}")
         )
+        if log.isEnabledFor(logging.DEBUG):
+            cand_ids = [
+                row[0]
+                for row in self.sa_session.execute(
+                    select(candidate_hdca_pre_filter_ids_cte.c.candidate_hdca_id)
+                )
+            ]
+            log.debug("HDCA search: candidate pre-filter HDCA ids=%s", cand_ids)
         # --- END NEW CTE ---
 
         # CTE 3: candidate_signature_elements_cte
@@ -1103,6 +1131,17 @@ class JobSearch:
         candidate_signature_elements_cte = candidate_signature_elements_select.cte(
             safe_label_or_none(f"candidate_signature_elements_{k}_{value_index}")
         )
+        if log.isEnabledFor(logging.DEBUG):
+            cand_sigs = [
+                (row[0], row[1])
+                for row in self.sa_session.execute(
+                    select(
+                        candidate_signature_elements_cte.c.candidate_hdca_id,
+                        candidate_signature_elements_cte.c.path_signature_string,
+                    )
+                )
+            ]
+            log.debug("HDCA search: candidate signature elements=%s", cand_sigs)
 
         # CTE 4: candidate_full_signatures_cte
         # This CTE aggregates the path signature strings for the candidate HDCAs into
@@ -1130,6 +1169,24 @@ class JobSearch:
             )
             .cte(safe_label_or_none(f"equivalent_hdca_ids_{k}_{value_index}"))
         )
+        if log.isEnabledFor(logging.DEBUG):
+            cand_full_sigs = [
+                (row[0], row[1])
+                for row in self.sa_session.execute(
+                    select(
+                        candidate_full_signatures_cte.c.candidate_hdca_id,
+                        candidate_full_signatures_cte.c.full_signature_array,
+                    )
+                )
+            ]
+            log.debug("HDCA search: candidate full signatures=%s", cand_full_sigs)
+            equiv_ids = [
+                row[0]
+                for row in self.sa_session.execute(
+                    select(equivalent_hdca_ids_cte.c.equivalent_id)
+                )
+            ]
+            log.debug("HDCA search: equivalent HDCA ids=%s", equiv_ids)
 
         # Main query `stmt` construction
         # This section joins the base job statement with the associations and then filters
