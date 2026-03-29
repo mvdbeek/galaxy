@@ -19,6 +19,7 @@ from starlette.responses import (
 )
 
 from galaxy.exceptions import (
+    MessageException,
     RequestParameterInvalidException,
     UserRequiredException,
 )
@@ -61,10 +62,14 @@ def is_valid_url(url: str) -> bool:
 
 @router.cbv
 class FastAPIProxy:
-
     @router.get("/api/proxy")
     @router.head("/api/proxy")
-    async def proxy(self, request: Request, url: str = URLQueryParam, trans: ProvidesUserContext = DependsOnTrans):
+    async def proxy(
+        self,
+        request: Request,
+        url: str = URLQueryParam,
+        trans: ProvidesUserContext = DependsOnTrans,
+    ):
         """
         Proxy a remote file to the client to avoid CORS issues.
         """
@@ -77,9 +82,8 @@ class FastAPIProxy:
         if "range" in request.headers:
             headers["Range"] = self._validate_range_header(request.headers["range"])
 
-        # Set the timeout for the request to 10 seconds and connection timeout to 60 seconds
-        # This is to prevent the server from hanging indefinitely
-        timeout = httpx.Timeout(10.0, connect=60.0)
+        # Connection timeout of 60 seconds, read timeout of 120 seconds for proxying large files
+        timeout = httpx.Timeout(connect=60.0, read=120.0, write=60.0, pool=60.0)
 
         client = httpx.AsyncClient(timeout=timeout)
         try:
@@ -114,8 +118,14 @@ class FastAPIProxy:
         except httpx.InvalidURL as e:
             # Catch any URL validation errors that slip through our pre-validation
             raise RequestParameterInvalidException(f"Invalid URL format: {e}")
+        except httpx.TimeoutException as e:
+            exc = MessageException(f"Timeout proxying request to {url}: {type(e).__name__}")
+            exc.status_code = 504
+            raise exc
         except httpx.RequestError as e:
-            raise Exception(f"Request error: {e}")
+            exc = MessageException(f"Error proxying request to {url}: {type(e).__name__}: {e}")
+            exc.status_code = 502
+            raise exc
         finally:
             # Only cleanup for non-GET requests (GET cleanup happens in the stream generator)
             if request.method != "GET":
@@ -137,13 +147,13 @@ class FastAPIProxy:
         redirect_count = 0
 
         while redirect_count <= MAX_REDIRECTS:
-            response = await client.request(
-                method=request.method, url=current_url, headers=headers, follow_redirects=False
-            )
+            req = client.build_request(method=request.method, url=current_url, headers=headers)
+            response = await client.send(req, follow_redirects=False, stream=True)
 
             if self._is_redirect_response(response):
                 redirect_count += 1
                 if redirect_count > MAX_REDIRECTS:
+                    await response.aclose()
                     raise RequestParameterInvalidException("Too many redirects")
 
                 redirect_location = response.headers["location"]
@@ -204,7 +214,12 @@ class FastAPIProxy:
         had_content_encoding = "content-encoding" in headers
 
         # Always exclude these hop-by-hop and encoding headers
-        excluded_headers = ["transfer-encoding", "connection", "keep-alive", "content-encoding"]
+        excluded_headers = [
+            "transfer-encoding",
+            "connection",
+            "keep-alive",
+            "content-encoding",
+        ]
 
         if had_content_encoding:
             # If content was compressed, the content-length is now incorrect after decompression
