@@ -28,6 +28,7 @@ from galaxy.exceptions import (
 from galaxy.job_execution.actions.post import ActionBox
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.model import (
+    Dataset,
     History,
     HistoryDatasetAssociation,
     HistoryDatasetCollectionAssociation,
@@ -310,9 +311,10 @@ class DefaultToolAction(ToolAction):
                 for ext in extensions:
                     if ext:
                         if ext in ("auto", "_sniff_"):
-                            raise ToolInputsNotReadyException(
-                                f"Extension '{ext}' not yet resolved, cannot use dataset collection as input"
-                            )
+                            if set(summary.states) & set(Dataset.non_ready_states):
+                                raise ToolInputsNotReadyException(
+                                    f"Extension '{ext}' not yet resolved, cannot use dataset collection as input"
+                                )
                         datatype = trans.app.datatypes_registry.get_datatype_by_extension(ext)
                         if not datatype:
                             raise RequestParameterInvalidException(

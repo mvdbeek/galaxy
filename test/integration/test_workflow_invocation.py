@@ -4,7 +4,10 @@ import time
 
 from sqlalchemy import select
 
-from galaxy.model import HistoryDatasetAssociation
+from galaxy.model import (
+    Dataset,
+    HistoryDatasetAssociation,
+)
 from galaxy_test.base.populators import (
     DatasetCollectionPopulator,
     DatasetPopulator,
@@ -204,7 +207,7 @@ steps:
             ).json()
             hdca = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
 
-            # Force extension to 'auto' via direct DB access
+            # Force extension to 'auto' and dataset state to non-terminal via direct DB access
             element_hda_id = hdca["elements"][0]["object"]["id"]
             database_id = self._app.security.decode_id(element_hda_id)
             hda = self.sa_session.scalar(
@@ -212,6 +215,7 @@ steps:
             )
             assert hda
             hda.extension = "auto"
+            hda.dataset.state = Dataset.states.UPLOAD
             self.sa_session.commit()
 
             # Upload workflow and invoke it with the collection
@@ -221,11 +225,12 @@ steps:
                 workflow_id, inputs=inputs, history_id=history_id, inputs_by="name"
             )
 
-            # Give scheduler a moment to encounter 'auto', then fix extension
+            # Give scheduler a moment to encounter 'auto', then fix extension and state
             time.sleep(2)
             sa_session = self.sa_session
             sa_session.refresh(hda)
             hda.extension = "txt"
+            hda.dataset.state = Dataset.states.OK
             sa_session.commit()
 
             # Wait for workflow to complete — should delay then succeed
