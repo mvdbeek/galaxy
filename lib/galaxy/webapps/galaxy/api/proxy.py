@@ -3,6 +3,7 @@ API Controller to handle remote zip operations.
 """
 
 import logging
+import time
 from urllib.parse import (
     urljoin,
     urlparse,
@@ -41,6 +42,8 @@ URLQueryParam: str = Query(
 
 ALLOWED_SCHEMES = ("https", "http")
 MAX_REDIRECTS = 5
+MAX_STREAM_BYTES = 50 * 1024 * 1024  # 50 MB
+MAX_STREAM_SECONDS = 60  # 1 minute
 
 
 def is_valid_url(url: str) -> bool:
@@ -100,8 +103,26 @@ class FastAPIProxy:
 
                 async def stream_with_cleanup():
                     """Stream response chunks and ensure cleanup on completion or error."""
+                    total_bytes = 0
+                    start_time = time.monotonic()
                     try:
                         async for chunk in response.aiter_bytes():
+                            total_bytes += len(chunk)
+                            if total_bytes > MAX_STREAM_BYTES:
+                                log.warning(
+                                    "Proxy stream to %s exceeded max size of %d bytes",
+                                    url,
+                                    MAX_STREAM_BYTES,
+                                )
+                                break
+                            elapsed = time.monotonic() - start_time
+                            if elapsed > MAX_STREAM_SECONDS:
+                                log.warning(
+                                    "Proxy stream to %s exceeded max time of %d seconds",
+                                    url,
+                                    MAX_STREAM_SECONDS,
+                                )
+                                break
                             yield chunk
                     finally:
                         await response.aclose()
@@ -156,11 +177,13 @@ class FastAPIProxy:
         redirect_count = 0
 
         while redirect_count <= MAX_REDIRECTS:
-            response = await client.request(
+            req = client.build_request(
                 method=request.method,
                 url=current_url,
                 headers=headers,
-                follow_redirects=False,
+            )
+            response = await client.send(
+                req, follow_redirects=False, stream=True
             )
 
             if self._is_redirect_response(response):
