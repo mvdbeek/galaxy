@@ -55,6 +55,19 @@ outputs:
     outputSource: cat1/out_file1
 """
 
+WORKFLOW_COLLECTION_CREATES_LIST = """
+class: GalaxyWorkflow
+inputs:
+  input_collection:
+    type: collection
+    collection_type: list
+steps:
+  create_list:
+    tool_id: collection_creates_list
+    in:
+      input1: input_collection
+"""
+
 
 class TestWorkflowInvocation(integration_util.IntegrationTestCase, UsesShedApi):
     dataset_populator: DatasetPopulator
@@ -202,18 +215,7 @@ steps:
             self.sa_session.commit()
 
             # Upload workflow and invoke it with the collection
-            workflow_id = self.workflow_populator.upload_yaml_workflow("""
-class: GalaxyWorkflow
-inputs:
-  input_collection:
-    type: collection
-    collection_type: list
-steps:
-  create_list:
-    tool_id: collection_creates_list
-    in:
-      input1: input_collection
-""")
+            workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_COLLECTION_CREATES_LIST)
             inputs = {"input_collection": {"src": "hdca", "id": hdca["id"]}}
             invocation_id = self.workflow_populator.invoke_workflow_and_assert_ok(
                 workflow_id, inputs=inputs, history_id=history_id, inputs_by="name"
