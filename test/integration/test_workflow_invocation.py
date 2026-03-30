@@ -215,7 +215,7 @@ steps:
             )
             assert hda
             hda.extension = "auto"
-            hda.dataset.state = Dataset.states.UPLOAD
+            hda.dataset.state = Dataset.states.RUNNING
             self.sa_session.commit()
 
             # Upload workflow and invoke it with the collection
