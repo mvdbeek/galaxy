@@ -74,7 +74,9 @@ class FastAPIProxy:
         Proxy a remote file to the client to avoid CORS issues.
         """
         if trans.anonymous:
-            raise UserRequiredException("Anonymous users are not allowed to access this endpoint")
+            raise UserRequiredException(
+                "Anonymous users are not allowed to access this endpoint"
+            )
 
         self._validate_url_and_access(url, trans)
 
@@ -82,12 +84,15 @@ class FastAPIProxy:
         if "range" in request.headers:
             headers["Range"] = self._validate_range_header(request.headers["range"])
 
-        # Connection timeout of 60 seconds, read timeout of 120 seconds for proxying large files
-        timeout = httpx.Timeout(connect=60.0, read=120.0, write=60.0, pool=60.0)
+        # Set the timeout for the request to 10 seconds and connection timeout to 60 seconds
+        # This is to prevent the server from hanging indefinitely
+        timeout = httpx.Timeout(10.0, connect=60.0)
 
         client = httpx.AsyncClient(timeout=timeout)
         try:
-            response = await self._handle_redirects_validation(request, url, trans, headers, client)
+            response = await self._handle_redirects_validation(
+                request, url, trans, headers, client
+            )
 
             if request.method == "GET":
                 # Return a streaming response for GET requests
@@ -119,11 +124,15 @@ class FastAPIProxy:
             # Catch any URL validation errors that slip through our pre-validation
             raise RequestParameterInvalidException(f"Invalid URL format: {e}")
         except httpx.TimeoutException as e:
-            exc = MessageException(f"Timeout proxying request to {url}: {type(e).__name__}")
+            exc = MessageException(
+                f"Timeout proxying request to {url}: {type(e).__name__}"
+            )
             exc.status_code = 504
             raise exc
         except httpx.RequestError as e:
-            exc = MessageException(f"Error proxying request to {url}: {type(e).__name__}: {e}")
+            exc = MessageException(
+                f"Error proxying request to {url}: {type(e).__name__}: {e}"
+            )
             exc.status_code = 502
             raise exc
         finally:
@@ -147,8 +156,12 @@ class FastAPIProxy:
         redirect_count = 0
 
         while redirect_count <= MAX_REDIRECTS:
-            req = client.build_request(method=request.method, url=current_url, headers=headers)
-            response = await client.send(req, follow_redirects=False, stream=True)
+            response = await client.request(
+                method=request.method,
+                url=current_url,
+                headers=headers,
+                follow_redirects=False,
+            )
 
             if self._is_redirect_response(response):
                 redirect_count += 1
@@ -177,10 +190,15 @@ class FastAPIProxy:
         if not is_valid_url(url):
             raise RequestParameterInvalidException("Invalid URL format.")
 
-        validate_uri_access(url, trans.user_is_admin, trans.app.config.fetch_url_allowlist_ips)
+        validate_uri_access(
+            url, trans.user_is_admin, trans.app.config.fetch_url_allowlist_ips
+        )
 
     def _is_redirect_response(self, response: httpx.Response) -> bool:
-        return response.status_code in (301, 302, 303, 307, 308) and "location" in response.headers
+        return (
+            response.status_code in (301, 302, 303, 307, 308)
+            and "location" in response.headers
+        )
 
     def _validate_range_header(self, range_header: str) -> str:
         """
@@ -225,4 +243,8 @@ class FastAPIProxy:
             # If content was compressed, the content-length is now incorrect after decompression
             excluded_headers.append("content-length")
 
-        return {key: value for key, value in headers.items() if key.lower() not in excluded_headers}
+        return {
+            key: value
+            for key, value in headers.items()
+            if key.lower() not in excluded_headers
+        }

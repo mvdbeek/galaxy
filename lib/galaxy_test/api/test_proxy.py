@@ -148,8 +148,7 @@ class TestProxyApi(ApiTestCase):
 
         # Setup mock client
         mock_client = MagicMock()
-        mock_client.build_request = MagicMock(return_value=MagicMock())
-        mock_client.send = AsyncMock(return_value=redirect_response)
+        mock_client.request = AsyncMock(return_value=redirect_response)
         mock_client.aclose = AsyncMock()
         mock_client_class.return_value = mock_client
 
@@ -182,8 +181,7 @@ class TestProxyApi(ApiTestCase):
 
         # Setup mock client to return redirect first, then final response
         mock_client = MagicMock()
-        mock_client.build_request = MagicMock(return_value=MagicMock())
-        mock_client.send = AsyncMock(side_effect=[redirect_response, final_response])
+        mock_client.request = AsyncMock(side_effect=[redirect_response, final_response])
         mock_client.aclose = AsyncMock()
         mock_client_class.return_value = mock_client
 
@@ -205,8 +203,7 @@ class TestProxyApi(ApiTestCase):
 
         # Setup mock client
         mock_client = MagicMock()
-        mock_client.build_request = MagicMock(return_value=MagicMock())
-        mock_client.send = AsyncMock(return_value=redirect_response)
+        mock_client.request = AsyncMock(return_value=redirect_response)
         mock_client.aclose = AsyncMock()
         mock_client_class.return_value = mock_client
 
