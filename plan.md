@@ -58,18 +58,42 @@ for ext in extensions:
 
 ### Step 2: Add an integration test
 
-**File:** `lib/galaxy_test/api/test_workflows.py`
+**File:** `test/integration/test_workflow_invocation.py`
 
-Add an integration test that launches a real workflow with a dataset collection whose elements have `ext: "auto"`. This exercises the full code path: the workflow scheduler picks up the invocation, the tool step tries to validate the collection's extensions, encounters `auto`, and should delay (not fail) until the extensions are resolved by the upload/sniff job.
+Add an integration test that deterministically reproduces the bug. Instead of relying on a race condition with sniffing, use direct database access to force the `auto` extension on collection elements. The test:
+
+1. Uploads a collection with resolved extensions (e.g., `txt`) and waits for it to be ready
+2. Directly sets the HDA extension to `auto` via the SA session (integration tests have DB access via `self._app.model.session`)
+3. Invokes the workflow — the scheduler encounters the `auto` extension and should delay
+4. Resets the extension back to `txt` — the scheduler retries and the step succeeds
+5. Asserts the invocation reaches `"completed"` state
 
 **Test design:**
 
 ```python
-@skip_without_tool("multi_data_optional")
 def test_workflow_run_collection_with_auto_extension(self):
-    """Test that a workflow with a collection input whose datasets have ext='auto' delays and succeeds."""
+    """Workflow with collection input whose datasets have ext='auto' delays and succeeds."""
     with self.dataset_populator.test_history() as history_id:
-        workflow_id = self._upload_yaml_workflow("""
+        # Step 1: Upload a collection with resolved extension and wait for it
+        fetch_response = self.dataset_collection_populator.create_list_in_history(
+            history_id, contents=["1 2 3\n"], wait=True
+        ).json()
+        hdca = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
+
+        # Step 2: Force extension to 'auto' via direct DB access
+        sa_session = self._app.model.session
+        element_hda_id = hdca["elements"][0]["object"]["id"]
+        database_id = self._get(f"configuration/decode/{element_hda_id}").json()["decoded_id"]
+        hda = sa_session.scalar(
+            select(HistoryDatasetAssociation).where(HistoryDatasetAssociation.id == database_id)
+        )
+        assert hda
+        hda.extension = "auto"
+        sa_session.add(hda)
+        sa_session.commit()
+
+        # Step 3: Upload workflow and invoke it with the collection
+        workflow_id = self.workflow_populator.upload_yaml_workflow("""
 class: GalaxyWorkflow
 inputs:
   input:
@@ -81,43 +105,30 @@ steps:
     in:
       input1: input
         """)
-        input_b64 = base64.b64encode(b"1 2 3").decode("utf-8")
-        inputs = {
-            "input": {
-                "class": "Collection",
-                "collection_type": "list",
-                "elements": [
-                    {
-                        "class": "File",
-                        "identifier": "auto_element",
-                        "url": f"base64://{input_b64}",
-                        "ext": "auto",
-                        "deferred": False,
-                    }
-                ],
-            },
-        }
-        workflow_request = dict(
-            history=f"hist_id={history_id}",
+        inputs = {"input": {"src": "hdca", "id": hdca["id"]}}
+        invocation_id = self.workflow_populator.invoke_workflow(
+            workflow_id, inputs=inputs, history_id=history_id
         )
-        workflow_request["inputs"] = json.dumps(inputs)
-        workflow_request["inputs_by"] = "name"
-        invocation_id = self.workflow_populator.invoke_workflow_and_wait(
-            workflow_id, request=workflow_request
-        ).json()["id"]
+
+        # Step 4: Give scheduler a moment to encounter 'auto', then fix extension
+        time.sleep(2)
+        hda.extension = "txt"
+        sa_session.add(hda)
+        sa_session.commit()
+
+        # Step 5: Wait for workflow to complete — should delay then succeed
         invocation = self.workflow_populator.wait_for_invocation_and_completion(invocation_id)
         assert invocation["state"] == "completed", invocation
 ```
 
 **What this tests:**
-1. Creates a collection with `ext: "auto"` — the upload/fetch job will need to sniff the type
-2. Invokes a workflow that takes the collection as input
-3. The workflow scheduler encounters the `auto` extension during step scheduling
-4. **Before fix:** `RequestParameterInvalidException` fails the workflow
-5. **After fix:** `ToolInputsNotReadyException` delays the step; once sniffing completes, the step retries and succeeds
-6. Asserts the invocation reaches `"completed"` state
+1. Collection is created normally with `txt` extension, then extension is forced to `auto` in the DB — **deterministic, no race condition**
+2. Workflow is invoked; scheduler encounters `auto` extension during step scheduling
+3. **Before fix:** `RequestParameterInvalidException` fails the workflow immediately
+4. **After fix:** `ToolInputsNotReadyException` delays the step; after we reset extension to `txt`, the scheduler retries and succeeds
+5. Asserts the invocation reaches `"completed"` state
 
-This pattern mirrors the existing `test_run_workflow_with_url_collection` test but uses `ext: "auto"` instead of `ext: "txt"`.
+**Why integration test (not API test):** Requires direct SA session access (`self._app.model.session`) to modify HDA extension, following the established pattern in `test/integration/test_tool_submission_errors.py` and `test/integration/test_job_cache.py`.
 
 ### Step 3: Verification
 
@@ -131,7 +142,7 @@ This pattern mirrors the existing `test_run_workflow_with_url_collection` test b
 | File | Change |
 |------|--------|
 | `lib/galaxy/tools/actions/__init__.py` | Check for `auto`/`_sniff_` before datatype lookup; raise `ToolInputsNotReadyException` instead of `RequestParameterInvalidException` |
-| `lib/galaxy_test/api/test_workflows.py` | Add `test_workflow_run_collection_with_auto_extension` integration test |
+| `test/integration/test_workflow_invocation.py` | Add `test_workflow_run_collection_with_auto_extension` integration test with direct DB manipulation |
 
 ## Risk Assessment
 
