@@ -56,24 +56,82 @@ for ext in extensions:
 
 **Import needed:** Add `ToolInputsNotReadyException` to the imports in `lib/galaxy/tools/actions/__init__.py` (from `galaxy.exceptions`).
 
-### Step 2: Add a test
+### Step 2: Add an integration test
 
-**File:** Add a test case (likely in `test/unit/tool_util/` or `test/unit/workflows/`) that verifies:
-- A dataset collection with `auto` extension raises `ToolInputsNotReadyException` (not `RequestParameterInvalidException`)
-- This confirms the workflow scheduler can delay and retry
+**File:** `lib/galaxy_test/api/test_workflows.py`
+
+Add an integration test that launches a real workflow with a dataset collection whose elements have `ext: "auto"`. This exercises the full code path: the workflow scheduler picks up the invocation, the tool step tries to validate the collection's extensions, encounters `auto`, and should delay (not fail) until the extensions are resolved by the upload/sniff job.
+
+**Test design:**
+
+```python
+@skip_without_tool("multi_data_optional")
+def test_workflow_run_collection_with_auto_extension(self):
+    """Test that a workflow with a collection input whose datasets have ext='auto' delays and succeeds."""
+    with self.dataset_populator.test_history() as history_id:
+        workflow_id = self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+inputs:
+  input:
+    type: collection
+    collection_type: "list"
+steps:
+  multi_data_optional:
+    tool_id: multi_data_optional
+    in:
+      input1: input
+        """)
+        input_b64 = base64.b64encode(b"1 2 3").decode("utf-8")
+        inputs = {
+            "input": {
+                "class": "Collection",
+                "collection_type": "list",
+                "elements": [
+                    {
+                        "class": "File",
+                        "identifier": "auto_element",
+                        "url": f"base64://{input_b64}",
+                        "ext": "auto",
+                        "deferred": False,
+                    }
+                ],
+            },
+        }
+        workflow_request = dict(
+            history=f"hist_id={history_id}",
+        )
+        workflow_request["inputs"] = json.dumps(inputs)
+        workflow_request["inputs_by"] = "name"
+        invocation_id = self.workflow_populator.invoke_workflow_and_wait(
+            workflow_id, request=workflow_request
+        ).json()["id"]
+        invocation = self.workflow_populator.wait_for_invocation_and_completion(invocation_id)
+        assert invocation["state"] == "completed", invocation
+```
+
+**What this tests:**
+1. Creates a collection with `ext: "auto"` — the upload/fetch job will need to sniff the type
+2. Invokes a workflow that takes the collection as input
+3. The workflow scheduler encounters the `auto` extension during step scheduling
+4. **Before fix:** `RequestParameterInvalidException` fails the workflow
+5. **After fix:** `ToolInputsNotReadyException` delays the step; once sniffing completes, the step retries and succeeds
+6. Asserts the invocation reaches `"completed"` state
+
+This pattern mirrors the existing `test_run_workflow_with_url_collection` test but uses `ext: "auto"` instead of `ext: "txt"`.
 
 ### Step 3: Verification
 
 1. Run `make setup-venv`
 2. Run `make format` and `ruff`
 3. Run `tox -e mypy`
-4. Run relevant unit tests via `run_tests.sh`
+4. Run relevant tests via `run_tests.sh`
 
 ## Files to Modify
 
 | File | Change |
 |------|--------|
 | `lib/galaxy/tools/actions/__init__.py` | Check for `auto`/`_sniff_` before datatype lookup; raise `ToolInputsNotReadyException` instead of `RequestParameterInvalidException` |
+| `lib/galaxy_test/api/test_workflows.py` | Add `test_workflow_run_collection_with_auto_extension` integration test |
 
 ## Risk Assessment
 
