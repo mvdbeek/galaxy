@@ -138,7 +138,13 @@ class ToolMissingException(MessageException):
     status_code = 400
     err_code = error_codes_by_name["USER_TOOL_MISSING_PROBLEM"]
 
-    def __init__(self, err_msg: Optional[str] = None, type="info", tool_id=None, **extra_error_info):
+    def __init__(
+        self,
+        err_msg: Optional[str] = None,
+        type="info",
+        tool_id=None,
+        **extra_error_info,
+    ):
         super().__init__(err_msg, type, **extra_error_info)
         self.tool_id = tool_id
 
@@ -155,9 +161,18 @@ class ToolInputsNotReadyException(MessageException):
 
 class ToolInputsNotOKException(MessageException):
     def __init__(
-        self, err_msg: Optional[str] = None, type="info", *, src: str, id: str, input_name: str, **extra_error_info
+        self,
+        err_msg: Optional[str] = None,
+        type="info",
+        *,
+        src: str,
+        id: str,
+        input_name: str,
+        **extra_error_info,
     ):
-        super().__init__(err_msg, type, src=src, id=id, input_name=input_name, **extra_error_info)
+        super().__init__(
+            err_msg, type, src=src, id=id, input_name=input_name, **extra_error_info
+        )
         self.src = src
         self.id = id
         self.input_name = input_name
@@ -306,6 +321,16 @@ class ServerNotConfiguredForRequest(MessageException):
     # request being "forbidden". It just isn't configured.
     status_code = 501
     err_code = error_codes_by_name["SERVER_NOT_CONFIGURED_FOR_REQUEST"]
+
+
+class UpstreamProxyError(MessageException):
+    status_code = 502
+    err_code = error_codes_by_name["UPSTREAM_PROXY_ERROR"]
+
+
+class GatewayTimeoutException(MessageException):
+    status_code = 504
+    err_code = error_codes_by_name["UPSTREAM_PROXY_TIMEOUT"]
 
 
 class HandlerAssignmentError(Exception):

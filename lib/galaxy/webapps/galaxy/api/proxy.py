@@ -20,8 +20,9 @@ from starlette.responses import (
 )
 
 from galaxy.exceptions import (
-    MessageException,
+    GatewayTimeoutException,
     RequestParameterInvalidException,
+    UpstreamProxyError,
     UserRequiredException,
 )
 from galaxy.files.uris import validate_uri_access
@@ -145,17 +146,13 @@ class FastAPIProxy:
             # Catch any URL validation errors that slip through our pre-validation
             raise RequestParameterInvalidException(f"Invalid URL format: {e}")
         except httpx.TimeoutException as e:
-            exc = MessageException(
+            raise GatewayTimeoutException(
                 f"Timeout proxying request to {url}: {type(e).__name__}"
             )
-            exc.status_code = 504
-            raise exc
         except httpx.RequestError as e:
-            exc = MessageException(
+            raise UpstreamProxyError(
                 f"Error proxying request to {url}: {type(e).__name__}: {e}"
             )
-            exc.status_code = 502
-            raise exc
         finally:
             # Only cleanup for non-GET requests (GET cleanup happens in the stream generator)
             if request.method != "GET":
