@@ -42,8 +42,8 @@ URLQueryParam: str = Query(
 
 ALLOWED_SCHEMES = ("https", "http")
 MAX_REDIRECTS = 5
-MAX_STREAM_BYTES = 50 * 1024 * 1024  # 50 MB
-MAX_STREAM_SECONDS = 60  # 1 minute
+MAX_STREAM_BYTES = 1 * 1024 * 1024  # 1 MB
+MAX_STREAM_SECONDS = 10
 
 
 def is_valid_url(url: str) -> bool:
@@ -182,9 +182,7 @@ class FastAPIProxy:
                 url=current_url,
                 headers=headers,
             )
-            response = await client.send(
-                req, follow_redirects=False, stream=True
-            )
+            response = await client.send(req, follow_redirects=False, stream=True)
 
             if self._is_redirect_response(response):
                 redirect_count += 1
