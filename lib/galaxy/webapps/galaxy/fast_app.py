@@ -22,6 +22,7 @@ from tuspyserver import create_tus_router
 
 from galaxy.schema.generics import ref_to_name
 from galaxy.version import VERSION
+from galaxy.web.framework import url_for
 from galaxy.webapps.base.api import (
     add_exception_handler,
     add_raw_context_middlewares,
@@ -256,6 +257,7 @@ def initialize_fast_app(gx_wsgi_webapp, gx_app):
     gx_app.haltables.append(("WSGI Middleware threadpool", wsgi_handler.executor.shutdown))
     include_tus(app, gx_app)
     app.state.route_name_index = build_route_name_index(app)
+    url_for.route_name_index = app.state.route_name_index
     app.mount("/", wsgi_handler)  # type: ignore[arg-type]
     if gx_app.config.galaxy_url_prefix != "/":
         parent_app = FastAPI()

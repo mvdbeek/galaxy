@@ -212,7 +212,12 @@ class UrlBuilder:
     def __init__(self, request: Request):
         self.request = request
 
-    def __call__(self, name: str, **path_params):
+    def __call__(self, *args, **path_params):
+        # Support both positional name arg and keyword-only WSGI-style calls
+        # (e.g. url_for(controller="dataset", action="..."))
+        if not args:
+            return web.url_for(*args, **path_params)
+        name = args[0]
         qualified = path_params.pop("qualified", False)
         # starlette does not support query parameters in url_path_for: https://github.com/encode/starlette/issues/560
         query_params = path_params.pop("query_params", None)
