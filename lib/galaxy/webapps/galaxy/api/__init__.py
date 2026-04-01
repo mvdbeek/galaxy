@@ -78,9 +78,17 @@ from galaxy.exceptions import (
     UserCannotRunAsException,
     UserRequiredException,
 )
+from galaxy.managers.jwt_session import (
+    JWTSessionManager,
+    TOKEN_TYPE_ANONYMOUS,
+    TOKEN_TYPE_SESSION,
+)
 from galaxy.managers.session import GalaxySessionManager
 from galaxy.managers.users import UserManager
-from galaxy.model import User
+from galaxy.model import (
+    JWTSessionAdapter,
+    User,
+)
 from galaxy.schema.fields import DecodedDatabaseIdField
 from galaxy.security.idencoding import IdEncodingHelper
 from galaxy.structured_app import StructuredApp
@@ -151,12 +159,55 @@ def get_session(
     session_manager=cast(GalaxySessionManager, Depends(get_session_manager)),
     security: IdEncodingHelper = depends(IdEncodingHelper),
     galaxysession: str = Security(api_key_cookie),
+    app: StructuredApp = DependsOnApp,
 ) -> Optional[model.GalaxySession]:
     if galaxysession:
-        session_key = security.decode_guid(galaxysession)
+        # JWT sessions: cookie value contains dots (header.payload.signature)
+        if app.config.use_jwt_sessions and "." in galaxysession:
+            return _get_session_from_jwt(galaxysession, app, session_manager)
+        # Legacy DB sessions
+        try:
+            session_key = security.decode_guid(galaxysession)
+        except Exception:
+            return None
         if session_key:
             return session_manager.get_session_from_session_key(session_key)
-        # TODO: What should we do if there is no session? Since this is the API, maybe nothing is the right choice?
+    return None
+
+
+def _get_session_from_jwt(token: str, app, session_manager) -> Optional[model.GalaxySession]:
+    """Resolve a session from a JWT cookie value in the FastAPI API layer."""
+    config = app.config
+    if config.session_jwt_secret:
+        secret = config.session_jwt_secret
+    else:
+        secret = JWTSessionManager.derive_secret(config.id_secret)
+    jwt_mgr = JWTSessionManager(
+        secret=secret,
+        access_ttl=config.jwt_access_token_ttl,
+        refresh_ttl=config.jwt_refresh_token_ttl,
+    )
+    claims = jwt_mgr.decode_token(token)
+    if not claims:
+        return None
+    token_type = claims.get("type")
+    sa_session = app.model.context
+    if token_type == TOKEN_TYPE_SESSION:
+        try:
+            user_id = int(claims["sub"])
+        except (KeyError, ValueError):
+            return None
+        from sqlalchemy import select
+
+        stmt = select(User).where(User.id == user_id).limit(1)
+        user = sa_session.scalars(stmt).first()
+        if user and not user.deleted:
+            return JWTSessionAdapter(user=user)
+    elif token_type == TOKEN_TYPE_ANONYMOUS:
+        session_id = claims.get("session_id")
+        if session_id:
+            return session_manager.sa_session.get(model.GalaxySession, session_id)
+        return JWTSessionAdapter()
     return None
 
 

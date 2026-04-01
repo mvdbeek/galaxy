@@ -36,9 +36,17 @@ from galaxy.exceptions import (
     RequestParameterMissingException,
 )
 from galaxy.managers import context
+from galaxy.managers.jwt_session import (
+    JWTSessionManager,
+    TOKEN_TYPE_ANONYMOUS,
+    TOKEN_TYPE_SESSION,
+)
 from galaxy.managers.session import GalaxySessionManager
 from galaxy.managers.users import UserManager
-from galaxy.model import History
+from galaxy.model import (
+    History,
+    JWTSessionAdapter,
+)
 from galaxy.model.base import ensure_object_added_to_session
 from galaxy.structured_app import (
     BasicSharedApp,
@@ -92,6 +100,7 @@ UCSC_SERVERS = (
 )
 
 TOOL_RUNNER_SESSION_COOKIE = "galaxytoolrunnersession"
+REFRESH_TOKEN_COOKIE = "galaxysession_refresh"
 
 
 class WebApplication(base.WebApplication):
@@ -319,6 +328,7 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         self.webapp = webapp
         self.user_manager = app[UserManager]
         self.session_manager = app[GalaxySessionManager]
+        self.jwt_session_manager = self._build_jwt_session_manager(app) if app.config.use_jwt_sessions else None
         super().__init__(environ)
         config = self.app.config
         self.debug = asbool(config.get("debug", False))
@@ -359,19 +369,14 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
             # When we've authenticated by session, we have to check the
             # following.
             # Prevent deleted users from accessing Galaxy
-            if config.use_remote_user and self.galaxy_session.user.deleted:
+            if config.use_remote_user and self.galaxy_session.user and self.galaxy_session.user.deleted:
                 self.response.send_redirect(url_for("/static/user_disabled.html"))
             if config.require_login:
                 self._ensure_logged_in_user(session_cookie)
-            if config.session_duration:
-                # TODO DBTODO All ajax calls from the client need to go through
-                # a single point of control where we can do things like
-                # redirect/etc.  This is API calls as well as something like 40
-                # @web.json requests that might not get handled well on the
-                # clientside.
-                #
-                # Make sure we're not past the duration, and either log out or
-                # update timestamp.
+            # Session duration / inactivity timeout.
+            # For JWT sessions, the access token TTL serves as the timeout;
+            # the last_action tracking only applies to DB-backed sessions.
+            if config.session_duration and not isinstance(self.galaxy_session, JWTSessionAdapter):
                 now = datetime.datetime.now()
                 if self.galaxy_session.last_action:
                     expiration_time = self.galaxy_session.last_action + datetime.timedelta(
@@ -401,6 +406,19 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
                     self.galaxy_session.last_action = now
                     self.sa_session.add(self.galaxy_session)
                     self.sa_session.commit()
+
+    @staticmethod
+    def _build_jwt_session_manager(app):
+        config = app.config
+        if config.session_jwt_secret:
+            secret = config.session_jwt_secret
+        else:
+            secret = JWTSessionManager.derive_secret(config.id_secret)
+        return JWTSessionManager(
+            secret=secret,
+            access_ttl=config.jwt_access_token_ttl,
+            refresh_ttl=config.jwt_refresh_token_ttl,
+        )
 
     @property
     def app(self):
@@ -473,8 +491,9 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         if self.galaxy_session:
             if user and not user.bootstrap_admin_user:
                 self.galaxy_session.user = user
-                self.sa_session.add(self.galaxy_session)
-                self.sa_session.commit()
+                if not isinstance(self.galaxy_session, JWTSessionAdapter):
+                    self.sa_session.add(self.galaxy_session)
+                    self.sa_session.commit()
         self.__user = user
 
     user = property(get_user, set_user)
@@ -585,8 +604,143 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         Ensure that a valid Galaxy session exists and is available as
         trans.session (part of initialization)
         """
-        # Try to load an existing session
         secure_id = self.get_cookie(name=session_cookie)
+
+        # --- JWT path ---
+        if self.jwt_session_manager and secure_id and self.jwt_session_manager.is_jwt(secure_id):
+            if self._ensure_valid_jwt_session(secure_id, session_cookie):
+                return
+            # JWT decode failed — fall through to create a new anonymous JWT
+            secure_id = None
+
+        if self.jwt_session_manager and not secure_id:
+            # No cookie at all (or JWT failed above) — issue anonymous JWT, no DB row
+            self.galaxy_session = JWTSessionAdapter()
+            token = self.jwt_session_manager.create_anonymous_token()
+            self._set_jwt_cookie(token, name=session_cookie)
+            return
+
+        # --- Legacy DB session path (also used when use_jwt_sessions is disabled) ---
+        self._ensure_valid_db_session(secure_id, session_cookie, create)
+
+    def _ensure_valid_jwt_session(self, token: str, session_cookie: str) -> bool:
+        """Try to restore a session from a JWT cookie. Returns True if successful."""
+        jwt_mgr = self.jwt_session_manager
+        claims = jwt_mgr.decode_token(token)
+        if claims is None:
+            # Token expired or invalid — try refresh for authenticated sessions
+            return self._try_jwt_refresh(session_cookie)
+
+        token_type = claims.get("type")
+
+        if token_type == TOKEN_TYPE_SESSION:
+            return self._restore_jwt_authenticated_session(claims, session_cookie)
+        elif token_type == TOKEN_TYPE_ANONYMOUS:
+            return self._restore_jwt_anonymous_session(claims, session_cookie)
+        else:
+            log.debug("Unknown JWT token type: %s", token_type)
+            return False
+
+    def _restore_jwt_authenticated_session(self, claims: dict, session_cookie: str) -> bool:
+        """Restore an authenticated session from JWT claims."""
+        try:
+            user_id = int(claims["sub"])
+        except (KeyError, ValueError):
+            return False
+
+        from galaxy.model import User
+
+        stmt = select(User).where(User.id == user_id).limit(1)
+        user = self.sa_session.scalars(stmt).first()
+        if not user or user.deleted:
+            return False
+        # Check remote user constraints
+        if self.app.config.use_remote_user and user.external:
+            remote_user_email = self.environ.get(self.app.config.remote_user_header, None)
+            if not remote_user_email or remote_user_email != user.email:
+                return False
+
+        self.galaxy_session = JWTSessionAdapter(user=user)
+        if self.webapp.name == "galaxy":
+            self.get_or_create_default_history()
+        return True
+
+    def _restore_jwt_anonymous_session(self, claims: dict, session_cookie: str) -> bool:
+        """Restore an anonymous session from JWT claims."""
+        session_id = claims.get("session_id")
+        if session_id:
+            # Anonymous user with a lazily-created DB session (has history)
+            from sqlalchemy.orm import joinedload
+
+            stmt = (
+                select(self.app.model.GalaxySession)
+                .where(self.app.model.GalaxySession.id == session_id)
+                .where(self.app.model.GalaxySession.is_valid == true())
+                .options(joinedload(self.app.model.GalaxySession.current_history))
+                .limit(1)
+            )
+            db_session = self.sa_session.scalars(stmt).first()
+            if db_session:
+                self.galaxy_session = JWTSessionAdapter(
+                    current_history=db_session.current_history,
+                    db_session=db_session,
+                )
+            else:
+                # DB session gone (cleaned up?) — issue fresh anonymous JWT
+                self.galaxy_session = JWTSessionAdapter()
+                token = self.jwt_session_manager.create_anonymous_token()
+                self._set_jwt_cookie(token, name=session_cookie)
+        else:
+            # Anonymous user without history yet — purely stateless
+            self.galaxy_session = JWTSessionAdapter()
+        return True
+
+    def _try_jwt_refresh(self, session_cookie: str) -> bool:
+        """Try to refresh an expired access JWT using the refresh token cookie."""
+        jwt_mgr = self.jwt_session_manager
+        refresh_cookie = self.get_cookie(name=REFRESH_TOKEN_COOKIE)
+        if not refresh_cookie:
+            return False
+        refresh_row = jwt_mgr.verify_refresh_token(refresh_cookie, self.sa_session)
+        if not refresh_row:
+            return False
+        # Valid refresh token — issue new access JWT
+        user_id = refresh_row.user_id
+
+        from galaxy.model import User
+
+        stmt = select(User).where(User.id == user_id).limit(1)
+        user = self.sa_session.scalars(stmt).first()
+        if not user or user.deleted:
+            return False
+        new_access = jwt_mgr.create_access_token(user.id)
+        self._set_jwt_cookie(new_access, name=session_cookie)
+        self.galaxy_session = JWTSessionAdapter(user=user)
+        if self.webapp.name == "galaxy":
+            self.get_or_create_default_history()
+        return True
+
+    def _set_jwt_cookie(self, token: str, name: str = "galaxysession"):
+        """Set a JWT value as the session cookie."""
+        self.set_cookie(token, name=name, path=self.cookie_path)
+
+    def _set_refresh_cookie(self, raw_token: str):
+        """Set the refresh token cookie."""
+        self._set_cookie(
+            raw_token,
+            name=REFRESH_TOKEN_COOKIE,
+            path=self.cookie_path,
+            age=self.jwt_session_manager.refresh_ttl // (3600 * 24) or 30,
+        )
+
+    def _clear_refresh_cookie(self):
+        """Clear the refresh token cookie."""
+        self.response.cookies[REFRESH_TOKEN_COOKIE] = ""
+        self.response.cookies[REFRESH_TOKEN_COOKIE]["path"] = self.cookie_path
+        self.response.cookies[REFRESH_TOKEN_COOKIE]["max-age"] = 0
+
+    def _ensure_valid_db_session(self, secure_id, session_cookie: str, create: bool = True) -> None:
+        """Original DB-backed session validation logic."""
         galaxy_session = None
         prev_galaxy_session = None
         user_for_new_session = None
@@ -599,12 +753,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
             try:
                 session_key = self.security.decode_guid(secure_id)
             except MalformedId:
-                # Invalid session key, we're going to create a new one.
-                # IIRC we did this when we switched to python 3 and clients
-                # were sending sessioncookies that started with a stringified
-                # bytestring, e.g 'b"0123456789abcdef"'. Maybe we need to drop
-                # this exception catching, but then it'd be tricky to invalidate
-                # a faulty session key
                 log.debug("Received invalid session key '{secure_id}', setting a new session key")
                 session_key = None
 
@@ -632,9 +780,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
                         or remote_user_email not in self.app.config.admin_users_list
                     )
                 ):
-                    # Session exists but is not associated with the correct
-                    # remote user, and the currently set remote_user is not a
-                    # potentially impersonating admin.
                     invalidate_existing_session = True
                     user_for_new_session = self.user_manager.get_or_create_remote_user(remote_user_email)
                     log.warning(
@@ -643,14 +788,11 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
                         galaxy_session.user.email,
                     )
             elif remote_user_email:
-                # No session exists, get/create user for new session
                 user_for_new_session = self.user_manager.get_or_create_remote_user(remote_user_email)
             if (galaxy_session and galaxy_session.user is None) and user_for_new_session is None:
                 raise Exception("Remote Authentication Failure - user is unknown and/or not supplied.")
         else:
             if galaxy_session is not None and galaxy_session.user and galaxy_session.user.external:
-                # Remote user support is not enabled, but there is an existing
-                # session with an external user, invalidate
                 invalidate_existing_session = True
                 log.warning(
                     "User '%s' is an external user with an existing session, invalidating session since external auth is disabled",
@@ -830,7 +972,16 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
             self.app.security_agent.history_set_default_permissions(
                 history, dataset=True, bypass_manage_permission=True
             )
-        self.sa_session.add_all((prev_galaxy_session, self.galaxy_session, history))
+        # Collect ORM objects to flush (skip JWTSessionAdapter which is not an ORM object)
+        objects_to_add = [history]
+        if prev_galaxy_session and not isinstance(prev_galaxy_session, JWTSessionAdapter):
+            objects_to_add.append(prev_galaxy_session)
+        if isinstance(self.galaxy_session, JWTSessionAdapter):
+            if self.galaxy_session._db_session:
+                objects_to_add.append(self.galaxy_session._db_session)
+        else:
+            objects_to_add.append(self.galaxy_session)
+        self.sa_session.add_all(objects_to_add)
 
     def handle_user_login(self, user):
         """
@@ -844,6 +995,52 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         """
         self.user_checks(user)
         self.app.security_agent.create_user_role(user, self.app)
+
+        if self.jwt_session_manager:
+            self._handle_jwt_user_login(user)
+        else:
+            self._handle_db_user_login(user)
+
+    def _handle_jwt_user_login(self, user):
+        """Login flow for JWT sessions."""
+        jwt_mgr = self.jwt_session_manager
+        prev_galaxy_session = self.galaxy_session
+
+        # Invalidate previous DB session if it exists (anonymous session with history)
+        if isinstance(prev_galaxy_session, JWTSessionAdapter) and prev_galaxy_session._db_session:
+            prev_galaxy_session._db_session.is_valid = False
+            self.sa_session.add(prev_galaxy_session._db_session)
+            # Use the real DB session for history transfer
+            real_prev_session = prev_galaxy_session._db_session
+        elif not isinstance(prev_galaxy_session, JWTSessionAdapter) and prev_galaxy_session:
+            # Legacy DB session (migration period)
+            prev_galaxy_session.is_valid = False
+            real_prev_session = prev_galaxy_session
+        else:
+            real_prev_session = None
+
+        # Create JWT-backed session for authenticated user
+        self.galaxy_session = JWTSessionAdapter(user=user)
+
+        if self.webapp.name == "galaxy":
+            self._associate_user_history(user, real_prev_session)
+
+        # Create refresh token
+        raw_refresh = jwt_mgr.create_refresh_token(user.id, self.sa_session)
+        # Create access JWT
+        access_token = jwt_mgr.create_access_token(user.id)
+
+        if real_prev_session:
+            self.sa_session.add(real_prev_session)
+        self.sa_session.commit()
+
+        # Set cookies
+        cookie_name = "galaxysession" if self.webapp.name == "galaxy" else "galaxycommunitysession"
+        self._set_jwt_cookie(access_token, name=cookie_name)
+        self._set_refresh_cookie(raw_refresh)
+
+    def _handle_db_user_login(self, user):
+        """Original DB-backed login flow."""
         # Set the previous session
         prev_galaxy_session = self.galaxy_session
         prev_galaxy_session.is_valid = False
@@ -856,7 +1053,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
             cookie_name = "galaxycommunitysession"
             self.sa_session.add_all((prev_galaxy_session, self.galaxy_session))
         self.sa_session.commit()
-        # This method is not called from the Galaxy reports, so the cookie will always be galaxysession
         self.__update_session_cookie(name=cookie_name)
 
     def handle_user_logout(self, logout_all=False):
@@ -865,6 +1061,33 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
            - invalidate the current session
            - create a new session with no user associated
         """
+        if self.jwt_session_manager:
+            self._handle_jwt_user_logout(logout_all)
+        else:
+            self._handle_db_user_logout(logout_all)
+
+    def _handle_jwt_user_logout(self, logout_all=False):
+        """Logout flow for JWT sessions."""
+        jwt_mgr = self.jwt_session_manager
+        user_id = self.galaxy_session.user_id if self.galaxy_session else None
+
+        # Revoke refresh token(s)
+        if user_id:
+            refresh_cookie = self.get_cookie(name=REFRESH_TOKEN_COOKIE)
+            if logout_all or not refresh_cookie:
+                jwt_mgr.revoke_all_refresh_tokens(user_id, self.sa_session)
+            else:
+                jwt_mgr.revoke_refresh_token(refresh_cookie, self.sa_session)
+
+        # Issue new anonymous JWT
+        self.galaxy_session = JWTSessionAdapter()
+        token = jwt_mgr.create_anonymous_token()
+        cookie_name = "galaxysession" if self.webapp.name == "galaxy" else "galaxycommunitysession"
+        self._set_jwt_cookie(token, name=cookie_name)
+        self._clear_refresh_cookie()
+
+    def _handle_db_user_logout(self, logout_all=False):
+        """Original DB-backed logout flow."""
         prev_galaxy_session = self.galaxy_session
         prev_galaxy_session.is_valid = False
         self.galaxy_session = self.__create_new_session(prev_galaxy_session)
@@ -883,7 +1106,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
                 self.sa_session.add(other_galaxy_session)
         self.sa_session.commit()
         if self.webapp.name == "galaxy":
-            # This method is not called from the Galaxy reports, so the cookie will always be galaxysession
             self.__update_session_cookie(name="galaxysession")
         elif self.webapp.name == "tool_shed":
             self.__update_session_cookie(name="galaxycommunitysession")
@@ -917,8 +1139,22 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
     def set_history(self, history):
         if history and not history.deleted and self.galaxy_session:
             self.galaxy_session.current_history = history
-        self.sa_session.add(self.galaxy_session)
-        self.sa_session.commit()
+        if isinstance(self.galaxy_session, JWTSessionAdapter):
+            if self.galaxy_session._db_session:
+                self.galaxy_session._db_session.current_history = history
+                self.sa_session.add(self.galaxy_session._db_session)
+                self.sa_session.commit()
+                # Update the anonymous JWT with the new history_id
+                if self.jwt_session_manager and not self.galaxy_session.user:
+                    token = self.jwt_session_manager.create_anonymous_token(
+                        history_id=history.id,
+                        session_id=self.galaxy_session._db_session.id,
+                    )
+                    self._set_jwt_cookie(token, name="galaxysession")
+            # No DB session and no history yet — nothing to persist
+        else:
+            self.sa_session.add(self.galaxy_session)
+            self.sa_session.commit()
 
     @property
     def history(self):
@@ -980,10 +1216,21 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         history = History()
         if name:
             history.name = name
-        # Associate with session
-        history.add_galaxy_session(self.galaxy_session)
-        # Make it the session's current history
-        self.galaxy_session.current_history = history
+
+        # For anonymous JWT sessions without a DB session, lazily create one now
+        if (
+            self.jwt_session_manager
+            and isinstance(self.galaxy_session, JWTSessionAdapter)
+            and self.galaxy_session._db_session is None
+            and self.galaxy_session.user is None
+        ):
+            self._lazy_create_db_session_for_anon(history)
+        else:
+            # Associate with session
+            history.add_galaxy_session(self.galaxy_session)
+            # Make it the session's current history
+            self.galaxy_session.current_history = history
+
         # Associate with user
         if self.galaxy_session.user:
             history.user = self.galaxy_session.user
@@ -992,9 +1239,37 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         # Set the user's default history permissions
         self.app.security_agent.history_set_default_permissions(history)
         # Save
-        self.sa_session.add_all((self.galaxy_session, history))
+        if isinstance(self.galaxy_session, JWTSessionAdapter) and self.galaxy_session._db_session:
+            self.sa_session.add_all((self.galaxy_session._db_session, history))
+        else:
+            self.sa_session.add_all((self.galaxy_session, history))
         self.sa_session.commit()
         return history
+
+    def _lazy_create_db_session_for_anon(self, history):
+        """Create a DB galaxy_session row for an anonymous JWT user who is creating a history.
+
+        This preserves remote_host/remote_addr for job tracing and provides a session_id
+        for the galaxy_session_to_history association.
+        """
+        db_session = create_new_session(self)
+        self.sa_session.add(db_session)
+        self.sa_session.flush()  # Need the id for the JWT
+
+        # Wire up the adapter
+        self.galaxy_session._db_session = db_session
+
+        # Associate history with the new DB session
+        history.add_galaxy_session(db_session)
+        db_session.current_history = history
+        self.galaxy_session.current_history = history
+
+        # Reissue the anonymous JWT with session_id and history_id
+        token = self.jwt_session_manager.create_anonymous_token(
+            history_id=history.id if history.id else None,
+            session_id=db_session.id,
+        )
+        self._set_jwt_cookie(token, name="galaxysession")
 
     @base.lazy_property
     def template_context(self):

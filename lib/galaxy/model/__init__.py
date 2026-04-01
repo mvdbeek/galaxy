@@ -8497,6 +8497,70 @@ class GalaxySessionToHistoryAssociation(Base, RepresentById):
         self.history = history
 
 
+class SessionRefreshToken(Base, RepresentById):
+    __tablename__ = "session_refresh_token"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("galaxy_user.id"), index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(default=now)
+    expires_at: Mapped[datetime]
+    is_valid: Mapped[bool] = mapped_column(default=True)
+
+    user: Mapped[Optional["User"]] = relationship()
+
+
+class JWTSessionAdapter:
+    """Lightweight session object backed by JWT claims instead of a DB row.
+
+    Provides the same interface as GalaxySession so that downstream code
+    accessing trans.galaxy_session.user, trans.galaxy_session.current_history,
+    etc. works without changes.
+
+    When an anonymous user creates a history, a real GalaxySession DB row is
+    lazily created and attached via ``_db_session``.
+    """
+
+    def __init__(self, user=None, current_history=None, db_session=None):
+        self.user = user
+        self.current_history = current_history
+        self._db_session = db_session
+        self.is_valid = True
+        self.histories = []
+
+    @property
+    def id(self):
+        return self._db_session.id if self._db_session else None
+
+    @property
+    def current_history_id(self):
+        return self.current_history.id if self.current_history else None
+
+    @property
+    def user_id(self):
+        return self.user.id if self.user else None
+
+    @property
+    def remote_host(self):
+        return self._db_session.remote_host if self._db_session else None
+
+    @property
+    def remote_addr(self):
+        return self._db_session.remote_addr if self._db_session else None
+
+    def add_history(self, history, association=None):
+        if self._db_session:
+            self._db_session.add_history(history, association)
+
+    def get_disk_usage(self):
+        return 0
+
+    def set_disk_usage(self, bytes):
+        pass
+
+    total_disk_usage = property(get_disk_usage, set_disk_usage)
+
+
 class StoredWorkflow(Base, HasTags, Dictifiable, RepresentById, UsesCreateAndUpdateTime):
     """
     StoredWorkflow represents the root node of a tree of objects that compose a workflow, including workflow revisions, steps, and subworkflows.

@@ -14,7 +14,7 @@ sys.path.insert(
 
 from galaxy.model.orm.scripts import get_config
 
-DESCRIPTION = """Remove old galaxy_session records from database."""
+DESCRIPTION = """Remove old galaxy_session and expired session_refresh_token records from database."""
 
 
 def main():
@@ -36,11 +36,25 @@ def _get_parser():
 
 def run(engine, max_update_time=None):
     max_update_time = max_update_time or _get_default_max_update_time()
-    """ Delete galaxy_session records which were updated prior to `max_update_time`."""
-    stmt = text("DELETE FROM galaxy_session WHERE update_time < :update_time")
-    params = {"update_time": max_update_time}
+    """Delete galaxy_session records updated prior to `max_update_time`
+    and expired/revoked refresh tokens."""
     with engine.begin() as conn:
-        conn.execute(stmt, params)
+        # Clean up old galaxy_session rows
+        stmt = text("DELETE FROM galaxy_session WHERE update_time < :update_time")
+        conn.execute(stmt, {"update_time": max_update_time})
+
+        # Clean up expired or revoked refresh tokens
+        _cleanup_refresh_tokens(conn)
+
+
+def _cleanup_refresh_tokens(conn):
+    """Delete expired or revoked session_refresh_token rows."""
+    try:
+        stmt = text("DELETE FROM session_refresh_token WHERE expires_at < NOW() OR is_valid = false")
+        conn.execute(stmt)
+    except Exception:
+        # Table may not exist yet (pre-migration)
+        pass
 
 
 def _get_default_max_update_time():

@@ -1450,6 +1450,42 @@ mapping:
           This provides a timeout (in minutes) after which a user will have to log back in.
           A duration of 0 disables this feature.
 
+      use_jwt_sessions:
+        type: bool
+        default: false
+        required: false
+        desc: |
+          Use JWT-based sessions instead of database-backed sessions.
+          When enabled, authenticated users receive short-lived access JWTs (stateless,
+          no database lookup per request) plus database-backed refresh tokens.
+          Anonymous users receive signed JWT cookies; a database session row is only
+          created lazily when the anonymous user creates a history.
+          This dramatically reduces the size of the galaxy_session table.
+
+      session_jwt_secret:
+        type: str
+        required: false
+        desc: |
+          Secret key used to sign JWT session tokens.
+          If not set, a key is derived from id_secret.
+          Must be kept secret; changing it invalidates all active JWT sessions.
+
+      jwt_access_token_ttl:
+        type: int
+        default: 900
+        required: false
+        desc: |
+          Lifetime of JWT access tokens in seconds (default: 900 = 15 minutes).
+          After expiry the token is transparently refreshed using the refresh token.
+
+      jwt_refresh_token_ttl:
+        type: int
+        default: 2592000
+        required: false
+        desc: |
+          Lifetime of refresh tokens in seconds (default: 2592000 = 30 days).
+          After expiry the user must log in again.
+
       ga_code:
         type: str
         required: false
