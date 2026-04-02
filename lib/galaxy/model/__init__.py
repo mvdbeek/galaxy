@@ -2219,8 +2219,8 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
         job_attrs["tool_stdout"] = self.tool_stdout
         job_attrs["job_stdout"] = self.job_stdout
         job_attrs["exit_code"] = self.exit_code
-        job_attrs["create_time"] = self.create_time.isoformat()
-        job_attrs["update_time"] = self.update_time.isoformat()
+        job_attrs["create_time"] = self.create_time.isoformat() if self.create_time else None
+        job_attrs["update_time"] = self.update_time.isoformat() if self.update_time else None
         job_attrs["job_messages"] = self.job_messages
         job_attrs["object_store_id"] = self.object_store_id
         if self.object_store_id_overrides:
