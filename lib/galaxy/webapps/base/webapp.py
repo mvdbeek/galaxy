@@ -25,6 +25,7 @@ from sqlalchemy import (
     true,
 )
 from sqlalchemy.exc import NoResultFound
+from sqlalchemy.orm import joinedload
 from webob.exc import HTTPException
 
 from galaxy import util
@@ -46,6 +47,7 @@ from galaxy.managers.users import UserManager
 from galaxy.model import (
     History,
     JWTSessionAdapter,
+    User,
 )
 from galaxy.model.base import ensure_object_added_to_session
 from galaxy.structured_app import (
@@ -648,8 +650,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         except (KeyError, ValueError):
             return False
 
-        from galaxy.model import User
-
         stmt = select(User).where(User.id == user_id).limit(1)
         user = self.sa_session.scalars(stmt).first()
         if not user or user.deleted:
@@ -670,8 +670,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         session_id = claims.get("session_id")
         if session_id:
             # Anonymous user with a lazily-created DB session (has history)
-            from sqlalchemy.orm import joinedload
-
             stmt = (
                 select(self.app.model.GalaxySession)
                 .where(self.app.model.GalaxySession.id == session_id)
@@ -706,9 +704,6 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
             return False
         # Valid refresh token — issue new access JWT
         user_id = refresh_row.user_id
-
-        from galaxy.model import User
-
         stmt = select(User).where(User.id == user_id).limit(1)
         user = self.sa_session.scalars(stmt).first()
         if not user or user.deleted:

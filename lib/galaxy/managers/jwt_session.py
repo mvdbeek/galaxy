@@ -11,16 +11,18 @@ import logging
 import secrets
 from datetime import (
     datetime,
+    timedelta,
     timezone,
 )
 from typing import Optional
 
 import jwt
-
-from galaxy.model import (
-    GalaxySession,
-    SessionRefreshToken,
+from sqlalchemy import (
+    select,
+    true,
 )
+
+from galaxy.model import SessionRefreshToken
 from galaxy.model.base import transaction
 
 log = logging.getLogger(__name__)
@@ -90,11 +92,6 @@ class JWTSessionManager:
 
     def verify_refresh_token(self, raw_token: str, sa_session) -> Optional[SessionRefreshToken]:
         """Verify a refresh token against the DB. Returns the DB row if valid, else None."""
-        from sqlalchemy import (
-            select,
-            true,
-        )
-
         token_hash = hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
         now = datetime.now(timezone.utc)
         stmt = (
@@ -123,11 +120,6 @@ class JWTSessionManager:
 
     def revoke_all_refresh_tokens(self, user_id: int, sa_session) -> None:
         """Revoke all refresh tokens for a user (logout all sessions)."""
-        from sqlalchemy import (
-            select,
-            true,
-        )
-
         stmt = (
             select(SessionRefreshToken)
             .where(SessionRefreshToken.user_id == user_id)
@@ -183,6 +175,4 @@ class JWTSessionManager:
 
 def _timedelta_seconds(seconds: int):
     """Create a timedelta from seconds."""
-    from datetime import timedelta
-
     return timedelta(seconds=seconds)

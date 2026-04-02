@@ -78,6 +78,8 @@ from galaxy.exceptions import (
     UserCannotRunAsException,
     UserRequiredException,
 )
+from sqlalchemy import select
+
 from galaxy.managers.jwt_session import (
     JWTSessionManager,
     TOKEN_TYPE_ANONYMOUS,
@@ -197,7 +199,6 @@ def _get_session_from_jwt(token: str, app, session_manager) -> Optional[model.Ga
             user_id = int(claims["sub"])
         except (KeyError, ValueError):
             return None
-        from sqlalchemy import select
 
         stmt = select(User).where(User.id == user_id).limit(1)
         user = sa_session.scalars(stmt).first()
