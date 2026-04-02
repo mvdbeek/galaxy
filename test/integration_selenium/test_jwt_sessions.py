@@ -44,7 +44,7 @@ class TestAnonymousHistoriesJWT(JWTSessionIntegrationTestCase):
     @selenium_test
     def test_anon_history_upload(self):
         self.home()
-        self.perform_upload(self.get_filename("1.txt"))
+        self.perform_upload(self.test_data_resolver.get_filename("1.txt"))
         self.wait_for_history()
         # Reload the history and make sure the state is preserved.
         self.home()
@@ -70,7 +70,7 @@ class TestAnonymousHistoriesJWT(JWTSessionIntegrationTestCase):
 
     def _upload_file_anonymous_then_register_user(self):
         self.home()
-        self.perform_upload(self.get_filename("1.txt"))
+        self.perform_upload(self.test_data_resolver.get_filename("1.txt"))
         self.wait_for_history()
         self.register()
 

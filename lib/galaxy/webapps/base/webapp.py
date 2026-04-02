@@ -1,6 +1,7 @@
 """ """
 
 import datetime
+import hashlib
 import inspect
 import logging
 import os
@@ -662,7 +663,11 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
 
         self.galaxy_session = JWTSessionAdapter(user=user)
         if self.webapp.name == "galaxy":
-            self.get_or_create_default_history()
+            # JWT sessions don't persist current_history_id, so restore
+            # the user's most recently updated history first.
+            history = self.get_most_recent_history()
+            if not history:
+                self.get_or_create_default_history()
         return True
 
     def _restore_jwt_anonymous_session(self, claims: dict, session_cookie: str) -> bool:
@@ -712,7 +717,9 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         self._set_jwt_cookie(new_access, name=session_cookie)
         self.galaxy_session = JWTSessionAdapter(user=user)
         if self.webapp.name == "galaxy":
-            self.get_or_create_default_history()
+            history = self.get_most_recent_history()
+            if not history:
+                self.get_or_create_default_history()
         return True
 
     def _set_jwt_cookie(self, token: str, name: str = "galaxysession"):
@@ -1220,6 +1227,9 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
             and self.galaxy_session.user is None
         ):
             self._lazy_create_db_session_for_anon(history)
+        elif isinstance(self.galaxy_session, JWTSessionAdapter):
+            # Authenticated JWT session — no DB session row to associate, just track history
+            self.galaxy_session.current_history = history
         else:
             # Associate with session
             history.add_galaxy_session(self.galaxy_session)
@@ -1234,8 +1244,11 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         # Set the user's default history permissions
         self.app.security_agent.history_set_default_permissions(history)
         # Save
-        if isinstance(self.galaxy_session, JWTSessionAdapter) and self.galaxy_session._db_session:
-            self.sa_session.add_all((self.galaxy_session._db_session, history))
+        if isinstance(self.galaxy_session, JWTSessionAdapter):
+            if self.galaxy_session._db_session:
+                self.sa_session.add_all((self.galaxy_session._db_session, history))
+            else:
+                self.sa_session.add(history)
         else:
             self.sa_session.add_all((self.galaxy_session, history))
         self.sa_session.commit()
@@ -1332,7 +1345,14 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
     def session_csrf_token(self):
         token = ""
         if self.galaxy_session:
-            token = self.security.encode_id(self.galaxy_session.id, kind="csrf")
+            session_id = self.galaxy_session.id
+            if session_id is not None:
+                token = self.security.encode_id(session_id, kind="csrf")
+            elif isinstance(self.galaxy_session, JWTSessionAdapter):
+                # JWT session without a DB row yet — derive CSRF token from
+                # the JWT cookie value so it is stable across requests.
+                cookie_value = self.get_cookie() or ""
+                token = hashlib.sha256(cookie_value.encode()).hexdigest()[:32]
         return token
 
     def check_csrf_token(self, payload):

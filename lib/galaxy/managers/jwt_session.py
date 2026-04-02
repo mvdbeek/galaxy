@@ -23,7 +23,6 @@ from sqlalchemy import (
 )
 
 from galaxy.model import SessionRefreshToken
-from galaxy.model.base import transaction
 
 log = logging.getLogger(__name__)
 
@@ -86,8 +85,7 @@ class JWTSessionManager:
             is_valid=True,
         )
         sa_session.add(refresh)
-        with transaction(sa_session):
-            sa_session.commit()
+        sa_session.commit()
         return raw_token
 
     def verify_refresh_token(self, raw_token: str, sa_session) -> Optional[SessionRefreshToken]:
@@ -115,8 +113,7 @@ class JWTSessionManager:
         if refresh:
             refresh.is_valid = False
             sa_session.add(refresh)
-            with transaction(sa_session):
-                sa_session.commit()
+            sa_session.commit()
 
     def revoke_all_refresh_tokens(self, user_id: int, sa_session) -> None:
         """Revoke all refresh tokens for a user (logout all sessions)."""
@@ -128,8 +125,7 @@ class JWTSessionManager:
         for refresh in sa_session.scalars(stmt):
             refresh.is_valid = False
             sa_session.add(refresh)
-        with transaction(sa_session):
-            sa_session.commit()
+        sa_session.commit()
 
     # --- Anonymous tokens ---
 
