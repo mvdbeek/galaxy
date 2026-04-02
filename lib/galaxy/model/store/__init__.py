@@ -1719,10 +1719,8 @@ class BaseDirectoryImportModelStore(ModelImportStore):
 def restore_times(
     model_object: Union[model.Job, model.WorkflowInvocation, model.WorkflowInvocationStep], attrs: dict[str, Any]
 ) -> None:
-    if "create_time" in attrs:
-        model_object.create_time = datetime.datetime.fromisoformat(attrs["create_time"])
-    if "update_time" in attrs:
-        model_object.update_time = datetime.datetime.fromisoformat(attrs["update_time"])
+    model_object.create_time = datetime.datetime.fromisoformat(attrs["create_time"])
+    model_object.update_time = datetime.datetime.fromisoformat(attrs["update_time"])
 
 
 class DirectoryImportModelStore1901(BaseDirectoryImportModelStore):
