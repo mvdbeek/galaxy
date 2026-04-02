@@ -1,19 +1,23 @@
-"""Selenium tests that verify Galaxy works correctly with JWT-based sessions.
+"""Integration selenium tests for JWT-based session management.
 
-These tests run the same scenarios as the standard anonymous history and
-login/logout tests, but with ``use_jwt_sessions=True`` in the Galaxy config
-so that the JWT session code path is exercised end-to-end.
+These tests verify Galaxy works correctly with ``use_jwt_sessions=True``,
+exercising the full JWT code path end-to-end via Playwright/Selenium:
+- Anonymous visitors get a JWT cookie (no DB session row)
+- Creating a history lazily creates a DB session
+- Registering transfers the anonymous history to the new user
+- Login issues access JWT + refresh token cookies
+- Logout revokes refresh tokens and issues anonymous JWT
 """
 
 from galaxy_test.base.decorators import requires_new_user
 from .framework import (
     selenium_test,
-    SeleniumTestCase,
+    SeleniumIntegrationTestCase,
 )
 
 
-class JWTSessionSeleniumTestCase(SeleniumTestCase):
-    """Base class for selenium tests that run with JWT sessions enabled."""
+class JWTSessionIntegrationTestCase(SeleniumIntegrationTestCase):
+    """Base class for integration selenium tests that run with JWT sessions."""
 
     @classmethod
     def handle_galaxy_config_kwds(cls, config):
@@ -21,12 +25,12 @@ class JWTSessionSeleniumTestCase(SeleniumTestCase):
         config["use_jwt_sessions"] = True
 
 
-class TestAnonymousHistoriesJWT(JWTSessionSeleniumTestCase):
-    """Anonymous history tests with JWT sessions enabled.
+class TestAnonymousHistoriesJWT(JWTSessionIntegrationTestCase):
+    """Anonymous history tests with JWT sessions.
 
-    Mirrors TestAnonymousHistories but exercises the JWT code path:
+    Mirrors the standard anonymous history tests but exercises the JWT path:
     - Anonymous visitors get a JWT cookie (no DB session row)
-    - Creating a history lazily creates a DB session
+    - Creating a history lazily creates a DB session for job tracing
     - Registering transfers the anonymous history to the new user
     """
 
@@ -45,8 +49,6 @@ class TestAnonymousHistoriesJWT(JWTSessionSeleniumTestCase):
         # Reload the history and make sure the state is preserved.
         self.home()
         self.history_panel_wait_for_hid_state(1, "ok")
-
-        # empty should be NO LONGER be displayed
         self.components.history_panel.empty_message.assert_absent_or_hidden()
 
     @selenium_test
@@ -61,8 +63,6 @@ class TestAnonymousHistoriesJWT(JWTSessionSeleniumTestCase):
     def test_clean_anon_history_after_logout(self):
         self._upload_file_anonymous_then_register_user()
         self.logout_if_needed()
-        # Give Galaxy the chance to load a new empty history for that now
-        # anonymous user. Make sure this new history is empty.
         self.home()
         self.history_panel_wait_for_history_loaded()
         history_contents = self.history_contents()
@@ -75,11 +75,10 @@ class TestAnonymousHistoriesJWT(JWTSessionSeleniumTestCase):
         self.register()
 
 
-class TestLoginJWT(JWTSessionSeleniumTestCase):
-    """Login tests with JWT sessions enabled.
+class TestLoginJWT(JWTSessionIntegrationTestCase):
+    """Login tests with JWT sessions.
 
-    Verifies that the JWT login flow (access token + refresh token cookies)
-    works correctly end-to-end.
+    Verifies the JWT login flow (access token + refresh token cookies).
     """
 
     @selenium_test
@@ -101,8 +100,8 @@ class TestLoginJWT(JWTSessionSeleniumTestCase):
             self.assert_error_message()
 
 
-class TestSignOutJWT(JWTSessionSeleniumTestCase):
-    """Sign-out tests with JWT sessions enabled.
+class TestSignOutJWT(JWTSessionIntegrationTestCase):
+    """Sign-out tests with JWT sessions.
 
     Verifies that logging out revokes the refresh token and issues
     a new anonymous JWT.
@@ -124,8 +123,8 @@ class TestSignOutJWT(JWTSessionSeleniumTestCase):
         assert not self.is_logged_in()
 
 
-class TestRegistrationJWT(JWTSessionSeleniumTestCase):
-    """Registration tests with JWT sessions enabled.
+class TestRegistrationJWT(JWTSessionIntegrationTestCase):
+    """Registration tests with JWT sessions.
 
     Verifies that new user registration works with JWT sessions and
     that logout after registration correctly transitions to anonymous JWT.
