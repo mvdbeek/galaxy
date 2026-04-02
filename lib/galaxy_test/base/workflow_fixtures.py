@@ -1356,3 +1356,119 @@ image_input_1:
   file_type: png
   name: first test image
 """
+
+WORKFLOW_NESTED_COLLECTION_OUTPUT = """
+class: GalaxyWorkflow
+inputs:
+  outer_input: data
+outputs:
+  outer_output:
+    outputSource: second_cat/out_file1
+  nested_collection_output:
+    outputSource: nested_workflow/collection_output
+steps:
+  first_cat:
+    tool_id: cat1
+    in:
+      input1: outer_input
+  nested_workflow:
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_input: data
+      outputs:
+        collection_output:
+          outputSource: create_pair/paired_output
+      steps:
+        create_pair:
+          tool_id: collection_creates_pair
+          in:
+            input1: inner_input
+    in:
+      inner_input: first_cat/out_file1
+  second_cat:
+    tool_id: cat1
+    in:
+      input1: outer_input
+"""
+
+WORKFLOW_NESTED_DYNAMIC_COLLECTION_OUTPUT = """
+class: GalaxyWorkflow
+inputs:
+  outer_input: data
+outputs:
+  outer_output:
+    outputSource: second_cat/out_file1
+  nested_collection_output:
+    outputSource: nested_workflow/split_collection_output
+steps:
+  first_cat:
+    tool_id: cat1
+    in:
+      input1: outer_input
+  nested_workflow:
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_input: data
+      outputs:
+        split_collection_output:
+          outputSource: split_up/split_output
+      steps:
+        split_up:
+          tool_id: collection_split_on_column
+          in:
+            input1: inner_input
+    in:
+      inner_input: first_cat/out_file1
+  second_cat:
+    tool_id: cat1
+    in:
+      input1: outer_input
+"""
+
+WORKFLOW_NESTED_TWICE_COLLECTION_OUTPUT = """
+class: GalaxyWorkflow
+inputs:
+  outer_input: data
+outputs:
+  outer_output:
+    outputSource: second_cat/out_file1
+  nested_collection_output:
+    outputSource: nested_workflow/collection_output
+steps:
+  first_cat:
+    tool_id: cat1
+    in:
+      input1: outer_input
+  nested_workflow:
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_input: data
+      outputs:
+        collection_output:
+          outputSource: inner_nested_workflow/inner_collection_output
+      steps:
+        inner_nested_workflow:
+          run:
+            class: GalaxyWorkflow
+            inputs:
+              really_inner_input: data
+            outputs:
+              inner_collection_output:
+                outputSource: create_pair/paired_output
+            steps:
+              create_pair:
+                tool_id: collection_creates_pair
+                in:
+                  input1: really_inner_input
+          in:
+            really_inner_input: inner_input
+    in:
+      inner_input: first_cat/out_file1
+  second_cat:
+    tool_id: cat1
+    in:
+      input1: outer_input
+"""
