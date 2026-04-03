@@ -553,7 +553,7 @@ def _batch_populated_check(session, collection_type: str, collection_ids: list[i
             dce = alias(dce_table)
             q = (
                 select(dc.c.populated_state)
-                .select_from(dce)
+                .select_from(dc)
                 .join(dce, dce.c.dataset_collection_id == dc.c.id)
                 .where(dc.c.id == root_id)
             )
