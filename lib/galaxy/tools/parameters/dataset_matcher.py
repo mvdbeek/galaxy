@@ -22,6 +22,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 
 import galaxy.model
 from galaxy.model import (
+    CollectionStateSummary,
     Dataset,
     DatasetCollection,
     DatasetCollectionElement,
@@ -32,10 +33,7 @@ from galaxy.model import (
 )
 
 if TYPE_CHECKING:
-    from galaxy.model import (
-        CollectionStateSummary,
-        History,
-    )
+    from galaxy.model import History
 
 log = getLogger(__name__)
 
@@ -392,7 +390,7 @@ def _batch_collection_summaries(
     collection_type_filter: Optional[set[str]],
     valid_input_states: set[str],
     visible_only: bool = True,
-) -> tuple[dict[int, "CollectionStateSummary"], set[int]]:
+) -> tuple[dict[int, CollectionStateSummary], set[int]]:
     """Batch-fetch collection summaries for all candidate HDCAs in a history.
 
     Returns:
@@ -459,8 +457,6 @@ def _batch_collection_summaries(
         coll_ids_by_type[coll_type] = [c for c in coll_ids if c not in nested_unpop]
 
     # Phase 3: batch summary query per type group
-    from galaxy.model import CollectionStateSummary
-
     summaries: dict[int, CollectionStateSummary] = {}  # hdca_id -> summary
     for coll_type, coll_ids in coll_ids_by_type.items():
         if not coll_ids:
@@ -575,10 +571,8 @@ def _batch_populated_check(session, collection_type: str, collection_ids: list[i
 
 def _batch_summary_query(
     session, collection_type: str, collection_ids: list[int], is_postgres: bool
-) -> dict[int, "CollectionStateSummary"]:
+) -> dict[int, CollectionStateSummary]:
     """Batch-fetch summaries for collections of a single type. Returns {collection_id: summary}."""
-    from galaxy.model import CollectionStateSummary
-
     if not collection_ids:
         return {}
 

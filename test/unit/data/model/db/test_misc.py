@@ -5,6 +5,12 @@ from sqlalchemy import inspect
 
 from galaxy import model as m
 from galaxy.model.unittest_utils.db_helpers import get_hdca_by_name
+from galaxy.tools.parameters.dataset_matcher import (
+    _batch_collection_summaries,
+    _batch_populated_check,
+    _batch_summary_query,
+    _prefetch_implicitly_converted_datasets,
+)
 from . import MockTransaction
 from .. import PRIVATE_OBJECT_STORE_ID
 
@@ -327,22 +333,6 @@ def test_task_metrics(make_task):
 # --- Batch matching tests ---
 
 
-@pytest.fixture()
-def batch_helpers():
-    """Lazily import batch helpers from dataset_matcher to avoid heavy deps at module level."""
-    from galaxy.tools.parameters.dataset_matcher import (
-        _batch_collection_summaries,
-        _batch_populated_check,
-        _batch_summary_query,
-        _prefetch_implicitly_converted_datasets,
-    )
-    return type("BatchHelpers", (), {
-        "batch_collection_summaries": staticmethod(_batch_collection_summaries),
-        "batch_populated_check": staticmethod(_batch_populated_check),
-        "batch_summary_query": staticmethod(_batch_summary_query),
-        "prefetch_implicitly_converted_datasets": staticmethod(_prefetch_implicitly_converted_datasets),
-    })()
-
 
 def _make_flat_collection(session, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca, history, n_elements=2, extension="txt", dbkey="hg19", state="ok"):
     """Helper: create a flat (list) collection with HDAs in a history."""
@@ -373,7 +363,7 @@ def _make_nested_collection(session, make_hda, make_dataset_collection, make_dat
     return hdca
 
 
-def test_batch_collection_summaries_flat(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_flat(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Batch summary for flat collections matches individual property calls."""
     history = make_history()
     hdcas = []
@@ -386,7 +376,7 @@ def test_batch_collection_summaries_flat(batch_helpers, session, make_history, m
         hdcas.append(hdca)
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert len(unpopulated) == 0
     assert len(summaries) == 5
@@ -399,7 +389,7 @@ def test_batch_collection_summaries_flat(batch_helpers, session, make_history, m
         assert batch_summary.states == individual_summary.states
 
 
-def test_batch_collection_summaries_nested(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_nested(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Batch summary for nested (list:paired) collections matches individual property calls."""
     history = make_history()
     hdcas = []
@@ -411,7 +401,7 @@ def test_batch_collection_summaries_nested(batch_helpers, session, make_history,
         hdcas.append(hdca)
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert len(unpopulated) == 0
     assert len(summaries) == 3
@@ -424,7 +414,7 @@ def test_batch_collection_summaries_nested(batch_helpers, session, make_history,
         assert batch_summary.states == individual_summary.states
 
 
-def test_batch_collection_summaries_filters_unpopulated(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_filters_unpopulated(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Collections with populated_state != 'ok' are excluded from summaries."""
     history = make_history()
 
@@ -442,14 +432,14 @@ def test_batch_collection_summaries_filters_unpopulated(batch_helpers, session, 
     session.flush()
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert ok_hdca.id in summaries
     assert unpop_hdca.id in unpopulated
     assert unpop_hdca.id not in summaries
 
 
-def test_batch_collection_summaries_filters_unpopulated_nested(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_filters_unpopulated_nested(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Nested collections with unpopulated sub-collections are excluded."""
     history = make_history()
 
@@ -460,13 +450,13 @@ def test_batch_collection_summaries_filters_unpopulated_nested(batch_helpers, se
     )
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert hdca.id in unpopulated
     assert hdca.id not in summaries
 
 
-def test_batch_collection_summaries_state_prefilter(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_state_prefilter(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Collections with datasets in invalid states are excluded from summaries."""
     history = make_history()
 
@@ -483,24 +473,24 @@ def test_batch_collection_summaries_state_prefilter(batch_helpers, session, make
     )
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert ok_hdca.id in summaries
     assert error_hdca.id not in summaries  # filtered by state
 
 
-def test_batch_collection_summaries_empty(batch_helpers, session, make_history):
+def test_batch_collection_summaries_empty(session, make_history):
     """Empty history returns empty results."""
     history = make_history()
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert summaries == {}
     assert unpopulated == set()
 
 
-def test_batch_collection_summaries_mixed_types(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_mixed_types(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Batch handles a mix of flat and nested collection types correctly."""
     history = make_history()
 
@@ -514,7 +504,7 @@ def test_batch_collection_summaries_mixed_types(batch_helpers, session, make_his
     )
 
     valid_states = m.Dataset.valid_input_states
-    summaries, unpopulated = batch_helpers.batch_collection_summaries(session, history.id, None, valid_states)
+    summaries, unpopulated = _batch_collection_summaries(session, history.id, None, valid_states)
 
     assert len(summaries) == 2
     assert flat_hdca.id in summaries
@@ -523,7 +513,7 @@ def test_batch_collection_summaries_mixed_types(batch_helpers, session, make_his
     assert "fastqsanger" in summaries[nested_hdca.id].extensions
 
 
-def test_batch_collection_summaries_type_filter(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
+def test_batch_collection_summaries_type_filter(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element, make_hdca):
     """Collection type filter restricts which types are returned."""
     history = make_history()
 
@@ -539,17 +529,17 @@ def test_batch_collection_summaries_type_filter(batch_helpers, session, make_his
     valid_states = m.Dataset.valid_input_states
 
     # Only flat
-    summaries, _ = batch_helpers.batch_collection_summaries(session, history.id, {"list"}, valid_states)
+    summaries, _ = _batch_collection_summaries(session, history.id, {"list"}, valid_states)
     assert flat_hdca.id in summaries
     assert nested_hdca.id not in summaries
 
     # Only nested
-    summaries, _ = batch_helpers.batch_collection_summaries(session, history.id, {"list:paired"}, valid_states)
+    summaries, _ = _batch_collection_summaries(session, history.id, {"list:paired"}, valid_states)
     assert flat_hdca.id not in summaries
     assert nested_hdca.id in summaries
 
 
-def test_prefetch_implicitly_converted_datasets(batch_helpers, session, make_history, make_hda):
+def test_prefetch_implicitly_converted_datasets(session, make_history, make_hda):
     """Batch-loading implicitly_converted_datasets populates the relationship."""
     history = make_history()
     hdas = []
@@ -571,7 +561,7 @@ def test_prefetch_implicitly_converted_datasets(batch_helpers, session, make_his
     for hda in hdas:
         session.expire(hda)
 
-    batch_helpers.prefetch_implicitly_converted_datasets(hdas)
+    _prefetch_implicitly_converted_datasets(hdas)
 
     # Verify the relationship is populated without extra queries
     for hda in hdas[:2]:
@@ -582,19 +572,19 @@ def test_prefetch_implicitly_converted_datasets(batch_helpers, session, make_his
         assert len(hda.implicitly_converted_datasets) == 0
 
 
-def test_batch_populated_check_empty(batch_helpers, session):
+def test_batch_populated_check_empty(session):
     """Empty collection_ids returns empty set."""
-    result = batch_helpers.batch_populated_check(session, "list:paired", [], False)
+    result = _batch_populated_check(session, "list:paired", [], False)
     assert result == set()
 
 
-def test_batch_summary_query_empty(batch_helpers, session):
+def test_batch_summary_query_empty(session):
     """Empty collection_ids returns empty dict."""
-    result = batch_helpers.batch_summary_query(session, "list", [], False)
+    result = _batch_summary_query(session, "list", [], False)
     assert result == {}
 
 
-def test_batch_summary_query_flat(batch_helpers, session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element):
+def test_batch_summary_query_flat(session, make_history, make_hda, make_dataset_collection, make_dataset_collection_element):
     """Batch summary query for flat collections returns correct data."""
     history = make_history()
     coll = make_dataset_collection(collection_type="list")
@@ -608,7 +598,7 @@ def test_batch_summary_query_flat(batch_helpers, session, make_history, make_hda
     make_dataset_collection_element(collection=coll, element=hda2)
     session.flush()
 
-    result = batch_helpers.batch_summary_query(session, "list", [coll.id], False)
+    result = _batch_summary_query(session, "list", [coll.id], False)
     assert coll.id in result
     summary = result[coll.id]
     assert set(summary.extensions) == {"bam", "txt"}
