@@ -203,9 +203,9 @@ class DatasetMatcher:
 
         results = []
         for hda in candidates:
-            match = self.valid_hda_match(hda, check_implicit_conversions=check_implicit_conversions)
-            if match and not self.filter(match.hda):
-                results.append((hda, match))
+            hda_match = self.valid_hda_match(hda, check_implicit_conversions=check_implicit_conversions)
+            if hda_match and not self.filter(hda_match.hda):
+                results.append((hda, hda_match))
         return results
 
     def filter(self, hda):
@@ -380,9 +380,9 @@ class DatasetCollectionMatcher:
         for hdca in hdcas:
             if collection_type_filter and hdca.collection.collection_type not in collection_type_filter:
                 continue
-            match = self.hdca_match(hdca)
-            if match:
-                results.append((hdca.id, match.implicit_conversion))
+            hdca_match = self.hdca_match(hdca)
+            if hdca_match:
+                results.append((hdca.id, hdca_match.implicit_conversion))
         return results
 
 
