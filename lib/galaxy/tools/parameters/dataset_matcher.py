@@ -1,6 +1,41 @@
+from collections import defaultdict
 from logging import getLogger
+from typing import (
+    Optional,
+    TYPE_CHECKING,
+)
+
+from sqlalchemy import (
+    alias,
+    and_,
+    any_,
+    func,
+    not_,
+    or_,
+    select,
+)
+from sqlalchemy.orm import (
+    joinedload,
+    object_session,
+)
+from sqlalchemy.orm.attributes import set_committed_value
 
 import galaxy.model
+from galaxy.model import (
+    Dataset,
+    DatasetCollection,
+    DatasetCollectionElement,
+    DatasetPermissions,
+    HistoryDatasetAssociation,
+    HistoryDatasetCollectionAssociation,
+    ImplicitlyConvertedDatasetAssociation,
+)
+
+if TYPE_CHECKING:
+    from galaxy.model import (
+        CollectionStateSummary,
+        History,
+    )
 
 log = getLogger(__name__)
 
@@ -150,6 +185,29 @@ class DatasetMatcher:
                 return False
             return self.valid_hda_match(hda, check_implicit_conversions=check_implicit_conversions)
 
+    def hda_match_collections(self, hdas, check_implicit_conversions=True, ensure_visible=True):
+        """Batch-match HDAs with pre-loaded conversion data."""
+        valid_input_states = self.dataset_matcher_factory.valid_input_states
+        require_public = self.tool and self.tool.tool_type == "data_destination"
+
+        candidates = [
+            hda
+            for hda in hdas
+            if hda.dataset.state in valid_input_states
+            and (not ensure_visible or hda.visible)
+            and (not require_public or self.trans.app.security_agent.dataset_is_public(hda.dataset))
+        ]
+
+        if candidates and check_implicit_conversions:
+            _prefetch_implicitly_converted_datasets(candidates)
+
+        results = []
+        for hda in candidates:
+            match = self.valid_hda_match(hda, check_implicit_conversions=check_implicit_conversions)
+            if match and not self.filter(match.hda):
+                results.append((hda, match))
+        return results
+
     def filter(self, hda):
         """Filter out this value based on other values for job (if
         applicable).
@@ -236,6 +294,41 @@ class SummaryDatasetCollectionMatcher:
 
         return HdcaImplicitMatch() if uses_implicit_conversion else HdcaDirectMatch()
 
+    def hdca_match_collections(self, history, collection_type_filter=None, visible_only=True):
+        """Batch-match HDCAs via lightweight DB queries.
+
+        Returns list of (hdca_id, implicit_conversion) for matching HDCAs.
+        """
+        session = object_session(history)
+        summaries, unpopulated_ids = _batch_collection_summaries(
+            session,
+            history.id,
+            collection_type_filter,
+            self.dataset_matcher_factory.valid_input_states,
+            visible_only=visible_only,
+        )
+
+        formats = self.dataset_matcher.param.formats
+        datatypes_registry = self._trans.app.datatypes_registry
+
+        results = []
+        for hdca_id, summary in summaries.items():
+            uses_implicit_conversion = False
+            skip = False
+            for extension in summary.extensions:
+                direct_match, converted_ext, _ = datatypes_registry.find_conversion_destination_for_dataset_by_extensions(
+                    extension, formats
+                )
+                if direct_match:
+                    continue
+                if not converted_ext:
+                    skip = True
+                    break
+                uses_implicit_conversion = True
+            if not skip:
+                results.append((hdca_id, uses_implicit_conversion))
+        return results
+
 
 class DatasetCollectionMatcher:
     def __init__(self, trans, dataset_matcher):
@@ -279,6 +372,401 @@ class DatasetCollectionMatcher:
                 uses_implicit_conversion = True
 
         return valid and (HdcaImplicitMatch() if uses_implicit_conversion else HdcaDirectMatch())
+
+    def hdca_match_collections(self, history, collection_type_filter=None, visible_only=True):
+        """Fallback batch match — loads full models and delegates to per-item hdca_match."""
+        hdcas = history.active_visible_dataset_collections if visible_only else history.active_dataset_collections
+        results = []
+        for hdca in hdcas:
+            if collection_type_filter and hdca.collection.collection_type not in collection_type_filter:
+                continue
+            match = self.hdca_match(hdca)
+            if match:
+                results.append((hdca.id, match.implicit_conversion))
+        return results
+
+
+def _batch_collection_summaries(
+    session,
+    history_id: int,
+    collection_type_filter: Optional[set[str]],
+    valid_input_states: set[str],
+    visible_only: bool = True,
+) -> tuple[dict[int, "CollectionStateSummary"], set[int]]:
+    """Batch-fetch collection summaries for all candidate HDCAs in a history.
+
+    Returns:
+        (summaries, unpopulated_ids) where summaries maps hdca_id to
+        CollectionStateSummary (only for populated collections whose dataset
+        states are all in valid_input_states), and unpopulated_ids is the
+        set of hdca_ids whose collections are not fully populated.
+    """
+    hdca_t = HistoryDatasetCollectionAssociation.__table__
+    dc_t = DatasetCollection.__table__
+
+    # Phase 1: lightweight metadata query — no ORM models
+    meta_q = (
+        select(
+            hdca_t.c.id.label("hdca_id"),
+            dc_t.c.id.label("collection_id"),
+            dc_t.c.collection_type,
+            dc_t.c.populated_state,
+        )
+        .select_from(hdca_t.join(dc_t, dc_t.c.id == hdca_t.c.collection_id))
+        .where(
+            hdca_t.c.history_id == history_id,
+            not_(hdca_t.c.deleted),
+        )
+    )
+    if visible_only:
+        meta_q = meta_q.where(hdca_t.c.visible == True)  # noqa: E712
+    if collection_type_filter:
+        meta_q = meta_q.where(dc_t.c.collection_type.in_(collection_type_filter))
+
+    rows = session.execute(meta_q).all()
+    if not rows:
+        return {}, set()
+
+    # Map hdca_id -> (collection_id, collection_type, populated_state)
+    hdca_to_coll: dict[int, tuple[int, str, str]] = {}
+    for r in rows:
+        hdca_to_coll[r.hdca_id] = (r.collection_id, r.collection_type, r.populated_state)
+
+    # Group collection_ids by type; track flat-unpopulated separately
+    coll_ids_by_type: dict[str, list[int]] = defaultdict(list)
+    hdca_by_coll: dict[int, list[int]] = defaultdict(list)  # coll_id -> [hdca_id, ...]
+    unpopulated_hdca_ids: set[int] = set()
+
+    for hdca_id, (coll_id, coll_type, pop_state) in hdca_to_coll.items():
+        hdca_by_coll[coll_id].append(hdca_id)
+        if ":" not in coll_type:
+            # Flat: populated_state on root is sufficient
+            if pop_state != DatasetCollection.populated_states.OK:
+                unpopulated_hdca_ids.add(hdca_id)
+                continue
+        coll_ids_by_type[coll_type].append(coll_id)
+
+    # Phase 2: for nested types, batch check populated_optimized
+    is_postgres = session.bind and session.bind.dialect.name == "postgresql"
+    for coll_type, coll_ids in list(coll_ids_by_type.items()):
+        if ":" not in coll_type:
+            continue
+        nested_unpop = _batch_populated_check(session, coll_type, coll_ids, is_postgres)
+        for coll_id in nested_unpop:
+            for hid in hdca_by_coll[coll_id]:
+                unpopulated_hdca_ids.add(hid)
+        # Remove unpopulated from summary fetch
+        coll_ids_by_type[coll_type] = [c for c in coll_ids if c not in nested_unpop]
+
+    # Phase 3: batch summary query per type group
+    from galaxy.model import CollectionStateSummary
+
+    summaries: dict[int, CollectionStateSummary] = {}  # hdca_id -> summary
+    for coll_type, coll_ids in coll_ids_by_type.items():
+        if not coll_ids:
+            continue
+        coll_summaries = _batch_summary_query(session, coll_type, coll_ids, is_postgres)
+        for coll_id, summary in coll_summaries.items():
+            # State pre-filter
+            if any(s not in valid_input_states for s in summary.states):
+                continue
+            for hid in hdca_by_coll[coll_id]:
+                if hid not in unpopulated_hdca_ids:
+                    summaries[hid] = summary
+
+    return summaries, unpopulated_hdca_ids
+
+
+def _batch_populated_check(session, collection_type: str, collection_ids: list[int], is_postgres: bool) -> set[int]:
+    """Return the set of collection_ids that are NOT fully populated (nested types only)."""
+    if not collection_ids:
+        return set()
+
+    dce_table = DatasetCollectionElement.__table__
+    dc_table = DatasetCollection.__table__
+    n_intermediates = collection_type.count(":")
+
+    if is_postgres:
+        inner_dce = alias(dce_table)
+        child_ids_array = func.array(
+            select(inner_dce.c.child_collection_id)
+            .where(inner_dce.c.dataset_collection_id == any_(collection_ids))
+            .scalar_subquery()
+        )
+        level_conditions = [dc_table.c.id == any_(child_ids_array)]
+        for _ in range(n_intermediates - 1):
+            next_dce = alias(dce_table)
+            child_ids_array = func.array(
+                select(next_dce.c.child_collection_id)
+                .where(next_dce.c.dataset_collection_id == any_(child_ids_array))
+                .scalar_subquery()
+            )
+            level_conditions.append(dc_table.c.id == any_(child_ids_array))
+
+        # Find any sub-collection that is not OK
+        stmt = (
+            select(dc_table.c.id)
+            .where(
+                or_(*level_conditions),
+                dc_table.c.populated_state != DatasetCollection.populated_states.OK,
+            )
+        )
+        bad_sub_ids = {r[0] for r in session.execute(stmt).all()}
+        if not bad_sub_ids:
+            return set()
+
+        # Walk back to find which root IDs have bad sub-collections
+        # Re-walk the tree to map bad sub-collection -> root
+        unpopulated_roots: set[int] = set()
+        for root_id in collection_ids:
+            inner = alias(dce_table)
+            child_array = func.array(
+                select(inner.c.child_collection_id)
+                .where(inner.c.dataset_collection_id == root_id)
+                .scalar_subquery()
+            )
+            all_conditions = [dc_table.c.id == any_(child_array)]
+            for _ in range(n_intermediates - 1):
+                nxt = alias(dce_table)
+                child_array = func.array(
+                    select(nxt.c.child_collection_id)
+                    .where(nxt.c.dataset_collection_id == any_(child_array))
+                    .scalar_subquery()
+                )
+                all_conditions.append(dc_table.c.id == any_(child_array))
+            check = (
+                select(func.count())
+                .select_from(dc_table)
+                .where(
+                    or_(*all_conditions),
+                    dc_table.c.populated_state != DatasetCollection.populated_states.OK,
+                )
+            )
+            if session.execute(check).scalar():
+                unpopulated_roots.add(root_id)
+        return unpopulated_roots
+    else:
+        # SQLite: use outerjoin chain per root to check populated states
+        unpopulated: set[int] = set()
+        for root_id in collection_ids:
+            dc = alias(dc_table)
+            dce = alias(dce_table)
+            q = (
+                select(dc.c.populated_state)
+                .select_from(dce)
+                .join(dce, dce.c.dataset_collection_id == dc.c.id)
+                .where(dc.c.id == root_id)
+            )
+            depth = collection_type
+            while ":" in depth:
+                inner_dce = alias(dce_table)
+                inner_dc = alias(dc_table)
+                q = q.outerjoin(inner_dce, inner_dce.c.dataset_collection_id == dce.c.child_collection_id)
+                q = q.outerjoin(inner_dc, inner_dc.c.id == dce.c.child_collection_id)
+                q = q.add_columns(inner_dc.c.populated_state)
+                dce = inner_dce
+                depth = depth.split(":", 1)[1]
+            for row in session.execute(q):
+                if any(s not in (DatasetCollection.populated_states.OK, None) for s in row):
+                    unpopulated.add(root_id)
+                    break
+        return unpopulated
+
+
+def _batch_summary_query(
+    session, collection_type: str, collection_ids: list[int], is_postgres: bool
+) -> dict[int, "CollectionStateSummary"]:
+    """Batch-fetch summaries for collections of a single type. Returns {collection_id: summary}."""
+    from galaxy.model import CollectionStateSummary
+
+    if not collection_ids:
+        return {}
+
+    dce_table = DatasetCollectionElement.__table__
+    dc_table = DatasetCollection.__table__
+    hda_table = HistoryDatasetAssociation.__table__
+    dataset_table = Dataset.__table__
+
+    if ":" not in collection_type:
+        # Flat collection — simple join
+        dce = alias(dce_table)
+        q = (
+            select(
+                dce.c.dataset_collection_id.label("root_id"),
+                hda_table.c._metadata,
+                hda_table.c.extension,
+                hda_table.c.deleted,
+                dataset_table.c.state,
+            )
+            .select_from(dce)
+            .join(hda_table, hda_table.c.id == dce.c.hda_id)
+            .join(dataset_table, dataset_table.c.id == hda_table.c.dataset_id)
+            .where(dce.c.dataset_collection_id.in_(collection_ids))
+            .order_by(dce.c.dataset_collection_id, dce.c.element_index)
+        )
+    elif is_postgres:
+        # Nested on PostgreSQL — ARRAY walk pattern
+        n_intermediates = collection_type.count(":")
+        inner_dce = alias(dce_table)
+        child_ids_subq = select(inner_dce.c.child_collection_id).where(
+            inner_dce.c.dataset_collection_id == any_(collection_ids)
+        )
+        # Track root: walk back from leaf
+        # We need to build a nav chain from leaf to root
+        for _ in range(n_intermediates - 1):
+            next_dce = alias(dce_table)
+            child_ids_subq = select(next_dce.c.child_collection_id).where(
+                next_dce.c.dataset_collection_id == any_(func.array(child_ids_subq.scalar_subquery()))
+            )
+
+        leaf_dce = alias(dce_table)
+        q = (
+            select()
+            .select_from(leaf_dce)
+            .where(leaf_dce.c.dataset_collection_id == any_(func.array(child_ids_subq.scalar_subquery())))
+        )
+
+        # Build nav chain to find root_id
+        coll_ids_chain = [leaf_dce.c.dataset_collection_id]
+        for _ in range(n_intermediates):
+            nav = alias(dce_table)
+            coll_ids_chain.append(
+                select(nav.c.dataset_collection_id)
+                .where(nav.c.child_collection_id == coll_ids_chain[-1])
+                .correlate(leaf_dce)
+                .limit(1)
+                .scalar_subquery()
+            )
+
+        root_id_expr = coll_ids_chain[-1]
+        q = q.add_columns(root_id_expr.label("root_id"))
+        q = (
+            q.join(hda_table, hda_table.c.id == leaf_dce.c.hda_id)
+            .join(dataset_table, dataset_table.c.id == hda_table.c.dataset_id)
+            .add_columns(
+                hda_table.c._metadata,
+                hda_table.c.extension,
+                hda_table.c.deleted,
+                dataset_table.c.state,
+            )
+        )
+    else:
+        # Nested on SQLite — outerjoin chain
+        dc = alias(dc_table)
+        dce = alias(dce_table)
+        q = (
+            select(dc.c.id.label("root_id"))
+            .select_from(dc)
+            .join(dce, dce.c.dataset_collection_id == dc.c.id)
+            .where(dc.c.id.in_(collection_ids))
+        )
+        depth = collection_type
+        while ":" in depth:
+            inner_dce = alias(dce_table)
+            q = q.outerjoin(inner_dce, inner_dce.c.dataset_collection_id == dce.c.child_collection_id)
+            dce = inner_dce
+            depth = depth.split(":", 1)[1]
+
+        q = (
+            q.join(hda_table, hda_table.c.id == dce.c.hda_id)
+            .join(dataset_table, dataset_table.c.id == hda_table.c.dataset_id)
+            .add_columns(
+                hda_table.c._metadata,
+                hda_table.c.extension,
+                hda_table.c.deleted,
+                dataset_table.c.state,
+            )
+        )
+
+    # Execute and aggregate per root_id
+    rows_by_root: dict[int, list] = defaultdict(list)
+    for row in session.execute(q):
+        if row.root_id is not None:
+            rows_by_root[row.root_id].append(row)
+
+    result: dict[int, CollectionStateSummary] = {}
+    for coll_id, rows in rows_by_root.items():
+        extensions: set[str] = set()
+        dbkeys: set = set()
+        states: dict[str, int] = defaultdict(int)
+        deleted = 0
+        for row in rows:
+            metadata = row._metadata
+            if metadata:
+                dbkey_field = metadata.get("dbkey")
+                if isinstance(dbkey_field, list):
+                    dbkeys.update(dbkey_field)
+                else:
+                    dbkeys.add(dbkey_field)
+            if row.extension:
+                extensions.add(row.extension)
+            if row.deleted:
+                deleted += 1
+            if row.state:
+                states[row.state] += 1
+        filtered_dbkeys = sorted(k for k in dbkeys if k is not None)
+        filtered_extensions = sorted(e for e in extensions if e is not None)
+        result[coll_id] = CollectionStateSummary(filtered_dbkeys, filtered_extensions, dict(states), deleted)
+
+    return result
+
+
+def _prefetch_implicitly_converted_datasets(hdas):
+    """Batch-load implicitly_converted_datasets for HDAs to avoid N+1."""
+    if not hdas:
+        return
+    session = object_session(hdas[0])
+    if session is None:
+        return
+    hda_ids = [hda.id for hda in hdas if "implicitly_converted_datasets" not in hda.__dict__]
+    if not hda_ids:
+        return
+    stmt = (
+        select(ImplicitlyConvertedDatasetAssociation)
+        .where(ImplicitlyConvertedDatasetAssociation.hda_parent_id.in_(hda_ids))
+        .options(joinedload(ImplicitlyConvertedDatasetAssociation.dataset))
+    )
+    assocs = session.scalars(stmt).unique().all()
+    by_parent: dict[int, list] = defaultdict(list)
+    for a in assocs:
+        by_parent[a.hda_parent_id].append(a)
+    for hda in hdas:
+        if hda.id in hda_ids:
+            set_committed_value(hda, "implicitly_converted_datasets", by_parent.get(hda.id, []))
+
+
+def _load_hdcas(session, hdca_ids):
+    """Load full HDCA ORM objects by ID with collection + tags."""
+    if not hdca_ids:
+        return {}
+    stmt = (
+        select(HistoryDatasetCollectionAssociation)
+        .where(HistoryDatasetCollectionAssociation.id.in_(hdca_ids))
+        .options(
+            joinedload(HistoryDatasetCollectionAssociation.collection),
+            joinedload(HistoryDatasetCollectionAssociation.tags),
+        )
+    )
+    return {hdca.id: hdca for hdca in session.scalars(stmt).unique().all()}
+
+
+def _direct_match_types(history_query) -> Optional[set[str]]:
+    """Extract collection_type strings accepted by direct_match."""
+    if history_query.collection_type_descriptions is None:
+        return None
+    types: set[str] = set()
+    for desc in history_query.collection_type_descriptions:
+        ct = desc.collection_type
+        types.add(ct)
+        if ct == "paired":
+            types.add("paired_or_unpaired")
+        elif ct == "paired_or_unpaired":
+            types.add("paired")
+        if ct.endswith(":paired_or_unpaired"):
+            prefix = ct[: -len(":paired_or_unpaired")]
+            types.add(prefix)
+            types.add(f"{prefix}:paired")
+    return types
 
 
 __all__ = ("get_dataset_matcher_factory", "set_dataset_matcher_factory", "unset_dataset_matcher_factory")

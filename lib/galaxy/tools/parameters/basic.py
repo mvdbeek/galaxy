@@ -1921,15 +1921,18 @@ class BaseDataToolParameter(ToolParameter):
             dataset_matcher_factory = get_dataset_matcher_factory(trans)
             dataset_matcher = dataset_matcher_factory.dataset_matcher(self, other_values)
             if isinstance(self, DataToolParameter):
-                for hda in reversed(history.active_visible_datasets_and_roles):
-                    match = dataset_matcher.hda_match(hda)
-                    if match:
-                        return match.hda
+                matches = dataset_matcher.hda_match_collections(
+                    list(reversed(history.active_visible_datasets_and_roles))
+                )
+                if matches:
+                    return matches[0][1].hda
             else:
                 dataset_collection_matcher = dataset_matcher_factory.dataset_collection_matcher(dataset_matcher)
-                for hdca in reversed(history.active_visible_dataset_collections):
-                    if dataset_collection_matcher.hdca_match(hdca):
-                        return hdca
+                matching_ids = dataset_collection_matcher.hdca_match_collections(history, visible_only=True)
+                if matching_ids:
+                    # Last (highest hid) matching HDCA
+                    hdca_id = matching_ids[-1][0]
+                    return trans.sa_session.get(HistoryDatasetCollectionAssociation, hdca_id)
 
     def to_json(self, value, app, use_security):
 
@@ -2424,16 +2427,14 @@ class DataToolParameter(BaseDataToolParameter):
         # among the active visible datasets and (b) carry forward the rest as
         # "keep" options so the client can pre-select them.
         job_input_values = util.listify(other_values.get(self.name))
-        # Prefetch all at once, big list of visible, non-deleted datasets.
+        # Batch-match all visible, non-deleted datasets.
         matches_by_hid: dict[int, list] = {}
-        for hda in history.active_visible_datasets_and_roles:
-            match = dataset_matcher.hda_match(hda)
-            if match:
-                m = match.hda
-                job_input_values = [h for h in job_input_values if h != m and h != hda]
-                if m.hid not in matches_by_hid:
-                    matches_by_hid[m.hid] = []
-                matches_by_hid[m.hid].append(match)
+        for hda, match in dataset_matcher.hda_match_collections(history.active_visible_datasets_and_roles):
+            m = match.hda
+            job_input_values = [h for h in job_input_values if h != m and h != hda]
+            if m.hid not in matches_by_hid:
+                matches_by_hid[m.hid] = []
+            matches_by_hid[m.hid].append(match)
 
         # Add only original HDAs to the options, implicit conversions will be skipped
         for matches in matches_by_hid.values():
@@ -2477,9 +2478,15 @@ class DataToolParameter(BaseDataToolParameter):
 
         # add dataset collections
         dataset_collection_matcher = dataset_matcher_factory.dataset_collection_matcher(dataset_matcher)
-        for hdca in history.active_visible_dataset_collections:
-            match = dataset_collection_matcher.hdca_match(hdca)
-            if match:
+        from galaxy.tools.parameters.dataset_matcher import _load_hdcas
+
+        matching_collection_ids = dataset_collection_matcher.hdca_match_collections(history, visible_only=True)
+        if matching_collection_ids:
+            hdca_map = _load_hdcas(trans.sa_session, [hid for hid, _ in matching_collection_ids])
+            for hdca_id, implicit_conversion in matching_collection_ids:
+                hdca = hdca_map.get(hdca_id)
+                if not hdca:
+                    continue
                 subcollection_type = None
                 if multiple and hdca.collection.collection_type != "list":
                     collection_type_description = self._history_query(trans).can_map_over(hdca)
@@ -2489,10 +2496,9 @@ class DataToolParameter(BaseDataToolParameter):
                         continue
 
                 name = hdca.name
-                if match.implicit_conversion:
+                if implicit_conversion:
                     name = f"{name} (with implicit datatype conversion)"
                 append(d["options"]["hdca"], hdca, name, "hdca", subcollection_type=subcollection_type)
-                continue
 
         # sort both lists
         d["options"]["hda"] = sorted(d["options"]["hda"], key=lambda k: k.get("hid", -1), reverse=True)
@@ -2543,29 +2549,47 @@ class DataCollectionToolParameter(BaseDataToolParameter):
         return query.HistoryQuery.from_parameter(self, dataset_collection_type_descriptions)
 
     def match_collections(self, trans, history, dataset_collection_matcher):
-        dataset_collections = trans.app.dataset_collection_manager.history_dataset_collections(
-            history, self._history_query(trans)
+        from galaxy.tools.parameters.dataset_matcher import (
+            _direct_match_types,
+            _load_hdcas,
         )
 
-        for dataset_collection_instance in dataset_collections:
-            match = dataset_collection_matcher.hdca_match(dataset_collection_instance)
-            if not match:
+        history_query = self._history_query(trans)
+        type_filter = _direct_match_types(history_query)
+        matching_ids = dataset_collection_matcher.hdca_match_collections(
+            history, collection_type_filter=type_filter, visible_only=False
+        )
+        if not matching_ids:
+            return
+        hdca_map = _load_hdcas(trans.sa_session, [hdca_id for hdca_id, _ in matching_ids])
+        for hdca_id, implicit_conversion in matching_ids:
+            hdca = hdca_map.get(hdca_id)
+            if not hdca:
                 continue
-            # Filter sample sheet collections by column_definitions compatibility
             if self._column_definitions:
-                collection_cols = dataset_collection_instance.collection.column_definitions
+                collection_cols = hdca.collection.column_definitions
                 if not column_definitions_compatible(collection_cols, self._column_definitions):
                     continue
-            yield dataset_collection_instance, match.implicit_conversion
+            yield hdca, implicit_conversion
 
     def match_multirun_collections(self, trans, history, dataset_collection_matcher):
-        for history_dataset_collection in history.active_visible_dataset_collections:
-            if not self._history_query(trans).can_map_over(history_dataset_collection):
-                continue
+        from galaxy.tools.parameters.dataset_matcher import _load_hdcas
 
-            match = dataset_collection_matcher.hdca_match(history_dataset_collection)
-            if match:
-                yield history_dataset_collection, match.implicit_conversion
+        history_query = self._history_query(trans)
+        # can_map_over is hard to express as SQL — fetch all visible and post-filter
+        matching_ids = dataset_collection_matcher.hdca_match_collections(
+            history, collection_type_filter=None, visible_only=True
+        )
+        if not matching_ids:
+            return
+        hdca_map = _load_hdcas(trans.sa_session, [hdca_id for hdca_id, _ in matching_ids])
+        for hdca_id, implicit_conversion in matching_ids:
+            hdca = hdca_map.get(hdca_id)
+            if not hdca:
+                continue
+            if not history_query.can_map_over(hdca):
+                continue
+            yield hdca, implicit_conversion
 
     def from_json(self, value, trans, other_values=None):
         session = trans.sa_session
