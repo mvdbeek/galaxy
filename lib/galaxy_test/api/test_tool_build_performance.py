@@ -77,3 +77,67 @@ class TestToolBuildPerformance(ApiTestCase):
                 f"Tool build took {best:.2f}s (best of 3) with {NUM_DATASETS} datasets and "
                 f"{NUM_COLLECTIONS} collections, exceeding {MAX_BUILD_SECONDS}s threshold"
             )
+
+    @skip_without_tool("sort1")
+    def test_tool_build_with_implicit_conversions(self):
+        """Test tool build when datasets require implicit conversion.
+
+        sort1 expects tabular format. We upload fasta datasets which have a
+        registered converter to tabular (fasta_to_tabular_converter), so each
+        dataset will be offered as an implicit conversion match. This exercises
+        the _prefetch_implicitly_converted_datasets batch-loading path that
+        avoids N+1 queries on the implicitly_converted_datasets relationship.
+        """
+        with self.dataset_populator.test_history() as history_id:
+            # Upload fasta datasets — these don't directly match tabular
+            # but have a converter, so they appear as implicit conversion options
+            items = [
+                {
+                    "src": "pasted",
+                    "paste_content": f">seq_{i}\nACGTACGT\n",
+                    "name": f"fasta_{i}",
+                    "ext": "fasta",
+                    "dbkey": "?",
+                }
+                for i in range(NUM_DATASETS)
+            ]
+            self.dataset_populator.fetch_hdas(history_id, items, wait=True)
+
+            # Also add some direct-match tabular datasets
+            tabular_items = [
+                {
+                    "src": "pasted",
+                    "paste_content": f"col1\tcol2\nval{i}\tval{i}\n",
+                    "name": f"tabular_{i}",
+                    "ext": "tabular",
+                    "dbkey": "?",
+                }
+                for i in range(NUM_DATASETS)
+            ]
+            self.dataset_populator.fetch_hdas(history_id, tabular_items, wait=True)
+
+            # Measure tool build time (best of 3 runs)
+            timings = []
+            for _ in range(3):
+                start = time.time()
+                build = self.dataset_populator.build_tool_state("sort1", history_id)
+                elapsed = time.time() - start
+                timings.append(elapsed)
+
+            best = min(timings)
+
+            # Verify response: tabular datasets should be direct matches,
+            # fasta datasets should appear as implicit conversion options
+            inputs = build["inputs"]
+            data_input = [i for i in inputs if i["name"] == "input"][0]
+            hda_options = data_input["options"]["hda"]
+
+            # Should have both direct and implicit conversion matches
+            assert len(hda_options) >= NUM_DATASETS, (
+                f"Expected at least {NUM_DATASETS} HDA options, got {len(hda_options)}"
+            )
+
+            assert best < MAX_BUILD_SECONDS, (
+                f"Tool build took {best:.2f}s (best of 3) with {NUM_DATASETS} fasta + "
+                f"{NUM_DATASETS} tabular datasets, exceeding {MAX_BUILD_SECONDS}s threshold"
+            )
