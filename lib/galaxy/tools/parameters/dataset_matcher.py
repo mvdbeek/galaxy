@@ -59,6 +59,7 @@ class DatasetMatcherFactory:
         self._tool = tool
         self._data_inputs = []
         self._matches_format_cache = {}
+        self._collection_summaries_cache: dict[tuple, tuple[dict[int, CollectionStateSummary], set[int]]] = {}
         if tool:
             valid_input_states = tool.valid_input_states
         else:
@@ -112,6 +113,14 @@ class DatasetMatcherFactory:
 
     def dataset_matcher(self, param, other_values):
         return DatasetMatcher(self, self._trans, param, other_values)
+
+    def batch_collection_summaries(self, session, history_id, collection_type_filter, visible_only):
+        cache_key = (history_id, frozenset(collection_type_filter) if collection_type_filter else None, visible_only)
+        if cache_key not in self._collection_summaries_cache:
+            self._collection_summaries_cache[cache_key] = _batch_collection_summaries(
+                session, history_id, collection_type_filter, self.valid_input_states, visible_only=visible_only
+            )
+        return self._collection_summaries_cache[cache_key]
 
     def dataset_collection_matcher(self, dataset_matcher):
         if self._can_process_summary:
@@ -298,12 +307,8 @@ class SummaryDatasetCollectionMatcher:
         Returns list of (hdca_id, implicit_conversion) for matching HDCAs.
         """
         session = object_session(history)
-        summaries, unpopulated_ids = _batch_collection_summaries(
-            session,
-            history.id,
-            collection_type_filter,
-            self.dataset_matcher_factory.valid_input_states,
-            visible_only=visible_only,
+        summaries, unpopulated_ids = self.dataset_matcher_factory.batch_collection_summaries(
+            session, history.id, collection_type_filter, visible_only
         )
 
         formats = self.dataset_matcher.param.formats
