@@ -75,6 +75,38 @@ class TestToolBuildPerformance(ApiTestCase):
                 f"{NUM_COLLECTIONS} collections, exceeding {MAX_BUILD_SECONDS}s threshold"
             )
 
+    @skip_without_tool("cat_collection")
+    def test_tool_build_with_list_collections(self):
+        """Test tool build for a data_collection input with many list collections."""
+        with self.dataset_populator.test_history() as history_id:
+            # Bulk-create list collections via fetch API (single job)
+            self.dataset_collection_populator.create_lists_in_history(
+                history_id, count=NUM_COLLECTIONS, wait=True
+            )
+
+            # Measure tool build time (best of 3 runs)
+            timings = []
+            for _ in range(3):
+                start = time.time()
+                build = self.dataset_populator.build_tool_state("cat_collection", history_id)
+                elapsed = time.time() - start
+                timings.append(elapsed)
+
+            best = min(timings)
+
+            # Verify the build response contains expected collection options
+            inputs = build["inputs"]
+            data_input = [i for i in inputs if i["name"] == "input1"][0]
+            hdca_options = data_input["options"]["hdca"]
+            assert len(hdca_options) >= NUM_COLLECTIONS, (
+                f"Expected at least {NUM_COLLECTIONS} HDCA options, got {len(hdca_options)}"
+            )
+
+            assert best < MAX_BUILD_SECONDS, (
+                f"Tool build took {best:.2f}s (best of 3) with {NUM_COLLECTIONS} list collections, "
+                f"exceeding {MAX_BUILD_SECONDS}s threshold"
+            )
+
     @skip_without_tool("sort1")
     def test_tool_build_with_implicit_conversions(self):
         """Test tool build when datasets require implicit conversion.

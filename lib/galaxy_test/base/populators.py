@@ -3803,6 +3803,27 @@ class BaseDatasetCollectionPopulator:
         payload = {"history_id": history_id, "targets": targets}
         return self.dataset_populator.fetch(payload, wait=wait)
 
+    def create_lists_in_history(
+        self, history_id: str, count: int, elements_per_list: int = 3, ext: str = "txt", wait: bool = False
+    ):
+        """Create multiple list collections in a single fetch API call."""
+        targets = []
+        for i in range(count):
+            elements = [
+                {"name": f"data{j}", "src": "pasted", "paste_content": f"list {i} element {j}\n", "ext": ext}
+                for j in range(elements_per_list)
+            ]
+            targets.append(
+                {
+                    "destination": {"type": "hdca"},
+                    "elements": elements,
+                    "collection_type": "list",
+                    "name": f"List {i}",
+                }
+            )
+        payload = {"history_id": history_id, "targets": targets}
+        return self.dataset_populator.fetch(payload, wait=wait)
+
     def create_list_in_history(self, history_id: str, wait: bool = False, **kwds):
         payload = self.create_list_payload(history_id, instance_type="history", **kwds)
         return self.__create(payload, wait=wait)
