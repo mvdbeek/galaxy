@@ -592,16 +592,13 @@ def _batch_summary_query(
         q = (
             select(
                 dce.c.dataset_collection_id.label("root_id"),
-                hda_table.c._metadata,
                 hda_table.c.extension,
-                hda_table.c.deleted,
                 dataset_table.c.state,
             )
             .select_from(dce)
             .join(hda_table, hda_table.c.id == dce.c.hda_id)
             .join(dataset_table, dataset_table.c.id == hda_table.c.dataset_id)
             .where(dce.c.dataset_collection_id.in_(collection_ids))
-            .order_by(dce.c.dataset_collection_id, dce.c.element_index)
         )
     elif is_postgres:
         # Nested on PostgreSQL — ARRAY walk pattern
@@ -643,9 +640,7 @@ def _batch_summary_query(
             q.join(hda_table, hda_table.c.id == leaf_dce.c.hda_id)
             .join(dataset_table, dataset_table.c.id == hda_table.c.dataset_id)
             .add_columns(
-                hda_table.c._metadata,
                 hda_table.c.extension,
-                hda_table.c.deleted,
                 dataset_table.c.state,
             )
         )
@@ -670,9 +665,7 @@ def _batch_summary_query(
             q.join(hda_table, hda_table.c.id == dce.c.hda_id)
             .join(dataset_table, dataset_table.c.id == hda_table.c.dataset_id)
             .add_columns(
-                hda_table.c._metadata,
                 hda_table.c.extension,
-                hda_table.c.deleted,
                 dataset_table.c.state,
             )
         )
@@ -686,26 +679,14 @@ def _batch_summary_query(
     result: dict[int, CollectionStateSummary] = {}
     for coll_id, rows in rows_by_root.items():
         extensions: set[str] = set()
-        dbkeys: set = set()
         states: dict[str, int] = defaultdict(int)
-        deleted = 0
         for row in rows:
-            metadata = row._metadata
-            if metadata:
-                dbkey_field = metadata.get("dbkey")
-                if isinstance(dbkey_field, list):
-                    dbkeys.update(dbkey_field)
-                else:
-                    dbkeys.add(dbkey_field)
             if row.extension:
                 extensions.add(row.extension)
-            if row.deleted:
-                deleted += 1
             if row.state:
                 states[row.state] += 1
-        filtered_dbkeys = sorted(k for k in dbkeys if k is not None)
         filtered_extensions = sorted(e for e in extensions if e is not None)
-        result[coll_id] = CollectionStateSummary(filtered_dbkeys, filtered_extensions, dict(states), deleted)
+        result[coll_id] = CollectionStateSummary([], filtered_extensions, dict(states), 0)
 
     return result
 
