@@ -3785,6 +3785,24 @@ class BaseDatasetCollectionPopulator:
         payload = self.create_pair_payload(history_id, instance_type="history", **kwds)
         return self.__create(payload, wait=wait)
 
+    def create_pairs_in_history(self, history_id: str, count: int, ext: str = "txt", wait: bool = False):
+        """Create multiple paired collections in a single fetch API call."""
+        targets = []
+        for i in range(count):
+            targets.append(
+                {
+                    "destination": {"type": "hdca"},
+                    "elements": [
+                        {"name": "forward", "src": "pasted", "paste_content": f"forward {i}\n", "ext": ext},
+                        {"name": "reverse", "src": "pasted", "paste_content": f"reverse {i}\n", "ext": ext},
+                    ],
+                    "collection_type": "paired",
+                    "name": f"Pair {i}",
+                }
+            )
+        payload = {"history_id": history_id, "targets": targets}
+        return self.dataset_populator.fetch(payload, wait=wait)
+
     def create_list_in_history(self, history_id: str, wait: bool = False, **kwds):
         payload = self.create_list_payload(history_id, instance_type="history", **kwds)
         return self.__create(payload, wait=wait)

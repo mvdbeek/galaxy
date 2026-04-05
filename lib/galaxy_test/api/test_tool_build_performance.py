@@ -43,13 +43,10 @@ class TestToolBuildPerformance(ApiTestCase):
             ]
             self.dataset_populator.fetch_hdas(history_id, items, wait=True)
 
-            # Create collections via fetch API
-            for i in range(NUM_COLLECTIONS):
-                self.dataset_collection_populator.create_pair_in_history(
-                    history_id,
-                    contents=[f"coll {i} fwd\n", f"coll {i} rev\n"],
-                    wait=True,
-                )
+            # Bulk-create collections via fetch API (single job)
+            self.dataset_collection_populator.create_pairs_in_history(
+                history_id, count=NUM_COLLECTIONS, wait=True
+            )
 
             # Measure tool build time (best of 3 runs)
             timings = []
