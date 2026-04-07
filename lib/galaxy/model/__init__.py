@@ -1674,6 +1674,33 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
         back_populates="job"
     )
 
+    @property
+    def effective_workflow_invocation_step(self) -> Optional["WorkflowInvocationStep"]:
+        """The WorkflowInvocationStep backing this job, including mapped steps.
+
+        For non-mapped steps this is the direct ``workflow_invocation_step`` back-ref.
+        For mapped steps ``WorkflowInvocationStep.job_id`` is NULL — the step points
+        at an ``ImplicitCollectionJobs`` instead, and each job is linked to that ICJ
+        via ``ImplicitCollectionJobsJobAssociation``. Resolve it by querying
+        ``WorkflowInvocationStep`` using the ICJ id.
+        """
+        if self.workflow_invocation_step is not None:
+            return self.workflow_invocation_step
+        icj_assoc = self.implicit_collection_jobs_association
+        if icj_assoc is None:
+            return None
+        icj_id = icj_assoc.implicit_collection_jobs_id
+        if icj_id is None:
+            return None
+        session = object_session(self)
+        if session is None:
+            return None
+        return session.execute(
+            select(WorkflowInvocationStep).where(
+                WorkflowInvocationStep.implicit_collection_jobs_id == icj_id
+            )
+        ).scalar_one_or_none()
+
     dict_collection_visible_keys = [
         "id",
         "state",
