@@ -68,8 +68,14 @@ class JobFilesAPIController(BaseGalaxyAPIController):
             match = re.match(r"(galaxy_)?dataset_(.*)\.dat", os.path.basename(path))
             if match:
                 # This looks like a galaxy dataset, check if any job input has been deleted.
-                if any(jtid.dataset.dataset.purged for jtid in job.input_datasets):
-                    raise exceptions.ItemDeletionException("Input dataset(s) for job have been purged.")
+                if any(
+                    jtid.dataset.dataset.purged
+                    for jtid in job.input_datasets
+                    if jtid.dataset
+                ):
+                    raise exceptions.ItemDeletionException(
+                        "Input dataset(s) for job have been purged."
+                    )
             else:
                 raise
 
@@ -100,7 +106,9 @@ class JobFilesAPIController(BaseGalaxyAPIController):
         job = self.__authorize_job_access(trans, job_id, **payload)
         path = payload.get("path")
         if not path:
-            raise exceptions.RequestParameterInvalidException("'path' parameter not provided or empty.")
+            raise exceptions.RequestParameterInvalidException(
+                "'path' parameter not provided or empty."
+            )
         self.__check_job_can_write_to_path(trans, job, path)
 
         # Is this writing an unneeded file? Should this just copy in Python?
@@ -112,9 +120,9 @@ class JobFilesAPIController(BaseGalaxyAPIController):
                 " nginx_upload_module but Galaxy is not"
                 " configured to recognize it"
             )
-            assert file_path.startswith(
-                upload_store
-            ), f"Filename provided by nginx ({file_path}) is not in correct directory ({upload_store})"
+            assert file_path.startswith(upload_store), (
+                f"Filename provided by nginx ({file_path}) is not in correct directory ({upload_store})"
+            )
             input_file = open(file_path)
         elif "session_id" in payload:
             # code stolen from basic.py
@@ -133,7 +141,9 @@ class JobFilesAPIController(BaseGalaxyAPIController):
         target_dir = os.path.dirname(path)
         util.safe_makedirs(target_dir)
         try:
-            if os.path.exists(path) and (path.endswith("tool_stdout") or path.endswith("tool_stderr")):
+            if os.path.exists(path) and (
+                path.endswith("tool_stdout") or path.endswith("tool_stderr")
+            ):
                 with open(path, "ab") as destination:
                     shutil.copyfileobj(open(input_file.name, "rb"), destination)
             else:
@@ -217,7 +227,9 @@ class JobFilesAPIController(BaseGalaxyAPIController):
         """
         in_work_dir = self.__in_working_directory(job, path, trans.app)
         if not in_work_dir and not self.__is_output_dataset_path(job, path):
-            raise exceptions.ItemAccessibilityException("Job is not authorized to write to supplied path.")
+            raise exceptions.ItemAccessibilityException(
+                "Job is not authorized to write to supplied path."
+            )
 
     def __is_output_dataset_path(self, job, path):
         """Check if is an output path for this job or a file in the an
