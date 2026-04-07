@@ -140,6 +140,42 @@ Please mind `http` and `https`.
         <!-- <end_user_registration_endpoint>https://the-registration-page-to-use-in-oidc-signup</end_user_registration_endpoint> -->
     </provider>
 
+    <!--
+    To configure multiple instances of the same provider type (e.g. two Keycloak
+    servers), add the idp_id attribute to give each instance a unique identifier.
+    The idp_id is used as the URL slug (/authnz/{idp_id}/login) and as the stored
+    provider identifier. When idp_id is omitted it defaults to the lowercased name.
+
+    Example with two Keycloak instances:
+
+    <provider name="Keycloak" idp_id="university_keycloak">
+        <url>https://keycloak.university.example.org/realms/university/</url>
+        <client_id> ... </client_id>
+        <client_secret> ... </client_secret>
+        <redirect_uri>http://localhost:8080/authnz/university_keycloak/callback</redirect_uri>
+        <label>University Login</label>
+    </provider>
+
+    <provider name="Keycloak" idp_id="corporate_keycloak">
+        <url>https://keycloak.corp.example.org/realms/corp/</url>
+        <client_id> ... </client_id>
+        <client_secret> ... </client_secret>
+        <redirect_uri>http://localhost:8080/authnz/corporate_keycloak/callback</redirect_uri>
+        <label>Corporate Login</label>
+    </provider>
+
+    The same approach works with any provider type, including the generic "oidc"
+    provider which can be used to connect to arbitrary OIDC-compliant servers:
+
+    <provider name="oidc" idp_id="my_institution_oidc">
+        <client_id> ... </client_id>
+        <client_secret> ... </client_secret>
+        <redirect_uri>http://localhost:8080/authnz/my_institution_oidc/callback</redirect_uri>
+        <oidc_endpoint>https://oidc.my-institution.example.org/realms/myrealm</oidc_endpoint>
+        <label>My Institution Login</label>
+    </provider>
+    -->
+
     <!-- Documentation: https://galaxyproject.org/authnz/config/oidc/idps/elixir-aai  -->
     <!-- DEPRECATED This provider is deprecated and will be phased out. -->
     <provider name="Elixir">

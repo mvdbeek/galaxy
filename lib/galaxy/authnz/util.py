@@ -2,9 +2,21 @@ from .psa_authnz import BACKENDS_NAME
 
 
 def provider_name_to_backend(provider):
-    for k, v in BACKENDS_NAME.items():
-        if k.lower() == provider:
-            return v
+    """
+    Convert a provider name (config key / idp_id) to the value used to look up
+    social auth tokens in the database (UserAuthnzToken.provider).
+
+    Since the migration that introduced idp_id, UserAuthnzToken.provider stores
+    the idp_id (which defaults to the lowercased provider name, e.g. 'google').
+    This function returns the lowercased provider name when it matches a known
+    backend key, which is the same as the default idp_id for single-instance setups.
+
+    For multi-instance setups with explicit idp_id values, callers should use
+    the idp_id directly rather than relying on this function.
+    """
+    for k in BACKENDS_NAME:
+        if k.lower() == provider.lower():
+            return k.lower()
     return None
 
 

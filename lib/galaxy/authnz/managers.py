@@ -101,7 +101,8 @@ class AuthnzManager:
             raise exceptions.ConfigurationError(f"Invalid configuration at `{config_file}`: {e} -- unable to continue.")
 
     def _get_idp_icon(self, idp):
-        return self.oidc_backends_config[idp].get("icon") or DEFAULT_OIDC_IDP_ICONS.get(idp)
+        provider_name = self.oidc_backends_config[idp].get("provider_name", idp)
+        return self.oidc_backends_config[idp].get("icon") or DEFAULT_OIDC_IDP_ICONS.get(provider_name)
 
     def _get_idp_button_text(self, idp):
         return self.oidc_backends_config[idp].get("custom_button_text")
@@ -128,22 +129,30 @@ class AuthnzManager:
                 if "name" not in child.attrib:
                     log.error(f"Could not find a node attribute 'name'; skipping the node '{child.tag}'.")
                     continue
-                idp = child.get("name").lower()
-                if idp in BACKENDS_NAME:
-                    self.oidc_backends_config[idp] = self._parse_idp_config(child)
-                    self.oidc_backends_implementation[idp] = "psa"
-                    self.app.config.oidc[idp] = {
-                        "icon": self._get_idp_icon(idp),
-                        "custom_button_text": self._get_idp_button_text(idp),
-                    }
-                else:
+                provider_name = child.get("name").lower()
+                if provider_name not in BACKENDS_NAME:
                     raise exceptions.ConfigurationError("Unknown provider specified")
-                if "end_user_registration_endpoint" in self.oidc_backends_config[idp]:
-                    self.app.config.oidc[idp]["end_user_registration_endpoint"] = self.oidc_backends_config[idp][
-                        "end_user_registration_endpoint"
-                    ]
-                if "profile_url" in self.oidc_backends_config[idp]:
-                    self.app.config.oidc[idp]["profile_url"] = self.oidc_backends_config[idp]["profile_url"]
+                # idp_id is the unique identifier for this provider instance.
+                # It defaults to the lowercased name for backward compatibility.
+                idp_id = child.get("idp_id", provider_name)
+                if idp_id in self.oidc_backends_config:
+                    raise exceptions.ConfigurationError(
+                        f"Duplicate provider idp_id `{idp_id}`. Each provider instance must have a unique idp_id."
+                    )
+                self.oidc_backends_config[idp_id] = self._parse_idp_config(child)
+                # Store the provider type so PSAAuthnz can look up the correct backend class.
+                self.oidc_backends_config[idp_id]["provider_name"] = provider_name
+                self.oidc_backends_implementation[idp_id] = "psa"
+                self.app.config.oidc[idp_id] = {
+                    "icon": self._get_idp_icon(idp_id),
+                    "custom_button_text": self._get_idp_button_text(idp_id),
+                }
+                if "end_user_registration_endpoint" in self.oidc_backends_config[idp_id]:
+                    self.app.config.oidc[idp_id]["end_user_registration_endpoint"] = self.oidc_backends_config[
+                        idp_id
+                    ]["end_user_registration_endpoint"]
+                if "profile_url" in self.oidc_backends_config[idp_id]:
+                    self.app.config.oidc[idp_id]["profile_url"] = self.oidc_backends_config[idp_id]["profile_url"]
 
             if len(self.oidc_backends_config) == 0:
                 raise exceptions.ConfigurationError("No valid provider configuration parsed.")

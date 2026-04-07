@@ -181,7 +181,20 @@
                         <xs:attribute name="name" type="xs:string" use="required">
                             <xs:annotation>
                                 <xs:documentation>
-                                    Name of the Identity Provider (IdP).
+                                    Name of the Identity Provider (IdP). Must be one of the supported provider types
+                                    (e.g., Keycloak, Google, Globus, oidc). When multiple instances of the same
+                                    provider type are needed, use the idp_id attribute to distinguish them.
+                                </xs:documentation>
+                            </xs:annotation>
+                        </xs:attribute>
+                        <xs:attribute name="idp_id" type="xs:string" use="optional">
+                            <xs:annotation>
+                                <xs:documentation>
+                                    A unique identifier for this provider instance. Required when configuring
+                                    multiple instances of the same provider type (e.g., two Keycloak servers).
+                                    Used as the URL slug (/authnz/{idp_id}/login) and as the stored provider
+                                    identifier. Defaults to the lowercased value of the name attribute.
+                                    Must be unique across all configured providers.
                                 </xs:documentation>
                             </xs:annotation>
                         </xs:attribute>

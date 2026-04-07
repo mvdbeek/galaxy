@@ -108,7 +108,9 @@ AUTH_PIPELINE = (
     "galaxy.authnz.psa_authnz.contains_required_data",
     "galaxy.authnz.psa_authnz.verify",
     # Checks if the current social-account is already associated in the site.
-    "social_core.pipeline.social_auth.social_user",
+    # Uses idp_id instead of backend.name so multiple instances of the same
+    # provider type are stored with distinct identifiers.
+    "galaxy.authnz.psa_authnz.galaxy_social_user",
     # Make up a username for this person, appends a random string at the end if
     # there's any collision.
     "social_core.pipeline.user.get_username",
@@ -124,7 +126,9 @@ AUTH_PIPELINE = (
     # Create a user account if we haven't found one yet.
     "social_core.pipeline.user.create_user",
     # Create the record that associated the social account with this user.
-    "social_core.pipeline.social_auth.associate_user",
+    # Uses idp_id instead of backend.name so multiple instances of the same
+    # provider type are stored with distinct identifiers.
+    "galaxy.authnz.psa_authnz.galaxy_associate_user",
     # Populate the extra_data field in the social record with the values
     # specified by settings (and the default ones like access_token, etc).
     "social_core.pipeline.social_auth.load_extra_data",
@@ -148,7 +152,12 @@ class Redirect:
 
 class PSAAuthnz(IdentityProvider):
     def __init__(self, provider, oidc_config, oidc_backend_config, app_config: GalaxyAppConfiguration):
-        self.config = {"provider": provider.lower()}
+        # provider here is the idp_id (unique identifier for this provider instance).
+        # provider_name is the backend type key used to look up backend classes in BACKENDS/BACKENDS_NAME.
+        provider_name = oidc_backend_config.get("provider_name", provider.lower())
+        self.config = {"provider": provider_name}
+        # Store the idp_id so pipeline steps can use it for token storage instead of backend.name.
+        self.config["idp_id"] = provider
         for key, value in oidc_config.items():
             self.config[setting_name(key)] = value
 
@@ -160,7 +169,7 @@ class PSAAuthnz(IdentityProvider):
             auth_pipeline = auth_pipeline + tuple(app_config.oidc_auth_pipeline_extra)
         self.config["SOCIAL_AUTH_PIPELINE"] = auth_pipeline
         self.config["DISCONNECT_PIPELINE"] = DISCONNECT_PIPELINE
-        self.config[setting_name("AUTHENTICATION_BACKENDS")] = (BACKENDS[provider],)
+        self.config[setting_name("AUTHENTICATION_BACKENDS")] = (BACKENDS[provider_name],)
 
         self.config["VERIFY_SSL"] = oidc_config.get("VERIFY_SSL")
         self.config["REQUESTS_TIMEOUT"] = oidc_config.get("REQUESTS_TIMEOUT")
@@ -174,11 +183,11 @@ class PSAAuthnz(IdentityProvider):
         # the just logged-in user.
         self.config[setting_name("INACTIVE_USER_LOGIN")] = True
 
-        if provider in BACKENDS_NAME:
+        if provider_name in BACKENDS_NAME:
             self._setup_idp(oidc_backend_config)
 
         # Secondary AuthZ with Google identities is currently supported
-        if provider != "google":
+        if provider_name != "google":
             if "SOCIAL_AUTH_SECONDARY_AUTH_PROVIDER" in self.config:
                 del self.config["SOCIAL_AUTH_SECONDARY_AUTH_PROVIDER"]
             if "SOCIAL_AUTH_SECONDARY_AUTH_ENDPOINT" in self.config:
@@ -468,7 +477,7 @@ class PSAAuthnz(IdentityProvider):
             user_authnz_token = (
                 sa_session.query(UserAuthnzToken)
                 .filter(
-                    UserAuthnzToken.uid == user_id, UserAuthnzToken.provider == BACKENDS_NAME[self.config["provider"]]
+                    UserAuthnzToken.uid == user_id, UserAuthnzToken.provider == self.config["idp_id"]
                 )
                 .first()
             )
@@ -539,7 +548,7 @@ class PSAAuthnz(IdentityProvider):
         # Create the UserAuthnzToken record
         user_id = userinfo.get("sub")
         user_authnz_token = UserAuthnzToken(
-            user=user, uid=user_id, provider=BACKENDS_NAME[self.config["provider"]], extra_data=token_dict
+            user=user, uid=user_id, provider=self.config["idp_id"], extra_data=token_dict
         )
 
         trans.sa_session.add(user)
@@ -593,9 +602,11 @@ class Strategy(BaseStrategy):
         if path.startswith("http://") or path.startswith("https://"):
             return path
         if self.request:
+            # Use idp_id for the URL slug if available, otherwise fall back to provider name
+            idp_id = self.config.get("idp_id") or self.config.get("provider")
             return (
-                self.request.host + "/authnz" + ("/" + self.config.get("provider"))
-                if self.config.get("provider", None) is not None
+                self.request.host + "/authnz" + ("/" + idp_id)
+                if idp_id is not None
                 else ""
             )
         return path
@@ -628,6 +639,48 @@ def on_the_fly_config(sa_session):
     PSANonce.sa_session = sa_session
     PSAPartial.sa_session = sa_session
     PSAAssociation.sa_session = sa_session
+
+
+def galaxy_social_user(backend, uid, user=None, *args, **kwargs):
+    """
+    Custom replacement for social_core.pipeline.social_auth.social_user.
+
+    Uses the idp_id from the strategy config instead of backend.name as the
+    provider identifier. This allows multiple instances of the same provider
+    type (e.g., two Keycloak servers) to coexist with distinct identifiers
+    stored in the database.
+    """
+    from social_core.exceptions import AuthAlreadyAssociated
+
+    idp_id = backend.strategy.config.get("idp_id", backend.name)
+    social = backend.strategy.storage.user.get_social_auth(idp_id, uid)
+    if social:
+        if user and social.user != user:
+            msg = "This social account is already in use."
+            raise AuthAlreadyAssociated(backend, msg)
+        elif not user:
+            user = social.user
+    return {
+        "social": social,
+        "user": user,
+        "is_new": user is None,
+        "new_association": False,
+    }
+
+
+def galaxy_associate_user(backend, uid, user, social, new_association=False, *args, **kwargs):
+    """
+    Custom replacement for social_core.pipeline.social_auth.associate_user.
+
+    Uses the idp_id from the strategy config instead of backend.name when
+    creating a new UserAuthnzToken record. This ensures that multiple instances
+    of the same provider type store distinct provider identifiers in the database.
+    """
+    if social is None:
+        idp_id = backend.strategy.config.get("idp_id", backend.name)
+        social = backend.strategy.storage.user.create_social_auth(user, uid, idp_id)
+        new_association = True
+    return {"social": social, "new_association": new_association}
 
 
 def contains_required_data(response=None, is_new=False, backend=None, **kwargs):
