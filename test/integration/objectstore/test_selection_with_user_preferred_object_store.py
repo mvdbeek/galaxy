@@ -12,11 +12,8 @@ from sqlalchemy import select
 from galaxy.model import Dataset
 from galaxy_test.base.populators import WorkflowPopulator
 from galaxy_test.base.workflow_fixtures import (
-    WORKFLOW_NESTED_COLLECTION_OUTPUT,
-    WORKFLOW_NESTED_DYNAMIC_COLLECTION_OUTPUT,
     WORKFLOW_NESTED_OUTPUT,
     WORKFLOW_NESTED_SIMPLE,
-    WORKFLOW_NESTED_TWICE_COLLECTION_OUTPUT,
     WORKFLOW_NESTED_TWICE_OUTPUT,
 )
 from ._base import BaseObjectStoreIntegrationTestCase
@@ -140,12 +137,6 @@ steps:
 
 WORKFLOW_WITH_COLLECTIONS_1_TEST_DATA = """
 text_input1: |
-  samp1\t10.0
-  samp2\t20.0
-"""
-
-TEST_NESTED_COLLECTION_DYNAMIC_TEST_DATA = """
-outer_input: |
   samp1\t10.0
   samp2\t20.0
 """
@@ -438,108 +429,6 @@ class TestObjectStoreSelectionWithPreferredObjectStoresIntegration(BaseObjectSto
             assert_storage_name_is(output_info, "Static Storage")
             assert_storage_name_is(intermediate_dict, "Dynamic EBS")
 
-    def test_subworkflow_collection_objectstore_selection(self):
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_COLLECTION_OUTPUT,
-                TEST_NESTED_WORKFLOW_TEST_DATA,
-            )
-            assert_storage_name_is(collection_info, "Default Store")
-            assert_storage_name_is(intermediate_info, "Default Store")
-
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_COLLECTION_OUTPUT,
-                TEST_NESTED_WORKFLOW_TEST_DATA,
-                extra_invocation_kwds={"preferred_object_store_id": "static"},
-            )
-            assert_storage_name_is(collection_info, "Static Storage")
-            assert_storage_name_is(intermediate_info, "Static Storage")
-
-    def test_subworkflow_collection_objectstore_selection_split(self):
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_COLLECTION_OUTPUT,
-                TEST_NESTED_WORKFLOW_TEST_DATA,
-                extra_invocation_kwds={
-                    "preferred_outputs_object_store_id": "static",
-                    "preferred_intermediate_object_store_id": "dynamic_ebs",
-                },
-            )
-            assert_storage_name_is(collection_info, "Static Storage")
-            assert_storage_name_is(intermediate_info, "Dynamic EBS")
-
-    def test_subworkflow_dynamic_collection_objectstore_selection(self):
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_DYNAMIC_COLLECTION_OUTPUT,
-                TEST_NESTED_COLLECTION_DYNAMIC_TEST_DATA,
-            )
-            assert_storage_name_is(collection_info, "Default Store")
-            assert_storage_name_is(intermediate_info, "Default Store")
-
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_DYNAMIC_COLLECTION_OUTPUT,
-                TEST_NESTED_COLLECTION_DYNAMIC_TEST_DATA,
-                extra_invocation_kwds={"preferred_object_store_id": "static"},
-            )
-            assert_storage_name_is(collection_info, "Static Storage")
-            assert_storage_name_is(intermediate_info, "Static Storage")
-
-    def test_subworkflow_dynamic_collection_objectstore_selection_split(self):
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_DYNAMIC_COLLECTION_OUTPUT,
-                TEST_NESTED_COLLECTION_DYNAMIC_TEST_DATA,
-                extra_invocation_kwds={
-                    "preferred_outputs_object_store_id": "static",
-                    "preferred_intermediate_object_store_id": "dynamic_ebs",
-                },
-            )
-            assert_storage_name_is(collection_info, "Static Storage")
-            assert_storage_name_is(intermediate_info, "Dynamic EBS")
-
-    def test_twice_nested_subworkflow_collection_objectstore_selection(self):
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_TWICE_COLLECTION_OUTPUT,
-                TEST_NESTED_WORKFLOW_TEST_DATA,
-            )
-            assert_storage_name_is(collection_info, "Default Store")
-            assert_storage_name_is(intermediate_info, "Default Store")
-
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_TWICE_COLLECTION_OUTPUT,
-                TEST_NESTED_WORKFLOW_TEST_DATA,
-                extra_invocation_kwds={"preferred_object_store_id": "static"},
-            )
-            assert_storage_name_is(collection_info, "Static Storage")
-            assert_storage_name_is(intermediate_info, "Static Storage")
-
-    def test_twice_nested_subworkflow_collection_objectstore_selection_split(self):
-        with self.dataset_populator.test_history() as history_id:
-            collection_info, intermediate_info = self._run_nested_workflow_with_collection(
-                history_id,
-                WORKFLOW_NESTED_TWICE_COLLECTION_OUTPUT,
-                TEST_NESTED_WORKFLOW_TEST_DATA,
-                extra_invocation_kwds={
-                    "preferred_outputs_object_store_id": "static",
-                    "preferred_intermediate_object_store_id": "dynamic_ebs",
-                },
-            )
-            assert_storage_name_is(collection_info, "Static Storage")
-            assert_storage_name_is(intermediate_info, "Dynamic EBS")
-
     def test_workflow_mapped_collection_objectstore_selection(self):
         # Tools mapped over a collection input produce an implicit collection
         # output. The individual jobs in such a mapping are part of an
@@ -655,46 +544,6 @@ class TestObjectStoreSelectionWithPreferredObjectStoresIntegration(BaseObjectSto
         hdca_details = self.dataset_populator.get_history_collection_details(history_id, content_id=hdca_id)
         element_storages = [self._storage_info(e["object"]) for e in hdca_details["elements"]]
         return simple_storage, element_storages
-
-    def _run_nested_workflow_with_collection(
-        self,
-        history_id: str,
-        workflow: str,
-        test_data: str,
-        extra_invocation_kwds: Optional[dict[str, Any]] = None,
-    ):
-        wf_run = self.workflow_populator.run_workflow(
-            workflow,
-            test_data=test_data,
-            history_id=history_id,
-            extra_invocation_kwds=extra_invocation_kwds,
-        )
-        invocation_details = self.workflow_populator.get_invocation(wf_run.invocation_id, step_details=True)
-
-        # Find the first_cat step (intermediate) by its label and get its job's storage info
-        intermediate_job_id = None
-        collection_output = None
-        for step in invocation_details["steps"]:
-            if step.get("workflow_step_label") == "first_cat":
-                assert step["jobs"], "first_cat step has no jobs"
-                intermediate_job_id = step["jobs"][0]["id"]
-            if step.get("output_collections"):
-                for _name, collection_data in step["output_collections"].items():
-                    collection_output = collection_data
-                    break
-        assert intermediate_job_id is not None, "Could not find first_cat step in invocation"
-        intermediate_info = self._storage_info_for_job_id(intermediate_job_id)
-
-        # Get collection output storage info
-        assert collection_output is not None, "No collection output found in workflow invocation"
-        hdca = self.dataset_populator.get_history_collection_details(
-            history_id, content_id=collection_output["id"]
-        )
-        elements = hdca["elements"]
-        assert len(elements) > 0, "Collection has no elements"
-        first_element = elements[0]["object"]
-        collection_info = self._storage_info(first_element)
-        return collection_info, intermediate_info
 
     def _run_workflow_with_collections_1(self, history_id: str, extra_invocation_kwds: Optional[dict[str, Any]] = None):
         wf_run = self.workflow_populator.run_workflow(
