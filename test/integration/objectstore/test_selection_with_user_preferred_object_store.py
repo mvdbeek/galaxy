@@ -150,6 +150,69 @@ outer_input: |
   samp2\t20.0
 """
 
+WORKFLOW_WITH_MAPPED_COLLECTION_OUTPUT = """
+class: GalaxyWorkflow
+inputs:
+  input_collection:
+    type: collection
+    collection_type: list
+outputs:
+  wf_output_1:
+    outputSource: cat_mapped/out_file1
+steps:
+  cat_mapped:
+    tool_id: cat
+    in:
+      input1: input_collection
+"""
+
+WORKFLOW_WITH_MAPPED_AND_SIMPLE_OUTPUT = """
+class: GalaxyWorkflow
+inputs:
+  input_collection:
+    type: collection
+    collection_type: list
+  simple_input: data
+outputs:
+  mapped_output:
+    outputSource: cat_mapped/out_file1
+  simple_output:
+    outputSource: cat_simple/out_file1
+steps:
+  cat_mapped:
+    tool_id: cat
+    in:
+      input1: input_collection
+  cat_simple:
+    tool_id: cat
+    in:
+      input1: simple_input
+"""
+
+WORKFLOW_MAPPED_COLLECTION_TEST_DATA = """
+input_collection:
+  collection_type: list
+  elements:
+    - identifier: el1
+      content: "data 1"
+    - identifier: el2
+      content: "data 2"
+"""
+
+WORKFLOW_MAPPED_AND_SIMPLE_TEST_DATA = """
+input_collection:
+  collection_type: list
+  elements:
+    - identifier: el1
+      content: "data 1"
+    - identifier: el2
+      content: "data 2"
+simple_input:
+  value: 1.fasta
+  type: File
+  name: fasta1
+"""
+
 
 def assert_storage_name_is(storage_dict: dict[str, Any], name: str):
     storage_name = storage_dict["name"]
@@ -476,6 +539,122 @@ class TestObjectStoreSelectionWithPreferredObjectStoresIntegration(BaseObjectSto
             )
             assert_storage_name_is(collection_info, "Static Storage")
             assert_storage_name_is(intermediate_info, "Dynamic EBS")
+
+    def test_workflow_mapped_collection_objectstore_selection(self):
+        # Tools mapped over a collection input produce an implicit collection
+        # output. The individual jobs in such a mapping are part of an
+        # ImplicitCollectionJobs and do NOT have job.workflow_invocation_step set,
+        # so the workflow invocation's preferred_object_store_id may be lost.
+        # See https://github.com/galaxyproject/galaxy/issues/21846
+        with self.dataset_populator.test_history() as history_id:
+            element_storages = self._run_workflow_with_mapped_collection(
+                history_id,
+                WORKFLOW_WITH_MAPPED_COLLECTION_OUTPUT,
+                WORKFLOW_MAPPED_COLLECTION_TEST_DATA,
+            )
+            for storage in element_storages:
+                assert_storage_name_is(storage, "Default Store")
+
+        with self.dataset_populator.test_history() as history_id:
+            element_storages = self._run_workflow_with_mapped_collection(
+                history_id,
+                WORKFLOW_WITH_MAPPED_COLLECTION_OUTPUT,
+                WORKFLOW_MAPPED_COLLECTION_TEST_DATA,
+                extra_invocation_kwds={"preferred_object_store_id": "static"},
+            )
+            for storage in element_storages:
+                assert_storage_name_is(storage, "Static Storage")
+
+    def test_workflow_mapped_and_simple_mixed_objectstore(self):
+        # This directly mirrors the scenario from issue #21846: a workflow with
+        # both a simple dataset output and a collection output produced by mapping.
+        # The simple output should respect the invocation preference, but the
+        # mapped collection elements may not.
+        with self.dataset_populator.test_history() as history_id:
+            simple_storage, element_storages = self._run_mapped_and_simple_workflow(
+                history_id,
+                extra_invocation_kwds={"preferred_object_store_id": "static"},
+            )
+            assert_storage_name_is(simple_storage, "Static Storage")
+            for storage in element_storages:
+                assert_storage_name_is(storage, "Static Storage")
+
+    def test_workflow_mapped_collection_objectstore_selection_split(self):
+        with self.dataset_populator.test_history() as history_id:
+            element_storages = self._run_workflow_with_mapped_collection(
+                history_id,
+                WORKFLOW_WITH_MAPPED_COLLECTION_OUTPUT,
+                WORKFLOW_MAPPED_COLLECTION_TEST_DATA,
+                extra_invocation_kwds={
+                    "preferred_outputs_object_store_id": "static",
+                    "preferred_intermediate_object_store_id": "dynamic_ebs",
+                },
+            )
+            for storage in element_storages:
+                assert_storage_name_is(storage, "Static Storage")
+
+    def _run_workflow_with_mapped_collection(
+        self,
+        history_id: str,
+        workflow: str,
+        test_data: str,
+        extra_invocation_kwds: Optional[dict[str, Any]] = None,
+    ):
+        self.workflow_populator.run_workflow(
+            workflow,
+            test_data=test_data,
+            history_id=history_id,
+            extra_invocation_kwds=extra_invocation_kwds,
+        )
+        # Find the implicit collection in the history and inspect element storage
+        history_contents = self.dataset_populator.get_history_contents(history_id, data={"v": "dev"})
+        hdca = None
+        for entry in history_contents:
+            if entry.get("history_content_type") == "dataset_collection" and entry.get("visible", True):
+                hdca = entry
+        assert hdca is not None, "No collection found in history"
+        hdca_details = self.dataset_populator.get_history_collection_details(history_id, content_id=hdca["id"])
+        elements = hdca_details["elements"]
+        assert len(elements) > 0, "Collection has no elements"
+        return [self._storage_info(element["object"]) for element in elements]
+
+    def _run_mapped_and_simple_workflow(
+        self,
+        history_id: str,
+        extra_invocation_kwds: Optional[dict[str, Any]] = None,
+    ):
+        wf_run = self.workflow_populator.run_workflow(
+            WORKFLOW_WITH_MAPPED_AND_SIMPLE_OUTPUT,
+            test_data=WORKFLOW_MAPPED_AND_SIMPLE_TEST_DATA,
+            history_id=history_id,
+            extra_invocation_kwds=extra_invocation_kwds,
+        )
+        # Find the simple cat output via wf_run jobs (cat_simple is a single
+        # non-mapped job, while cat_mapped produces multiple jobs)
+        invocation_details = self.workflow_populator.get_invocation(wf_run.invocation_id, step_details=True)
+        simple_output_id = None
+        hdca_id = None
+        for step in invocation_details["steps"]:
+            label = step.get("workflow_step_label")
+            if label == "cat_simple":
+                outputs = step.get("outputs") or {}
+                for _name, output in outputs.items():
+                    simple_output_id = output["id"]
+                    break
+            elif label == "cat_mapped":
+                output_collections = step.get("output_collections") or {}
+                for _name, output in output_collections.items():
+                    hdca_id = output["id"]
+                    break
+        assert simple_output_id is not None, "Could not find cat_simple output"
+        assert hdca_id is not None, "Could not find cat_mapped output collection"
+
+        simple_dataset = self.dataset_populator.get_history_dataset_details(history_id, dataset_id=simple_output_id)
+        simple_storage = self._storage_info(simple_dataset)
+
+        hdca_details = self.dataset_populator.get_history_collection_details(history_id, content_id=hdca_id)
+        element_storages = [self._storage_info(e["object"]) for e in hdca_details["elements"]]
+        return simple_storage, element_storages
 
     def _run_nested_workflow_with_collection(
         self,
