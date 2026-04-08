@@ -260,6 +260,69 @@ def test_to_cwl_purged_dataset():
         modules.to_cwl(hda, [], step)
 
 
+def test_to_cwl_creating_job_not_finished_delays(tmp_path):
+    # Reproduces the committed-but-inconsistent state of issue #22194:
+    # scratch Dataset.state is OK (flushed by a transitive commit inside
+    # JobWrapper.finish()), Dataset.purged is still False, HDA still
+    # carries ext=expression.json, but the producing job is still
+    # mid-finish so Job.finished is False. The guard must raise
+    # DelayedWorkflowEvaluation instead of falling through to
+    # open(get_file_name()) and crashing with FileNotFoundError.
+    hda = model.HistoryDatasetAssociation(create_dataset=True, flush=False)
+    hda.id = 3
+    hda.extension = "expression.json"
+    hda.dataset.state = model.Dataset.states.OK
+    hda.dataset.purged = False
+
+    job = model.Job()
+    job.id = 7
+    job.state = model.Job.states.RUNNING
+    assoc = model.JobToOutputDatasetAssociation(name="out", dataset=hda)
+    assoc.job = job
+    hda.creating_job_associations = [assoc]
+    assert hda.creating_job is job
+    assert not job.finished
+
+    step = model.WorkflowStep()
+    step.id = 1
+    with pytest.raises(modules.DelayedWorkflowEvaluation):
+        modules.to_cwl(hda, [], step)
+
+    # Positive control: once the producing job is finished the guard
+    # should no-op and fall through to the existing file read.
+    job.state = model.Job.states.OK
+    assert job.finished
+    fake_path = tmp_path / "expression.json"
+    fake_path.write_text('{"picked": true}')
+    with mock.patch.object(
+        model.HistoryDatasetAssociation, "get_file_name", return_value=str(fake_path)
+    ):
+        assert modules.to_cwl(hda, [], step) == {"picked": True}
+
+
+def test_to_cwl_no_creating_job_does_not_delay(tmp_path):
+    # Uploads and library imports have no creating_job; the guard must
+    # no-op for them and fall through to the existing file read.
+    hda = model.HistoryDatasetAssociation(create_dataset=True, flush=False)
+    hda.id = 4
+    hda.extension = "expression.json"
+    hda.dataset.state = model.Dataset.states.OK
+    hda.dataset.purged = False
+    hda.creating_job_associations = []
+    assert hda.creating_job is None
+
+    fake_path = tmp_path / "expression.json"
+    fake_path.write_text('{"value": 42}')
+    with mock.patch.object(
+        model.HistoryDatasetAssociation, "get_file_name", return_value=str(fake_path)
+    ):
+        step = model.WorkflowStep()
+        step.id = 1
+        # Should NOT raise DelayedWorkflowEvaluation; should read the file
+        # and return the JSON content.
+        assert modules.to_cwl(hda, [], step) == {"value": 42}
+
+
 def test_to_cwl_nested_collection():
     hda = model.HistoryDatasetAssociation(create_dataset=True, flush=False)
     hda.dataset.state = model.Dataset.states.OK

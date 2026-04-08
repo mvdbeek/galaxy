@@ -189,6 +189,30 @@ def to_cwl(
                         reason=FailureReason.dataset_failed, hda_id=value.id, workflow_step_id=step.id
                     )
                 )
+            # Even if the dataset looks ready (state=OK, not purged), the
+            # producing job may still be inside its post-processing window.
+            # ExpressionTool.exec_after_process calls HDA.copy_from which
+            # synchronously deletes the scratch expression.json file from
+            # disk before JobWrapper.finish()'s first commit lands -- and
+            # an unrelated transitive session.commit() inside finish()
+            # (e.g. MetadataFileParameter.wrap, or tag handling) can flush
+            # an earlier Dataset.state=OK assignment to the DB while
+            # leaving the purge/dataset-swap/extension changes uncommitted.
+            # The producing job's state is the authoritative finalized
+            # marker: Job.set_final_state runs only after exec_after_process
+            # and its commit is the last one in finish(), so until
+            # Job.finished is True from this session's view none of the
+            # producer's state is safe to read. Datasets without a
+            # creating job (uploads, library imports, copies outside a job
+            # context) have creating_job=None and must no-op past this
+            # check. See https://github.com/galaxyproject/galaxy/issues/22194
+            creating_job = value.creating_job
+            if creating_job is not None and not creating_job.finished:
+                why = (
+                    f"dataset [{value.id}] is needed for valueFrom expression but its "
+                    f"creating job [{creating_job.id}] has not yet finished"
+                )
+                raise DelayedWorkflowEvaluation(why=why)
         if value.ext == "expression.json":
             with open(value.get_file_name()) as f:
                 # OUR safe_loads won't work, will not load numbers, etc...

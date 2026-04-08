@@ -3479,6 +3479,85 @@ test_data:
                 if step["workflow_step_label"].startswith("consume_expression_parameter_"):
                     assert sum(1 for j in step["jobs"] if j["state"] == "skipped") == 1
 
+    def test_run_workflow_conditional_step_when_consumes_pick_value_output(self):
+        # Regression test for https://github.com/galaxyproject/galaxy/issues/22194.
+        # A downstream step whose `when:` expression consumes a pick_value
+        # (ExpressionTool) boolean output used to crash the workflow
+        # scheduler with FileNotFoundError when the scheduler raced
+        # pick_value's post-processing commit window (Dataset.state flushed
+        # to OK by a transitive session.commit() inside JobWrapper.finish(),
+        # while the scratch expression.json file was already deleted but the
+        # HDA dataset swap/purge/extension changes were not yet committed).
+        with self.dataset_populator.test_history() as history_id:
+            summary = self._run_workflow(
+                """
+class: GalaxyWorkflow
+inputs:
+  input_file_true: data
+  input_file_false: data
+outputs:
+  maybe_cat:
+    outputSource: maybe_cat/out_file1
+steps:
+- label: param_out_true
+  tool_id: param_value_from_file
+  in:
+    input1: input_file_true
+  state:
+    param_type: boolean
+- label: param_out_false
+  tool_id: param_value_from_file
+  in:
+    input1: input_file_false
+  state:
+    param_type: boolean
+- label: pick_boolean
+  tool_id: pick_value
+  tool_state:
+    style_cond:
+      __current_case__: 2
+      pick_style: first_or_error
+      type_cond:
+        __current_case__: 3
+        param_type: boolean
+        pick_from:
+        - __index__: 0
+          value:
+            __class__: RuntimeValue
+        - __index__: 1
+          value:
+            __class__: RuntimeValue
+  in:
+    style_cond|type_cond|pick_from_0|value:
+      source: param_out_true/boolean_param
+    style_cond|type_cond|pick_from_1|value:
+      source: param_out_false/boolean_param
+- label: maybe_cat
+  tool_id: cat1
+  in:
+    input1: input_file_true
+    should_run: pick_boolean/boolean_param
+  when: $(inputs.should_run)
+test_data:
+  input_file_true:
+    content: "true"
+    type: File
+  input_file_false:
+    content: "false"
+    type: File
+""",
+                history_id=history_id,
+            )
+            invocation_details = self.workflow_populator.get_invocation(
+                summary.invocation_id, step_details=True
+            )
+            assert invocation_details["state"] == "scheduled", invocation_details
+            # pick_value picked the first boolean (True), so maybe_cat
+            # should have run (not been skipped).
+            for step in invocation_details["steps"]:
+                if step["workflow_step_label"] == "maybe_cat":
+                    assert any(j["state"] == "ok" for j in step["jobs"]), step
+
     def test_run_subworkflow_simple(self) -> None:
         with self.dataset_populator.test_history() as history_id:
             summary = self._run_workflow(
