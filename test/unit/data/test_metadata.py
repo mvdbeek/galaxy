@@ -9,6 +9,7 @@ from galaxy.model import (
     custom_types,
     Dataset,
     HistoryDatasetAssociation,
+    MetadataFile,
     set_datatypes_registry,
 )
 from galaxy.model.metadata import FileParameter
@@ -70,41 +71,73 @@ def test_get_if_set_returns_default_for_nonexistent_key(sa_session):
     assert hda.metadata.get_if_set("nonexistent_key", "fallback") == "fallback"
 
 
-def test_file_parameter_wrap_commits_pending_dataset_state(sa_session):
-    # Reproduces the transitive commit inside JobWrapper.finish() that
-    # powers the race in https://github.com/galaxyproject/galaxy/issues/22194:
-    # mid-loop, load_metadata -> MetadataCollection.from_JSON_dict ->
-    # FileParameter.wrap calls session.commit() when a referenced
-    # MetadataFile uuid is not in the DB. That commit flushes *unrelated*
-    # pending changes to the DB -- including the scratch dataset's
-    # Dataset.state = OK that an earlier loop iteration assigned in
-    # memory but has not committed yet. This is the mechanism by which
-    # a concurrent workflow scheduler can observe a committed
-    # Dataset.state=OK while the file is already gone.
+def test_file_parameter_wrap_flushes_without_committing(sa_session):
+    # Regression guard for https://github.com/galaxyproject/galaxy/issues/22194.
+    #
+    # Previously FileParameter.wrap called session.commit() as a last resort
+    # when the MetadataFile uuid it was asked to wrap was not yet visible to
+    # the session (because it had been add()-ed in a sibling code path but
+    # not yet flushed). Committing leaked every other pending change in the
+    # session to concurrent readers -- notably, inside JobWrapper.finish()'s
+    # mid-loop load_metadata call, it committed a scratch dataset's
+    # Dataset.state = OK assignment that had been set on a previous loop
+    # iteration. A concurrent workflow scheduler could then see state=OK
+    # while exec_after_process had already deleted the scratch file from
+    # disk but not yet committed the purge/HDA swap.
+    #
+    # The fix replaces the commit with a flush: the pending INSERT becomes
+    # visible to the retry SELECT within this session (wrap's contract is
+    # preserved) without leaking any pending change to other sessions.
     hda = HistoryDatasetAssociation(extension="bed", create_dataset=True, sa_session=sa_session)
     sa_session.add(hda)
     sa_session.commit()
 
     dataset_id = hda.dataset.id
-    # Mimic JobWrapper.finish line 2199: set the scratch dataset state
-    # to OK in memory only, without committing. sa_session.dirty proves
-    # the change is pending (not yet committed).
+
+    # Mimic JobWrapper.finish() line 2199: set the scratch dataset state
+    # to OK in memory only. sa_session.dirty proves the change is pending
+    # -- this is the "poisoned" state that must NOT reach the DB mid-wrap.
     hda.dataset.state = Dataset.states.OK
     assert hda.dataset in sa_session.dirty
 
-    # Now fire the transitive commit by calling FileParameter.wrap
-    # with a uuid that will not be found in the DB. This matches the
-    # wrap() else-branch at lib/galaxy/model/metadata.py:630-640.
-    param = FileParameter(mock.Mock())
-    with mock.patch.object(sa_session, "commit", wraps=sa_session.commit) as spy:
-        result = param.wrap(str(uuid.uuid4()), sa_session)
-        assert result is None, "non-existent uuid should return None"
-        assert spy.called, "FileParameter.wrap must commit the session mid-call"
+    # Mimic the "simultaneously copied dataset + changed datatype" scenario
+    # the wrap() else-branch exists to handle: a MetadataFile has been
+    # add()-ed to the session but not yet flushed, so the initial SELECT
+    # returns None. wrap()'s flush must make the pending INSERT visible
+    # to the retry SELECT so we still find it.
+    pending_uuid = uuid.uuid4()
+    pending_mf = MetadataFile(dataset=hda, name="bed_file", uuid=pending_uuid)
+    sa_session.add(pending_mf)
+    assert pending_mf in sa_session.new
 
-    # The transitive commit should have flushed the pending
-    # Dataset.state = OK assignment. After commit, the dirty set is
-    # empty and the state is durably set.
-    assert hda.dataset not in sa_session.dirty
-    sa_session.expire_all()
+    param = FileParameter(mock.Mock())
+    with (
+        mock.patch.object(sa_session, "commit", wraps=sa_session.commit) as commit_spy,
+        mock.patch.object(sa_session, "flush", wraps=sa_session.flush) as flush_spy,
+    ):
+        result = param.wrap(str(pending_uuid), sa_session)
+
+        # wrap() must not commit -- that is the whole bug.
+        assert not commit_spy.called, "FileParameter.wrap must not commit the session"
+        # wrap() must flush so the retry SELECT finds the pending MetadataFile.
+        assert flush_spy.called, "FileParameter.wrap must flush the session"
+        # wrap() still returns the MetadataFile (contract preserved).
+        assert result is not None, "wrap() must return the pending MetadataFile"
+        assert result.uuid == pending_uuid
+
+    # The pending Dataset.state = OK must NOT have been committed: it is
+    # still in the dirty set (flush sends the UPDATE into the current
+    # transaction, but does not commit the transaction). From another
+    # session's view under READ COMMITTED the row is still pre-OK, which
+    # is the guarantee that closes the #22194 race window.
+    #
+    # We measure this directly by rolling back the current session's
+    # transaction: the Dataset.state change must disappear because it
+    # was never committed. If wrap had committed, rollback would be a
+    # no-op and the assertion below would fail.
+    sa_session.rollback()
     reloaded = sa_session.get(Dataset, dataset_id)
-    assert reloaded.state == Dataset.states.OK
+    assert reloaded.state != Dataset.states.OK, (
+        "Dataset.state = OK must not survive rollback -- "
+        "FileParameter.wrap must not commit pending changes"
+    )
