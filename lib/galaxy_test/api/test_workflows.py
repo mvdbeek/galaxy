@@ -9562,6 +9562,121 @@ should_run:
             assert job_details["state"] == "skipped"
             assert job_details["copied_from_job_id"]
 
+    @skip_without_tool("__CROSS_PRODUCT_NESTED__")
+    @skip_without_tool("cat1")
+    def test_nested_cross_product_subworkflow_with_use_cached_job(self):
+        # Regression test for galaxyproject/galaxy#22423
+        #
+        # Two chained subworkflows where:
+        #   - first_subworkflow: maps cat1 over two list inputs, producing
+        #     two implicit list collections.
+        #   - second_subworkflow: takes those lists, performs
+        #     __CROSS_PRODUCT_NESTED__ on them, then maps cat1 over both
+        #     cross product outputs. The bug manifests when scheduling the
+        #     cat1 step after cross_product within the second subworkflow
+        #     during a re-invocation with use_cached_job=True. The
+        #     scheduler walks _walk_collections in structure.py which uses
+        #     positional enumerate indices to access collection elements,
+        #     potentially raising:
+        #       KeyError: "Dataset collection has no element_index with key N."
+        wf = """
+class: GalaxyWorkflow
+inputs:
+  collection_a:
+    type: collection
+    collection_type: list
+  collection_b:
+    type: collection
+    collection_type: list
+steps:
+  first_subworkflow:
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_a:
+          type: collection
+          collection_type: list
+        inner_b:
+          type: collection
+          collection_type: list
+      steps:
+        cat_a:
+          tool_id: cat1
+          in:
+            input1: inner_a
+        cat_b:
+          tool_id: cat1
+          in:
+            input1: inner_b
+      outputs:
+        out_a:
+          outputSource: cat_a/out_file1
+        out_b:
+          outputSource: cat_b/out_file1
+    in:
+      inner_a: collection_a
+      inner_b: collection_b
+  second_subworkflow:
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        sw2_a:
+          type: collection
+          collection_type: list
+        sw2_b:
+          type: collection
+          collection_type: list
+      steps:
+        cross_product:
+          tool_id: __CROSS_PRODUCT_NESTED__
+          in:
+            input_a: sw2_a
+            input_b: sw2_b
+        cat_step:
+          tool_id: cat1
+          in:
+            input1: cross_product/output_a
+            queries_0|input2: cross_product/output_b
+      outputs:
+        result:
+          outputSource: cat_step/out_file1
+    in:
+      sw2_a: first_subworkflow/out_a
+      sw2_b: first_subworkflow/out_b
+outputs:
+  final_result:
+    outputSource: second_subworkflow/result
+"""
+        with self.dataset_populator.test_history() as history_id:
+            workflow_id = self.workflow_populator.upload_yaml_workflow(name="cross_product_cached", yaml_content=wf)
+            hdca_a = self.dataset_collection_populator.create_list_in_history(
+                history_id,
+                contents=[("a1", "a1 content"), ("a2", "a2 content"), ("a3", "a3 content")],
+            ).json()
+            hdca_b = self.dataset_collection_populator.create_list_in_history(
+                history_id,
+                contents=[("b1", "b1 content"), ("b2", "b2 content")],
+            ).json()
+            hdca_a = self.dataset_collection_populator.wait_for_fetched_collection(hdca_a)
+            hdca_b = self.dataset_collection_populator.wait_for_fetched_collection(hdca_b)
+            self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+            workflow_request = {
+                "inputs": json.dumps(
+                    {
+                        "collection_a": self._ds_entry(hdca_a),
+                        "collection_b": self._ds_entry(hdca_b),
+                    }
+                ),
+                "history": f"hist_id={history_id}",
+                "use_cached_job": True,
+                "inputs_by": "name",
+            }
+            # First invocation: use_cached_job=True but no cached jobs
+            # exist yet, so all jobs run fresh.
+            self.workflow_populator.invoke_workflow_and_wait(workflow_id, request=workflow_request)
+            # Second invocation: same inputs, cached jobs now available.
+            self.workflow_populator.invoke_workflow_and_wait(workflow_id, request=workflow_request)
+
     def test_run_workflow_use_cached_job_format_source_pick_param(self):
         wf = """class: GalaxyWorkflow
 inputs: []
