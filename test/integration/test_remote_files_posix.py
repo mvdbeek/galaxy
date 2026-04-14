@@ -54,11 +54,36 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
         list_response = self.galaxy_interactor.get("remote_files", data, admin=True)
         self._assert_list_response_matches_fixtures(list_response)
 
-    def test_workflow_input_materialized_from_group_file_source(self):
-        # Put the default user in the required group so the file source is accessible.
+    def test_user_access(self):
+        data = {"target": "gxfiles://posix_test"}
         group_a_id = self._create_group(GROUP_A)
+        group_b_id = self._create_group(GROUP_B)
+
+        # User has role but not group
+        list_response = self.galaxy_interactor.get("remote_files", data)
+        self._assert_access_forbidden_response(list_response)
+
+        # User has role and group A
         user_id = self.dataset_populator.user_id()
         self._add_user_to_group(group_a_id, user_id)
+        list_response = self.galaxy_interactor.get("remote_files", data)
+        self._assert_list_response_matches_fixtures(list_response)
+
+        # Remove User from group A and add to group B
+        self._remove_user_from_group(group_a_id, user_id)
+        self._add_user_to_group(group_b_id, user_id)
+        list_response = self.galaxy_interactor.get("remote_files", data)
+        self._assert_list_response_matches_fixtures(list_response)
+
+    def test_workflow_input_materialized_from_group_file_source(self):
+        # Confirm the default test user is not an admin — file-source access must
+        # be granted via group membership, not admin bypass.
+        current_user = self._get("users/current").json()
+        assert not current_user["is_admin"], current_user
+
+        # Ensure the default user is in the required group so the file source is accessible.
+        group_a_id = self._ensure_group(GROUP_A)
+        self._add_user_to_group(group_a_id, current_user["id"])
 
         with self.dataset_populator.test_history() as history_id:
             # Pass the workflow input as a URL at invocation time so the scheduler
@@ -91,26 +116,35 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
             cat_output = self.dataset_populator.get_history_dataset_content(history_id, hid=2)
             assert cat_output == "a\na\n", cat_output
 
-    def test_user_access(self):
-        data = {"target": "gxfiles://posix_test"}
-        group_a_id = self._create_group(GROUP_A)
-        group_b_id = self._create_group(GROUP_B)
+    def test_workflow_input_materialization_denied_without_group(self):
+        # Counterpart to test_workflow_input_materialized_from_group_file_source:
+        # a non-admin user who is not a member of any of the groups required by
+        # posix_test cannot see or list the file source, so the gxfiles://posix_test
+        # URIs they would otherwise supply as workflow inputs are unreachable.
+        with self._different_user("wf_no_fs_access_user@bx.psu.edu"):
+            current_user = self._get("users/current").json()
+            assert not current_user["is_admin"], current_user
 
-        # User has role but not group
-        list_response = self.galaxy_interactor.get("remote_files", data)
-        self._assert_access_forbidden_response(list_response)
+            # The restricted plugin is not advertised to this user.
+            plugin_config_response = self.galaxy_interactor.get("remote_files/plugins")
+            api_asserts.assert_status_code_is_ok(plugin_config_response)
+            plugins = plugin_config_response.json()
+            assert all(p.get("uri_root") != "gxfiles://posix_test" for p in plugins), plugins
 
-        # User has role and group A
-        user_id = self.dataset_populator.user_id()
-        self._add_user_to_group(group_a_id, user_id)
-        list_response = self.galaxy_interactor.get("remote_files", data)
-        self._assert_list_response_matches_fixtures(list_response)
+            # And direct access to the file source is forbidden.
+            list_response = self.galaxy_interactor.get(
+                "remote_files", {"target": "gxfiles://posix_test"}
+            )
+            self._assert_access_forbidden_response(list_response)
 
-        # Remove User from group A and add to group B
-        self._remove_user_from_group(group_a_id, user_id)
-        self._add_user_to_group(group_b_id, user_id)
-        list_response = self.galaxy_interactor.get("remote_files", data)
-        self._assert_list_response_matches_fixtures(list_response)
+    def _ensure_group(self, group_name: str) -> str:
+        """Idempotent: return the id of an existing group with this name, or create it."""
+        groups_response = self._get("groups", admin=True)
+        api_asserts.assert_status_code_is_ok(groups_response)
+        for group in groups_response.json():
+            if group["name"] == group_name:
+                return group["id"]
+        return self._create_group(group_name)
 
     def _create_group(self, group_name: str):
         payload = {
