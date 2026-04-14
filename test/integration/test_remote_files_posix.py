@@ -1,3 +1,4 @@
+import json
 import os
 
 from sqlalchemy import select
@@ -60,24 +61,33 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
         self._add_user_to_group(group_a_id, user_id)
 
         with self.dataset_populator.test_history() as history_id:
-            # Stage input1 from the group-restricted file source via a gxfiles:// location.
-            # run_workflow handles upload/staging, invocation, and waiting.
-            self.workflow_populator.run_workflow(
-                WORKFLOW_SIMPLE_CAT_TWICE,
-                test_data="""
-input1:
-  class: File
-  location: gxfiles://posix_test/a
-  filetype: txt
-""",
-                history_id=history_id,
-                wait=True,
-                assert_ok=True,
-            )
+            # Pass the workflow input as a URL at invocation time so the scheduler
+            # creates a deferred HDA and then materializes it from the
+            # group-restricted file source (requires_materialization path in
+            # galaxy.workflow.run_request).
+            workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
+            inputs = {
+                "input1": {
+                    "src": "url",
+                    "url": "gxfiles://posix_test/a",
+                    "ext": "txt",
+                    "deferred": False,
+                },
+            }
+            workflow_request = {
+                "history": f"hist_id={history_id}",
+                "inputs": json.dumps(inputs),
+                "inputs_by": "name",
+            }
+            invocation_id = self.workflow_populator.invoke_workflow_and_wait(
+                workflow_id, request=workflow_request
+            ).json()["id"]
+            self.workflow_populator.wait_for_workflow(workflow_id, invocation_id, history_id, assert_ok=True)
 
-            # Fixture file `a` content is "a\n"; cat of it concatenated with itself is "a\na\n".
+            # The input was materialized from gxfiles://posix_test/a; its fixture
+            # content is "a\n", so cat of it concatenated with itself is "a\na\n".
             input_hda = self.dataset_populator.get_history_dataset_details(history_id, hid=1)
-            assert input_hda["state"] == "ok"
+            assert input_hda["state"] == "ok", input_hda
             cat_output = self.dataset_populator.get_history_dataset_content(history_id, hid=2)
             assert cat_output == "a\na\n", cat_output
 
