@@ -4,7 +4,11 @@ from sqlalchemy import select
 
 from galaxy.model import Dataset
 from galaxy_test.base import api_asserts
-from galaxy_test.base.populators import DatasetPopulator
+from galaxy_test.base.populators import (
+    DatasetPopulator,
+    WorkflowPopulator,
+)
+from galaxy_test.base.workflow_fixtures import WORKFLOW_SIMPLE_CAT_TWICE
 from galaxy_test.driver import integration_util
 from galaxy_test.driver.integration_setup import (
     GROUP_A,
@@ -17,6 +21,7 @@ from galaxy_test.driver.integration_setup import (
 
 class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.IntegrationTestCase):
     dataset_populator: DatasetPopulator
+    framework_tool_and_types = True
     required_role_expression = REQUIRED_ROLE_EXPRESSION
     required_group_expression = REQUIRED_GROUP_EXPRESSION
 
@@ -24,6 +29,7 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
         super().setUp()
         self._write_file_fixtures()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
+        self.workflow_populator = WorkflowPopulator(self.galaxy_interactor)
 
     def test_plugin_config(self):
         # Default user has required role but not required group, so cannot see plugin
@@ -46,6 +52,34 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
         data = {"target": "gxfiles://posix_test"}
         list_response = self.galaxy_interactor.get("remote_files", data, admin=True)
         self._assert_list_response_matches_fixtures(list_response)
+
+    def test_workflow_input_materialized_from_group_file_source(self):
+        # Put the default user in the required group so the file source is accessible.
+        group_a_id = self._create_group(GROUP_A)
+        user_id = self.dataset_populator.user_id()
+        self._add_user_to_group(group_a_id, user_id)
+
+        with self.dataset_populator.test_history() as history_id:
+            # Stage input1 from the group-restricted file source via a gxfiles:// location.
+            # run_workflow handles upload/staging, invocation, and waiting.
+            self.workflow_populator.run_workflow(
+                WORKFLOW_SIMPLE_CAT_TWICE,
+                test_data="""
+input1:
+  class: File
+  location: gxfiles://posix_test/a
+  filetype: txt
+""",
+                history_id=history_id,
+                wait=True,
+                assert_ok=True,
+            )
+
+            # Fixture file `a` content is "a\n"; cat of it concatenated with itself is "a\na\n".
+            input_hda = self.dataset_populator.get_history_dataset_details(history_id, hid=1)
+            assert input_hda["state"] == "ok"
+            cat_output = self.dataset_populator.get_history_dataset_content(history_id, hid=2)
+            assert cat_output == "a\na\n", cat_output
 
     def test_user_access(self):
         data = {"target": "gxfiles://posix_test"}
