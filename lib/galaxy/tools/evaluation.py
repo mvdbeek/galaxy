@@ -87,6 +87,7 @@ from galaxy.util.template import (
     fill_template,
     InputNotFoundSyntaxError,
 )
+from galaxy.files import ProvidesFileSourcesUserContext
 from galaxy.util.tree_dict import TreeDict
 from galaxy.work.context import WorkRequestContext
 
@@ -295,10 +296,14 @@ class ToolEvaluator:
         undeferred_objects: dict[str, DeferrableObjectsT] = {}
         transient_directory = os.path.join(job_working_directory, "inputs")
         safe_makedirs(transient_directory)
+        user_context = ProvidesFileSourcesUserContext(
+            WorkRequestContext(app=self.app, user=self._user, history=self._history)
+        )
         dataset_materializer = materializer_factory(
             False,  # unattached to a session.
             transient_directory=transient_directory,
             file_sources=self.app.file_sources,
+            user_context=user_context,
         )
         for key, value in deferred_objects.items():
             if isinstance(value, model.DatasetInstance):

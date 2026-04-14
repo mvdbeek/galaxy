@@ -119,8 +119,9 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
     def test_workflow_input_materialization_denied_without_group(self):
         # Counterpart to test_workflow_input_materialized_from_group_file_source:
         # a non-admin user who is not a member of any of the groups required by
-        # posix_test cannot see or list the file source, so the gxfiles://posix_test
-        # URIs they would otherwise supply as workflow inputs are unreachable.
+        # posix_test cannot see the file source, and any workflow invocation
+        # that tries to materialize a gxfiles://posix_test/... input must fail
+        # rather than silently leak data across the group boundary.
         with self._different_user("wf_no_fs_access_user@bx.psu.edu"):
             current_user = self._get("users/current").json()
             assert not current_user["is_admin"], current_user
@@ -136,6 +137,35 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
                 "remote_files", {"target": "gxfiles://posix_test"}
             )
             self._assert_access_forbidden_response(list_response)
+
+            # Invoking a workflow with a gxfiles://posix_test/... input must not
+            # result in the file being materialized into this user's history.
+            with self.dataset_populator.test_history() as history_id:
+                workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
+                inputs = {
+                    "input1": {
+                        "src": "url",
+                        "url": "gxfiles://posix_test/a",
+                        "ext": "txt",
+                        "deferred": False,
+                    },
+                }
+                workflow_request = {
+                    "history": f"hist_id={history_id}",
+                    "inputs": json.dumps(inputs),
+                    "inputs_by": "name",
+                }
+                response = self.workflow_populator.invoke_workflow_raw(
+                    workflow_id, workflow_request, assert_ok=True
+                )
+                invocation_id = response.json()["id"]
+                # Wait for the invocation to reach a terminal state; materialization
+                # should fail because the file source is not accessible to this user.
+                self.workflow_populator.wait_for_invocation(
+                    workflow_id, invocation_id, assert_ok=False
+                )
+                invocation = self.workflow_populator.get_invocation(invocation_id)
+                assert invocation["state"] == "failed", invocation
 
     def _ensure_group(self, group_name: str) -> str:
         """Idempotent: return the id of an existing group with this name, or create it."""

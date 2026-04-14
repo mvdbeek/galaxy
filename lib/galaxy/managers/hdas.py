@@ -45,6 +45,7 @@ from galaxy.managers import (
     taggable,
     users,
 )
+from galaxy.files import ProvidesFileSourcesUserContext
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.model import (
     HistoryDatasetAssociation,
@@ -54,6 +55,7 @@ from galaxy.model import (
     JobToOutputDatasetAssociation,
 )
 from galaxy.model.deferred import materializer_factory
+from galaxy.work.context import WorkRequestContext
 from galaxy.model.dereference import (
     derefence_collection_to_model,
     dereference_to_model,
@@ -176,13 +178,15 @@ class HDAManager(
         self, request: MaterializeDatasetInstanceTaskRequest, session: Session, in_place: bool = False
     ) -> bool:
         request_user: RequestUser = request.user
+        user = self.user_manager.by_id(request_user.user_id)
+        user_context = ProvidesFileSourcesUserContext(WorkRequestContext(app=self.app, user=user))
         materializer = materializer_factory(
             True,  # attached...
             object_store=self.app.object_store,
             file_sources=self.app.file_sources,
             sa_session=session,
+            user_context=user_context,
         )
-        user = self.user_manager.by_id(request_user.user_id)
         if request.source == DatasetSourceType.hda:
             dataset_instance: Union[HistoryDatasetAssociation, LibraryDatasetDatasetAssociation] = self.get_accessible(
                 request.content, user
