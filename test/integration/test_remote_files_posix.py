@@ -76,37 +76,18 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
         self._assert_list_response_matches_fixtures(list_response)
 
     def test_workflow_input_materialized_from_group_file_source(self):
-        # Confirm the default test user is not an admin — file-source access must
-        # be granted via group membership, not admin bypass.
-        current_user = self._get("users/current").json()
-        assert not current_user["is_admin"], current_user
-
-        # Ensure the default user is in the required group so the file source is accessible.
+        # Ensure the default non-admin user is in the required group so the
+        # file source is accessible.
         group_a_id = self._ensure_group(GROUP_A)
-        self._add_user_to_group(group_a_id, current_user["id"])
+        self._add_user_to_group(group_a_id, self.dataset_populator.user_id())
 
         with self.dataset_populator.test_history() as history_id:
             # Pass the workflow input as a URL at invocation time so the scheduler
             # creates a deferred HDA and then materializes it from the
             # group-restricted file source (requires_materialization path in
             # galaxy.workflow.run_request).
-            workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
-            inputs = {
-                "input1": {
-                    "src": "url",
-                    "url": "gxfiles://posix_test/a",
-                    "ext": "txt",
-                    "deferred": False,
-                },
-            }
-            workflow_request = {
-                "history": f"hist_id={history_id}",
-                "inputs": json.dumps(inputs),
-                "inputs_by": "name",
-            }
-            invocation_id = self.workflow_populator.invoke_workflow_and_wait(
-                workflow_id, request=workflow_request
-            ).json()["id"]
+            workflow_id, response = self._invoke_gxfiles_posix_test_workflow(history_id)
+            invocation_id = response.json()["id"]
             self.workflow_populator.wait_for_workflow(workflow_id, invocation_id, history_id, assert_ok=True)
 
             # The input was materialized from gxfiles://posix_test/a; its fixture
@@ -118,19 +99,16 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
 
     def test_workflow_input_materialization_denied_without_group(self):
         # Counterpart to test_workflow_input_materialized_from_group_file_source:
-        # a non-admin user who is not a member of any of the groups required by
-        # posix_test cannot see the file source, and any workflow invocation
-        # that tries to materialize a gxfiles://posix_test/... input must fail
-        # rather than silently leak data across the group boundary.
+        # a user who is not a member of any of the groups required by posix_test
+        # cannot see the file source, and any workflow invocation that tries to
+        # materialize a gxfiles://posix_test/... input must fail rather than
+        # silently leak data across the group boundary.
         with self._different_user("wf_no_fs_access_user@bx.psu.edu"):
-            current_user = self._get("users/current").json()
-            assert not current_user["is_admin"], current_user
-
             # The restricted plugin is not advertised to this user.
             plugin_config_response = self.galaxy_interactor.get("remote_files/plugins")
             api_asserts.assert_status_code_is_ok(plugin_config_response)
             plugins = plugin_config_response.json()
-            assert all(p.get("uri_root") != "gxfiles://posix_test" for p in plugins), plugins
+            assert all(p["uri_root"] != "gxfiles://posix_test" for p in plugins), plugins
 
             # And direct access to the file source is forbidden.
             list_response = self.galaxy_interactor.get(
@@ -141,23 +119,7 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
             # Invoking a workflow with a gxfiles://posix_test/... input must not
             # result in the file being materialized into this user's history.
             with self.dataset_populator.test_history() as history_id:
-                workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
-                inputs = {
-                    "input1": {
-                        "src": "url",
-                        "url": "gxfiles://posix_test/a",
-                        "ext": "txt",
-                        "deferred": False,
-                    },
-                }
-                workflow_request = {
-                    "history": f"hist_id={history_id}",
-                    "inputs": json.dumps(inputs),
-                    "inputs_by": "name",
-                }
-                response = self.workflow_populator.invoke_workflow_raw(
-                    workflow_id, workflow_request, assert_ok=True
-                )
+                workflow_id, response = self._invoke_gxfiles_posix_test_workflow(history_id)
                 invocation_id = response.json()["id"]
                 # Wait for the invocation to reach a terminal state; materialization
                 # should fail because the file source is not accessible to this user.
@@ -166,6 +128,36 @@ class TestPosixFileSourceIntegration(PosixFileSourceSetup, integration_util.Inte
                 )
                 invocation = self.workflow_populator.get_invocation(invocation_id)
                 assert invocation["state"] == "failed", invocation
+                # Confirm the failure cause is the file-source access check, not
+                # some unrelated error. The scheduler attaches an
+                # InvocationUnexpectedFailure whose `details` is the
+                # ItemAccessibilityException from _check_user_access.
+                messages = invocation["messages"]
+                assert any(
+                    m["reason"] == "unexpected_failure"
+                    and "no access to file source" in m["details"]
+                    for m in messages
+                ), messages
+
+    def _invoke_gxfiles_posix_test_workflow(self, history_id: str):
+        """Submit WORKFLOW_SIMPLE_CAT_TWICE with a single gxfiles://posix_test/a
+        URL input and return (workflow_id, raw invocation response)."""
+        workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
+        workflow_request = {
+            "history": f"hist_id={history_id}",
+            "inputs": json.dumps({
+                "input1": {
+                    "src": "url",
+                    "url": "gxfiles://posix_test/a",
+                    "ext": "txt",
+                    "deferred": False,
+                },
+            }),
+            "inputs_by": "name",
+        }
+        return workflow_id, self.workflow_populator.invoke_workflow_raw(
+            workflow_id, workflow_request, assert_ok=True
+        )
 
     def _ensure_group(self, group_name: str) -> str:
         """Idempotent: return the id of an existing group with this name, or create it."""
