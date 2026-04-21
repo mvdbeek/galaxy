@@ -2,7 +2,6 @@ import logging
 from contextlib import asynccontextmanager
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
 )
 from urllib.parse import urljoin
@@ -21,7 +20,6 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.cors import CORSMiddleware
-from starlette.routing import Mount
 from tuspyserver import create_tus_router
 
 from galaxy.schema.generics import ref_to_name
@@ -287,67 +285,8 @@ def include_mcp(app: FastAPI, gx_app, mcp_app):
         log.error(f"Failed to mount MCP server: {e}")
 
 
-def _find_root_mount(app: FastAPI) -> Optional[Mount]:
-    for route in app.routes:
-        if isinstance(route, Mount) and route.path == "":
-            # Starlette normalises Mount("/", app=...) to path="" + path="/...".
-            # We only installed one such mount at the FastAPI root, so match it.
-            return route
-    return None
-
-
-def _rebind_per_launch(app: FastAPI, gx_wsgi_webapp, gx_app) -> None:
-    """Re-bind the per-launch pieces of a previously-built FastAPI app.
-
-    Galaxy routes resolve the current ``gx_app`` via the module global
-    ``galaxy.app.app`` (set by ``buildapp.app_pair`` on each launch), so
-    the app's routes/middleware/route-name index are app-agnostic and can
-    be shared across repeated embedded-server launches. The only pieces
-    that must be freshened on each launch are:
-
-    - the WSGI middleware wrapping this launch's paste webapp and its
-      executor shutdown registration on ``gx_app.haltables``;
-    - the ``GalaxyFileResponse`` sendfile-mode config (stored on the
-      class, not the app), which ``add_galaxy_middleware`` wrote from
-      the initial ``gx_app`` at first build;
-    - the OpenAPI schema, which merges the legacy paste ``api_spec``
-      from the current ``gx_app``. Built lazily here (not eagerly as in
-      the production build path) because test workers don't hit
-      ``/openapi.json`` and rebuilding on every test class would add
-      3-5s of pure schema-generation cost per rebind.
-    """
-    root_mount = _find_root_mount(app)
-    if root_mount is None:
-        raise RuntimeError("Cached FastAPI app is missing its root WSGI mount; cannot re-bind.")
-    new_wsgi_handler = WSGIMiddleware(gx_wsgi_webapp)
-    gx_app.haltables.append(("WSGI Middleware threadpool", new_wsgi_handler.executor.shutdown))
-    root_mount.app = new_wsgi_handler  # type: ignore[assignment]
-    GalaxyFileResponse.nginx_x_accel_redirect_base = gx_app.config.nginx_x_accel_redirect_base
-    GalaxyFileResponse.apache_xsendfile = gx_app.config.apache_xsendfile
-    app.openapi_schema = None
-
-    def _lazy_openapi() -> dict:
-        if app.openapi_schema is None:
-            app.openapi_schema = _build_merged_openapi(app, gx_app)
-        return app.openapi_schema
-
-    app.openapi = _lazy_openapi  # type: ignore[method-assign]
-
-
-def initialize_fast_app(gx_wsgi_webapp, gx_app, existing_app: Optional[FastAPI] = None) -> FastAPI:
-    """Build (or re-bind) the FastAPI app that fronts the Galaxy web server.
-
-    When ``existing_app`` is ``None`` (the default, and always the case in
-    production) the full app is built from scratch. When an ``existing_app``
-    is passed, only the per-launch bindings are refreshed and the same
-    FastAPI instance is returned; the test driver uses this to skip the
-    5-9s FastAPI initialization cost on repeated embedded-server launches
-    in the same Python process.
-    """
-    if existing_app is not None:
-        _rebind_per_launch(existing_app, gx_wsgi_webapp, gx_app)
-        return existing_app
-
+def initialize_fast_app(gx_wsgi_webapp, gx_app):
+    """Build the FastAPI app that fronts the Galaxy web server."""
     root_path = "" if gx_app.config.galaxy_url_prefix == "/" else gx_app.config.galaxy_url_prefix
     mcp_app, mcp_lifespan = get_mcp_lifespan(gx_app)
 
