@@ -1,5 +1,6 @@
 """Scripts for drivers of Galaxy functional tests."""
 
+import functools
 import http.client
 import json
 import logging
@@ -759,6 +760,43 @@ def launch_gravity(port, gxit_port=None, galaxy_config=None):
     )
 
 
+@functools.lru_cache(maxsize=1)
+def _test_fast_app_slot() -> dict:
+    """Per-process holder for the reusable FastAPI app used by tests.
+
+    Keyed on nothing — ``lru_cache(maxsize=1)`` guarantees a single dict
+    per process. The dict holds at most one ``"app"`` entry, the
+    already-built FastAPI instance we can rebind for the next embedded
+    launch (see ``caching_fast_app_factory`` below).
+    """
+    return {}
+
+
+def caching_fast_app_factory(gx_wsgi_webapp, gx_app):
+    """Drop-in replacement for ``init_galaxy_fast_app`` that reuses the
+    FastAPI app across repeated embedded-server launches in the same
+    Python process.
+
+    Single injection point: this callable is passed to ``launch_server``
+    via its ``init_fast_app`` parameter. Production ``launch_server``
+    callers (outside the test driver) keep using the default
+    uncached ``init_galaxy_fast_app``.
+
+    Falls back to a fresh build when the topology differs from the
+    cached shell (non-default ``galaxy_url_prefix`` or MCP enabled),
+    because those paths produce a parent wrapper / lifespan-bound
+    app that is awkward to re-bind.
+    """
+    topology_differs = gx_app.config.galaxy_url_prefix != "/" or gx_app.config.enable_mcp_server
+    slot = _test_fast_app_slot()
+    if topology_differs:
+        return init_galaxy_fast_app(gx_wsgi_webapp, gx_app)
+    existing = slot.get("app")
+    app = init_galaxy_fast_app(gx_wsgi_webapp, gx_app, existing_app=existing)
+    slot.setdefault("app", app)
+    return app
+
+
 def launch_server(
     app_factory,
     webapp_factory,
@@ -875,11 +913,6 @@ class GalaxyTestDriver(TestDriver):
         self.external_galaxy = os.environ.get("GALAXY_TEST_EXTERNAL", None)
         if not self.external_galaxy:
             os.environ["GALAXY_TEST_STRICT_CHECKS"] = "1"
-            # Opt in to per-process caching of the FastAPI app across embedded
-            # server launches. This saves ~5-9s per test class setUpClass
-            # that would otherwise rebuild the same FastAPI app from scratch.
-            # See initialize_fast_app for the invariants it relies on.
-            os.environ.setdefault("GALAXY_TEST_CACHE_FAST_APP", "1")
 
         # Allow controlling the log format
         self.log_format = os.environ.get("GALAXY_TEST_LOG_FORMAT")
@@ -973,6 +1006,7 @@ class GalaxyTestDriver(TestDriver):
                 webapp_factory=lambda *args, **kwd: buildapp.app_factory(*args, wsgi_preflight=False, **kwd),
                 galaxy_config=galaxy_config,
                 config_object=config_object,
+                init_fast_app=caching_fast_app_factory,
             )
             self.server_wrappers.append(server_wrapper)
         else:
