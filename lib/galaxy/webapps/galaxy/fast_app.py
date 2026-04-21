@@ -168,9 +168,7 @@ def add_galaxy_middleware(app: FastAPI, gx_app):
         )
 
 
-def include_legacy_openapi(app, gx_app):
-    if app.openapi_schema:
-        return app.openapi_schema
+def _build_merged_openapi(app, gx_app):
     openapi_schema = get_openapi(
         title="Galaxy API",
         version=VERSION,
@@ -180,8 +178,30 @@ def include_legacy_openapi(app, gx_app):
     legacy_openapi = gx_app.api_spec.to_dict()
     legacy_openapi["paths"].update(openapi_schema["paths"])
     openapi_schema["paths"] = legacy_openapi["paths"]
-    app.openapi_schema = openapi_schema
-    return app.openapi_schema
+    return openapi_schema
+
+
+def include_legacy_openapi(app, gx_app):
+    """Install a lazy ``app.openapi`` override that merges the legacy paste
+    API spec with the FastAPI-generated schema.
+
+    The previous implementation built the full schema eagerly at server
+    startup, which added 3-5s to every test server launch (``get_openapi``
+    walks every route and every referenced Pydantic model). Since the merged
+    schema is only needed when ``/api/openapi.json`` (or the docs pages) is
+    actually requested, defer the work to the first such request. FastAPI's
+    default behaviour caches the result on ``app.openapi_schema``.
+    """
+    if app.openapi_schema:
+        return app.openapi_schema
+
+    def _openapi() -> dict:
+        if app.openapi_schema is None:
+            app.openapi_schema = _build_merged_openapi(app, gx_app)
+        return app.openapi_schema
+
+    app.openapi = _openapi
+    return None
 
 
 def get_fastapi_instance(root_path="", lifespan=None) -> FastAPI:
@@ -276,9 +296,14 @@ def include_mcp(app: FastAPI, gx_app, mcp_app):
 
 
 def initialize_fast_app(gx_wsgi_webapp, gx_app):
+    from galaxy.util import ExecutionTimer
+
+    total_timer = ExecutionTimer()
     root_path = "" if gx_app.config.galaxy_url_prefix == "/" else gx_app.config.galaxy_url_prefix
 
+    mcp_timer = ExecutionTimer()
     mcp_app, mcp_lifespan = get_mcp_lifespan(gx_app)
+    log.info("initialize_fast_app: mcp_lifespan resolved %s", mcp_timer)
 
     if mcp_lifespan:
 
@@ -291,6 +316,7 @@ def initialize_fast_app(gx_wsgi_webapp, gx_app):
     else:
         app = get_fastapi_instance(root_path=root_path)
 
+    middleware_timer = ExecutionTimer()
     add_exception_handler(app)
     add_galaxy_middleware(app, gx_app)
     app.state.limiter = limiter
@@ -299,18 +325,43 @@ def initialize_fast_app(gx_wsgi_webapp, gx_app):
         add_raw_context_middlewares(app)
     else:
         add_request_id_middleware(app)
+    log.info("initialize_fast_app: middleware added %s", middleware_timer)
+
+    routers_timer = ExecutionTimer()
     include_all_package_routers(app, "galaxy.webapps.galaxy.api")
+    log.info("initialize_fast_app: include_all_package_routers %s", routers_timer)
+
+    openapi_timer = ExecutionTimer()
     include_legacy_openapi(app, gx_app)
+    log.info("initialize_fast_app: include_legacy_openapi %s", openapi_timer)
+
+    wsgi_timer = ExecutionTimer()
     wsgi_handler = WSGIMiddleware(gx_wsgi_webapp)
     gx_app.haltables.append(("WSGI Middleware threadpool", wsgi_handler.executor.shutdown))
+    log.info("initialize_fast_app: WSGIMiddleware built %s", wsgi_timer)
+
+    tus_timer = ExecutionTimer()
     include_tus(app, gx_app)
+    log.info("initialize_fast_app: include_tus %s", tus_timer)
+
+    route_index_timer = ExecutionTimer()
     app.state.route_name_index = build_route_name_index(app)
+    log.info("initialize_fast_app: build_route_name_index %s", route_index_timer)
+
+    include_mcp_timer = ExecutionTimer()
     include_mcp(app, gx_app, mcp_app)
+    log.info("initialize_fast_app: include_mcp %s", include_mcp_timer)
+
+    mount_timer = ExecutionTimer()
     app.mount("/", wsgi_handler)  # type: ignore[arg-type]
+    log.info("initialize_fast_app: wsgi mount %s", mount_timer)
+
     if gx_app.config.galaxy_url_prefix != "/":
         parent_app = FastAPI()
         parent_app.mount(gx_app.config.galaxy_url_prefix, app=app)
+        log.info("initialize_fast_app: total (with url_prefix wrapper) %s", total_timer)
         return parent_app
+    log.info("initialize_fast_app: total %s", total_timer)
     return app
 
 
