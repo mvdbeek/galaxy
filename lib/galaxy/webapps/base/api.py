@@ -268,8 +268,6 @@ def build_route_name_index(app: FastAPI) -> dict[str, list["BaseRoute"]]:
 
 
 def include_all_package_routers(app: FastAPI, package_name: str):
-    from galaxy.util import ExecutionTimer
-
     responses: dict[Union[int, str], dict[str, Any]] = {
         "4XX": {
             "description": "Request Error",
@@ -280,25 +278,10 @@ def include_all_package_routers(app: FastAPI, package_name: str):
             "model": MessageExceptionModel,
         },
     }
-    per_router_timings: list[tuple[str, float]] = []
-    for name, module in walk_controller_modules(package_name):
+    for _, module in walk_controller_modules(package_name):
         router = getattr(module, "router", None)
         if router:
-            t = ExecutionTimer()
             app.include_router(router, responses=responses)
-            per_router_timings.append((name, t.elapsed * 1000.0))
-    # Log the 10 slowest routers to help identify per-router bottlenecks.
-    per_router_timings.sort(key=lambda x: x[1], reverse=True)
-    top = per_router_timings[:10]
-    if top:
-        total_ms = sum(ms for _, ms in per_router_timings)
-        summary = ", ".join(f"{name}={ms:.1f}ms" for name, ms in top)
-        log.info(
-            "include_all_package_routers: total=%.1fms across %d routers; top10: %s",
-            total_ms,
-            len(per_router_timings),
-            summary,
-        )
 
     # handle CORS preflight requests - synchronize with wsgi behavior.
     # this needs to happen last so it doesn't clobber routes with explicit cors handling

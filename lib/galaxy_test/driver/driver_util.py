@@ -37,7 +37,6 @@ from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.util import (
     asbool,
     download_to_file,
-    ExecutionTimer,
     galaxy_directory,
 )
 from galaxy.util.properties import load_app_properties
@@ -472,8 +471,7 @@ def wait_for_http_server(host, port, prefix=None, sleep_amount=0.1, sleep_tries=
     prefix = prefix or "/"
     if not prefix.endswith("/"):
         prefix = f"{prefix}/"
-    wait_timer = ExecutionTimer()
-    for attempt in range(sleep_tries):
+    for _ in range(sleep_tries):
         # directly test the app, not the proxy
         if port and isinstance(port, str):
             port = int(port)
@@ -482,14 +480,6 @@ def wait_for_http_server(host, port, prefix=None, sleep_amount=0.1, sleep_tries=
             conn.request("GET", prefix)
             response = conn.getresponse()
             if response.status == 200:
-                log.info(
-                    "wait_for_http_server: got 200 OK from %s:%s%s after %d attempts (%s)",
-                    host,
-                    port,
-                    prefix,
-                    attempt + 1,
-                    wait_timer,
-                )
                 break
         except OSError as e:
             if e.errno not in [61, 111]:
@@ -586,9 +576,8 @@ def build_galaxy_app(simple_kwargs) -> GalaxyUniverseApplication:
     simple_kwargs["global_conf"]["__file__"] = "lib/galaxy/config/sample/galaxy.yml.sample"
     simple_kwargs = load_app_properties(kwds=simple_kwargs)
     # Build the Universe Application
-    build_timer = ExecutionTimer()
     app = GalaxyUniverseApplication(**simple_kwargs, is_webapp=True)
-    log.info("Embedded Galaxy application started %s", build_timer)
+    log.info("Embedded Galaxy application started")
 
     global install_context
     install_context = app.install_model.context
@@ -598,9 +587,7 @@ def build_galaxy_app(simple_kwargs) -> GalaxyUniverseApplication:
     # without building a webapp (app.is_webapp = False for this test kit).
     # We need to ensure to build an index for the test galaxy app -- this is
     # pretty fast with the limited toolset
-    reindex_timer = ExecutionTimer()
     app.reindex_tool_search()
-    log.info("Toolbox search index rebuilt %s", reindex_timer)
 
     return app
 
@@ -829,12 +816,8 @@ def launch_server(
         gravity_wrapper.wait_for_server()
         return gravity_wrapper
 
-    launch_timer = ExecutionTimer()
-    app_timer = ExecutionTimer()
     app = app_factory()
-    log.info("launch_server: app_factory %s", app_timer)
     url_prefix = getattr(app.config, f"{name}_url_prefix", "/")
-    wsgi_timer = ExecutionTimer()
     wsgi_webapp = webapp_factory(
         galaxy_config["global_conf"],
         app=app,
@@ -842,18 +825,10 @@ def launch_server(
         static_enabled=True,
         register_shutdown_at_exit=False,
     )
-    log.info("launch_server: wsgi webapp built %s", wsgi_timer)
-    fast_app_timer = ExecutionTimer()
     asgi_app = init_fast_app(wsgi_webapp, app)
-    log.info("launch_server: fast app built %s", fast_app_timer)
 
-    server_timer = ExecutionTimer()
     server, port, thread = uvicorn_serve(asgi_app, host=host, port=port)
-    log.info("launch_server: uvicorn_serve returned %s", server_timer)
-    wait_timer = ExecutionTimer()
     set_and_wait_for_http_target(prefix, host, port, url_prefix=url_prefix)
-    log.info("launch_server: waited for HTTP server %s", wait_timer)
-    log.info("launch_server: total launch time %s", launch_timer)
     log.debug(f"Embedded uvicorn web server for {name} started at {host}:{port}{url_prefix}")
     return EmbeddedServerWrapper(app, server, name, host, port, thread=thread, prefix=url_prefix)
 
