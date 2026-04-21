@@ -875,6 +875,11 @@ class GalaxyTestDriver(TestDriver):
         self.external_galaxy = os.environ.get("GALAXY_TEST_EXTERNAL", None)
         if not self.external_galaxy:
             os.environ["GALAXY_TEST_STRICT_CHECKS"] = "1"
+            # Opt in to per-process caching of the FastAPI app across embedded
+            # server launches. This saves ~5-9s per test class setUpClass
+            # that would otherwise rebuild the same FastAPI app from scratch.
+            # See initialize_fast_app for the invariants it relies on.
+            os.environ.setdefault("GALAXY_TEST_CACHE_FAST_APP", "1")
 
         # Allow controlling the log format
         self.log_format = os.environ.get("GALAXY_TEST_LOG_FORMAT")

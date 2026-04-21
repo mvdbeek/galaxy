@@ -1,7 +1,9 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 from typing import (
     Any,
+    Optional,
     TYPE_CHECKING,
 )
 from urllib.parse import urljoin
@@ -20,6 +22,7 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.datastructures import MutableHeaders
 from starlette.middleware.cors import CORSMiddleware
+from starlette.routing import Mount
 from tuspyserver import create_tus_router
 
 from galaxy.schema.generics import ref_to_name
@@ -295,10 +298,60 @@ def include_mcp(app: FastAPI, gx_app, mcp_app):
         log.error(f"Failed to mount MCP server: {e}")
 
 
+# Process-level cache of the populated FastAPI app used by tests that spin up
+# many embedded Galaxy servers in the same Python process. Building the app
+# (router includes + request-dependency + response-model wiring) takes 5-9s
+# per launch; since Galaxy's routes pull the app via the module-global
+# ``galaxy.app.app`` rather than ``request.app.state.gx_app``, the FastAPI
+# app is effectively app-agnostic — only the WSGI mount (which wraps the
+# per-test paste webapp) and the lazy OpenAPI-merge closure (which holds a
+# gx_app reference) need to be re-bound on subsequent calls. Guarded behind
+# ``GALAXY_TEST_CACHE_FAST_APP=1`` so it never affects production startup.
+_CACHED_FAST_APP: Optional[tuple[FastAPI, Mount]] = None
+
+
+def _find_root_mount(app: FastAPI) -> Optional[Mount]:
+    for route in app.routes:
+        if isinstance(route, Mount) and route.path == "":
+            # Starlette normalises Mount("/", app=...) to path="" + path="/...".
+            # We only installed one such mount at the FastAPI root, so match it.
+            return route
+    return None
+
+
+def _swap_wsgi_mount(cached_app: FastAPI, cached_mount: Mount, gx_wsgi_webapp, gx_app) -> None:
+    new_wsgi_handler = WSGIMiddleware(gx_wsgi_webapp)
+    gx_app.haltables.append(("WSGI Middleware threadpool", new_wsgi_handler.executor.shutdown))
+    cached_mount.app = new_wsgi_handler  # type: ignore[assignment]
+    # GalaxyFileResponse holds the sendfile-mode config on the class; the
+    # first run wrote the first gx_app's values and subsequent tests rely on
+    # having their own values visible, so re-apply them here.
+    GalaxyFileResponse.nginx_x_accel_redirect_base = gx_app.config.nginx_x_accel_redirect_base
+    GalaxyFileResponse.apache_xsendfile = gx_app.config.apache_xsendfile
+    # Drop any cached openapi schema from a prior test so it is rebuilt (lazily)
+    # against the current gx_app's legacy paste spec on next /openapi.json hit.
+    cached_app.openapi_schema = None
+    include_legacy_openapi(cached_app, gx_app)
+
+
 def initialize_fast_app(gx_wsgi_webapp, gx_app):
     from galaxy.util import ExecutionTimer
 
+    global _CACHED_FAST_APP
     total_timer = ExecutionTimer()
+
+    cache_enabled = os.environ.get("GALAXY_TEST_CACHE_FAST_APP") == "1"
+    if (
+        cache_enabled
+        and _CACHED_FAST_APP is not None
+        and gx_app.config.galaxy_url_prefix == "/"
+        and not gx_app.config.enable_mcp_server
+    ):
+        cached_app, cached_mount = _CACHED_FAST_APP
+        _swap_wsgi_mount(cached_app, cached_mount, gx_wsgi_webapp, gx_app)
+        log.info("initialize_fast_app: reused cached FastAPI app %s", total_timer)
+        return cached_app
+
     root_path = "" if gx_app.config.galaxy_url_prefix == "/" else gx_app.config.galaxy_url_prefix
 
     mcp_timer = ExecutionTimer()
@@ -361,6 +414,12 @@ def initialize_fast_app(gx_wsgi_webapp, gx_app):
         parent_app.mount(gx_app.config.galaxy_url_prefix, app=app)
         log.info("initialize_fast_app: total (with url_prefix wrapper) %s", total_timer)
         return parent_app
+
+    if cache_enabled and not gx_app.config.enable_mcp_server:
+        root_mount = _find_root_mount(app)
+        if root_mount is not None:
+            _CACHED_FAST_APP = (app, root_mount)
+            log.info("initialize_fast_app: cached FastAPI app for reuse")
     log.info("initialize_fast_app: total %s", total_timer)
     return app
 
