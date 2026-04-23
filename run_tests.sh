@@ -657,6 +657,8 @@ elif [ -n "$framework_workflows_test" ]; then
     else
         selector=""
     fi
+    : "${GALAXY_TEST_JOB_CONFIG_FILE:=lib/galaxy_test/workflow/job_conf.yml}"
+    export GALAXY_TEST_JOB_CONFIG_FILE
     extra_args="lib/galaxy_test/workflow/test_framework_workflows.py $selector"
 elif [ -n "$selenium_script" ]; then
     extra_args="$selenium_script"

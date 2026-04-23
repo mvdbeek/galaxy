@@ -1,0 +1,20 @@
+- doc: |
+    Feed a kraken2db.tar.gz archive into a tool that expects the kraken2db
+    directory datatype. Galaxy should implicitly run the
+    archive_to_directory converter registered on the kraken2db datatype.
+  job:
+    archive:
+      class: File
+      path: 1.kraken2db.tar.gz
+      filetype: kraken2db.tar.gz
+  outputs:
+    listing:
+      asserts:
+        - that: has_text
+          text: "hash.k2d"
+        - that: has_text
+          text: "opts.k2d"
+        - that: has_text
+          text: "taxo.k2d"
+        - that: has_text
+          text: "seqid2taxid.k2d"

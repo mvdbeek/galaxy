@@ -64,6 +64,18 @@
     <datatype extension="bwa_index" display_in_upload="true" type="galaxy.datatypes.data:Directory" subclass="true"/>
     <datatype extension="bwa_mem2_index" display_in_upload="true" type="galaxy.datatypes.data:Directory" subclass="true"/>
     <datatype extension="lexicmap_index" display_in_upload="true" type="galaxy.datatypes.data:Directory" subclass="true"/>
+    <datatype extension="kraken2db" type="galaxy.datatypes.data:Directory" subclass="true"
+              auto_compressed_types="tar.gz,gz,bz2"
+              peek_text="Compressed Kraken2 database"
+              display_in_upload="true">
+      <converter file="archive_to_directory.xml" target_datatype="kraken2db"/>
+      <required_files>
+        <file name="hash.k2d"/>
+        <file name="opts.k2d"/>
+        <file name="taxo.k2d"/>
+        <file name="seqid2taxid.k2d"/>
+      </required_files>
+    </datatype>
     <datatype extension="h5" type="galaxy.datatypes.binary:H5" mimetype="application/octet-stream" display_in_upload="true"/>
   </registration>
 </datatypes>

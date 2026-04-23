@@ -1,0 +1,13 @@
+class: GalaxyWorkflow
+inputs:
+  archive:
+    type: data
+    format: kraken2db.tar.gz
+outputs:
+  listing:
+    outputSource: use_kraken2_database/output
+steps:
+  use_kraken2_database:
+    tool_id: use_kraken2_database
+    in:
+      database: archive

@@ -302,6 +302,7 @@
   <tool file="for_workflows/catWrapper.xml" />
   <tool file="create_directory_index.xml" />
   <tool file="use_directory_index.xml" />
+  <tool file="use_kraken2_database.xml" />
 
   <tool_dir dir="parameters/" />
   <!-- YAML tools not picked up automatically yet - arguably for the

@@ -1,0 +1,11 @@
+<tool id="use_kraken2_database" name="Uses Kraken2 database" version="1.0" profile="24.2">
+    <command><![CDATA[
+ls '$database.extra_files_path' | sort > '$output'
+    ]]></command>
+    <inputs>
+        <param name="database" type="data" label="Kraken2 database" format="kraken2db"/>
+    </inputs>
+    <outputs>
+        <data name="output" format="txt" />
+    </outputs>
+</tool>
