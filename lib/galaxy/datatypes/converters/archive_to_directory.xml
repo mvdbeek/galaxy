@@ -17,11 +17,12 @@
 }]]></configfile>
     </configfiles>
     <inputs>
-        <param format="tar,zip" name="input1" type="data"/>
+        <param format="tar,zip,kraken2db.tar.gz,kraken2db.gz,kraken2db.bz2" name="input1" type="data"/>
         <param name="__target_datatype__" type="select" label="Target data type">
             <option value="directory">directory</option>
             <option value="zarr">zarr</option>
             <option value="ome_zarr">ome_zarr</option>
+            <option value="kraken2db">kraken2db</option>
         </param>
     </inputs>
     <outputs provided_metadata_file="metadata_json">
@@ -66,6 +67,32 @@
                 <extra_files name="dir1/file3">
                     <assert_contents>
                         <has_text text="subdirfile"/>
+                    </assert_contents>
+                </extra_files>
+            </output>
+        </test>
+        <test>
+            <param name="input1" ftype="kraken2db.tar.gz" value="1.kraken2db.tar.gz"/>
+            <param name="__target_datatype__" value="kraken2db"/>
+            <output name="output1" ftype="kraken2db">
+                <extra_files name="hash.k2d">
+                    <assert_contents>
+                        <has_size value="16"/>
+                    </assert_contents>
+                </extra_files>
+                <extra_files name="opts.k2d">
+                    <assert_contents>
+                        <has_size value="16"/>
+                    </assert_contents>
+                </extra_files>
+                <extra_files name="taxo.k2d">
+                    <assert_contents>
+                        <has_size value="16"/>
+                    </assert_contents>
+                </extra_files>
+                <extra_files name="seqid2taxid.k2d">
+                    <assert_contents>
+                        <has_size value="16"/>
                     </assert_contents>
                 </extra_files>
             </output>

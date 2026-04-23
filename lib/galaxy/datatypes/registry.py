@@ -269,6 +269,21 @@ class Registry:
                                 datatype_class.edam_format = edam_format
                             if edam_data:
                                 datatype_class.edam_data = edam_data
+                            peek_text = elem.get("peek_text")
+                            if peek_text:
+                                datatype_class.peek_text = peek_text
+                            required_files_el = elem.find("required_files")
+                            if required_files_el is not None:
+                                required = []
+                                for file_el in required_files_el.findall("file"):
+                                    name = file_el.get("name")
+                                    if not name:
+                                        raise ConfigurationError(
+                                            f"required_files entry for datatype '{extension}' missing name attribute"
+                                        )
+                                    required.append(name)
+                                if required:
+                                    datatype_class.required_files = required
                         datatype_class.is_subclass = make_subclass
                         description = elem.get("description", None)
                         description_url = elem.get("description_url", None)
@@ -372,10 +387,12 @@ class Registry:
 
                         for auto_compressed_type in auto_compressed_types:
                             compressed_extension = f"{extension}.{auto_compressed_type}"
-                            upper_compressed_type = auto_compressed_type[0].upper() + auto_compressed_type[1:]
+                            upper_compressed_type = "".join(
+                                part[0].upper() + part[1:] for part in auto_compressed_type.split(".")
+                            )
                             auto_compressed_type_name = datatype_class_name + upper_compressed_type
                             attributes: dict[str, Any] = {}
-                            if auto_compressed_type == "gz":
+                            if auto_compressed_type in ("gz", "tar.gz"):
                                 dynamic_parent: type[binary.DynamicCompressedArchive] = (
                                     binary.GzDynamicCompressedArchive
                                 )
@@ -422,13 +439,29 @@ class Registry:
                                         compressed_extension,
                                     )
                                 )
-                            self.converters.append(
-                                (f"{auto_compressed_type}_to_uncompressed.xml", compressed_extension, extension)
-                            )
+                            uncompress_converter = f"{auto_compressed_type}_to_uncompressed.xml"
+                            if self.converters_path and os.path.exists(
+                                os.path.join(self.converters_path, uncompress_converter)
+                            ):
+                                self.converters.append((uncompress_converter, compressed_extension, extension))
+                            # Propagate <converter> children of the parent datatype element to
+                            # each compressed variant so uploads of the compressed form can be
+                            # converted to the same target datatype (e.g. unpacking to a directory).
+                            for converter in elem.findall("converter"):
+                                cfile = converter.get("file")
+                                target = converter.get("target_datatype")
+                                if cfile and target:
+                                    self.converters.append((cfile, compressed_extension, target))
                             if datatype_class not in compressed_sniffers:
                                 compressed_sniffers[datatype_class] = []
                             if sniff_compressed_types:
                                 compressed_sniffers[datatype_class].append(compressed_datatype_instance)
+                                if datatype_class.required_files:
+                                    # Subclass declares content-based sniff via required_files;
+                                    # the uncompressed class has no explicit <sniffer>, so insert
+                                    # the compressed sniffer directly. Must run before any future
+                                    # generic tar/archive sniffer.
+                                    self.sniff_order.append(compressed_datatype_instance)
                         # Processing the new datatype elem is now complete, so make sure the element defining it is retained by appending
                         # the new datatype to the in-memory list of datatype elems to enable persistence.
                         self.datatype_elems.append(elem)
@@ -459,17 +492,17 @@ class Registry:
         def append_to_sniff_order() -> None:
             sniff_order_classes = {type(_) for _ in self.sniff_order}
             for datatype in self.datatypes_by_extension.values():
-                # Add a datatype only if it is not already in sniff_order, it
-                # has a sniff() method and was not defined with subclass="true".
-                # Do not add dynamic compressed types - these were carefully added or not
-                # to the sniff order in the proper position above.
-                if (
-                    type(datatype) not in sniff_order_classes
-                    and hasattr(datatype, "sniff")
-                    and not datatype.is_subclass
-                    and not hasattr(datatype, "uncompressed_datatype_instance")
-                ):
-                    self.sniff_order.append(datatype)
+                if type(datatype) in sniff_order_classes:
+                    continue
+                if not hasattr(datatype, "sniff"):
+                    continue
+                if hasattr(datatype, "uncompressed_datatype_instance"):
+                    # Dynamic compressed variants are inserted explicitly above.
+                    continue
+                if datatype.is_subclass and not datatype.required_files:
+                    # Subclasses without a content-based sniff stay out of sniff_order.
+                    continue
+                self.sniff_order.append(datatype)
 
         append_to_sniff_order()
 

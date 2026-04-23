@@ -4,6 +4,7 @@ import mimetypes
 import os
 import shutil
 import string
+import tarfile
 import tempfile
 from collections.abc import (
     Callable,
@@ -248,6 +249,11 @@ class Data(metaclass=DataMeta):
 
     # Data sources.
     data_sources: dict[str, str] = {}
+
+    # Populated from <datatype> XML: list of filenames required inside an archive
+    # for a Directory subclass to match, and the text shown as peek for that datatype.
+    required_files: list[str] = []
+    peek_text: Optional[str] = None
 
     dataproviders: dict[str, Any]
 
@@ -1246,6 +1252,29 @@ class Directory(Data):
         """
         error, msg, messagetype = False, "", ""
         return error, msg, messagetype
+
+    def sniff(self, filename: str) -> bool:
+        if not self.required_files:
+            return False
+        try:
+            if filename and tarfile.is_tarfile(filename):
+                with tarfile.open(filename, "r") as tf:
+                    names = set(tf.getnames())
+                    return all(req in names for req in self.required_files)
+        except Exception as e:
+            log.warning("%s, sniff Exception: %s", self, e)
+        return False
+
+    def set_peek(self, dataset: DatasetProtocol, **kwd) -> None:
+        if dataset.dataset.purged:
+            dataset.peek = "file does not exist"
+            dataset.blurb = "file purged from disk"
+            return
+        if self.peek_text:
+            dataset.peek = self.peek_text
+            dataset.blurb = nice_size(dataset.get_size())
+        else:
+            super().set_peek(dataset, **kwd)
 
 
 class ZarrDirectory(Directory):
