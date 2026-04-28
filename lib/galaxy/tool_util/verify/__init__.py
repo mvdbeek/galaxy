@@ -688,9 +688,9 @@ def verify_job_metadata(
         if str(expect_exit_code) != str(actual):
             raise AssertionError(f"Expected exit code {expect_exit_code}, got {actual}")
     if command_assertions:
-        verify_assertions(job_stdio.get("command_line", "").encode("utf-8"), command_assertions)
+        verify_assertions((job_stdio.get("command_line") or "").encode("utf-8"), command_assertions)
     if command_version_assertions:
-        verify_assertions(job_stdio.get("command_version", "").encode("utf-8"), command_version_assertions)
+        verify_assertions((job_stdio.get("command_version") or "").encode("utf-8"), command_version_assertions)
     if stdout_assertions or stderr_assertions:
         stdout_prefix = ""
         stderr_prefix = ""
@@ -704,9 +704,9 @@ def verify_job_metadata(
             elif msg_type == "exit_code":
                 stderr_prefix += f"{desc}\n"
         if stdout_assertions:
-            verify_assertions((stdout_prefix + job_stdio.get("stdout", "")).encode("utf-8"), stdout_assertions)
+            verify_assertions((stdout_prefix + (job_stdio.get("stdout") or "")).encode("utf-8"), stdout_assertions)
         if stderr_assertions:
-            verify_assertions((stderr_prefix + job_stdio.get("stderr", "")).encode("utf-8"), stderr_assertions)
+            verify_assertions((stderr_prefix + (job_stdio.get("stderr") or "")).encode("utf-8"), stderr_assertions)
 
 
 __all__ = [
