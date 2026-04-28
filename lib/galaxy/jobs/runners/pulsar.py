@@ -1246,6 +1246,11 @@ class PulsarComputeEnvironment(ComputeEnvironment):
         if new_version_path:
             version_path = new_version_path
         self._version_path = version_path
+        # Mirror onto JobIO so command_factory's metadata setup picks up the
+        # remote path. The Galaxy-local version_path is only valid after
+        # Pulsar stages outputs back, which is too late for set_metadata.py
+        # reading COMMAND_VERSION on the remote side.
+        job_wrapper.job_io.version_path = version_path
 
     def output_names(self):
         # Maybe this should use the path mapper, but the path mapper just uses basenames
