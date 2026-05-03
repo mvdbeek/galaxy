@@ -23,7 +23,8 @@ from typing import (
 )
 
 if TYPE_CHECKING:
-    from galaxy.app import MinimalGalaxyApplication
+    from galaxy.config import GalaxyAppConfiguration
+    from galaxy.model.scoped_session import galaxy_scoped_session
 
 log = logging.getLogger(__name__)
 
@@ -172,9 +173,11 @@ class ReadOnlyStoreError(Exception):
     """Raised when a write is attempted against a read-only tool source store."""
 
 
-def _build_default_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
+def _build_default_store(
+    config: "GalaxyAppConfiguration",
+    sa_session: "galaxy_scoped_session",
+) -> ToolSourceStore:
     """Build the default store from top-level ``tool_source_*`` config."""
-    config = app.config
     backend = config.tool_source_store
 
     if backend == "database":
@@ -182,7 +185,7 @@ def _build_default_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
         # import SQLAlchemy machinery they don't need.
         from .database import DatabaseToolSourceStore
 
-        return DatabaseToolSourceStore(app.model.context)
+        return DatabaseToolSourceStore(sa_session)
 
     if backend == "redis":
         # Backend imported lazily — the redis client is an optional dependency.
@@ -204,10 +207,12 @@ def _build_default_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
         return DiskToolSourceStore(disk_path)
 
     if backend in ("sqlalchemy", "sqlite"):
+        # Backend imported lazily so deploys that don't pick this backend
+        # avoid the SQLAlchemy create_engine cost on import.
         from .sqlalchemy import SqlAlchemyToolSourceStore
 
         url = getattr(config, "tool_source_url", None)
-        path = getattr(config, "tool_source_disk_path", None)
+        path = config.tool_source_disk_path
         if url:
             return SqlAlchemyToolSourceStore(url=url, read_only=False)
         if path:
@@ -219,11 +224,16 @@ def _build_default_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
     raise ConfigurationError(f"Unknown tool source store backend: {backend}")
 
 
-def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) -> ToolSourceStore:
+def build_named_store(
+    sa_session: "galaxy_scoped_session",
+    name: str,
+    spec: dict,
+) -> ToolSourceStore:
     """Build a single named store from a ``tool_source_stores`` entry.
 
     ``spec`` is the dict from galaxy.yml — a ``backend`` plus its options
-    plus an optional ``read_only`` flag.
+    plus an optional ``read_only`` flag. ``sa_session`` is only used for
+    the (unusual) ``database`` backend.
     """
     if not isinstance(spec, dict):
         raise ConfigurationError(f"tool_source_stores[{name!r}] must be a mapping")
@@ -231,6 +241,8 @@ def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) ->
     read_only = bool(spec.get("read_only", False))
 
     if backend in ("sqlalchemy", "sqlite"):
+        # Backend imported lazily so deploys that don't pick this backend
+        # avoid the SQLAlchemy create_engine cost on import.
         from .sqlalchemy import SqlAlchemyToolSourceStore
 
         url = spec.get("url")
@@ -242,6 +254,7 @@ def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) ->
         return SqlAlchemyToolSourceStore(url=url, path=path, read_only=read_only)
 
     if backend == "disk":
+        # Backend imported lazily so other backends don't pull in disk-only deps.
         from .disk import DiskToolSourceStore
 
         path = spec.get("path")
@@ -252,6 +265,7 @@ def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) ->
         return store
 
     if backend == "redis":
+        # Backend imported lazily — the redis client is an optional dependency.
         from .redis import RedisToolSourceStore
 
         url = spec.get("url")
@@ -262,9 +276,11 @@ def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) ->
         return store
 
     if backend == "database":
+        # Backend imported lazily so the redis/disk-only deployments don't
+        # import SQLAlchemy machinery they don't need.
         from .database import DatabaseToolSourceStore
 
-        store = DatabaseToolSourceStore(app.model.context)
+        store = DatabaseToolSourceStore(sa_session)
         store.read_only = read_only
         return store
 
@@ -273,9 +289,8 @@ def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) ->
     )
 
 
-def _collect_per_conf_store_names(app: "MinimalGalaxyApplication") -> set[str]:
+def _collect_per_conf_store_names(config: "GalaxyAppConfiguration") -> set[str]:
     """Walk configured tool_confs and collect referenced store names."""
-    config = app.config
     if not config.tool_configs:
         return set()
     # Lazy import: avoids pulling parser code into deploys that don't need it.
@@ -294,7 +309,10 @@ def _collect_per_conf_store_names(app: "MinimalGalaxyApplication") -> set[str]:
     return names
 
 
-def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
+def build_tool_source_store(
+    config: "GalaxyAppConfiguration",
+    sa_session: "galaxy_scoped_session",
+) -> ToolSourceStore:
     """Build the active tool source store, composing per-conf overrides.
 
     Returns the default store directly when no tool_conf opts into a named
@@ -302,17 +320,21 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
     default plus each referenced named store in a
     :class:`CompositeToolSourceStore`, with the default consulted last and
     receiving all writes.
-    """
-    default_store = _build_default_store(app)
 
-    config = app.config
+    Args:
+        config: The Galaxy application configuration.
+        sa_session: Galaxy's scoped SQLAlchemy session, used by the
+            ``database`` backend. Other backends ignore it.
+    """
+    default_store = _build_default_store(config, sa_session)
+
     # Per-conf store="..." attributes are only meaningful when the LazyToolBox
     # is the active toolbox. Opting in is explicit: anything other than
     # ``use_lazy_toolbox: true`` keeps the traditional ToolBox, in which case
     # nothing would query the named store. Treat such attributes as no-ops
     # rather than failing on a catalog mismatch or doing wasted I/O.
     if not config.use_lazy_toolbox:
-        referenced = _collect_per_conf_store_names(app)
+        referenced = _collect_per_conf_store_names(config)
         if referenced:
             log.info(
                 "use_lazy_toolbox is not enabled; ignoring store=... attributes "
@@ -320,7 +342,7 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
             )
         return default_store
 
-    referenced = _collect_per_conf_store_names(app)
+    referenced = _collect_per_conf_store_names(config)
     if not referenced:
         return default_store
 
@@ -332,7 +354,7 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
                 f"tool_conf references store {name!r} but no such entry exists "
                 "in tool_source_stores"
             )
-        members.append((name, build_named_store(app, name, catalog[name])))
+        members.append((name, build_named_store(sa_session, name, catalog[name])))
 
     # Default is consulted last so per-conf overrides shadow it on hash collisions.
     members.append(("__default__", default_store))

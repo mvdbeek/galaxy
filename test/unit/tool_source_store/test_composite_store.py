@@ -126,6 +126,12 @@ def test_load_index_returns_none_when_no_member_has_one(two_paths):
 
 
 def test_invalidate_fans_out(two_paths):
+    # Verify behaviorally: after invalidation, each member must observe a
+    # fresh on-disk index rather than a stale cached one. We seed each
+    # store, prime its cache via load_index(), then overwrite the on-disk
+    # index out-of-band with a new entry. Without invalidation a stale
+    # cache hides the new entry; with composite.invalidate_index_cache()
+    # the next load surfaces it.
     pa, pb = two_paths
     a = SqliteToolSourceStore(path=pa)
     b = SqliteToolSourceStore(path=pb)
@@ -133,12 +139,28 @@ def test_invalidate_fans_out(two_paths):
     b.store_index(ToolIndex(entries={"y": ToolIndexEntry(id="y")}))
     a.load_index()
     b.load_index()
-    assert a._cached_index is not None
-    assert b._cached_index is not None
+
+    # Out-of-band update via a fresh handle so the existing instance's
+    # cache stays primed with the old value.
+    SqliteToolSourceStore(path=pa).store_index(
+        ToolIndex(entries={"x": ToolIndexEntry(id="x"), "x2": ToolIndexEntry(id="x2")})
+    )
+    SqliteToolSourceStore(path=pb).store_index(
+        ToolIndex(entries={"y": ToolIndexEntry(id="y"), "y2": ToolIndexEntry(id="y2")})
+    )
+
+    # Pre-invalidation: stale caches still answer with the old contents.
+    assert "x2" not in a.load_index().entries
+    assert "y2" not in b.load_index().entries
+
     composite = CompositeToolSourceStore(members=[("a", a), ("b", b)], default="b")
     composite.invalidate_index_cache()
-    assert a._cached_index is None
-    assert b._cached_index is None
+
+    # Post-invalidation: each member re-reads from disk and the new
+    # entries surface through the merged index.
+    merged = composite.load_index()
+    assert "x2" in merged.entries
+    assert "y2" in merged.entries
 
 
 def test_writable_members_excludes_read_only(two_paths):

@@ -37,7 +37,7 @@ class TestDatabaseBackend:
     def test_database_store_basic_operations(self):
         """Test basic store/get operations with database backend."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app)
+        store = DatabaseToolSourceStore(app.model.context)
         test_hash = "test_hash_unit_123"
 
         try:
@@ -71,7 +71,7 @@ class TestDatabaseBackend:
     def test_database_store_index_operations(self):
         """Test tool index storage with database backend."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app)
+        store = DatabaseToolSourceStore(app.model.context)
 
         index = ToolIndex()
         index.entries["test_tool_db"] = ToolIndexEntry(
@@ -95,7 +95,7 @@ class TestDatabaseBackend:
     def test_database_store_get_by_tool_id(self):
         """Test retrieving tool sources by tool ID."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app)
+        store = DatabaseToolSourceStore(app.model.context)
 
         unique_id = "tool_by_id_test_unit"
         test_hash = f"hash_for_{unique_id}"
@@ -122,7 +122,7 @@ class TestDatabaseBackend:
     def test_database_store_count(self):
         """Test counting stored tool sources."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app)
+        store = DatabaseToolSourceStore(app.model.context)
         test_hash = "count_test_hash_unit"
 
         try:
@@ -276,8 +276,7 @@ class TestBuildToolSourceStore:
     def test_build_database_store(self):
         """Test building database store from config."""
         app = MockApp()
-        # Build from app
-        store = build_tool_source_store(app)
+        store = build_tool_source_store(app.config, app.model.context)
         assert isinstance(store, DatabaseToolSourceStore)
 
     def test_build_disk_store(self):
@@ -286,32 +285,37 @@ class TestBuildToolSourceStore:
             config = FakeConfig(
                 tool_source_store="disk",
                 tool_source_disk_path=tmpdir,
+                tool_configs=[],
+                tool_source_stores=None,
+                use_lazy_toolbox=False,
             )
-            store = build_tool_source_store(config)
+            # sa_session unused for the disk backend.
+            store = build_tool_source_store(config, None)
             assert isinstance(store, DiskToolSourceStore)
 
     def test_build_disk_store_missing_path_raises(self):
         """Test that missing disk path raises ConfigurationError."""
-        config = FakeConfig(tool_source_store="disk")
+        config = FakeConfig(
+            tool_source_store="disk",
+            tool_source_disk_path=None,
+            tool_configs=[],
+            tool_source_stores=None,
+            use_lazy_toolbox=False,
+        )
         with pytest.raises(ConfigurationError):
-            build_tool_source_store(config)
+            build_tool_source_store(config, None)
 
     def test_build_redis_store_missing_url_raises(self):
         """Test that missing Redis URL raises ConfigurationError."""
-        config = FakeConfig(tool_source_store="redis")
+        config = FakeConfig(
+            tool_source_store="redis",
+            tool_source_redis_url=None,
+            tool_configs=[],
+            tool_source_stores=None,
+            use_lazy_toolbox=False,
+        )
         with pytest.raises(ConfigurationError):
-            build_tool_source_store(config)
-
-
-class _FakeApp:
-    """Tiny app stand-in for build_tool_source_store tests.
-
-    Avoids the heavier MockApp/database fixtures since these tests only
-    need ``app.config`` and (for the disk path) no model.
-    """
-
-    def __init__(self, config):
-        self.config = config
+            build_tool_source_store(config, None)
 
 
 class TestPerConfStoreRouting:
@@ -332,7 +336,8 @@ class TestPerConfStoreRouting:
             use_lazy_toolbox=False,
         )
         with caplog.at_level("INFO", logger="galaxy.tool_source_store"):
-            store = build_tool_source_store(_FakeApp(config))
+            # sa_session is unused for the disk backend; pass None.
+            store = build_tool_source_store(config, None)
         from galaxy.tool_source_store.composite import CompositeToolSourceStore
 
         assert isinstance(store, DiskToolSourceStore)
@@ -352,7 +357,7 @@ class TestPerConfStoreRouting:
             tool_source_stores={},
             use_lazy_toolbox=None,
         )
-        store = build_tool_source_store(_FakeApp(config))
+        store = build_tool_source_store(config, None)
         assert isinstance(store, DiskToolSourceStore)
 
     def test_lazy_on_with_unknown_store_still_raises(self, tmp_path):
@@ -369,7 +374,7 @@ class TestPerConfStoreRouting:
             use_lazy_toolbox=True,
         )
         with pytest.raises(ConfigurationError):
-            build_tool_source_store(_FakeApp(config))
+            build_tool_source_store(config, None)
 
 
 class TestToolIndex:

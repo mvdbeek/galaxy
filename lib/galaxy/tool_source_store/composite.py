@@ -14,6 +14,7 @@ keep working unchanged.
 import logging
 from collections.abc import Iterator
 from typing import (
+    Any,
     Optional,
 )
 
@@ -111,7 +112,7 @@ class CompositeToolSourceStore(ToolSourceStore):
         # Distinct hashes across the composite.
         return sum(1 for _ in self.list_all())
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "backend": "composite",
             "count": self.count(),

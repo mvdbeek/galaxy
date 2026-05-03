@@ -16,7 +16,10 @@ import logging
 import os
 from collections.abc import Iterator
 from datetime import datetime
-from typing import Optional
+from typing import (
+    Any,
+    Optional,
+)
 
 from sqlalchemy import (
     Column,
@@ -217,7 +220,7 @@ class SqlAlchemyToolSourceStore(ToolSourceStore):
         with self._session() as session:
             return session.query(_ToolSourceRow).count()
 
-    def get_stats(self) -> dict:
+    def get_stats(self) -> dict[str, Any]:
         return {
             "count": self.count(),
             "backend": "sqlalchemy",

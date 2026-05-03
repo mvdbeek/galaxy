@@ -420,7 +420,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         )
 
         self.tool_source_store: Optional[ToolSourceStore] = self._register_singleton(
-            ToolSourceStore, build_tool_source_store(self)
+            ToolSourceStore, build_tool_source_store(self.config, self.model.context)
         )
         stats = self.tool_source_store.get_stats()
         tool_count = stats.get("count", 0)

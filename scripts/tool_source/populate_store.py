@@ -292,20 +292,24 @@ class ToolFileWatcher:
 DEFAULT_STORE_NAME = "__default__"
 
 
-def _build_stores(app_context, config) -> dict:
+def _build_stores(config, sa_session) -> "dict[str, ToolSourceStore]":
     """Build {store_name: store_instance} for the default + every named store
     referenced from any tool_conf."""
+    # Lazy imports: avoids loading the store factory on `--help` and keeps
+    # the script's startup snappy for trivial invocations.
     from galaxy.tool_source_store import (
         _build_default_store,
         build_named_store,
     )
     from galaxy.tool_util.toolbox.parser import get_toolbox_parser
 
-    stores: dict = {DEFAULT_STORE_NAME: _build_default_store(app_context)}
+    stores: "dict[str, ToolSourceStore]" = {
+        DEFAULT_STORE_NAME: _build_default_store(config, sa_session),
+    }
 
-    catalog = getattr(config, "tool_source_stores", None) or {}
+    catalog = config.tool_source_stores or {}
     referenced: set[str] = set()
-    for path in getattr(config, "tool_configs", None) or []:
+    for path in config.tool_configs or []:
         try:
             parser = get_toolbox_parser(path)
         except Exception as e:
@@ -320,17 +324,18 @@ def _build_stores(app_context, config) -> dict:
             raise RuntimeError(
                 f"tool_conf references store {name!r} but no such entry in tool_source_stores"
             )
-        stores[name] = build_named_store(app_context, name, catalog[name])
+        stores[name] = build_named_store(sa_session, name, catalog[name])
 
     return stores
 
 
 def _build_conf_to_store_map(config) -> dict[str, str]:
     """Map each tool_conf path to its declared store name (default if absent)."""
+    # Lazy import: matches _build_stores; not needed for --help.
     from galaxy.tool_util.toolbox.parser import get_toolbox_parser
 
     out: dict[str, str] = {}
-    for path in getattr(config, "tool_configs", None) or []:
+    for path in config.tool_configs or []:
         try:
             parser = get_toolbox_parser(path)
         except Exception:
@@ -396,15 +401,7 @@ def populate_store(
 
     log.info(f"Building tool source stores (default backend: {config.tool_source_store})...")
 
-    # Create a simple app-like object with model attribute
-    class AppContext:
-        pass
-
-    app_context = AppContext()
-    app_context.model = model
-    app_context.config = config
-
-    stores = _build_stores(app_context, config)
+    stores = _build_stores(config, model.context)
     conf_to_store = _build_conf_to_store_map(config)
 
     if target is not None:
@@ -560,14 +557,7 @@ def watch_mode(
 
     log.info(f"Building tool source store (backend: {config.tool_source_store})...")
 
-    # Create a simple app-like object with model attribute
-    class AppContext:
-        pass
-
-    app_context = AppContext()
-    app_context.model = model
-    app_context.config = config
-    store = build_tool_source_store(app_context)
+    store = build_tool_source_store(config, model.context)
 
     # Determine directories to watch from tool configurations
     from galaxy.tool_util.toolbox.discover import discover_tools
