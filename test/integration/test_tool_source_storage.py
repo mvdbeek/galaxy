@@ -102,9 +102,12 @@ class TestCompositeToolSourceStorage(BaseToolSourceStorageIntegrationTestCase):
 
         assert isinstance(self._app.tool_source_store, CompositeToolSourceStore)
 
-    def test_api_tools_list_responds(self):
-        # /api/tools must return a 200 even when the LazyToolBox sees an
-        # empty index — Galaxy should not crash on the composite path.
+    def test_api_tools_list_populated_via_bootstrap(self):
+        # With use_lazy_toolbox=true and an empty store, LazyToolBox
+        # auto-bootstraps from the configured tool confs on first boot;
+        # /api/tools must therefore return a non-empty tool list.
         response = self._get("tools")
         self._assert_status_code_is(response, 200)
-        assert isinstance(response.json(), list)
+        tools = response.json()
+        assert isinstance(tools, list)
+        assert len(tools) > 0, "Bootstrap should have populated the store with framework tools"

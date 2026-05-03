@@ -390,10 +390,94 @@ class LazyToolBox(ToolBox):
                 log.info(f"Index empty but store has {len(stored_hashes)} tools - rebuilding index...")
                 self._rebuild_index_from_store(stored_hashes)
             else:
-                log.info("No tool index found in store and store is empty")
-                self._tool_index = ToolIndex()
+                # Empty store + empty index — first lazy boot. Walk every
+                # configured tool conf and populate the default store so the
+                # toolbox is non-empty without requiring an explicit
+                # populate_store.py run.
+                log.info("Empty tool source store; bootstrapping from tool configs...")
+                self._bootstrap_store_from_configs()
         else:
             log.info(f"Loaded tool index with {len(self._tool_index.entries)} entries")
+
+    def _bootstrap_store_from_configs(self) -> None:
+        """One-shot populate: parse every tool conf, write canonical sources, build index.
+
+        Runs only when the active store is empty. Idempotent — if a hash
+        already exists in the store the per-source `store()` call is a
+        no-op. Composite layering means writes land on the writable
+        default member; read-only members (CVMFS bundles) are skipped by
+        the composite itself.
+        """
+        # Lazy imports — only the bootstrap path needs these.
+        import sys as _sys
+        from pathlib import Path as _Path
+
+        from galaxy.tool_source_store import StoredToolSource as _StoredToolSource
+        from galaxy.util import xml_to_string
+
+        if self._store is None:
+            self._tool_index = ToolIndex()
+            return
+
+        # scripts/tool_source/_discover.py is a script-local helper; expose it on
+        # sys.path the same way scripts/tool_source/populate_store.py does.
+        scripts_dir = _Path(__file__).resolve().parents[3] / "scripts" / "tool_source"
+        if str(scripts_dir) not in _sys.path:
+            _sys.path.insert(0, str(scripts_dir))
+        try:
+            from _discover import discover_tools
+        except ImportError as e:
+            log.warning(f"Could not import discover_tools for bootstrap: {e}")
+            self._tool_index = ToolIndex()
+            return
+
+        config = self.app.config
+        entries: dict[str, ToolIndexEntry] = {}
+        stored_count = 0
+
+        for discovered in discover_tools(config, include_bundled=True):
+            tool_path = discovered.path
+            try:
+                tool_source = get_tool_source(config_file=tool_path)
+                root = tool_source.xml_tree.getroot()  # type: ignore[attr-defined]
+                expanded_content = xml_to_string(root, pretty=True)
+            except Exception as e:
+                log.debug(f"Bootstrap skipping {tool_path}: {e}")
+                continue
+            content_hash = hashlib.sha256(expanded_content.encode("utf-8")).hexdigest()
+            tool_id = tool_source.parse_id() or discovered.guid
+            if not tool_id:
+                continue
+            stored = _StoredToolSource(
+                hash=content_hash,
+                tool_source_class=type(tool_source).__name__,
+                raw_source=expanded_content,
+                tool_id=tool_id,
+                tool_version=tool_source.parse_version(),
+                tool_dir=str(_Path(tool_path).parent),
+                stored_at=datetime.utcnow(),
+            )
+            try:
+                self._store.store(stored)
+                stored_count += 1
+            except Exception as e:
+                log.debug(f"Bootstrap could not store {tool_path}: {e}")
+                continue
+            entry = self._build_index_entry_from_stored(stored)
+            if entry and entry.id:
+                entries[entry.id] = entry
+
+        self._tool_index = ToolIndex(
+            entries=entries,
+            by_section={},
+            version=hashlib.md5(str(sorted(entries.keys())).encode()).hexdigest()[:8],
+            built_at=datetime.utcnow(),
+        )
+        try:
+            self._store.store_index(self._tool_index)
+        except Exception as e:
+            log.warning(f"Bootstrap could not persist index: {e}")
+        log.info(f"Bootstrap complete: stored {stored_count} sources, index has {len(entries)} entries")
 
     def _rebuild_index_from_store(self, stored_hashes: list[str]) -> None:
         """Rebuild the index from stored tool sources."""
@@ -466,6 +550,123 @@ class LazyToolBox(ToolBox):
         except Exception as e:
             log.debug(f"Error parsing tool source for index: {e}")
             return None
+
+    def load_item(
+        self,
+        item,
+        tool_path,
+        panel_dict=None,
+        integrated_panel_dict=None,
+        load_panel_dict: bool = True,
+        guid=None,
+        index: Optional[int] = None,
+    ) -> None:
+        """Persist newly installed tools to the store + index without pinning a Tool object.
+
+        Called at runtime by the shed-install path
+        (``tool_panel_manager.add_to_tool_panel`` →
+        ``self.app.toolbox.load_item(...)``). The eager ``ToolBox.load_item``
+        materializes a fully parsed ``Tool`` and registers it in
+        ``_tools_by_id`` for the lifetime of the process — defeating the
+        whole point of the lazy path. We replace it for ``tool`` items
+        with the lazy-equivalent work; section/label/workflow/tool_dir
+        items still go through super since they only mutate panel
+        structure.
+        """
+        from galaxy.tool_util.toolbox.parser import ensure_tool_conf_item
+
+        item = ensure_tool_conf_item(item)
+        if getattr(item, "type", None) != "tool":
+            super().load_item(
+                item,
+                tool_path=tool_path,
+                panel_dict=panel_dict,
+                integrated_panel_dict=integrated_panel_dict,
+                load_panel_dict=load_panel_dict,
+                guid=guid,
+                index=index,
+            )
+            return
+
+        if self._store is None or self._tool_index is None:
+            # No lazy infra wired — fall back to eager load so the install still works.
+            super().load_item(
+                item,
+                tool_path=tool_path,
+                panel_dict=panel_dict,
+                integrated_panel_dict=integrated_panel_dict,
+                load_panel_dict=load_panel_dict,
+                guid=guid,
+                index=index,
+            )
+            return
+
+        with self.app._toolbox_lock:
+            self._lazy_register_tool_item(item, tool_path, guid=guid)
+
+    def _lazy_register_tool_item(self, item, tool_path: str, guid: Optional[str] = None) -> None:
+        """Persist a single tool item's source to the store and add an index entry.
+
+        Reused by the shed-install ``load_item`` override. Does *not*
+        instantiate a ``Tool`` object — the next ``get_tool`` call
+        lazy-loads it.
+        """
+        from galaxy.tool_source_store import StoredToolSource as _StoredToolSource
+        from galaxy.util import xml_to_string
+
+        assert self._store is not None
+        assert self._tool_index is not None
+
+        tool_file = item.get("file")
+        if not tool_file:
+            log.debug("Lazy load_item skipped: tool item has no 'file' attribute")
+            return
+        tool_full_path = os.path.join(tool_path, tool_file)
+        try:
+            tool_source = get_tool_source(config_file=tool_full_path)
+            root = tool_source.xml_tree.getroot()  # type: ignore[attr-defined]
+            expanded_content = xml_to_string(root, pretty=True)
+        except Exception as e:
+            log.warning(f"Lazy load_item could not parse {tool_full_path}: {e}")
+            return
+
+        content_hash = hashlib.sha256(expanded_content.encode("utf-8")).hexdigest()
+        tool_id = tool_source.parse_id() or guid or item.get("guid")
+        if not tool_id:
+            log.debug(f"Lazy load_item: no tool_id resolvable for {tool_full_path}")
+            return
+
+        stored = _StoredToolSource(
+            hash=content_hash,
+            tool_source_class=type(tool_source).__name__,
+            raw_source=expanded_content,
+            tool_id=tool_id,
+            tool_version=tool_source.parse_version(),
+            tool_dir=os.path.dirname(tool_full_path),
+            stored_at=datetime.utcnow(),
+        )
+        try:
+            self._store.store(stored)
+        except Exception as e:
+            log.warning(f"Lazy load_item could not store {tool_full_path}: {e}")
+            return
+
+        entry = self._build_index_entry_from_stored(stored)
+        if entry and entry.id:
+            self._tool_index.entries[entry.id] = entry
+            self._tool_index.invalidate_caches()
+            try:
+                self._store.store_index(self._tool_index)
+            except Exception as e:
+                log.warning(f"Lazy load_item could not persist index: {e}")
+
+        # Fan out to peer Galaxy processes so they reload the index.
+        try:
+            from galaxy.queue_worker import send_control_task
+
+            send_control_task(self.app, "reload_tool_source_cache")
+        except Exception as e:
+            log.debug(f"Lazy load_item could not broadcast reload_tool_source_cache: {e}")
 
     def _populate_tool_registry_from_index(self) -> None:
         """
@@ -693,6 +894,25 @@ class LazyToolBox(ToolBox):
             tool_source,
             tool_dir=stored.tool_dir,
         )
+
+    def invalidate_index_cache(self) -> None:
+        """Drop cached tool index so the next read picks up out-of-band updates.
+
+        Wired to the ``reload_tool_source_cache`` queue-worker control
+        message: a populator on another host (or another Galaxy process)
+        writes new sources/index to the shared store, then publishes
+        the message — every process calls this method to re-read the
+        index. The per-process LRU of materialized ``Tool`` objects
+        stays warm because content-addressed sources can't go stale
+        for a given hash.
+        """
+        if self._store is not None:
+            try:
+                self._store.invalidate_index_cache()
+            except Exception as e:
+                log.debug(f"Store invalidate_index_cache raised: {e}")
+        self._tool_index = None
+        self._load_index_from_store()
 
     def _register_loaded_tool(self, tool: "Tool") -> None:
         """Register a lazily-loaded tool in the toolbox registries."""
