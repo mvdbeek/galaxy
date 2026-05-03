@@ -303,6 +303,75 @@ class TestBuildToolSourceStore:
             build_tool_source_store(config)
 
 
+class _FakeApp:
+    """Tiny app stand-in for build_tool_source_store tests.
+
+    Avoids the heavier MockApp/database fixtures since these tests only
+    need ``app.config`` and (for the disk path) no model.
+    """
+
+    def __init__(self, config):
+        self.config = config
+
+
+class TestPerConfStoreRouting:
+    """Tests for per-conf store routing in build_tool_source_store."""
+
+    def test_lazy_off_ignores_unknown_per_conf_store(self, tmp_path, caplog):
+        # tool_conf opting into a store that is *not* in tool_source_stores —
+        # should not raise when use_lazy_toolbox is off, just log and return
+        # the default store.
+        conf = tmp_path / "extra_tool_conf.xml"
+        conf.write_text('<?xml version="1.0"?>\n<toolbox store="missing_alias"/>\n')
+        disk_dir = tmp_path / "sources"
+        config = FakeConfig(
+            tool_source_store="disk",
+            tool_source_disk_path=str(disk_dir),
+            tool_configs=[str(conf)],
+            tool_source_stores={},
+            use_lazy_toolbox=False,
+        )
+        with caplog.at_level("INFO", logger="galaxy.tool_source_store"):
+            store = build_tool_source_store(_FakeApp(config))
+        from galaxy.tool_source_store.composite import CompositeToolSourceStore
+
+        assert isinstance(store, DiskToolSourceStore)
+        assert not isinstance(store, CompositeToolSourceStore)
+        assert any("missing_alias" in rec.message for rec in caplog.records)
+
+    def test_lazy_unset_also_ignores_per_conf_store(self, tmp_path):
+        # The default deployment (use_lazy_toolbox unset) must not silently
+        # flip to lazy via per-conf stores — the attribute is ignored.
+        conf = tmp_path / "extra_tool_conf.xml"
+        conf.write_text('<?xml version="1.0"?>\n<toolbox store="anything"/>\n')
+        disk_dir = tmp_path / "sources"
+        config = FakeConfig(
+            tool_source_store="disk",
+            tool_source_disk_path=str(disk_dir),
+            tool_configs=[str(conf)],
+            tool_source_stores={},
+            use_lazy_toolbox=None,
+        )
+        store = build_tool_source_store(_FakeApp(config))
+        assert isinstance(store, DiskToolSourceStore)
+
+    def test_lazy_on_with_unknown_store_still_raises(self, tmp_path):
+        # When the user explicitly opts in, we *do* want a clear error if a
+        # tool_conf references a store that isn't declared.
+        conf = tmp_path / "extra_tool_conf.xml"
+        conf.write_text('<?xml version="1.0"?>\n<toolbox store="missing_alias"/>\n')
+        disk_dir = tmp_path / "sources"
+        config = FakeConfig(
+            tool_source_store="disk",
+            tool_source_disk_path=str(disk_dir),
+            tool_configs=[str(conf)],
+            tool_source_stores={},
+            use_lazy_toolbox=True,
+        )
+        with pytest.raises(ConfigurationError):
+            build_tool_source_store(_FakeApp(config))
+
+
 class TestToolIndex:
     """Tests for ToolIndex functionality."""
 

@@ -84,14 +84,15 @@ Toolbox Selection
 .. code-block:: yaml
 
     galaxy:
-      # Force the lazy toolbox on/off. When unset (the default), the lazy
-      # toolbox is enabled automatically if the tool source store is populated.
-      use_lazy_toolbox: null
+      # Opt in to the LazyToolBox. Off by default; setting this to true is
+      # required to activate per-conf store="..." routing.
+      use_lazy_toolbox: true
 
-When ``use_lazy_toolbox`` is left unset, Galaxy auto-detects: if the configured
-store contains at least one tool, the LazyToolBox is used; otherwise Galaxy
-falls back to the traditional eager ToolBox. Set the value explicitly to
-override auto-detection.
+The LazyToolBox is opt-in: leave ``use_lazy_toolbox`` unset (or false) and
+Galaxy uses the traditional eager ToolBox even when the store is populated
+or when a tool_conf carries a ``store="..."`` attribute. Set
+``use_lazy_toolbox: true`` to activate lazy loading and per-conf store
+routing.
 
 Per-conf Store Routing (CVMFS Recipe)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

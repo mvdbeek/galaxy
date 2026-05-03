@@ -427,17 +427,16 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         log.info(f"Initialized tool source store (backend: {stats.get('backend', 'unknown')}, tools: {tool_count})")
 
     def _use_lazy_toolbox(self) -> bool:
-        """Determine whether to use LazyToolBox instead of regular ToolBox."""
+        """Determine whether to use LazyToolBox instead of regular ToolBox.
+
+        Opt-in is explicit: only ``use_lazy_toolbox: true`` activates the
+        lazy toolbox. A populated store on its own (e.g. brought in by a
+        per-conf ``store="..."`` attribute) does *not* flip a default
+        deployment to lazy mode — that has to be a deliberate choice.
+        """
         if self.tool_source_store is None:
             return False
-
-        # Explicit config wins over auto-detection.
-        if self.config.use_lazy_toolbox is not None:
-            return self.config.use_lazy_toolbox
-
-        # Auto-enable if store has tools
-        stats = self.tool_source_store.get_stats()
-        return stats.get("count", 0) > 0
+        return bool(self.config.use_lazy_toolbox)
 
     def _create_lazy_toolbox(self) -> "tools.ToolBox":
         """Create a LazyToolBox instance."""

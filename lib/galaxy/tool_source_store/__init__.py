@@ -276,14 +276,13 @@ def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) ->
 def _collect_per_conf_store_names(app: "MinimalGalaxyApplication") -> set[str]:
     """Walk configured tool_confs and collect referenced store names."""
     config = app.config
-    tool_configs = getattr(config, "tool_configs", None) or []
-    if not tool_configs:
+    if not config.tool_configs:
         return set()
     # Lazy import: avoids pulling parser code into deploys that don't need it.
     from galaxy.tool_util.toolbox.parser import get_toolbox_parser
 
     names: set[str] = set()
-    for path in tool_configs:
+    for path in config.tool_configs:
         try:
             parser = get_toolbox_parser(path)
         except Exception as e:
@@ -306,12 +305,26 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
     """
     default_store = _build_default_store(app)
 
+    config = app.config
+    # Per-conf store="..." attributes are only meaningful when the LazyToolBox
+    # is the active toolbox. Opting in is explicit: anything other than
+    # ``use_lazy_toolbox: true`` keeps the traditional ToolBox, in which case
+    # nothing would query the named store. Treat such attributes as no-ops
+    # rather than failing on a catalog mismatch or doing wasted I/O.
+    if not config.use_lazy_toolbox:
+        referenced = _collect_per_conf_store_names(app)
+        if referenced:
+            log.info(
+                "use_lazy_toolbox is not enabled; ignoring store=... attributes "
+                f"from tool_confs (referenced: {sorted(referenced)})"
+            )
+        return default_store
+
     referenced = _collect_per_conf_store_names(app)
     if not referenced:
         return default_store
 
-    config = app.config
-    catalog = getattr(config, "tool_source_stores", None) or {}
+    catalog = config.tool_source_stores or {}
     members: list[tuple[str, ToolSourceStore]] = []
     for name in referenced:
         if name not in catalog:

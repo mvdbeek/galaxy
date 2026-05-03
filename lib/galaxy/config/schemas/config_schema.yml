@@ -399,9 +399,10 @@ mapping:
         required: false
         desc: |
           When true, use the LazyToolBox which loads tools on demand from the
-          tool source store. When false, the traditional eager ToolBox is used.
-          When unset (the default), the LazyToolBox is enabled automatically if
-          the configured tool source store is populated.
+          tool source store. Otherwise (the default), the traditional eager
+          ToolBox is used and any per-conf ``store="..."`` attributes on
+          tool_conf files are ignored. Opt-in is explicit: a populated tool
+          source store does not flip a default deployment to lazy mode.
 
       lazy_toolbox_cache_size:
         type: int
