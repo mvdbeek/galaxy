@@ -3,7 +3,7 @@ Tool Source Store - Pluggable storage backends for Galaxy tool sources.
 
 This module provides a configurable, pluggable tool source storage system
 that enables storing and retrieving tool sources from multiple backends
-(database, Redis, disk).
+(currently ``database`` and ``sqlalchemy``).
 """
 
 import logging
@@ -181,34 +181,11 @@ def _build_default_store(
     backend = config.tool_source_store
 
     if backend == "database":
-        # Backend imported lazily so the redis/disk-only deployments don't
-        # import SQLAlchemy machinery they don't need.
         from .database import DatabaseToolSourceStore
 
         return DatabaseToolSourceStore(sa_session)
 
-    if backend == "redis":
-        # Backend imported lazily — the redis client is an optional dependency.
-        from .redis import RedisToolSourceStore
-
-        redis_url = config.tool_source_redis_url
-        if not redis_url:
-            raise ConfigurationError("tool_source_redis_url required for redis backend")
-        ttl = config.tool_source_redis_ttl
-        return RedisToolSourceStore(redis_url, ttl=ttl)
-
-    if backend == "disk":
-        # Backend imported lazily so other backends don't pull in disk-only deps.
-        from .disk import DiskToolSourceStore
-
-        disk_path = config.tool_source_disk_path
-        if not disk_path:
-            raise ConfigurationError("tool_source_disk_path required for disk backend")
-        return DiskToolSourceStore(disk_path)
-
     if backend in ("sqlalchemy", "sqlite"):
-        # Backend imported lazily so deploys that don't pick this backend
-        # avoid the SQLAlchemy create_engine cost on import.
         from .sqlalchemy import SqlAlchemyToolSourceStore
 
         url = getattr(config, "tool_source_url", None)
@@ -241,8 +218,6 @@ def build_named_store(
     read_only = bool(spec.get("read_only", False))
 
     if backend in ("sqlalchemy", "sqlite"):
-        # Backend imported lazily so deploys that don't pick this backend
-        # avoid the SQLAlchemy create_engine cost on import.
         from .sqlalchemy import SqlAlchemyToolSourceStore
 
         url = spec.get("url")
@@ -253,31 +228,7 @@ def build_named_store(
             )
         return SqlAlchemyToolSourceStore(url=url, path=path, read_only=read_only)
 
-    if backend == "disk":
-        # Backend imported lazily so other backends don't pull in disk-only deps.
-        from .disk import DiskToolSourceStore
-
-        path = spec.get("path")
-        if not path:
-            raise ConfigurationError(f"tool_source_stores[{name!r}] requires a 'path'")
-        store = DiskToolSourceStore(path)
-        store.read_only = read_only
-        return store
-
-    if backend == "redis":
-        # Backend imported lazily — the redis client is an optional dependency.
-        from .redis import RedisToolSourceStore
-
-        url = spec.get("url")
-        if not url:
-            raise ConfigurationError(f"tool_source_stores[{name!r}] requires a 'url'")
-        store = RedisToolSourceStore(url, ttl=spec.get("ttl"))
-        store.read_only = read_only
-        return store
-
     if backend == "database":
-        # Backend imported lazily so the redis/disk-only deployments don't
-        # import SQLAlchemy machinery they don't need.
         from .database import DatabaseToolSourceStore
 
         store = DatabaseToolSourceStore(sa_session)

@@ -1,11 +1,9 @@
 """Unit tests for tool source storage backends.
 
 Tests verify that the tool source store classes work correctly with
-different backends (database, disk). These tests directly instantiate
-the stores to test the backend implementations.
+different backends (database, sqlalchemy). These tests directly
+instantiate the stores to test the backend implementations.
 """
-
-import tempfile
 
 import pytest
 
@@ -16,11 +14,11 @@ from galaxy.tool_source_store import (
     StoredToolSource,
 )
 from galaxy.tool_source_store.database import DatabaseToolSourceStore
-from galaxy.tool_source_store.disk import DiskToolSourceStore
 from galaxy.tool_source_store.index import (
     ToolIndex,
     ToolIndexEntry,
 )
+from galaxy.tool_source_store.sqlalchemy import SqlAlchemyToolSourceStore
 
 
 class FakeConfig:
@@ -149,154 +147,70 @@ class TestDatabaseBackend:
                 app.model.context.commit()
 
 
-class TestDiskBackend:
-    """Tests for disk backend."""
+class TestSqlAlchemyBackend:
+    """Tests for the sqlalchemy/sqlite backend."""
 
-    def test_disk_store_basic_operations(self):
-        """Test basic store/get operations with disk backend."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
+    def test_sqlalchemy_store_basic_operations(self, tmp_path):
+        store = SqlAlchemyToolSourceStore(path=str(tmp_path / "ts.sqlite"))
 
-            tool_source = StoredToolSource(
-                hash="disk_test_hash_123",
-                tool_source_class="XmlToolSource",
-                raw_source='<tool id="disk_test" version="2.0"><command>cat</command></tool>',
-                tool_id="disk_test_tool",
-                tool_version="2.0",
-            )
+        tool_source = StoredToolSource(
+            hash="sa_test_hash_123",
+            tool_source_class="XmlToolSource",
+            raw_source='<tool id="sa_test" version="2.0"><command>cat</command></tool>',
+            tool_id="sa_test_tool",
+            tool_version="2.0",
+        )
+        store.store(tool_source)
 
-            store.store(tool_source)
+        assert store.exists("sa_test_hash_123")
+        retrieved = store.get("sa_test_hash_123")
+        assert retrieved is not None
+        assert retrieved.tool_id == "sa_test_tool"
+        assert store.count() >= 1
+        assert store.delete("sa_test_hash_123")
+        assert not store.exists("sa_test_hash_123")
 
-            assert store.exists("disk_test_hash_123")
-            retrieved = store.get("disk_test_hash_123")
-            assert retrieved is not None
-            assert retrieved.tool_id == "disk_test_tool"
-
-            assert store.count() >= 1
-
-            assert store.delete("disk_test_hash_123")
-            assert not store.exists("disk_test_hash_123")
-
-    def test_disk_store_index_operations(self):
-        """Test tool index with disk backend."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            index = ToolIndex()
-            index.entries["disk_tool"] = ToolIndexEntry(
-                id="disk_tool",
-                name="Disk Tool",
-                version="1.0",
-                description="Tool stored on disk",
-            )
-
-            store.store_index(index)
-
-            loaded = store.load_index()
-            assert loaded is not None
-            assert "disk_tool" in loaded.entries
-
-    def test_disk_store_persistence(self):
-        """Test that disk storage persists across store instances."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store1 = DiskToolSourceStore(tmpdir)
-            tool_source = StoredToolSource(
+    def test_sqlalchemy_store_persistence(self, tmp_path):
+        path = str(tmp_path / "ts.sqlite")
+        store1 = SqlAlchemyToolSourceStore(path=path)
+        store1.store(
+            StoredToolSource(
                 hash="persist_test_hash",
                 tool_source_class="XmlToolSource",
                 raw_source='<tool id="persist"><command>echo</command></tool>',
                 tool_id="persist_tool",
                 tool_version="1.0",
             )
-            store1.store(tool_source)
-
-            store2 = DiskToolSourceStore(tmpdir)
-
-            assert store2.exists("persist_test_hash")
-            retrieved = store2.get("persist_test_hash")
-            assert retrieved is not None
-            assert retrieved.tool_id == "persist_tool"
-
-    def test_disk_store_list_all(self):
-        """Test listing all hashes from disk store."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            hashes = ["hash_a", "hash_b", "hash_c"]
-            for h in hashes:
-                store.store(
-                    StoredToolSource(
-                        hash=h,
-                        tool_source_class="XmlToolSource",
-                        raw_source=f'<tool id="{h}"><command>echo</command></tool>',
-                        tool_id=h,
-                        tool_version="1.0",
-                    )
-                )
-
-            listed = list(store.list_all())
-            assert len(listed) == 3
-            for h in hashes:
-                assert h in listed
-
-    def test_disk_store_get_by_tool_id(self):
-        """Test retrieving by tool ID from disk store."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            store = DiskToolSourceStore(tmpdir)
-
-            store.store(
-                StoredToolSource(
-                    hash="v1_hash",
-                    tool_source_class="XmlToolSource",
-                    raw_source='<tool id="multi_version" version="1.0"><command>v1</command></tool>',
-                    tool_id="multi_version",
-                    tool_version="1.0",
-                )
-            )
-            store.store(
-                StoredToolSource(
-                    hash="v2_hash",
-                    tool_source_class="XmlToolSource",
-                    raw_source='<tool id="multi_version" version="2.0"><command>v2</command></tool>',
-                    tool_id="multi_version",
-                    tool_version="2.0",
-                )
-            )
-
-            sources = store.get_by_tool_id("multi_version")
-            assert len(sources) == 2
-
-            sources_v1 = store.get_by_tool_id("multi_version", version="1.0")
-            assert len(sources_v1) == 1
-            assert sources_v1[0].tool_version == "1.0"
+        )
+        store2 = SqlAlchemyToolSourceStore(path=path)
+        assert store2.exists("persist_test_hash")
+        retrieved = store2.get("persist_test_hash")
+        assert retrieved is not None
+        assert retrieved.tool_id == "persist_tool"
 
 
 class TestBuildToolSourceStore:
     """Tests for the store factory function."""
 
     def test_build_database_store(self):
-        """Test building database store from config."""
         app = MockApp()
         store = build_tool_source_store(app.config, app.model.context)
         assert isinstance(store, DatabaseToolSourceStore)
 
-    def test_build_disk_store(self):
-        """Test building disk store from config."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            config = FakeConfig(
-                tool_source_store="disk",
-                tool_source_disk_path=tmpdir,
-                tool_configs=[],
-                tool_source_stores=None,
-                use_lazy_toolbox=False,
-            )
-            # sa_session unused for the disk backend.
-            store = build_tool_source_store(config, None)
-            assert isinstance(store, DiskToolSourceStore)
-
-    def test_build_disk_store_missing_path_raises(self):
-        """Test that missing disk path raises ConfigurationError."""
+    def test_build_sqlalchemy_store(self, tmp_path):
         config = FakeConfig(
-            tool_source_store="disk",
+            tool_source_store="sqlalchemy",
+            tool_source_disk_path=str(tmp_path / "ts.sqlite"),
+            tool_configs=[],
+            tool_source_stores=None,
+            use_lazy_toolbox=False,
+        )
+        store = build_tool_source_store(config, None)
+        assert isinstance(store, SqlAlchemyToolSourceStore)
+
+    def test_build_sqlalchemy_store_missing_path_raises(self):
+        config = FakeConfig(
+            tool_source_store="sqlalchemy",
             tool_source_disk_path=None,
             tool_configs=[],
             tool_source_stores=None,
@@ -305,11 +219,10 @@ class TestBuildToolSourceStore:
         with pytest.raises(ConfigurationError):
             build_tool_source_store(config, None)
 
-    def test_build_redis_store_missing_url_raises(self):
-        """Test that missing Redis URL raises ConfigurationError."""
+    def test_build_unknown_backend_raises(self):
         config = FakeConfig(
-            tool_source_store="redis",
-            tool_source_redis_url=None,
+            tool_source_store="not-a-backend",
+            tool_source_disk_path=None,
             tool_configs=[],
             tool_source_stores=None,
             use_lazy_toolbox=False,
@@ -321,57 +234,43 @@ class TestBuildToolSourceStore:
 class TestPerConfStoreRouting:
     """Tests for per-conf store routing in build_tool_source_store."""
 
-    def test_lazy_off_ignores_unknown_per_conf_store(self, tmp_path, caplog):
-        # tool_conf opting into a store that is *not* in tool_source_stores —
-        # should not raise when use_lazy_toolbox is off, just log and return
-        # the default store.
-        conf = tmp_path / "extra_tool_conf.xml"
-        conf.write_text('<?xml version="1.0"?>\n<toolbox store="missing_alias"/>\n')
-        disk_dir = tmp_path / "sources"
-        config = FakeConfig(
-            tool_source_store="disk",
-            tool_source_disk_path=str(disk_dir),
-            tool_configs=[str(conf)],
+    def _config(self, tmp_path, **overrides):
+        defaults = dict(
+            tool_source_store="sqlalchemy",
+            tool_source_disk_path=str(tmp_path / "ts.sqlite"),
+            tool_configs=[],
             tool_source_stores={},
             use_lazy_toolbox=False,
         )
+        defaults.update(overrides)
+        return FakeConfig(**defaults)
+
+    def test_lazy_off_ignores_unknown_per_conf_store(self, tmp_path, caplog):
+        conf = tmp_path / "extra_tool_conf.xml"
+        conf.write_text('<?xml version="1.0"?>\n<toolbox store="missing_alias"/>\n')
+        config = self._config(tmp_path, tool_configs=[str(conf)])
         with caplog.at_level("INFO", logger="galaxy.tool_source_store"):
-            # sa_session is unused for the disk backend; pass None.
             store = build_tool_source_store(config, None)
         from galaxy.tool_source_store.composite import CompositeToolSourceStore
 
-        assert isinstance(store, DiskToolSourceStore)
+        assert isinstance(store, SqlAlchemyToolSourceStore)
         assert not isinstance(store, CompositeToolSourceStore)
         assert any("missing_alias" in rec.message for rec in caplog.records)
 
     def test_lazy_unset_also_ignores_per_conf_store(self, tmp_path):
-        # The default deployment (use_lazy_toolbox unset) must not silently
-        # flip to lazy via per-conf stores — the attribute is ignored.
         conf = tmp_path / "extra_tool_conf.xml"
         conf.write_text('<?xml version="1.0"?>\n<toolbox store="anything"/>\n')
-        disk_dir = tmp_path / "sources"
-        config = FakeConfig(
-            tool_source_store="disk",
-            tool_source_disk_path=str(disk_dir),
-            tool_configs=[str(conf)],
-            tool_source_stores={},
-            use_lazy_toolbox=None,
+        config = self._config(
+            tmp_path, tool_configs=[str(conf)], use_lazy_toolbox=None
         )
         store = build_tool_source_store(config, None)
-        assert isinstance(store, DiskToolSourceStore)
+        assert isinstance(store, SqlAlchemyToolSourceStore)
 
     def test_lazy_on_with_unknown_store_still_raises(self, tmp_path):
-        # When the user explicitly opts in, we *do* want a clear error if a
-        # tool_conf references a store that isn't declared.
         conf = tmp_path / "extra_tool_conf.xml"
         conf.write_text('<?xml version="1.0"?>\n<toolbox store="missing_alias"/>\n')
-        disk_dir = tmp_path / "sources"
-        config = FakeConfig(
-            tool_source_store="disk",
-            tool_source_disk_path=str(disk_dir),
-            tool_configs=[str(conf)],
-            tool_source_stores={},
-            use_lazy_toolbox=True,
+        config = self._config(
+            tmp_path, tool_configs=[str(conf)], use_lazy_toolbox=True
         )
         with pytest.raises(ConfigurationError):
             build_tool_source_store(config, None)
