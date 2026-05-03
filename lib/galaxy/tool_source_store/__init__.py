@@ -196,9 +196,7 @@ def _build_default_store(
             return SqlAlchemyToolSourceStore(url=url, read_only=False)
         if path:
             return SqlAlchemyToolSourceStore(path=path, read_only=False)
-        raise ConfigurationError(
-            f"{backend!r} backend requires tool_source_url or tool_source_disk_path"
-        )
+        raise ConfigurationError(f"{backend!r} backend requires tool_source_url or tool_source_disk_path")
 
     raise ConfigurationError(f"Unknown tool source store backend: {backend}")
 
@@ -225,9 +223,7 @@ def build_named_store(
         url = spec.get("url")
         path = spec.get("path")
         if not url and not path:
-            raise ConfigurationError(
-                f"tool_source_stores[{name!r}] requires a 'url' or 'path'"
-            )
+            raise ConfigurationError(f"tool_source_stores[{name!r}] requires a 'url' or 'path'")
         return SqlAlchemyToolSourceStore(url=url, path=path, read_only=read_only)
 
     if backend == "database":
@@ -241,9 +237,7 @@ def build_named_store(
         store.read_only = read_only
         return store
 
-    raise ConfigurationError(
-        f"tool_source_stores[{name!r}] has unknown backend {backend!r}"
-    )
+    raise ConfigurationError(f"tool_source_stores[{name!r}] has unknown backend {backend!r}")
 
 
 def _collect_per_conf_store_names(config: "GalaxyAppConfiguration") -> set[str]:
@@ -308,8 +302,7 @@ def build_tool_source_store(
     for name in referenced:
         if name not in catalog:
             raise ConfigurationError(
-                f"tool_conf references store {name!r} but no such entry exists "
-                "in tool_source_stores"
+                f"tool_conf references store {name!r} but no such entry exists in tool_source_stores"
             )
         members.append((name, build_named_store(sa_session, name, catalog[name])))
 

@@ -260,18 +260,14 @@ class TestPerConfStoreRouting:
     def test_lazy_unset_also_ignores_per_conf_store(self, tmp_path):
         conf = tmp_path / "extra_tool_conf.xml"
         conf.write_text('<?xml version="1.0"?>\n<toolbox store="anything"/>\n')
-        config = self._config(
-            tmp_path, tool_configs=[str(conf)], use_lazy_toolbox=None
-        )
+        config = self._config(tmp_path, tool_configs=[str(conf)], use_lazy_toolbox=None)
         store = build_tool_source_store(config, None)
         assert isinstance(store, SqlAlchemyToolSourceStore)
 
     def test_lazy_on_with_unknown_store_still_raises(self, tmp_path):
         conf = tmp_path / "extra_tool_conf.xml"
         conf.write_text('<?xml version="1.0"?>\n<toolbox store="missing_alias"/>\n')
-        config = self._config(
-            tmp_path, tool_configs=[str(conf)], use_lazy_toolbox=True
-        )
+        config = self._config(tmp_path, tool_configs=[str(conf)], use_lazy_toolbox=True)
         with pytest.raises(ConfigurationError):
             build_tool_source_store(config, None)
 

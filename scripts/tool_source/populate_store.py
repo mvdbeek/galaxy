@@ -331,9 +331,7 @@ def _build_stores(config, sa_session) -> dict[str, Any]:
 
     for name in referenced:
         if name not in catalog:
-            raise RuntimeError(
-                f"tool_conf references store {name!r} but no such entry in tool_source_stores"
-            )
+            raise RuntimeError(f"tool_conf references store {name!r} but no such entry in tool_source_stores")
         stores[name] = build_named_store(sa_session, name, catalog[name])
 
     return stores
@@ -416,9 +414,7 @@ def populate_store(
 
     if target is not None:
         if target not in stores:
-            raise RuntimeError(
-                f"--target {target!r} not found; available: {sorted(stores.keys())}"
-            )
+            raise RuntimeError(f"--target {target!r} not found; available: {sorted(stores.keys())}")
         if stores[target].read_only:
             raise ReadOnlyStoreError(f"--target store {target!r} is read-only")
 

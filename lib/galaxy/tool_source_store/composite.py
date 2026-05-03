@@ -116,9 +116,7 @@ class CompositeToolSourceStore(ToolSourceStore):
             "backend": "composite",
             "count": self.count(),
             "default": self._default_name,
-            "members": [
-                {"name": name, **member.get_stats()} for name, member in self._members
-            ],
+            "members": [{"name": name, **member.get_stats()} for name, member in self._members],
         }
 
     # --- index ---------------------------------------------------------

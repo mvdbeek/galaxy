@@ -15,12 +15,11 @@ import json
 import logging
 import os
 from collections.abc import Iterator
+from datetime import datetime
 from typing import (
     Any,
     Optional,
 )
-
-from datetime import datetime
 
 from sqlalchemy import (
     create_engine,
@@ -120,9 +119,7 @@ class SqlAlchemyToolSourceStore(ToolSourceStore):
             # the connection level so accidental writes fail loudly.
             if read_only:
                 if not os.path.exists(path):
-                    raise FileNotFoundError(
-                        f"Read-only sqlite tool source store not found: {path}"
-                    )
+                    raise FileNotFoundError(f"Read-only sqlite tool source store not found: {path}")
                 resolved_url = f"sqlite:///file:{path}?mode=ro&uri=true"
             else:
                 os.makedirs(os.path.dirname(os.path.abspath(path)) or ".", exist_ok=True)
@@ -144,9 +141,7 @@ class SqlAlchemyToolSourceStore(ToolSourceStore):
             try:
                 _metadata.create_all(self._engine)
             except Exception as e:
-                log.warning(
-                    f"could not auto-create tool source tables on {self._engine.url.drivername!r}: {e}"
-                )
+                log.warning(f"could not auto-create tool source tables on {self._engine.url.drivername!r}: {e}")
         self._Session = sessionmaker(bind=self._engine, future=True)
 
     def _is_remote_engine(self) -> bool:
@@ -254,9 +249,7 @@ class SqlAlchemyToolSourceStore(ToolSourceStore):
         if self._cached_index is not None:
             return self._cached_index
         with self._session() as session:
-            row = session.execute(
-                select(_ToolIndexRow).order_by(_ToolIndexRow.id.desc())
-            ).scalar_one_or_none()
+            row = session.execute(select(_ToolIndexRow).order_by(_ToolIndexRow.id.desc())).scalar_one_or_none()
         if row is None or not row.data:
             return None
         try:

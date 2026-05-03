@@ -79,14 +79,22 @@ def test_load_index_merges_and_dedupes(two_paths):
     pa, pb = two_paths
     a = SqliteToolSourceStore(path=pa)
     b = SqliteToolSourceStore(path=pb)
-    a.store_index(ToolIndex(entries={
-        "shared": ToolIndexEntry(id="shared", name="from_a"),
-        "only_a": ToolIndexEntry(id="only_a", name="A only"),
-    }))
-    b.store_index(ToolIndex(entries={
-        "shared": ToolIndexEntry(id="shared", name="from_b"),
-        "only_b": ToolIndexEntry(id="only_b", name="B only"),
-    }))
+    a.store_index(
+        ToolIndex(
+            entries={
+                "shared": ToolIndexEntry(id="shared", name="from_a"),
+                "only_a": ToolIndexEntry(id="only_a", name="A only"),
+            }
+        )
+    )
+    b.store_index(
+        ToolIndex(
+            entries={
+                "shared": ToolIndexEntry(id="shared", name="from_b"),
+                "only_b": ToolIndexEntry(id="only_b", name="B only"),
+            }
+        )
+    )
     composite = CompositeToolSourceStore(members=[("a", a), ("b", b)], default="b")
     merged = composite.load_index()
     assert merged is not None
