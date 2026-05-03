@@ -33,6 +33,8 @@ Module Layout
       database.py        DatabaseToolSourceStore (uses tool_source + tool_index tables)
       redis.py           RedisToolSourceStore (with Sentinel support)
       disk.py            DiskToolSourceStore (sharded directory layout)
+      sqlalchemy.py      SqlAlchemyToolSourceStore (any SA URL; sqlite shortcut)
+      composite.py       CompositeToolSourceStore (per-conf routing, merged index)
       index.py           ToolIndex, ToolIndexEntry (the lightweight metadata)
       api_cache.py       ToolAPICache (gzip-compressed batch response cache)
       models.py          Pydantic response models for the API layer
@@ -86,6 +88,61 @@ on a Redis-only deploy, no ``redis`` client on a DB-only deploy).
 ``ConfigurationError`` is raised for unknown backends or missing required
 settings; it is allowed to propagate up so misconfiguration fails fast at
 startup.
+
+The ABC defines a ``read_only: bool`` class attribute (default ``False``).
+``ReadOnlyStoreError`` is raised by mutating methods of stores that opted
+in. The populator, watch reload, and composite all consult this flag to
+route around read-only members rather than crashing.
+
+Per-conf composition
+^^^^^^^^^^^^^^^^^^^^
+
+If any tool_conf carries a top-level ``store="..."`` attribute (XML root)
+or ``store: ...`` key (YAML), ``build_tool_source_store`` instantiates
+the referenced named stores from ``config.tool_source_stores`` and wraps
+them with the writable default in a :class:`CompositeToolSourceStore`.
+
+The composite implements the same ``ToolSourceStore`` interface, so the
+LazyToolBox, services, and queue worker stay completely unaware of the
+multi-store layout:
+
+- **Reads** iterate ``[per-conf members..., default]`` in order; first
+  hit wins. ``count`` and ``list_all`` dedupe across members.
+- **Writes** always land on the designated default. The default may not
+  itself be ``read_only``; that's enforced at construction.
+- ``load_index()`` calls each member's ``load_index()`` and folds the
+  entries into a single :class:`ToolIndex`. Earlier members shadow later
+  ones on tool-id collisions; ``by_section`` is unioned; ``built_at``
+  takes the most recent value.
+- ``invalidate_index_cache()`` fans out so a single Kombu reload hits
+  every member.
+- ``store_to(name, ...)`` lets the populator address a specific member by
+  name without going through composite write routing.
+
+When no tool_conf opts in, ``build_tool_source_store`` returns the
+default store directly — the composite path is zero-cost for the common
+case.
+
+The ``sqlalchemy`` backend (``sqlalchemy.py``) was added to make this
+useful for CVMFS: a single self-contained ``.sqlite`` file, opened with
+its own SQLAlchemy ``MetaData`` (independent of ``galaxy.model``) so the
+file is portable, and openable with ``mode=ro&uri=true`` for read-only
+mounts. Despite the name, the backend is not sqlite-specific — pass any
+SQLAlchemy ``url`` (Postgres, MySQL, …) instead of ``path``. Auto schema
+creation runs on first open; on remote backends operators may prefer to
+manage migrations explicitly.
+
+Per-conf populator routing
+^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+``scripts/tool_source/populate_store.py`` is per-conf aware. It reads
+``parse_store_name()`` for each tool_conf, builds every named store plus
+the default, and routes each ``DiscoveredTool.path`` to the store its
+conf points at. By default it populates *every* writable store in one
+run; ``--target NAME`` restricts to a single store and raises
+``ReadOnlyStoreError`` if that store is read-only. Tools whose target is
+read-only in default mode are silently skipped (the bundle is treated as
+authoritative for those entries).
 
 LazyToolBox
 -----------

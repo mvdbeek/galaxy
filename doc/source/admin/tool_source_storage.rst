@@ -93,6 +93,77 @@ store contains at least one tool, the LazyToolBox is used; otherwise Galaxy
 falls back to the traditional eager ToolBox. Set the value explicitly to
 override auto-detection.
 
+Per-conf Store Routing (CVMFS Recipe)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Individual ``tool_conf`` files can opt into a *named* tool source store,
+distinct from the global default. The typical use case is shipping a
+read-only SQLite bundle on CVMFS alongside a tool_conf, so worker
+processes can resolve every tool in that conf with local-cached lookups
+instead of one network round-trip per JSON file.
+
+Declare the named stores under the new top-level ``tool_source_stores``
+key in ``galaxy.yml``. The ``sqlalchemy`` backend takes either a SQLAlchemy
+``url`` or a ``path`` shortcut that builds a SQLite URL. SQLite is the
+typical choice for CVMFS bundles (single self-contained file), but any
+SQLAlchemy-supported database works:
+
+.. code-block:: yaml
+
+    galaxy:
+      tool_source_store: database          # the writable default
+      tool_source_stores:
+        cvmfs_main:
+          backend: sqlalchemy
+          path: /cvmfs/example.org/tools/sources.sqlite
+          read_only: true
+        site_shared:
+          backend: sqlalchemy
+          url: postgresql://galaxy_ro@db.example.org/tool_sources
+          read_only: true
+
+Then point the tool_conf at it via the root element's ``store`` attribute
+(XML) or top-level key (YAML):
+
+.. code-block:: xml
+
+    <?xml version="1.0"?>
+    <toolbox store="cvmfs_main">
+      <section id="cvmfs_tools" name="CVMFS Tools">
+        <tool file="bwa/bwa.xml"/>
+        ...
+      </section>
+    </toolbox>
+
+At startup, Galaxy inspects every ``tool_conf`` for the attribute, builds
+the referenced stores, and wraps them with the writable default in a
+composite store. Reads are tried in declared order (first hit wins) and
+writes always go to the default store. If no tool_conf opts in, the
+default store is used directly with zero overhead.
+
+**Building the bundle**
+
+Build the SQLite file from a writable host before shipping it:
+
+.. code-block:: console
+
+    $ python scripts/tool_source/populate_store.py -c galaxy.yml --target cvmfs_main
+
+Use ``--target`` to restrict population to a single named store; without
+it, ``populate_store.py`` populates **every writable store** referenced
+from a tool_conf in the same run.
+
+Once the bundle is in place on CVMFS (or any read-only mount), restart
+Galaxy. The composite store reports its members in
+``GET /api/tool_sources/stats`` and ``backend`` will be ``composite``.
+
+**Why SQLite for CVMFS?** The disk backend stores one JSON file per tool
+hash, so each ``get(hash)`` becomes a separate filesystem operation —
+expensive on a network-mounted store. SQLite is a single file with B-tree
+indexes; once the page cache is warm, lookups stay local. For shared
+deployments without CVMFS, point ``url:`` at any SQLAlchemy-supported
+backend (Postgres, MySQL, …) instead.
+
 Cache Configuration
 ^^^^^^^^^^^^^^^^^^^
 
@@ -149,6 +220,9 @@ Command Line Options
       --tool-id PATTERN      Only process tools whose ID contains PATTERN
       --parallel, -j N       Number of parallel workers (default: 4)
       --rebuild-index        Rebuild the tool index after population
+      --target NAME          Restrict to a single named store from
+                             tool_source_stores (or '__default__'). Without
+                             this, every writable store is populated.
       --verbose, -v          Verbose output
       --watch, -w            Watch tool directories and send reload notifications
       --watch-polling        Use polling observer (for NFS/CVMFS/network FS)

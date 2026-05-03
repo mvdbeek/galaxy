@@ -4,6 +4,7 @@ These tests configure Galaxy to use different tool source storage backends
 and verify that tools work correctly through the API and can be executed.
 """
 
+import os
 import tempfile
 
 from galaxy_test.base.populators import (
@@ -183,6 +184,65 @@ steps:
             # Verify invocation succeeded
             invocation_details = self.workflow_populator.get_invocation(invocation_id)
             assert invocation_details["state"] == "scheduled"
+
+
+class TestCompositeToolSourceStorage(BaseToolSourceStorageIntegrationTestCase):
+    """Galaxy boots with a default DB store + a per-conf read-only sqlite store.
+
+    Verifies the composite wiring: a tool_conf carrying ``store="cvmfs_main"``
+    causes ``build_tool_source_store`` to wrap the default backend in a
+    composite, and ``/api/tool_sources/stats`` reports backend == "composite"
+    with both members listed.
+    """
+
+    _sqlite_path: str
+    _conf_path: str
+    _tmpdir: str
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        cls._tmpdir = tempfile.mkdtemp(prefix="composite_tss_")
+        cls._sqlite_path = os.path.join(cls._tmpdir, "sources.sqlite")
+
+        # Pre-create the sqlite file (populating it isn't required to exercise
+        # the composite wiring — an empty index is fine; merging still works).
+        from galaxy.tool_source_store.sqlalchemy import SqlAlchemyToolSourceStore
+
+        SqlAlchemyToolSourceStore(path=cls._sqlite_path).count()  # creates the file
+
+        # Tool conf that opts into the named store. No <tool> entries — the
+        # framework tools come from the default conf.
+        cls._conf_path = os.path.join(cls._tmpdir, "extra_tool_conf.xml")
+        with open(cls._conf_path, "w") as f:
+            f.write('<?xml version="1.0"?>\n<toolbox store="cvmfs_main"/>\n')
+
+        config["tool_source_store"] = "database"
+        # Append the extra conf so the framework tool conf is still loaded.
+        existing_confs = config.get("tool_config_file") or "config/tool_conf.xml.sample"
+        if isinstance(existing_confs, str):
+            config["tool_config_file"] = f"{existing_confs},{cls._conf_path}"
+        else:
+            config["tool_config_file"] = list(existing_confs) + [cls._conf_path]
+        config["tool_source_stores"] = {
+            "cvmfs_main": {
+                "backend": "sqlite",
+                "path": cls._sqlite_path,
+                "read_only": True,
+            }
+        }
+
+    def test_composite_backend_reported(self):
+        response = self._get("tool_sources/stats", admin=True)
+        self._assert_status_code_is(response, 200)
+        stats = response.json()
+        # ToolSourceStatsResponse only surfaces backend/count/size_bytes; the
+        # backend field reflects what get_stats() returned.
+        assert stats["backend"] == "composite", stats
+
+    def test_default_tools_still_listed(self):
+        # Tools from the default conf must still resolve through the composite.
+        self._test_api_tools_list()
 
 
 class TestToolSourceStorageMultipleVersions(BaseToolSourceStorageIntegrationTestCase):

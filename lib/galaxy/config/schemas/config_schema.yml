@@ -367,6 +367,33 @@ mapping:
           The directory will be created if it doesn't exist. Tool sources are
           stored in a sharded directory structure for efficient access.
 
+      tool_source_stores:
+        type: map
+        required: false
+        desc: |
+          Optional named tool source stores referenced from individual
+          tool_conf files via a top-level ``store="<name>"`` attribute (XML)
+          or ``store: <name>`` key (YAML). When any tool_conf opts in, the
+          process composes its named store with the default
+          (``tool_source_store``) backend at runtime, with reads tried in
+          declared order and writes always landing on the default.
+
+          Each entry takes a ``backend`` (``database``, ``redis``, ``disk``,
+          or ``sqlalchemy``) plus the backend-specific settings, and an
+          optional ``read_only: true`` flag (typically used for
+          CVMFS-shipped sqlite bundles).
+
+          The ``sqlalchemy`` backend accepts either a SQLAlchemy ``url`` or
+          a ``path`` shortcut that builds a SQLite URL.
+
+          Example::
+
+              tool_source_stores:
+                cvmfs_main:
+                  backend: sqlalchemy
+                  path: /cvmfs/example.org/tools/sources.sqlite
+                  read_only: true
+
       use_lazy_toolbox:
         type: bool
         required: false

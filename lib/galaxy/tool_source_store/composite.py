@@ -1,0 +1,185 @@
+"""
+Composite tool source store.
+
+Lets a single Galaxy process serve tools from multiple per-tool-conf
+stores. Reads are tried in declared order (first hit wins), writes go to
+a designated *default* store. Used to layer e.g. a CVMFS-resident
+read-only sqlite bundle on top of the local writable store.
+
+The composite is invisible to the rest of Galaxy: it implements the same
+:class:`ToolSourceStore` interface, and ``LazyToolBox`` / the populator
+keep working unchanged.
+"""
+
+import logging
+from collections.abc import Iterator
+from typing import (
+    Optional,
+)
+
+from . import (
+    ReadOnlyStoreError,
+    StoredToolSource,
+    ToolSourceStore,
+)
+from .index import (
+    ToolIndex,
+    ToolIndexEntry,
+)
+
+log = logging.getLogger(__name__)
+
+
+class CompositeToolSourceStore(ToolSourceStore):
+    """A read-priority store that fans out across several backends.
+
+    Args:
+        members: Ordered list of ``(name, store)`` pairs consulted for
+            reads in order. Earlier entries shadow later ones on id/hash
+            collisions.
+        default: The store that receives all writes. Must be present in
+            ``members`` (its name is the value used for write routing).
+            Must not be ``read_only``.
+    """
+
+    def __init__(
+        self,
+        members: list[tuple[str, ToolSourceStore]],
+        default: str,
+    ) -> None:
+        if not members:
+            raise ValueError("CompositeToolSourceStore requires at least one member")
+        names = [n for n, _ in members]
+        if default not in names:
+            raise ValueError(f"default store {default!r} not in members {names!r}")
+        self._members: list[tuple[str, ToolSourceStore]] = list(members)
+        self._default_name = default
+        self._default_store = dict(members)[default]
+        if self._default_store.read_only:
+            raise ValueError(f"default store {default!r} is read-only")
+        # Composite as a whole is writable iff its default store is writable.
+        self.read_only = False
+
+    # --- write ops: always default ------------------------------------
+
+    def store(self, tool_source: StoredToolSource) -> str:
+        return self._default_store.store(tool_source)
+
+    def delete(self, hash: str) -> bool:
+        return self._default_store.delete(hash)
+
+    def store_index(self, index: ToolIndex) -> None:
+        self._default_store.store_index(index)
+
+    def update_index_entry(self, entry: ToolIndexEntry) -> None:
+        self._default_store.update_index_entry(entry)
+
+    # --- read ops: priority order --------------------------------------
+
+    def get(self, hash: str) -> Optional[StoredToolSource]:
+        for _name, member in self._members:
+            found = member.get(hash)
+            if found is not None:
+                return found
+        return None
+
+    def exists(self, hash: str) -> bool:
+        return any(m.exists(hash) for _, m in self._members)
+
+    def get_by_tool_id(self, tool_id: str, version: Optional[str] = None) -> list[StoredToolSource]:
+        # Union across members, deduped by hash, preserving member order.
+        seen: set[str] = set()
+        out: list[StoredToolSource] = []
+        for _name, member in self._members:
+            for src in member.get_by_tool_id(tool_id, version):
+                if src.hash in seen:
+                    continue
+                seen.add(src.hash)
+                out.append(src)
+        return out
+
+    def list_all(self) -> Iterator[str]:
+        seen: set[str] = set()
+        for _name, member in self._members:
+            for h in member.list_all():
+                if h in seen:
+                    continue
+                seen.add(h)
+                yield h
+
+    def count(self) -> int:
+        # Distinct hashes across the composite.
+        return sum(1 for _ in self.list_all())
+
+    def get_stats(self) -> dict:
+        return {
+            "backend": "composite",
+            "count": self.count(),
+            "default": self._default_name,
+            "members": [
+                {"name": name, **member.get_stats()} for name, member in self._members
+            ],
+        }
+
+    # --- index ---------------------------------------------------------
+
+    def load_index(self) -> Optional[ToolIndex]:
+        merged = ToolIndex()
+        any_loaded = False
+        for name, member in self._members:
+            try:
+                idx = member.load_index()
+            except Exception as e:
+                log.warning(f"Failed to load index from store {name!r}: {e}")
+                continue
+            if idx is None:
+                continue
+            any_loaded = True
+            for tool_id, entry in idx.entries.items():
+                # Earlier members win on collision.
+                if tool_id in merged.entries:
+                    continue
+                merged.entries[tool_id] = entry
+            for section_id, ids in idx.by_section.items():
+                bucket = merged.by_section.setdefault(section_id, [])
+                for tid in ids:
+                    if tid not in bucket:
+                        bucket.append(tid)
+            for view_name, view in idx.panel_views.items():
+                merged.panel_views.setdefault(view_name, view)
+            if idx.built_at and (merged.built_at is None or idx.built_at > merged.built_at):
+                merged.built_at = idx.built_at
+        if not any_loaded:
+            return None
+        merged.version = merged.compute_version()
+        return merged
+
+    def invalidate_index_cache(self) -> None:
+        for _name, member in self._members:
+            member.invalidate_index_cache()
+
+    # --- introspection used by the populator ---------------------------
+
+    @property
+    def members(self) -> list[tuple[str, ToolSourceStore]]:
+        return list(self._members)
+
+    @property
+    def default_name(self) -> str:
+        return self._default_name
+
+    def writable_members(self) -> list[tuple[str, ToolSourceStore]]:
+        return [(n, m) for n, m in self._members if not m.read_only]
+
+    def get_member(self, name: str) -> ToolSourceStore:
+        for n, m in self._members:
+            if n == name:
+                return m
+        raise KeyError(name)
+
+    def store_to(self, name: str, tool_source: StoredToolSource) -> str:
+        """Store directly into a named member (used by the populator)."""
+        member = self.get_member(name)
+        if member.read_only:
+            raise ReadOnlyStoreError(f"store {name!r} is read-only")
+        return member.store(tool_source)

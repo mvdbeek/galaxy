@@ -18,6 +18,9 @@ Options:
     --verbose           Enable verbose output
     --parallel N        Number of parallel workers (default: 4)
     --rebuild-index     Rebuild the tool index after population
+    --target NAME       Restrict to a single named store from
+                        tool_source_stores (or '__default__'). Default
+                        behavior populates every writable store.
     --watch             Watch for file changes and send reload notifications
     --watch-polling     Use polling observer (for network filesystems)
     --debounce SECS     Debounce time for watch mode (default: 2.0)
@@ -286,6 +289,57 @@ class ToolFileWatcher:
         log.info("File watcher stopped")
 
 
+DEFAULT_STORE_NAME = "__default__"
+
+
+def _build_stores(app_context, config) -> dict:
+    """Build {store_name: store_instance} for the default + every named store
+    referenced from any tool_conf."""
+    from galaxy.tool_source_store import (
+        _build_default_store,
+        build_named_store,
+    )
+    from galaxy.tool_util.toolbox.parser import get_toolbox_parser
+
+    stores: dict = {DEFAULT_STORE_NAME: _build_default_store(app_context)}
+
+    catalog = getattr(config, "tool_source_stores", None) or {}
+    referenced: set[str] = set()
+    for path in getattr(config, "tool_configs", None) or []:
+        try:
+            parser = get_toolbox_parser(path)
+        except Exception as e:
+            log.debug(f"skipping tool conf {path} during store discovery: {e}")
+            continue
+        name = parser.parse_store_name()
+        if name:
+            referenced.add(name)
+
+    for name in referenced:
+        if name not in catalog:
+            raise RuntimeError(
+                f"tool_conf references store {name!r} but no such entry in tool_source_stores"
+            )
+        stores[name] = build_named_store(app_context, name, catalog[name])
+
+    return stores
+
+
+def _build_conf_to_store_map(config) -> dict[str, str]:
+    """Map each tool_conf path to its declared store name (default if absent)."""
+    from galaxy.tool_util.toolbox.parser import get_toolbox_parser
+
+    out: dict[str, str] = {}
+    for path in getattr(config, "tool_configs", None) or []:
+        try:
+            parser = get_toolbox_parser(path)
+        except Exception:
+            out[path] = DEFAULT_STORE_NAME
+            continue
+        out[path] = parser.parse_store_name() or DEFAULT_STORE_NAME
+    return out
+
+
 def populate_store(
     config_file: str,
     dry_run: bool = False,
@@ -294,6 +348,7 @@ def populate_store(
     parallel: int = 4,
     verbose: bool = False,
     rebuild_index: bool = False,
+    target: Optional[str] = None,
 ) -> dict[str, int]:
     """
     Main population function.
@@ -306,6 +361,9 @@ def populate_store(
         parallel: Number of parallel workers.
         verbose: Enable verbose logging.
         rebuild_index: Rebuild index after population.
+        target: If set, restrict population to the named store only.
+            Use ``__default__`` for the default store. Without ``target``,
+            every writable store is populated in one run.
 
     Returns:
         Statistics dictionary with counts.
@@ -315,7 +373,7 @@ def populate_store(
     from galaxy.model import set_datatypes_registry
     from galaxy.model.mapping import init_models_from_config
     from galaxy.tool_source_store import (
-        build_tool_source_store,
+        ReadOnlyStoreError,
         StoredToolSource,
     )
     from galaxy.util.properties import load_app_properties
@@ -336,7 +394,7 @@ def populate_store(
     # Initialize model from config
     model = init_models_from_config(config)
 
-    log.info(f"Building tool source store (backend: {config.tool_source_store})...")
+    log.info(f"Building tool source stores (default backend: {config.tool_source_store})...")
 
     # Create a simple app-like object with model attribute
     class AppContext:
@@ -345,7 +403,25 @@ def populate_store(
     app_context = AppContext()
     app_context.model = model
     app_context.config = config
-    store = build_tool_source_store(app_context)
+
+    stores = _build_stores(app_context, config)
+    conf_to_store = _build_conf_to_store_map(config)
+
+    if target is not None:
+        if target not in stores:
+            raise RuntimeError(
+                f"--target {target!r} not found; available: {sorted(stores.keys())}"
+            )
+        if stores[target].read_only:
+            raise ReadOnlyStoreError(f"--target store {target!r} is read-only")
+
+    writable_names = {n for n, s in stores.items() if not s.read_only}
+    if target is not None:
+        writable_names &= {target}
+    skipped_read_only = [n for n, s in stores.items() if s.read_only]
+    if skipped_read_only:
+        log.info(f"Skipping read-only stores: {skipped_read_only}")
+    log.info(f"Writable target stores: {sorted(writable_names)}")
 
     log.info("Discovering tools from configuration...")
 
@@ -354,19 +430,28 @@ def populate_store(
     # Use the discover module to find all tool files from config
     from galaxy.tool_util.toolbox.discover import discover_tools
 
-    tool_paths = [discovered.path for discovered in discover_tools(config, include_bundled=True)]
+    discovered_tools = list(discover_tools(config, include_bundled=True))
 
-    log.info(f"Found {len(tool_paths)} tool files")
+    # Bundled tools have tool_conf="bundled"; those go to the default store.
+    tool_specs: list[tuple[str, str]] = []
+    for d in discovered_tools:
+        store_name = conf_to_store.get(d.tool_conf, DEFAULT_STORE_NAME)
+        if store_name not in writable_names:
+            # tool routed to a read-only store, or to a store not in --target.
+            continue
+        tool_specs.append((d.path, store_name))
+
+    log.info(f"Found {len(discovered_tools)} tool files; routing {len(tool_specs)} to writable stores")
 
     if pattern:
-        tool_paths = [p for p in tool_paths if pattern in p]
-        log.info(f"Filtered to {len(tool_paths)} tools matching '{pattern}'")
+        tool_specs = [(p, n) for p, n in tool_specs if pattern in p]
+        log.info(f"Filtered to {len(tool_specs)} tools matching '{pattern}'")
 
     # Import tool parsing utilities
     from galaxy.tool_util.parser import get_tool_source
     from galaxy.util import xml_to_string
 
-    def process_tool(path: str) -> tuple[str, str, Optional[str]]:
+    def process_tool(path: str, store_name: str) -> tuple[str, str, Optional[str]]:
         """Process a single tool file with proper macro expansion."""
         try:
             # Use Galaxy's tool source parser which handles macro expansion
@@ -377,8 +462,9 @@ def populate_store(
             expanded_content = xml_to_string(root, pretty=True)
 
             content_hash = compute_hash(expanded_content)
+            target_store = stores[store_name]
 
-            if incremental and store.exists(content_hash):
+            if incremental and target_store.exists(content_hash):
                 return ("skipped", path, None)
 
             # Get tool ID and version from the parsed source
@@ -396,17 +482,17 @@ def populate_store(
             )
 
             if not dry_run:
-                store.store(stored)
+                target_store.store(stored)
 
             return ("stored", path, tool_id)
         except Exception as e:
             log.error(f"Error processing {path}: {e}")
             return ("error", path, str(e))
 
-    log.info(f"Processing {len(tool_paths)} tools with {parallel} workers...")
+    log.info(f"Processing {len(tool_specs)} tools with {parallel} workers...")
 
     with ThreadPoolExecutor(max_workers=parallel) as executor:
-        futures = {executor.submit(process_tool, p): p for p in tool_paths}
+        futures = {executor.submit(process_tool, p, n): p for p, n in tool_specs}
         for future in as_completed(futures):
             result = future.result()
             status = result[0]
@@ -543,6 +629,14 @@ def main():
     parser.add_argument("--verbose", "-v", action="store_true", help="Enable verbose output")
     parser.add_argument("--rebuild-index", action="store_true", help="Rebuild index after population")
     parser.add_argument(
+        "--target",
+        help=(
+            "Restrict population to a single named store from tool_source_stores "
+            "(or '__default__' for the default). Without this, every writable "
+            "store is populated."
+        ),
+    )
+    parser.add_argument(
         "--watch", "-w", action="store_true", help="Watch for file changes and send reload notifications"
     )
     parser.add_argument(
@@ -579,6 +673,7 @@ def main():
             parallel=args.parallel,
             verbose=args.verbose,
             rebuild_index=args.rebuild_index,
+            target=args.target,
         )
 
         # Exit with error if there were failures

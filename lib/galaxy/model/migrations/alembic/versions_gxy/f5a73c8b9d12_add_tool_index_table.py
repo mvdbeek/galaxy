@@ -1,7 +1,7 @@
 """Add tool_index table for storing pre-computed tool index
 
 Revision ID: f5a73c8b9d12
-Revises: 566b691307a5
+Revises: b8d5e2f9a1c7
 Create Date: 2026-01-25 10:00:00.000000
 
 """
@@ -16,7 +16,7 @@ from galaxy.model.migrations.util import (
 
 # revision identifiers, used by Alembic.
 revision = "f5a73c8b9d12"
-down_revision = "566b691307a5"
+down_revision = "b8d5e2f9a1c7"
 branch_labels = None
 depends_on = None
 

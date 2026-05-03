@@ -6,6 +6,7 @@ that enables storing and retrieving tool sources from multiple backends
 (database, Redis, disk).
 """
 
+import logging
 from abc import (
     ABC,
     abstractmethod,
@@ -24,6 +25,8 @@ from typing import (
 if TYPE_CHECKING:
     from galaxy.app import MinimalGalaxyApplication
 
+log = logging.getLogger(__name__)
+
 
 @dataclass
 class StoredToolSource:
@@ -41,6 +44,11 @@ class StoredToolSource:
 
 class ToolSourceStore(ABC):
     """Abstract base class for tool source storage backends."""
+
+    # Backends that wrap a read-only target (e.g. CVMFS-resident sqlite)
+    # set this to ``True`` so the populator and reload paths can skip them
+    # cleanly instead of crashing on a write attempt.
+    read_only: bool = False
 
     @abstractmethod
     def store(self, tool_source: StoredToolSource) -> str:
@@ -149,25 +157,23 @@ class ToolSourceStore(ABC):
             entry: The index entry to update.
         """
 
+    def invalidate_index_cache(self) -> None:
+        """Drop any in-memory cached index so the next load_index() reads fresh.
+
+        Backends override this when they cache; the default is a no-op.
+        """
+
 
 class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
 
 
-def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
-    """
-    Build a tool source store based on configuration.
+class ReadOnlyStoreError(Exception):
+    """Raised when a write is attempted against a read-only tool source store."""
 
-    Args:
-        app: Galaxy application. The database backend requires the app's
-            scoped session; the redis and disk backends use only ``app.config``.
 
-    Returns:
-        Configured ToolSourceStore instance.
-
-    Raises:
-        ConfigurationError: If the backend is unknown or misconfigured.
-    """
+def _build_default_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
+    """Build the default store from top-level ``tool_source_*`` config."""
     config = app.config
     backend = config.tool_source_store
 
@@ -178,7 +184,7 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
 
         return DatabaseToolSourceStore(app.model.context)
 
-    elif backend == "redis":
+    if backend == "redis":
         # Backend imported lazily — the redis client is an optional dependency.
         from .redis import RedisToolSourceStore
 
@@ -188,7 +194,7 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
         ttl = config.tool_source_redis_ttl
         return RedisToolSourceStore(redis_url, ttl=ttl)
 
-    elif backend == "disk":
+    if backend == "disk":
         # Backend imported lazily so other backends don't pull in disk-only deps.
         from .disk import DiskToolSourceStore
 
@@ -197,8 +203,131 @@ def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
             raise ConfigurationError("tool_source_disk_path required for disk backend")
         return DiskToolSourceStore(disk_path)
 
-    else:
-        raise ConfigurationError(f"Unknown tool source store backend: {backend}")
+    if backend in ("sqlalchemy", "sqlite"):
+        from .sqlalchemy import SqlAlchemyToolSourceStore
+
+        url = getattr(config, "tool_source_url", None)
+        path = getattr(config, "tool_source_disk_path", None)
+        if url:
+            return SqlAlchemyToolSourceStore(url=url, read_only=False)
+        if path:
+            return SqlAlchemyToolSourceStore(path=path, read_only=False)
+        raise ConfigurationError(
+            f"{backend!r} backend requires tool_source_url or tool_source_disk_path"
+        )
+
+    raise ConfigurationError(f"Unknown tool source store backend: {backend}")
+
+
+def build_named_store(app: "MinimalGalaxyApplication", name: str, spec: dict) -> ToolSourceStore:
+    """Build a single named store from a ``tool_source_stores`` entry.
+
+    ``spec`` is the dict from galaxy.yml — a ``backend`` plus its options
+    plus an optional ``read_only`` flag.
+    """
+    if not isinstance(spec, dict):
+        raise ConfigurationError(f"tool_source_stores[{name!r}] must be a mapping")
+    backend = spec.get("backend")
+    read_only = bool(spec.get("read_only", False))
+
+    if backend in ("sqlalchemy", "sqlite"):
+        from .sqlalchemy import SqlAlchemyToolSourceStore
+
+        url = spec.get("url")
+        path = spec.get("path")
+        if not url and not path:
+            raise ConfigurationError(
+                f"tool_source_stores[{name!r}] requires a 'url' or 'path'"
+            )
+        return SqlAlchemyToolSourceStore(url=url, path=path, read_only=read_only)
+
+    if backend == "disk":
+        from .disk import DiskToolSourceStore
+
+        path = spec.get("path")
+        if not path:
+            raise ConfigurationError(f"tool_source_stores[{name!r}] requires a 'path'")
+        store = DiskToolSourceStore(path)
+        store.read_only = read_only
+        return store
+
+    if backend == "redis":
+        from .redis import RedisToolSourceStore
+
+        url = spec.get("url")
+        if not url:
+            raise ConfigurationError(f"tool_source_stores[{name!r}] requires a 'url'")
+        store = RedisToolSourceStore(url, ttl=spec.get("ttl"))
+        store.read_only = read_only
+        return store
+
+    if backend == "database":
+        from .database import DatabaseToolSourceStore
+
+        store = DatabaseToolSourceStore(app.model.context)
+        store.read_only = read_only
+        return store
+
+    raise ConfigurationError(
+        f"tool_source_stores[{name!r}] has unknown backend {backend!r}"
+    )
+
+
+def _collect_per_conf_store_names(app: "MinimalGalaxyApplication") -> set[str]:
+    """Walk configured tool_confs and collect referenced store names."""
+    config = app.config
+    tool_configs = getattr(config, "tool_configs", None) or []
+    if not tool_configs:
+        return set()
+    # Lazy import: avoids pulling parser code into deploys that don't need it.
+    from galaxy.tool_util.toolbox.parser import get_toolbox_parser
+
+    names: set[str] = set()
+    for path in tool_configs:
+        try:
+            parser = get_toolbox_parser(path)
+        except Exception as e:
+            log.debug(f"skipping tool conf {path}: {e}")
+            continue
+        store = parser.parse_store_name()
+        if store:
+            names.add(store)
+    return names
+
+
+def build_tool_source_store(app: "MinimalGalaxyApplication") -> ToolSourceStore:
+    """Build the active tool source store, composing per-conf overrides.
+
+    Returns the default store directly when no tool_conf opts into a named
+    override (zero overhead for the common case). Otherwise wraps the
+    default plus each referenced named store in a
+    :class:`CompositeToolSourceStore`, with the default consulted last and
+    receiving all writes.
+    """
+    default_store = _build_default_store(app)
+
+    referenced = _collect_per_conf_store_names(app)
+    if not referenced:
+        return default_store
+
+    config = app.config
+    catalog = getattr(config, "tool_source_stores", None) or {}
+    members: list[tuple[str, ToolSourceStore]] = []
+    for name in referenced:
+        if name not in catalog:
+            raise ConfigurationError(
+                f"tool_conf references store {name!r} but no such entry exists "
+                "in tool_source_stores"
+            )
+        members.append((name, build_named_store(app, name, catalog[name])))
+
+    # Default is consulted last so per-conf overrides shadow it on hash collisions.
+    members.append(("__default__", default_store))
+
+    # Lazy import to avoid composite always being pulled in.
+    from .composite import CompositeToolSourceStore
+
+    return CompositeToolSourceStore(members=members, default="__default__")
 
 
 # Re-export key classes — placed after the abstract base above to avoid circular
@@ -214,5 +343,7 @@ __all__ = [
     "ToolIndex",
     "ToolIndexEntry",
     "build_tool_source_store",
+    "build_named_store",
     "ConfigurationError",
+    "ReadOnlyStoreError",
 ]
