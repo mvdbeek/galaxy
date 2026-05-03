@@ -282,6 +282,10 @@ class ToolIndex:
 
         summary: dict[str, dict[str, dict]] = {}
         for entry in self.entries.values():
+            # Match the eager fallback in services.tools.ToolsService.get_tests_summary:
+            # tools without tests are excluded entirely.
+            if not entry.test_count:
+                continue
             if entry.id not in summary:
                 summary[entry.id] = {}
             version_key = entry.version or "default"

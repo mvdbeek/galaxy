@@ -87,6 +87,7 @@ class DatabaseToolSourceStore(ToolSourceStore):
         model = ToolSourceModel(
             hash=tool_source.hash,
             source=source_data,
+            source_class=tool_source.tool_source_class,
         )
         session.add(model)
         session.flush()

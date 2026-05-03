@@ -287,6 +287,9 @@ class MockAppConfig(GalaxyDataTestConfig, CommonConfigurationMixin):
         self.track_jobs_in_database = False
         self.amqp_internal_connection = None
         self.tool_configs = []
+        self.tool_source_store = "database"
+        self.tool_source_stores = None
+        self.use_lazy_toolbox = False
         self.manage_dependency_relationships = False
         self.enable_tool_shed_check = False
         self.monitor_thread_join_timeout = 1
