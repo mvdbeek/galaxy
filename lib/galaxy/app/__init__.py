@@ -420,8 +420,8 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         )
 
         self.tool_source_store: Optional[ToolSourceStore] = self._register_singleton(
-            ToolSourceStore,  # type: ignore[type-abstract]
-            build_tool_source_store(self.config, self.model.context),  # type: ignore[arg-type]
+            ToolSourceStore,  # type: ignore[type-abstract,unused-ignore]
+            build_tool_source_store(self.config, self.model.context),  # type: ignore[arg-type,unused-ignore]
         )
         stats = self.tool_source_store.get_stats()
         tool_count = stats.get("count", 0)
