@@ -18,11 +18,19 @@ export type SSEEventType = (typeof SSE_EVENT_TYPES)[number];
 interface SSEDebugGlobals {
     __galaxy_sse_connected?: boolean;
     __galaxy_sse_last_event_ts?: number;
+    __galaxy_sse_reconnect_attempts?: number;
 }
 
 function sseGlobals(): SSEDebugGlobals {
     return window as unknown as SSEDebugGlobals;
 }
+
+// Full-jitter exponential backoff bounds for managed reconnect. Aligned with
+// the retry budget shape used by the polling paths (see
+// ``isRetryableApiError`` in ``client/src/utils/simple-error.ts``); 30 s caps
+// the delay during sustained 429/5xx so the client doesn't drift to minutes.
+const RECONNECT_BASE_MS = 1000;
+const RECONNECT_CAP_MS = 30_000;
 
 // ---------------------------------------------------------------------------
 // Module-level shared EventSource.
@@ -47,6 +55,15 @@ const subscribers: Map<SSEEventType, Set<Handler>> = new Map();
 // Track the per-type dispatchers we registered so ``closeSource`` removes the
 // exact same listeners (``addEventListener`` matches by reference).
 const dispatchers: Map<SSEEventType, Handler> = new Map();
+
+// Managed-reconnect state. We take over from the browser's native auto-retry
+// once it flags ``readyState === CLOSED`` so that responses lacking a
+// ``text/event-stream`` content type (a 429 / 5xx page, an HTML error page
+// from a load balancer, etc.) don't strand the client on the polling
+// fallback. ``reconnectAttempts`` is the input to the backoff formula and is
+// reset to zero on every successful ``onopen``.
+let reconnectAttempts = 0;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
 function openSourceIfNeeded() {
     if (sharedSource) {
@@ -78,6 +95,14 @@ function openSourceIfNeeded() {
         // Global readiness flag so Selenium tests can distinguish a working
         // SSE pipeline from the polling fallback.
         sseGlobals().__galaxy_sse_connected = true;
+        // The connection is healthy again — drop any pending managed reopen
+        // and zero the backoff so the next failure starts at the base delay
+        // rather than wherever the previous outage left off.
+        reconnectAttempts = 0;
+        if (reconnectTimer !== null) {
+            clearTimeout(reconnectTimer);
+            reconnectTimer = null;
+        }
         // Re-assert any viewer subscriptions the user accumulated. The server
         // doesn't carry app-level subscription state across reconnects (it
         // only knows the user from the cookie), so the client owns the source
@@ -86,12 +111,17 @@ function openSourceIfNeeded() {
     };
 
     sharedSource.onerror = () => {
-        // EventSource auto-reconnects natively; SSE-vs-polling is a
-        // config-level decision (see historyStore / notificationsStore), so
-        // we must not give up on transient errors here — doing so would leave
-        // the client with no updates at all.
         sharedConnected.value = false;
         sseGlobals().__galaxy_sse_connected = false;
+        // The browser auto-retries while ``readyState === CONNECTING``; let
+        // it. Once it flips to ``CLOSED`` (response missing
+        // ``text/event-stream``, repeated network failure giving up, etc.)
+        // the native loop is done and we own the reconnect — otherwise the
+        // client silently drops to polling-only updates for the rest of the
+        // session.
+        if (sharedSource?.readyState === EventSource.CLOSED) {
+            scheduleReconnect();
+        }
     };
 
     // Browser EventSource teardown during a full-page navigation
@@ -118,9 +148,68 @@ function closeSource() {
     sharedSource = null;
     sharedConnected.value = false;
     sseGlobals().__galaxy_sse_connected = false;
+    // Cancel any pending managed reopen — without this, ``pagehide``-driven
+    // teardown could be followed by ``setTimeout`` re-opening a stream we
+    // just deliberately closed.
+    if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    reconnectAttempts = 0;
     if (typeof window !== "undefined") {
         window.removeEventListener("pagehide", closeSource);
     }
+}
+
+/**
+ * Tear down the EventSource without disturbing the subscriber map so the
+ * scheduled reopen ends up wired to the same handler set. ``closeSource`` is
+ * the right tool when *no* listener wants more events; this is the right tool
+ * when listeners still exist and only the underlying socket needs to cycle.
+ */
+function closeSourceForReconnect() {
+    if (!sharedSource) {
+        return;
+    }
+    for (const [eventType, dispatcher] of dispatchers) {
+        sharedSource.removeEventListener(eventType, dispatcher);
+    }
+    dispatchers.clear();
+    sharedSource.close();
+    sharedSource = null;
+    sharedConnected.value = false;
+    sseGlobals().__galaxy_sse_connected = false;
+}
+
+function scheduleReconnect() {
+    if (reconnectTimer !== null) {
+        // Already armed; the active timer will handle the next attempt.
+        return;
+    }
+    // Full-jitter exponential backoff: the random factor in [0.5, 1.5)
+    // smears retries from clients hitting the same outage so a recovering
+    // server isn't met with a synchronized stampede.
+    const exp = Math.min(RECONNECT_CAP_MS, RECONNECT_BASE_MS * 2 ** reconnectAttempts);
+    const delay = Math.floor(exp * (0.5 + Math.random()));
+    reconnectAttempts += 1;
+    const globals = sseGlobals();
+    globals.__galaxy_sse_reconnect_attempts = (globals.__galaxy_sse_reconnect_attempts ?? 0) + 1;
+    closeSourceForReconnect();
+    reconnectTimer = setTimeout(() => {
+        reconnectTimer = null;
+        // Subscribers may have all unsubscribed during the outage; if so, the
+        // shared source should stay closed.
+        let hasSubscribers = false;
+        for (const subs of subscribers.values()) {
+            if (subs.size > 0) {
+                hasSubscribers = true;
+                break;
+            }
+        }
+        if (hasSubscribers) {
+            openSourceIfNeeded();
+        }
+    }, delay);
 }
 
 function addSubscriber(onEvent: Handler, eventTypes: readonly SSEEventType[]) {
@@ -157,10 +246,15 @@ function removeSubscriber(onEvent: Handler, eventTypes: readonly SSEEventType[])
 /**
  * Composable for subscribing to events on the shared SSE stream.
  *
- * The browser's EventSource handles reconnection automatically and sends the
- * ``Last-Event-ID`` header so the server can catch up on missed events. Only
- * one EventSource is opened per tab regardless of how many callers invoke
- * this composable; the composable multiplexes dispatch per event type.
+ * Reconnection: the browser's native auto-retry handles the cheap path
+ * (transient network blips while ``readyState === CONNECTING``); once the
+ * source flips to ``CLOSED`` — typically a 4xx/5xx response with no
+ * ``text/event-stream`` body, which most browsers treat as fatal — this
+ * composable takes over with full-jitter exponential backoff capped at 30 s.
+ * The server emits ``id:`` per event so the ``Last-Event-ID`` header on
+ * reconnect lets the server catch up on missed events. Only one EventSource
+ * is opened per tab regardless of how many callers invoke this composable;
+ * the composable multiplexes dispatch per event type.
  *
  * @param onEvent - callback invoked for every matching SSE event
  * @param eventTypes - subset of event types to listen to (defaults to all)
@@ -290,4 +384,28 @@ export function removeHistoryViewerSubscription(historyId: string): void {
 /** Test-only: drain the desired set so per-test state doesn't leak. */
 export function _resetHistoryViewerSubscriptionsForTest(): void {
     viewerSubscriptions.clear();
+}
+
+/** Test-only: tear down the shared source and reconnect state. */
+export function _resetSSESharedSourceForTest(): void {
+    if (reconnectTimer !== null) {
+        clearTimeout(reconnectTimer);
+        reconnectTimer = null;
+    }
+    reconnectAttempts = 0;
+    if (sharedSource) {
+        for (const [eventType, dispatcher] of dispatchers) {
+            sharedSource.removeEventListener(eventType, dispatcher);
+        }
+        dispatchers.clear();
+        sharedSource.close();
+        sharedSource = null;
+    }
+    subscribers.clear();
+    sharedConnected.value = false;
+    sseEverConnected.value = false;
+    const globals = sseGlobals();
+    delete globals.__galaxy_sse_connected;
+    delete globals.__galaxy_sse_last_event_ts;
+    delete globals.__galaxy_sse_reconnect_attempts;
 }
