@@ -766,29 +766,6 @@ class LazyToolBox(ToolBox):
             return self._tool_index.get(tool_id)
         return None
 
-    # === Cache management ===
-
-    def cache_stats(self) -> dict[str, Any]:
-        """Return cache statistics."""
-        return {
-            "tool_cache_size": len(self._tool_object_cache),
-            "tool_cache_maxsize": self._tool_object_cache.maxsize,
-            "tools_loaded": sum(1 for v in self._tools_by_id.values() if v is not None),
-            "tools_indexed": len(self._tool_index.entries) if self._tool_index else 0,
-        }
-
-    def clear_tool_cache(self) -> None:
-        """Clear the tool object cache."""
-        with self._cache_lock:
-            self._tool_object_cache.clear()
-
-    def evict_tool_from_cache(self, tool_id: str) -> None:
-        """Evict a specific tool from cache."""
-        with self._cache_lock:
-            keys_to_remove = [k for k in self._tool_object_cache if k.startswith(f"{tool_id}:")]
-            for key in keys_to_remove:
-                del self._tool_object_cache[key]
-
     # === Required property overrides ===
 
     @property

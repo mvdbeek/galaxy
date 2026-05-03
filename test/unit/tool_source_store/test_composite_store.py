@@ -5,10 +5,7 @@ import tempfile
 
 import pytest
 
-from galaxy.tool_source_store import (
-    ReadOnlyStoreError,
-    StoredToolSource,
-)
+from galaxy.tool_source_store import StoredToolSource
 from galaxy.tool_source_store.composite import CompositeToolSourceStore
 from galaxy.tool_source_store.index import (
     ToolIndex,
@@ -62,26 +59,6 @@ def test_default_must_not_be_read_only(two_paths):
     ro = SqliteToolSourceStore(path=pa, read_only=True)
     with pytest.raises(ValueError):
         CompositeToolSourceStore(members=[("ro", ro), ("rw", rw)], default="ro")
-
-
-def test_store_to_named_member(two_paths):
-    pa, pb = two_paths
-    a = SqliteToolSourceStore(path=pa)
-    b = SqliteToolSourceStore(path=pb)
-    composite = CompositeToolSourceStore(members=[("a", a), ("b", b)], default="b")
-    composite.store_to("a", _src("hA"))
-    assert a.exists("hA")
-    assert not b.exists("hA")
-
-
-def test_store_to_read_only_member_raises(two_paths):
-    pa, pb = two_paths
-    SqliteToolSourceStore(path=pa).store(_src("seed"))
-    ro = SqliteToolSourceStore(path=pa, read_only=True)
-    rw = SqliteToolSourceStore(path=pb)
-    composite = CompositeToolSourceStore(members=[("ro", ro), ("rw", rw)], default="rw")
-    with pytest.raises(ReadOnlyStoreError):
-        composite.store_to("ro", _src("hX"))
 
 
 def test_list_all_dedupes_across_members(two_paths):
@@ -163,10 +140,3 @@ def test_invalidate_fans_out(two_paths):
     assert "y2" in merged.entries
 
 
-def test_writable_members_excludes_read_only(two_paths):
-    pa, pb = two_paths
-    SqliteToolSourceStore(path=pa).store(_src("seed"))
-    ro = SqliteToolSourceStore(path=pa, read_only=True)
-    rw = SqliteToolSourceStore(path=pb)
-    composite = CompositeToolSourceStore(members=[("ro", ro), ("rw", rw)], default="rw")
-    assert [n for n, _ in composite.writable_members()] == ["rw"]

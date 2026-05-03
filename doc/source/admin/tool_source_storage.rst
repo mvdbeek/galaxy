@@ -31,7 +31,7 @@ Backend Selection
 .. code-block:: yaml
 
     galaxy:
-      # Backend for storing tool sources: 'database', 'redis', or 'disk'
+      # Backend for storing tool sources: 'database' or 'sqlalchemy'
       tool_source_store: database
 
 **Database Backend** (default)
@@ -42,41 +42,17 @@ Stores tool sources in the Galaxy database. Best for:
 - Installations where tools don't change frequently
 - Simplest setup (no additional infrastructure)
 
-**Redis Backend**
+**SQLAlchemy Backend**
 
-Stores tool sources in Redis. Best for:
-
-- Multi-server deployments where Galaxy processes need to share cache
-- High-availability setups
-
-.. code-block:: yaml
-
-    galaxy:
-      tool_source_store: redis
-      tool_source_redis_url: redis://localhost:6379/1
-      # Optional: Set TTL for automatic expiry (in seconds)
-      tool_source_redis_ttl: 86400  # 24 hours
-
-For Redis Sentinel:
+Stores tool sources in a separate SQLAlchemy-managed database (typically a
+SQLite file). Useful for shipping read-only tool source bundles via per-conf
+``tool_source_stores`` entries (see CVMFS recipe below).
 
 .. code-block:: yaml
 
     galaxy:
-      tool_source_redis_url: redis+sentinel://sentinel1:26379,sentinel2:26379/mymaster/0
-
-**Disk Backend**
-
-Stores tool sources on the filesystem. Best for:
-
-- Avoiding database load
-- Environments with fast local storage (SSD/NVMe)
-- Distribution via CVMFS for shared read-only access across clusters
-
-.. code-block:: yaml
-
-    galaxy:
-      tool_source_store: disk
-      tool_source_disk_path: /path/to/tool_sources  # or relative to data_dir
+      tool_source_store: sqlalchemy
+      tool_source_disk_path: /path/to/tool_sources.sqlite  # SQLite shortcut
 
 Toolbox Selection
 ^^^^^^^^^^^^^^^^^
@@ -155,15 +131,7 @@ it, ``populate_store.py`` populates **every writable store** referenced
 from a tool_conf in the same run.
 
 Once the bundle is in place on CVMFS (or any read-only mount), restart
-Galaxy. The composite store reports its members in
-``GET /api/tool_sources/stats`` and ``backend`` will be ``composite``.
-
-**Why SQLite for CVMFS?** The disk backend stores one JSON file per tool
-hash, so each ``get(hash)`` becomes a separate filesystem operation —
-expensive on a network-mounted store. SQLite is a single file with B-tree
-indexes; once the page cache is warm, lookups stay local. For shared
-deployments without CVMFS, point ``url:`` at any SQLAlchemy-supported
-backend (Postgres, MySQL, …) instead.
+Galaxy.
 
 Cache Configuration
 ^^^^^^^^^^^^^^^^^^^
@@ -174,16 +142,9 @@ Cache Configuration
       # Maximum Tool objects in the LazyToolBox LRU cache (default: 500)
       lazy_toolbox_cache_size: 500
 
-      # TTL for pre-computed API responses in seconds (default: 300)
-      tool_api_cache_ttl: 300
-
 The ``lazy_toolbox_cache_size`` determines how many fully-loaded Tool objects
 are kept in memory by the LazyToolBox. A typical Galaxy installation has
 500-2000 tools. If you frequently use many different tools, increase this value.
-
-The ``tool_api_cache_ttl`` controls how long pre-computed responses for batch
-endpoints (``/api/tools``, ``/api/tools/tests_summary``, ``/api/tool_panels``,
-etc.) are cached. Set to ``0`` to disable caching.
 
 Populating the Tool Source Store
 --------------------------------
@@ -304,138 +265,25 @@ This is useful for:
 - CI/CD pipelines that deploy tool updates
 - Installations using shared storage where tools may be updated externally
 
-API Endpoints
--------------
-
-The tool source storage system provides several API endpoints for monitoring
-and management. Endpoints marked **(admin)** require an admin API key.
-
-Tool Sources (all admin-only)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ``GET /api/tool_sources`` **(admin)** - List stored tool sources
-- ``GET /api/tool_sources/stats`` **(admin)** - Get storage statistics
-- ``GET /api/tool_sources/{hash}`` **(admin)** - Get a specific tool source by hash
-- ``GET /api/tool_sources/by_tool/{tool_id}`` **(admin)** - Get tool sources by tool ID
-
-Tool Index
-^^^^^^^^^^
-
-- ``GET /api/tool_index`` - List tool index entries
-- ``GET /api/tool_index/stats`` **(admin)** - Get index statistics
-- ``GET /api/tool_index/{tool_id}`` - Get a specific index entry
-- ``GET /api/tool_index/search?q=query`` - Search the tool index
-
-Cache Management (all admin-only)
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-
-- ``GET /api/tool_cache/stats`` **(admin)** - Get LazyToolBox cache statistics
-- ``POST /api/tool_cache/clear`` **(admin)** - Clear the Tool object LRU cache
-
-Example: Check cache statistics:
-
-.. code-block:: console
-
-    $ curl -H "x-api-key: $GALAXY_API_KEY" https://galaxy.example.org/api/tool_cache/stats
-
-Benchmarking
-------------
-
-To benchmark tool source deserialization performance, use the benchmarks module:
-
-.. code-block:: console
-
-    $ PYTHONPATH=lib python -m galaxy.tool_source_store.benchmarks --iterations 100
-
-Performance Results
-^^^^^^^^^^^^^^^^^^^
-
-The following benchmarks were run on a typical server (results may vary based on hardware):
-
-**Core Operations (1000 tool index)**
-
-================================  ==========  ==============
-Operation                         Mean Time   Throughput
-================================  ==========  ==============
-XML tool parsing                  0.10 ms     ~10,000/sec
-Hash computation                  0.01 ms     ~115,000/sec
-Index search (3 queries)          2.5 ms      ~400/sec
-API response generation           0.35 ms     ~2,800/sec
-All requirements aggregation      0.48 ms     ~2,000/sec
-Index serialization               2.1 ms      ~470/sec
-Index deserialization             2.3 ms      ~430/sec
-================================  ==========  ==============
-
-**Scaling by Index Size**
-
-===========  ===============  ==============  ============
-Tool Count   API Response     Index Search    Memory (JSON)
-===========  ===============  ==============  ============
-100          0.03 ms          0.2 ms          73 KB
-500          0.14 ms          1.0 ms          367 KB
-1,000        0.38 ms          1.9 ms          735 KB
-2,000        0.69 ms          4.2 ms          1.4 MB
-5,000        2.9 ms           10.5 ms         3.6 MB
-===========  ===============  ==============  ============
-
-**Startup Time Comparison (1000 tools)**
-
-Measured on test system (100 real Galaxy tools, extrapolated to 1000):
-
-- Traditional (parse all XML at startup): ~84 ms
-- Index-based (load pre-computed index): ~10 ms
-- **Startup speedup: ~8x**
-
-Note: The index must be pre-populated using ``populate_store.py``. The speedup
-applies to Galaxy process startup time, not total initial setup time.
-
-The index-based approach provides significant benefits for large installations:
-
-- Faster Galaxy startup time
-- Reduced memory usage (only frequently-used tools in cache)
-- Quick batch API responses from pre-computed index
-
 Troubleshooting
 ---------------
 
 Tools not appearing in the index
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Verify the tool source store is configured (admin API key required):
-
-   .. code-block:: console
-
-       $ curl -H "x-api-key: $GALAXY_API_KEY" https://galaxy.example.org/api/tool_sources/stats
-
-2. Re-run the population script with verbose output:
+1. Re-run the population script with verbose output:
 
    .. code-block:: console
 
        $ python scripts/tool_source/populate_store.py -c galaxy.yml -v
 
-3. Check for parsing errors in the Galaxy log
+2. Check for parsing errors in the Galaxy log
 
 High memory usage
 ^^^^^^^^^^^^^^^^^
 
 1. Reduce ``lazy_toolbox_cache_size`` to cache fewer Tool objects
-2. Ensure the tool index is being used (check ``/api/tool_index/stats``)
-3. Consider using the disk backend to reduce database memory pressure
-
-Slow batch endpoints
-^^^^^^^^^^^^^^^^^^^^
-
-1. Verify the tool index is populated: ``GET /api/tool_index/stats``
-2. Check that ``tool_api_cache_ttl`` is not set to 0
-3. Ensure the lazy toolbox is being used by checking cache stats
-
-Redis connection issues
-^^^^^^^^^^^^^^^^^^^^^^^
-
-1. Verify Redis is running and accessible
-2. Check the Redis URL format
-3. For Sentinel setups, verify all sentinel hosts are reachable
-4. Check Redis memory limits and eviction policies
+2. Ensure ``use_lazy_toolbox: true`` is set in ``galaxy.yml``
 
 Migration from Traditional Toolbox
 ----------------------------------
@@ -447,22 +295,16 @@ To migrate an existing Galaxy installation to use tool source storage:
    .. code-block:: yaml
 
        galaxy:
-         tool_source_store: database  # or redis/disk
+         tool_source_store: database
+         use_lazy_toolbox: true
 
 2. Run the population script:
 
    .. code-block:: console
 
-       $ python scripts/tool_source/populate_store.py
+       $ python scripts/tool_source/populate_store.py -c /path/to/galaxy.yml
 
 3. Restart Galaxy
-
-4. Verify the migration:
-
-   .. code-block:: console
-
-       $ curl https://galaxy.example.org/api/tool_index/stats
-       $ curl https://galaxy.example.org/api/tool_cache/stats
 
 The traditional toolbox will continue to work as a fallback if the tool source
 store is not populated or if a specific tool is not found in the store.

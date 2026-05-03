@@ -19,7 +19,6 @@ from typing import (
 )
 
 from . import (
-    ReadOnlyStoreError,
     StoredToolSource,
     ToolSourceStore,
 )
@@ -158,29 +157,3 @@ class CompositeToolSourceStore(ToolSourceStore):
     def invalidate_index_cache(self) -> None:
         for _name, member in self._members:
             member.invalidate_index_cache()
-
-    # --- introspection used by the populator ---------------------------
-
-    @property
-    def members(self) -> list[tuple[str, ToolSourceStore]]:
-        return list(self._members)
-
-    @property
-    def default_name(self) -> str:
-        return self._default_name
-
-    def writable_members(self) -> list[tuple[str, ToolSourceStore]]:
-        return [(n, m) for n, m in self._members if not m.read_only]
-
-    def get_member(self, name: str) -> ToolSourceStore:
-        for n, m in self._members:
-            if n == name:
-                return m
-        raise KeyError(name)
-
-    def store_to(self, name: str, tool_source: StoredToolSource) -> str:
-        """Store directly into a named member (used by the populator)."""
-        member = self.get_member(name)
-        if member.read_only:
-            raise ReadOnlyStoreError(f"store {name!r} is read-only")
-        return member.store(tool_source)
