@@ -78,24 +78,40 @@ Stores tool sources on the filesystem. Best for:
       tool_source_store: disk
       tool_source_disk_path: /path/to/tool_sources  # or relative to data_dir
 
+Toolbox Selection
+^^^^^^^^^^^^^^^^^
+
+.. code-block:: yaml
+
+    galaxy:
+      # Force the lazy toolbox on/off. When unset (the default), the lazy
+      # toolbox is enabled automatically if the tool source store is populated.
+      use_lazy_toolbox: null
+
+When ``use_lazy_toolbox`` is left unset, Galaxy auto-detects: if the configured
+store contains at least one tool, the LazyToolBox is used; otherwise Galaxy
+falls back to the traditional eager ToolBox. Set the value explicitly to
+override auto-detection.
+
 Cache Configuration
 ^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: yaml
 
     galaxy:
-      # Maximum Tool objects in LRU cache (default: 500)
-      tool_cache_size: 500
+      # Maximum Tool objects in the LazyToolBox LRU cache (default: 500)
+      lazy_toolbox_cache_size: 500
 
       # TTL for pre-computed API responses in seconds (default: 300)
       tool_api_cache_ttl: 300
 
-The ``tool_cache_size`` determines how many fully-loaded Tool objects are kept in memory.
-A typical Galaxy installation has 500-2000 tools. If you frequently use many different
-tools, increase this value.
+The ``lazy_toolbox_cache_size`` determines how many fully-loaded Tool objects
+are kept in memory by the LazyToolBox. A typical Galaxy installation has
+500-2000 tools. If you frequently use many different tools, increase this value.
 
-The ``tool_api_cache_ttl`` controls how long pre-computed responses for batch endpoints
-are cached. Lower values mean more frequent updates but higher CPU usage.
+The ``tool_api_cache_ttl`` controls how long pre-computed responses for batch
+endpoints (``/api/tools``, ``/api/tools/tests_summary``, ``/api/tool_panels``,
+etc.) are cached. Set to ``0`` to disable caching.
 
 Populating the Tool Source Store
 --------------------------------
@@ -108,14 +124,15 @@ Basic Usage
 
 .. code-block:: console
 
-    $ python scripts/tool_source/populate_store.py
+    $ python scripts/tool_source/populate_store.py --config /path/to/galaxy.yml
 
 This will:
 
-1. Scan all configured tool directories
-2. Parse each tool and extract metadata
-3. Store the tool sources in the configured backend
-4. Build and store the tool index
+1. Discover tools from your tool configs (uses the same logic as Galaxy startup)
+2. Parse each tool (with macro expansion) and compute a content hash
+3. Store the tool sources in the configured backend (skipping unchanged tools)
+
+Note: ``--config`` is required; the script does not assume a default path.
 
 Command Line Options
 ^^^^^^^^^^^^^^^^^^^^
@@ -125,12 +142,17 @@ Command Line Options
     $ python scripts/tool_source/populate_store.py --help
 
     Options:
-      --config, -c PATH      Path to galaxy.yml (default: config/galaxy.yml)
-      --tool-conf PATH       Path to tool_conf.xml (can specify multiple times)
-      --incremental          Only process new/changed tools
-      --rebuild-index        Force rebuild of the tool index
-      --dry-run              Show what would be done without making changes
+      --config, -c PATH      Galaxy configuration file (required)
+      --dry-run              Show what would be stored without storing
+      --incremental          Only store new/changed tools (default)
+      --full                 Force re-store of all tools
+      --tool-id PATTERN      Only process tools whose ID contains PATTERN
+      --parallel, -j N       Number of parallel workers (default: 4)
+      --rebuild-index        Rebuild the tool index after population
       --verbose, -v          Verbose output
+      --watch, -w            Watch tool directories and send reload notifications
+      --watch-polling        Use polling observer (for NFS/CVMFS/network FS)
+      --debounce SECS        Debounce time for watch mode (default: 2.0)
 
 Examples
 ^^^^^^^^
@@ -141,17 +163,17 @@ Examples
 
     $ python scripts/tool_source/populate_store.py -c /path/to/galaxy.yml
 
-**Incremental update after adding new tools:**
+**Force re-store everything (e.g., after a parser change):**
 
 .. code-block:: console
 
-    $ python scripts/tool_source/populate_store.py --incremental
+    $ python scripts/tool_source/populate_store.py -c galaxy.yml --full
 
-**Rebuild index without re-parsing tools:**
+**Process only a subset of tools:**
 
 .. code-block:: console
 
-    $ python scripts/tool_source/populate_store.py --rebuild-index
+    $ python scripts/tool_source/populate_store.py -c galaxy.yml --tool-id samtools
 
 Automation with Cron
 ^^^^^^^^^^^^^^^^^^^^
@@ -161,8 +183,8 @@ script on a schedule:
 
 .. code-block:: cron
 
-    # Update tool source store every hour
-    0 * * * * /path/to/galaxy/.venv/bin/python /path/to/galaxy/scripts/tool_source/populate_store.py --incremental >> /var/log/galaxy/tool_source_update.log 2>&1
+    # Update tool source store every hour (incremental is the default)
+    0 * * * * /path/to/galaxy/.venv/bin/python /path/to/galaxy/scripts/tool_source/populate_store.py -c /path/to/galaxy.yml >> /var/log/galaxy/tool_source_update.log 2>&1
 
 Watch Mode (Live Updates)
 ^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -210,29 +232,30 @@ This is useful for:
 API Endpoints
 -------------
 
-The tool source storage system provides several API endpoints for monitoring and management:
+The tool source storage system provides several API endpoints for monitoring
+and management. Endpoints marked **(admin)** require an admin API key.
 
-Tool Sources
-^^^^^^^^^^^^
+Tool Sources (all admin-only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- ``GET /api/tool_sources`` - List stored tool sources
-- ``GET /api/tool_sources/stats`` - Get storage statistics
-- ``GET /api/tool_sources/{hash}`` - Get a specific tool source by hash
-- ``GET /api/tool_sources/by_tool/{tool_id}`` - Get tool sources by tool ID
+- ``GET /api/tool_sources`` **(admin)** - List stored tool sources
+- ``GET /api/tool_sources/stats`` **(admin)** - Get storage statistics
+- ``GET /api/tool_sources/{hash}`` **(admin)** - Get a specific tool source by hash
+- ``GET /api/tool_sources/by_tool/{tool_id}`` **(admin)** - Get tool sources by tool ID
 
 Tool Index
 ^^^^^^^^^^
 
 - ``GET /api/tool_index`` - List tool index entries
-- ``GET /api/tool_index/stats`` - Get index statistics
+- ``GET /api/tool_index/stats`` **(admin)** - Get index statistics
 - ``GET /api/tool_index/{tool_id}`` - Get a specific index entry
 - ``GET /api/tool_index/search?q=query`` - Search the tool index
 
-Cache Management
-^^^^^^^^^^^^^^^^
+Cache Management (all admin-only)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-- ``GET /api/tool_cache/stats`` - Get cache statistics
-- ``POST /api/tool_cache/clear`` - Clear the Tool object cache
+- ``GET /api/tool_cache/stats`` **(admin)** - Get LazyToolBox cache statistics
+- ``POST /api/tool_cache/clear`` **(admin)** - Clear the Tool object LRU cache
 
 Example: Check cache statistics:
 
@@ -303,24 +326,24 @@ Troubleshooting
 Tools not appearing in the index
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-1. Verify the tool source store is configured:
+1. Verify the tool source store is configured (admin API key required):
 
    .. code-block:: console
 
-       $ curl https://galaxy.example.org/api/tool_sources/stats
+       $ curl -H "x-api-key: $GALAXY_API_KEY" https://galaxy.example.org/api/tool_sources/stats
 
 2. Re-run the population script with verbose output:
 
    .. code-block:: console
 
-       $ python scripts/tool_source/populate_store.py -v
+       $ python scripts/tool_source/populate_store.py -c galaxy.yml -v
 
 3. Check for parsing errors in the Galaxy log
 
 High memory usage
 ^^^^^^^^^^^^^^^^^
 
-1. Reduce ``tool_cache_size`` to cache fewer Tool objects
+1. Reduce ``lazy_toolbox_cache_size`` to cache fewer Tool objects
 2. Ensure the tool index is being used (check ``/api/tool_index/stats``)
 3. Consider using the disk backend to reduce database memory pressure
 
