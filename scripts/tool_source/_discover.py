@@ -7,12 +7,13 @@ booting a full ToolBox.
 
 import logging
 import os
+from collections.abc import (
+    Iterable,
+    Iterator,
+)
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
-    Iterable,
-    Iterator,
-    List,
     Optional,
     TYPE_CHECKING,
 )
@@ -40,7 +41,7 @@ class DiscoveredTool:
     is_shed_tool: bool = False
 
 
-def get_tool_configs(config: "GalaxyAppConfiguration") -> List[str]:
+def get_tool_configs(config: "GalaxyAppConfiguration") -> list[str]:
     """
     Get all tool configuration file paths from Galaxy config.
 
@@ -226,7 +227,7 @@ def discover_tools(
 def discover_tool_files(
     config: "GalaxyAppConfiguration",
     include_bundled: bool = True,
-) -> List[str]:
+) -> list[str]:
     """
     Get a list of all tool file paths from Galaxy configuration.
 

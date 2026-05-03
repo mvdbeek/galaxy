@@ -15,17 +15,15 @@ import json
 import logging
 import os
 from collections.abc import Iterator
-from datetime import datetime
 from typing import (
     Any,
     Optional,
 )
 
+from datetime import datetime
+
 from sqlalchemy import (
-    Column,
     create_engine,
-    DateTime,
-    Integer,
     LargeBinary,
     MetaData,
     select,
@@ -33,7 +31,9 @@ from sqlalchemy import (
     Text,
 )
 from sqlalchemy.orm import (
-    declarative_base,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
     Session,
     sessionmaker,
 )
@@ -53,29 +53,32 @@ log = logging.getLogger(__name__)
 # Independent SQLAlchemy metadata — a tool source bundle has nothing to
 # do with the Galaxy ORM and must be openable without booting Galaxy.
 _metadata = MetaData()
-_Base = declarative_base(metadata=_metadata)
+
+
+class _Base(DeclarativeBase):
+    metadata = _metadata
 
 
 class _ToolSourceRow(_Base):
     __tablename__ = "tool_source"
 
-    hash = Column(String(64), primary_key=True)
-    tool_source_class = Column(String(64), nullable=False)
-    raw_source = Column(Text, nullable=False)
-    tool_id = Column(String(255), index=True, nullable=True)
-    tool_version = Column(String(64), nullable=True)
-    tool_dir = Column(Text, nullable=True)
-    stored_at = Column(DateTime, nullable=True)
-    extra_metadata = Column(Text, nullable=True)  # JSON
+    hash: Mapped[str] = mapped_column(String(64), primary_key=True)
+    tool_source_class: Mapped[str] = mapped_column(String(64))
+    raw_source: Mapped[str] = mapped_column(Text)
+    tool_id: Mapped[Optional[str]] = mapped_column(String(255), index=True)
+    tool_version: Mapped[Optional[str]] = mapped_column(String(64))
+    tool_dir: Mapped[Optional[str]] = mapped_column(Text)
+    stored_at: Mapped[Optional[datetime]] = mapped_column()
+    extra_metadata: Mapped[Optional[str]] = mapped_column(Text)  # JSON
 
 
 class _ToolIndexRow(_Base):
     __tablename__ = "tool_index"
 
-    id = Column(Integer, primary_key=True)
-    version = Column(String(64), unique=True, nullable=False)
-    data = Column(LargeBinary, nullable=False)  # gzip-compressed JSON
-    built_at = Column(DateTime, nullable=True)
+    id: Mapped[int] = mapped_column(primary_key=True)
+    version: Mapped[str] = mapped_column(String(64), unique=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)  # gzip-compressed JSON
+    built_at: Mapped[Optional[datetime]] = mapped_column()
 
 
 class SqlAlchemyToolSourceStore(ToolSourceStore):

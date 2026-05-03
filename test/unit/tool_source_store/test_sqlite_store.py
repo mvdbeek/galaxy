@@ -78,7 +78,9 @@ def test_read_only_refuses_writes(sqlite_path):
 
     ro = SqliteToolSourceStore(path=sqlite_path, read_only=True)
     assert ro.read_only is True
-    assert ro.get("h1").tool_id == "t1"
+    fetched = ro.get("h1")
+    assert fetched is not None
+    assert fetched.tool_id == "t1"
     with pytest.raises(ReadOnlyStoreError):
         ro.store(_source(hash="h2"))
     with pytest.raises(ReadOnlyStoreError):
@@ -114,4 +116,6 @@ def test_url_path_works_with_in_memory_sqlite():
             tool_id="mem",
         )
     )
-    assert store.get("hmem").tool_id == "mem"
+    fetched = store.get("hmem")
+    assert fetched is not None
+    assert fetched.tool_id == "mem"

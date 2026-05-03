@@ -420,7 +420,8 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         )
 
         self.tool_source_store: Optional[ToolSourceStore] = self._register_singleton(
-            ToolSourceStore, build_tool_source_store(self.config, self.model.context)
+            ToolSourceStore,  # type: ignore[type-abstract]
+            build_tool_source_store(self.config, self.model.context),  # type: ignore[arg-type]
         )
         stats = self.tool_source_store.get_stats()
         tool_count = stats.get("count", 0)
@@ -449,7 +450,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
         return LazyToolBox(
             config_filenames=self.config.tool_configs,
             tool_root_dir=self.config.tool_path,
-            app=self,
+            app=self,  # type: ignore[arg-type]
             tool_source_store=self.tool_source_store,
             cache_size=cache_size,
         )

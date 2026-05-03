@@ -35,7 +35,7 @@ class TestDatabaseBackend:
     def test_database_store_basic_operations(self):
         """Test basic store/get operations with database backend."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app.model.context)
+        store = DatabaseToolSourceStore(app.model.context)  # type: ignore[arg-type]
         test_hash = "test_hash_unit_123"
 
         try:
@@ -69,7 +69,7 @@ class TestDatabaseBackend:
     def test_database_store_index_operations(self):
         """Test tool index storage with database backend."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app.model.context)
+        store = DatabaseToolSourceStore(app.model.context)  # type: ignore[arg-type]
 
         index = ToolIndex()
         index.entries["test_tool_db"] = ToolIndexEntry(
@@ -93,7 +93,7 @@ class TestDatabaseBackend:
     def test_database_store_get_by_tool_id(self):
         """Test retrieving tool sources by tool ID."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app.model.context)
+        store = DatabaseToolSourceStore(app.model.context)  # type: ignore[arg-type]
 
         unique_id = "tool_by_id_test_unit"
         test_hash = f"hash_for_{unique_id}"
@@ -120,7 +120,7 @@ class TestDatabaseBackend:
     def test_database_store_count(self):
         """Test counting stored tool sources."""
         app = MockApp()
-        store = DatabaseToolSourceStore(app.model.context)
+        store = DatabaseToolSourceStore(app.model.context)  # type: ignore[arg-type]
         test_hash = "count_test_hash_unit"
 
         try:
@@ -194,7 +194,7 @@ class TestBuildToolSourceStore:
 
     def test_build_database_store(self):
         app = MockApp()
-        store = build_tool_source_store(app.config, app.model.context)
+        store = build_tool_source_store(app.config, app.model.context)  # type: ignore[arg-type]
         assert isinstance(store, DatabaseToolSourceStore)
 
     def test_build_sqlalchemy_store(self, tmp_path):
@@ -205,7 +205,7 @@ class TestBuildToolSourceStore:
             tool_source_stores=None,
             use_lazy_toolbox=False,
         )
-        store = build_tool_source_store(config, None)
+        store = build_tool_source_store(config, None)  # type: ignore[arg-type]
         assert isinstance(store, SqlAlchemyToolSourceStore)
 
     def test_build_sqlalchemy_store_missing_path_raises(self):
@@ -217,7 +217,7 @@ class TestBuildToolSourceStore:
             use_lazy_toolbox=False,
         )
         with pytest.raises(ConfigurationError):
-            build_tool_source_store(config, None)
+            build_tool_source_store(config, None)  # type: ignore[arg-type]
 
     def test_build_unknown_backend_raises(self):
         config = FakeConfig(
@@ -228,7 +228,7 @@ class TestBuildToolSourceStore:
             use_lazy_toolbox=False,
         )
         with pytest.raises(ConfigurationError):
-            build_tool_source_store(config, None)
+            build_tool_source_store(config, None)  # type: ignore[arg-type]
 
 
 class TestPerConfStoreRouting:

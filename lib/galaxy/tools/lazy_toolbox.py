@@ -508,13 +508,13 @@ class LazyToolBox(ToolBox):
                     section_updates += 1
 
             # Store None as placeholder - actual Tool loaded on demand
-            self._tools_by_id[tool_id] = None
+            self._tools_by_id[tool_id] = None  # type: ignore[assignment]
 
             # Initialize version tracking
             if tool_id not in self._tool_versions_by_id:
                 self._tool_versions_by_id[tool_id] = {}
             if entry.version:
-                self._tool_versions_by_id[tool_id][entry.version] = None
+                self._tool_versions_by_id[tool_id][entry.version] = None  # type: ignore[assignment]
 
             # Add to panel if section info available
             if entry.panel_section_id and entry.panel_section_id in self._tool_panel:

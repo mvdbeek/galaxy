@@ -39,6 +39,7 @@ def test_priority_order_first_hit_wins(two_paths):
     b.store(_src("dup", tool_id="from_b"))
     composite = CompositeToolSourceStore(members=[("a", a), ("b", b)], default="b")
     got = composite.get("dup")
+    assert got is not None
     assert got.tool_id == "from_a"
 
 
@@ -127,8 +128,12 @@ def test_invalidate_fans_out(two_paths):
     )
 
     # Pre-invalidation: stale caches still answer with the old contents.
-    assert "x2" not in a.load_index().entries
-    assert "y2" not in b.load_index().entries
+    a_idx = a.load_index()
+    b_idx = b.load_index()
+    assert a_idx is not None
+    assert b_idx is not None
+    assert "x2" not in a_idx.entries
+    assert "y2" not in b_idx.entries
 
     composite = CompositeToolSourceStore(members=[("a", a), ("b", b)], default="b")
     composite.invalidate_index_cache()
@@ -136,7 +141,6 @@ def test_invalidate_fans_out(two_paths):
     # Post-invalidation: each member re-reads from disk and the new
     # entries surface through the merged index.
     merged = composite.load_index()
+    assert merged is not None
     assert "x2" in merged.entries
     assert "y2" in merged.entries
-
-

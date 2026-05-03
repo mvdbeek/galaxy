@@ -158,7 +158,7 @@ class ToolSourceStore(ABC):
             entry: The index entry to update.
         """
 
-    def invalidate_index_cache(self) -> None:
+    def invalidate_index_cache(self) -> None:  # noqa: B027 — intentional empty default
         """Drop any in-memory cached index so the next load_index() reads fresh.
 
         Backends override this when they cache; the default is a no-op.
@@ -175,7 +175,7 @@ class ReadOnlyStoreError(Exception):
 
 def _build_default_store(
     config: "GalaxyAppConfiguration",
-    sa_session: "galaxy_scoped_session",
+    sa_session: Optional["galaxy_scoped_session"],
 ) -> ToolSourceStore:
     """Build the default store from top-level ``tool_source_*`` config."""
     backend = config.tool_source_store
@@ -183,6 +183,8 @@ def _build_default_store(
     if backend == "database":
         from .database import DatabaseToolSourceStore
 
+        if sa_session is None:
+            raise ConfigurationError("'database' backend requires a SQLAlchemy session")
         return DatabaseToolSourceStore(sa_session)
 
     if backend in ("sqlalchemy", "sqlite"):
@@ -202,7 +204,7 @@ def _build_default_store(
 
 
 def build_named_store(
-    sa_session: "galaxy_scoped_session",
+    sa_session: Optional["galaxy_scoped_session"],
     name: str,
     spec: dict,
 ) -> ToolSourceStore:
@@ -231,6 +233,10 @@ def build_named_store(
     if backend == "database":
         from .database import DatabaseToolSourceStore
 
+        if sa_session is None:
+            raise ConfigurationError(
+                f"tool_source_stores[{name!r}] uses the 'database' backend which requires a SQLAlchemy session"
+            )
         store = DatabaseToolSourceStore(sa_session)
         store.read_only = read_only
         return store
@@ -262,7 +268,7 @@ def _collect_per_conf_store_names(config: "GalaxyAppConfiguration") -> set[str]:
 
 def build_tool_source_store(
     config: "GalaxyAppConfiguration",
-    sa_session: "galaxy_scoped_session",
+    sa_session: Optional["galaxy_scoped_session"],
 ) -> ToolSourceStore:
     """Build the active tool source store, composing per-conf overrides.
 

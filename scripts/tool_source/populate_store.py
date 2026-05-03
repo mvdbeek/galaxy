@@ -301,7 +301,7 @@ class ToolFileWatcher:
 DEFAULT_STORE_NAME = "__default__"
 
 
-def _build_stores(config, sa_session) -> "dict[str, ToolSourceStore]":
+def _build_stores(config, sa_session) -> dict[str, Any]:
     """Build {store_name: store_instance} for the default + every named store
     referenced from any tool_conf."""
     # Lazy imports: avoids loading the store factory on `--help` and keeps
@@ -309,10 +309,11 @@ def _build_stores(config, sa_session) -> "dict[str, ToolSourceStore]":
     from galaxy.tool_source_store import (
         _build_default_store,
         build_named_store,
+        ToolSourceStore,
     )
     from galaxy.tool_util.toolbox.parser import get_toolbox_parser
 
-    stores: "dict[str, ToolSourceStore]" = {
+    stores: dict[str, ToolSourceStore] = {
         DEFAULT_STORE_NAME: _build_default_store(config, sa_session),
     }
 
