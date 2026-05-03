@@ -228,38 +228,47 @@ class ToolFileWatcher:
             self._notify(self.config)
 
     def _process_tool_file(self, path: str) -> bool:
-        """Process a single tool file and update the store."""
+        """Process a single tool file and update the store.
+
+        Watch-mode does a lightweight raw-content hash and ElementTree
+        root-tag check rather than running Galaxy's full tool-source
+        parser, so an in-flight edit doesn't block on macro expansion or
+        full validation. The slower canonical path (``populate_store``
+        run) re-parses with macros expanded the next time it runs.
+        """
+        import xml.etree.ElementTree as ET
+
         from galaxy.tool_source_store import StoredToolSource
-        from galaxy.tool_util.parser import get_tool_source
-        from galaxy.util import xml_to_string
 
         try:
-            # Use Galaxy's tool source parser which handles macro expansion
-            tool_source = get_tool_source(config_file=path)
+            with open(path) as f:
+                raw_content = f.read()
+        except OSError as e:
+            log.warning(f"Could not read {path}: {e}")
+            return False
 
-            # Get the expanded XML as a string
-            root = tool_source.xml_tree.getroot()
-            expanded_content = xml_to_string(root, pretty=True)
-        except Exception as e:
+        try:
+            root = ET.fromstring(raw_content)
+        except ET.ParseError as e:
             log.warning(f"Could not parse {path}: {e}")
             return False
 
-        content_hash = compute_hash(expanded_content)
+        if root.tag != "tool":
+            return False
 
-        # Check if already stored with same hash
+        content_hash = compute_hash(raw_content)
         if self.store.exists(content_hash):
             if self.verbose:
                 log.debug(f"Tool unchanged: {path}")
             return False
 
-        # Get tool ID and version from the parsed source
-        tool_id = tool_source.parse_id()
-        tool_version = tool_source.parse_version()
+        tool_id = root.get("id")
+        tool_version = root.get("version")
 
         stored = StoredToolSource(
             hash=content_hash,
-            tool_source_class=type(tool_source).__name__,
-            raw_source=expanded_content,
+            tool_source_class="XmlToolSource",
+            raw_source=raw_content,
             tool_id=tool_id,
             tool_version=tool_version,
             tool_dir=str(Path(path).parent),
