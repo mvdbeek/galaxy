@@ -425,7 +425,7 @@ def populate_store(
     stats = {"processed": 0, "stored": 0, "skipped": 0, "errors": 0}
 
     # Use the discover module to find all tool files from config
-    from galaxy.tool_util.toolbox.discover import discover_tools
+    from _discover import discover_tools
 
     discovered_tools = list(discover_tools(config, include_bundled=True))
 
@@ -560,7 +560,7 @@ def watch_mode(
     store = build_tool_source_store(config, model.context)
 
     # Determine directories to watch from tool configurations
-    from galaxy.tool_util.toolbox.discover import discover_tools
+    from _discover import discover_tools
 
     tools_dirs_set: set[Path] = set()
     for discovered in discover_tools(config, include_bundled=True):

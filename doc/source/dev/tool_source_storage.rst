@@ -3,8 +3,7 @@ Tool Source Storage Architecture
 
 This document describes the architecture of the tool source storage subsystem
 and the LazyToolBox. For operator-facing setup and configuration, see
-:doc:`/admin/tool_source_storage`. For the original design rationale and
-benchmark comparisons, see ``doc/design/tool_source_storage_plan.md``.
+:doc:`/admin/tool_source_storage`.
 
 Goals
 -----
@@ -31,26 +30,20 @@ Module Layout
     lib/galaxy/tool_source_store/
       __init__.py        ToolSourceStore ABC, StoredToolSource, build_tool_source_store()
       database.py        DatabaseToolSourceStore (uses tool_source + tool_index tables)
-      redis.py           RedisToolSourceStore (with Sentinel support)
-      disk.py            DiskToolSourceStore (sharded directory layout)
       sqlalchemy.py      SqlAlchemyToolSourceStore (any SA URL; sqlite shortcut)
       composite.py       CompositeToolSourceStore (per-conf routing, merged index)
       index.py           ToolIndex, ToolIndexEntry (the lightweight metadata)
-      api_cache.py       ToolAPICache (gzip-compressed batch response cache)
       models.py          Pydantic response models for the API layer
-      benchmarks.py      Microbenchmarks (run via ``python -m``)
 
     lib/galaxy/tools/lazy_toolbox.py     LazyToolBox (subclass of ToolBox)
     lib/galaxy/tool_util/toolbox/
-      discover.py        Tool-file discovery decoupled from ToolBox
       base.py            (small hook to support lazy mode)
     lib/galaxy/tool_util/id_util.py      Cheap tool-ID extraction (regex, no XML parser)
 
-    lib/galaxy/webapps/galaxy/api/tool_sources.py        FastAPI router
-    lib/galaxy/webapps/galaxy/services/tool_sources.py   Service layer
     lib/galaxy/webapps/galaxy/services/tools.py          Batch endpoints (index-aware)
 
     scripts/tool_source/populate_store.py                Population & watch script
+    scripts/tool_source/_discover.py                     Tool-file discovery (used by populate_store)
 
 Data Model
 ----------
@@ -183,7 +176,7 @@ back to an index entry.
 Discovery
 ^^^^^^^^^
 
-``galaxy.tool_util.toolbox.discover.discover_tools`` walks tool config files
+``scripts.tool_source._discover.discover_tools`` walks tool config files
 and yields ``DiscoveredTool`` records. It is used by:
 
 - ``populate_store.py`` to find tools to parse and store.
