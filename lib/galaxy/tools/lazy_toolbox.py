@@ -141,6 +141,32 @@ class LazyToolBox(ToolBox):
         self._populate_tool_registry_from_index()
 
         log.info(f"LazyToolBox initialized with {len(self._tools_by_id)} tools (cache_size={cache_size})")
+        self._warn_if_index_misses_panel_tools()
+
+    def _warn_if_index_misses_panel_tools(self) -> None:
+        """Warn loudly if the index doesn't cover every tool the operator configured.
+
+        ``_tool_section_map`` is built from the same tool confs that the bootstrap
+        walks. When ``/api/tools`` short-circuits to the index, panel-known ids
+        that are missing from the index disappear from the API response — the
+        regression that caused 316 ``GALAXY_TEST_REQUIRE_ALL_NEEDED_TOOLS`` API
+        failures on the lazy-toolbox-atomic branch. Emit a single WARNING with
+        a sample so the cause is visible at boot.
+        """
+        if self._tool_index is None:
+            return
+        index_ids = set(self._tool_index.entries.keys())
+        panel_ids = set(self._tool_section_map.keys())
+        missing = panel_ids - index_ids
+        if missing:
+            sample = sorted(missing)[:20]
+            log.warning(
+                "LazyToolBox index is missing %d tool id(s) referenced by tool confs "
+                "(sample: %s). /api/tools?in_panel=False will under-report. "
+                "Check earlier 'Bootstrap skipping' / 'Error building index entry' warnings.",
+                len(missing),
+                ", ".join(sample),
+            )
 
     def _init_lazy_toolbox(
         self,
@@ -365,14 +391,35 @@ class LazyToolBox(ToolBox):
         if not tool_file:
             return None
 
+        # Tool confs ship with template variables in ``file=...`` (see
+        # tool_conf.xml.sample which uses ``${model_tools_path}``). Without
+        # expansion the path doesn't exist, ``extract_tool_id_from_file``
+        # silently fails, and we fall back to the filename as the panel id —
+        # which is wrong for tools whose actual XML id starts with
+        # ``__INTERNAL__`` (e.g. ``build_list.xml`` parses to ``__BUILD_LIST__``).
+        tool_file = string.Template(tool_file).safe_substitute(self._file_template_kwds())
+
         # Try to extract tool ID from file
-        tool_path_full = os.path.join(tool_path, tool_file)
+        if os.path.isabs(tool_file):
+            tool_path_full = tool_file
+        else:
+            tool_path_full = os.path.join(tool_path, tool_file)
         tool_id = extract_tool_id_from_file(tool_path_full, max_read=2000)
         if tool_id:
             return tool_id
 
         # Fall back to using filename without extension as ID hint
         return os.path.splitext(os.path.basename(tool_file))[0]
+
+    def _file_template_kwds(self) -> dict[str, str]:
+        """Template variables for substituting into ``<tool file=...>`` paths.
+
+        Mirrors :py:meth:`galaxy.tools.ToolBox._path_template_kwds`.
+        """
+        # Lazy import: avoids pulling galaxy.tools at module load time.
+        from galaxy.tools import MODEL_TOOLS_PATH
+
+        return {"model_tools_path": MODEL_TOOLS_PATH}
 
     def _load_index_from_store(self) -> None:
         """Load the tool index from store."""
@@ -439,14 +486,24 @@ class LazyToolBox(ToolBox):
             tool_path = discovered.path
             try:
                 tool_source = get_tool_source(config_file=tool_path)
-                root = tool_source.xml_tree.getroot()  # type: ignore[attr-defined]
-                expanded_content = xml_to_string(root, pretty=True)
+                # XML tools: serialize the parsed (macro-expanded) tree so the
+                # stored source matches what the parser would produce. YAML /
+                # CWL / other tool sources have no ``xml_tree`` attribute —
+                # store their raw file bytes instead so they show up in the
+                # index without forcing them through an XML round-trip.
+                xml_tree = getattr(tool_source, "xml_tree", None)
+                if xml_tree is not None:
+                    expanded_content = xml_to_string(xml_tree.getroot(), pretty=True)
+                else:
+                    with open(tool_path, encoding="utf-8") as _src_fh:
+                        expanded_content = _src_fh.read()
             except Exception as e:
-                log.debug(f"Bootstrap skipping {tool_path}: {e}")
+                log.warning(f"Bootstrap skipping {tool_path}: {e}")
                 continue
             content_hash = hashlib.sha256(expanded_content.encode("utf-8")).hexdigest()
             tool_id = tool_source.parse_id() or discovered.guid
             if not tool_id:
+                log.warning(f"Bootstrap skipping {tool_path}: no parseable tool id")
                 continue
             stored = _StoredToolSource(
                 hash=content_hash,
@@ -461,11 +518,27 @@ class LazyToolBox(ToolBox):
                 self._store.store(stored)
                 stored_count += 1
             except Exception as e:
-                log.debug(f"Bootstrap could not store {tool_path}: {e}")
+                log.warning(f"Bootstrap could not store {tool_path}: {e}")
                 continue
-            entry = self._build_index_entry_from_stored(stored)
-            if entry and entry.id:
-                entries[entry.id] = entry
+            # Build the index entry directly from the tool_source we already
+            # parsed — avoid round-tripping through xml_to_string + re-parse,
+            # which has historically dropped ~third of stored sources silently.
+            entry = self._make_index_entry(
+                tool_source=tool_source,
+                source_hash=content_hash,
+                source_class=type(tool_source).__name__,
+                fallback_tool_id=tool_id,
+            )
+            if entry is None:
+                log.warning(f"Bootstrap could not build index entry for {tool_path} (id={tool_id})")
+                continue
+            existing = entries.get(entry.id)
+            if existing is not None and existing.source_hash != entry.source_hash:
+                log.warning(
+                    f"Bootstrap index id collision: {entry.id} from {tool_path} (hash={entry.source_hash}) "
+                    f"replaces previous entry (hash={existing.source_hash})"
+                )
+            entries[entry.id] = entry
 
         self._tool_index = ToolIndex(
             entries=entries,
@@ -477,7 +550,14 @@ class LazyToolBox(ToolBox):
             self._store.store_index(self._tool_index)
         except Exception as e:
             log.warning(f"Bootstrap could not persist index: {e}")
-        log.info(f"Bootstrap complete: stored {stored_count} sources, index has {len(entries)} entries")
+        dropped = stored_count - len(entries)
+        if dropped:
+            log.warning(
+                f"Bootstrap complete: stored {stored_count} sources, index has {len(entries)} entries "
+                f"(dropped {dropped} during indexing — see prior warnings)"
+            )
+        else:
+            log.info(f"Bootstrap complete: stored {stored_count} sources, index has {len(entries)} entries")
 
     def _rebuild_index_from_store(self, stored_hashes: list[str]) -> None:
         """Rebuild the index from stored tool sources."""
@@ -508,19 +588,24 @@ class LazyToolBox(ToolBox):
         except Exception as e:
             log.warning(f"Could not save rebuilt index: {e}")
 
-    def _build_index_entry_from_stored(self, stored: StoredToolSource) -> Optional[ToolIndexEntry]:
-        """Build an index entry from a stored tool source."""
-        try:
-            tool_source = get_tool_source(
-                raw_tool_source=stored.raw_source,
-                tool_source_class=stored.tool_source_class,
-            )
+    def _make_index_entry(
+        self,
+        tool_source: Any,
+        source_hash: str,
+        source_class: str,
+        fallback_tool_id: Optional[str] = None,
+    ) -> Optional[ToolIndexEntry]:
+        """Build an index entry from an already-parsed tool source.
 
-            tool_id = tool_source.parse_id() or stored.tool_id
+        Used by both the bootstrap path (parsing fresh from a file) and the
+        rebuild path (parsing from raw stored bytes). Returning ``None`` means
+        the source did not yield a usable id — callers should log and skip.
+        """
+        try:
+            tool_id = tool_source.parse_id() or fallback_tool_id
             if not tool_id:
                 return None
 
-            # Safely get optional attributes
             uuid_val = None
             if hasattr(tool_source, "parse_uuid"):
                 try:
@@ -542,14 +627,37 @@ class LazyToolBox(ToolBox):
                 version=tool_source.parse_version(),
                 name=tool_source.parse_name() or "",
                 description=tool_source.parse_description() or "",
-                source_hash=stored.hash,
-                source_class=stored.tool_source_class,
+                source_hash=source_hash,
+                source_class=source_class,
                 hidden=hidden,
                 indexed_at=datetime.utcnow(),
             )
         except Exception as e:
-            log.debug(f"Error parsing tool source for index: {e}")
+            log.warning(f"Error building index entry (id={fallback_tool_id}, hash={source_hash}): {e}")
             return None
+
+    def _build_index_entry_from_stored(self, stored: StoredToolSource) -> Optional[ToolIndexEntry]:
+        """Build an index entry from a stored tool source by re-parsing its raw bytes.
+
+        Used by the rebuild path (`_rebuild_index_from_store`) where the only
+        thing we have is the persisted ``StoredToolSource``.
+        """
+        try:
+            tool_source = get_tool_source(
+                raw_tool_source=stored.raw_source,
+                tool_source_class=stored.tool_source_class,
+            )
+        except Exception as e:
+            log.warning(
+                f"Error re-parsing stored tool source (id={stored.tool_id}, hash={stored.hash}): {e}"
+            )
+            return None
+        return self._make_index_entry(
+            tool_source=tool_source,
+            source_hash=stored.hash,
+            source_class=stored.tool_source_class,
+            fallback_tool_id=stored.tool_id,
+        )
 
     def load_item(
         self,

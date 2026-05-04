@@ -7,6 +7,7 @@ booting a full ToolBox.
 
 import logging
 import os
+import string
 from collections.abc import (
     Iterable,
     Iterator,
@@ -90,12 +91,36 @@ def _resolve_tool_path(tool_path: Optional[str], config_filename: str, root_dir:
         # Assume config is in config/ dir, tools is at same level
         return os.path.join(os.path.dirname(config_dir), "tools")
 
+    # Expand the ``${tool_conf_dir}`` template that test/functional/tools/sample_tool_conf.xml
+    # (and similar shipped confs) use. Without this, the literal substring is taken
+    # as a directory name and every tool file ends up at a non-existent path —
+    # silently dropped at the os.path.exists() check below.
+    tool_conf_dir = os.path.dirname(os.path.abspath(config_filename))
+    tool_path = string.Template(tool_path).safe_substitute({"tool_conf_dir": tool_conf_dir})
+
     if os.path.isabs(tool_path):
         return tool_path
 
     # tool_path is relative - resolve relative to config file location
-    config_dir = os.path.dirname(os.path.abspath(config_filename))
-    return os.path.abspath(os.path.join(config_dir, tool_path))
+    return os.path.abspath(os.path.join(tool_conf_dir, tool_path))
+
+
+def _resolve_file_template_kwds(root_dir: Optional[str]) -> dict[str, str]:
+    """Resolve template variables that tool conf ``file=...`` attributes may use.
+
+    Mirrors :py:meth:`galaxy.tools.ToolBox._path_template_kwds`. The galaxy
+    import is optional so this script-local helper still works when galaxy is
+    not importable; falls back to a path computed from ``root_dir``.
+    """
+    try:
+        # Lazy + optional: helper must still work outside a galaxy install.
+        from galaxy.tools import MODEL_TOOLS_PATH  # type: ignore[attr-defined]
+    except Exception:
+        if root_dir:
+            MODEL_TOOLS_PATH = os.path.abspath(os.path.join(root_dir, "lib", "galaxy", "tools"))
+        else:
+            return {}
+    return {"model_tools_path": MODEL_TOOLS_PATH}
 
 
 def _iter_tool_items(items: Iterable[ToolConfItem]) -> Iterator[ToolConfItem]:
@@ -143,10 +168,19 @@ def discover_tools_from_config(
     resolved_tool_path = _resolve_tool_path(tool_path, config_filename, root_dir)
     is_shed_conf = tool_conf_source.is_shed_tool_conf()
 
+    # Match what AbstractToolBox._path_template_kwds does for ToolBox: tool
+    # confs may reference Galaxy-internal tool files via ``${model_tools_path}``
+    # (e.g. ``<tool file="${model_tools_path}/apply_rules.xml" />`` in
+    # tool_conf.xml.sample). Without expanding this, those tools are silently
+    # dropped at the os.path.exists check below.
+    file_template_kwds = _resolve_file_template_kwds(root_dir)
+
     for item in _iter_tool_items(tool_conf_source.parse_items()):
         tool_file = item.get("file")
         if not tool_file:
             continue
+
+        tool_file = string.Template(tool_file).safe_substitute(file_template_kwds)
 
         # Resolve tool file path
         if os.path.isabs(tool_file):
