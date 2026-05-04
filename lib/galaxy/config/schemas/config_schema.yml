@@ -322,6 +322,89 @@ mapping:
           Other tool config files must include the tool_path as an attribute in the
           <toolbox> tag.
 
+      tool_source_store:
+        type: str
+        default: database
+        required: false
+        desc: |
+          Backend for storing pre-parsed tool sources. Options are 'database'
+          or 'sqlalchemy'.
+
+          - 'database': Stores tool sources in the Galaxy database. The default;
+            no additional setup required.
+
+          - 'sqlalchemy': Stores tool sources in a separate SQLAlchemy-managed
+            database (typically a SQLite file). Useful for shipping read-only
+            tool source bundles via per-conf ``tool_source_stores`` entries.
+
+          To populate the store, run: python scripts/tool_source/populate_store.py
+
+      tool_source_disk_path:
+        type: str
+        default: tool_sources
+        path_resolves_to: data_dir
+        required: false
+        desc: |
+          Filesystem path used by the ``sqlalchemy`` backend when no explicit
+          ``tool_source_url`` is given — the path is converted to a SQLite URL.
+
+      tool_source_stores:
+        type: map
+        required: false
+        desc: |
+          Optional named tool source stores referenced from individual
+          tool_conf files via a top-level ``store="<name>"`` attribute (XML)
+          or ``store: <name>`` key (YAML). When any tool_conf opts in, the
+          process composes its named store with the default
+          (``tool_source_store``) backend at runtime, with reads tried in
+          declared order and writes always landing on the default.
+
+          Each entry takes a ``backend`` (``database`` or ``sqlalchemy``)
+          plus the backend-specific settings, and an optional
+          ``read_only: true`` flag (typically used for CVMFS-shipped sqlite
+          bundles).
+
+          The ``sqlalchemy`` backend accepts either a SQLAlchemy ``url`` or
+          a ``path`` shortcut that builds a SQLite URL.
+
+          Example::
+
+              tool_source_stores:
+                cvmfs_main:
+                  backend: sqlalchemy
+                  path: /cvmfs/example.org/tools/sources.sqlite
+                  read_only: true
+
+      use_lazy_toolbox:
+        type: bool
+        required: false
+        desc: |
+          When true, use the LazyToolBox which loads tools on demand from the
+          tool source store. Otherwise (the default), the traditional eager
+          ToolBox is used and any per-conf ``store="..."`` attributes on
+          tool_conf files are ignored. Opt-in is explicit: a populated tool
+          source store does not flip a default deployment to lazy mode.
+
+      lazy_toolbox_cache_size:
+        type: int
+        default: 500
+        required: false
+        desc: |
+          Maximum number of fully constructed Tool objects the LazyToolBox keeps
+          in its in-memory LRU cache. Larger values reduce repeat parsing cost
+          for popular tools at the expense of memory.
+
+      tool_cache_size:
+        type: int
+        default: 500
+        required: false
+        desc: |
+          Maximum number of Tool objects to keep in the LRU cache when using
+          the lazy toolbox. Higher values use more memory but reduce tool
+          loading time. A typical Galaxy installation has 500-2000 tools,
+          so 500 is a reasonable default. Increase if you frequently use
+          many different tools.
+
       tool_dependency_dir:
         type: str
         default: dependencies
