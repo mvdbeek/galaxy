@@ -1084,24 +1084,16 @@ class LazyToolBox(ToolBox):
         materializes a fully parsed ``Tool`` and registers it in
         ``_tools_by_id`` for the lifetime of the process — defeating the
         whole point of the lazy path. We replace it for ``tool`` items
-        with the lazy-equivalent work; section/label/workflow/tool_dir
-        items still go through super since they only mutate panel
-        structure.
+        with the lazy-equivalent work; for ``section`` items we walk the
+        children ourselves so their section context survives (the eager
+        ``_load_section_tag_set`` post-walks ``integrated_elems`` to call
+        ``record_section_for_tool_id``, which finds nothing because the
+        lazy path never put a Tool object into ``integrated_elems``).
         """
         from galaxy.tool_util.toolbox.parser import ensure_tool_conf_item
 
         item = ensure_tool_conf_item(item)
-        if getattr(item, "type", None) != "tool":
-            super().load_item(
-                item,
-                tool_path=tool_path,
-                panel_dict=panel_dict,
-                integrated_panel_dict=integrated_panel_dict,
-                load_panel_dict=load_panel_dict,
-                guid=guid,
-                index=index,
-            )
-            return
+        item_type = getattr(item, "type", None)
 
         if self._store is None or self._tool_index is None:
             # No lazy infra wired — fall back to eager load so the install still works.
@@ -1116,15 +1108,78 @@ class LazyToolBox(ToolBox):
             )
             return
 
-        with self.app._toolbox_lock:
-            self._lazy_register_tool_item(item, tool_path, guid=guid)
+        if item_type == "tool":
+            with self.app._toolbox_lock:
+                self._lazy_register_tool_item(item, tool_path, guid=guid)
+            return
 
-    def _lazy_register_tool_item(self, item, tool_path: str, guid: Optional[str] = None) -> None:
+        if item_type == "section":
+            with self.app._toolbox_lock:
+                self._lazy_register_section_item(item, tool_path, index=index)
+            return
+
+        super().load_item(
+            item,
+            tool_path=tool_path,
+            panel_dict=panel_dict,
+            integrated_panel_dict=integrated_panel_dict,
+            load_panel_dict=load_panel_dict,
+            guid=guid,
+            index=index,
+        )
+
+    def _lazy_register_section_item(self, item, tool_path: str, index: Optional[int] = None) -> None:
+        """Lazy equivalent of ``_load_section_tag_set`` for shed installs.
+
+        The eager path materializes each child ``Tool`` and walks
+        ``integrated_elems.panel_items_iter()`` to call
+        ``record_section_for_tool_id``. Without a Tool object the walk
+        finds nothing, so panel views (e.g. ``custom_13`` referencing
+        ``test_section_multi``) render the freshly-installed tool at root
+        instead of inside the requested section. We store the source +
+        index entry as for a bare tool, then explicitly stamp the
+        section onto the entry and the section/tool maps so subsequent
+        panel renders place it correctly.
+        """
+        section_id = item.get("id")
+        section_name = item.get("name", section_id) or ""
+        if section_id and section_id not in self._tool_panel:
+            section_dict = {"id": section_id, "name": section_name, "version": item.get("version", "")}
+            self._tool_panel.append_section(section_id, ToolSection(section_dict))
+        if not hasattr(item, "items"):
+            return
+        for sub_item in item.items:
+            sub_type = getattr(sub_item, "type", None)
+            if sub_type == "tool":
+                self._lazy_register_tool_item(
+                    sub_item,
+                    tool_path,
+                    guid=sub_item.get("guid"),
+                    section_id=section_id,
+                    section_name=section_name,
+                )
+            else:
+                # labels, workflows, nested sections — let the eager
+                # implementation handle them; they don't need lazy treatment.
+                super().load_item(sub_item, tool_path=tool_path, index=index)
+
+    def _lazy_register_tool_item(
+        self,
+        item,
+        tool_path: str,
+        guid: Optional[str] = None,
+        section_id: Optional[str] = None,
+        section_name: Optional[str] = None,
+    ) -> None:
         """Persist a single tool item's source to the store and add an index entry.
 
         Reused by the shed-install ``load_item`` override. Does *not*
         instantiate a ``Tool`` object — the next ``get_tool`` call
-        lazy-loads it.
+        lazy-loads it. ``section_id`` / ``section_name`` are propagated
+        from the enclosing ``<section>`` (when called from
+        ``_lazy_register_section_item``) so the index entry, the tool
+        section map, and the panel structure all agree on the tool's
+        section.
         """
         from galaxy.tool_source_store import StoredToolSource as _StoredToolSource
         from galaxy.util import xml_to_string
@@ -1168,8 +1223,20 @@ class LazyToolBox(ToolBox):
 
         entry = self._build_index_entry_from_stored(stored)
         if entry and entry.id:
-            self._tool_index.entries[entry.id] = entry
+            if section_id:
+                entry.panel_section_id = section_id
+                entry.panel_section_name = section_name or section_id
+            # ``add_entry`` populates both the default-per-id ``entries``
+            # map and ``entries_by_version`` (keyed on the tool's version),
+            # which is what version-aware ``get_tool`` lookups consult.
+            # Direct assignment to ``entries`` would leave
+            # ``entries_by_version`` stale and break per-version routing.
+            self._tool_index.add_entry(entry)
             self._tool_index.invalidate_caches()
+            if section_id:
+                self._tool_section_map[entry.id] = (section_id, section_name)
+                if section_id in self._tool_panel:
+                    self._tool_panel.record_section_for_tool_id(entry.id, section_id, section_name or "")
             try:
                 self._store.store_index(self._tool_index)
             except Exception as e:
