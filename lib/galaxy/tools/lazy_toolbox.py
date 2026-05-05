@@ -340,6 +340,12 @@ class LazyToolBox(ToolBox):
                             tool_id = self._extract_tool_id_from_item(item, tool_path)
                             if tool_id:
                                 self._tool_section_map[tool_id] = (None, None)
+
+                        elif item_type == "tool_dir":
+                            # ``<tool_dir dir="...">`` registers every tool file under
+                            # the directory. Mirror what ToolBox._load_tooldir_tag_set
+                            # does so the panel map matches the index after bootstrap.
+                            self._extract_tools_from_tool_dir(item, tool_path, None, None)
                     except Exception as e:
                         log.debug(f"Error processing item in {config_filename}: {e}")
 
@@ -375,8 +381,100 @@ class LazyToolBox(ToolBox):
                     tool_id = self._extract_tool_id_from_item(sub_item, tool_path)
                     if tool_id:
                         self._tool_section_map[tool_id] = (section_id, section_name)
+                elif item_type == "tool_dir":
+                    self._extract_tools_from_tool_dir(sub_item, tool_path, section_id, section_name)
             except Exception as e:
                 log.debug(f"Error extracting tool from section {section_id}: {e}")
+
+    def _extract_tools_from_tool_dir(
+        self,
+        item,
+        tool_path: str,
+        section_id: Optional[str],
+        section_name: Optional[str],
+    ) -> None:
+        """Walk a ``<tool_dir>`` directive and add every tool file's id to the panel map.
+
+        Pre-existing logic only handled ``<tool file=...>`` items; tool_conf
+        confs that point at a directory (e.g. ``<tool_dir dir="parameters/" />``
+        in test/functional/tools/sample_tool_conf.xml) had every tool inside
+        invisible to the panel section map — and to ``/api/tools`` once the
+        index short-circuit was in play.
+        """
+        # Lazy import: same script-local helpers the bootstrap walk uses.
+        scripts_dir = os.path.join(
+            os.path.dirname(os.path.abspath(__file__)),
+            "..",
+            "..",
+            "..",
+            "..",
+            "scripts",
+            "tool_source",
+        )
+        scripts_dir = os.path.normpath(scripts_dir)
+        import sys as _sys
+
+        if scripts_dir not in _sys.path:
+            _sys.path.insert(0, scripts_dir)
+        try:
+            from _discover import (
+                _looks_like_a_tool,
+                _walk_tool_dir,
+            )
+        except ImportError as e:
+            log.debug(f"_extract_tools_from_tool_dir could not import discovery helpers: {e}")
+            return
+
+        dir_attr = item.get("dir")
+        if not dir_attr:
+            return
+        dir_attr = string.Template(dir_attr).safe_substitute(self._file_template_kwds())
+        directory = dir_attr if os.path.isabs(dir_attr) else os.path.join(tool_path, dir_attr)
+        directory = os.path.normpath(directory)
+        recursive = str(item.get("recursive", "true")).lower() != "false"
+
+        for candidate in _walk_tool_dir(directory, recursive):
+            if not _looks_like_a_tool(candidate):
+                continue
+            tool_id = extract_tool_id_from_file(candidate, max_read=2000)
+            if not tool_id:
+                tool_id = self._extract_yaml_tool_id(candidate)
+            if not tool_id:
+                tool_id = os.path.splitext(os.path.basename(candidate))[0]
+            if tool_id:
+                self._tool_section_map[tool_id] = (section_id, section_name)
+
+    @staticmethod
+    def _extract_yaml_tool_id(path: str) -> Optional[str]:
+        """Cheap YAML ``id:`` extractor — avoids importing yaml just for this.
+
+        ``extract_tool_id_from_file`` only handles XML; without a YAML reader
+        the panel section map ends up with the *filename* for YAML tools,
+        which mismatches the actual ``id:`` field in the YAML body
+        (e.g. ``gx_data_collection_any.yml`` has ``id: gx_data_collection_any_y``)
+        and produces spurious "missing from index" warnings.
+        """
+        ext = os.path.splitext(path)[1].lower()
+        if ext not in (".yml", ".yaml"):
+            return None
+        try:
+            with open(path, encoding="utf-8") as fh:
+                for line in fh:
+                    line = line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    if line.startswith("id:"):
+                        value = line.split(":", 1)[1].strip()
+                        # Strip surrounding quotes if present.
+                        if value and value[0] in ("'", '"') and value[-1] == value[0]:
+                            value = value[1:-1]
+                        return value or None
+                    if line.startswith(("inputs:", "outputs:", "command:", "shell_command:")):
+                        # Past the header section without finding an id.
+                        return None
+        except OSError:
+            return None
+        return None
 
     def _extract_tool_id_from_item(self, item, tool_path: str) -> Optional[str]:
         """Extract tool ID from a tool item - either from guid or by parsing the file."""
@@ -479,7 +577,10 @@ class LazyToolBox(ToolBox):
             return
 
         config = self.app.config
-        entries: dict[str, ToolIndexEntry] = {}
+        # Build the index incrementally. ``add_entry`` keeps both
+        # ``entries`` (default version per id) and ``entries_by_version``
+        # (every version) in sync so multi-version tools survive bootstrap.
+        index = ToolIndex(by_section={})
         stored_count = 0
 
         for discovered in discover_tools(config, include_bundled=True):
@@ -532,37 +633,51 @@ class LazyToolBox(ToolBox):
             if entry is None:
                 log.warning(f"Bootstrap could not build index entry for {tool_path} (id={tool_id})")
                 continue
-            existing = entries.get(entry.id)
-            if existing is not None and existing.source_hash != entry.source_hash:
+            # ``add_entry`` records every version under entries_by_version and
+            # keeps the highest version as the default in entries. Same-id
+            # different-source-hash collisions at the same version are still
+            # last-write-wins (a single tool conf shouldn't ship two of those).
+            same_version = index.entries_by_version.get(entry.id, {}).get(entry.version or "")
+            if same_version is not None and same_version.source_hash != entry.source_hash:
                 log.warning(
-                    f"Bootstrap index id collision: {entry.id} from {tool_path} (hash={entry.source_hash}) "
-                    f"replaces previous entry (hash={existing.source_hash})"
+                    f"Bootstrap index collision at same version: {entry.id} v={entry.version!r} "
+                    f"from {tool_path} (hash={entry.source_hash}) replaces previous "
+                    f"(hash={same_version.source_hash})"
                 )
-            entries[entry.id] = entry
+            index.add_entry(entry)
 
         self._tool_index = ToolIndex(
-            entries=entries,
+            entries=index.entries,
+            entries_by_version=index.entries_by_version,
             by_section={},
-            version=hashlib.md5(str(sorted(entries.keys())).encode()).hexdigest()[:8],
+            version=hashlib.md5(str(sorted(index.entries.keys())).encode()).hexdigest()[:8],
             built_at=datetime.utcnow(),
         )
         try:
             self._store.store_index(self._tool_index)
         except Exception as e:
             log.warning(f"Bootstrap could not persist index: {e}")
-        dropped = stored_count - len(entries)
+        # ``stored_count`` counts every accepted source (per-hash); index
+        # ``entries`` only counts unique tool ids. The interesting ratio for
+        # operators is ids-vs-versions: an index with N ids covering V total
+        # versions where V == stored_count means nothing was dropped.
+        total_versions = sum(len(v) for v in self._tool_index.entries_by_version.values())
+        dropped = stored_count - total_versions
         if dropped:
             log.warning(
-                f"Bootstrap complete: stored {stored_count} sources, index has {len(entries)} entries "
-                f"(dropped {dropped} during indexing — see prior warnings)"
+                f"Bootstrap complete: stored {stored_count} sources, index has {len(self._tool_index.entries)} "
+                f"ids covering {total_versions} versions (dropped {dropped} during indexing — see prior warnings)"
             )
         else:
-            log.info(f"Bootstrap complete: stored {stored_count} sources, index has {len(entries)} entries")
+            log.info(
+                f"Bootstrap complete: stored {stored_count} sources, index has {len(self._tool_index.entries)} "
+                f"ids covering {total_versions} versions"
+            )
 
     def _rebuild_index_from_store(self, stored_hashes: list[str]) -> None:
         """Rebuild the index from stored tool sources."""
         assert self._store is not None
-        entries: dict[str, ToolIndexEntry] = {}
+        index = ToolIndex(by_section={})
 
         for source_hash in stored_hashes:
             stored = self._store.get(source_hash)
@@ -570,21 +685,22 @@ class LazyToolBox(ToolBox):
                 try:
                     entry = self._build_index_entry_from_stored(stored)
                     if entry and entry.id:
-                        entries[entry.id] = entry
+                        index.add_entry(entry)
                 except Exception as e:
                     log.warning(f"Error building index entry for {source_hash}: {e}")
 
         self._tool_index = ToolIndex(
-            entries=entries,
+            entries=index.entries,
+            entries_by_version=index.entries_by_version,
             by_section={},
-            version=hashlib.md5(str(sorted(entries.keys())).encode()).hexdigest()[:8],
+            version=hashlib.md5(str(sorted(index.entries.keys())).encode()).hexdigest()[:8],
             built_at=datetime.utcnow(),
         )
 
         # Save the rebuilt index
         try:
             self._store.store_index(self._tool_index)
-            log.info(f"Rebuilt and saved tool index with {len(entries)} entries")
+            log.info(f"Rebuilt and saved tool index with {len(index.entries)} entries")
         except Exception as e:
             log.warning(f"Could not save rebuilt index: {e}")
 
@@ -819,11 +935,15 @@ class LazyToolBox(ToolBox):
             # Store None as placeholder - actual Tool loaded on demand
             self._tools_by_id[tool_id] = None  # type: ignore[assignment]
 
-            # Initialize version tracking
-            if tool_id not in self._tool_versions_by_id:
-                self._tool_versions_by_id[tool_id] = {}
-            if entry.version:
-                self._tool_versions_by_id[tool_id][entry.version] = None  # type: ignore[assignment]
+            # Initialize version tracking. Walk every version we indexed so
+            # ``has_tool(tool_id, exact=True)`` and version-aware lookups
+            # behave the same as the eager toolbox (which registers each
+            # ``Tool`` instance per version).
+            self._tool_versions_by_id.setdefault(tool_id, {})
+            versions = self._tool_index.entries_by_version.get(tool_id, {entry.version or "": entry})
+            for version_key in versions.keys():
+                if version_key:
+                    self._tool_versions_by_id[tool_id][version_key] = None  # type: ignore[assignment]
 
             # Add to panel if section info available
             if entry.panel_section_id and entry.panel_section_id in self._tool_panel:
@@ -953,18 +1073,22 @@ class LazyToolBox(ToolBox):
             if cache_key in self._tool_object_cache:
                 return self._tool_object_cache[cache_key]
 
-        # Check if already loaded in _tools_by_id
-        existing = self._tools_by_id.get(tool_id)
-        if existing is not None:
-            with self._cache_lock:
-                self._tool_object_cache[cache_key] = existing
-            return existing
+        # Check if already loaded in _tools_by_id — only safe when no specific
+        # version was requested. ``_tools_by_id`` keys by id and stores the
+        # latest-loaded version, so honoring ``tool_version`` requires going
+        # through the index to pick the right ``source_hash``.
+        if tool_version is None:
+            existing = self._tools_by_id.get(tool_id)
+            if existing is not None:
+                with self._cache_lock:
+                    self._tool_object_cache[cache_key] = existing
+                return existing
 
         # Get entry from index
         if self._tool_index is None or self._store is None:
             return None
 
-        entry = self._tool_index.get(tool_id)
+        entry = self._tool_index.get(tool_id, tool_version)
         if not entry:
             return None
 

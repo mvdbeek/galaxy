@@ -191,6 +191,14 @@ class ToolIndex:
     """
 
     entries: dict[str, ToolIndexEntry] = field(default_factory=dict)
+    # Multi-version map. Several tool confs ship the same ``id`` at different
+    # versions (e.g. multiple_versions_hidden_v01 and _v02 both have id
+    # ``multiple_versions_hidden``). ``entries`` keeps the default per id (the
+    # last-written one or the highest version), ``entries_by_version`` keeps
+    # every version so ``get(tool_id, tool_version=...)`` resolves correctly
+    # to the matching ``source_hash``. Empty-string version key represents
+    # tools whose XML lacks a ``version`` attribute.
+    entries_by_version: dict[str, dict[str, ToolIndexEntry]] = field(default_factory=dict)
     by_section: dict[str, list[str]] = field(default_factory=dict)
     panel_views: dict[str, dict] = field(default_factory=dict)
     version: str = ""  # For cache invalidation
@@ -205,9 +213,36 @@ class ToolIndex:
         self._requirements_cache = None
         self._tests_summary_cache = None
 
-    def get(self, tool_id: str) -> Optional[ToolIndexEntry]:
-        """Get a tool entry by ID."""
+    def get(self, tool_id: str, tool_version: Optional[str] = None) -> Optional[ToolIndexEntry]:
+        """Get a tool entry by ID, optionally honoring a specific version.
+
+        ``tool_version=None`` returns the default (newest indexed) entry.
+        ``tool_version`` provided returns the matching version's entry, or
+        ``None`` if that exact version isn't indexed.
+        """
+        if tool_version is not None:
+            versions = self.entries_by_version.get(tool_id)
+            if versions is None:
+                # Backwards-compat for indexes serialized before
+                # entries_by_version existed: fall through to default.
+                entry = self.entries.get(tool_id)
+                if entry and (entry.version or "") == tool_version:
+                    return entry
+                return None
+            return versions.get(tool_version)
         return self.entries.get(tool_id)
+
+    def add_entry(self, entry: ToolIndexEntry) -> None:
+        """Add an entry, populating both the default and per-version maps."""
+        self.entries_by_version.setdefault(entry.id, {})[entry.version or ""] = entry
+        existing = self.entries.get(entry.id)
+        # Keep the highest version as the default. ``compare_versions`` from
+        # packaging would be more correct, but tool versions are typically
+        # plain numerics and a string compare is good enough; tie-break by
+        # last-write so panel-order semantics are preserved when a conf
+        # explicitly registers a default.
+        if existing is None or (entry.version or "") >= (existing.version or ""):
+            self.entries[entry.id] = entry
 
     def list_all(
         self,
@@ -413,6 +448,10 @@ class ToolIndex:
         """Convert to dictionary for serialization."""
         return {
             "entries": {k: v.to_dict() for k, v in self.entries.items()},
+            "entries_by_version": {
+                tool_id: {ver: entry.to_dict() for ver, entry in versions.items()}
+                for tool_id, versions in self.entries_by_version.items()
+            },
             "by_section": self.by_section,
             "panel_views": self.panel_views,
             "version": self.version,
@@ -427,9 +466,19 @@ class ToolIndex:
             built_at = datetime.fromisoformat(built_at)
 
         entries = {k: ToolIndexEntry.from_dict(v) for k, v in data.get("entries", {}).items()}
+        entries_by_version: dict[str, dict[str, ToolIndexEntry]] = {}
+        for tool_id, versions in data.get("entries_by_version", {}).items():
+            entries_by_version[tool_id] = {ver: ToolIndexEntry.from_dict(v) for ver, v in versions.items()}
+        # Backwards-compat: indexes persisted before entries_by_version existed
+        # only have ``entries``; fall back to a 1-version map so callers don't
+        # break.
+        if entries and not entries_by_version:
+            for tool_id, entry in entries.items():
+                entries_by_version[tool_id] = {entry.version or "": entry}
 
         return cls(
             entries=entries,
+            entries_by_version=entries_by_version,
             by_section=data.get("by_section", {}),
             panel_views=data.get("panel_views", {}),
             version=data.get("version", ""),

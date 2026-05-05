@@ -125,19 +125,69 @@ def _resolve_file_template_kwds(root_dir: Optional[str]) -> dict[str, str]:
 
 def _iter_tool_items(items: Iterable[ToolConfItem]) -> Iterator[ToolConfItem]:
     """
-    Recursively iterate over all tool items, including those in sections.
+    Recursively iterate over tool items, including those nested in sections.
 
-    Args:
-        items: Iterable of ToolConfItem objects.
-
-    Yields:
-        ToolConfItem objects of type 'tool'.
+    Yields ``tool`` and ``tool_dir`` items. ``tool_dir`` items reference an
+    on-disk directory rather than a single file; the caller is responsible for
+    walking the directory.
     """
     for item in items:
-        if item.type == "tool":
+        if item.type in ("tool", "tool_dir"):
             yield item
         elif isinstance(item, ToolConfSection):
             yield from _iter_tool_items(item.items)
+
+
+def _looks_like_a_tool(path: str) -> bool:
+    """Cheap filter mirroring ``galaxy.tool_util.toolbox.base.looks_like_a_tool``.
+
+    We only want XML or YAML/CWL files that plausibly define a tool. Avoid
+    importing the real ``looks_like_a_tool`` so this script-local helper still
+    works without galaxy on sys.path.
+    """
+    name = os.path.basename(path)
+    if name.startswith((".", "_")) or "macro" in name.lower():
+        return False
+    ext = os.path.splitext(name)[1].lower()
+    if ext == ".xml":
+        try:
+            with open(path, encoding="utf-8") as fh:
+                head = fh.read(2000)
+        except Exception:
+            return False
+        return "<tool" in head
+    if ext in (".yml", ".yaml"):
+        try:
+            with open(path, encoding="utf-8") as fh:
+                head = fh.read(2000)
+        except Exception:
+            return False
+        # YAML user-defined tools start with ``class: GalaxyUserTool`` /
+        # ``class: GalaxyTool``; CWL via ``cwlVersion:`` is acceptable too.
+        return "class: Galaxy" in head or "cwlVersion" in head
+    return False
+
+
+def _walk_tool_dir(directory: str, recursive: bool) -> Iterator[str]:
+    """Yield candidate tool file paths under ``directory``.
+
+    Mirrors the behaviour of ``ToolBox.__watch_directory`` (skips hidden /
+    private entries, recurses by default). Filtering against
+    ``_looks_like_a_tool`` is the caller's responsibility — yielding all
+    candidates here keeps logging at the discovery layer.
+    """
+    if not os.path.isdir(directory):
+        log.debug(f"tool_dir does not exist: {directory}")
+        return
+    for name in sorted(os.listdir(directory)):
+        if name.startswith((".", "_")):
+            continue
+        child = os.path.join(directory, name)
+        if os.path.isdir(child):
+            if recursive:
+                yield from _walk_tool_dir(child, recursive)
+        else:
+            yield child
 
 
 def discover_tools_from_config(
@@ -176,6 +226,28 @@ def discover_tools_from_config(
     file_template_kwds = _resolve_file_template_kwds(root_dir)
 
     for item in _iter_tool_items(tool_conf_source.parse_items()):
+        if item.type == "tool_dir":
+            dir_attr = item.get("dir")
+            if not dir_attr:
+                continue
+            dir_attr = string.Template(dir_attr).safe_substitute(file_template_kwds)
+            if os.path.isabs(dir_attr):
+                directory = dir_attr
+            else:
+                directory = os.path.join(resolved_tool_path, dir_attr)
+            recursive = str(item.get("recursive", "true")).lower() != "false"
+            for candidate in _walk_tool_dir(os.path.normpath(directory), recursive):
+                if not _looks_like_a_tool(candidate):
+                    continue
+                yield DiscoveredTool(
+                    path=candidate,
+                    tool_conf=config_filename,
+                    tool_path=resolved_tool_path,
+                    guid=None,
+                    is_shed_tool=is_shed_conf,
+                )
+            continue
+
         tool_file = item.get("file")
         if not tool_file:
             continue
