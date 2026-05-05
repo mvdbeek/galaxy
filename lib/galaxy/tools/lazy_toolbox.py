@@ -1176,6 +1176,16 @@ class LazyToolBox(ToolBox):
                 tool = self._load_tool_on_demand(tool_id, tool_version)
                 if tool:
                     return tool
+                # exact=False + a version we don't have should fall back to
+                # the default (latest) version. The eager toolbox does this in
+                # ``get_tool`` after a ``_tool_versions_by_id`` miss; the lazy
+                # path needs to mirror that explicitly so callers like
+                # /api/tools/{id}?tool_version=<bogus> still get the latest
+                # entry's Tool instead of a 404.
+                if tool_version and not exact:
+                    tool = self._load_tool_on_demand(tool_id, None)
+                    if tool:
+                        return tool
 
         # Fall back to parent implementation for tools not in our index
         # (dynamic tools, data manager tools, etc.)
