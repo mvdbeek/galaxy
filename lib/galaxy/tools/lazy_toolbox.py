@@ -506,6 +506,14 @@ class LazyToolBox(ToolBox):
         if tool_id:
             return tool_id
 
+        # YAML tools (``class: GalaxyUserTool`` / ``class: GalaxyTool``) have an
+        # ``id:`` field that ``extract_tool_id_from_file`` doesn't recognize —
+        # fall through to the YAML reader before the filename fallback so the
+        # panel section map agrees with the index.
+        tool_id = self._extract_yaml_tool_id(tool_path_full)
+        if tool_id:
+            return tool_id
+
         # Fall back to using filename without extension as ID hint
         return os.path.splitext(os.path.basename(tool_file))[0]
 
