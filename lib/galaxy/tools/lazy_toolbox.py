@@ -40,7 +40,6 @@ from galaxy.tool_util.id_util import (
 from galaxy.tool_util.parser import get_tool_source
 from galaxy.tool_util.toolbox.base import DynamicToolConfDict
 from galaxy.tool_util.toolbox.filters import FilterFactory
-from galaxy.tool_util.toolbox.lineages import LineageMap
 from galaxy.tool_util.toolbox.lineages.factory import LazyLineageMap
 from galaxy.tool_util.toolbox.lineages.interface import ToolLineage
 from galaxy.tool_util.toolbox.panel import (
@@ -278,7 +277,7 @@ class _LazyToolsByIdView:
         plain dict. Materialise every entry — callers iterating the copy
         expect real Tool objects, not ``None`` placeholders.
         """
-        return {tool_id: tool for tool_id, tool in self.items()}
+        return dict(self.items())
 
 
 class LazyToolBox(ToolBox):
@@ -1348,7 +1347,7 @@ class LazyToolBox(ToolBox):
                     self._tool_index.entries_by_version.get(tool_id, {}).keys(),
                     key=_ver_key,
                 )
-                tools: list["Tool"] = []
+                tools: list[Tool] = []
                 for ver in versions:
                     loaded = self._load_tool_on_demand(tool_id, ver or None)
                     if loaded is not None:
@@ -1780,4 +1779,3 @@ class LazyToolBox(ToolBox):
             "min_width": -1,
             "target": "galaxy_main",
         }
-
