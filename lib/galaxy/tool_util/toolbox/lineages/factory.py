@@ -88,30 +88,38 @@ class LazyLineageMap(LineageMap):
         self._versions_for = versions_for
 
     def get(self, tool_id: str) -> Optional[ToolLineage]:
-        # Fast path: already memoised.
-        existing = super().get(tool_id)
-        if existing is not None:
-            return existing
-        if self._versions_for is None:
-            return None
-        try:
-            versions = list(self._versions_for(tool_id))
-        except Exception:
-            return None
-        if not versions:
-            return None
-        lineage = ToolLineage(tool_id)
-        for version in versions:
-            if version:
-                lineage.register_version(version)
-        # Memoise under both the version-bearing id and the versionless id —
-        # mirrors what ``LineageMap.register`` does, so subsequent lookups
-        # for either form hit the cache.
-        self.lineage_map[tool_id] = lineage
-        versionless = remove_version_from_guid(tool_id)
-        if versionless and versionless not in self.lineage_map:
-            self.lineage_map[versionless] = lineage
-        return lineage
+        # Always source versions from the index when available — the parent's
+        # fallback path builds a lineage from a single ``Tool`` object's
+        # version (via ``ToolLineage.from_tool``) and memoises it, which
+        # would freeze ``tool_versions`` at ``[just-loaded version]`` and
+        # hide every other version present in the index. That breaks
+        # ``get_safe_version`` (used by ``ToolModule.__init__`` at workflow
+        # upload to map a pinned-but-missing tool_version onto the nearest
+        # safe-upgrade version, e.g. ``__BUILD_LIST__`` 1.0.0 → 1.1.0): it
+        # walks ``tool.lineage.tool_versions`` and only finds candidates
+        # within ``WORKFLOW_SAFE_TOOL_VERSION_UPDATES``' bounds, so a
+        # one-element ``[1.2.0]`` lineage misses 1.1.0 and the workflow
+        # ends up bound to 1.2.0 with state shaped for 1.0.0.
+        if self._versions_for is not None:
+            try:
+                versions = list(self._versions_for(tool_id))
+            except Exception:
+                versions = []
+            if versions:
+                lineage = self.lineage_map.get(tool_id)
+                if lineage is None:
+                    lineage = ToolLineage(tool_id)
+                    self.lineage_map[tool_id] = lineage
+                    versionless = remove_version_from_guid(tool_id)
+                    if versionless and versionless not in self.lineage_map:
+                        self.lineage_map[versionless] = lineage
+                for version in versions:
+                    if version:
+                        lineage.register_version(version)
+                return lineage
+        # Index has no entry for this tool_id — fall back to whatever the
+        # parent class can derive (a registered Tool, etc.).
+        return super().get(tool_id)
 
 
 __all__ = ("LazyLineageMap", "LineageMap")
