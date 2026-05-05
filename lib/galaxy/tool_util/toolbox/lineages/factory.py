@@ -1,5 +1,7 @@
 from typing import (
+    Callable,
     Dict,
+    Iterable,
     Optional,
     TYPE_CHECKING,
 )
@@ -17,6 +19,48 @@ class LineageMap:
     def __init__(self, app):
         self.lineage_map: Dict[str, ToolLineage] = {}
         self.app = app
+
+
+class LazyLineageMap(LineageMap):
+    """Lineage map that derives versions from a callable on first access.
+
+    Used by ``galaxy.tools.lazy_toolbox.LazyToolBox`` so the lineage view
+    over ``ToolIndex.entries_by_version`` doesn't need a boot-time pass to
+    seed every tool's version set into ``ToolLineage.tool_versions``.
+    Lineage data is already serialised inside the index
+    (``ToolIndex.to_dict``); this class just exposes it as a ``LineageMap``
+    on demand.
+    """
+
+    def __init__(self, app, versions_for: Optional[Callable[[str], Iterable[str]]] = None):
+        super().__init__(app)
+        self._versions_for = versions_for
+
+    def get(self, tool_id: str) -> Optional[ToolLineage]:
+        # Fast path: already memoised.
+        existing = super().get(tool_id)
+        if existing is not None:
+            return existing
+        if self._versions_for is None:
+            return None
+        try:
+            versions = list(self._versions_for(tool_id))
+        except Exception:
+            return None
+        if not versions:
+            return None
+        lineage = ToolLineage(tool_id)
+        for version in versions:
+            if version:
+                lineage.register_version(version)
+        # Memoise under both the version-bearing id and the versionless id —
+        # mirrors what ``LineageMap.register`` does, so subsequent lookups
+        # for either form hit the cache.
+        self.lineage_map[tool_id] = lineage
+        versionless = remove_version_from_guid(tool_id)
+        if versionless and versionless not in self.lineage_map:
+            self.lineage_map[versionless] = lineage
+        return lineage
 
     def register(self, tool: "Tool") -> ToolLineage:
         tool_id = tool.id
