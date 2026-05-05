@@ -1181,11 +1181,17 @@ class LazyToolBox(ToolBox):
                 # ``get_tool`` after a ``_tool_versions_by_id`` miss; the lazy
                 # path needs to mirror that explicitly so callers like
                 # /api/tools/{id}?tool_version=<bogus> still get the latest
-                # entry's Tool instead of a 404.
+                # entry's Tool instead of a 404. Use the default entry's own
+                # version (not ``None``) — passing ``None`` falls back to the
+                # ``_tools_by_id`` placeholder, which may already hold a
+                # different version cached from an earlier load.
                 if tool_version and not exact:
-                    tool = self._load_tool_on_demand(tool_id, None)
-                    if tool:
-                        return tool
+                    default_entry = self._tool_index.entries.get(tool_id)
+                    if default_entry is not None:
+                        default_version = default_entry.version or None
+                        tool = self._load_tool_on_demand(tool_id, default_version)
+                        if tool:
+                            return tool
 
         # Fall back to parent implementation for tools not in our index
         # (dynamic tools, data manager tools, etc.)
