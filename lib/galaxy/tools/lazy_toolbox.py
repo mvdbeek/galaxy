@@ -1140,9 +1140,20 @@ class LazyToolBox(ToolBox):
                 # refactor's ``upgrade_all_steps``) need every version to
                 # determine the latest; returning only the requested version
                 # makes upgrades silently no-op.
+                # Lazy import: ``packaging.version.parse`` matches what the
+                # eager ToolLineage uses to order versions and tolerates
+                # non-numeric segments (e.g. ``"1.0.0+galaxy0"``).
+                from packaging.version import parse as _parse_version
+
+                def _ver_key(v: str):
+                    try:
+                        return (0, _parse_version(v))
+                    except Exception:
+                        return (1, v)
+
                 versions = sorted(
                     self._tool_index.entries_by_version.get(tool_id, {}).keys(),
-                    key=lambda v: tuple(int(p) if p.isdigit() else p for p in v.split(".") if p),
+                    key=_ver_key,
                 )
                 tools: list["Tool"] = []
                 for ver in versions:
