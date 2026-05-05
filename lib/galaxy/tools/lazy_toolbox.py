@@ -1034,9 +1034,7 @@ class LazyToolBox(ToolBox):
                 tool_source_class=stored.tool_source_class,
             )
         except Exception as e:
-            log.warning(
-                f"Error re-parsing stored tool source (id={stored.tool_id}, hash={stored.hash}): {e}"
-            )
+            log.warning(f"Error re-parsing stored tool source (id={stored.tool_id}, hash={stored.hash}): {e}")
             return None
         return self._make_index_entry(
             tool_source=tool_source,
