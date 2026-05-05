@@ -206,6 +206,14 @@ class LazyToolBox(ToolBox):
         # This allows has_tool() and similar checks to work without loading
         self._populate_tool_registry_from_index()
 
+        # Render static panel views now that the index is populated. Before
+        # this point ``apply_view`` would have ``has_tool`` return False for
+        # every indexed-but-unloaded tool and the resulting view would be
+        # missing every entry. See the deferred-render comment in
+        # ``_init_lazy_toolbox``.
+        if self.app.name == "galaxy":
+            self._load_tool_panel_views()
+
         log.info(f"LazyToolBox initialized with {len(self._tools_by_id)} tools (cache_size={cache_size})")
         self._warn_if_index_misses_panel_tools()
 
@@ -300,9 +308,14 @@ class LazyToolBox(ToolBox):
         # but don't load the actual tools
         self._init_panel_structure_from_configs(config_filenames)
 
-        # Load tool panel views (required for panel_has_tool checks)
-        if self.app.name == "galaxy":
-            self._load_tool_panel_views()
+        # ``_load_tool_panel_views`` materialises every static panel view by
+        # walking ``apply_view``, which calls ``toolbox_registry.has_tool``.
+        # In the lazy path the index isn't populated until ``_load_index_from_store``
+        # runs (right after this method returns), so calling it here would
+        # see an empty toolbox and drop every tool from the static views with
+        # a "Failed to find tool_id ... cannot load into panel view" warning.
+        # Defer the rendering until after the index is loaded — see the
+        # follow-up call in ``__init__``.
 
         if save_integrated_tool_panel:
             self._save_integrated_tool_panel()
@@ -1343,6 +1356,30 @@ class LazyToolBox(ToolBox):
             entry = self._tool_index.get(tool_id, version)
             if entry and entry.hidden:
                 tool.hidden = True
+
+    def remove_tool_by_id(self, tool_id: str, remove_from_panel: bool = True):
+        """Also drop the tool from the lazy index + LRU cache.
+
+        ``AbstractToolBox.remove_tool_by_id`` only deletes from
+        ``_tools_by_id``. In the lazy path that's not enough — ``get_tool``
+        re-loads the tool from ``_tool_index`` on the next request, so the
+        tool effectively comes back. The eager toolbox doesn't have this
+        problem because the tool object isn't created from a serialised
+        store. Mirror the deletion across the two backing stores.
+        """
+        # Force-materialise so the eager parent's bookkeeping (``_tools_by_old_id``,
+        # panel removal, lineage, tool cache expiry) gets a real Tool to work
+        # against.
+        if self._tools_by_id.get(tool_id) is None:
+            self.get_tool(tool_id=tool_id)
+        result = super().remove_tool_by_id(tool_id, remove_from_panel=remove_from_panel)
+        if self._tool_index is not None:
+            self._tool_index.entries.pop(tool_id, None)
+            self._tool_index.entries_by_version.pop(tool_id, None)
+        with self._cache_lock:
+            for key in [k for k in self._tool_object_cache.keys() if k.startswith(f"{tool_id}:")]:
+                self._tool_object_cache.pop(key, None)
+        return result
 
     @property
     def tools_by_id(self) -> "_LazyToolsByIdView":
