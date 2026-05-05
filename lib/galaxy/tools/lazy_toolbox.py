@@ -1379,16 +1379,24 @@ class LazyToolBox(ToolBox):
                 tool = self._load_tool_on_demand(tool_id, tool_version)
                 if tool:
                     return tool
-                # exact=False + a version we don't have should fall back to
-                # the default (latest) version. The eager toolbox does this in
-                # ``get_tool`` after a ``_tool_versions_by_id`` miss; the lazy
-                # path needs to mirror that explicitly so callers like
-                # /api/tools/{id}?tool_version=<bogus> still get the latest
-                # entry's Tool instead of a 404. Use the default entry's own
-                # version (not ``None``) — passing ``None`` falls back to the
-                # ``_tools_by_id`` placeholder, which may already hold a
-                # different version cached from an earlier load.
-                if tool_version and not exact:
+                # Version not in the index. Fall back to the default (latest)
+                # entry's Tool — not the requested version, but a Tool for the
+                # same id. The eager toolbox does this after a
+                # ``_tool_versions_by_id`` miss whenever ``tool_id`` is in
+                # ``_tools_by_id``, regardless of ``exact``: the for-loop in
+                # ``AbstractToolBox.get_tool`` only ``continue``s for
+                # ``exact`` when the id itself is unknown. Without this
+                # fallback, ``ToolModule.__init__`` invoked at workflow-upload
+                # time (which calls ``get_tool(..., exact=True)``) gets
+                # ``None`` for any workflow pinned to a tool_version we no
+                # longer ship — eager would have returned the lineage-newest
+                # Tool, then ``get_safe_version`` would have downgraded it to
+                # the safe-upgrade version (e.g. ``__BUILD_LIST__`` 1.0.0 →
+                # 1.1.0 via ``WORKFLOW_SAFE_TOOL_VERSION_UPDATES``). Returning
+                # ``None`` here breaks that path and the workflow ends up
+                # bound to the latest version with state shaped for the old
+                # version, producing spurious upgrade-message 400s on invoke.
+                if tool_version:
                     default_entry = self._tool_index.entries.get(tool_id)
                     if default_entry is not None:
                         default_version = default_entry.version or None
