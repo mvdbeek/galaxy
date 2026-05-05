@@ -75,7 +75,62 @@ class DefaultToolPanelView(ToolPanelView):
         self.toolbox = toolbox
 
     def apply_view(self, base_tool_panel, toolbox_registry):
-        return self.toolbox._tool_panel
+        """Build a ToolPanelElements view populated from the lazy index.
+
+        ``LazyToolBox._tool_panel`` only carries sections + labels (tools
+        get lazily loaded into it on demand), so returning it raw — as the
+        eager toolbox can — yields a panel with no tools, breaking
+        ``GET /api/tool_panels/default`` (e.g. ``test_tools::test_index``
+        asserts ``upload1`` is in the response).
+
+        Walk ``_tool_index.entries``, look up each entry's section in
+        ``_tool_panel`` (preserving labels and section ordering already
+        recorded by ``_init_panel_structure_from_configs``), and append a
+        stub ``ToolStub`` per entry that exposes the bits the
+        ``ToolBoxRegistry`` consumer needs (``id``, ``hidden``,
+        ``allow_user_access``, ``to_dict`` for the API serializer).
+        """
+        # Lazy import: only the default view's apply_view needs these,
+        # and pulling them at module import would create a cycle through
+        # galaxy.tool_util.toolbox.panel.
+        from galaxy.tool_util.toolbox.panel import (
+            ToolPanelElements,
+            ToolSection,
+        )
+
+        toolbox = self.toolbox
+        if toolbox._tool_index is None:
+            return toolbox._tool_panel
+
+        new_panel = ToolPanelElements()
+
+        # Seed with the existing panel structure (sections + labels) so
+        # ordering/labels match what the operator configured.
+        for key, value in toolbox._tool_panel.items():
+            if isinstance(value, ToolSection):
+                empty_section = ToolSection({"id": value.id, "name": value.name, "version": value.version or ""})
+                new_panel.append_section(value.id, empty_section)
+            else:
+                new_panel[key] = value
+
+        # Place each indexed tool in its section (or at root for unsectioned).
+        for tool_id, entry in toolbox._tool_index.entries.items():
+            if entry.hidden:
+                continue
+            if not toolbox_registry.has_tool(tool_id):
+                continue
+            tool = toolbox_registry.get_tool(tool_id)
+            if tool is None:
+                continue
+            section_id = entry.panel_section_id
+            if section_id and section_id in new_panel:
+                section = new_panel[section_id]
+                if isinstance(section, ToolSection):
+                    section.elems.append_tool(tool)
+                    continue
+            new_panel.append_tool(tool)
+
+        return new_panel
 
     def to_model(self) -> ToolPanelViewModel:
         return ToolPanelViewModel(
