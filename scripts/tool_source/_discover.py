@@ -40,6 +40,12 @@ class DiscoveredTool:
     tool_path: Optional[str]  # The tool_path from the tool_conf
     guid: Optional[str] = None  # GUID for shed tools
     is_shed_tool: bool = False
+    # Conf-level ``hidden="true"`` on the ``<tool>`` element (NOT the XML
+    # body's ``<tool hidden="true">`` — that's already on the parsed source).
+    # ToolBox._load_tool_tag_set forces ``tool.hidden = True`` when this is
+    # set; the lazy path needs the same flag to make ``hidden_tool_versions``
+    # in /api/tools/{id} match the eager toolbox.
+    hidden: bool = False
 
 
 def get_tool_configs(config: "GalaxyAppConfiguration") -> list[str]:
@@ -273,6 +279,7 @@ def discover_tools_from_config(
             tool_path=resolved_tool_path,
             guid=item.get("guid"),
             is_shed_tool=is_shed_conf,
+            hidden=str(item.get("hidden", "false")).lower() == "true",
         )
 
 

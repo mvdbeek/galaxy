@@ -88,6 +88,62 @@ class DefaultToolPanelView(ToolPanelView):
         )
 
 
+class _LazyToolsByIdView:
+    """Mapping wrapper over ``LazyToolBox._tools_by_id`` that lazy-loads on access.
+
+    ``__getitem__`` returns the materialised Tool, calling ``get_tool`` when the
+    underlying dict has a ``None`` placeholder. Provides the bare slice of
+    ``Mapping`` that callers in the codebase actually use (``in``, ``[]``,
+    ``get``, iteration, ``len``).
+    """
+
+    def __init__(self, toolbox: "LazyToolBox") -> None:
+        self._toolbox = toolbox
+
+    def _materialised(self, tool_id: str) -> Optional["Tool"]:
+        tool = self._toolbox._tools_by_id.get(tool_id)
+        if tool is not None:
+            return tool
+        # Placeholder hit — go through ``get_tool`` which honors the index.
+        return self._toolbox.get_tool(tool_id=tool_id)
+
+    def __getitem__(self, tool_id: str) -> "Tool":
+        tool = self._materialised(tool_id)
+        if tool is None:
+            raise KeyError(tool_id)
+        return tool
+
+    def get(self, tool_id: str, default: Any = None) -> Any:
+        try:
+            return self.__getitem__(tool_id)
+        except KeyError:
+            return default
+
+    def __contains__(self, tool_id: object) -> bool:
+        return tool_id in self._toolbox._tools_by_id
+
+    def __iter__(self):
+        return iter(self._toolbox._tools_by_id)
+
+    def __len__(self) -> int:
+        return len(self._toolbox._tools_by_id)
+
+    def keys(self):
+        return self._toolbox._tools_by_id.keys()
+
+    def values(self):
+        for tool_id in self._toolbox._tools_by_id:
+            tool = self._materialised(tool_id)
+            if tool is not None:
+                yield tool
+
+    def items(self):
+        for tool_id in self._toolbox._tools_by_id:
+            tool = self._materialised(tool_id)
+            if tool is not None:
+                yield tool_id, tool
+
+
 class LazyToolBox(ToolBox):
     """
     ToolBox that loads tools on-demand from the tool source store.
@@ -444,6 +500,28 @@ class LazyToolBox(ToolBox):
             if tool_id:
                 self._tool_section_map[tool_id] = (section_id, section_name)
 
+    def _seed_lineage_for_tool(self, tool_id: str, versions: list[str]) -> None:
+        """Register every indexed version on this tool's ToolLineage."""
+        from galaxy.tool_util.toolbox.lineages.interface import ToolLineage
+        from galaxy.util.tool_version import remove_version_from_guid
+
+        if not versions:
+            return
+        lineage_map = self._lineage_map.lineage_map
+        versionless = remove_version_from_guid(tool_id)
+        # Mirror LineageMap.register: a single ToolLineage is shared between
+        # the versionless id and the version-bearing id.
+        lineage = lineage_map.get(versionless) if versionless else None
+        if lineage is None:
+            lineage = lineage_map.get(tool_id)
+        if lineage is None:
+            lineage = ToolLineage(tool_id)
+        for version in versions:
+            lineage.register_version(version)
+        lineage_map[tool_id] = lineage
+        if versionless and versionless not in lineage_map:
+            lineage_map[versionless] = lineage
+
     @staticmethod
     def _extract_yaml_tool_id(path: str) -> Optional[str]:
         """Cheap YAML ``id:`` extractor — avoids importing yaml just for this.
@@ -641,6 +719,13 @@ class LazyToolBox(ToolBox):
             if entry is None:
                 log.warning(f"Bootstrap could not build index entry for {tool_path} (id={tool_id})")
                 continue
+            # Conf-level ``hidden="true"`` on the ``<tool>`` directive forces
+            # ``tool.hidden = True`` in the eager toolbox (see
+            # AbstractToolBox._load_tool_tag_set). The XML body's own hidden
+            # flag is already captured by ``parse_hidden()`` in
+            # ``_make_index_entry``; OR them together so either source wins.
+            if discovered.hidden:
+                entry.hidden = True
             # ``add_entry`` records every version under entries_by_version and
             # keeps the highest version as the default in entries. Same-id
             # different-source-hash collisions at the same version are still
@@ -953,6 +1038,14 @@ class LazyToolBox(ToolBox):
                 if version_key:
                     self._tool_versions_by_id[tool_id][version_key] = None  # type: ignore[assignment]
 
+            # Pre-seed the lineage map with every indexed version. The eager
+            # ToolBox builds lineage as a side effect of loading each Tool,
+            # but the lazy path only loads one version on demand — without
+            # this, ``tool.lineage.tool_versions`` would only ever contain
+            # the version that happened to be loaded first, breaking
+            # /api/tools/{id}'s ``versions`` and ``hidden_versions`` fields.
+            self._seed_lineage_for_tool(tool_id, [v for v in versions.keys() if v])
+
             # Add to panel if section info available
             if entry.panel_section_id and entry.panel_section_id in self._tool_panel:
                 section = self._tool_panel[entry.panel_section_id]
@@ -1042,11 +1135,26 @@ class LazyToolBox(ToolBox):
 
         # Check if we have this tool in our index
         if self._tool_index and tool_id in self._tool_index.entries:
-            tool = self._load_tool_on_demand(tool_id, tool_version)
-            if tool:
-                if get_all_versions:
-                    return [tool]  # TODO: support multiple versions
-                return tool
+            if get_all_versions:
+                # Lazy-load every indexed version. Callers (e.g. workflow
+                # refactor's ``upgrade_all_steps``) need every version to
+                # determine the latest; returning only the requested version
+                # makes upgrades silently no-op.
+                versions = sorted(
+                    self._tool_index.entries_by_version.get(tool_id, {}).keys(),
+                    key=lambda v: tuple(int(p) if p.isdigit() else p for p in v.split(".") if p),
+                )
+                tools: list["Tool"] = []
+                for ver in versions:
+                    loaded = self._load_tool_on_demand(tool_id, ver or None)
+                    if loaded is not None:
+                        tools.append(loaded)
+                if tools:
+                    return tools
+            else:
+                tool = self._load_tool_on_demand(tool_id, tool_version)
+                if tool:
+                    return tool
 
         # Fall back to parent implementation for tools not in our index
         # (dynamic tools, data manager tools, etc.)
@@ -1171,8 +1279,36 @@ class LazyToolBox(ToolBox):
         if hasattr(tool, "uuid") and tool.uuid:
             self._tools_by_uuid[tool.uuid] = tool
 
-        # Update lineage
-        self._lineage_map.register(tool)
+        # Update lineage. ``LineageMap.register`` returns the shared lineage
+        # for this id; the eager ToolBox assigns it to ``tool._lineage`` (see
+        # AbstractToolBox.__add_tool) — without that assignment, ``tool.lineage``
+        # is ``None`` and ``tool.tool_versions`` returns ``[]``, breaking
+        # /api/tools/{id}'s ``versions`` / ``hidden_versions`` fields.
+        tool._lineage = self._lineage_map.register(tool)
+
+        # Conf-level ``hidden="true"`` (from the ``<tool>`` directive in the
+        # tool conf) is applied here. The eager toolbox does this in
+        # ``_load_tool_tag_set``; the lazy path's ``_create_tool_from_stored_source``
+        # only sees the parsed XML body, so we lift the flag from the index
+        # entry. Note: never *clear* an XML-body hidden flag — only set it.
+        if self._tool_index is not None:
+            entry = self._tool_index.get(tool_id, version)
+            if entry and entry.hidden:
+                tool.hidden = True
+
+    @property
+    def tools_by_id(self) -> "_LazyToolsByIdView":
+        """Lazy-loading view over ``_tools_by_id``.
+
+        ``AbstractToolBox.tools_by_id`` returns the raw dict, but in the lazy
+        path that dict holds ``None`` placeholders for tools that haven't been
+        materialised yet. Callers that index by id (e.g.
+        ``galaxy.tool_util.deps.views.resolve``: ``self._app.toolbox.tools_by_id[tool_id]``)
+        otherwise get ``None`` and crash. This view delegates ``__getitem__``
+        through ``get_tool`` so a placeholder triggers a lazy load instead of
+        being returned as ``None``.
+        """
+        return _LazyToolsByIdView(self)
 
     # === Override has_tool to check index ===
 

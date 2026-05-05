@@ -274,32 +274,62 @@ class ToolIndex:
         """
         Fast text search across tool metadata.
 
-        Args:
-            query: Search query string.
-            limit: Maximum number of results.
+        Tokenizes the query on whitespace and treats it as a conjunction:
+        every token must appear (substring match) in *some* searchable field
+        of the entry. This mirrors how the eager toolbox's Whoosh index
+        behaves on multi-word queries — without it, "Select lines that match
+        an expression" never matches Grep1, whose name is "Select" and
+        description is "lines that match an expression" (each field has a
+        subset of the query tokens, neither has all of them).
 
-        Returns:
-            List of matching tool entries, sorted by relevance.
+        Score per entry: sum over tokens of the field-weight where the
+        token first hits; documents with id/name hits rank above
+        description-only hits.
         """
-        query_lower = query.lower()
+        query_lower = query.lower().strip()
+        if not query_lower:
+            return []
+        tokens = [t for t in query_lower.split() if t]
+        if not tokens:
+            return []
         results: list[tuple] = []
 
         for entry in self.entries.values():
             if entry.hidden:
                 continue
 
-            # Score based on match location
-            score = 0
-            if query_lower in entry.id.lower():
-                score += 100
-            if query_lower in entry.name.lower():
-                score += 50
-            if query_lower in entry.description.lower():
-                score += 10
-            if any(query_lower in label.lower() for label in entry.labels):
-                score += 25
+            id_l = entry.id.lower()
+            name_l = entry.name.lower()
+            desc_l = entry.description.lower()
+            labels_l = [label.lower() for label in entry.labels]
 
-            if score > 0:
+            # Each token must hit at least one field. Track the best per-token
+            # score for ranking.
+            score = 0
+            all_hit = True
+            for tok in tokens:
+                if tok in id_l:
+                    score += 100
+                elif tok in name_l:
+                    score += 50
+                elif any(tok in lab for lab in labels_l):
+                    score += 25
+                elif tok in desc_l:
+                    score += 10
+                else:
+                    all_hit = False
+                    break
+
+            # Bonus for full-phrase matches in id / name / description.
+            if all_hit:
+                if query_lower in id_l:
+                    score += 100
+                elif query_lower in name_l:
+                    score += 50
+                elif query_lower in desc_l:
+                    score += 10
+
+            if all_hit and score > 0:
                 results.append((score, entry))
 
         results.sort(key=lambda x: -x[0])
