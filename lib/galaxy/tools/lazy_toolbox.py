@@ -38,7 +38,10 @@ from galaxy.tool_util.id_util import (
     extract_tool_id_from_file,
 )
 from galaxy.tool_util.parser import get_tool_source
-from galaxy.tool_util.toolbox.base import DynamicToolConfDict
+from galaxy.tool_util.toolbox.base import (
+    DynamicToolConfDict,
+    SHED_TOOL_CONF_XML,
+)
 from galaxy.tool_util.toolbox.filters import FilterFactory
 from galaxy.tool_util.toolbox.lineages.factory import LazyLineageMap
 from galaxy.tool_util.toolbox.lineages.interface import ToolLineage
@@ -525,9 +528,29 @@ class LazyToolBox(ToolBox):
         self._tool_section_map: dict[str, tuple] = {}
 
         config_filenames = listify(config_filenames)
+        # Configured shed/migrated tool confs are allowed to be absent at
+        # boot — the eager toolbox creates them on demand on first install.
+        # Mirror that behaviour so ``install_repository`` (and anything else
+        # going through ``default_shed_tool_conf_dict()``) doesn't fail with
+        # ``ConfigurationError("No shed_tool_conf file active")`` when the
+        # placeholder file hasn't been written yet.
+        on_demand_confs = {self.app.config.shed_tool_config_file, self.app.config.migrated_tools_config}
+
+        def _register_on_demand_shed_conf(config_filename: str) -> None:
+            self._dynamic_tool_confs.append(
+                {
+                    "config_filename": config_filename,
+                    "tool_path": self.app.config.shed_tools_dir,
+                    "config_elems": [],
+                    "create": SHED_TOOL_CONF_XML.format(shed_tools_dir=self.app.config.shed_tools_dir),
+                }
+            )
 
         for config_filename in config_filenames:
             if not self.can_load_config_file(config_filename):
+                continue
+            if not os.path.exists(config_filename) and config_filename in on_demand_confs:
+                _register_on_demand_shed_conf(config_filename)
                 continue
             try:
                 tool_conf_source = get_toolbox_parser(config_filename)
