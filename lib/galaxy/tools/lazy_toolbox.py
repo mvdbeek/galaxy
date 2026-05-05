@@ -75,62 +75,16 @@ class DefaultToolPanelView(ToolPanelView):
         self.toolbox = toolbox
 
     def apply_view(self, base_tool_panel, toolbox_registry):
-        """Build a ToolPanelElements view populated from the lazy index.
-
-        ``LazyToolBox._tool_panel`` only carries sections + labels (tools
-        get lazily loaded into it on demand), so returning it raw — as the
-        eager toolbox can — yields a panel with no tools, breaking
-        ``GET /api/tool_panels/default`` (e.g. ``test_tools::test_index``
-        asserts ``upload1`` is in the response).
-
-        Walk ``_tool_index.entries``, look up each entry's section in
-        ``_tool_panel`` (preserving labels and section ordering already
-        recorded by ``_init_panel_structure_from_configs``), and append a
-        stub ``ToolStub`` per entry that exposes the bits the
-        ``ToolBoxRegistry`` consumer needs (``id``, ``hidden``,
-        ``allow_user_access``, ``to_dict`` for the API serializer).
-        """
-        # Lazy import: only the default view's apply_view needs these,
-        # and pulling them at module import would create a cycle through
-        # galaxy.tool_util.toolbox.panel.
-        from galaxy.tool_util.toolbox.panel import (
-            ToolPanelElements,
-            ToolSection,
-        )
-
-        toolbox = self.toolbox
-        if toolbox._tool_index is None:
-            return toolbox._tool_panel
-
-        new_panel = ToolPanelElements()
-
-        # Seed with the existing panel structure (sections + labels) so
-        # ordering/labels match what the operator configured.
-        for key, value in toolbox._tool_panel.items():
-            if isinstance(value, ToolSection):
-                empty_section = ToolSection({"id": value.id, "name": value.name, "version": value.version or ""})
-                new_panel.append_section(value.id, empty_section)
-            else:
-                new_panel[key] = value
-
-        # Place each indexed tool in its section (or at root for unsectioned).
-        for tool_id, entry in toolbox._tool_index.entries.items():
-            if entry.hidden:
-                continue
-            if not toolbox_registry.has_tool(tool_id):
-                continue
-            tool = toolbox_registry.get_tool(tool_id)
-            if tool is None:
-                continue
-            section_id = entry.panel_section_id
-            if section_id and section_id in new_panel:
-                section = new_panel[section_id]
-                if isinstance(section, ToolSection):
-                    section.elems.append_tool(tool)
-                    continue
-            new_panel.append_tool(tool)
-
-        return new_panel
+        # Return the configured panel structure as-is. Tools that are
+        # explicitly loaded (via shed install or first ``get_tool`` use)
+        # land in this panel via the eager ``__add_tool_to_tool_panel``;
+        # *eagerly* materialising every indexed tool here would defeat
+        # LazyToolBox's purpose, take 30+ seconds at boot, and surface
+        # any per-tool parse error as a startup failure.
+        # /api/tool_panels/default is served by an override on
+        # ``LazyToolBox.to_panel_view`` that builds the response straight
+        # from the index entries instead — see that method.
+        return self.toolbox._tool_panel
 
     def to_model(self) -> ToolPanelViewModel:
         return ToolPanelViewModel(
@@ -1412,6 +1366,23 @@ class LazyToolBox(ToolBox):
             if entry and entry.hidden:
                 tool.hidden = True
 
+    def close(self) -> None:
+        """Drop in-memory state at app shutdown.
+
+        Wired into ``GalaxyUniverseApplication.haltables`` so an embedded
+        restart (``IntegrationTestCase.restart``) releases the LRU cache,
+        the ``ToolIndex`` reference, and the link back to the
+        ``tool_source_store`` before the next boot wires up a fresh
+        toolbox. Idempotent; safe to call more than once.
+        """
+        with self._cache_lock:
+            self._tool_object_cache.clear()
+        self._tool_index = None
+        self._store = None
+        # ``_tools_by_id`` and friends still get GC'd when the surrounding
+        # app object drops. We don't clear them here because the eager
+        # parent's shutdown sequence may still iterate them.
+
     def remove_tool_by_id(self, tool_id: str, remove_from_panel: bool = True):
         """Also drop the tool from the lazy index + LRU cache.
 
@@ -1549,6 +1520,66 @@ class LazyToolBox(ToolBox):
 
         log.debug(f"LazyToolBox.to_dict: returning {len(rval)} tools from index (no loading)")
         return rval
+
+    def to_panel_view(self, trans, view="default_panel_view", **kwds) -> dict[str, dict]:
+        """Render a panel view's API response.
+
+        For the default view we build the response straight from
+        ``_tool_index.entries`` — no Tool instantiation, no per-tool
+        re-parse. Going through the parent's ``tool_panel_contents`` ->
+        ``apply_view`` -> ``get_tool_to_dict`` path would lazy-load every
+        indexed tool at request time, which is exactly what defeated
+        startup in the prior commit (``test_job_recovery::test_recovery``
+        spent ~14 minutes lazy-loading 500+ tools per restart and never
+        reached "ready").
+
+        Static panel views (configured via ``panel_views`` /
+        ``panel_views_dir``) are scoped to a specific small set of
+        ``<tool>`` entries; for those we let the parent walk
+        ``apply_view`` so its ``ToolBoxRegistry.get_tool`` lazy-loads
+        only the requested few.
+        """
+        resolved_view = view
+        if resolved_view == "default_panel_view":
+            resolved_view = self._default_panel_view(trans)
+
+        view_def = (self._tool_panel_views or {}).get(resolved_view) if hasattr(self, "_tool_panel_views") else None
+        if view_def is None or isinstance(view_def, DefaultToolPanelView):
+            # Default view — render from index entries cheaply.
+            view_contents: dict[str, dict] = {}
+            sections: dict[str, dict[str, Any]] = {}
+            uncategorized: list[dict[str, Any]] = []
+            if self._tool_index is None:
+                return {}
+            include_hidden = bool(kwds.get("include_hidden", False))
+            for entry in self._tool_index.entries.values():
+                if entry.hidden and not include_hidden:
+                    continue
+                tool_dict = self._index_entry_to_api_dict(entry)
+                section_id = entry.panel_section_id
+                if section_id:
+                    section = sections.get(section_id)
+                    if section is None:
+                        section = {
+                            "id": section_id,
+                            "name": entry.panel_section_name or section_id,
+                            "model_class": "ToolSection",
+                            "elems": [],
+                        }
+                        sections[section_id] = section
+                    section["elems"].append(tool_dict)
+                else:
+                    uncategorized.append(tool_dict)
+            for section_id, section_dict in sections.items():
+                view_contents[section_id] = section_dict
+            for tool_dict in uncategorized:
+                view_contents[tool_dict["id"]] = tool_dict
+            return view_contents
+
+        # Static (non-default) view: defer to parent so apply_view runs
+        # against the registered ToolPanelView. Only the small set of
+        # tools the static view names will be lazy-loaded.
+        return super().to_panel_view(trans, view=view, **kwds)
 
     def _index_entry_to_api_dict(self, entry: ToolIndexEntry) -> dict[str, Any]:
         """Convert an index entry to the format expected by /api/tools."""

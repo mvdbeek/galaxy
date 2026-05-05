@@ -277,3 +277,15 @@ class DatabaseToolSourceStore(ToolSourceStore):
     def invalidate_index_cache(self) -> None:
         """Invalidate the cached index."""
         self._cached_index = None
+
+    def close(self) -> None:
+        """Drop in-memory state at app shutdown.
+
+        The SQLAlchemy session itself is owned by ``app.model.context`` and
+        gets closed via ``_shutdown_model``; we only need to drop the
+        cached index reference so it doesn't leak across embedded restarts.
+        """
+        self._cached_index = None
+        # Don't null out the session — it's a scoped session shared with
+        # the rest of Galaxy. Just stop holding a strong reference to the
+        # cached index.

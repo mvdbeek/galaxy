@@ -155,3 +155,11 @@ class CompositeToolSourceStore(ToolSourceStore):
     def invalidate_index_cache(self) -> None:
         for _name, member in self._members:
             member.invalidate_index_cache()
+
+    def close(self) -> None:
+        """Propagate close() to every member store."""
+        for _name, member in self._members:
+            try:
+                member.close()
+            except Exception as e:
+                log.warning(f"Composite store close failed for member '{_name}': {e}")

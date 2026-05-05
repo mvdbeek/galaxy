@@ -164,6 +164,16 @@ class ToolSourceStore(ABC):
         Backends override this when they cache; the default is a no-op.
         """
 
+    def close(self) -> None:  # noqa: B027 — intentional empty default
+        """Release any state the store is holding.
+
+        Wired into ``GalaxyUniverseApplication.haltables`` so a Python-side
+        ``app.shutdown()`` (e.g. the embedded ``IntegrationTestCase.restart()``
+        path) clears references that would otherwise survive into the next
+        boot. Default is a no-op; ``DatabaseToolSourceStore`` and the
+        composite store override.
+        """
+
 
 class ConfigurationError(Exception):
     """Raised when there's a configuration error."""
