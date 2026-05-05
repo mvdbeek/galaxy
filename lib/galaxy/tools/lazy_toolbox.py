@@ -143,6 +143,16 @@ class _LazyToolsByIdView:
             if tool is not None:
                 yield tool_id, tool
 
+    def copy(self) -> dict:
+        """Return a shallow copy as a regular dict.
+
+        Used by ``galaxy.tool_util.deps.containers.ContainerFinder.find_best_container_description``
+        (via ``copy.copy`` on the registry) and similar places that expect a
+        plain dict. Materialise every entry — callers iterating the copy
+        expect real Tool objects, not ``None`` placeholders.
+        """
+        return {tool_id: tool for tool_id, tool in self.items()}
+
 
 class LazyToolBox(ToolBox):
     """
@@ -1285,6 +1295,17 @@ class LazyToolBox(ToolBox):
         if tool_id not in self._tool_versions_by_id:
             self._tool_versions_by_id[tool_id] = {}
         self._tool_versions_by_id[tool_id][version] = tool
+
+        # The eager ``__add_tool`` also tracks tools by their pre-shed
+        # ``old_id`` so callers like ``remove_tool_by_id``
+        # (``self._tools_by_old_id[tool.old_id].remove(tool)``) can find
+        # them. Without this, removing a lazy-loaded shed tool raises
+        # ``KeyError`` on ``_tools_by_old_id``.
+        old_id = getattr(tool, "old_id", None)
+        if old_id:
+            bucket = self._tools_by_old_id.setdefault(old_id, [])
+            if tool not in bucket:
+                bucket.append(tool)
 
         # Tool uses 'guid' not 'uuid'
         if hasattr(tool, "uuid") and tool.uuid:
