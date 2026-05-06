@@ -1449,7 +1449,23 @@ class LazyToolBox(ToolBox):
             # which is what version-aware ``get_tool`` lookups consult.
             # Direct assignment to ``entries`` would leave
             # ``entries_by_version`` stale and break per-version routing.
+            if "/repos/" in entry.id and "fastp" in entry.id:
+                shed_before = sorted(k for k in self._tool_index.entries if "/repos/" in k)
+                log.warning(
+                    "ADD_ENTRY_DEBUG before id=%s; index_obj_id=%s; shed_in_index=%s",
+                    entry.id,
+                    id(self._tool_index),
+                    shed_before,
+                )
             self._tool_index.add_entry(entry)
+            if "/repos/" in entry.id and "fastp" in entry.id:
+                shed_after = sorted(k for k in self._tool_index.entries if "/repos/" in k)
+                log.warning(
+                    "ADD_ENTRY_DEBUG after id=%s; index_obj_id=%s; shed_in_index=%s",
+                    entry.id,
+                    id(self._tool_index),
+                    shed_after,
+                )
             self._tool_index.invalidate_caches()
             if section_id:
                 self._tool_section_map[entry.id] = (section_id, section_name)
