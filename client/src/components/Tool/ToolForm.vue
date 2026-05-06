@@ -50,6 +50,8 @@
                     :loading="loading"
                     :validation-scroll-to="validationScrollTo"
                     :warnings="formConfig.warnings"
+                    @load-more="onLoadMore"
+                    @search-change="onSearchChange"
                     @onChange="onChange"
                     @onValidation="onValidation" />
             </div>
@@ -113,6 +115,7 @@
 import { mapActions, mapState, storeToRefs } from "pinia";
 
 import { canMutateHistory } from "@/api";
+import { visitInputs } from "@/components/Form/utilities";
 import { useUserToolCredentials } from "@/composables/userToolCredentials";
 import { useConfigStore } from "@/stores/configurationStore";
 import { useHistoryItemsStore } from "@/stores/historyItemsStore";
@@ -134,6 +137,23 @@ import FormDisplay from "@/components/Form/FormDisplay.vue";
 import FormElement from "@/components/Form/FormElement.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import ToolEntryPoints from "@/components/ToolEntryPoints/ToolEntryPoints.vue";
+
+/**
+ * Find a data/data_collection parameter in a tool form ``inputs`` tree by its
+ * full ``|``-separated dotted name. Reuses the existing ``visitInputs`` walker
+ * which already encodes the same path conventions Galaxy's backend emits via
+ * ``populate_model.py`` (``|`` for conditionals/sections, ``_${i}`` for
+ * repeats), so frontend lookup and backend ``options_pagination`` keys agree.
+ */
+function findInputByDottedName(inputs, targetName) {
+    let found = null;
+    visitInputs(inputs, (node, name) => {
+        if (!found && name === targetName && (node.type === "data" || node.type === "data_collection")) {
+            found = node;
+        }
+    });
+    return found;
+}
 
 export default {
     components: {
@@ -343,6 +363,81 @@ export default {
                 .finally(() => {
                     this.disabled = false;
                 });
+        },
+        /**
+         * Handle a "load more" request from a paginated data parameter dropdown.
+         * Re-fetches the form with `options_pagination` set for the requested
+         * parameter (keyed by full ``|``-separated dotted path so nested params
+         * under conditionals/repeats/sections work too), then walks both the
+         * response and the local `formConfig.inputs` to append the new options
+         * into the matching parameter's option list.
+         */
+        onLoadMore({ name, src, offset, limit, search }) {
+            const spec = { offset, limit };
+            if (search) {
+                spec.search = search;
+            }
+            const optionsPagination = { [name]: { [src]: spec } };
+            updateToolFormData(
+                this.formConfig.id,
+                this.toolUuid,
+                this.currentVersion,
+                this.history_id,
+                this.formData,
+                optionsPagination,
+            ).then((data) => {
+                const newInput = findInputByDottedName(data.inputs, name);
+                const target = findInputByDottedName(this.formConfig.inputs, name);
+                if (!newInput || !target) {
+                    return;
+                }
+                const existing = (target.options && target.options[src]) || [];
+                const incoming = (newInput.options && newInput.options[src]) || [];
+                const seen = new Set(existing.map((o) => `${o.id}_${o.src}`));
+                const appended = existing.concat(incoming.filter((o) => !seen.has(`${o.id}_${o.src}`)));
+                target.options = { ...target.options, [src]: appended };
+                if (newInput.options_meta && newInput.options_meta[src]) {
+                    target.options_meta = {
+                        ...(target.options_meta || {}),
+                        [src]: newInput.options_meta[src],
+                    };
+                }
+            });
+        },
+        /**
+         * Handle the user typing in the dropdown's search box. Refetch the
+         * parameter's options against the backend with the search filter and
+         * **replace** (not append) the local options/meta — we want the
+         * narrowed list, not a union with whatever was previously loaded.
+         * An empty query effectively resets to the default first page.
+         */
+        onSearchChange({ name, src, query, limit }) {
+            const spec = { offset: 0, limit };
+            if (query) {
+                spec.search = query;
+            }
+            const optionsPagination = { [name]: { [src]: spec } };
+            updateToolFormData(
+                this.formConfig.id,
+                this.toolUuid,
+                this.currentVersion,
+                this.history_id,
+                this.formData,
+                optionsPagination,
+            ).then((data) => {
+                const newInput = findInputByDottedName(data.inputs, name);
+                const target = findInputByDottedName(this.formConfig.inputs, name);
+                if (!newInput || !target) {
+                    return;
+                }
+                target.options = { ...target.options, [src]: newInput.options?.[src] || [] };
+                if (newInput.options_meta && newInput.options_meta[src]) {
+                    target.options_meta = {
+                        ...(target.options_meta || {}),
+                        [src]: newInput.options_meta[src],
+                    };
+                }
+            });
         },
         onChangeVersion(newVersion) {
             this.requestTool(newVersion);

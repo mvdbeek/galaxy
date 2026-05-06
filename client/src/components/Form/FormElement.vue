@@ -84,6 +84,8 @@ const props = withDefaults(defineProps<FormElementProps>(), {
 const emit = defineEmits<{
     (e: "input", value: FormParameterValue, id: string): void;
     (e: "change", shouldRefresh: boolean): void;
+    (e: "load-more", payload: { name: string; src: string; offset: number; limit: number; search?: string }): void;
+    (e: "search-change", payload: { name: string; src: string; query: string; limit: number }): void;
 }>();
 
 /** TODO: remove attrs computed.
@@ -439,6 +441,9 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
                     :multiple="attrs.multiple"
                     :optional="attrs.optional"
                     :options="attrs.options"
+                    :pinned="attrs.pinned"
+                    :options-meta="attrs.options_meta"
+                    :name="props.id"
                     :tag="attrs.tag"
                     :user-defined-title="userDefinedTitle"
                     :type="formDataField"
@@ -446,7 +451,9 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
                     :extended-collection-type="extendedCollectionType"
                     :workflow-run="props.workflowRun"
                     @alert="onAlert"
-                    @focus="addTempFocus" />
+                    @focus="addTempFocus"
+                    @load-more="$emit('load-more', $event)"
+                    @search-change="$emit('search-change', $event)" />
                 <FormDrilldown
                     v-else-if="props.type === 'drill_down'"
                     :id="props.id"

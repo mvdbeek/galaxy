@@ -334,6 +334,123 @@ class TestToolsApi(ApiTestCase, TestsTools):
             }
             self._run("dbkey_filter_collection_input", history_id, inputs, assert_ok=True)
 
+    @skip_without_tool("cat1")
+    def test_build_data_options_default_page(self):
+        """Default response caps `data` parameter options at 50 per src and
+        emits ``options_meta`` so the client can detect more pages exist."""
+        with self.dataset_populator.test_history() as history_id:
+            self.dataset_populator.fetch_hdas(history_id, [{"src": "pasted", "paste_content": "x"}] * 60)
+            response = self.dataset_populator._post(f"tools/cat1/build?history_id={history_id}")
+            response.raise_for_status()
+            build = response.json()
+            input_param = next(i for i in build["inputs"] if i["name"] == "input1")
+            assert len(input_param["options"]["hda"]) == 50
+            meta = input_param["options_meta"]["hda"]
+            assert meta["offset"] == 0
+            assert meta["limit"] == 50
+            assert meta["total_estimate"] == 60
+            assert meta["has_more"] is True
+            assert input_param["pinned"] == {"dce": [], "ldda": [], "hda": [], "hdca": []}
+
+    @skip_without_tool("cat1")
+    def test_build_data_options_pagination_offset(self):
+        """``options_pagination`` returns the requested slice."""
+        with self.dataset_populator.test_history() as history_id:
+            self.dataset_populator.fetch_hdas(history_id, [{"src": "pasted", "paste_content": "x"}] * 60)
+            payload = {
+                "history_id": history_id,
+                "options_pagination": {"input1": {"hda": {"offset": 50, "limit": 50}}},
+            }
+            response = self.dataset_populator._post("tools/cat1/build", data=payload, json=True)
+            response.raise_for_status()
+            build = response.json()
+            input_param = next(i for i in build["inputs"] if i["name"] == "input1")
+            assert len(input_param["options"]["hda"]) == 10
+            meta = input_param["options_meta"]["hda"]
+            assert meta["offset"] == 50
+            assert meta["has_more"] is False
+
+    @skip_without_tool("cat1")
+    def test_build_data_options_limit_clamped(self):
+        """Server clamps requested ``limit`` to 500."""
+        with self.dataset_populator.test_history() as history_id:
+            self.dataset_populator.fetch_hdas(history_id, [{"src": "pasted", "paste_content": "x"}] * 5)
+            payload = {
+                "history_id": history_id,
+                "options_pagination": {"input1": {"hda": {"limit": 10000}}},
+            }
+            response = self.dataset_populator._post("tools/cat1/build", data=payload, json=True)
+            response.raise_for_status()
+            build = response.json()
+            input_param = next(i for i in build["inputs"] if i["name"] == "input1")
+            meta = input_param["options_meta"]["hda"]
+            assert meta["limit"] == 500
+
+    @skip_without_tool("cat1")
+    def test_build_data_options_pinned_outside_page(self):
+        """Selected HDA outside the page window appears in ``pinned``."""
+        with self.dataset_populator.test_history() as history_id:
+            # Upload first HDA on its own so it gets the lowest hid (and lands
+            # outside the default page window once we add the bulk uploads).
+            first_hda = self.dataset_populator.fetch_hda(history_id, {"src": "pasted", "paste_content": "first"})
+            self.dataset_populator.fetch_hdas(history_id, [{"src": "pasted", "paste_content": "x"}] * 60)
+            payload = {
+                "history_id": history_id,
+                "inputs": {"input1": {"src": "hda", "id": first_hda["id"]}},
+            }
+            response = self.dataset_populator._post("tools/cat1/build", data=payload, json=True)
+            response.raise_for_status()
+            build = response.json()
+            input_param = next(i for i in build["inputs"] if i["name"] == "input1")
+            assert input_param["options_meta"]["hda"]["has_more"] is True
+            page_ids = {entry["id"] for entry in input_param["options"]["hda"]}
+            assert first_hda["id"] not in page_ids
+            pinned_ids = {entry["id"] for entry in input_param["pinned"]["hda"]}
+            assert first_hda["id"] in pinned_ids
+
+    @skip_without_tool("cat1")
+    def test_build_data_options_search_by_name(self):
+        """``options_pagination[...].search`` filters HDAs by name (ilike)
+        before pagination, so users can find datasets outside the default page
+        window by typing into the dropdown."""
+        with self.dataset_populator.test_history() as history_id:
+            # Distinct names so we can assert exact match counts.
+            hdas = self.dataset_populator.fetch_hdas(
+                history_id,
+                [{"src": "pasted", "paste_content": "x", "name": f"Sample {i}"} for i in range(60)],
+            )
+            target_name = hdas[7]["name"]  # e.g., "Sample 7"
+            payload = {
+                "history_id": history_id,
+                "options_pagination": {"input1": {"hda": {"search": target_name}}},
+            }
+            response = self.dataset_populator._post("tools/cat1/build", data=payload, json=True)
+            response.raise_for_status()
+            build = response.json()
+            input_param = next(i for i in build["inputs"] if i["name"] == "input1")
+            returned_names = [entry["name"] for entry in input_param["options"]["hda"]]
+            assert all(target_name in n for n in returned_names), returned_names
+            assert input_param["options_meta"]["hda"]["total_estimate"] == len(returned_names)
+
+    @skip_without_tool("cat1")
+    def test_build_data_options_search_by_hid(self):
+        """A numeric ``search`` value also matches the HDA's hid, so typing
+        ``1`` surfaces hid=1 even when it's outside the default page window."""
+        with self.dataset_populator.test_history() as history_id:
+            self.dataset_populator.fetch_hdas(history_id, [{"src": "pasted", "paste_content": "x"}] * 60)
+            payload = {
+                "history_id": history_id,
+                "options_pagination": {"input1": {"hda": {"search": "1"}}},
+            }
+            response = self.dataset_populator._post("tools/cat1/build", data=payload, json=True)
+            response.raise_for_status()
+            build = response.json()
+            input_param = next(i for i in build["inputs"] if i["name"] == "input1")
+            returned_hids = {entry["hid"] for entry in input_param["options"]["hda"]}
+            # hid=1 is the oldest dataset; with 60 items the default page would
+            # not include it. Search by "1" must surface it.
+            assert 1 in returned_hids, returned_hids
+
     @skip_without_tool("cheetah_problem_unbound_var_input")
     def test_legacy_biotools_xref_injection(self):
         url = self._api_url("tools/cheetah_problem_unbound_var_input")

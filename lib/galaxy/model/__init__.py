@@ -4018,6 +4018,101 @@ class History(Base, HasTags, Dictifiable, UsesAnnotations, HasName, Serializable
             self._active_visible_dataset_collections = required_object_session(self).scalars(stmt).unique().all()
         return self._active_visible_dataset_collections
 
+    def paginated_active_visible_datasets(
+        self,
+        *,
+        extensions: Optional[set[str]] = None,
+        valid_states: Optional[tuple[str, ...]] = None,
+        search: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list["HistoryDatasetAssociation"], int]:
+        """Active, visible HDAs filtered by extension, dataset state, and an
+        optional ``search`` term, paginated.
+
+        Returns ``(rows, total)`` where ``total`` is the count under the same WHERE
+        clause. Used by data-tool-parameter ``to_dict`` to avoid loading the entire
+        history into memory. ``search`` matches case-insensitively against the
+        HDA name and (when numeric) against the hid.
+        """
+        filters = [
+            HistoryDatasetAssociation.history_id == self.id,
+            not_(HistoryDatasetAssociation.deleted),
+            HistoryDatasetAssociation.visible,
+        ]
+        if extensions is not None:
+            filters.append(HistoryDatasetAssociation.extension.in_(extensions))
+        if valid_states is not None:
+            filters.append(HistoryDatasetAssociation.dataset.has(Dataset.state.in_(valid_states)))
+        if search:
+            name_match = HistoryDatasetAssociation.name.ilike(f"%{search}%")
+            if search.isdigit():
+                filters.append(or_(name_match, HistoryDatasetAssociation.hid == int(search)))
+            else:
+                filters.append(name_match)
+        page_stmt = (
+            select(HistoryDatasetAssociation)
+            .where(*filters)
+            .order_by(HistoryDatasetAssociation.hid.desc())
+            .options(
+                joinedload(HistoryDatasetAssociation.dataset)
+                .joinedload(Dataset.actions)
+                .joinedload(DatasetPermissions.role),
+                joinedload(HistoryDatasetAssociation.tags),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+        count_stmt = select(func.count(HistoryDatasetAssociation.id)).where(*filters)
+        session = required_object_session(self)
+        rows = list(session.scalars(page_stmt).unique().all())
+        total = session.scalar(count_stmt) or 0
+        return rows, total
+
+    def paginated_active_dataset_collections(
+        self,
+        *,
+        visible_only: bool = True,
+        search: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list["HistoryDatasetCollectionAssociation"], int]:
+        """Active HDCAs paginated. Extension filtering for collections is handled
+        in Python by the dataset-collection matcher because collections aggregate
+        per-element extensions. Pass ``visible_only=False`` to include hidden
+        collections (matches the legacy ``active_dataset_collections`` semantics
+        used by some tool-form paths). ``search`` matches case-insensitively
+        against the collection name and (when numeric) against the hid.
+        """
+        filters = [
+            HistoryDatasetCollectionAssociation.history_id == self.id,
+            not_(HistoryDatasetCollectionAssociation.deleted),
+        ]
+        if visible_only:
+            filters.append(HistoryDatasetCollectionAssociation.visible.is_(True))
+        if search:
+            name_match = HistoryDatasetCollectionAssociation.name.ilike(f"%{search}%")
+            if search.isdigit():
+                filters.append(or_(name_match, HistoryDatasetCollectionAssociation.hid == int(search)))
+            else:
+                filters.append(name_match)
+        page_stmt = (
+            select(HistoryDatasetCollectionAssociation)
+            .where(*filters)
+            .order_by(HistoryDatasetCollectionAssociation.hid.desc())
+            .options(
+                joinedload(HistoryDatasetCollectionAssociation.collection),
+                joinedload(HistoryDatasetCollectionAssociation.tags),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+        count_stmt = select(func.count(HistoryDatasetCollectionAssociation.id)).where(*filters)
+        session = required_object_session(self)
+        rows = list(session.scalars(page_stmt).unique().all())
+        total = session.scalar(count_stmt) or 0
+        return rows, total
+
     @property
     def active_contents(self):
         """Return all active contents ordered by hid."""
