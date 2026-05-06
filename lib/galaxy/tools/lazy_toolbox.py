@@ -142,10 +142,28 @@ class LazyIntegratedToolPanelElements(ToolPanelElements):
         toolbox = self._toolbox()
         if toolbox is None or toolbox._tool_index is None:
             return
-        loaded = 0
+        # Order: shed-installed entries (``is_local=False``) before
+        # local entries. The eager toolbox achieves this implicitly via
+        # the install path's ``__add_tool_to_tool_panel`` insert/replace
+        # logic + the integrated panel rebuild; tests like
+        # ``test_only_latest_version_in_panel_fastp`` assert
+        # ``tools[0]`` is the just-installed shed tool, so the lazy
+        # materialiser needs to mirror that ordering. Among shed
+        # entries we iterate in index insertion order (newest install
+        # last) so version-dedup in
+        # ``ToolSection.copy(merge_tools=True)`` keeps picking the
+        # latest revision.
+        shed_entries = []
+        local_entries = []
         for entry in toolbox._tool_index.entries.values():
             if entry.panel_section_id != section_id or entry.hidden:
                 continue
+            if entry.is_local:
+                local_entries.append(entry)
+            else:
+                shed_entries.append(entry)
+        loaded = 0
+        for entry in shed_entries + local_entries:
             if section.elems.has_tool_with_id(entry.id):
                 continue
             tool = toolbox.get_tool(tool_id=entry.id)
