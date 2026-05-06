@@ -880,6 +880,20 @@ class LazyToolBox(ToolBox):
 
         return {"model_tools_path": MODEL_TOOLS_PATH}
 
+    def _log_prune_debug(self) -> None:
+        """Debug helper — log shed-related state to diagnose prune issues."""
+        if not getattr(self, "_has_shed_conf", False):
+            return
+        if self._tool_index is None:
+            return
+        shed_in_index = sorted(tid for tid in self._tool_index.entries if "/repos/" in tid)
+        log.warning(
+            "PRUNE_DEBUG has_shed_conf=%s referenced_ids=%s shed_in_index=%s",
+            self._has_shed_conf,
+            sorted(self._shed_conf_referenced_ids),
+            shed_in_index,
+        )
+
     def _prune_orphaned_shed_entries(self) -> None:
         """Drop indexed shed installs whose backing shed_tool_conf is gone.
 
@@ -899,6 +913,7 @@ class LazyToolBox(ToolBox):
         (so a one-off boot with no shed conf at all doesn't accidentally
         nuke local tools that happen to share the shed-style ``id`` shape).
         """
+        self._log_prune_debug()
         if not getattr(self, "_has_shed_conf", False):
             return
         if self._tool_index is None or not self._tool_index.entries:
