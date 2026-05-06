@@ -1917,16 +1917,24 @@ class LazyToolBox(ToolBox):
         """
         Create a dictionary representation of the toolbox.
 
-        For LazyToolBox, this returns lightweight data directly from the index
-        without loading full Tool objects. This is much faster and uses less memory.
-
-        Note: tool_help is ignored since we don't load the full tool.
+        For the *flat* listing (``in_panel=False``) we serve straight from
+        the index — no Tool loading needed. For the panel listing
+        (``in_panel=True``, e.g. ``tools?in_panel=True&view=custom_13``)
+        we defer to the parent: it walks ``_tool_panel_view_rendered``
+        which is built by ``apply_view`` against
+        ``_integrated_tool_panel`` and produces the section-aware
+        response shape (interleaved Tools and ToolSections) that the UI
+        and tests expect. ``ToolBoxRegistry.get_tool`` lazy-loads the
+        per-section tools as ``apply_view`` walks them, so this stays
+        cheap as long as the requested view scopes to a small section.
         """
         if self._tool_index is None:
             return []
 
-        rval = []
+        if in_panel:
+            return super().to_dict(trans, in_panel=True, tool_help=tool_help, view=view, **kwds)
 
+        rval = []
         # Return data directly from index - no tool loading needed!
         for _tool_id, entry in self._tool_index.entries.items():
             # Skip hidden tools unless requested
