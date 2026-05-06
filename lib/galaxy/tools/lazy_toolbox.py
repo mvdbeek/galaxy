@@ -1844,6 +1844,19 @@ class LazyToolBox(ToolBox):
         if self._tool_index is not None:
             self._tool_index.entries.pop(tool_id, None)
             self._tool_index.entries_by_version.pop(tool_id, None)
+        # ``super().remove_tool_by_id`` clears ``_tools_by_id`` but leaves
+        # ``_tool_versions_by_id`` and the lineage map intact. ``get_tool``'s
+        # fall-through walks lineage versions via ``_tool_from_lineage_version``
+        # which reads ``_tool_versions_by_id``, so the tool would otherwise
+        # come back from there even after removal.
+        self._tool_versions_by_id.pop(tool_id, None)
+        if hasattr(self, "_lineage_map"):
+            from galaxy.util.tool_version import remove_version_from_guid
+
+            self._lineage_map.lineage_map.pop(tool_id, None)
+            versionless = remove_version_from_guid(tool_id)
+            if versionless:
+                self._lineage_map.lineage_map.pop(versionless, None)
         with self._cache_lock:
             for key in [k for k in self._tool_object_cache.keys() if k.startswith(f"{tool_id}:")]:
                 self._tool_object_cache.pop(key, None)
