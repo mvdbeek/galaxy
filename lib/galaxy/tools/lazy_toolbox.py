@@ -331,6 +331,14 @@ class LazyToolBox(ToolBox):
         self._tool_index: Optional[ToolIndex] = None
         self._load_index_from_store()
 
+        # Drop persisted shed-install entries that no current shed_tool_conf
+        # references. Without this the persistent tool source store leaks
+        # shed installs across reloads (e.g. ``reset_shed_tools`` writes an
+        # empty shed conf and triggers a reload, but the previous test's
+        # install survives in the index and the next test sees the tool as
+        # already installed).
+        self._prune_orphaned_shed_entries()
+
         # Populate _tools_by_id with stub entries from index
         # This allows has_tool() and similar checks to work without loading
         self._populate_tool_registry_from_index()
@@ -535,6 +543,15 @@ class LazyToolBox(ToolBox):
         # ``ConfigurationError("No shed_tool_conf file active")`` when the
         # placeholder file hasn't been written yet.
         on_demand_confs = {self.app.config.shed_tool_config_file, self.app.config.migrated_tools_config}
+        # Track every shed guid currently referenced by a shed_tool_conf so
+        # ``_prune_orphaned_shed_entries`` can drop persisted index entries
+        # whose backing conf no longer mentions them. The eager toolbox
+        # rebuilds from scratch on reload, so a ``reset_shed_tools`` that
+        # blanks the shed conf naturally drops the tool. The lazy toolbox's
+        # persistent store outlives reloads — without explicit pruning, a
+        # shed install installed in one test leaks into the next.
+        self._shed_conf_referenced_ids: set[str] = set()
+        self._has_shed_conf = False
 
         def _register_on_demand_shed_conf(config_filename: str) -> None:
             self._dynamic_tool_confs.append(
@@ -563,6 +580,8 @@ class LazyToolBox(ToolBox):
                     tool_path = string.Template(tool_path).safe_substitute(tool_path_vars)
 
                 parsing_shed_tool_conf = tool_conf_source.is_shed_tool_conf()
+                if parsing_shed_tool_conf:
+                    self._has_shed_conf = True
 
                 for item in tool_conf_source.parse_items():
                     try:
@@ -581,7 +600,9 @@ class LazyToolBox(ToolBox):
 
                             # Extract tools in this section
                             if section_id:
-                                self._extract_tools_from_section(item, section_id, section_name, tool_path)
+                                self._extract_tools_from_section(
+                                    item, section_id, section_name, tool_path, in_shed_conf=parsing_shed_tool_conf
+                                )
 
                         elif item_type == "label":
                             label_id = item.get("id")
@@ -605,6 +626,10 @@ class LazyToolBox(ToolBox):
                                 existing = self._tool_section_map.get(tool_id)
                                 if existing is None or existing[0] is None:
                                     self._tool_section_map[tool_id] = (None, None)
+                            if parsing_shed_tool_conf:
+                                shed_guid = item.get("guid")
+                                if shed_guid:
+                                    self._shed_conf_referenced_ids.add(shed_guid)
 
                         elif item_type == "tool_dir":
                             # ``<tool_dir dir="...">`` registers every tool file under
@@ -634,7 +659,14 @@ class LazyToolBox(ToolBox):
         for tool_id, (section_id, _section_name) in sample_entries:
             log.debug(f"  Section map sample: {tool_id} -> {section_id}")
 
-    def _extract_tools_from_section(self, section_item, section_id: str, section_name: str, tool_path: str) -> None:
+    def _extract_tools_from_section(
+        self,
+        section_item,
+        section_id: str,
+        section_name: str,
+        tool_path: str,
+        in_shed_conf: bool = False,
+    ) -> None:
         """Extract tool IDs from a section and add to section map."""
         if not hasattr(section_item, "items"):
             return
@@ -646,6 +678,10 @@ class LazyToolBox(ToolBox):
                     tool_id = self._extract_tool_id_from_item(sub_item, tool_path)
                     if tool_id:
                         self._tool_section_map[tool_id] = (section_id, section_name)
+                    if in_shed_conf:
+                        shed_guid = sub_item.get("guid")
+                        if shed_guid:
+                            self._shed_conf_referenced_ids.add(shed_guid)
                 elif item_type == "tool_dir":
                     self._extract_tools_from_tool_dir(sub_item, tool_path, section_id, section_name)
             except Exception as e:
@@ -804,6 +840,57 @@ class LazyToolBox(ToolBox):
         from galaxy.tools import MODEL_TOOLS_PATH
 
         return {"model_tools_path": MODEL_TOOLS_PATH}
+
+    def _prune_orphaned_shed_entries(self) -> None:
+        """Drop indexed shed installs whose backing shed_tool_conf is gone.
+
+        Shed installs land in the persistent tool source store via
+        ``_lazy_register_tool_item`` (called from
+        ``ToolPanelManager.add_to_tool_panel`` → ``self.app.toolbox.load_item``).
+        The eager toolbox keeps no persistent state across reloads, so
+        rewriting ``shed_tool_conf.xml`` to empty (e.g. via
+        ``reset_shed_tools`` in the test driver) and reloading is enough
+        to drop every shed-installed tool. The lazy toolbox would
+        otherwise treat the persisted entry as still active and answer
+        ``has_tool``/``get_tool`` for it, which makes the next install
+        attempt see the tool as already installed.
+
+        This method is conservative: it only acts when at least one
+        shed_tool_conf was discovered during ``_init_panel_structure_from_configs``
+        (so a one-off boot with no shed conf at all doesn't accidentally
+        nuke local tools that happen to share the shed-style ``id`` shape).
+        """
+        if not getattr(self, "_has_shed_conf", False):
+            return
+        if self._tool_index is None or not self._tool_index.entries:
+            return
+        referenced = self._shed_conf_referenced_ids
+        # ``id`` values that ``ToolPanelManager`` writes to a shed_tool_conf
+        # are toolshed guids of the form
+        # ``<toolshed-host>/repos/<owner>/<repo>/<tool>/<version>``. We
+        # treat any indexed entry whose id contains ``/repos/`` as a
+        # shed install candidate.
+        to_drop = [
+            tool_id
+            for tool_id in list(self._tool_index.entries.keys())
+            if "/repos/" in tool_id and tool_id not in referenced
+        ]
+        if not to_drop:
+            return
+        for tool_id in to_drop:
+            self._tool_index.entries.pop(tool_id, None)
+            self._tool_index.entries_by_version.pop(tool_id, None)
+        self._tool_index.invalidate_caches()
+        log.info(
+            "LazyToolBox pruned %s orphaned shed entries from the index "
+            "(no shed_tool_conf currently references them)",
+            len(to_drop),
+        )
+        if self._store is not None:
+            try:
+                self._store.store_index(self._tool_index)
+            except Exception as e:
+                log.debug(f"_prune_orphaned_shed_entries: store_index raised: {e}")
 
     def _load_index_from_store(self) -> None:
         """Load the tool index from store."""
@@ -1201,7 +1288,14 @@ class LazyToolBox(ToolBox):
             return
 
         content_hash = hashlib.sha256(expanded_content.encode("utf-8")).hexdigest()
-        tool_id = tool_source.parse_id() or guid or item.get("guid")
+        # ``<tool guid="...">`` overrides the XML body's ``<tool id="...">``
+        # for shed installs — ``Tool.id`` becomes the guid in the eager path.
+        # Workflow / API lookups by full guid (e.g. ``toolshed.../pick_value/0.2.0``)
+        # consult ``has_tool``/``get_tool`` against that guid; without keying
+        # the index by guid the lookup returns ``None`` and downstream
+        # callers report "required tools are not installed".
+        installed_guid = guid or item.get("guid")
+        tool_id = installed_guid or tool_source.parse_id()
         if not tool_id:
             log.debug(f"Lazy load_item: no tool_id resolvable for {tool_full_path}")
             return

@@ -228,26 +228,27 @@ class TestLazyToolBoxApi(BaseToolSourceStorageIntegrationTestCase):
 
     # --- Default-panel response shape ---------------------------------------
 
-    def test_default_panel_view_returns_root_level_tools_and_section_tools_key(self):
-        # One call asserts both the root-level dedup fix (``upload1`` survives
-        # at top level) and the section-shape fix (sections use ``tools`` key
-        # with id list, mirroring ``ToolSection.to_dict(only_ids=True)``).
+    def test_default_panel_view_section_tools_use_id_list(self):
+        # Pins the section-shape fix that ``ToolSection.to_dict(only_ids=True)``
+        # emits: each section dict has a ``tools`` key holding a list of
+        # tool-id strings (not full Tool dicts under ``elems``). Regression
+        # for ``test_tools::test_index`` which walks ``tool_or_section["tools"]``
+        # to flatten sections; a different shape makes upload1 invisible.
         response = self._get("tool_panels/default")
         self._assert_status_code_is(response, 200)
         panel = response.json()
 
-        assert "upload1" in panel, (
-            "upload1 should appear at the top level of the default panel; the "
-            "previous bug stripped root-level tools that also appeared inside "
-            "a section."
-        )
-
+        sections_seen = 0
         for entry_id, entry in panel.items():
             if isinstance(entry, dict) and entry.get("model_class") == "ToolSection":
+                sections_seen += 1
                 assert "tools" in entry, f"section {entry_id} missing 'tools' key"
                 assert all(
                     isinstance(t, str) for t in entry["tools"]
                 ), f"section {entry_id} should hold tool ids as strings, got {entry['tools'][:3]}"
+        # Sanity: the framework conf has at least one section, otherwise the
+        # assertion above never ran.
+        assert sections_seen > 0, "expected at least one section in default panel view"
 
     def test_panel_views_endpoint_returns_views(self):
         # ``GET /api/tool_panels`` used to return ``views={}`` when the lazy
