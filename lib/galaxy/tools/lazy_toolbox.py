@@ -761,6 +761,11 @@ class LazyToolBox(ToolBox):
             if tool_id:
                 self._tool_section_map[tool_id] = (section_id, section_name)
 
+    def _index_versions_for_debug(self, tool_id: str, result: list[str]) -> None:
+        if "/repos/" in tool_id and "fastp" in tool_id and self._tool_index is not None:
+            shed_keys = sorted(k for k in self._tool_index.entries if "/repos/" in k)
+            log.warning("VERSIONS_FOR_DEBUG tool_id=%s result=%s shed_keys=%s", tool_id, result, shed_keys)
+
     def _index_versions_for(self, tool_id: str) -> list[str]:
         """Return every version present in the index for ``tool_id``.
 
@@ -795,6 +800,7 @@ class LazyToolBox(ToolBox):
                         continue
                     if entry_id.startswith(prefix) and entry.version and entry.version not in result:
                         result.append(entry.version)
+        self._index_versions_for_debug(tool_id, result)
         return result
 
     @staticmethod
