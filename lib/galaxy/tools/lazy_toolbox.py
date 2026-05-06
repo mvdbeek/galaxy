@@ -148,37 +148,26 @@ class LazyIntegratedToolPanelElements(ToolPanelElements):
         # logic + the integrated panel rebuild; tests like
         # ``test_only_latest_version_in_panel_fastp`` assert
         # ``tools[0]`` is the just-installed shed tool, so the lazy
-        # materialiser needs to mirror that ordering. Among shed
-        # entries we iterate in index insertion order (newest install
-        # last) so version-dedup in
-        # ``ToolSection.copy(merge_tools=True)`` keeps picking the
-        # latest revision.
-        shed_entries = []
-        local_entries = []
+        # materialiser needs to mirror that ordering. Insert shed
+        # tools at the section head (preserving sibling shed-tool
+        # order), append local tools at the tail. ``has_tool_with_id``
+        # skips tools already in the section so a re-materialise
+        # after install is idempotent for prior entries.
+        shed_count = 0
+        loaded = 0
         for entry in toolbox._tool_index.entries.values():
             if entry.panel_section_id != section_id or entry.hidden:
                 continue
-            if entry.is_local:
-                local_entries.append(entry)
-            else:
-                shed_entries.append(entry)
-        # Rebuild ``section.elems`` from scratch so the desired ordering
-        # (shed tools first, local tools after) actually wins. Without
-        # the clear, an ``append_tool`` on each materialise stacks new
-        # entries onto whatever the prior materialisation left behind —
-        # so a shed tool installed *after* the local boot ends up
-        # appended at the end of the existing local-first elems and
-        # ``ToolSection.copy(merge_tools=True)`` renders the local tool
-        # at index 0. Discarding the section from
-        # ``_materialised_sections`` (in ``_lazy_register_section_item``)
-        # already gates re-entry to this method.
-        section.elems.clear()
-        loaded = 0
-        for entry in shed_entries + local_entries:
+            if section.elems.has_tool_with_id(entry.id):
+                continue
             tool = toolbox.get_tool(tool_id=entry.id)
             if tool is None:
                 continue
-            section.elems.append_tool(tool)
+            if entry.is_local:
+                section.elems.append_tool(tool)
+            else:
+                section.elems.insert_tool(shed_count, tool)
+                shed_count += 1
             loaded += 1
         self._materialised_sections.add(section_id)
         log.debug("LazyIntegratedToolPanelElements: materialised section id=%r (%d tools)", section_id, loaded)
