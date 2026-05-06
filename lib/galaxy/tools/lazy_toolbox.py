@@ -1230,9 +1230,26 @@ class LazyToolBox(ToolBox):
         """
         section_id = item.get("id")
         section_name = item.get("name", section_id) or ""
-        if section_id and section_id not in self._tool_panel:
+        if section_id:
             section_dict = {"id": section_id, "name": section_name, "version": item.get("version", "")}
-            self._tool_panel.append_section(section_id, ToolSection(section_dict))
+            if section_id not in self._tool_panel:
+                self._tool_panel.append_section(section_id, ToolSection(section_dict))
+            # Mirror into ``_integrated_tool_panel`` so static panel views
+            # (``apply_view`` walks the integrated panel via
+            # ``ToolPanelElements.closest_section`` / ``walk_sections``)
+            # can find the section. Without this, e.g. ``custom_13.yml``
+            # which references ``test_section_multi`` renders the
+            # freshly-installed shed tool at the panel root because the
+            # view doesn't see the section it was placed under.
+            if section_id not in self._integrated_tool_panel:
+                self._integrated_tool_panel[section_id] = ToolSection(section_dict)
+            # Drop the section from the materialised-set so the next view
+            # render pulls in the newly-installed tool. The lazy panel
+            # otherwise short-circuits on the already-materialised flag and
+            # keeps serving the pre-install snapshot.
+            if isinstance(self._integrated_tool_panel, LazyIntegratedToolPanelElements):
+                self._integrated_tool_panel._materialised_sections.discard(section_id)
+                self._integrated_tool_panel._fully_materialised = False
         if not hasattr(item, "items"):
             return
         for sub_item in item.items:
@@ -1249,6 +1266,20 @@ class LazyToolBox(ToolBox):
                 # labels, workflows, nested sections — let the eager
                 # implementation handle them; they don't need lazy treatment.
                 super().load_item(sub_item, tool_path=tool_path, index=index)
+        # Re-render static panel views so newly-installed tools land in
+        # ``_tool_panel_view_rendered`` immediately. The view dict is
+        # otherwise frozen at boot — ``apply_view`` calls
+        # ``closest_section.copy(merge_tools=True)`` which snapshots the
+        # section's elems at render time, so a post-boot install is
+        # invisible to ``tools?in_panel=True&view=...`` until the next
+        # reload. Skip if ``app.name != "galaxy"`` (mirrors the eager
+        # ``_load_tool_panel_views`` guard in
+        # ``ToolBox._load_built_in_converters``).
+        if getattr(self.app, "name", None) == "galaxy":
+            try:
+                self._load_tool_panel_views()
+            except Exception as e:
+                log.warning(f"Lazy section install: panel view re-render failed: {e}")
 
     def _lazy_register_tool_item(
         self,
@@ -1316,7 +1347,30 @@ class LazyToolBox(ToolBox):
             return
 
         entry = self._build_index_entry_from_stored(stored)
-        if entry and entry.id:
+        if entry:
+            # ``_build_index_entry_from_stored`` keys the entry on
+            # ``tool_source.parse_id()`` (the XML's ``<tool id="...">``,
+            # i.e. the short id like ``map_param_value``). For shed
+            # installs the tool's *external* id is the guid — that's what
+            # ``Tool.id`` becomes in the eager path and what
+            # workflow / API callers consult via ``has_tool(guid)``.
+            # Override the entry id (and any tool-shed metadata) so the
+            # lazy index agrees with that contract.
+            if installed_guid:
+                entry.id = installed_guid
+                entry.is_local = False
+                shed_url = item.findtext("tool_shed") if hasattr(item, "findtext") else None
+                if shed_url:
+                    entry.tool_shed = shed_url
+                repo_name = item.findtext("repository_name") if hasattr(item, "findtext") else None
+                if repo_name:
+                    entry.repository_name = repo_name
+                repo_owner = item.findtext("repository_owner") if hasattr(item, "findtext") else None
+                if repo_owner:
+                    entry.repository_owner = repo_owner
+                changeset = item.findtext("installed_changeset_revision") if hasattr(item, "findtext") else None
+                if changeset:
+                    entry.changeset_revision = changeset
             if section_id:
                 entry.panel_section_id = section_id
                 entry.panel_section_name = section_name or section_id
@@ -1646,11 +1700,15 @@ class LazyToolBox(ToolBox):
             raw_tool_source=stored.raw_source,
             tool_source_class=stored.tool_source_class,
         )
-        return create_tool_from_source(
-            self.app,
-            tool_source,
-            tool_dir=stored.tool_dir,
-        )
+        # When the stored source's ``tool_id`` is a toolshed guid (set by
+        # the lazy shed install path), pass it as ``guid`` to the Tool
+        # constructor so ``Tool.id`` becomes the guid — matching what the
+        # eager toolbox does and what callers consult via ``has_tool``
+        # / ``get_tool`` and the ``_tools_by_id`` registry.
+        kwds: dict[str, Any] = {"tool_dir": stored.tool_dir}
+        if stored.tool_id and "/repos/" in stored.tool_id:
+            kwds["guid"] = stored.tool_id
+        return create_tool_from_source(self.app, tool_source, **kwds)
 
     def invalidate_index_cache(self) -> None:
         """Drop cached tool index so the next read picks up out-of-band updates.
