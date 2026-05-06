@@ -1400,18 +1400,28 @@ class LazyToolBox(ToolBox):
             if installed_guid:
                 entry.id = installed_guid
                 entry.is_local = False
-                shed_url = item.findtext("tool_shed") if hasattr(item, "findtext") else None
-                if shed_url:
-                    entry.tool_shed = shed_url
-                repo_name = item.findtext("repository_name") if hasattr(item, "findtext") else None
-                if repo_name:
-                    entry.repository_name = repo_name
-                repo_owner = item.findtext("repository_owner") if hasattr(item, "findtext") else None
-                if repo_owner:
-                    entry.repository_owner = repo_owner
-                changeset = item.findtext("installed_changeset_revision") if hasattr(item, "findtext") else None
-                if changeset:
-                    entry.changeset_revision = changeset
+                # Pull tool_shed metadata from the install elem so the
+                # entry — and the lazy-loaded Tool — agrees with the
+                # eager toolbox's ``populate_tool_shed_info`` contract.
+                # The install path generates ``<tool guid="..."><tool_shed>...</tool_shed>...</tool>``
+                # via ``ToolPanelManager.generate_tool_elem``; ``ToolConfItem``
+                # exposes the underlying XML via ``.elem`` (and ``has_elem``
+                # tells us when that's safe). For dict-typed items there's
+                # no XML — skip silently.
+                xml_elem = item.elem if getattr(item, "has_elem", False) else None
+                if xml_elem is not None:
+                    shed_url = xml_elem.findtext("tool_shed")
+                    if shed_url:
+                        entry.tool_shed = shed_url
+                    repo_name = xml_elem.findtext("repository_name")
+                    if repo_name:
+                        entry.repository_name = repo_name
+                    repo_owner = xml_elem.findtext("repository_owner")
+                    if repo_owner:
+                        entry.repository_owner = repo_owner
+                    changeset = xml_elem.findtext("installed_changeset_revision")
+                    if changeset:
+                        entry.changeset_revision = changeset
             if section_id:
                 entry.panel_section_id = section_id
                 entry.panel_section_name = section_name or section_id
@@ -1720,7 +1730,7 @@ class LazyToolBox(ToolBox):
 
         # Create Tool object
         try:
-            tool = self._create_tool_from_stored_source(stored)
+            tool = self._create_tool_from_stored_source(stored, entry=entry)
             log.debug(f"Lazy-loaded tool: {tool_id}")
         except Exception as e:
             log.error(f"Error creating tool {tool_id}: {e}")
@@ -1735,7 +1745,9 @@ class LazyToolBox(ToolBox):
 
         return tool
 
-    def _create_tool_from_stored_source(self, stored: StoredToolSource) -> "Tool":
+    def _create_tool_from_stored_source(
+        self, stored: StoredToolSource, entry: Optional[ToolIndexEntry] = None
+    ) -> "Tool":
         """Create a Tool object from stored source."""
         tool_source = get_tool_source(
             raw_tool_source=stored.raw_source,
@@ -1749,7 +1761,51 @@ class LazyToolBox(ToolBox):
         kwds: dict[str, Any] = {"tool_dir": stored.tool_dir}
         if stored.tool_id and "/repos/" in stored.tool_id:
             kwds["guid"] = stored.tool_id
+            # Hand the matching ToolShedRepository to the Tool ctor so
+            # ``populate_tool_shed_info`` can stamp ``tool_shed`` /
+            # ``repository_name`` / ``changeset_revision`` /
+            # ``installed_changeset_revision`` onto the Tool. Without
+            # them, ``Tool.to_dict`` skips the ``tool_shed_repository``
+            # block (gated on ``self.tool_shed`` being truthy) and tests
+            # like ``test_only_latest_version_in_panel_fastp`` raise
+            # ``KeyError: 'tool_shed_repository'`` on the rendered
+            # response.
+            shed_repo = self._lookup_tool_shed_repository(stored, entry)
+            if shed_repo is not None:
+                kwds["tool_shed_repository"] = shed_repo
         return create_tool_from_source(self.app, tool_source, **kwds)
+
+    def _lookup_tool_shed_repository(self, stored: StoredToolSource, entry: Optional[ToolIndexEntry]) -> Optional[Any]:
+        """Resolve the installed ToolShedRepository for a stored shed tool.
+
+        Mirrors ``AbstractToolBox.get_tool_repository_from_xml_item`` but
+        sources the tool_shed / repository_name / repository_owner /
+        installed_changeset_revision from the index entry (stamped by
+        ``_lazy_register_tool_item`` from the install elem) instead of
+        re-parsing the conf XML.
+        """
+        if entry is None or entry.is_local:
+            return None
+        tool_shed = entry.tool_shed
+        repo_name = entry.repository_name
+        repo_owner = entry.repository_owner
+        installed_changeset = entry.changeset_revision
+        if not (tool_shed and repo_name and repo_owner and installed_changeset):
+            return None
+        try:
+            from galaxy.tool_shed.util.repository_util import get_installed_repository
+
+            return get_installed_repository(
+                self.app,
+                tool_shed=tool_shed,
+                name=repo_name,
+                owner=repo_owner,
+                installed_changeset_revision=installed_changeset,
+                from_cache=True,
+            )
+        except Exception as e:
+            log.debug(f"Lazy lookup of tool_shed_repository for {stored.tool_id} failed: {e}")
+            return None
 
     def invalidate_index_cache(self) -> None:
         """Drop cached tool index so the next read picks up out-of-band updates.
