@@ -169,6 +169,18 @@ class LazyIntegratedToolPanelElements(ToolPanelElements):
                 section.elems.insert_tool(shed_count, tool)
                 shed_count += 1
             loaded += 1
+        if section_id == "test_section_multi":
+            try:
+                fastp_state = []
+                for k, v in section.elems.items():
+                    if "fastp" in k:
+                        lin = getattr(v, "_lineage", None) or getattr(v, "lineage", None)
+                        fastp_state.append(
+                            f"{k} lineage_id={id(lin) if lin else None} versions={sorted(lin.tool_versions) if lin else None}"
+                        )
+                log.warning("MATERIALISE_DEBUG section=%s fastp_keys: %s", section_id, fastp_state)
+            except Exception as e:
+                log.warning("MATERIALISE_DEBUG err: %s", e)
         self._materialised_sections.add(section_id)
         log.debug("LazyIntegratedToolPanelElements: materialised section id=%r (%d tools)", section_id, loaded)
 
@@ -1899,6 +1911,18 @@ class LazyToolBox(ToolBox):
         # ``[]``, breaking /api/tools/{id}'s ``versions`` /
         # ``hidden_versions`` fields.
         tool._lineage = self._lineage_map.get(tool_id) or self._lineage_map.register(tool)
+        if "/repos/" in tool_id and "fastp" in tool_id:
+            try:
+                lin_versions = sorted(tool._lineage.tool_versions) if tool._lineage else None
+                lin_id = id(tool._lineage) if tool._lineage else None
+                log.warning(
+                    "LINEAGE_DEBUG _register_loaded_tool id=%s lineage_obj=%s versions=%s",
+                    tool_id,
+                    lin_id,
+                    lin_versions,
+                )
+            except Exception as e:
+                log.warning("LINEAGE_DEBUG err: %s", e)
 
         # Conf-level ``hidden="true"`` (from the ``<tool>`` directive in the
         # tool conf) is applied here. The eager toolbox does this in
