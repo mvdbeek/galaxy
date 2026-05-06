@@ -106,13 +106,27 @@ class LazyLineageMap(LineageMap):
             except Exception:
                 versions = []
             if versions:
+                # Share the lineage object across every tool_id that maps
+                # to the same versionless guid — eager ``LineageMap.register``
+                # does this via the ``versionless_tool_id`` key, and tools
+                # rely on it for ``ToolSection.copy(merge_tools=True)``.
+                # Without sharing, two shed installs of the same tool (e.g.
+                # ``fastp/0.19.5+galaxy1`` and ``fastp/0.20.1+galaxy0``) get
+                # distinct ``ToolLineage`` objects whose ``tool_versions``
+                # only carry the version that happened to be in the index
+                # at first lookup. ``test_only_latest_version_in_panel_fastp``
+                # then sees both tools survive lineage dedup (with
+                # ``tools[0]`` reflecting whichever was inserted first into
+                # ``section.elems`` instead of the newest version).
+                versionless = remove_version_from_guid(tool_id)
                 lineage = self.lineage_map.get(tool_id)
+                if lineage is None and versionless:
+                    lineage = self.lineage_map.get(versionless)
                 if lineage is None:
                     lineage = ToolLineage(tool_id)
-                    self.lineage_map[tool_id] = lineage
-                    versionless = remove_version_from_guid(tool_id)
-                    if versionless and versionless not in self.lineage_map:
+                    if versionless:
                         self.lineage_map[versionless] = lineage
+                self.lineage_map[tool_id] = lineage
                 for version in versions:
                     if version:
                         lineage.register_version(version)
