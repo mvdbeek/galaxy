@@ -1908,32 +1908,52 @@ class LazyToolBox(ToolBox):
         tool effectively comes back. The eager toolbox doesn't have this
         problem because the tool object isn't created from a serialised
         store. Mirror the deletion across the two backing stores.
-        """
-        # Force-materialise so the eager parent's bookkeeping (``_tools_by_old_id``,
-        # panel removal, lineage, tool cache expiry) gets a real Tool to work
-        # against.
-        if self._tools_by_id.get(tool_id) is None:
-            self.get_tool(tool_id=tool_id)
-        result = super().remove_tool_by_id(tool_id, remove_from_panel=remove_from_panel)
-        if self._tool_index is not None:
-            self._tool_index.entries.pop(tool_id, None)
-            self._tool_index.entries_by_version.pop(tool_id, None)
-        # ``super().remove_tool_by_id`` clears ``_tools_by_id`` but leaves
-        # ``_tool_versions_by_id`` and the lineage map intact. ``get_tool``'s
-        # fall-through walks lineage versions via ``_tool_from_lineage_version``
-        # which reads ``_tool_versions_by_id``, so the tool would otherwise
-        # come back from there even after removal.
-        self._tool_versions_by_id.pop(tool_id, None)
-        if hasattr(self, "_lineage_map"):
-            from galaxy.util.tool_version import remove_version_from_guid
 
-            self._lineage_map.lineage_map.pop(tool_id, None)
-            versionless = remove_version_from_guid(tool_id)
-            if versionless:
-                self._lineage_map.lineage_map.pop(versionless, None)
-        with self._cache_lock:
-            for key in [k for k in self._tool_object_cache.keys() if k.startswith(f"{tool_id}:")]:
-                self._tool_object_cache.pop(key, None)
+        Wrapped in ``app._toolbox_lock`` so the cleanup is atomic
+        against concurrent ``_load_tool_on_demand`` calls — without
+        the lock, an in-flight HTTP request thread that's mid-way
+        through ``_register_loaded_tool`` can re-populate
+        ``_tool_versions_by_id`` / ``_lineage_map.lineage_map`` /
+        ``_tools_by_id`` after this method has already cleared them,
+        leaving the tool resurrectable via the eager super().get_tool
+        fall-through path that walks lineage versions via
+        ``_tool_from_lineage_version``.
+        """
+        with self.app._toolbox_lock:
+            # Force-materialise so the eager parent's bookkeeping (``_tools_by_old_id``,
+            # panel removal, lineage, tool cache expiry) gets a real Tool to work
+            # against.
+            if self._tools_by_id.get(tool_id) is None:
+                self.get_tool(tool_id=tool_id)
+            result = super().remove_tool_by_id(tool_id, remove_from_panel=remove_from_panel)
+            if self._tool_index is not None:
+                self._tool_index.entries.pop(tool_id, None)
+                self._tool_index.entries_by_version.pop(tool_id, None)
+            # ``super().remove_tool_by_id`` clears ``_tools_by_id`` but leaves
+            # ``_tool_versions_by_id`` and the lineage map intact. ``get_tool``'s
+            # fall-through walks lineage versions via ``_tool_from_lineage_version``
+            # which reads ``_tool_versions_by_id``, so the tool would otherwise
+            # come back from there even after removal.
+            self._tool_versions_by_id.pop(tool_id, None)
+            if hasattr(self, "_lineage_map"):
+                from galaxy.util.tool_version import remove_version_from_guid
+
+                self._lineage_map.lineage_map.pop(tool_id, None)
+                versionless = remove_version_from_guid(tool_id)
+                if versionless:
+                    self._lineage_map.lineage_map.pop(versionless, None)
+            # ``super().remove_tool_by_id`` removes a single Tool object
+            # from ``_tools_by_old_id[old_id]``, but if a concurrent
+            # ``_register_loaded_tool`` (e.g. an in-flight HTTP request
+            # that beat us to the lock) appended a sibling Tool to the
+            # same bucket, the sibling survives and the eager
+            # super().get_tool fall-through returns it via
+            # ``rval.extend(self._tools_by_old_id[tool_id])``. Drop the
+            # whole bucket for this tool_id to match the index removal.
+            self._tools_by_old_id.pop(tool_id, None)
+            with self._cache_lock:
+                for key in [k for k in self._tool_object_cache.keys() if k.startswith(f"{tool_id}:")]:
+                    self._tool_object_cache.pop(key, None)
         return result
 
     @property
