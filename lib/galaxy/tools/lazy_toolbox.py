@@ -359,6 +359,11 @@ class LazyToolBox(ToolBox):
         # This allows has_tool() and similar checks to work without loading
         self._populate_tool_registry_from_index()
 
+        # Rebuild the short-id → guid map from the just-loaded index so
+        # short-id lookups for shed installs persisted across restarts
+        # resolve immediately, before any new install happens.
+        self._rebuild_shed_short_id_map()
+
         # Render static panel views now that the index is populated. Before
         # this point ``apply_view`` would have ``has_tool`` return False for
         # every indexed-but-unloaded tool and the resulting view would be
@@ -408,6 +413,22 @@ class LazyToolBox(ToolBox):
                 ", ".join(sample),
             )
 
+    def _rebuild_shed_short_id_map(self) -> None:
+        """Walk the index and rebuild short-id → guid mappings for shed installs.
+
+        Called from ``__init__`` (after the index is loaded from the store)
+        and from ``_prune_orphaned_shed_entries`` (after pruning), so the
+        map stays consistent with whatever is currently in
+        ``self._tool_index.entries``.
+        """
+        self._shed_short_id_to_guids = {}
+        if self._tool_index is None:
+            return
+        for entry_id in self._tool_index.entries.keys():
+            short_id = extract_short_id_from_guid(entry_id)
+            if short_id and short_id != entry_id:
+                self._shed_short_id_to_guids.setdefault(short_id, set()).add(entry_id)
+
     def _init_lazy_toolbox(
         self,
         config_filenames: list[str],
@@ -435,6 +456,18 @@ class LazyToolBox(ToolBox):
         self._tools_by_uuid: dict[UUID, Tool] = {}
         self._tool_versions_by_id: dict[str, dict[Union[str, None], Tool]] = {}
         self._tools_by_old_id: dict[str, list[Tool]] = {}
+        # Short-id → set of full guids for shed installs. The eager toolbox
+        # populates ``_tools_by_old_id[tool.old_id]`` when a Tool is
+        # registered, so ``get_tool("collection_column_join")`` resolves to
+        # the installed ``toolshed.../collection_column_join/.../0.0.2``
+        # Tool object. The lazy install path stores only the index entry
+        # (no Tool instantiation), so ``_tools_by_old_id`` stays empty for
+        # shed tools and short-id lookups (the form used by
+        # ``GET /api/tools/{tool_id}`` and ``test_repository_installation``)
+        # 404. Mirror the eager mapping at the index level so ``get_tool``
+        # and ``has_tool`` can resolve short-id → guid → entry without
+        # materialising the Tool first.
+        self._shed_short_id_to_guids: dict[str, set[str]] = {}
         self._workflows_by_id: dict[str, Any] = {}
         self._tool_to_dict_cache: dict[str, dict[str, Any]] = {}
         self._tool_to_dict_cache_admin: dict[str, dict[str, Any]] = {}
@@ -920,6 +953,15 @@ class LazyToolBox(ToolBox):
             self._tool_index.entries.pop(tool_id, None)
             self._tool_index.entries_by_version.pop(tool_id, None)
         self._tool_index.invalidate_caches()
+        # Drop any short-id entries that no longer point at a guid in the
+        # index. ``_rebuild_shed_short_id_map`` would also work but is
+        # quadratic in the number of entries; this is targeted.
+        for guid in to_drop:
+            short_id = extract_short_id_from_guid(guid)
+            if short_id and short_id in self._shed_short_id_to_guids:
+                self._shed_short_id_to_guids[short_id].discard(guid)
+                if not self._shed_short_id_to_guids[short_id]:
+                    del self._shed_short_id_to_guids[short_id]
         log.info(
             "LazyToolBox pruned %s orphaned shed entries from the index "
             "(no shed_tool_conf currently references them)",
@@ -1430,6 +1472,15 @@ class LazyToolBox(ToolBox):
             # ``entries_by_version`` stale and break per-version routing.
             self._tool_index.add_entry(entry)
             self._tool_index.invalidate_caches()
+            # Mirror the eager toolbox's short-id → Tool mapping so
+            # ``GET /api/tools/<short_id>`` resolves immediately after
+            # install. Without this, ``test_repository_installation``'s
+            # ``self._get("/api/tools/collection_column_join")`` hits 404
+            # because the index entry is keyed on the full guid.
+            if installed_guid:
+                short_id = extract_short_id_from_guid(installed_guid)
+                if short_id and short_id != installed_guid:
+                    self._shed_short_id_to_guids.setdefault(short_id, set()).add(installed_guid)
             if section_id:
                 self._tool_section_map[entry.id] = (section_id, section_name)
                 if section_id in self._tool_panel:
@@ -1678,6 +1729,43 @@ class LazyToolBox(ToolBox):
                         if tool:
                             return tool
 
+        # Short-id fallback for shed installs. The eager toolbox resolves
+        # ``get_tool("collection_column_join")`` via ``_tools_by_old_id``,
+        # which is populated at tool-registration time. The lazy install
+        # path doesn't materialise the Tool, so we maintain
+        # ``_shed_short_id_to_guids`` separately and consult it here. Each
+        # shed install lives under a distinct guid in the index, so we
+        # walk every guid mapped to the short id and sort the
+        # successfully-loaded Tools by version — matching the eager path's
+        # ``rval.sort(key=lambda t: t.version_object)`` over
+        # ``_tools_by_old_id[tool_id]``.
+        if (
+            self._tool_index
+            and self._shed_short_id_to_guids
+            and tool_id in self._shed_short_id_to_guids
+        ):
+            from packaging.version import parse as _parse_version
+
+            candidates: list[tuple[Any, "Tool"]] = []
+            for guid in sorted(self._shed_short_id_to_guids[tool_id]):
+                loaded = self._load_tool_on_demand(guid, tool_version)
+                if loaded is None and tool_version:
+                    # Unknown version on this guid — try its default.
+                    default_entry = self._tool_index.entries.get(guid)
+                    if default_entry is not None:
+                        loaded = self._load_tool_on_demand(guid, default_entry.version or None)
+                if loaded is not None:
+                    try:
+                        ver_key = (0, _parse_version(loaded.version or "0"))
+                    except Exception:
+                        ver_key = (1, loaded.version or "")
+                    candidates.append((ver_key, loaded))
+            if candidates:
+                candidates.sort(key=lambda pair: pair[0])
+                if get_all_versions:
+                    return [t for _, t in candidates]
+                return candidates[-1][1]
+
         # Fall back to parent implementation for tools not in our index
         # (dynamic tools, data manager tools, etc.)
         if get_all_versions:
@@ -1833,6 +1921,10 @@ class LazyToolBox(ToolBox):
                 log.debug(f"Store invalidate_index_cache raised: {e}")
         self._tool_index = None
         self._load_index_from_store()
+        # Index just changed under us — refresh the short-id map so
+        # peer-process installs (which only update the persisted index)
+        # are reachable via short-id lookups in this process.
+        self._rebuild_shed_short_id_map()
 
     def _register_loaded_tool(self, tool: "Tool") -> None:
         """Register a lazily-loaded tool in the toolbox registries."""
@@ -1959,6 +2051,18 @@ class LazyToolBox(ToolBox):
             # ``rval.extend(self._tools_by_old_id[tool_id])``. Drop the
             # whole bucket for this tool_id to match the index removal.
             self._tools_by_old_id.pop(tool_id, None)
+            # Mirror the cleanup in our short-id → guid map so a
+            # subsequent ``has_tool``/``get_tool`` for the short id
+            # doesn't resurrect a removed shed install. Both directions
+            # need cleanup: ``tool_id`` may itself be a short id (drop
+            # the entry), or it may be a guid (drop it from any short
+            # id's set, and remove that short id if its set becomes
+            # empty).
+            self._shed_short_id_to_guids.pop(tool_id, None)
+            for _short, _guids in list(self._shed_short_id_to_guids.items()):
+                _guids.discard(tool_id)
+                if not _guids:
+                    del self._shed_short_id_to_guids[_short]
             with self._cache_lock:
                 for key in [k for k in self._tool_object_cache.keys() if k.startswith(f"{tool_id}:")]:
                     self._tool_object_cache.pop(key, None)
@@ -1990,6 +2094,10 @@ class LazyToolBox(ToolBox):
     ) -> bool:
         """Check if tool exists, using index for fast lookup."""
         if tool_id and self._tool_index and tool_id in self._tool_index.entries:
+            return True
+        # Short-id alias for shed installs (see ``get_tool``'s short-id
+        # fallback for the rationale).
+        if tool_id and tool_id in self._shed_short_id_to_guids:
             return True
         # Fall back to parent for UUID lookups and edge cases
         return super().has_tool(
