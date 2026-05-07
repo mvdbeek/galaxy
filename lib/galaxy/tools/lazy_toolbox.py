@@ -376,13 +376,6 @@ class LazyToolBox(ToolBox):
             # Only force a bulk materialisation when EDAM views are
             # explicitly configured — for the typical lazy-mode deployment
             # we keep the per-section deferral behaviour.
-            edam_views = listify(getattr(self.app.config, "edam_panel_views", None) or [])
-            if edam_views and isinstance(self._integrated_tool_panel, LazyIntegratedToolPanelElements):
-                log.info(
-                    "edam_panel_views=%r → materialising integrated panel ahead of view rendering",
-                    edam_views,
-                )
-                self._integrated_tool_panel._materialise_all()
             self._load_tool_panel_views()
 
         log.info(f"LazyToolBox initialized with {len(self._tools_by_id)} tools (cache_size={cache_size})")
@@ -549,6 +542,61 @@ class LazyToolBox(ToolBox):
         else:
             config_value = getattr(config, "default_panel_view", None)
         return config_value or self._default_panel_view_name
+
+    def _load_tool_panel_views(self) -> None:
+        """Render panel views, deferring EDAM views.
+
+        EDAM views call ``walk_loaded_tools(base_tool_panel, registry)``
+        which iterates the *integrated* panel via ``panel_items_iter``.
+        ``LazyIntegratedToolPanelElements`` doesn't auto-materialise on
+        that iteration (per the comment on
+        ``LazyIntegratedToolPanelElements`` — auto-materialisation here
+        would defeat lazy mode), so for EDAM we'd have to manually
+        ``_materialise_all()`` first. That's hundreds of sequential
+        lazy-loads against the database-backed source store, repeated on
+        every restart — which silently hangs ``test_job_recovery`` for
+        hours under workflow_dispatch + ``use_lazy_toolbox=true``.
+        Default and static views are cheap (``DefaultToolPanelView``
+        returns the live ``_tool_panel`` and ``StaticToolPanelView``
+        lazy-materialises only the few sections it names via
+        ``closest_section``); render those at boot. EDAM gets an empty
+        placeholder so callers that index ``_tool_panel_view_rendered``
+        (e.g. ``panel_has_tool`` from the search-index build) don't
+        ``KeyError``. The real EDAM render happens on first
+        ``to_panel_view`` request and is cached.
+        """
+        from galaxy.tool_util.toolbox.base import ToolBoxRegistryImpl
+        from galaxy.tool_util.toolbox.panel import ToolPanelElements
+
+        self._tool_panel_view_rendered = {}
+        registry = ToolBoxRegistryImpl(self)
+        for key, view in self._tool_panel_views.items():
+            if isinstance(view, EdamToolPanelView):
+                self._tool_panel_view_rendered[key] = ToolPanelElements()
+                continue
+            self._tool_panel_view_rendered[key] = view.apply_view(self._integrated_tool_panel, registry)
+
+    def panel_has_tool(self, tool: "Tool", panel_view_id: str) -> bool:
+        """Return True if ``tool`` is reachable from the given panel view.
+
+        For EDAM views the boot-time placeholder in
+        ``_tool_panel_view_rendered`` is empty (the real render is
+        deferred — see ``_load_tool_panel_views``), so the parent's
+        ``has_item_recursive`` would always answer ``False`` and the
+        search-index build at boot would skip every tool for that view.
+        Every tool in the index lands in some EDAM section (an
+        ``edam_operations`` term, an ``edam_topics`` term, or
+        ``uncategorized``) once ``apply_view`` actually runs, so for
+        index-known tools we answer ``True`` directly.
+        """
+        if panel_view_id in self._tool_panel_view_rendered:
+            view = self._tool_panel_views.get(panel_view_id)
+            if isinstance(view, EdamToolPanelView):
+                tool_id = getattr(tool, "id", None)
+                if tool_id and self._tool_index is not None and tool_id in self._tool_index.entries:
+                    return True
+                return False
+        return super().panel_has_tool(tool, panel_view_id)
 
     def _setup_panel_views(self, view_sources) -> None:
         """Set up tool panel views."""
@@ -2256,6 +2304,26 @@ class LazyToolBox(ToolBox):
             for tool_dict in uncategorized:
                 view_contents[tool_dict["id"]] = tool_dict
             return view_contents
+
+        # EDAM views walk every tool in the integrated panel, so they need
+        # the panel materialised before ``apply_view``. Boot defers this
+        # work — render the EDAM view on first request and cache the
+        # result in ``_tool_panel_view_rendered`` so subsequent reads are
+        # instant. Without this, every restart re-runs ~500 sequential
+        # lazy-loads at boot just so EDAM is ready, even when the test
+        # never asks for an EDAM view (the regression that caused
+        # ``test_job_recovery::test_recovery`` to silently hang shard 3
+        # for hours under workflow_dispatch + ``use_lazy_toolbox=true``).
+        if isinstance(view_def, EdamToolPanelView):
+            from galaxy.tool_util.toolbox.base import ToolBoxRegistryImpl
+
+            rendered = self._tool_panel_view_rendered.get(resolved_view)
+            if rendered is None:
+                if isinstance(self._integrated_tool_panel, LazyIntegratedToolPanelElements):
+                    self._integrated_tool_panel._materialise_all()
+                registry = ToolBoxRegistryImpl(self)
+                rendered = view_def.apply_view(self._integrated_tool_panel, registry)
+                self._tool_panel_view_rendered[resolved_view] = rendered
 
         # Static (non-default) view: defer to parent so apply_view runs
         # against the registered ToolPanelView. Only the small set of
