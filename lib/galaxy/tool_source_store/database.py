@@ -220,7 +220,18 @@ class DatabaseToolSourceStore(ToolSourceStore):
             model.data = compressed
             model.built_at = index.built_at
 
-        session.flush()
+        # Commit, not just flush. Other Galaxy threads (the queue worker
+        # processing ``reload_tool_source_cache``, the next toolbox-reload
+        # boot) read the persisted index through their own SQLAlchemy
+        # session — without a commit they see the pre-write state and
+        # ``LazyToolBox._load_index_from_store`` rebuilds an in-memory
+        # index that's missing the just-added entry. The next
+        # ``store_index`` then serializes that stale in-memory copy back
+        # into the DB row, dropping every entry an in-flight install had
+        # added (the ``test_only_latest_version_in_panel_fastp`` failure
+        # surface: install-1's ``0.19.5+galaxy1`` vanished from the cached
+        # index by the time install-2's ``0.20.1+galaxy0`` was persisted).
+        session.commit()
         self._cached_index = index
 
     def load_index(self) -> Optional[ToolIndex]:

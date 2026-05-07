@@ -169,18 +169,6 @@ class LazyIntegratedToolPanelElements(ToolPanelElements):
                 section.elems.insert_tool(shed_count, tool)
                 shed_count += 1
             loaded += 1
-        if section_id == "test_section_multi":
-            try:
-                fastp_state = []
-                for k, v in section.elems.items():
-                    if "fastp" in k:
-                        lin = getattr(v, "_lineage", None) or getattr(v, "lineage", None)
-                        fastp_state.append(
-                            f"{k} lineage_id={id(lin) if lin else None} versions={sorted(lin.tool_versions) if lin else None}"
-                        )
-                log.warning("MATERIALISE_DEBUG section=%s fastp_keys: %s", section_id, fastp_state)
-            except Exception as e:
-                log.warning("MATERIALISE_DEBUG err: %s", e)
         self._materialised_sections.add(section_id)
         log.debug("LazyIntegratedToolPanelElements: materialised section id=%r (%d tools)", section_id, loaded)
 
@@ -773,11 +761,6 @@ class LazyToolBox(ToolBox):
             if tool_id:
                 self._tool_section_map[tool_id] = (section_id, section_name)
 
-    def _index_versions_for_debug(self, tool_id: str, result: list[str]) -> None:
-        if "/repos/" in tool_id and "fastp" in tool_id and self._tool_index is not None:
-            shed_keys = sorted(k for k in self._tool_index.entries if "/repos/" in k)
-            log.warning("VERSIONS_FOR_DEBUG tool_id=%s result=%s shed_keys=%s", tool_id, result, shed_keys)
-
     def _index_versions_for(self, tool_id: str) -> list[str]:
         """Return every version present in the index for ``tool_id``.
 
@@ -812,7 +795,6 @@ class LazyToolBox(ToolBox):
                         continue
                     if entry_id.startswith(prefix) and entry.version and entry.version not in result:
                         result.append(entry.version)
-        self._index_versions_for_debug(tool_id, result)
         return result
 
     @staticmethod
@@ -898,20 +880,6 @@ class LazyToolBox(ToolBox):
 
         return {"model_tools_path": MODEL_TOOLS_PATH}
 
-    def _log_prune_debug(self) -> None:
-        """Debug helper — log shed-related state to diagnose prune issues."""
-        if not getattr(self, "_has_shed_conf", False):
-            return
-        if self._tool_index is None:
-            return
-        shed_in_index = sorted(tid for tid in self._tool_index.entries if "/repos/" in tid)
-        log.warning(
-            "PRUNE_DEBUG has_shed_conf=%s referenced_ids=%s shed_in_index=%s",
-            self._has_shed_conf,
-            sorted(self._shed_conf_referenced_ids),
-            shed_in_index,
-        )
-
     def _prune_orphaned_shed_entries(self) -> None:
         """Drop indexed shed installs whose backing shed_tool_conf is gone.
 
@@ -931,7 +899,6 @@ class LazyToolBox(ToolBox):
         (so a one-off boot with no shed conf at all doesn't accidentally
         nuke local tools that happen to share the shed-style ``id`` shape).
         """
-        self._log_prune_debug()
         if not getattr(self, "_has_shed_conf", False):
             return
         if self._tool_index is None or not self._tool_index.entries:
@@ -1461,23 +1428,7 @@ class LazyToolBox(ToolBox):
             # which is what version-aware ``get_tool`` lookups consult.
             # Direct assignment to ``entries`` would leave
             # ``entries_by_version`` stale and break per-version routing.
-            if "/repos/" in entry.id and "fastp" in entry.id:
-                shed_before = sorted(k for k in self._tool_index.entries if "/repos/" in k)
-                log.warning(
-                    "ADD_ENTRY_DEBUG before id=%s; index_obj_id=%s; shed_in_index=%s",
-                    entry.id,
-                    id(self._tool_index),
-                    shed_before,
-                )
             self._tool_index.add_entry(entry)
-            if "/repos/" in entry.id and "fastp" in entry.id:
-                shed_after = sorted(k for k in self._tool_index.entries if "/repos/" in k)
-                log.warning(
-                    "ADD_ENTRY_DEBUG after id=%s; index_obj_id=%s; shed_in_index=%s",
-                    entry.id,
-                    id(self._tool_index),
-                    shed_after,
-                )
             self._tool_index.invalidate_caches()
             if section_id:
                 self._tool_section_map[entry.id] = (section_id, section_name)
@@ -1911,18 +1862,6 @@ class LazyToolBox(ToolBox):
         # ``[]``, breaking /api/tools/{id}'s ``versions`` /
         # ``hidden_versions`` fields.
         tool._lineage = self._lineage_map.get(tool_id) or self._lineage_map.register(tool)
-        if "/repos/" in tool_id and "fastp" in tool_id:
-            try:
-                lin_versions = sorted(tool._lineage.tool_versions) if tool._lineage else None
-                lin_id = id(tool._lineage) if tool._lineage else None
-                log.warning(
-                    "LINEAGE_DEBUG _register_loaded_tool id=%s lineage_obj=%s versions=%s",
-                    tool_id,
-                    lin_id,
-                    lin_versions,
-                )
-            except Exception as e:
-                log.warning("LINEAGE_DEBUG err: %s", e)
 
         # Conf-level ``hidden="true"`` (from the ``<tool>`` directive in the
         # tool conf) is applied here. The eager toolbox does this in
