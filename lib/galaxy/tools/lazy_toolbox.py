@@ -569,6 +569,12 @@ class LazyToolBox(ToolBox):
         from galaxy.tool_util.toolbox.panel import ToolPanelElements
 
         self._tool_panel_view_rendered = {}
+        # Tracks EDAM views that have actually been rendered (vs. seeded
+        # with the empty placeholder). ``to_panel_view`` consults this
+        # to decide whether to do the deferred render — checking
+        # ``_tool_panel_view_rendered`` membership wouldn't distinguish
+        # the placeholder from a real render.
+        self._edam_views_rendered: set[str] = set()
         registry = ToolBoxRegistryImpl(self)
         for key, view in self._tool_panel_views.items():
             if isinstance(view, EdamToolPanelView):
@@ -2317,13 +2323,14 @@ class LazyToolBox(ToolBox):
         if isinstance(view_def, EdamToolPanelView):
             from galaxy.tool_util.toolbox.base import ToolBoxRegistryImpl
 
-            rendered = self._tool_panel_view_rendered.get(resolved_view)
-            if rendered is None:
+            if resolved_view not in self._edam_views_rendered:
                 if isinstance(self._integrated_tool_panel, LazyIntegratedToolPanelElements):
                     self._integrated_tool_panel._materialise_all()
                 registry = ToolBoxRegistryImpl(self)
-                rendered = view_def.apply_view(self._integrated_tool_panel, registry)
-                self._tool_panel_view_rendered[resolved_view] = rendered
+                self._tool_panel_view_rendered[resolved_view] = view_def.apply_view(
+                    self._integrated_tool_panel, registry
+                )
+                self._edam_views_rendered.add(resolved_view)
 
         # Static (non-default) view: defer to parent so apply_view runs
         # against the registered ToolPanelView. Only the small set of
