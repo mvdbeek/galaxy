@@ -289,10 +289,28 @@ class TestLazyToolBoxApi(BaseToolSourceStorageIntegrationTestCase):
     # --- Container resolution -----------------------------------------------
 
     def test_container_resolvers_resolve_tool(self):
-        # Admin-only endpoint. Used to fail with
+        # ``galaxy.tool_util.deps.views.resolve`` does
+        # ``self._app.toolbox.tools_by_id[tool_id]`` and then reads
+        # ``.tool_requirements`` off that — used to fail with
         # ``'NoneType' object has no attribute 'tool_requirements'`` when
         # ``_LazyToolsByIdView`` returned a ``None`` placeholder for an
-        # un-materialised tool — fixed in c763b03 by populating
-        # ``_tools_by_old_id`` and exposing a real ``.copy()``.
-        response = self._get("container_resolvers/resolve", data={"tool_id": "cat1"}, admin=True)
-        self._assert_status_code_is(response, 200)
+        # un-materialised tool. Fixed in c763b03 by populating
+        # ``_tools_by_old_id`` and routing the view's ``__getitem__`` /
+        # ``copy`` through ``get_tool``.
+        #
+        # Hit those exact lookups directly — going through
+        # ``GET /api/container_resolvers/resolve`` runs the resolver
+        # chain (including a remote mulled registry lookup over the
+        # network), which periodically returns non-JSON and turns this
+        # test into a flake unrelated to the lazy regression we want to
+        # pin.
+        tools_by_id = self._app.toolbox.tools_by_id
+        tool = tools_by_id["cat1"]
+        assert tool is not None
+        assert getattr(tool, "tool_requirements", None) is not None
+        # ``.copy()`` is what ``ContainerFinder.find_best_container_description``
+        # invokes via ``copy.copy`` on the registry; placeholder ``None``
+        # values would crash callers iterating the copy.
+        copy = tools_by_id.copy()
+        assert "cat1" in copy
+        assert copy["cat1"] is not None
