@@ -873,3 +873,10 @@ class AgentOperationsManager:
             "deleted": user.deleted,
             "create_time": user.create_time.isoformat() if user.create_time else None,
         }
+
+    def find_biocontainer(self, software: list[dict[str, Any]]) -> dict[str, Any]:
+        """Resolve a list of software requirements to a biocontainer image."""
+        from galaxy.tool_util.deps.mulled.biocontainer_db import find_biocontainer as _find
+
+        db_path = getattr(self.app.config, "biocontainer_db_path", None)
+        return _find(software, db_path=db_path)

@@ -3197,6 +3197,15 @@ galaxy:
   # base URL.
   #mcp_server_path: /api/mcp
 
+  # Path to the SQLite index used by the MCP `find_biocontainer` tool to
+  # map software requirements to biocontainer images. Build or refresh
+  # the index with `python -m galaxy.tool_util.deps.mulled.biocontainer_db
+  # build --db-path <path>`. When the file is missing or has no matching
+  # entry, the tool falls back to a live quay.io lookup.
+  # The value of this option will be resolved with respect to
+  # <data_dir>.
+  #biocontainer_db_path: biocontainer_index.sqlite
+
   # The interval in seconds between attempts to delete all expired
   # notifications from the database (every 24 hours by default). Runs in
   # a Celery task.

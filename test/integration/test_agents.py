@@ -402,3 +402,40 @@ class TestMCPServerSmoke(IntegrationTestCase):
         assert "query" in data
         assert "count" in data
         assert isinstance(data["tools"], list)
+
+    def test_mcp_find_biocontainer_uses_seeded_db(self, tmp_path_factory):
+        """find_biocontainer() resolves a single-package query against a pre-seeded SQLite index."""
+        from fastmcp import Client
+
+        from galaxy.tool_util.deps.mulled import biocontainer_db
+
+        # Seed a tiny index and point the running app at it.
+        db_path = str(tmp_path_factory.mktemp("biocontainer_db") / "bc.sqlite")
+        conn = biocontainer_db.connect(db_path)
+        try:
+            conn.execute(
+                "INSERT INTO single_packages (name, version, build, image_identifier, image_type) VALUES (?, ?, ?, ?, ?)",
+                ("samtools", "1.21", "h96c455f_1", "quay.io/biocontainers/samtools:1.21--h96c455f_1", "Docker"),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+        self._app.config.biocontainer_db_path = db_path
+
+        mcp_server = self._get_mcp_server()
+        api_key = self._get_api_key()
+
+        async def _call():
+            async with Client(mcp_server) as client:
+                return await client.call_tool(
+                    "find_biocontainer",
+                    {"api_key": api_key, "software": [{"name": "samtools", "version": "1.21"}]},
+                )
+
+        result = self._run_async(_call())
+        assert not result.is_error
+        data = result.data
+        assert data["source"] == "db"
+        assert data["image"] == "quay.io/biocontainers/samtools:1.21--h96c455f_1"
+        assert data["image_type"] == "Docker"
+        assert data["packages"] == [{"name": "samtools", "version": "1.21", "build": "h96c455f_1"}]

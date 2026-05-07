@@ -4464,6 +4464,18 @@ mapping:
           This setting only takes effect when 'enable_mcp_server' is true.
           The MCP endpoint will be accessible at this path relative to the Galaxy base URL.
 
+      biocontainer_db_path:
+        type: str
+        default: biocontainer_index.sqlite
+        path_resolves_to: data_dir
+        required: false
+        desc: |
+          Path to the SQLite index used by the MCP `find_biocontainer` tool to map
+          software requirements to biocontainer images. Build or refresh the index
+          with `python -m galaxy.tool_util.deps.mulled.biocontainer_db build
+          --db-path <path>`. When the file is missing or has no matching entry,
+          the tool falls back to a live quay.io lookup.
+
       expired_notifications_cleanup_interval:
         type: int
         required: false

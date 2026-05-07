@@ -429,6 +429,28 @@ def get_mcp_app(gx_app):
             ops_manager = get_operations_manager(api_key, ctx)
             return ops_manager.get_user()
 
+    @mcp.tool()
+    def find_biocontainer(
+        software: list[dict[str, Any]],
+        api_key: str,
+        ctx: MCPContext,
+    ) -> dict[str, Any]:
+        """Find a biocontainer image for one or more required software packages.
+
+        `software` is a list of {"name": str, "version": str | None} entries
+        (version optional). For a single entry returns a quay.io/biocontainers
+        single-package image; for two or more entries returns a mulled
+        multi-package image when one has been built. Resolves against a local
+        SQLite index built from biocontainers.pro and the BioContainers
+        multi-package-containers repository, falling back to a live quay.io
+        lookup when the index has no entry. The response contains the image
+        identifier, the resolved packages with builds, and a `source` field
+        indicating "db", "live", or "not_found".
+        """
+        with _mcp_error_handler("find_biocontainer"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.find_biocontainer(software)
+
     mcp_app = mcp.http_app(path="/")
     mcp_app.state.mcp_server = mcp
 
