@@ -1439,11 +1439,21 @@ class LazyToolBox(ToolBox):
             except Exception as e:
                 log.warning(f"Lazy load_item could not persist index: {e}")
 
-        # Fan out to peer Galaxy processes so they reload the index.
+        # Fan out to peer Galaxy processes so they reload the index. Skip
+        # ourselves — our in-memory ``_cached_index`` already reflects the
+        # just-added entry, but the local queue-worker handler would
+        # ``invalidate_index_cache`` and re-read the DB, where the WSGI
+        # thread's session has only flushed (not committed) the new row.
+        # That race used to clobber the live cache with the pre-write
+        # state, so the next install on this process saw an empty index
+        # and persisted only its own entry — losing the prior install's
+        # tool entirely (``test_only_latest_version_in_panel_fastp``
+        # surfaces this when ``fastp/0.19.5+galaxy1`` vanishes between
+        # install-1 and install-2).
         try:
             from galaxy.queue_worker import send_control_task
 
-            send_control_task(self.app, "reload_tool_source_cache")
+            send_control_task(self.app, "reload_tool_source_cache", noop_self=True)
         except Exception as e:
             log.debug(f"Lazy load_item could not broadcast reload_tool_source_cache: {e}")
 
