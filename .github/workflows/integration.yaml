@@ -47,6 +47,13 @@ jobs:
         run: |
           echo "GALAXY_CONFIG_OVERRIDE_USE_LAZY_TOOLBOX=true" >> $GITHUB_ENV
           echo "GALAXY_CONFIG_OVERRIDE_TOOL_SOURCE_STORE=database" >> $GITHUB_ENV
+          # Galaxy's default log_level is DEBUG. Under
+          # ``-integration`` with ``framework_tool_and_types=True``,
+          # boot DEBUG output (datatype registry × 60 toolbox boots
+          # per shard) is voluminous enough to fill the GitHub Actions
+          # runner's stdout pipe under ``-s``, deadlocking the test
+          # process at the next ``print``. INFO cuts this by ~10x.
+          echo "GALAXY_CONFIG_OVERRIDE_LOG_LEVEL=INFO" >> $GITHUB_ENV
       - name: Prune unused docker image, volumes and containers
         run: docker system prune -a -f
       - name: Clean dotnet folder for space
@@ -84,7 +91,7 @@ jobs:
       - name: Run tests
         run: |
           . .ci/minikube-test-setup/start_services.sh
-          ./run_tests.sh --coverage -integration test/integration -- --num-shards=4 --shard-id=${{ matrix.chunk }} -s --log-cli-level=INFO
+          ./run_tests.sh --coverage -integration test/integration -- --num-shards=4 --shard-id=${{ matrix.chunk }}
         working-directory: 'galaxy root'
       - uses: codecov/codecov-action@v6
         with:
