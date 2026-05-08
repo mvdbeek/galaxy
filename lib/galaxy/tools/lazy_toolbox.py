@@ -1331,29 +1331,11 @@ class LazyToolBox(ToolBox):
             return
 
         if item_type == "tool":
-            # ``_lazy_register_tool_item`` acquires ``_toolbox_lock``
-            # itself, but only around the in-memory index mutation +
-            # persist. The XML parse, source-store write, and
-            # ``send_control_task`` broadcast happen outside the lock so
-            # a slow tool-shed install (network I/O on the underlying
-            # source fetch, or a kombu publish stalled on the
-            # ``control.sqlite`` write lock) doesn't pin the whole
-            # toolbox for the duration. Without this scope reduction,
-            # WSGI's install thread held ``_toolbox_lock`` across every
-            # blocking call in the install path; under workflow_dispatch
-            # CI we saw shard 1 sit silent for ~10 min in the middle of
-            # a fastqc install before the test client gave up — that
-            # block needs to not be the toolbox lock.
-            self._lazy_register_tool_item(item, tool_path, guid=guid)
+            with self.app._toolbox_lock:
+                self._lazy_register_tool_item(item, tool_path, guid=guid)
             return
 
         if item_type == "section":
-            # Section installs walk children via
-            # ``_lazy_register_tool_item`` recursively. The outer lock
-            # (an ``RLock``) keeps the section's panel structure
-            # mutations atomic with the per-tool index updates; the
-            # inner re-acquires inside ``_lazy_register_tool_item`` are
-            # no-ops on the same thread.
             with self.app._toolbox_lock:
                 self._lazy_register_section_item(item, tool_path, index=index)
             return
@@ -1493,11 +1475,6 @@ class LazyToolBox(ToolBox):
             tool_dir=os.path.dirname(tool_full_path),
             stored_at=datetime.utcnow(),
         )
-        # Source store write — outside the toolbox lock. The DB driver
-        # serialises concurrent writers at the row level; we don't need
-        # ``_toolbox_lock`` to protect this. Holding the lock across a
-        # blocking write would block every other reader that just wants
-        # to look up an index entry.
         try:
             self._store.store(stored)
         except Exception as e:
@@ -1505,54 +1482,43 @@ class LazyToolBox(ToolBox):
             return
 
         entry = self._build_index_entry_from_stored(stored)
-        if entry is None:
-            return
-
-        # ``_build_index_entry_from_stored`` keys the entry on
-        # ``tool_source.parse_id()`` (the XML's ``<tool id="...">``,
-        # i.e. the short id like ``map_param_value``). For shed
-        # installs the tool's *external* id is the guid — that's what
-        # ``Tool.id`` becomes in the eager path and what
-        # workflow / API callers consult via ``has_tool(guid)``.
-        # Override the entry id (and any tool-shed metadata) so the
-        # lazy index agrees with that contract.
-        if installed_guid:
-            entry.id = installed_guid
-            entry.is_local = False
-            # Pull tool_shed metadata from the install elem so the
-            # entry — and the lazy-loaded Tool — agrees with the
-            # eager toolbox's ``populate_tool_shed_info`` contract.
-            # The install path generates ``<tool guid="..."><tool_shed>...</tool_shed>...</tool>``
-            # via ``ToolPanelManager.generate_tool_elem``; ``ToolConfItem``
-            # exposes the underlying XML via ``.elem`` (and ``has_elem``
-            # tells us when that's safe). For dict-typed items there's
-            # no XML — skip silently.
-            xml_elem = item.elem if getattr(item, "has_elem", False) else None
-            if xml_elem is not None:
-                shed_url = xml_elem.findtext("tool_shed")
-                if shed_url:
-                    entry.tool_shed = shed_url
-                repo_name = xml_elem.findtext("repository_name")
-                if repo_name:
-                    entry.repository_name = repo_name
-                repo_owner = xml_elem.findtext("repository_owner")
-                if repo_owner:
-                    entry.repository_owner = repo_owner
-                changeset = xml_elem.findtext("installed_changeset_revision")
-                if changeset:
-                    entry.changeset_revision = changeset
-        if section_id:
-            entry.panel_section_id = section_id
-            entry.panel_section_name = section_name or section_id
-
-        # In-memory index mutation + index persist — atomic under the
-        # lock so concurrent ``store_index`` calls don't iterate
-        # ``entries`` mid-mutation (``RuntimeError: dictionary changed
-        # size during iteration``) and the per-version /
-        # short-id-to-guid maps stay consistent with ``entries``.
-        # ``store_index`` stays inside the lock because it walks the
-        # index dicts; everything that doesn't is hoisted out.
-        with self.app._toolbox_lock:
+        if entry:
+            # ``_build_index_entry_from_stored`` keys the entry on
+            # ``tool_source.parse_id()`` (the XML's ``<tool id="...">``,
+            # i.e. the short id like ``map_param_value``). For shed
+            # installs the tool's *external* id is the guid — that's what
+            # ``Tool.id`` becomes in the eager path and what
+            # workflow / API callers consult via ``has_tool(guid)``.
+            # Override the entry id (and any tool-shed metadata) so the
+            # lazy index agrees with that contract.
+            if installed_guid:
+                entry.id = installed_guid
+                entry.is_local = False
+                # Pull tool_shed metadata from the install elem so the
+                # entry — and the lazy-loaded Tool — agrees with the
+                # eager toolbox's ``populate_tool_shed_info`` contract.
+                # The install path generates ``<tool guid="..."><tool_shed>...</tool_shed>...</tool>``
+                # via ``ToolPanelManager.generate_tool_elem``; ``ToolConfItem``
+                # exposes the underlying XML via ``.elem`` (and ``has_elem``
+                # tells us when that's safe). For dict-typed items there's
+                # no XML — skip silently.
+                xml_elem = item.elem if getattr(item, "has_elem", False) else None
+                if xml_elem is not None:
+                    shed_url = xml_elem.findtext("tool_shed")
+                    if shed_url:
+                        entry.tool_shed = shed_url
+                    repo_name = xml_elem.findtext("repository_name")
+                    if repo_name:
+                        entry.repository_name = repo_name
+                    repo_owner = xml_elem.findtext("repository_owner")
+                    if repo_owner:
+                        entry.repository_owner = repo_owner
+                    changeset = xml_elem.findtext("installed_changeset_revision")
+                    if changeset:
+                        entry.changeset_revision = changeset
+            if section_id:
+                entry.panel_section_id = section_id
+                entry.panel_section_name = section_name or section_id
             # ``add_entry`` populates both the default-per-id ``entries``
             # map and ``entries_by_version`` (keyed on the tool's version),
             # which is what version-aware ``get_tool`` lookups consult.
@@ -1578,21 +1544,17 @@ class LazyToolBox(ToolBox):
             except Exception as e:
                 log.warning(f"Lazy load_item could not persist index: {e}")
 
-        # Fan out to peer Galaxy processes so they reload the index.
-        # Skip ourselves — our in-memory ``_cached_index`` already
-        # reflects the just-added entry, but the local queue-worker
-        # handler would ``invalidate_index_cache`` and re-read the DB,
-        # where the WSGI thread's session has only flushed (not
-        # committed) the new row. That race used to clobber the live
-        # cache with the pre-write state, so the next install on this
-        # process saw an empty index and persisted only its own entry
-        # — losing the prior install's tool entirely
-        # (``test_only_latest_version_in_panel_fastp`` surfaces this
-        # when ``fastp/0.19.5+galaxy1`` vanishes between install-1 and
-        # install-2). Outside the lock: kombu publishes against the
-        # ``control.sqlite`` queue with ``producer.publish(retry=True)``
-        # so a wedged broker can stall the call; not worth holding the
-        # toolbox lock across that.
+        # Fan out to peer Galaxy processes so they reload the index. Skip
+        # ourselves — our in-memory ``_cached_index`` already reflects the
+        # just-added entry, but the local queue-worker handler would
+        # ``invalidate_index_cache`` and re-read the DB, where the WSGI
+        # thread's session has only flushed (not committed) the new row.
+        # That race used to clobber the live cache with the pre-write
+        # state, so the next install on this process saw an empty index
+        # and persisted only its own entry — losing the prior install's
+        # tool entirely (``test_only_latest_version_in_panel_fastp``
+        # surfaces this when ``fastp/0.19.5+galaxy1`` vanishes between
+        # install-1 and install-2).
         try:
             from galaxy.queue_worker import send_control_task
 
