@@ -279,12 +279,35 @@ class DatabaseToolSourceStore(ToolSourceStore):
         self._cached_index = None
 
     def close(self) -> None:
-        """Drop in-memory state at app shutdown.
+        """Commit pending writes and drop in-memory state at app shutdown.
 
-        The SQLAlchemy session itself is owned by ``app.model.context`` and
-        gets closed via ``_shutdown_model``; we only need to drop the
-        cached index reference so it doesn't leak across embedded restarts.
+        ``store`` and ``store_index`` only ``flush()`` — they don't
+        ``commit()`` (so Galaxy's request-scoped session stays in
+        control of when its work lands on disk). On
+        ``IntegrationTestCase.restart()`` the prior Galaxy then disposes
+        its engine via ``_shutdown_model``, which forcibly closes
+        in-flight transactions; psycopg's abort path rolls them back.
+        Result: every shed-installed tool / bootstrapped index entry
+        the prior Galaxy wrote is gone when the next Galaxy starts —
+        the next boot sees an empty store and re-bootstraps from
+        configs (484 tool sources × XML parse + DB insert).
+
+        On CI the second bootstrap consistently stalls a few seconds in
+        and never completes, hanging the test (``test_recovery``'s
+        post-restart Galaxy is the most obvious victim — its first
+        Galaxy bootstrapped fine, the second got stuck part-way through
+        ``discover_tools``).
+
+        Commit on close so the next embedded Galaxy sees the
+        already-bootstrapped index and skips the second bootstrap
+        entirely. Outside the test driver this is a no-op for the
+        common case (production Galaxy doesn't restart in-process).
         """
+        if self._sa_session is not None:
+            try:
+                self._sa_session.commit()
+            except Exception as e:
+                log.debug(f"DatabaseToolSourceStore.close commit raised: {e}")
         self._cached_index = None
         # Don't null out the session — it's a scoped session shared with
         # the rest of Galaxy. Just stop holding a strong reference to the
