@@ -1780,21 +1780,29 @@ class LazyToolBox(ToolBox):
                 # Version not in the index. Fall back to the default (latest)
                 # entry's Tool — not the requested version, but a Tool for the
                 # same id. The eager toolbox does this after a
-                # ``_tool_versions_by_id`` miss whenever ``tool_id`` is in
-                # ``_tools_by_id``, regardless of ``exact``: the for-loop in
-                # ``AbstractToolBox.get_tool`` only ``continue``s for
-                # ``exact`` when the id itself is unknown. Without this
-                # fallback, ``ToolModule.__init__`` invoked at workflow-upload
-                # time (which calls ``get_tool(..., exact=True)``) gets
-                # ``None`` for any workflow pinned to a tool_version we no
-                # longer ship — eager would have returned the lineage-newest
-                # Tool, then ``get_safe_version`` would have downgraded it to
-                # the safe-upgrade version (e.g. ``__BUILD_LIST__`` 1.0.0 →
-                # 1.1.0 via ``WORKFLOW_SAFE_TOOL_VERSION_UPDATES``). Returning
-                # ``None`` here breaks that path and the workflow ends up
-                # bound to the latest version with state shaped for the old
-                # version, producing spurious upgrade-message 400s on invoke.
-                if tool_version:
+                # ``_tool_versions_by_id`` miss when ``tool_id`` is in
+                # ``_tools_by_id`` and ``exact`` is False: the for-loop in
+                # ``AbstractToolBox.get_tool`` ``continue``s for ``exact``
+                # when the version doesn't match. Without this fallback,
+                # ``ToolModule.__init__`` invoked at workflow-upload time
+                # gets ``None`` for any workflow pinned to a tool_version we
+                # no longer ship — eager would have returned the
+                # lineage-newest Tool, then ``get_safe_version`` would have
+                # downgraded it to the safe-upgrade version
+                # (e.g. ``__BUILD_LIST__`` 1.0.0 → 1.1.0 via
+                # ``WORKFLOW_SAFE_TOOL_VERSION_UPDATES``). Returning ``None``
+                # here breaks that path and the workflow ends up bound to
+                # the latest version with state shaped for the old version,
+                # producing spurious upgrade-message 400s on invoke.
+                #
+                # Honor ``exact`` though: callers like the workflow
+                # missing-tool check pass ``exact=True`` specifically to
+                # ask "is THIS exact version installed", and silently
+                # substituting the latest makes the missing-tools list
+                # under-report (``test_run_workflow_with_missing_tool``
+                # asserts both ``nonexistent_tool`` and a known-absent
+                # ``compose_text_param 0.0.1`` show up as missing).
+                if tool_version and not exact:
                     default_entry = self._tool_index.entries.get(tool_id)
                     if default_entry is not None:
                         default_version = default_entry.version or None
@@ -2165,13 +2173,50 @@ class LazyToolBox(ToolBox):
         exact: bool = False,
         user: Optional["User"] = None,
     ) -> bool:
-        """Check if tool exists, using index for fast lookup."""
-        if tool_id and self._tool_index and tool_id in self._tool_index.entries:
-            return True
+        """Check if tool exists, using index for fast lookup.
+
+        Honors ``tool_version`` + ``exact`` the same way the eager
+        ``AbstractToolBox.has_tool`` does — without that, the workflow
+        missing-tools check (``services/workflows.py``: ``has_tool(...,
+        exact=require_exact_tool_versions)``) silently passes any tool
+        whose id is in the index regardless of which version was
+        requested. ``test_run_workflow_with_missing_tool`` exercises
+        that surface by installing ``compose_text_param 0.1.0`` from
+        the toolshed and then asking the workflow runner to invoke a
+        workflow pinned to ``compose_text_param 0.0.1``: with the
+        version-blind lookup, ``has_tool`` answers ``True`` for 0.0.1,
+        the tool drops out of the missing-tools list, and the assertion
+        on the error message under-reports.
+        """
+        if tool_id and self._tool_index:
+            entries = self._tool_index.entries_by_version.get(tool_id)
+            if entries is not None:
+                if tool_version is None:
+                    return bool(entries) or tool_id in self._tool_index.entries
+                if str(tool_version) in entries:
+                    return True
+                if exact:
+                    # Exact version requested and not present — say so.
+                    # Don't fall through to the parent which would walk
+                    # lineage and return ``True`` for any version.
+                    return False
+                # Non-exact: fall through to parent for lineage walk.
+            elif tool_version is None and tool_id in self._tool_index.entries:
+                return True
         # Short-id alias for shed installs (see ``get_tool``'s short-id
         # fallback for the rationale).
         if tool_id and tool_id in self._shed_short_id_to_guids:
-            return True
+            if tool_version is None:
+                return True
+            # For version-specific short-id lookups, check if any guid
+            # mapped to this short id has the requested version.
+            if self._tool_index is not None:
+                for guid in self._shed_short_id_to_guids[tool_id]:
+                    versions = self._tool_index.entries_by_version.get(guid, {})
+                    if str(tool_version) in versions:
+                        return True
+            if exact:
+                return False
         # Fall back to parent for UUID lookups and edge cases
         return super().has_tool(
             tool_id=tool_id,
