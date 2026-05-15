@@ -214,6 +214,15 @@ auto_install
     If ``true``, Galaxy will look for and install missing tool dependencies before running a job (default: value of
     the global ``conda_auto_install`` option or ``false`` otherwise).
 
+    When ``false``, the conda resolver will *not* silently build a per-job
+    merged conda environment from individually installed packages for
+    multi-requirement tools. If a pre-built ``mulled-v1-{hash}`` merged
+    environment is not available, conda resolution will fail and dependency
+    resolution will fall through to the next configured resolver. To pre-build
+    merged environments without enabling per-job auto-install, run the install
+    explicitly (e.g. via the admin Manage Dependencies UI or
+    ``galaxy-tool-util install_tool_dependencies``).
+
 auto_init
     If ``true``, Galaxy will try to install Conda from the web automatically if it cannot find a local copy and
     ``conda_exec`` is not configured (default: the value of the global ``conda_auto_init`` option or ``true``

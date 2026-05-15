@@ -286,6 +286,7 @@ class DependencyManager:
                 resolve = resolver.resolve
             else:
                 resolve = None
+            resolve_all_failed = False
             if all_unmet and resolve is not None:
                 # TODO: Handle specs.
                 dependencies = resolve(
@@ -310,6 +311,13 @@ class DependencyManager:
 
                     # Shortcut - resolution complete.
                     break
+                elif hasattr(resolver, "resolve_all") and len(resolvable_requirements) > 1:
+                    # resolve_all was attempted for multiple requirements but
+                    # produced no dependencies (e.g. no pre-built merged conda
+                    # env). Signal this to the per-requirement fallback so
+                    # resolvers can avoid silently building per-job merged
+                    # envs. See galaxyproject/galaxy#13711.
+                    resolve_all_failed = True
 
             if not isinstance(resolver, ContainerResolver):
                 # Check individual requirements
@@ -317,7 +325,7 @@ class DependencyManager:
                     if requirement in _requirement_to_dependency:
                         continue
 
-                    dependency = resolver.resolve(requirement, **kwds)
+                    dependency = resolver.resolve(requirement, resolve_all_failed=resolve_all_failed, **kwds)
                     if require_exact and not dependency.exact:
                         continue
 

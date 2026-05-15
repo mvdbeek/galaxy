@@ -309,6 +309,13 @@ class CondaDependencyResolver(
         if not is_installed:
             return NullDependency(version=version, name=name)
 
+        if kwds.get("resolve_all_failed") and job_directory and not self.auto_install and not kwds.get("install"):
+            # A merged conda env (mulled-v1-{hash}) is not available and
+            # auto_install is disabled. Refuse to silently build a per-job
+            # merged env from individually installed packages — let resolution
+            # fall through to the next resolver. See galaxyproject/galaxy#13711.
+            return NullDependency(version=version, name=name)
+
         # Have installed conda_target and job_directory to send it to.
         # If dependency is for metadata generation, store environment in conda-metadata-env
         if kwds.get("metadata", False):

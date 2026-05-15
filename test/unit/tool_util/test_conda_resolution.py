@@ -144,6 +144,110 @@ def test_against_conda_prefix_regression() -> None:
         assert len(installed_targets) > 0
 
 
+def _make_resolver(tmp_path, auto_install: bool) -> CondaDependencyResolver:
+    """Build a CondaDependencyResolver for unit tests without any real conda init.
+
+    The conda prefix directory is created so the early "conda not configured"
+    return in resolve()/resolve_all() does not short-circuit the test.
+    """
+    conda_prefix = tmp_path / "_conda"
+    conda_prefix.mkdir()
+    dependency_manager = DependencyManager(str(tmp_path))
+    return CondaDependencyResolver(
+        dependency_manager,
+        prefix=str(conda_prefix),
+        auto_init=False,
+        auto_install=auto_install,
+        use_path_exec=False,
+    )
+
+
+def test_resolve_skips_per_job_env_when_resolve_all_failed_and_auto_install_off(tmp_path, mocker) -> None:
+    """Galaxy issue #13711: with auto_install=False and no merged env, resolve()
+    must not silently build a per-job conda environment when resolve_all has
+    already failed for a multi-requirement tool.
+    """
+    resolver = _make_resolver(tmp_path, auto_install=False)
+    mocker.patch(
+        "galaxy.tool_util.deps.resolvers.conda.is_conda_target_installed",
+        return_value=True,
+    )
+    req = ToolRequirement(name="samtools", version="1.10", type="package")
+    job_dir = str(tmp_path / "job_000")
+    dependency = resolver.resolve(req, job_directory=job_dir, resolve_all_failed=True)
+    assert isinstance(dependency, NullDependency)
+
+
+def test_resolve_builds_per_job_env_when_auto_install_on(tmp_path, mocker) -> None:
+    """auto_install=True still permits per-job env creation as before."""
+    resolver = _make_resolver(tmp_path, auto_install=True)
+    mocker.patch(
+        "galaxy.tool_util.deps.resolvers.conda.is_conda_target_installed",
+        return_value=True,
+    )
+    req = ToolRequirement(name="samtools", version="1.10", type="package")
+    job_dir = str(tmp_path / "job_000")
+    dependency = resolver.resolve(req, job_directory=job_dir, resolve_all_failed=True)
+    assert isinstance(dependency, CondaDependency)
+    assert dependency.environment_path == os.path.join(job_dir, "conda-env")
+
+
+def test_resolve_builds_per_job_env_when_install_kwarg_true(tmp_path, mocker) -> None:
+    """An explicit install=True (e.g. admin install) overrides the new guard."""
+    resolver = _make_resolver(tmp_path, auto_install=False)
+    mocker.patch(
+        "galaxy.tool_util.deps.resolvers.conda.is_conda_target_installed",
+        return_value=True,
+    )
+    req = ToolRequirement(name="samtools", version="1.10", type="package")
+    job_dir = str(tmp_path / "job_000")
+    dependency = resolver.resolve(req, job_directory=job_dir, resolve_all_failed=True, install=True)
+    assert isinstance(dependency, CondaDependency)
+    assert dependency.environment_path == os.path.join(job_dir, "conda-env")
+
+
+def test_resolve_unaffected_when_resolve_all_not_attempted(tmp_path, mocker) -> None:
+    """Single-requirement direct resolve() calls (no resolve_all_failed kwarg)
+    keep the previous behavior: per-job env is created when job_directory is set
+    and the package is locally installed, even with auto_install=False.
+    """
+    resolver = _make_resolver(tmp_path, auto_install=False)
+    mocker.patch(
+        "galaxy.tool_util.deps.resolvers.conda.is_conda_target_installed",
+        return_value=True,
+    )
+    req = ToolRequirement(name="samtools", version="1.10", type="package")
+    job_dir = str(tmp_path / "job_000")
+    dependency = resolver.resolve(req, job_directory=job_dir)
+    assert isinstance(dependency, CondaDependency)
+    assert dependency.environment_path == os.path.join(job_dir, "conda-env")
+
+
+def test_dependency_manager_propagates_resolve_all_failed(tmp_path, mocker) -> None:
+    """End-to-end through DependencyManager: when resolve_all returns [] for a
+    multi-requirement tool and auto_install=False, individual resolve() calls
+    receive resolve_all_failed=True and return NullDependency.
+    """
+    resolver = _make_resolver(tmp_path, auto_install=False)
+    dependency_manager = resolver.dependency_manager
+    dependency_manager.dependency_resolvers = [resolver]
+    mocker.patch(
+        "galaxy.tool_util.deps.resolvers.conda.is_conda_target_installed",
+        return_value=True,
+    )
+    # has_env False -> no merged mulled-v1 env, resolve_all returns []
+    mocker.patch.object(resolver.conda_context, "has_env", return_value=False)
+    reqs = ToolRequirements(
+        [
+            ToolRequirement(name="samtools", version="1.10", type="package"),
+            ToolRequirement(name="bwa", version="0.7.17", type="package"),
+        ]
+    )
+    job_dir = str(tmp_path / "job_000")
+    resolved = dependency_manager.requirements_to_dependencies(reqs, job_directory=job_dir)
+    assert len(resolved) == 0 or all(isinstance(d, NullDependency) for d in resolved.values())
+
+
 @external_dependency_management
 def test_best_search_result(tmp_path) -> None:
     conda_context = CondaContext(
