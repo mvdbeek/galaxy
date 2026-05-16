@@ -71,8 +71,11 @@ from galaxy.tools.parameters.wrapped import (
     LegacyUnprefixedDict,
     WrappedParameters,
 )
+from galaxy.tools.template_dispatch import (
+    evaluate_tool_template,
+    project_wrapped_params_to_cwl_inputs,
+)
 from galaxy.util import ExecutionTimer
-from galaxy.util.template import fill_template
 
 if TYPE_CHECKING:
     from galaxy.model import (
@@ -575,6 +578,7 @@ class DefaultToolAction(ToolAction):
                     input_ext,
                     python_template_version=tool.python_template_version,
                     execution_cache=execution_cache,
+                    tool=tool,
                 )
                 create_datasets = True
                 dataset = None
@@ -1086,9 +1090,19 @@ class DefaultToolAction(ToolAction):
         job_params=None,
     ) -> str:
         if output.label:
-            params["tool"] = tool
-            params["on_string"] = on_text
-            return fill_template(output.label, context=params, python_template_version=tool.python_template_version)
+            cwl_inputs = None
+            if tool is not None and tool.tool_format == "GalaxyUserTool":
+                cwl_inputs = project_wrapped_params_to_cwl_inputs(params)
+            else:
+                params["tool"] = tool
+                params["on_string"] = on_text
+            return evaluate_tool_template(
+                tool,
+                output.label,
+                cheetah_context=params,
+                cwl_inputs=cwl_inputs,
+                python_template_version=tool.python_template_version,
+            )
         else:
             return self._get_default_data_name(
                 dataset,
@@ -1261,6 +1275,7 @@ def determine_output_format(
     random_input_ext,
     python_template_version="3",
     execution_cache=None,
+    tool: Optional["Tool"] = None,
 ):
     """Determines the output format for a dataset based on an abstract
     description of the output (galaxy.tool_util.parser.ToolOutput), the parameter
@@ -1329,13 +1344,26 @@ def determine_output_format(
 
     # process change_format tags
     if output.change_format:
+        cwl_inputs = None
+        if tool is not None and tool.tool_format == "GalaxyUserTool":
+            # parameter_context is `self.param_dict` (already {"inputs": ...})
+            # at the evaluator call site, and wrapped_params.params at the
+            # action call site; handle both.
+            if isinstance(parameter_context, dict) and "inputs" in parameter_context:
+                cwl_inputs = parameter_context["inputs"]
+            else:
+                cwl_inputs = project_wrapped_params_to_cwl_inputs(parameter_context)
         for change_format_model in output.change_format:
             input_check = change_format_model.get("input")
             if input_check is not None:
                 try:
                     if (
-                        fill_template(
-                            input_check, context=parameter_context, python_template_version=python_template_version
+                        evaluate_tool_template(
+                            tool,
+                            input_check,
+                            cheetah_context=parameter_context,
+                            cwl_inputs=cwl_inputs,
+                            python_template_version=python_template_version,
                         )
                         == change_format_model["value"]
                     ):

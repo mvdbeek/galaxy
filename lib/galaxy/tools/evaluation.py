@@ -148,6 +148,7 @@ class ToolEvaluator:
     job: model.Job
     materialize_datasets: bool = True
     param_dict_style = "regular"
+    _default_env_template_type: Literal["cheetah", "ecmascript"] = "cheetah"
 
     def __init__(self, app: MinimalToolApp, tool: "Tool", job, local_working_directory):
         self.app = app
@@ -365,7 +366,9 @@ class ToolEvaluator:
                 and output.extension == "expression.json"
             ):
                 input_collections = {jtidca.name: jtidca.dataset_collection for jtidca in job.input_dataset_collections}
-                ext = determine_output_format(tool_output, self.param_dict, inp_data, input_collections, None)
+                ext = determine_output_format(
+                    tool_output, self.param_dict, inp_data, input_collections, None, tool=self.tool
+                )
                 if ext:
                     output.extension = ext
 
@@ -825,7 +828,7 @@ class ToolEvaluator:
             environment_variable = environment_variable_def.copy()
             environment_variable_template = environment_variable_def["template"]
             inject = environment_variable_def.get("inject")
-            template_type: Optional[Literal["cheetah"]] = None
+            template_type: Optional[Literal["cheetah", "ecmascript"]] = None
             if inject == "api_key":
                 if self._user and isinstance(self.app, BasicSharedApp):
                     from galaxy.managers import api_keys
@@ -848,7 +851,7 @@ class ToolEvaluator:
                 else:
                     environment_variable_template = ""
             else:
-                template_type = "cheetah"
+                template_type = self._default_env_template_type
             with tempfile.NamedTemporaryFile(dir=directory, prefix="tool_env_", delete=False) as temp:
                 config_filename = temp.name
             self._write_workdir_file(
@@ -1038,6 +1041,7 @@ class PartialToolEvaluator(ToolEvaluator):
 class UserToolEvaluator(ToolEvaluator):
 
     param_dict_style = "json"
+    _default_env_template_type: Literal["cheetah", "ecmascript"] = "ecmascript"
 
     def _build_config_files(self):
         """
