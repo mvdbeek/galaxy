@@ -1070,6 +1070,7 @@ class Tool(UsesDictVisibleKeys, MaybeToolParameterBundle):
         # guid attribute since it is useful to have.
         self.guid = guid
         self.old_id: Optional[str] = None
+        self.tool_format: Optional[str] = None
         self.python_template_version: Optional[Version] = None
         self._lineage: Optional[ToolLineage] = None
         self.dependencies: list = []
@@ -1325,6 +1326,7 @@ class Tool(UsesDictVisibleKeys, MaybeToolParameterBundle):
         Read tool configuration from the element `root` and fill in `self`.
         """
         self.profile = parse_profile_version(tool_source)
+        self.tool_format = tool_source.parse_class()
         # Get the UNIQUE id for the tool
         self.old_id = tool_source.parse_id()
         if guid is None:
