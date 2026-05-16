@@ -88,6 +88,45 @@ class TestUnprivilegedToolsApi(ApiTestCase, TestsTools):
             output_content = self.dataset_populator.get_history_dataset_content(history_id)
             assert output_content == "abc\n"
 
+    def test_run_with_user_defined_label_template(self):
+        # Regression: UDT output labels are authored with CWL-style `$(inputs.x)`
+        # expressions, not Cheetah `${x}`. The action layer must route this
+        # through do_eval, not fill_template.
+        udt = {
+            "id": "label-cwl-test",
+            "name": "label-cwl-test",
+            "class": "GalaxyUserTool",
+            "container": "busybox",
+            "version": "1.0.0",
+            "shell_command": "echo '$(inputs.greeting)' > out.txt",
+            "inputs": [
+                {"type": "text", "name": "greeting", "value": "Hello"},
+            ],
+            "outputs": [
+                {
+                    "type": "data",
+                    "from_work_dir": "out.txt",
+                    "name": "out",
+                    "format": "txt",
+                    "label": "greeted-$(inputs.greeting)",
+                }
+            ],
+        }
+        with (
+            self.dataset_populator.test_history() as history_id,
+            self.dataset_populator.user_tool_execute_permissions(),
+        ):
+            dynamic_tool = self.dataset_populator.create_unprivileged_tool(UserToolSource(**udt))
+            run_response = self._run(
+                history_id=history_id,
+                tool_uuid=dynamic_tool["uuid"],
+                inputs={"greeting": "World"},
+            )
+            self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+            output_id = run_response.json()["outputs"][0]["id"]
+            hda = self.dataset_populator._get(f"datasets/{output_id}").json()
+            assert hda["name"] == "greeted-World", hda["name"]
+
     def test_deactivate(self):
         with self.dataset_populator.user_tool_execute_permissions():
             # Create a new dynamic tool.
