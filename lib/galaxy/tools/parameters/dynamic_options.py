@@ -34,11 +34,14 @@ from galaxy.tools.parameters.workflow_utils import (
     is_runtime_value,
     workflow_building_modes,
 )
+from galaxy.tools.template_dispatch import (
+    evaluate_tool_template,
+    project_wrapped_params_to_cwl_inputs,
+)
 from galaxy.util import (
     Element,
     string_as_bool,
 )
-from galaxy.util.template import fill_template
 from galaxy.work.context import WorkRequestContext
 from . import validation
 from .cancelable_request import request
@@ -945,10 +948,36 @@ class DynamicOptions:
                 return ParameterOption(str(values[0]), str(values[1]), bool(values[2]))
 
         if from_url_options := self.from_url_options:
-            context = User.user_template_environment(trans.user)
-            url = fill_template(from_url_options.from_url, context)
-            request_body = template_or_none(from_url_options.request_body, context)
-            request_headers = template_or_none(from_url_options.request_headers, context)
+            cheetah_context = User.user_template_environment(trans.user)
+            tool = self.tool_param.tool
+            cwl_inputs = (
+                project_wrapped_params_to_cwl_inputs(other_values)
+                if tool is not None and tool.tool_format == "GalaxyUserTool"
+                else None
+            )
+            url = evaluate_tool_template(
+                tool, from_url_options.from_url, cheetah_context=cheetah_context, cwl_inputs=cwl_inputs
+            )
+            request_body = (
+                evaluate_tool_template(
+                    tool,
+                    from_url_options.request_body,
+                    cheetah_context=cheetah_context,
+                    cwl_inputs=cwl_inputs,
+                )
+                if from_url_options.request_body
+                else None
+            )
+            request_headers = (
+                evaluate_tool_template(
+                    tool,
+                    from_url_options.request_headers,
+                    cheetah_context=cheetah_context,
+                    cwl_inputs=cwl_inputs,
+                )
+                if from_url_options.request_headers
+                else None
+            )
             try:
                 unset_value = object()
                 cached_value = trans.get_cache_value(
@@ -1044,12 +1073,6 @@ def parse_from_url_options(elem: Element) -> Optional[FromUrlOptions]:
             request_body=request_body,
             postprocess_expression=postprocess_expression,
         )
-    return None
-
-
-def template_or_none(template: Optional[str], context: dict[str, Any]) -> Optional[str]:
-    if template:
-        return fill_template(template, context=context)
     return None
 
 

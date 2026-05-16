@@ -10,6 +10,7 @@ def get_from_url_option():
     tool_param = Bunch(
         tool=Bunch(
             app=Bunch(),
+            tool_format=None,
         ),
     )
 
