@@ -170,7 +170,6 @@ class InstallRepositoryManager:
         session.add(tool_shed_repository)
         session.commit()
 
-        is_data_manager = "data_manager" in irmm_metadata_dict
         if "sample_files" in irmm_metadata_dict:
             sample_files = irmm_metadata_dict.get("sample_files", [])
             tool_index_sample_files = stdtm.get_tool_index_sample_files(sample_files)
@@ -191,17 +190,13 @@ class InstallRepositoryManager:
             # so they're separated from admin-configured loc files at tool_data_path root.
             shed_loc_dir = os.path.join(self.app.config.tool_data_path, "shed")
             os.makedirs(shed_loc_dir, exist_ok=True)
-            tool_util.copy_sample_files(
-                shed_loc_dir, tool_index_sample_files, tool_path=tool_path
-            )
+            tool_util.copy_sample_files(shed_loc_dir, tool_index_sample_files, tool_path=tool_path)
             sample_files_copied = [str(s) for s in tool_index_sample_files]
             repository_tools_tups = irmm.get_repository_tools_tups()
             if repository_tools_tups:
-                if is_data_manager:
-                    # Only Data Manager repos register data tables on install.
-                    repository_tools_tups = stdtm.handle_missing_data_table_entry(
-                        relative_install_dir, tool_path, repository_tools_tups
-                    )
+                repository_tools_tups = stdtm.handle_missing_data_table_entry(
+                    relative_install_dir, tool_path, repository_tools_tups
+                )
                 # Handle missing index files for tool parameters that are dynamically generated select lists.
                 repository_tools_tups, sample_files_copied = tool_util.handle_missing_index_file(
                     self.app, tool_path, sample_files, repository_tools_tups, sample_files_copied
