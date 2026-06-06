@@ -392,7 +392,7 @@ def build_workflow_run_configs(
                     input_param.validate(input_dict, trans=trans)
                 except ParameterValueError as e:
                     raise exceptions.RequestParameterInvalidException(
-                        f"{step.label or step.order_index + 1}: {e.message_suffix}"
+                        f"{step.label_or_position}: {e.message_suffix}"
                     )
                 continue
             try:

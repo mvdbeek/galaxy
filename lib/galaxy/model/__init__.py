@@ -9491,6 +9491,12 @@ class WorkflowStep(Base, RepresentById, UsesCreateAndUpdateTime):
                 return cast(Optional[str], tool_inputs.get("name"))
         return None
 
+    @property
+    def label_or_position(self) -> str:
+        """Human-facing identifier for the step: its label if set, otherwise its
+        1-based position in the workflow. Suitable for user error messages."""
+        return self.label or str(self.order_index + 1)
+
     def clear_module_extras(self):
         # the module code adds random dynamic state to the step, this
         # attempts to clear that.
