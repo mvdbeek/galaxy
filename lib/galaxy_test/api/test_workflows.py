@@ -7137,6 +7137,183 @@ input1:
         assert input_name in err_msg
         assert "is not optional and no input" in err_msg
 
+    WORKFLOW_DATA_INPUT_WITH_FORMAT = """
+class: GalaxyWorkflow
+inputs:
+  input1:
+    type: data
+    format:
+      - tabular
+steps:
+  the_step:
+    tool_id: cat1
+    in:
+      input1: input1
+"""
+
+    WORKFLOW_COLLECTION_INPUT_PAIRED = """
+class: GalaxyWorkflow
+inputs:
+  input1:
+    type: collection
+    collection_type: paired
+steps:
+  the_step:
+    tool_id: cat1
+    in:
+      input1: input1
+"""
+
+    WORKFLOW_COLLECTION_INPUT_WITH_FORMAT = """
+class: GalaxyWorkflow
+inputs:
+  input1:
+    type: collection
+    format:
+      - bam
+steps:
+  the_step:
+    tool_id: cat1
+    in:
+      input1: input1
+"""
+
+    def _assert_invalid_input_rejected(self, response, *expected_substrings):
+        self._assert_status_code_is(response, 400)
+        self._assert_error_code_is(response, error_codes.error_codes_by_name["USER_REQUEST_INVALID_PARAMETER"])
+        err_msg = response.json()["err_msg"]
+        for expected in expected_substrings:
+            assert expected in err_msg, f"expected {expected!r} in error message, got: {err_msg}"
+
+    @skip_without_tool("cat1")
+    def test_invoke_rejects_dataset_with_wrong_datatype(self):
+        # The motivating galaxy-mcp#55 case: a BAM file dropped into a tabular-only
+        # input is a provable mismatch and should be refused up front rather than
+        # failing mid-run. (A datatype reachable by implicit conversion - e.g.
+        # fasta -> tabular - is still accepted; see the regression guard below.)
+        with self.dataset_populator.test_history() as history_id:
+            workflow_id = self._upload_yaml_workflow(self.WORKFLOW_DATA_INPUT_WITH_FORMAT)
+            bam = self.dataset_populator.new_bam_dataset(history_id, self.test_data_resolver)
+            response = self.workflow_populator.invoke_workflow(
+                workflow_id, history_id=history_id, inputs={"input1": self._ds_entry(bam)}, inputs_by="name"
+            )
+            self._assert_invalid_input_rejected(response, "bam", "tabular")
+
+    @skip_without_tool("cat1")
+    def test_invoke_rejects_dataset_for_collection_input(self):
+        # A single dataset cannot satisfy a collection input slot.
+        with self.dataset_populator.test_history() as history_id:
+            workflow_id = self._upload_yaml_workflow(self.WORKFLOW_COLLECTION_INPUT_PAIRED)
+            hda = self.dataset_populator.new_dataset(history_id, content="1\t2\t3\n", file_type="tabular", wait=True)
+            response = self.workflow_populator.invoke_workflow(
+                workflow_id, history_id=history_id, inputs={"input1": self._ds_entry(hda)}, inputs_by="name"
+            )
+            self._assert_invalid_input_rejected(response, "dataset collection", "single dataset")
+
+    @skip_without_tool("cat1")
+    def test_invoke_rejects_collection_element_wrong_datatype(self):
+        # A bam-only collection input fed a list of txt elements is a provable
+        # element-datatype mismatch.
+        with self.dataset_populator.test_history() as history_id:
+            workflow_id = self._upload_yaml_workflow(self.WORKFLOW_COLLECTION_INPUT_WITH_FORMAT)
+            fetch_response = self.dataset_collection_populator.create_list_in_history(
+                history_id, contents=["a\nb\n", "c\nd\n"]
+            ).json()
+            hdca = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
+            response = self.workflow_populator.invoke_workflow(
+                workflow_id, history_id=history_id, inputs={"input1": self._ds_entry(hdca)}, inputs_by="name"
+            )
+            self._assert_invalid_input_rejected(response, "txt", "bam")
+
+    WORKFLOW_INTEGER_PARAMETER_INPUT = """
+class: GalaxyWorkflow
+inputs:
+  data_input: data
+  int_input:
+    type: integer
+steps:
+  random:
+    tool_id: random_lines1
+    in:
+      input: data_input
+      num_lines: int_input
+    state:
+      seed_source:
+        seed_source_selector: set_seed
+        seed: asdf
+"""
+
+    def _invoke_integer_parameter_workflow(self, history_id, int_value):
+        workflow_id = self._upload_yaml_workflow(self.WORKFLOW_INTEGER_PARAMETER_INPUT)
+        hda = self.dataset_populator.new_dataset(history_id, content="1\n2\n3\n", file_type="txt", wait=True)
+        return self.workflow_populator.invoke_workflow(
+            workflow_id,
+            history_id=history_id,
+            inputs={"data_input": self._ds_entry(hda), "int_input": int_value},
+            inputs_by="name",
+        )
+
+    @skip_without_tool("random_lines1")
+    def test_invoke_rejects_non_numeric_string_for_integer_parameter(self):
+        # A non-numeric string given to a native integer parameter input is a
+        # provable type mismatch and should be refused up front.
+        with self.dataset_populator.test_history() as history_id:
+            response = self._invoke_integer_parameter_workflow(history_id, "not-an-int")
+            self._assert_invalid_input_rejected(response, "integer")
+
+    @skip_without_tool("random_lines1")
+    def test_invoke_rejects_dict_for_integer_parameter(self):
+        # A dict (e.g. a doubly-wrapped ``{"value": 1}``) given to a native
+        # integer parameter input is not a scalar and should be refused.
+        with self.dataset_populator.test_history() as history_id:
+            response = self._invoke_integer_parameter_workflow(history_id, {"value": 1})
+            self._assert_invalid_input_rejected(response, "integer")
+
+    @skip_without_tool("random_lines1")
+    def test_invoke_allows_valid_integer_parameter(self):
+        # Regression guard: an actual integer value must still be accepted.
+        with self.dataset_populator.test_history() as history_id:
+            response = self._invoke_integer_parameter_workflow(history_id, 2)
+            self._assert_status_code_is(response, 200)
+
+    @skip_without_tool("cat1")
+    def test_invoke_allows_collection_mapped_over_data_input(self):
+        # Regression guard: feeding a collection to a plain data input is a
+        # supported map-over and must NOT be rejected by the new validation.
+        with self.dataset_populator.test_history() as history_id:
+            workflow_id = self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+inputs:
+  input1: data
+steps:
+  the_step:
+    tool_id: cat1
+    in:
+      input1: input1
+""")
+            fetch_response = self.dataset_collection_populator.create_list_in_history(
+                history_id, contents=["a\nb\n", "c\nd\n"]
+            ).json()
+            hdca = self.dataset_collection_populator.wait_for_fetched_collection(fetch_response)
+            response = self.workflow_populator.invoke_workflow(
+                workflow_id, history_id=history_id, inputs={"input1": self._ds_entry(hdca)}, inputs_by="name"
+            )
+            self._assert_status_code_is(response, 200)
+
+    @skip_without_tool("cat1")
+    def test_invoke_allows_dataset_with_accepted_datatype(self):
+        # Regression guard: a format-constrained input fed an acceptable
+        # datatype must still be accepted.
+        with self.dataset_populator.test_history() as history_id:
+            workflow_id = self._upload_yaml_workflow(self.WORKFLOW_DATA_INPUT_WITH_FORMAT)
+            tabular = self.dataset_populator.new_dataset(
+                history_id, content="1\t2\t3\n", file_type="tabular", wait=True
+            )
+            response = self.workflow_populator.invoke_workflow(
+                workflow_id, history_id=history_id, inputs={"input1": self._ds_entry(tabular)}, inputs_by="name"
+            )
+            self._assert_status_code_is(response, 200)
+
     def test_run_with_validated_parameter_connection_optional(self):
         with self.dataset_populator.test_history() as history_id:
             self._run_workflow(

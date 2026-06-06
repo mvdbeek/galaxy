@@ -35,9 +35,15 @@ from galaxy.tool_util_models.parameters import (
     DataRequestUri,
     FileRequestUri,
 )
-from galaxy.tools.parameters.basic import ParameterValueError
+from galaxy.tools.parameters.basic import (
+    contains_workflow_parameter,
+    ParameterValueError,
+)
 from galaxy.tools.parameters.meta import expand_workflow_inputs
-from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
+from galaxy.tools.parameters.workflow_utils import (
+    is_runtime_value,
+    NO_REPLACEMENT,
+)
 from galaxy.workflow.modules import WorkflowModuleInjector
 from galaxy.workflow.resources import get_resource_mapper_function
 
@@ -307,6 +313,142 @@ def _get_target_history(
     return target_history
 
 
+def _parameter_value_validated_later(value: Any) -> bool:
+    """True for parameter-input values that should not be type-checked at
+    submission time because they are resolved (and validated) later:
+
+    * runtime / connected-value placeholders,
+    * dataset/collection references - e.g. an ``expression.json`` dataset
+      supplying the value, validated when it is realized,
+    * ``${...}`` workflow-parameter tokens substituted at scheduling time.
+    """
+    if is_runtime_value(value):
+        return True
+    if isinstance(value, dict) and "src" in value:
+        return True
+    return contains_workflow_parameter(value, search=True)
+
+
+def _value_matches_parameter_type(value: Any, parameter_type: str) -> bool:
+    """Strict (no-coercion) type check for a native workflow parameter value.
+
+    A non-numeric string handed to an ``integer`` input - or any other type
+    mismatch - is rejected rather than silently coerced. ``int`` is accepted for
+    a ``float`` input (every integer is a valid float, no information is lost);
+    ``bool`` is only accepted by a ``boolean`` input (it is a subclass of int).
+    """
+    if isinstance(value, bool):
+        return parameter_type == "boolean"
+    if parameter_type == "boolean":
+        return isinstance(value, bool)
+    if parameter_type == "integer":
+        return isinstance(value, int)
+    if parameter_type == "float":
+        return isinstance(value, (int, float))
+    if parameter_type in ("text", "color", "directory_uri"):
+        return isinstance(value, str) or (isinstance(value, list) and all(isinstance(v, str) for v in value))
+    # Unknown / future parameter type - do not block.
+    return True
+
+
+def _collection_element_extensions(hdca: HistoryDatasetCollectionAssociation) -> list[str]:
+    try:
+        # Batched single-query summary (cached on the collection) rather than
+        # loading every element instance.
+        return hdca.collection.dataset_states_and_extensions_summary.extensions
+    except Exception:
+        # Never let metadata traversal block a run - fall through to allow.
+        return []
+
+
+def _unacceptable_extension(trans, extensions, accepted: set[str]) -> Optional[str]:
+    """Return the first supplied extension that is a *known* datatype yet not in
+    the accepted set, or ``None`` if every supplied extension is acceptable (or
+    cannot be proven incompatible)."""
+    registry = trans.app.datatypes_registry
+    for ext in extensions:
+        if ext in accepted:
+            continue
+        # Only reject provable mismatches - unknown datatypes are left to run.
+        if registry is not None and registry.get_datatype_by_extension(ext) is None:
+            continue
+        return ext
+    return None
+
+
+def _validate_input_against_step(trans: "GalaxyWebTransaction", step: "WorkflowStep", content: Any) -> None:
+    """Refuse a resolved workflow input that provably violates the input step's
+    declared datatype constraints, with an actionable message.
+
+    Only provable, Galaxy-side incompatibilities are rejected; anything that
+    cannot be proven invalid (unknown datatypes, unmaterialized URI inputs,
+    internal lookup errors) is allowed through so this never blocks a legitimate
+    run. Deliberate non-rejections:
+
+    * A plain ``data`` input fed a collection is allowed - Galaxy maps the
+      workflow over it (see ``test_workflow_input_mapping``).
+    * Datatype is enforced only when the input step declares an explicit
+      ``format``; converter-reachable datatypes are accepted (run-form parity).
+    * The collection input's declared ``collection_type`` is intentionally not
+      enforced - Galaxy resolves structure downstream via flexible map-over.
+
+    A single dataset handed to a collection input is always rejected - no amount
+    of map-over turns a dataset into a collection.
+    """
+    if step.type not in ("data_input", "data_collection_input"):
+        return
+    # URI inputs arrive wrapped and may not be materialized yet - skip them.
+    if isinstance(content, InputWithRequest):
+        return
+    assert step.module
+    try:
+        parameter_def = step.module._parse_state_into_dict()
+        declared_format = parameter_def.get("format")
+    except Exception:
+        log.exception("Skipping workflow input validation for step %s; could not parse step state", step.id)
+        return
+    label = step.label_or_position
+
+    def reject_bad_extensions(extensions: list[str], noun: str) -> None:
+        if not declared_format:
+            return
+        try:
+            # ``_acceptable_extensions`` is converter-aware (matches the run-form
+            # GUI), so a datatype reachable by implicit conversion is accepted.
+            accepted = step.module.get_runtime_inputs(step)["input"]._acceptable_extensions()
+        except Exception:
+            log.exception("Skipping datatype validation for step %s", step.id)
+            return
+        if accepted is None:
+            return
+        bad = _unacceptable_extension(trans, extensions, accepted)
+        if bad is not None:
+            raise exceptions.RequestParameterInvalidException(
+                f"Step {label}: {noun} '{bad}' is not acceptable here; "
+                f"this input requires datatype: {', '.join(declared_format)}."
+            )
+
+    if step.type == "data_input":
+        if isinstance(content, HistoryDatasetCollectionAssociation):
+            reject_bad_extensions(_collection_element_extensions(content), "collection element datatype")
+        elif isinstance(content, HistoryDatasetAssociation):
+            reject_bad_extensions([content.extension], "dataset datatype")
+        return
+
+    # step.type == "data_collection_input"
+    if isinstance(content, HistoryDatasetAssociation):
+        raise exceptions.RequestParameterInvalidException(
+            f"Step {label}: this input expects a dataset collection but received a single dataset."
+        )
+    if isinstance(content, HistoryDatasetCollectionAssociation):
+        # Note: the input step's declared ``collection_type`` is deliberately NOT
+        # enforced here. Galaxy resolves collection structure downstream via
+        # flexible map-over (a ``list:paired`` legitimately feeds a ``list``,
+        # ``paired`` or ``list:paired`` input), so an input-step-level structural
+        # check produces false rejections for valid subcollection mapping.
+        reject_bad_extensions(_collection_element_extensions(content), "collection element datatype")
+
+
 def build_workflow_run_configs(
     trans: "GalaxyWebTransaction", workflow: "Workflow", payload: dict[str, Any]
 ) -> list[WorkflowRunConfig]:
@@ -388,12 +530,25 @@ def build_workflow_run_configs(
                 module_injector.inject(step)
                 assert step.module
                 input_param = step.module.get_runtime_inputs(step.module)["input"]
-                try:
-                    input_param.validate(input_dict, trans=trans)
-                except ParameterValueError as e:
-                    raise exceptions.RequestParameterInvalidException(
-                        f"{step.label_or_position}: {e.message_suffix}"
-                    )
+                if not _parameter_value_validated_later(input_dict):
+                    parameter_def = step.module._parse_state_into_dict()
+                    parameter_type = parameter_def.get("parameter_type", "text")
+                    optional = bool(parameter_def.get("optional", False))
+                    is_empty = input_dict is None or input_dict == ""
+                    # Reject a type mismatch outright (no coercion); an unset
+                    # value is only allowed for optional inputs.
+                    if not (optional and is_empty) and not _value_matches_parameter_type(input_dict, parameter_type):
+                        raise exceptions.RequestParameterInvalidException(
+                            f"Step {step.label_or_position}: this parameter input requires a value of type "
+                            f"'{parameter_type}', but received {input_dict!r}."
+                        )
+                    # Apply any value validators (regex, in-range, ...).
+                    try:
+                        input_param.validate(input_dict, trans=trans)
+                    except ParameterValueError as e:
+                        raise exceptions.RequestParameterInvalidException(
+                            f"{step.label_or_position}: {e.message_suffix}"
+                        )
                 continue
             try:
                 added_to_history = False
@@ -451,6 +606,8 @@ def build_workflow_run_configs(
                     raise exceptions.RequestParameterInvalidException(
                         f"Unknown workflow input source for '{key}' specified."
                     )
+                module_injector.inject(step)
+                _validate_input_against_step(trans, step, content)
                 if not added_to_history and add_to_history and content.history != history:
                     if isinstance(content, HistoryDatasetCollectionAssociation):
                         content = content.copy(element_destination=history, flush=False)
