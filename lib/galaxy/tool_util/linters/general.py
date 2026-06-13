@@ -2,6 +2,8 @@
 
 import re
 from typing import (
+    Dict,
+    Optional,
     Tuple,
     TYPE_CHECKING,
 )
@@ -15,13 +17,18 @@ from galaxy.tool_util.version import (
     LegacyVersion,
     parse_version,
 )
+from ._util import (
+    apply_staged,
+    get_or_load_staged_tree,
+    source_file_for_node,
+)
 
 if TYPE_CHECKING:
     from galaxy.tool_util.lint import LintContext
     from galaxy.tool_util.parser.interface import ToolSource
+    from galaxy.util import ElementTree
     from galaxy.util.etree import (
         Element,
-        ElementTree,
     )
 
 PROFILE_PATTERN = re.compile(r"^[12]\d\.\d{1,2}$")
@@ -30,7 +37,7 @@ PROFILE_PATTERN = re.compile(r"^[12]\d\.\d{1,2}$")
 lint_tool_types = ["*"]
 
 
-def _tool_xml_and_root(tool_source: "ToolSource") -> Tuple["ElementTree", "Element"]:
+def _tool_xml_and_root(tool_source: "ToolSource") -> Tuple[Optional["ElementTree"], Optional["Element"]]:
     tool_xml = getattr(tool_source, "xml_tree", None)
     if tool_xml:
         tool_node = tool_xml.getroot()
@@ -109,6 +116,28 @@ class ToolNameWhitespace(Linter):
                 linter=cls.name(),
                 node=tool_node,
             )
+
+    @classmethod
+    def fix(
+        cls,
+        tool_source: "ToolSource",
+        lint_ctx: "LintContext",
+        staged: Optional[Dict[str, "ElementTree"]] = None,
+    ) -> bool:
+        _, tool_node = _tool_xml_and_root(tool_source)
+        if tool_node is None:
+            return False
+        name = tool_node.get("name", "")
+        stripped = name.strip()
+        if name == stripped:
+            return False
+        path = source_file_for_node(tool_node, tool_source)
+        if not path:
+            return False
+        tree = get_or_load_staged_tree(staged if staged is not None else {}, path)
+        tree.getroot().set("name", stripped)
+        apply_staged(staged, path, tree)
+        return True
 
 
 class ToolNameValid(Linter):
@@ -218,6 +247,37 @@ class RequirementVersionWhitespace(Linter):
                     node=tool_node,
                 )
 
+    @classmethod
+    def fix(
+        cls,
+        tool_source: "ToolSource",
+        lint_ctx: "LintContext",
+        staged: Optional[Dict[str, "ElementTree"]] = None,
+    ) -> bool:
+        tool_xml = getattr(tool_source, "xml_tree", None)
+        if tool_xml is None:
+            return False
+        _staged = staged if staged is not None else {}
+        changed = False
+        for req_el in tool_xml.findall(".//requirements/requirement"):
+            version = req_el.get("version", "")
+            stripped = version.strip()
+            if version == stripped or req_el.get("type", "package") != "package":
+                continue
+            path = source_file_for_node(req_el, tool_source)
+            if not path:
+                continue
+            tree = get_or_load_staged_tree(_staged, path)
+            # Use .//requirement (not .//requirements/requirement) so the
+            # search also finds elements nested inside macro definitions.
+            for raw_req in tree.findall(".//requirement"):
+                if raw_req.get("name") == req_el.get("name") and raw_req.get("version") == version:
+                    raw_req.set("version", stripped)
+                    apply_staged(staged, path, tree)
+                    changed = True
+                    break
+        return changed
+
 
 class ResourceRequirementExpression(Linter):
     @classmethod
@@ -253,3 +313,71 @@ class EDAMTermsValid(Linter):
         for term in terms:
             if term not in edam:
                 lint_ctx.warn(f"No entry '{term}' in EDAM.", linter=cls.name(), node=tool_node)
+
+
+# Non-canonical boolean values accepted by Galaxy's string_as_bool() but
+# rejected by xs:boolean — canonical form is "true" / "false".
+_NONCANONICAL_BOOLEANS = {"True", "False", "Yes", "No", "On", "Off"}
+_CANONICAL_REMAP = {
+    "True": "true",
+    "False": "false",
+    "Yes": "true",
+    "No": "false",
+    "On": "true",
+    "Off": "false",
+}
+
+
+class BooleanValues(Linter):
+    """Warn when attributes contain non-canonical boolean values (True/False/Yes/No/On/Off).
+
+    Galaxy's ``string_as_bool()`` accepts these at runtime, but XSD schemas
+    only accept ``true`` / ``false`` / ``1`` / ``0``.
+    """
+
+    @classmethod
+    def lint(cls, tool_source: "ToolSource", lint_ctx: "LintContext"):
+        tool_xml = getattr(tool_source, "xml_tree", None)
+        if tool_xml is None:
+            return
+        for el in tool_xml.iter():
+            for attr, val in el.attrib.items():
+                if val in _NONCANONICAL_BOOLEANS:
+                    lint_ctx.warn(
+                        f"Non-canonical boolean value '{val}' on <{el.tag}> @{attr};"
+                        f" use '{_CANONICAL_REMAP[val]}' instead.",
+                        linter=cls.name(),
+                        node=el,
+                    )
+                    return  # one message per tool per lint run
+
+    @classmethod
+    def fix(
+        cls,
+        tool_source: "ToolSource",
+        lint_ctx: "LintContext",
+        staged: Optional[Dict[str, "ElementTree"]] = None,
+    ) -> bool:
+        tool_xml = getattr(tool_source, "xml_tree", None)
+        if tool_xml is None:
+            return False
+        _staged = staged if staged is not None else {}
+        changed = False
+        for el in tool_xml.iter():
+            for attr, val in list(el.attrib.items()):
+                if val not in _NONCANONICAL_BOOLEANS:
+                    continue
+                path = source_file_for_node(el, tool_source)
+                if not path:
+                    continue
+                tree = get_or_load_staged_tree(_staged, path)
+                # Match raw element by tag + all attribute names present in expanded el.
+                # This is a best-effort match; it fails if the same tag/attrib combo
+                # appears multiple times with different boolean values.
+                for raw_el in tree.iter(el.tag):
+                    if raw_el.get(attr) == val:
+                        raw_el.set(attr, _CANONICAL_REMAP[val])
+                        apply_staged(staged, path, tree)
+                        changed = True
+                        break
+        return changed

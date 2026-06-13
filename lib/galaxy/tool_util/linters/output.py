@@ -1,20 +1,29 @@
 """This module contains a linting functions for tool outputs."""
 
 import ast
-from typing import TYPE_CHECKING
+from typing import (
+    Dict,
+    Optional,
+    TYPE_CHECKING,
+)
 
 from packaging.version import Version
 
 from galaxy.tool_util.lint import Linter
-from ._util import is_valid_cheetah_placeholder
+from ._util import (
+    apply_staged,
+    get_or_load_staged_tree,
+    is_valid_cheetah_placeholder,
+    source_file_for_node,
+)
 from ..parser.output_collection_def import NAMED_PATTERNS
 
 if TYPE_CHECKING:
     from galaxy.tool_util.lint import LintContext
     from galaxy.tool_util.parser import ToolSource
+    from galaxy.util import ElementTree
     from galaxy.util.etree import (
         Element,
-        ElementTree,
     )
 
 
@@ -46,6 +55,51 @@ class OutputsOutput(Linter):
             lint_ctx.warn(
                 "Avoid the use of 'output' and replace by 'data' or 'collection'", linter=cls.name(), node=output
             )
+
+    @classmethod
+    def fix(
+        cls,
+        tool_source: "ToolSource",
+        lint_ctx: "LintContext",
+        staged: Optional[Dict[str, "ElementTree"]] = None,
+    ) -> bool:
+        tool_xml = getattr(tool_source, "xml_tree", None)
+        if tool_xml is None:
+            return False
+        _staged = staged if staged is not None else {}
+        changed = False
+        for output_el in tool_xml.findall("./outputs/output"):
+            path = source_file_for_node(output_el, tool_source)
+            if not path:
+                continue
+            tree = get_or_load_staged_tree(_staged, path)
+            # Use .//output so the search also finds elements inside macros.
+            for raw_out in tree.findall(".//output"):
+                # Match by name attribute; fall back to first match if unnamed.
+                if raw_out.get("name") != output_el.get("name"):
+                    continue
+                if raw_out.get("collection_type") or raw_out.get("type") == "collection":
+                    raw_out.tag = "collection"
+                    if "type" in raw_out.attrib:
+                        del raw_out.attrib["type"]
+                    ct = raw_out.attrib.get("collection_type")
+                    if "collection_type" in raw_out.attrib:
+                        del raw_out.attrib["collection_type"]
+                    if ct:
+                        raw_out.set("type", ct)
+                    cts = raw_out.attrib.get("collection_type_source")
+                    if "collection_type_source" in raw_out.attrib:
+                        del raw_out.attrib["collection_type_source"]
+                    if cts:
+                        raw_out.set("type_source", cts)
+                else:
+                    raw_out.tag = "data"
+                    if "type" in raw_out.attrib:
+                        del raw_out.attrib["type"]
+                apply_staged(staged, path, tree)
+                changed = True
+                break
+        return changed
 
 
 class OutputsNameInvalidCheetah(Linter):
@@ -382,7 +436,7 @@ def _has_tool_provided_metadata(tool_xml: "ElementTree") -> bool:
             return True
     command = tool_xml.find("./command")
     if command is not None:
-        if "galaxy.json" in command.text:
+        if command.text and "galaxy.json" in command.text:
             return True
     config = tool_xml.find("./configfiles/configfile[@filename='galaxy.json']")
     if config is not None:

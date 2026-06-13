@@ -10,12 +10,12 @@ from typing import (
 
 from yaml import safe_load
 
-from galaxy.tool_util.loader import load_tool_with_refereces
 from galaxy.util import (
     ElementTree,
     parse_xml_string_to_etree,
 )
 from galaxy.util.path import StrPath
+from galaxy.util.xml_macros import load_with_source_map as _load_with_source_map
 from galaxy.util.yaml_util import ordered_load
 from .cwl import (
     CwlToolSource,
@@ -71,7 +71,7 @@ def get_tool_source(
     """Return a ToolSource object corresponding to supplied source.
 
     The supplied source may be specified as a file path (using the config_file
-    parameter) or as an XML object loaded with load_tool_with_refereces.
+    parameter) or as an XML object loaded with load_with_source_map.
     """
     if xml_tree is not None:
         return XmlToolSource(xml_tree, source_path=config_file, macro_paths=macro_paths)
@@ -89,8 +89,8 @@ def get_tool_source(
 
     config_file = str(tool_location_fetcher.to_tool_path(config_file))
     if not enable_beta_formats:
-        tree, macro_paths = load_tool_with_refereces(config_file)
-        return XmlToolSource(tree, source_path=config_file, macro_paths=macro_paths)
+        tree, macro_paths, source_map = _load_with_source_map(config_file)
+        return XmlToolSource(tree, source_path=config_file, macro_paths=macro_paths, source_map=source_map)
 
     if config_file.endswith(".yml"):
         log.info("Loading tool from YAML - this is experimental - tool will not function in future.")
@@ -103,8 +103,8 @@ def get_tool_source(
         )
         return CwlToolSource(config_file)
     else:
-        tree, macro_paths = load_tool_with_refereces(config_file)
-        return XmlToolSource(tree, source_path=config_file, macro_paths=macro_paths)
+        tree, macro_paths, source_map = _load_with_source_map(config_file)
+        return XmlToolSource(tree, source_path=config_file, macro_paths=macro_paths, source_map=source_map)
 
 
 def get_input_source(content, trusted: bool = True):

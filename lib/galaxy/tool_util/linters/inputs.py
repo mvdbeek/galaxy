@@ -5,6 +5,7 @@ import re
 import warnings
 from copy import deepcopy
 from typing import (
+    Dict,
     Iterator,
     Optional,
     Tuple,
@@ -16,18 +17,19 @@ from packaging.version import Version
 from galaxy.tool_util.lint import Linter
 from galaxy.util import string_as_bool
 from ._util import (
+    apply_staged,
+    get_or_load_staged_tree,
     is_datasource,
     is_valid_cheetah_placeholder,
+    source_file_for_node,
 )
 from ..parser.util import _parse_name
 
 if TYPE_CHECKING:
     from galaxy.tool_util.lint import LintContext
     from galaxy.tool_util.parser import ToolSource
-    from galaxy.util.etree import (
-        Element,
-        ElementTree,
-    )
+    from galaxy.util import ElementTree
+    from galaxy.util.etree import Element
 
 lint_tool_types = ["*"]
 
@@ -251,6 +253,38 @@ class InputsNameRedundantArgument(Linter):
                         linter=cls.name(),
                         node=param,
                     )
+
+    @classmethod
+    def fix(
+        cls,
+        tool_source: "ToolSource",
+        lint_ctx: "LintContext",
+        staged: Optional[Dict[str, "ElementTree"]] = None,
+    ) -> bool:
+        tool_xml = getattr(tool_source, "xml_tree", None)
+        if tool_xml is None:
+            return False
+        _staged = staged if staged is not None else {}
+        changed = False
+        for param_el in tool_xml.findall("./inputs//param"):
+            if "name" not in param_el.attrib or "argument" not in param_el.attrib:
+                continue
+            if param_el.attrib.get("name") != _parse_name(None, param_el.attrib.get("argument")):
+                continue
+            path = source_file_for_node(param_el, tool_source)
+            if not path:
+                continue
+            tree = get_or_load_staged_tree(_staged, path)
+            # Use .//param so the search also finds elements inside macros.
+            for raw_param in tree.findall(".//param"):
+                if raw_param.get("argument") == param_el.get("argument") and raw_param.get("name") == param_el.get(
+                    "name"
+                ):
+                    del raw_param.attrib["name"]
+                    apply_staged(staged, path, tree)
+                    changed = True
+                    break
+        return changed
 
 
 # TODO redundant with InputsNameValid
@@ -1152,10 +1186,10 @@ def _iter_param_validator(tool_xml: "ElementTree") -> Iterator[Tuple[str, str, "
             param_name = _parse_name(param.attrib.get("name"), param.attrib.get("argument"))
         except ValueError:
             continue
-        param_type = param.attrib["type"]
+        param_type = str(param.attrib["type"])
         validators = param.findall("./validator[@type]")
         for validator in validators:
-            vtype = validator.attrib["type"]
+            vtype = str(validator.attrib["type"])
             yield (param_name, param_type, validator, vtype)
 
 

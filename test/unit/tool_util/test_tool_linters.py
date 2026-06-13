@@ -6,10 +6,12 @@ import pytest
 
 import galaxy.tool_util.linters
 from galaxy.tool_util.lint import (
+    lint_tool_source_and_fix,
     lint_tool_source_with,
     lint_tool_source_with_modules,
     LintContext,
     Linter,
+    LintLevel,
     XMLLintMessageLine,
     XMLLintMessageXPath,
 )
@@ -28,6 +30,7 @@ from galaxy.tool_util.linters import (
     xsd,
 )
 from galaxy.tool_util.loader_directory import load_tool_sources_from_path
+from galaxy.tool_util.parser.factory import get_tool_source as factory_get_tool_source
 from galaxy.tool_util.parser.interface import ToolSource
 from galaxy.tool_util.parser.xml import XmlToolSource
 from galaxy.tool_util.unittest_utils import functional_test_tool_path
@@ -2596,7 +2599,7 @@ def test_skip_by_module(lint_ctx):
 def test_list_linters():
     linter_names = Linter.list_listers()
     # make sure to add/remove a test for new/removed linters if this number changes
-    assert len(linter_names) == 147
+    assert len(linter_names) == 150
     assert "Linter" not in linter_names
     # make sure that linters from all modules are available
     for prefix in [
@@ -2753,3 +2756,348 @@ def test_required_files_glob_no_match(lint_ctx):
         _load_and_run_lint(lint_ctx, tool_path, required_files)
     assert "Required files pattern [*.py] (type glob) does not match any files" in lint_ctx.error_messages
     assert len(lint_ctx.error_messages) == 1
+
+
+# ---------------------------------------------------------------------------
+# Tests for fix() methods and lint_tool_source_and_fix()
+# ---------------------------------------------------------------------------
+
+
+def _load_tool_for_fix(path):
+    """Load a tool source with full source-map support for fix() testing."""
+    return factory_get_tool_source(config_file=path)
+
+
+def _read_file(path):
+    with open(path) as f:
+        return f.read()
+
+
+_TOOL_NAME_WHITESPACE = """\
+<tool id="tool_id" name=" Trimmed Name " version="1.0" profile="21.09">
+    <command>echo</command>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+
+_REQ_VERSION_WHITESPACE = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <requirements>
+        <requirement type="package" name="samtools" version=" 1.20 ">samtools</requirement>
+    </requirements>
+    <command>echo</command>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+
+_XML_ORDER_WRONG = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command>echo</command>
+    <description>A tool</description>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+
+_OUTPUTS_OUTPUT = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command>echo</command>
+    <inputs/>
+    <outputs>
+        <output name="out1" format="tabular"/>
+    </outputs>
+</tool>
+"""
+
+_INPUTS_REDUNDANT_NAME = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command>echo</command>
+    <inputs>
+        <param name="threads" argument="--threads" type="integer" value="1"/>
+    </inputs>
+    <outputs/>
+</tool>
+"""
+
+_COMMAND_NO_CDATA = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command>echo hello &amp; world</command>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+
+_COMMAND_ALREADY_CDATA = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command><![CDATA[echo hello & world]]></command>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+
+_HELP_NO_CDATA = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command>echo</command>
+    <inputs/>
+    <outputs/>
+    <help>Use this tool &amp; enjoy it.</help>
+</tool>
+"""
+
+_BOOLEAN_NONCANONICAL = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <command>echo</command>
+    <inputs>
+        <param name="flag" type="boolean" checked="True" truevalue="--flag" falsevalue=""/>
+    </inputs>
+    <outputs/>
+</tool>
+"""
+
+_MACROS_XML = """\
+<macros>
+    <xml name="requirement_macro">
+        <requirement type="package" name="bwa" version=" 0.7.17 ">bwa</requirement>
+    </xml>
+</macros>
+"""
+
+_TOOL_WITH_MACRO_REQ = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <macros>
+        <import>macros.xml</import>
+    </macros>
+    <requirements>
+        <expand macro="requirement_macro"/>
+    </requirements>
+    <command>echo</command>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+
+
+def test_fix_tool_name_whitespace():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _TOOL_NAME_WHITESPACE)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert general.ToolNameWhitespace.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert 'name="Trimmed Name"' in content
+        # Idempotent: second run returns False
+        ts2 = _load_tool_for_fix(path)
+        assert not general.ToolNameWhitespace.fix(ts2, lint_ctx)
+
+
+def test_fix_tool_name_whitespace_dry_run():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _TOOL_NAME_WHITESPACE)
+        ts = _load_tool_for_fix(path)
+        _, diff = lint_tool_source_and_fix(ts, dry_run=True)
+        # File must be unchanged
+        assert _read_file(path) == _TOOL_NAME_WHITESPACE
+        # Diff must mention the name change
+        assert "Trimmed Name" in diff
+
+
+def test_fix_requirement_version_whitespace():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _REQ_VERSION_WHITESPACE)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert general.RequirementVersionWhitespace.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert 'version="1.20"' in content
+
+
+def test_fix_requirement_version_whitespace_in_macro():
+    """fix() must update the macro file and leave the main tool file byte-for-byte unchanged."""
+    with tempfile.TemporaryDirectory() as d:
+        tool_path = _write_file(d, "tool.xml", _TOOL_WITH_MACRO_REQ)
+        _write_file(d, "macros.xml", _MACROS_XML)
+        ts = _load_tool_for_fix(tool_path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert general.RequirementVersionWhitespace.fix(ts, lint_ctx)
+        macro_content = _read_file(os.path.join(d, "macros.xml"))
+        assert 'version="0.7.17"' in macro_content
+        # Main tool file must be completely untouched (byte-for-byte match).
+        assert _read_file(tool_path) == _TOOL_WITH_MACRO_REQ
+
+
+def test_fix_xml_order():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _XML_ORDER_WRONG)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert xml_order.XMLOrder.fix(ts, lint_ctx)
+        content = _read_file(path)
+        desc_pos = content.index("<description>")
+        cmd_pos = content.index("<command>")
+        assert desc_pos < cmd_pos, "description should come before command after fix"
+
+
+def test_fix_outputs_output():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _OUTPUTS_OUTPUT)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert output.OutputsOutput.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert "<data " in content
+        assert "<output " not in content
+
+
+def test_fix_inputs_redundant_name():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _INPUTS_REDUNDANT_NAME)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert inputs.InputsNameRedundantArgument.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert 'name="threads"' not in content
+        assert 'argument="--threads"' in content
+
+
+def test_fix_command_cdata():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _COMMAND_NO_CDATA)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert command.CommandCdata.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert "<![CDATA[" in content
+        # Idempotent
+        ts2 = _load_tool_for_fix(path)
+        assert not command.CommandCdata.fix(ts2, lint_ctx)
+
+
+def test_fix_command_cdata_already_wrapped():
+    """fix() must not re-wrap an already CDATA-wrapped command and must not touch the file."""
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _COMMAND_ALREADY_CDATA)
+        original = _read_file(path)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert not command.CommandCdata.fix(ts, lint_ctx)
+        assert _read_file(path) == original  # file must be untouched
+
+
+def test_fix_help_cdata():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _HELP_NO_CDATA)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert command.HelpCdata.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert "<![CDATA[" in content
+
+
+def test_fix_boolean_values():
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _BOOLEAN_NONCANONICAL)
+        ts = _load_tool_for_fix(path)
+        lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+        assert general.BooleanValues.fix(ts, lint_ctx)
+        content = _read_file(path)
+        assert 'checked="true"' in content
+        assert 'checked="True"' not in content
+
+
+def test_lint_tool_source_and_fix_applies_all():
+    """lint_tool_source_and_fix applies multiple fixes in one pass."""
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _TOOL_NAME_WHITESPACE)
+        ts = _load_tool_for_fix(path)
+        passed, diff = lint_tool_source_and_fix(ts)
+        assert diff  # something changed
+        content = _read_file(path)
+        assert 'name="Trimmed Name"' in content
+
+
+
+def test_lint_tool_source_and_fix_multiple_fixes_same_file():
+    """Multiple fixes on the same file share the staged tree correctly."""
+    xml = """\
+<tool id="tool_id" name=" Tool " version="1.0" profile="21.09">
+    <command>echo</command>
+    <description>A tool</description>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", xml)
+        ts = _load_tool_for_fix(path)
+        _, diff = lint_tool_source_and_fix(ts)
+        content = _read_file(path)
+        # ToolNameWhitespace fix: name trimmed
+        assert 'name="Tool"' in content
+        # XMLOrder fix: description before command
+        desc_pos = content.index("<description>")
+        cmd_pos = content.index("<command>")
+        assert desc_pos < cmd_pos
+
+
+def test_lint_tool_source_and_fix_passed_return_value():
+    """passed=True (at error level) when only warnings remain after fixing."""
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", _TOOL_NAME_WHITESPACE)
+        ts = _load_tool_for_fix(path)
+        # The minimal fixture has warnings (no citations, tests, etc.) but no
+        # errors, so pass with fail_level=ERROR after name-whitespace is fixed.
+        passed, _ = lint_tool_source_and_fix(ts, fail_level=LintLevel.ERROR)
+        assert passed
+
+
+def test_lint_tool_source_and_fix_clean_tool():
+    """A tool with no fixable violations returns empty diff (no files rewritten)."""
+    clean_xml = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <description>A tool</description>
+    <command><![CDATA[echo]]></command>
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", clean_xml)
+        ts = _load_tool_for_fix(path)
+        passed, diff = lint_tool_source_and_fix(ts, fail_level=LintLevel.ERROR)
+        assert passed
+        assert diff == ""
+
+
+def test_fix_returns_false_without_source_path():
+    """fix() on a tool loaded without a source_path must return False, not crash."""
+    from lxml import etree as _etree
+
+    from galaxy.tool_util.parser.xml import XmlToolSource
+    from galaxy.util import ElementTree
+
+    xml = b'<tool id="t" name=" Padded " version="1.0"><command>x</command><inputs/><outputs/></tool>'
+    tree = ElementTree(_etree.fromstring(xml))
+    ts = XmlToolSource(tree)  # no source_path
+    lint_ctx = LintContext("all", lint_message_class=XMLLintMessageLine)
+    # All fix() methods must return False gracefully, not raise.
+    assert not general.ToolNameWhitespace.fix(ts, lint_ctx)
+    assert not general.RequirementVersionWhitespace.fix(ts, lint_ctx)
+    assert not command.CommandCdata.fix(ts, lint_ctx)
+
+
+def test_lint_tool_source_and_fix_unfixable_violation():
+    """A tool with an unfixable violation (no fix() impl) returns passed=False, empty diff."""
+    no_command_xml = """\
+<tool id="tool_id" name="Tool" version="1.0" profile="21.09">
+    <inputs/>
+    <outputs/>
+</tool>
+"""
+    with tempfile.TemporaryDirectory() as d:
+        path = _write_file(d, "tool.xml", no_command_xml)
+        ts = _load_tool_for_fix(path)
+        passed, diff = lint_tool_source_and_fix(ts)
+        assert not passed  # CommandMissing has no fix(), so tool stays broken
+        assert diff == ""  # nothing was changed

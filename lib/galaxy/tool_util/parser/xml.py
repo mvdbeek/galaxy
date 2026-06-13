@@ -170,12 +170,17 @@ class XmlToolSource(ToolSource):
     language = "xml"
 
     def __init__(
-        self, xml_tree: ElementTree, source_path: Optional["StrPath"] = None, macro_paths: Optional[List[str]] = None
+        self,
+        xml_tree: ElementTree,
+        source_path: Optional["StrPath"] = None,
+        macro_paths: Optional[List[str]] = None,
+        source_map: Optional[Dict[str, str]] = None,
     ) -> None:
         self.xml_tree = xml_tree
         self.root = self.xml_tree.getroot()
         self._source_path = source_path
         self._macro_paths = macro_paths or []
+        self._source_map: Dict[str, str] = source_map or {}
         self.legacy_defaults = Version(self.parse_profile()) == Version("16.01")
         self._string = xml_to_string(self.root)
 

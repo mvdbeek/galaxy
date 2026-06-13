@@ -26,19 +26,24 @@ if TYPE_CHECKING:
 
 MacrosDictT = Dict[str, List["Element"]]
 
+_GALAXY_SOURCE_FILE_ATTR = "_galaxy_source_file"
 
-def load_with_references(path: "StrPath") -> Tuple["ElementTree", Optional[List[str]]]:
-    """Load XML documentation from file system and preprocesses XML macros.
 
-    Return the XML representation of the expanded tree and paths to
-    referenced files that were imported (macros).
+def _expand_tree(path: "StrPath", tree: "ElementTree") -> Tuple[Optional[List[str]], Dict[str, str]]:
+    """Expand macros in *tree* in-place.
+
+    Returns ``(macro_paths, source_map)`` where *source_map* maps
+    XPath string → absolute source-file path for every element that
+    originated from an imported macro file.  Elements from the main tool
+    file have no entry in the map.  The ``_galaxy_source_file`` attribute
+    used internally to carry this information is stripped from the tree
+    before this function returns.
     """
-    tree = raw_xml_tree(path)
     root = tree.getroot()
 
     macros_el = _macros_el(root)
     if macros_el is None:
-        return tree, []
+        return [], {}
 
     macros: MacrosDictT = {}
     macro_paths = _import_macros(macros_el, path, macros)
@@ -64,7 +69,46 @@ def load_with_references(path: "StrPath") -> Tuple["ElementTree", Optional[List[
     for m in macros.get("template", []):
         macros_el.append(m)
     _expand_tokens_for_el(root, tokens)
+
+    # Build the source map from the internal tracking attribute, then strip it.
+    # Key by XPath string (via tree.getpath) rather than id() — lxml proxy
+    # objects are ephemeral and id() is not stable across separate iter/findall
+    # calls on the same C element.
+    source_map: Dict[str, str] = {}
+    for el in root.iter():
+        src = el.attrib.get(_GALAXY_SOURCE_FILE_ATTR)
+        if src is not None:
+            del el.attrib[_GALAXY_SOURCE_FILE_ATTR]
+            source_map[tree.getpath(el)] = src
+
+    return macro_paths, source_map
+
+
+def load_with_references(path: "StrPath") -> Tuple["ElementTree", Optional[List[str]]]:
+    """Load XML documentation from file system and preprocesses XML macros.
+
+    Return the XML representation of the expanded tree and paths to
+    referenced files that were imported (macros).
+    """
+    tree = raw_xml_tree(path)
+    macro_paths, _ = _expand_tree(path, tree)
     return tree, macro_paths
+
+
+def load_with_source_map(path: "StrPath") -> Tuple["ElementTree", Optional[List[str]], Dict[str, str]]:
+    """Like :func:`load_with_references` but also returns a *source_map*.
+
+    The source_map is a ``{xpath_string: absolute_path}`` dictionary for
+    every element that originated from an imported macro file.  Pass it to
+    :class:`~galaxy.tool_util.parser.xml.XmlToolSource` so that fix helpers
+    can determine which source file to edit.
+
+    CDATA sections are preserved so that lint/fix helpers can detect whether
+    a ``<command>`` or ``<help>`` block is already wrapped.
+    """
+    tree = raw_xml_tree(path, preserve_cdata=True)
+    macro_paths, source_map = _expand_tree(path, tree)
+    return tree, macro_paths, source_map
 
 
 def load(path: "StrPath") -> "ElementTree":
@@ -83,11 +127,15 @@ def template_macro_params(root: "Element") -> Dict[str, Union[str, None]]:
     return {}
 
 
-def raw_xml_tree(path: "StrPath") -> "ElementTree":
+def raw_xml_tree(path: "StrPath", preserve_cdata: bool = False) -> "ElementTree":
     """Load raw (no macro expansion) tree representation of XML represented
     at the specified path.
+
+    By default CDATA sections are stripped (same behaviour as the original
+    ``parse_xml`` default).  Pass ``preserve_cdata=True`` when you need to
+    detect or round-trip CDATA sections — e.g. in linting and fix helpers.
     """
-    tree = parse_xml(path, strip_whitespace=False, remove_comments=True)
+    tree = parse_xml(path, strip_whitespace=False, remove_comments=True, strip_cdata=not preserve_cdata)
     return tree
 
 
@@ -299,6 +347,10 @@ def _imported_macro_paths_from_el(macros_el: "Element") -> List[str]:
 def _load_macro_file(path: "StrPath", xml_base_dir: str, macros: MacrosDictT) -> List[str]:
     tree = parse_xml(path, strip_whitespace=False)
     root = tree.getroot()
+    # Tag every element with its source file so that fix() helpers can
+    # determine which file to edit after macro expansion.
+    for el in root.iter():
+        el.set(_GALAXY_SOURCE_FILE_ATTR, str(path))
     return _load_macros(root, xml_base_dir, macros)
 
 
@@ -376,6 +428,7 @@ __all__ = (
     "imported_macro_paths",
     "load",
     "load_with_references",
+    "load_with_source_map",
     "raw_xml_tree",
     "template_macro_params",
 )

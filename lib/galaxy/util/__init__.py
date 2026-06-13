@@ -396,12 +396,13 @@ def parse_xml(
     strip_whitespace: bool = True,
     remove_comments: bool = True,
     schemafname: Union[StrPath, None] = None,
+    strip_cdata: bool = True,
 ) -> ElementTree:
     """Returns a parsed xml tree"""
     parser = None
     schema = None
     if LXML_AVAILABLE:
-        parser = etree.XMLParser(resolve_entities=True, remove_comments=remove_comments)
+        parser = etree.XMLParser(resolve_entities=True, remove_comments=remove_comments, strip_cdata=strip_cdata)
         base_dir = Path(str(fname)).resolve().parent
         parser.resolvers.add(LocalOnlyResolver(base_dir))
         if schemafname:

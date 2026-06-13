@@ -44,16 +44,20 @@ In order to use this.
   that the additional properties must be given as keyword arguments.
 """
 
+import difflib
 import inspect
 from abc import (
     ABC,
     abstractmethod,
 )
 from enum import IntEnum
+from io import BytesIO
 from typing import (
     Callable,
+    Dict,
     List,
     Optional,
+    Tuple,
     Type,
     TYPE_CHECKING,
     TypeVar,
@@ -71,6 +75,7 @@ from galaxy.util import (
 if TYPE_CHECKING:
     from galaxy.tool_util.parser.interface import ToolSource
     from galaxy.tool_util_models import UserToolSource
+    from galaxy.util import ElementTree
 
 
 class LintLevel(IntEnum):
@@ -95,6 +100,26 @@ class Linter(ABC):
         should add at most one message to the lint context
         """
         pass
+
+    @classmethod
+    def fix(
+        cls,
+        tool_source: "ToolSource",
+        lint_ctx: "LintContext",
+        staged: Optional[Dict[str, "ElementTree"]] = None,
+    ) -> bool:
+        """Apply an automatic fix for the lint violation found by :meth:`lint`.
+
+        Linters that support automatic fixes override this method.  The
+        *staged* dict maps absolute file path → raw (unexpanded) lxml
+        ElementTree; pass the same dict across multiple fix() calls so that
+        later fixes see earlier fixes' in-memory mutations before any file is
+        written.  When *staged* is ``None`` the fix is applied and written to
+        disk immediately.
+
+        Returns ``True`` if a fix was applied.
+        """
+        return False
 
     @classmethod
     def name(cls) -> str:
@@ -429,3 +454,112 @@ def lint_xml_with(lint_context, tool_xml, extra_modules=None) -> LintContext:
     extra_modules = extra_modules or []
     tool_source = get_tool_source(xml_tree=tool_xml)
     return lint_tool_source_with(lint_context, tool_source, extra_modules=extra_modules)
+
+
+# ---------------------------------------------------------------------------
+# Auto-fix infrastructure
+# ---------------------------------------------------------------------------
+
+
+def _serialize_staged_tree(tree: "ElementTree") -> str:
+    buf = BytesIO()
+    tree.write(buf, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+    return buf.getvalue().decode("utf-8")
+
+
+def _generate_diff(staged: Dict[str, "ElementTree"], originals: Dict[str, str]) -> str:
+    """Return a unified diff string for all staged trees that differ from originals."""
+    diff_parts: List[str] = []
+    for path, tree in staged.items():
+        new_content = _serialize_staged_tree(tree)
+        original = originals.get(path, "")
+        if original != new_content:
+            diff_parts.extend(
+                difflib.unified_diff(
+                    original.splitlines(keepends=True),
+                    new_content.splitlines(keepends=True),
+                    fromfile=f"a/{path}",
+                    tofile=f"b/{path}",
+                )
+            )
+    return "".join(diff_parts)
+
+
+def _write_staged_trees(staged: Dict[str, "ElementTree"], originals: Dict[str, str]) -> str:
+    """Write all changed trees in *staged* to disk and return a unified diff."""
+    diff = _generate_diff(staged, originals)
+    for path, tree in staged.items():
+        if originals.get(path, "") != _serialize_staged_tree(tree):
+            tree.write(path, pretty_print=True, xml_declaration=True, encoding="UTF-8")
+    return diff
+
+
+def lint_tool_source_and_fix(
+    tool_source: "ToolSource",
+    level: LintLevel = LintLevel.ALL,
+    fail_level: LintLevel = LintLevel.WARN,
+    extra_modules: Optional[List] = None,
+    skip_types: Optional[List[str]] = None,
+    name: Optional[str] = None,
+    dry_run: bool = False,
+) -> Tuple[bool, str]:
+    """Lint *tool_source*, apply all available automatic fixes, and return
+    ``(passed_after_fix, unified_diff)``.
+
+    The unified diff shows every change that was (or would be, when
+    *dry_run* is ``True``) applied across all source files.  When
+    *dry_run* is ``False`` (the default) the source files are rewritten
+    in place.
+    """
+    extra_modules = extra_modules or []
+    skip_types = skip_types or []
+
+    # Run lint first so fix() methods can inspect existing lint messages.
+    lint_context = LintContext(level=level, skip_types=skip_types, object_name=name)
+    linter_modules = submodules.import_submodules(galaxy.tool_util.linters)
+    linter_modules.extend(extra_modules)
+    lint_tool_source_with_modules(lint_context, tool_source, linter_modules)
+
+    tool_type = tool_source.parse_tool_type() or "default"
+    staged: Dict[str, ElementTree] = {}
+    originals: Dict[str, str] = {}
+    fixes_applied = 0
+
+    # Snapshot original content of every source file before any mutation.
+    def _snapshot(path: str) -> None:
+        if path and path not in originals:
+            try:
+                with open(path) as fh:
+                    originals[path] = fh.read()
+            except OSError:
+                pass
+
+    source_path = getattr(tool_source, "source_path", None)
+    if source_path:
+        _snapshot(source_path)
+    for mp in getattr(tool_source, "macro_paths", []) or []:
+        _snapshot(mp)
+
+    for module in linter_modules:
+        lint_tool_types = getattr(module, "lint_tool_types", ["default", "manage_data"])
+        if not ("*" in lint_tool_types or tool_type in lint_tool_types):
+            continue
+        for _name, value in inspect.getmembers(module):
+            if not (inspect.isclass(value) and issubclass(value, Linter) and not inspect.isabstract(value)):
+                continue
+            if value.fix(tool_source, lint_context, staged=staged):
+                fixes_applied += 1
+
+    if dry_run:
+        unified_diff = _generate_diff(staged, originals)
+    else:
+        unified_diff = _write_staged_trees(staged, originals)
+
+    # Re-lint the fixed tool to compute the final pass/fail.
+    if fixes_applied and not dry_run and source_path:
+        lint_context = LintContext(level=level, skip_types=skip_types, object_name=name)
+        tool_source_fixed = get_tool_source(config_file=source_path)
+        lint_tool_source_with_modules(lint_context, tool_source_fixed, linter_modules)
+
+    passed = not lint_context.failed(fail_level)
+    return passed, unified_diff
