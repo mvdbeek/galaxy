@@ -1875,6 +1875,12 @@ def _carried_state_label(value) -> str:
     return "not in current history"
 
 
+def _is_connected_value(value) -> bool:
+    """True iff ``value`` is a workflow ``ConnectedValue`` (an input fed by an
+    upstream step's output rather than chosen at runtime)."""
+    return is_runtime_value(value) and runtime_to_json(value)["__class__"] == "ConnectedValue"
+
+
 # Sentinel distinguishing a populated cache entry (always a ``(rows, total)``
 # tuple) from a cache miss.
 _PAGE_CACHE_MISS: Any = object()
@@ -2051,6 +2057,10 @@ class BaseDataToolParameter(ToolParameter):
         if trans.workflow_building_mode is workflow_building_modes.ENABLED or trans.app.name == "tool_shed":
             return RuntimeValue()
         if self.optional:
+            return None
+        if _is_connected_value((other_values or {}).get(self.name)):
+            # Connected inputs are supplied by an upstream step; there is no
+            # default to pick from the history, so skip the scan (issue #22927).
             return None
         if (history := trans.history) is not None:
             dataset_matcher_factory = get_dataset_matcher_factory(trans)
@@ -2577,6 +2587,12 @@ class DataToolParameter(BaseDataToolParameter):
         if history is None or trans.workflow_building_mode is workflow_building_modes.ENABLED:
             return d
 
+        if _is_connected_value(other_values.get(self.name)):
+            # Input is wired to an upstream step: the run form renders it as
+            # "connected" (no dropdown) and never uses these options, so skip the
+            # per-parameter history scan entirely (issue #22927).
+            return d
+
         dataset_matcher_factory = get_dataset_matcher_factory(trans)
         dataset_matcher = dataset_matcher_factory.dataset_matcher(self, other_values)
 
@@ -2933,6 +2949,11 @@ class DataCollectionToolParameter(BaseDataToolParameter):
 
         history = trans.history
         if history is None or trans.workflow_building_mode is workflow_building_modes.ENABLED:
+            return d
+
+        if _is_connected_value(other_values.get(self.name)):
+            # Connected collection input: fed by an upstream step, rendered as
+            # "connected" with no dropdown, so skip the history scan (issue #22927).
             return d
 
         dataset_matcher_factory = get_dataset_matcher_factory(trans)
