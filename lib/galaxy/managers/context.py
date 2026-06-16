@@ -37,7 +37,10 @@ A method that requires a user but not a history should declare its
 # more checks against this issue.
 import abc
 import string
-from collections.abc import Callable
+from collections.abc import (
+    Callable,
+    Hashable,
+)
 from json import dumps
 from typing import (
     Any,
@@ -201,12 +204,12 @@ class ProvidesUserContext(ProvidesAppContext):
     workflow_building_mode: Literal[1, True, False] = False
     galaxy_session: Optional[GalaxySession] = None
     _tag_handler: Optional[GalaxyTagHandlerSession] = None
-    _short_term_cache: dict[tuple[str, ...], Any]
+    _short_term_cache: dict[tuple[Hashable, ...], Any]
 
-    def set_cache_value(self, args: tuple[str, ...], value: Any):
+    def set_cache_value(self, args: tuple[Hashable, ...], value: Any):
         self._short_term_cache[args] = value
 
-    def get_cache_value(self, args: tuple[str, ...], default: Any = None) -> Any:
+    def get_cache_value(self, args: tuple[Hashable, ...], default: Any = None) -> Any:
         return self._short_term_cache.get(args, default)
 
     @property

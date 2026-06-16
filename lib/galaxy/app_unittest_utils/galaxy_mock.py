@@ -5,6 +5,7 @@ Mock infrastructure for testing ModelManagers.
 import os
 import shutil
 import tempfile
+from collections.abc import Hashable
 from typing import (
     Any,
     cast,
@@ -335,6 +336,7 @@ class MockTrans:
         self.__user = user
         self.security = self.app.security
         self.history = history
+        self._short_term_cache: dict[tuple[Hashable, ...], Any] = {}
 
         self.request: Any = Bunch(
             headers={},
@@ -348,6 +350,12 @@ class MockTrans:
     @property
     def tag_handler(self):
         return self.app.tag_handler
+
+    def set_cache_value(self, args: tuple[Hashable, ...], value: Any):
+        self._short_term_cache[args] = value
+
+    def get_cache_value(self, args: tuple[Hashable, ...], default: Any = None) -> Any:
+        return self._short_term_cache.get(args, default)
 
     def check_csrf_token(self, payload):
         pass

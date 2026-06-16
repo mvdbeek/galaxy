@@ -1,4 +1,5 @@
 import abc
+from collections.abc import Hashable
 from typing import (
     Any,
     Literal,
@@ -39,13 +40,19 @@ class WorkRequestContext(ProvidesHistoryContext):
         workflow_building_mode=False,
         url_builder=None,
         galaxy_session: Optional["GalaxySession"] = None,
+        short_term_cache: Optional[dict[tuple[Hashable, ...], Any]] = None,
     ):
         self._app = app
         self.__user = user
         self.__user_current_roles: Optional[list[Role]] = None
         self.__history = history
         self._url_builder = url_builder
-        self._short_term_cache: dict[tuple[str, ...], Any] = {}
+        # When proxying an existing transaction (see ``proxy_work_context_for_history``)
+        # share its request-scoped cache so work done across proxies of the same
+        # request -- e.g. every step of a workflow Run form build -- is reused.
+        self._short_term_cache: dict[tuple[Hashable, ...], Any] = (
+            short_term_cache if short_term_cache is not None else {}
+        )
         self.workflow_building_mode = workflow_building_mode
         self.galaxy_session = galaxy_session
 
@@ -195,4 +202,5 @@ def proxy_work_context_for_history(
         url_builder=trans.url_builder,
         workflow_building_mode=workflow_building_mode,
         galaxy_session=trans.galaxy_session,
+        short_term_cache=trans._short_term_cache,
     )

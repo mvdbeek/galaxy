@@ -102,6 +102,7 @@ from .workflow_utils import (
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from galaxy.managers.context import ProvidesHistoryContext
     from galaxy.model import (
         History,
         HistoryItem,
@@ -1874,6 +1875,11 @@ def _carried_state_label(value) -> str:
     return "not in current history"
 
 
+# Sentinel distinguishing a populated cache entry (always a ``(rows, total)``
+# tuple) from a cache miss.
+_PAGE_CACHE_MISS: Any = object()
+
+
 class BaseDataToolParameter(ToolParameter):
     multiple: bool
 
@@ -1969,6 +1975,68 @@ class BaseDataToolParameter(ToolParameter):
         self._acceptable_extensions_cache = accepted
         return accepted
 
+    def _paginated_visible_datasets(
+        self,
+        trans: "ProvidesHistoryContext",
+        history: "History",
+        *,
+        extensions: Optional[set[str]],
+        valid_states: Optional[tuple[str, ...]],
+        search: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[HistoryDatasetAssociation], int]:
+        """``history.paginated_active_visible_datasets`` memoized on the request.
+
+        Building one form with many ``data`` parameters (most notably the workflow
+        Run form, which renders every step in a single request) otherwise re-issues
+        the same paginated SQL against the same, unchanging history once per
+        parameter -- O(parameters) round-trips, slow even on an empty history
+        (issue #22927). The results are cached by signature on the request context's
+        short-term cache (see ``ProvidesHistoryContext.set_cache_value``); the cache
+        is shared across every step's proxy work context for the request and never
+        outlives it, so the history cannot change underneath it.
+        """
+        key = (
+            "data_param_hda_page",
+            history.id,
+            frozenset(extensions) if extensions is not None else None,
+            tuple(valid_states) if valid_states is not None else None,
+            search or None,
+            offset,
+            limit,
+        )
+        cached = trans.get_cache_value(key, _PAGE_CACHE_MISS)
+        if cached is not _PAGE_CACHE_MISS:
+            return cached
+        result = history.paginated_active_visible_datasets(
+            extensions=extensions, valid_states=valid_states, search=search, offset=offset, limit=limit
+        )
+        trans.set_cache_value(key, result)
+        return result
+
+    def _paginated_dataset_collections(
+        self,
+        trans: "ProvidesHistoryContext",
+        history: "History",
+        *,
+        visible_only: bool,
+        search: Optional[str] = None,
+        offset: int = 0,
+        limit: int = 50,
+    ) -> tuple[list[HistoryDatasetCollectionAssociation], int]:
+        """``history.paginated_active_dataset_collections`` memoized on the request
+        context's short-term cache (see :meth:`_paginated_visible_datasets`)."""
+        key = ("data_param_hdca_page", history.id, bool(visible_only), search or None, offset, limit)
+        cached = trans.get_cache_value(key, _PAGE_CACHE_MISS)
+        if cached is not _PAGE_CACHE_MISS:
+            return cached
+        result = history.paginated_active_dataset_collections(
+            visible_only=visible_only, search=search, offset=offset, limit=limit
+        )
+        trans.set_cache_value(key, result)
+        return result
+
     def _uses_python_options_filter(self) -> bool:
         """True iff matching depends on per-row Python state that cannot be
         pushed to SQL (dynamic options with ``options_filter_attribute``, or a
@@ -1993,7 +2061,9 @@ class BaseDataToolParameter(ToolParameter):
                 chunk_size = MAX_OPTIONS_PAGE_SIZE
                 db_offset = 0
                 while True:
-                    rows, total = history.paginated_active_visible_datasets(
+                    rows, total = self._paginated_visible_datasets(
+                        trans,
+                        history,
                         extensions=self._acceptable_extensions(),
                         valid_states=dataset_matcher_factory.valid_input_states,
                         offset=db_offset,
@@ -2013,17 +2083,19 @@ class BaseDataToolParameter(ToolParameter):
                 chunk_size = MAX_OPTIONS_PAGE_SIZE
                 db_offset = 0
                 while True:
-                    rows, total = history.paginated_active_dataset_collections(
+                    collection_rows, total = self._paginated_dataset_collections(
+                        trans,
+                        history,
                         visible_only=True,
                         offset=db_offset,
                         limit=chunk_size,
                     )
-                    if not rows:
+                    if not collection_rows:
                         return None
-                    for hdca in rows:
+                    for hdca in collection_rows:
                         if dataset_collection_matcher.hdca_match(hdca):
                             return hdca
-                    db_offset += len(rows)
+                    db_offset += len(collection_rows)
                     if db_offset >= total:
                         return None
 
@@ -2517,7 +2589,7 @@ class DataToolParameter(BaseDataToolParameter):
         job_input_values = util.listify(other_values.get(self.name))
 
         job_input_values = self._page_hda_matches(
-            builder, history, dataset_matcher, dataset_matcher_factory, job_input_values
+            trans, builder, history, dataset_matcher, dataset_matcher_factory, job_input_values
         )
         unresolved = self._pin_live_hda_inputs(builder, history, dataset_matcher, job_input_values)
         self._carry_unresolved_inputs(builder, history, unresolved)
@@ -2553,6 +2625,7 @@ class DataToolParameter(BaseDataToolParameter):
 
     def _page_hda_matches(
         self,
+        trans,
         builder: DataOptionsBuilder,
         history,
         dataset_matcher,
@@ -2569,7 +2642,9 @@ class DataToolParameter(BaseDataToolParameter):
         valid_states = dataset_matcher_factory.valid_input_states
 
         def hda_query(*, offset, limit):
-            return history.paginated_active_visible_datasets(
+            return self._paginated_visible_datasets(
+                trans,
+                history,
                 extensions=acceptable_extensions,
                 valid_states=valid_states,
                 search=hda_search,
@@ -2677,8 +2752,8 @@ class DataToolParameter(BaseDataToolParameter):
         _offset, _limit, hdca_search = builder.page("hdca")
 
         def hdca_query(*, offset, limit):
-            return history.paginated_active_dataset_collections(
-                visible_only=True, search=hdca_search, offset=offset, limit=limit
+            return self._paginated_dataset_collections(
+                trans, history, visible_only=True, search=hdca_search, offset=offset, limit=limit
             )
 
         def hdca_filter(hdca):
@@ -2902,8 +2977,8 @@ class DataCollectionToolParameter(BaseDataToolParameter):
         history_query = self._history_query(trans)
 
         def hdca_query(*, offset, limit):
-            return history.paginated_active_dataset_collections(
-                visible_only=False, search=hdca_search, offset=offset, limit=limit
+            return self._paginated_dataset_collections(
+                trans, history, visible_only=False, search=hdca_search, offset=offset, limit=limit
             )
 
         def hdca_filter(hdca):

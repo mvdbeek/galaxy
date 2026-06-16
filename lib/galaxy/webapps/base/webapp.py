@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import time
+from collections.abc import Hashable
 from contextlib import ExitStack
 from http.cookies import CookieError
 from typing import (
@@ -337,7 +338,7 @@ class GalaxyWebTransaction(base.DefaultWebTransaction, context.ProvidesHistoryCo
         self.galaxy_session = None
         self.error_message = None
         self.host = self.request.host
-        self._short_term_cache: dict[tuple[str, ...], Any] = {}
+        self._short_term_cache: dict[tuple[Hashable, ...], Any] = {}
 
         # set any cross origin resource sharing headers if configured to do so
         self.set_cors_headers()
