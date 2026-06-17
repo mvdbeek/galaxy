@@ -221,20 +221,6 @@ class DatabaseVault(Vault):
         if key_obj and key_obj.value:
             f = self._get_multi_fernet()
             return f.decrypt(key_obj.value.encode("utf-8")).decode("utf-8")
-        # Galaxy <= 26.0 emitted a leading slash in vault keys, which was stored
-        # in the database. PR #22530 normalized keys to not have leading slashes.
-        # Fall back to reading the legacy form and rewrite under the canonical
-        # key so the secret survives the Galaxy upgrade. This fallback can be
-        # removed after a deprecation window once operators have migrated.
-        legacy_key_obj = self._get_vault_value(f"/{key}")
-        if legacy_key_obj and legacy_key_obj.value:
-            log.warning("Migrating legacy non-canonical DatabaseVault secret to canonical path: %s", key)
-            f = self._get_multi_fernet()
-            value = f.decrypt(legacy_key_obj.value.encode("utf-8")).decode("utf-8")
-            self.write_secret(key, value)
-            self.sa_session.delete(legacy_key_obj)
-            self.sa_session.flush()
-            return value
         return None
 
     def write_secret(self, key: str, value: str) -> None:
@@ -314,7 +300,7 @@ class VaultKeyPrefixWrapper(Vault):
     Adds a prefix to all vault keys, such as the galaxy instance id
     """
 
-    def __init__(self, vault: Vault, prefix: str):
+    def __init__(self, vault: Vault, prefix: str, leading_slash: bool = False):
         self.vault = vault
         # Strip conventional outer slashes so admins can write `/galaxy`,
         # `galaxy`, or `/galaxy/` interchangeably in config. Reject anything
@@ -326,12 +312,21 @@ class VaultKeyPrefixWrapper(Vault):
                 "double slashes or whitespace adjacent to a slash."
             )
         self.prefix = stripped
+        # HashicorpVault must use canonical (no leading slash) paths, since hvac
+        # turns a leading slash into a `//` KV path that Vault 2.0 rejects (#22530).
+        # DatabaseVault stores the key verbatim in a DB column where the leading
+        # slash is harmless, so it keeps the legacy `/{prefix}/{key}` location to
+        # avoid orphaning secrets written before #22530.
+        self.leading_slash = leading_slash
+
+    def _prefixed(self, key: str) -> str:
+        return f"/{self.prefix}/{key}" if self.leading_slash else f"{self.prefix}/{key}"
 
     def read_secret(self, key: str) -> Optional[str]:
-        return self.vault.read_secret(f"{self.prefix}/{key}")
+        return self.vault.read_secret(self._prefixed(key))
 
     def write_secret(self, key: str, value: str) -> None:
-        return self.vault.write_secret(f"{self.prefix}/{key}", value)
+        return self.vault.write_secret(self._prefixed(key), value)
 
     def list_secrets(self, key: str) -> list[str]:
         raise NotImplementedError()
@@ -348,15 +343,21 @@ class VaultFactory:
     @staticmethod
     def from_vault_type(app, vault_type: Optional[str], cfg: dict) -> Vault:
         vault: Vault
+        # DatabaseVault keeps the legacy leading-slash key location (see
+        # VaultKeyPrefixWrapper); HashicorpVault must use canonical paths.
+        legacy_leading_slash = False
         if vault_type == "hashicorp":
             token_renewal_enabled = app.config.vault_token_renewal_interval > 0
             vault = HashicorpVault(cfg, token_renewal_enabled=token_renewal_enabled)
         elif vault_type == "database":
             vault = DatabaseVault(app.model.context, cfg)
+            legacy_leading_slash = True
         else:
             raise InvalidVaultConfigException(f"Unknown vault type: {vault_type}")
         vault_prefix = cfg.get("path_prefix") or "/galaxy"
-        return VaultKeyValidationWrapper(VaultKeyPrefixWrapper(vault, prefix=vault_prefix))
+        return VaultKeyValidationWrapper(
+            VaultKeyPrefixWrapper(vault, prefix=vault_prefix, leading_slash=legacy_leading_slash)
+        )
 
     @staticmethod
     def from_app(app) -> Vault:

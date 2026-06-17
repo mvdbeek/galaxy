@@ -130,32 +130,23 @@ class TestDatabaseVault(AbstractTestCases.VaultTestBase):
         with self.assertRaises(InvalidToken):
             vault.read_secret("my/incorrect/secret")
 
-    def test_legacy_key_migration(self):
-        # Simulate a secret stored with a leading slash (pre-26.1 format)
+    def test_database_vault_keeps_legacy_leading_slash_location(self):
+        # DatabaseVault never had the hvac double-slash problem, so it keeps the
+        # pre-26.1 leading-slash key location to avoid orphaning existing secrets.
         config = GalaxyDataTestConfig(vault_config_file=VAULT_CONF_DATABASE)
         app = GalaxyDataTestApp(config=config)
         vault = VaultFactory.from_app(app)
 
-        # The vault chain is VaultKeyValidationWrapper(VaultKeyPrefixWrapper(DatabaseVault))
-        # The prefix is 'my_galaxy_instance' (from vault_conf_database.yml with leading slash stripped)
-        # Pre-26.1, VaultKeyPrefixWrapper emitted /{prefix}/{key}, so the DB stored keys like
-        # /my_galaxy_instance/my/legacy/secret. Write that directly to simulate the legacy state.
+        vault.write_secret("my/legacy/secret", "legacy value")
+
         inner = _unwrap_vault(vault)
         assert isinstance(inner, DatabaseVault)
-        inner.write_secret("/my_galaxy_instance/my/legacy/secret", "legacy value")
-
-        # Read with the new canonical format through the full wrapper chain
-        # VaultKeyValidationWrapper normalizes → VaultKeyPrefixWrapper adds prefix →
-        # DatabaseVault.read_secret("my_galaxy_instance/my/legacy/secret") should migrate
+        # The prefix is 'my_galaxy_instance' (from vault_conf_database.yml). The
+        # secret must be stored under the legacy leading-slash key, matching what
+        # pre-26.1 Galaxy wrote so upgraded instances can still read it.
+        assert inner._get_vault_value("/my_galaxy_instance/my/legacy/secret") is not None
+        assert inner._get_vault_value("my_galaxy_instance/my/legacy/secret") is None
         assert vault.read_secret("my/legacy/secret") == "legacy value"
-
-        # Verify the secret is now accessible with the canonical key
-        assert vault.read_secret("my/legacy/secret") == "legacy value"
-
-        # Verify the legacy key no longer exists (was migrated to canonical form)
-        assert inner._get_vault_value("/my_galaxy_instance/my/legacy/secret") is None
-        # Verify the canonical key now exists
-        assert inner._get_vault_value("my_galaxy_instance/my/legacy/secret") is not None
 
 
 def _make_mocked_hashicorp_vault() -> HashicorpVault:
@@ -179,6 +170,23 @@ def test_vault_key_prefix_wrapper_emits_canonical_path(prefix):
     vault.write_secret("user/1/preferences/editor", "vscode")
     inner.client.secrets.kv.v2.create_or_update_secret.assert_called_once_with(
         path="galaxy/user/1/preferences/editor", secret={"value": "vscode"}
+    )
+
+
+@pytest.mark.parametrize("prefix", ["/galaxy", "galaxy", "/galaxy/"])
+def test_vault_key_prefix_wrapper_emits_legacy_leading_slash_path(prefix):
+    # DatabaseVault keeps the legacy leading-slash location. The wrapper must
+    # prepend a single leading slash regardless of how the prefix is spelled.
+    inner = _make_mocked_hashicorp_vault()
+    inner.client.secrets.kv.read_secret_version.return_value = {"data": {"data": {"value": "v"}}}
+    vault = VaultKeyValidationWrapper(VaultKeyPrefixWrapper(inner, prefix=prefix, leading_slash=True))
+
+    assert vault.read_secret("user/1/preferences/editor") == "v"
+    inner.client.secrets.kv.read_secret_version.assert_called_once_with(path="/galaxy/user/1/preferences/editor")
+
+    vault.write_secret("user/1/preferences/editor", "vscode")
+    inner.client.secrets.kv.v2.create_or_update_secret.assert_called_once_with(
+        path="/galaxy/user/1/preferences/editor", secret={"value": "vscode"}
     )
 
 
