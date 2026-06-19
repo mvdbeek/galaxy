@@ -4228,6 +4228,12 @@ mapping:
           retries"). custom_tool's producer keeps a budget of 0 because it runs its
           own reflection loop; a shared ``default`` block does not change that -- set
           ``custom_tool.retries`` explicitly to override it.
+          custom_tool also accepts ``quality_critic_enabled`` (default false) to turn on the
+          LLM critic, and ``container_recommendation_enabled`` (default false) to verify the
+          produced tool's container against quay.io biocontainers. The latter relies on the
+          critic, so it only takes effect when ``quality_critic_enabled`` is also true, and it
+          adds an opt-in outbound network call to quay.io during the agent turn. Example:
+          inference_services: { custom_tool: { quality_critic_enabled: true, container_recommendation_enabled: true } }
 
       agent_model_capabilities_file:
         type: str

@@ -2,7 +2,12 @@
 Custom tool creation agent for Galaxy.
 """
 
+import asyncio
 import logging
+from collections.abc import (
+    Callable,
+    Sequence,
+)
 from dataclasses import dataclass
 from pathlib import Path
 from typing import (
@@ -24,8 +29,15 @@ from pydantic_ai.exceptions import (
     ModelHTTPError,
     UnexpectedModelBehavior,
 )
+from pydantic_ai.tools import RunContext
 
 from galaxy.schema.agents import ConfidenceLevel
+from galaxy.tool_util.deps.mulled.recommend import (
+    ContainerRecommendation,
+    MatchQuality,
+    PackageSpec,
+    recommend_container,
+)
 from galaxy.tool_util.lint import lint_user_tool_source
 from galaxy.tool_util_models import (
     format_validation_errors,
@@ -90,6 +102,19 @@ def _invalid_attempt_yaml(messages: list[Any]) -> Optional[str]:
     return None
 
 
+class InferredPackage(BaseModel):
+    """A conda package the critic believes the tool wraps.
+
+    ``UserToolSource`` stores only a single ``container`` string and has no
+    package-requirement field, so the conda packages a tool needs cannot be
+    recovered from the produced tool. The critic surfaces them here so the
+    deterministic container-recommendation gate can verify a real biocontainer.
+    """
+
+    name: str
+    version: Optional[str] = None
+
+
 class CritiqueReport(BaseModel):
     """Structured critique returned by the LLM critic.
 
@@ -98,10 +123,15 @@ class CritiqueReport(BaseModel):
     options, container choice). The producer is re-rolled only when
     ``should_refine`` is true, which the critic should reserve for issues
     significant enough to be worth another model call.
+
+    ``inferred_packages`` lists the conda packages the critic thinks the tool
+    wraps; when container recommendation is enabled they feed a deterministic
+    biocontainer lookup against quay.io.
     """
 
     clarity_issues: list[str] = Field(default_factory=list)
     idiomaticity_issues: list[str] = Field(default_factory=list)
+    inferred_packages: list[InferredPackage] = Field(default_factory=list)
     should_refine: bool = False
     summary: str = ""
 
@@ -155,9 +185,15 @@ class CustomToolAgent(BaseGalaxyAgent):
     )
     DEFAULT_MAX_TOKENS = 16384
 
-    def __init__(self, deps: GalaxyAgentDependencies):
+    def __init__(
+        self,
+        deps: GalaxyAgentDependencies,
+        recommender: Callable[[Sequence[PackageSpec]], ContainerRecommendation] = recommend_container,
+    ):
         super().__init__(deps)
         self._critic_agent: Optional[Agent[GalaxyAgentDependencies, CritiqueReport]] = None
+        # Injected so tests can supply a fake instead of patching the module global.
+        self._recommender = recommender
 
     def _requires_structured_output(self) -> bool:
         return True
@@ -203,13 +239,35 @@ class CustomToolAgent(BaseGalaxyAgent):
         """Lazily build the critic agent. Same model as the producer by default;
         operators can override via ``inference_services.custom_tool.critic_model``."""
         if self._critic_agent is None:
-            self._critic_agent = Agent(
+            critic: Agent[GalaxyAgentDependencies, CritiqueReport] = Agent(
                 self._get_model(),
                 deps_type=GalaxyAgentDependencies,
                 output_type=CritiqueReport,
                 system_prompt=self._get_critic_system_prompt(),
                 retries=self._get_retries(),
             )
+
+            if self._container_recommendation_enabled():
+
+                @critic.tool
+                async def lookup_biocontainer(
+                    ctx: RunContext[GalaxyAgentDependencies], packages: list[InferredPackage]
+                ) -> dict[str, Any]:
+                    """Look up the real biocontainer image for the given conda packages.
+
+                    Returns the verified ``quay.io/biocontainers`` image (or null when
+                    none exists) so the critic flags the container against reality
+                    rather than guessing.
+                    """
+                    recommendation = await self._lookup_container(packages)
+                    return {
+                        "image": recommendation.image,
+                        "match_quality": recommendation.match_quality.value,
+                        "source": recommendation.source.value,
+                        "notes": list(recommendation.notes),
+                    }
+
+            self._critic_agent = critic
         return self._critic_agent
 
     def _validator_retry_enabled(self) -> bool:
@@ -217,6 +275,15 @@ class CustomToolAgent(BaseGalaxyAgent):
 
     def _quality_critic_enabled(self) -> bool:
         return bool(self._get_agent_config("quality_critic_enabled", False))
+
+    def _container_recommendation_enabled(self) -> bool:
+        """Verify the produced tool's container against quay.io biocontainers.
+
+        Off by default. Relies on the critic's ``inferred_packages``, so it only
+        takes effect when ``quality_critic_enabled`` is also on. Enabling it adds
+        an opt-in outbound network call (to quay.io) during the agent turn.
+        """
+        return bool(self._get_agent_config("container_recommendation_enabled", False))
 
     async def process(self, query: str, context: Optional[dict[str, Any]] = None) -> AgentResponse:
         validation_error = self._validate_query(query)
@@ -277,6 +344,23 @@ class CustomToolAgent(BaseGalaxyAgent):
             # Quality critic: only refine on significant issues, never re-critique.
             if self._quality_critic_enabled():
                 critique = await self._run_critic(tool_yaml, query)
+                recommendation = None
+                if critique is not None and self._container_recommendation_enabled() and critique.inferred_packages:
+                    # A name-only match is advisory: nudge the producer to fix the
+                    # container during refine. An exact match is applied
+                    # deterministically after refine so the re-roll can't undo it.
+                    recommendation = await self._lookup_container(critique.inferred_packages)
+                    if (
+                        recommendation.found
+                        and recommendation.match_quality == MatchQuality.NAME_ONLY
+                        and self._container_differs(tool.container, recommendation.image)
+                    ):
+                        critique.idiomaticity_issues.append(
+                            f"Container '{tool.container}' may not be ideal; the closest verified "
+                            f"biocontainer is {recommendation.image}. Prefer it if appropriate."
+                        )
+                        critique.should_refine = True
+
                 if critique is not None and critique.should_refine:
                     log.info(
                         "CustomTool: critic flagged %d clarity / %d idiomaticity issues; refining once",
@@ -291,6 +375,20 @@ class CustomToolAgent(BaseGalaxyAgent):
                             "CustomTool: refinement broke validation (%d issue(s)); keeping pre-refine tool",
                             len(refined.errors),
                         )
+
+                # Deterministic guarantee: an exact-version biocontainer overrides
+                # the container outright. Applied last so a refine re-roll can't
+                # reintroduce a generic image.
+                if (
+                    recommendation is not None
+                    and recommendation.image is not None
+                    and recommendation.match_quality == MatchQuality.EXACT_VERSION
+                    and self._container_differs(tool.container, recommendation.image)
+                ):
+                    rewritten = self._rewrite_container(tool, recommendation.image)
+                    if rewritten is not None:
+                        tool, tool_yaml = rewritten
+                        log.info("CustomTool: rewrote container to verified biocontainer %s", recommendation.image)
 
             return self._success_response(tool, tool_yaml, result, query, attempts=attempts)
 
@@ -426,6 +524,36 @@ class CustomToolAgent(BaseGalaxyAgent):
         except (OSError, ValueError, ModelHTTPError, UnexpectedModelBehavior) as e:
             log.warning("CustomTool: critic call failed (%s); skipping refine", e)
             return None
+
+    async def _lookup_container(self, packages: list[InferredPackage]) -> ContainerRecommendation:
+        """Resolve a verified biocontainer for ``packages`` off the event loop.
+
+        ``recommend_container`` is synchronous (``requests``) and never raises for
+        a missing container or transient network error, so it is safe to offload.
+        """
+        specs = [PackageSpec(p.name, p.version) for p in packages]
+        return await asyncio.to_thread(self._recommender, specs)
+
+    @staticmethod
+    def _container_differs(current: Optional[str], recommended: Optional[str]) -> bool:
+        if not recommended:
+            return False
+        return (current or "").strip() != recommended.strip()
+
+    def _rewrite_container(self, tool: UserToolSource, image: str) -> Optional[tuple[UserToolSource, str]]:
+        """Return ``(tool, yaml)`` with the container replaced, or None if that breaks validation."""
+        updated = tool.model_copy(update={"container": image})
+        lint_errors = lint_user_tool_source(updated)
+        if lint_errors:
+            log.warning(
+                "CustomTool: recommended container %s failed validation (%d issue(s)); keeping original",
+                image,
+                len(lint_errors),
+            )
+            return None
+        tool_dict = updated.model_dump(by_alias=True, exclude_none=True)
+        tool_yaml = yaml.dump(tool_dict, default_flow_style=False, sort_keys=False)
+        return updated, tool_yaml
 
     def _capability_error_response(self, message: str, query: str) -> AgentResponse:
         return self._build_response(

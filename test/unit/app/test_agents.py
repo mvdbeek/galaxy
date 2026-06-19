@@ -23,6 +23,7 @@ import os
 from types import SimpleNamespace
 from typing import (
     Any,
+    Optional,
 )
 from unittest import mock
 from unittest.mock import (
@@ -60,10 +61,18 @@ from galaxy.agents import (
     ToolRecommendationAgent,
 )
 from galaxy.agents.base import truncate_message_history
-from galaxy.agents.custom_tool import CritiqueReport
+from galaxy.agents.custom_tool import (
+    CritiqueReport,
+    InferredPackage,
+)
 from galaxy.agents.registry import build_default_registry
 from galaxy.agents.tools import SimplifiedToolRecommendationResult
 from galaxy.managers.agents import AgentService
+from galaxy.tool_util.deps.mulled.recommend import (
+    ContainerRecommendation,
+    MatchQuality,
+    RecommendationSource,
+)
 
 agent_registry = build_default_registry()
 from galaxy.agents import base as agents_base
@@ -1888,6 +1897,36 @@ def _mock_run_result(tool: UserToolSource) -> mock.Mock:
     return result
 
 
+class _RecordingRecommender:
+    """Fake ``recommend_container`` collaborator that records the specs it sees.
+
+    Injected via ``CustomToolAgent(deps, recommender=...)`` so tests assert on a
+    real (if simple) object instead of patching the module global.
+    """
+
+    def __init__(self, recommendation: ContainerRecommendation):
+        self.recommendation = recommendation
+        self.calls: list[list] = []
+
+    def __call__(self, specs, **kwargs) -> ContainerRecommendation:
+        self.calls.append(list(specs))
+        return self.recommendation
+
+
+def _quay_recommendation(
+    image: Optional[str], match_quality: MatchQuality = MatchQuality.EXACT_VERSION
+) -> ContainerRecommendation:
+    source = RecommendationSource.QUAY_SINGLE if image else RecommendationSource.NONE
+    return ContainerRecommendation(
+        image=image,
+        source=source,
+        match_quality=match_quality,
+        packages=(),
+        multi_package=False,
+        tag=image.split(":")[-1] if image else None,
+    )
+
+
 class TestCustomToolAgentReflection:
     """Tests for CustomToolAgent's validator-retry and quality-critic loops.
 
@@ -2130,6 +2169,132 @@ class TestCustomToolAgentReflection:
 
         assert response.confidence == ConfidenceLevel.HIGH
         assert response.metadata.get("tool_id") == "echo-tool"
+
+    def test_container_recommendation_flag_precedence(self):
+        """``container_recommendation_enabled`` reads from the custom_tool block; default off."""
+        self.mock_config.inference_services = None
+        assert CustomToolAgent(self.deps)._container_recommendation_enabled() is False
+
+        self.mock_config.inference_services = {"custom_tool": {"container_recommendation_enabled": True}}
+        assert CustomToolAgent(self.deps)._container_recommendation_enabled() is True
+
+    def test_critique_report_inferred_packages_default_empty(self):
+        assert CritiqueReport().inferred_packages == []
+
+    @staticmethod
+    def _critic_tool_names(critic) -> set:
+        # Reaches into pydantic-ai's private toolset to list registered tool names.
+        # There's no public API for this; if pydantic-ai moves it, update here.
+        toolset = getattr(critic, "_function_toolset", None)
+        return set(getattr(toolset, "tools", {}).keys()) if toolset is not None else set()
+
+    def test_lookup_tool_registered_only_when_enabled(self):
+        """The lookup_biocontainer critic tool is registered iff the flag is on."""
+        self.mock_config.inference_services = {"custom_tool": {"quality_critic_enabled": True}}
+        off = CustomToolAgent(self.deps)._get_critic_agent()
+        assert "lookup_biocontainer" not in self._critic_tool_names(off)
+
+        self.mock_config.inference_services = {
+            "custom_tool": {"quality_critic_enabled": True, "container_recommendation_enabled": True},
+        }
+        on = CustomToolAgent(self.deps)._get_critic_agent()
+        assert "lookup_biocontainer" in self._critic_tool_names(on)
+
+    @pytest.mark.asyncio
+    async def test_container_recommendation_disabled_skips_lookup(self):
+        """Critic on but container recommendation off -> no lookup, container untouched.
+
+        The lookup is gated specifically to avoid the outbound network call, so the
+        contract is "recommender not invoked" -- state alone can't express that (a
+        non-match also leaves the container unchanged). We assert both.
+        """
+        self.mock_config.inference_services = {"custom_tool": {"quality_critic_enabled": True}}
+        recommender = _RecordingRecommender(_quay_recommendation("quay.io/biocontainers/samtools:1.17--h0_0"))
+        agent = CustomToolAgent(self.deps, recommender=recommender)
+        tool = _valid_tool().model_copy(update={"container": "ubuntu:latest"})
+        critique = CritiqueReport(inferred_packages=[InferredPackage(name="samtools", version="1.17")])
+
+        with mock.patch.object(agent.agent, "run", return_value=_mock_run_result(tool)):
+            with mock.patch.object(agent, "_run_critic", new_callable=mock.AsyncMock, return_value=critique):
+                response = await agent.process("Create a samtools tool")
+
+        assert recommender.calls == []  # no network lookup
+        assert "ubuntu:latest" in response.metadata.get("tool_yaml", "")
+
+    @pytest.mark.asyncio
+    async def test_container_exact_match_rewrites_container(self):
+        """An exact-version biocontainer overrides a generic container, without a refine."""
+        self.mock_config.inference_services = {
+            "custom_tool": {"quality_critic_enabled": True, "container_recommendation_enabled": True},
+        }
+        recommended = "quay.io/biocontainers/samtools:1.17--h00cdaf9_0"
+        recommender = _RecordingRecommender(_quay_recommendation(recommended))
+        agent = CustomToolAgent(self.deps, recommender=recommender)
+        tool = _valid_tool().model_copy(update={"container": "ubuntu:latest"})
+        critique = CritiqueReport(
+            inferred_packages=[InferredPackage(name="samtools", version="1.17")],
+            should_refine=False,
+        )
+
+        with mock.patch.object(agent.agent, "run", return_value=_mock_run_result(tool)) as mock_run:
+            with mock.patch.object(agent, "_run_critic", new_callable=mock.AsyncMock, return_value=critique):
+                response = await agent.process("Create a samtools tool")
+
+        assert mock_run.call_count == 1  # no refine round-trip
+        assert recommended in response.metadata.get("tool_yaml", "")
+
+    @pytest.mark.asyncio
+    async def test_container_name_only_injects_issue_and_refines(self):
+        """A name-only match is advisory: it nudges the producer to refine."""
+        self.mock_config.inference_services = {
+            "custom_tool": {"quality_critic_enabled": True, "container_recommendation_enabled": True},
+        }
+        recommendation = _quay_recommendation(
+            "quay.io/biocontainers/samtools:1.17--h00cdaf9_0", match_quality=MatchQuality.NAME_ONLY
+        )
+        recommender = _RecordingRecommender(recommendation)
+        agent = CustomToolAgent(self.deps, recommender=recommender)
+        original = _valid_tool().model_copy(update={"container": "ubuntu:latest"})
+        refined = _valid_tool(name="Echo Tool (refined)")
+        critique = CritiqueReport(
+            inferred_packages=[InferredPackage(name="samtools")],
+            should_refine=False,
+        )
+
+        with mock.patch.object(
+            agent.agent, "run", side_effect=[_mock_run_result(original), _mock_run_result(refined)]
+        ) as mock_run:
+            with mock.patch.object(agent, "_run_critic", new_callable=mock.AsyncMock, return_value=critique):
+                response = await agent.process("Create a samtools tool")
+
+        # The real contract: the verified image is injected as an issue and flips refine on.
+        assert recommendation.image is not None
+        assert recommendation.image in " ".join(critique.idiomaticity_issues)
+        assert critique.should_refine is True
+        assert mock_run.call_count == 2  # ...which drives a single refine round-trip
+        assert response.confidence == ConfidenceLevel.HIGH
+
+    @pytest.mark.asyncio
+    async def test_container_recommendation_none_leaves_tool_unchanged(self):
+        """No biocontainer found -> tool produced unchanged, no exception."""
+        self.mock_config.inference_services = {
+            "custom_tool": {"quality_critic_enabled": True, "container_recommendation_enabled": True},
+        }
+        recommender = _RecordingRecommender(_quay_recommendation(None, match_quality=MatchQuality.NOT_FOUND))
+        agent = CustomToolAgent(self.deps, recommender=recommender)
+        tool = _valid_tool().model_copy(update={"container": "ubuntu:latest"})
+        critique = CritiqueReport(
+            inferred_packages=[InferredPackage(name="notarealpackage")],
+            should_refine=False,
+        )
+
+        with mock.patch.object(agent.agent, "run", return_value=_mock_run_result(tool)) as mock_run:
+            with mock.patch.object(agent, "_run_critic", new_callable=mock.AsyncMock, return_value=critique):
+                response = await agent.process("Create a tool")
+
+        assert recommender.calls  # lookup happened (packages were inferred)
+        assert mock_run.call_count == 1  # but nothing found -> no refine
+        assert "ubuntu:latest" in response.metadata.get("tool_yaml", "")
 
 
 @pytestmark_live_llm
