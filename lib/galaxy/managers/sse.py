@@ -253,6 +253,20 @@ class SSEConnectionManager:
             if self._statsd_client is not None:
                 self._statsd_client.incr("galaxy.sse.connections.dropped")
 
+    def count_user_connections(self, user_id: int) -> int:
+        """Number of live SSE connections this worker holds for ``user_id``.
+
+        Used by dispatch tracing to confirm the *last hop*: an event can arrive
+        at the worker and still reach no one if the user's connection lives on a
+        different worker (or nowhere). 0 here on every worker = delivered to the
+        broker but never pushed to a browser.
+        """
+        return len(self._connections.get(user_id, ()))
+
+    def count_session_connections(self, galaxy_session_id: int) -> int:
+        """Number of live SSE connections this worker holds for ``galaxy_session_id``."""
+        return len(self._session_connections.get(galaxy_session_id, ()))
+
     @property
     def connected_user_ids(self) -> set[int]:
         return set(self._connections.keys())

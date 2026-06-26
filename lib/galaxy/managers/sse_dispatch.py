@@ -101,12 +101,21 @@ class SSEEventDispatcher:
         # Only fan out to webapp processes — job handlers and workflow schedulers
         # don't have browser SSE connections to push to.
         declare_queues = self._get_declare_queues()
-        log.debug(
-            "SSE dispatch task=%s addressed to %d webapp worker(s): %s",
-            task,
-            len(declare_queues),
-            ", ".join(q.name for q in declare_queues) or "<none>",
-        )
+        # Include event_id + originating thread so this producer line ties into the
+        # ``galaxy.sse.trace`` publish/receipt correlation: web-request-context
+        # dispatches (the failing set) and the audit-monitor background thread (the
+        # working set) are distinguishable by thread name here. Guarded by
+        # ``isEnabledFor`` so the per-dispatch queue-name join (this runs on a hot
+        # path that fires continuously) is skipped entirely when DEBUG is off.
+        if log.isEnabledFor(logging.DEBUG):
+            log.debug(
+                "SSE dispatch task=%s event_id=%s thread=%s addressed to %d webapp worker(s): %s",
+                task,
+                kwargs.get("event_id"),
+                threading.current_thread().name,
+                len(declare_queues),
+                ", ".join(str(q.name) for q in declare_queues) or "<none>",
+            )
         control_task = self._control_task_factory(self._queue_worker)
         start_time = time.perf_counter() if self._statsd_client is not None else 0.0
         try:

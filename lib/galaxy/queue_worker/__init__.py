@@ -7,6 +7,7 @@ import importlib
 import json
 import logging
 import math
+import os
 import socket
 import sys
 import threading
@@ -42,6 +43,83 @@ from galaxy.tools.special_tools import load_lib_tools
 
 logging.getLogger("kombu").setLevel(logging.WARNING)
 log = logging.getLogger(__name__)
+
+# Dedicated logger for tracing the SSE control-queue dispatch path. Critical
+# signals (publish stalls/failures, periodic resource samples) are emitted at
+# WARNING so they show up under a default config; the high-volume per-call
+# breadcrumbs are at DEBUG so ``galaxy.sse.trace`` can be turned up to DEBUG in
+# the logging config to capture a full trace, then turned back down — all
+# without another deploy. See diagnosis in the SSE-dispatch troubleshooting plan.
+trace_log = logging.getLogger("galaxy.sse.trace")
+
+# Control-task names that carry SSE pushes — used to scope receipt tracing to the
+# tasks under investigation without logging every reload/admin control message.
+SSE_CONTROL_TASKS = frozenset(
+    {
+        "notify_users",
+        "notify_broadcast",
+        "history_update",
+        "entry_point_update",
+        "subscribe_history_viewer",
+        "unsubscribe_history_viewer",
+    }
+)
+
+# Process-wide dispatch metrics. ``ControlTask`` clones a fresh broker connection
+# per send and the global ``kombu.pools`` registries grow one entry per distinct
+# connection object — a monotonic climb here (or in the FD/pool sample) is the
+# signature of the leak hypothesis (H1); flat counts with publish stalls point at
+# concurrency/checkout-starvation (H2/H3).
+_dispatch_metrics_lock = threading.Lock()
+_dispatch_call_count = 0
+_connection_clone_count = 0
+# Sample the (relatively expensive) FD/pool counts only every Nth dispatch so the
+# instrumentation itself stays cheap on the hot path.
+_RESOURCE_SAMPLE_EVERY = 200
+
+
+def _open_fd_count() -> Optional[int]:
+    """Best-effort open file-descriptor count for this process (Linux /proc).
+
+    Returns ``None`` where ``/proc`` isn't available (e.g. macOS dev boxes) so the
+    sample degrades gracefully off the production Linux target.
+    """
+    try:
+        return len(os.listdir(f"/proc/{os.getpid()}/fd"))
+    except OSError:
+        return None
+
+
+def _note_dispatch_and_maybe_sample_resources() -> None:
+    """Count one dispatch and, every ``_RESOURCE_SAMPLE_EVERY`` calls, log a
+    resource sample (live connection clones, kombu pool sizes, open FDs)."""
+    global _dispatch_call_count
+    with _dispatch_metrics_lock:
+        _dispatch_call_count += 1
+        n = _dispatch_call_count
+        clones = _connection_clone_count
+    if n % _RESOURCE_SAMPLE_EVERY:
+        return
+    try:
+        from kombu.pools import (
+            connections as _kombu_connections,
+            producers as _kombu_producers,
+        )
+
+        n_conn_pools: int = len(_kombu_connections)
+        n_prod_pools: int = len(_kombu_producers)
+    except Exception:
+        n_conn_pools = n_prod_pools = -1
+    trace_log.warning(
+        "sse dispatch resource sample: dispatches=%d connection_clones=%d "
+        "kombu_conn_pools=%d kombu_prod_pools=%d open_fds=%s",
+        n,
+        clones,
+        n_conn_pools,
+        n_prod_pools,
+        _open_fd_count(),
+    )
+
 
 if TYPE_CHECKING:
     from galaxy.app import UniverseApplication
@@ -171,6 +249,12 @@ class ControlTask:
     def connection(self):
         if self._connection is None:
             self._connection = self.queue_worker.connection.clone()
+            # Track every fresh clone so the resource sampler can spot an
+            # unbounded climb (the leak hypothesis for degraded web-context
+            # publishing).
+            global _connection_clone_count
+            with _dispatch_metrics_lock:
+                _connection_clone_count += 1
         return self._connection
 
     @property
@@ -209,8 +293,29 @@ class ControlTask:
             reply_to = self.callback_queue.name
             callback_queue = [self.callback_queue]
             self.correlation_id = uuid()
+        # --- SSE dispatch tracing ------------------------------------------------
+        # Tag every publish with the originating thread so web-request-context
+        # dispatches (the failing set) can be told apart from the audit monitor's
+        # single background thread (the working set), and time ``acquire`` vs
+        # ``publish`` separately so a stalled pool checkout is visible as a gap.
+        task_name = payload.get("task")
+        kwargs_payload = payload.get("kwargs")
+        event_id = kwargs_payload.get("event_id") if isinstance(kwargs_payload, dict) else None
+        thread_name = threading.current_thread().name
+        n_declare = len(declare_queues) if declare_queues is not None else 0
+        _note_dispatch_and_maybe_sample_resources()
+        trace_log.debug(
+            "send_task begin task=%s event_id=%s thread=%s routing_key=%s declare_queues=%d",
+            task_name,
+            event_id,
+            thread_name,
+            routing_key,
+            n_declare,
+        )
+        t_start = time.perf_counter()
         try:
             with producers[self.connection].acquire(block=True, timeout=10) as producer:
+                t_acquired = time.perf_counter()
                 producer.publish(
                     payload,
                     exchange=None if local else self.exchange,
@@ -222,6 +327,15 @@ class ControlTask:
                     headers={"epoch": time.time()},
                     expiration=expiration,
                 )
+                t_published = time.perf_counter()
+            trace_log.debug(
+                "send_task ok task=%s event_id=%s thread=%s acquire_ms=%d publish_ms=%d",
+                task_name,
+                event_id,
+                thread_name,
+                int((t_acquired - t_start) * 1000),
+                int((t_published - t_acquired) * 1000),
+            )
             if get_response:
                 with Consumer(
                     self.connection,
@@ -233,12 +347,26 @@ class ControlTask:
                         self.connection.drain_events(timeout=timeout)
                 return self.response
         except TimeoutError:
+            trace_log.warning(
+                "send_task TIMEOUT task=%s event_id=%s thread=%s elapsed_ms=%d",
+                task_name,
+                event_id,
+                thread_name,
+                int((time.perf_counter() - t_start) * 1000),
+            )
             log.exception(
                 "Error waiting for task: '%s' sent with routing key '%s'",
                 payload,
                 routing_key,
             )
         except Exception:
+            trace_log.warning(
+                "send_task FAILED task=%s event_id=%s thread=%s elapsed_ms=%d",
+                task_name,
+                event_id,
+                thread_name,
+                int((time.perf_counter() - t_start) * 1000),
+            )
             log.exception("Error queueing async task: '%s'. for %s", payload, routing_key)
 
 
@@ -423,6 +551,17 @@ def notify_users(app: "MinimalManagerApp", **kwargs) -> None:
         id=payload.get("event_id"),
     )
     for user_id in payload.get("user_ids", []):
+        # Last-hop trace: did the worker that received this event actually hold a
+        # connection for the target user? 0 on every worker == delivered to the
+        # broker but pushed to no browser.
+        if trace_log.isEnabledFor(logging.DEBUG):
+            trace_log.debug(
+                "notify_users push user=%s matched_connections=%d event_id=%s server=%s",
+                user_id,
+                sse_manager.count_user_connections(user_id),
+                payload.get("event_id"),
+                app.config.server_name,
+            )
         sse_manager.push_to_user(user_id, event)
 
 
@@ -475,6 +614,17 @@ def history_update(app: "MinimalManagerApp", **kwargs) -> None:
         encoded_ids = [encode(hid) for hid in history_ids]
         data = json.dumps({"history_ids": encoded_ids})
         event = SSEEvent(event="history_update", data=data, id=event_id)
+        # Last-hop trace (see notify_users): owner-routed history updates and
+        # notifications share this push path, so comparing matched_connections
+        # between the two on the same worker isolates delivery from production.
+        if trace_log.isEnabledFor(logging.DEBUG):
+            trace_log.debug(
+                "history_update push user=%s matched_connections=%d event_id=%s server=%s",
+                user_id,
+                sse_manager.count_user_connections(user_id),
+                event_id,
+                app.config.server_name,
+            )
         sse_manager.push_to_user(user_id, event)
         for hid in history_ids:
             # Pre-populate the per-history cache so the viewer fan-out reuses
@@ -645,6 +795,19 @@ class GalaxyQueueWorker(ConsumerProducerMixin, threading.Thread):
     def process_task(self, body, message):
         result = "NO_RESULT"
         task_name = body.get("task")
+        # Trace receipt of SSE control tasks so a published event_id can be matched
+        # to (non-)arrival on each worker — the other half of the publish→receipt
+        # correlation. Logged before the epoch/noop gating so we can see messages
+        # that arrive but get discarded, too.
+        if task_name in SSE_CONTROL_TASKS:
+            receipt_kwargs = body.get("kwargs") or {}
+            trace_log.debug(
+                "process_task received task=%s event_id=%s server=%s thread=%s",
+                task_name,
+                receipt_kwargs.get("event_id"),
+                self.app.config.server_name,
+                threading.current_thread().name,
+            )
         statsd_client = self.app.execution_timer_factory.galaxy_statsd_client
         if statsd_client is not None and task_name is not None:
             statsd_client.incr("galaxy.control_queue.task.count", tags={"task": task_name})
