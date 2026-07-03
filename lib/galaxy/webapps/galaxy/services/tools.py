@@ -646,7 +646,7 @@ class ToolsService(ServiceBase):
         trans: ProvidesUserContext,
         in_panel: bool,
         tool_help: bool,
-        view: Optional[str],
+        view: str | None,
     ) -> list[dict[str, Any]]:
         """
         List tools, preferring the lazy toolbox index when available for flat listings.
@@ -666,7 +666,7 @@ class ToolsService(ServiceBase):
         self,
         trans: ProvidesUserContext,
         query: str,
-        view: Optional[str] = None,
+        view: str | None = None,
         limit: int = 50,
     ) -> list[str]:
         """Search tools via the ``app.toolbox_search`` singleton.
