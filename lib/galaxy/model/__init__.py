@@ -4940,6 +4940,21 @@ class Dataset(Base, StorableObject, Serializable):
         return self.extra_files_path_name_from(self.object_store)
 
     @property
+    def extra_files_path_names(self) -> list[str]:
+        """Every name this dataset's extra-files directory goes by.
+
+        The compute side renders it from the output dataset path's basename
+        (``dataset_path_to_extra_path``), which is uuid-keyed under
+        ``outputs_to_working_directory`` (``OutputsToWorkingDirectoryPathRewriter``)
+        whatever the object store uses; everywhere else it is the ``store_by``-keyed
+        ``extra_files_path_name``.
+        """
+        names = [f"dataset_{self.uuid}_files"]
+        if (name := self.extra_files_path_name) is not None and name not in names:
+            names.append(name)
+        return names
+
+    @property
     def _extra_files_rel_path(self):
         return self._extra_files_path or self.extra_files_path_name
 
@@ -5593,6 +5608,11 @@ class DatasetInstance(RepresentById, UsesCreateAndUpdateTime, _HasTable):
     @property
     def extra_files_path(self):
         return self.dataset.extra_files_path
+
+    @property
+    def extra_files_path_names(self) -> list[str]:
+        assert self.dataset is not None
+        return self.dataset.extra_files_path_names
 
     def extra_files_path_exists(self):
         return self.dataset.extra_files_path_exists()

@@ -16,6 +16,7 @@ import re
 import string
 from collections.abc import (
     Callable,
+    Collection,
     Iterator,
 )
 from contextlib import contextmanager
@@ -1049,6 +1050,9 @@ class OutputDataset(HasExtraFiles, Protocol):
 
     def get_file_name(self, sync_cache=True) -> str: ...
 
+    @property
+    def extra_files_path_names(self) -> list[str]: ...
+
 
 class ToolDataTableManager(Dictifiable):
     """Manages a collection of tool data tables"""
@@ -1351,7 +1355,7 @@ class ToolDataTableManager(Dictifiable):
 
             extra_files_path = dataset.extra_files_path
             _relativize_bundle_data_table_paths(
-                data_manager_dict.get("data_tables", {}), extra_files_path, bundle_description
+                data_manager_dict.get("data_tables", {}), dataset.extra_files_path_names, bundle_description
             )
             bundle = DataTableBundle(
                 data_tables=data_manager_dict.get("data_tables", {}),
@@ -1395,16 +1399,16 @@ def _iter_bundle_rows(data_table_values: Any) -> Iterator[dict[str, Any]]:
 
 def _relativize_bundle_data_table_paths(
     data_tables: dict[str, Any],
-    extra_files_path: str,
+    extra_files_dir_names: Collection[str],
     bundle_description: DataTableBundleProcessorDescription,
 ) -> None:
-    """Rewrite absolute path values under ``extra_files_path`` to be relative to it.
+    """Rewrite absolute path values through the dataset's extra-files dir to be relative to it.
 
     Some data managers record the absolute path inside the (transient) job
     directory (e.g. MetaPhlAn's ``$out_file.extra_files_path/$index``) rather
     than the expected relative path; that absolute path no longer resolves once
     the bundle is staged elsewhere, so imports and chained data managers fail.
-    Paths already relative, or outside ``extra_files_path``, are left untouched.
+    Paths already relative, or outside the extra-files dir, are left untouched.
     """
     for data_table_name, data_table_values in data_tables.items():
         path_headers = get_path_headers(bundle_description, data_table_name)
@@ -1412,9 +1416,31 @@ def _relativize_bundle_data_table_paths(
             for header in path_headers:
                 path = row.get(header)
                 if path and os.path.isabs(path):
-                    rel = os.path.relpath(path, extra_files_path)
-                    if rel != os.pardir and not rel.startswith(os.pardir + os.sep):
+                    rel = _bundle_relative_path(path, extra_files_dir_names)
+                    if rel is not None:
                         row[header] = rel
+
+
+def _bundle_relative_path(path: str, extra_files_dir_names: Collection[str]) -> str | None:
+    """Return ``path`` rewritten relative to the dataset's extra-files dir, or ``None``.
+
+    A recorded ``$output.extra_files_path`` is the compute-side rendering of the
+    extra-files dir: the job output path with ``.dat`` swapped for ``_files``
+    (``galaxy.job_execution.compute_environment.dataset_path_to_extra_path``).
+    That is ``dataset_{uuid}_files`` under ``outputs_to_working_directory``
+    (``OutputsToWorkingDirectoryPathRewriter`` keys false paths by uuid whatever
+    the object store uses) and ``dataset_{store_by}_files`` on a shared
+    filesystem — hence ``extra_files_dir_names``, not a single name. Whatever
+    prefix that dir carries (job working dir, remote staging dir, the object
+    store itself), the recorded path passes through a component with one of
+    those names, and the tail after it is the path relative to the extra-files
+    dir. Paths that never pass through one of the names return ``None``.
+    """
+    components = os.path.normpath(path).split(os.sep)
+    for i in range(len(components) - 1, -1, -1):
+        if components[i] in extra_files_dir_names and components[i + 1 :]:
+            return os.path.join(*components[i + 1 :])
+    return None
 
 
 def _data_manager_dict(out_data: dict[str, OutputDataset], ensure_single_output: bool = False) -> dict[str, Any]:

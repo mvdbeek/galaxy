@@ -1,7 +1,10 @@
 import csv
 import json
 import os
-from dataclasses import dataclass
+from dataclasses import (
+    dataclass,
+    field,
+)
 
 import pytest
 
@@ -84,6 +87,11 @@ class OutputDataset:
     file_name_: str
     extra_files_path: str
     ext: str = "data_manager_json"
+    extra_files_path_names: list[str] = field(default_factory=list)
+
+    def __post_init__(self):
+        if not self.extra_files_path_names:
+            self.extra_files_path_names = [os.path.basename(str(self.extra_files_path))]
 
     def get_file_name(self, sync_cache=True) -> str:
         return self.file_name_
@@ -307,6 +315,109 @@ def test_import_bundle_with_absolute_recorded_path(tdt_manager, tmp_path, table_
     loc_target = new_row[-1]
     # The DB files were actually moved to where the loc entry points.
     assert os.path.exists(os.path.join(loc_target, f"{index}.pkl"))
+
+
+def prepare_split_prefix_output_and_description(
+    tmp_path, table_name="testalpha", path_column="path", store_leaf=None, compute_leaf=None
+):
+    """Model the object-store vs job-working-dir prefix split.
+
+    In production ``write_bundle`` runs on the job handler, where
+    ``dataset.extra_files_path`` resolves to the object-store extra-files dir,
+    while the data manager baked its absolute ``path`` on the compute node under
+    the transient job working dir. The directories differ in every prefix
+    component, so a plain ``os.path.relpath`` escapes with ``..``. They may even
+    differ in the ``dataset_<key>_files`` leaf itself: the compute side is
+    uuid-keyed under outputs_to_working_directory while the store may be
+    id-keyed — pass distinct ``store_leaf``/``compute_leaf`` to model that. The
+    recorded absolute path deliberately does NOT exist under
+    ``extra_files_path`` here, so the fix must be structural (no existence check).
+    """
+    index = "mpa_toy"
+    compute_leaf = compute_leaf or "dataset_00000000-0000-0000-0000-000000000000_files"
+    store_leaf = store_leaf or compute_leaf
+
+    # Object-store extra-files dir: where the bundle index actually gets written.
+    extra_files_path = tmp_path / "objectstore" / "000" / store_leaf
+    extra_files_path.mkdir(parents=True)
+
+    # Absolute path as recorded by the DM under the (now-irrelevant) job working dir.
+    job_dir = tmp_path / "jobs" / "001" / "outputs" / compute_leaf
+    recorded_path = str(job_dir / index)
+
+    output = {"data_tables": {table_name: [{"value": index, "name": "toy", path_column: recorded_path}]}}
+    output_dataset_path = tmp_path / "output.dat"
+    output_dataset_path.write_text(json.dumps(output))
+    output_dataset = OutputDataset(
+        output_dataset_path, extra_files_path, extra_files_path_names=[compute_leaf, store_leaf]
+    )
+    out_data = {"out1": output_dataset}
+    data_table = {
+        "name": table_name,
+        "output": {
+            "columns": [
+                {"name": "value"},
+                {"name": "name"},
+                {
+                    "name": path_column,
+                    "output_ref": "out1",
+                    "moves": [
+                        {
+                            "type": "directory",
+                            "relativize_symlinks": False,
+                            "source_value": "${" + path_column + "}",
+                            "target_value": "metaphlan/data/${value}",
+                            "target_base": "${GALAXY_DATA_MANAGER_DATA_PATH}",
+                        }
+                    ],
+                    "value_translations": [
+                        {"value": "${GALAXY_DATA_MANAGER_DATA_PATH}/metaphlan/data/${value}", "type": "template"},
+                        {"value": "abspath", "type": "function"},
+                    ],
+                },
+            ]
+        },
+    }
+    process_description = DataTableBundleProcessorDescription(
+        **{"undeclared_tables": False, "data_tables": [data_table]}
+    )
+    return index, extra_files_path, out_data, process_description
+
+
+def test_write_bundle_relativizes_split_prefix_path(tdt_manager, tmp_path):
+    """A recorded absolute path that shares only the ``dataset_<id>_files`` leaf with
+    ``extra_files_path`` (job working dir vs object store) is still relativized.
+
+    This is the production case that a plain ``os.path.relpath`` misses: the two
+    prefixes differ, so relpath yields a ``..``-escaping path and the absolute
+    job-dir path would otherwise survive into the bundle index.
+    """
+    index, extra_files_path, out_data, process_description = prepare_split_prefix_output_and_description(tmp_path)
+    tdt_manager.write_bundle(out_data, process_description, None)
+
+    bundle_index = json.loads((extra_files_path / BUNDLE_INDEX_FILE_NAME).read_text())
+    stored_path = bundle_index["data_tables"]["testalpha"][0]["path"]
+    assert stored_path == index
+    assert not os.path.isabs(stored_path)
+
+
+def test_write_bundle_relativizes_uuid_keyed_job_path_on_id_keyed_store(tdt_manager, tmp_path):
+    """The compute side bakes a uuid-keyed ``dataset_<uuid>_files`` leaf
+    (OutputsToWorkingDirectoryPathRewriter) even when the object store is
+    id-keyed, so the two leaves differ and matching on
+    ``basename(extra_files_path)`` alone would miss.
+    """
+    index, extra_files_path, out_data, process_description = prepare_split_prefix_output_and_description(
+        tmp_path,
+        store_leaf="dataset_42_files",
+        compute_leaf="dataset_00000000-0000-0000-0000-000000000000_files",
+    )
+    tdt_manager.write_bundle(out_data, process_description, None)
+
+    bundle_index = json.loads((extra_files_path / BUNDLE_INDEX_FILE_NAME).read_text())
+    stored_path = bundle_index["data_tables"]["testalpha"][0]["path"]
+    assert stored_path == index
+    assert not os.path.isabs(stored_path)
 
 
 def test_path_headers_from_move_and_abspath():
