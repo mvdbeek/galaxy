@@ -459,7 +459,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         :param tool_id: if present the given tool_id will be searched for
                         all installed versions
 
-        Note: When lazy toolbox is enabled, search and flat listing use a
+        Note: When cached toolbox is enabled, search and flat listing use a
         pre-computed index for O(1) access instead of iterating over all tools.
         """
 
@@ -513,7 +513,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         GET /api/tool_panels
         returns a dictionary of available tool panel views and default view
 
-        Note: When lazy toolbox is enabled, this endpoint uses a pre-computed index
+        Note: When cached toolbox is enabled, this endpoint uses a pre-computed index
         for O(1) access.
         """
         return self.service.get_panel_views(trans)
@@ -628,7 +628,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
 
         Fetch complete test data for each tool with /api/tools/{tool_id}/test_data?tool_version=<tool_version>
 
-        Note: When lazy toolbox is enabled, this endpoint uses a pre-computed index
+        Note: When cached toolbox is enabled, this endpoint uses a pre-computed index
         for O(1) access instead of iterating over all tools.
         """
         return self.service.get_tests_summary(trans)
@@ -682,7 +682,7 @@ class ToolsController(BaseGalaxyAPIController, UsesVisualizationMixin):
         GET /api/tools/all_requirements
         Return list of unique requirements for all tools.
 
-        Note: When lazy toolbox is enabled, this endpoint uses a pre-computed index
+        Note: When cached toolbox is enabled, this endpoint uses a pre-computed index
         for O(1) access instead of iterating over all tools.
         """
         return self.service.get_all_requirements(trans)
