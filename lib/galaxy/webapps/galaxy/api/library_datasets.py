@@ -524,6 +524,8 @@ class LibraryDatasetsController(BaseGalaxyAPIController, UsesVisualizationMixin,
         # Set up the traditional tool state/params
         tool_id = "upload1"
         tool = trans.app.toolbox.get_tool(tool_id)
+        assert tool is not None
+        tool = trans.app.toolbox.materialize_tool(tool, reason="execution")
         state = tool.new_state(trans)
         populate_state(trans, tool.inputs, kwd, state.inputs)
         tool_params = state.inputs

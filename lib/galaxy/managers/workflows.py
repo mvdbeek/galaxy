@@ -1153,6 +1153,7 @@ class WorkflowContentsManager(UsesAnnotations):
                     raise exceptions.MessageException(
                         f"Following tool missing or inaccessible: '{step.tool_id}/{step.tool_uuid}'"
                     )
+                tool = trans.app.toolbox.materialize_tool(tool, reason="validation")
                 assert step.state is not None
                 params_to_incoming(incoming, tool.inputs, step.state.inputs, trans.app)
                 step_model = tool.to_json(
@@ -1325,6 +1326,8 @@ class WorkflowContentsManager(UsesAnnotations):
                 continue
             if step.type == "tool":
                 tool = trans.app.toolbox.get_tool(step.tool_id, step.tool_version)
+                assert tool is not None
+                tool = trans.app.toolbox.materialize_tool(tool, reason="serialization")
                 step_dict["tool_id"] = step.tool_id
                 step_dict["tool_version"] = step.tool_version
                 step_dict["label"] = step.label or tool.name
