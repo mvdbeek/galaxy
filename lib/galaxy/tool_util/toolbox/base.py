@@ -141,6 +141,7 @@ MaterializationReasonName = Literal[
     "detail",
     "dependency",
     "execution",
+    "installation",
     "job_setup",
     "packaging",
     "serialization",
