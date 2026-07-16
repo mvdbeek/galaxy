@@ -725,7 +725,7 @@ class FastAPIUsers:
         user = trans.sa_session.query(User).get(user_id)
         if not user:
             raise exceptions.ObjectNotFound("User not found for given id.")
-        if not self.service.user_manager.send_activation_email(trans, user.email, user.username):
+        if not self.service.user_manager.send_activation_email(trans, user):
             raise exceptions.MessageException("Unable to send activation email.")
 
     @router.get(

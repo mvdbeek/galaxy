@@ -117,7 +117,7 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
             if not message:
                 user = self.user_manager.create(email=email, username=username, password="")
                 if trans.app.config.user_activation_on:
-                    self.user_manager.send_activation_email(trans, email, username)
+                    self.user_manager.send_activation_email(trans, user)
                 # The handle_user_login() method has a call to the history_set_default_permissions() method
                 # (needed when logging in with a history), user needs to have default permissions set before logging in
                 if not trans.user_is_admin:
@@ -185,13 +185,13 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
                 if self.is_outside_grace_period(
                     trans, user.create_time
                 ):  # User is outside the grace period. Login is disabled and he will have the activation email resent.
-                    message, status = self.resend_activation_email(trans, user.email, user.username)
+                    message, status = self.resend_activation_email(trans, user)
                     return self.message_exception(trans, message, sanitize=False)
                 else:  # User is within the grace period, let him log in.
                     trans.handle_user_login(user)
                     trans.log_event("User logged in")
             else:  # Grace period is off. Login is disabled and user will have the activation email resent.
-                message, status = self.resend_activation_email(trans, user.email, user.username)
+                message, status = self.resend_activation_email(trans, user)
                 return self.message_exception(trans, message, sanitize=False)
         else:  # activation is OFF
             pw_expires = getattr(trans.app.config, "password_expiration_period", None)
@@ -215,25 +215,22 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
         """
         Exposed function for use outside of the class. E.g. when user click on the resend link in the masthead.
         """
-        message, status = self.resend_activation_email(trans, None, None)
+        message, status = self.resend_activation_email(trans)
         if status:
             return trans.show_ok_message(message)
         else:
             return trans.show_error_message(message)
 
-    def resend_activation_email(self, trans, email, username):
+    def resend_activation_email(self, trans, user=None):
         """
         Function resends the verification email in case user wants to log in with an inactive account or he clicks the resend link.
         """
-        if email is None:  # User is coming from outside registration form, load email from trans
-            if not trans.user:
-                return "No session found, cannot send activation email.", None
-            email = trans.user.email
-        if username is None:  # User is coming from outside registration form, load email from trans
-            username = trans.user.username
-        is_activation_sent = self.user_manager.send_activation_email(trans, email, username)
+        user = user or trans.user  # User coming from outside the registration form has no user yet
+        if not user:
+            return "No session found, cannot send activation email.", None
+        is_activation_sent = self.user_manager.send_activation_email(trans, user)
         if is_activation_sent:
-            message = f"This account has not been activated yet. The activation link has been sent again. Please check your email address <b>{escape(email)}</b> including the spam/trash folder. <a target=\"_top\" href=\"{url_for('/')}\">Return to the home page</a>."
+            message = f"This account has not been activated yet. The activation link has been sent again. Please check your email address <b>{escape(user.email)}</b> including the spam/trash folder. <a target=\"_top\" href=\"{url_for('/')}\">Return to the home page</a>."
         else:
             message = f"This account has not been activated yet but we are unable to send the activation link. Please contact your local Galaxy administrator. <a target=\"_top\" href=\"{url_for('/')}\">Return to the home page</a>."
             if trans.app.config.error_email_to is not None:

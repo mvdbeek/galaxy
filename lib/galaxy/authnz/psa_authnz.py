@@ -694,7 +694,7 @@ def apply_user_activation_policy(trans: "ProvidesAppContext", user: User, requir
     trans.sa_session.add(user)
     trans.sa_session.commit()
     if requires_activation:
-        trans.app.user_manager.send_activation_email(trans, user.email, user.username)
+        trans.app.user_manager.send_activation_email(trans, user)
 
 
 def contains_required_data(response=None, is_new=False, backend=None, **kwargs):

@@ -204,7 +204,7 @@ class TestUserManager(BaseTestCase):
 
     def test_activation_email(self):
         self.log("should produce the activation email")
-        self.user_manager.create(email="user@nopassword.com", username="nopassword")
+        user = self.user_manager.create(email="user@nopassword.com", username="nopassword")
 
         def validate_send_email(frm, to, subject, body, config, html=None):
             assert frm == "email_from"
@@ -219,7 +219,7 @@ class TestUserManager(BaseTestCase):
 
         with patch("galaxy.util.send_mail", side_effect=validate_send_email) as mock_send_mail:
             with patch("galaxy.util.hash_util.new_secure_hash_v2", return_value="activation_token") as mock_hash_util:
-                result = self.user_manager.send_activation_email(self.trans, "user@nopassword.com", "nopassword")
+                result = self.user_manager.send_activation_email(self.trans, user)
                 mock_send_mail.assert_called_once()
                 mock_hash_util.assert_called_once()
         assert result is True
@@ -246,7 +246,7 @@ class TestUserManager(BaseTestCase):
                 email="mail@example.com", username="mailer", trans=self.trans, send_activation_email=True
             )
         assert user.active is False
-        mock_send.assert_called_once_with(self.trans, "mail@example.com", "mailer")
+        mock_send.assert_called_once_with(self.trans, user)
 
     def test_create_skips_activation_email_when_trusted(self):
         self.app.config.user_activation_on = True
@@ -260,6 +260,30 @@ class TestUserManager(BaseTestCase):
             )
         assert user.active is True
         mock_send.assert_not_called()
+
+    def test_update_email_sends_activation_email_to_new_address(self):
+        self.app.config.user_activation_on = True
+        user = self.user_manager.create(email="old@example.com", username="changer")
+        sent_to = []
+
+        with patch("galaxy.util.send_mail", side_effect=lambda frm, to, *args, **kwargs: sent_to.append(to)):
+            self.user_manager.update_email(self.trans, user, "new@example.com", commit=False)
+
+        assert sent_to == ["new@example.com"]
+        assert user.email == "new@example.com"
+        assert user.active is False
+
+    def test_update_email_left_unchanged_when_activation_email_fails(self):
+        self.app.config.user_activation_on = True
+        user = self.user_manager.create(email="stable@example.com", username="stable")
+        user.active = True
+
+        with patch("galaxy.util.send_mail", side_effect=Exception("smtp is down")):
+            with self.assertRaises(exceptions.InternalServerError):
+                self.user_manager.update_email(self.trans, user, "new@example.com", commit=False)
+
+        assert user.email == "stable@example.com"
+        assert user.active is True
 
     def test_reset_email(self):
         self.log("should produce the password reset email")

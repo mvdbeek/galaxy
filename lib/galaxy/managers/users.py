@@ -161,7 +161,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         except exc.IntegrityError as db_err:
             raise exceptions.Conflict(str(db_err))
         if send_activation_email and not user.active:
-            self.send_activation_email(trans, email, username)
+            self.send_activation_email(trans, user)
         return user
 
     def update_email(
@@ -176,19 +176,22 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
             raise exceptions.RequestParameterInvalidException(message)
         if user.email == new_email:
             return
-        private_role = trans.app.security_agent.get_private_user_role(user)
-        private_role.name = new_email
-        private_role.description = f"Private role for {new_email}"
-        user.email = new_email
-        session = self.session()
-        session.add_all([user, private_role])
-        if trans.app.config.user_activation_on:
-            user.active = False
-            if send_activation_email and not self.send_activation_email(trans, user.email, user.username):
+        if trans.app.config.user_activation_on and send_activation_email:
+            # Mail the new address before applying the change, so that a failed send leaves the
+            # account untouched rather than renamed and deactivated.
+            if not self.send_activation_email(trans, user, email=new_email):
                 error_message = "Unable to send activation email, please contact your local Galaxy administrator."
                 if trans.app.config.error_email_to is not None:
                     error_message += f" Contact: {trans.app.config.error_email_to}"
                 raise exceptions.InternalServerError(error_message)
+        private_role = trans.app.security_agent.get_private_user_role(user)
+        private_role.name = new_email
+        private_role.description = f"Private role for {new_email}"
+        user.email = new_email
+        if trans.app.config.user_activation_on:
+            user.active = False
+        session = self.session()
+        session.add_all([user, private_role])
         if commit:
             session.commit()
 
@@ -547,11 +550,15 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
         else:
             raise exceptions.Message("Please provide a valid user.")
 
-    def send_activation_email(self, trans, email, username):
+    def send_activation_email(self, trans, user: User, email: Optional[str] = None):
         """
         Send the verification email containing the activation link to the user's email.
+
+        ``email`` defaults to the user's stored address. Callers changing the address pass
+        the new one, which is not yet set on ``user``.
         """
-        activation_token = self.__get_activation_token(trans, email)
+        email = email or user.email
+        activation_token = self.__get_activation_token(trans, user)
         activation_link = trans.url_builder(
             "/user/activate",
             activation_token=activation_token,
@@ -559,7 +566,7 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
             qualified=True,
         )
         template_context = {
-            "name": escape(username),
+            "name": escape(user.username),
             "user_email": escape(email),
             "date": now().strftime("%D"),
             "hostname": trans.request.host,
@@ -582,11 +589,10 @@ class UserManager(base.ModelManager, deletable.PurgableManagerMixin):
             log.exception("Unable to send the activation email.")
             return False
 
-    def __get_activation_token(self, trans, email):
+    def __get_activation_token(self, trans, user: User) -> str:
         """
         Check for the activation token. Create new activation token and store it in the database if no token found.
         """
-        user = get_user_by_email(trans.sa_session, email, self.app.model.User)
         activation_token = user.activation_token
         if activation_token is None:
             activation_token = util.hash_util.new_secure_hash_v2(str(random.getrandbits(256)))

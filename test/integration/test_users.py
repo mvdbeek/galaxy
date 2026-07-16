@@ -96,7 +96,7 @@ class TestUnexposedUsersIntegration(UsersIntegrationCase):
     expected_regular_user_list_count = 1
 
 
-class TestAdminResendActivationEmail(integration_util.IntegrationTestCase):
+class TestUserActivationEmail(integration_util.IntegrationTestCase):
     email_directory: ClassVar[str]
 
     @classmethod
@@ -108,13 +108,27 @@ class TestAdminResendActivationEmail(integration_util.IntegrationTestCase):
         config["email_from"] = "galaxy-noreply@example.com"
         config["smtp_server"] = f"mock_emails_to_path://{cls.email_directory}/email.json"
 
+    def _read_sent_email(self):
+        with open(os.path.join(self.email_directory, "email.json")) as f:
+            return json.loads(f.read())
+
+    def test_changing_email_sends_activation_to_new_address(self):
+        user = self._setup_user("change-email-old@test.gx")
+        url = self._api_url(f"users/{user['id']}/information/inputs", params=dict(key=self.master_api_key))
+        response = self._put(url, data={"email": "change-email-new@test.gx"}, json=True)
+        self._assert_status_code_is_ok(response)
+
+        email = self._read_sent_email()
+        assert email["to"] == "change-email-new@test.gx"
+        assert email["subject"] == "Galaxy Account Activation"
+        assert self._get(url).json()["email"] == "change-email-new@test.gx"
+
     def test_resend_activation_includes_qualified_link(self):
         user = self._setup_user("resend-activation@test.gx")
         response = self._post(f"users/{user['id']}/send_activation_email", admin=True)
         self._assert_status_code_is_ok(response)
 
-        with open(os.path.join(self.email_directory, "email.json")) as f:
-            email = json.loads(f.read())
+        email = self._read_sent_email()
         assert email["to"] == "resend-activation@test.gx"
         assert email["subject"] == "Galaxy Account Activation"
         match = re.search(r"(https?://[^/\s]+/user/activate\?[^\s]+)", email["body"])
