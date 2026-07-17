@@ -31,6 +31,7 @@ const props = defineProps<Props>();
 const contentTruncated = ref<number | null>(null);
 const contentChunked = ref<boolean>(false);
 const errorMessage = ref<string>("");
+const isLoadingPreviewHeaders = ref(true);
 const sanitizedJobImported = ref<boolean>(false);
 const sanitizedToolId = ref<string | null>(null);
 
@@ -53,20 +54,38 @@ const sanitizedMessage = computed(() => {
 });
 
 watch(
-    () => props.datasetId,
-    async () => {
+    previewUrl,
+    async (url, _previousUrl, onCleanup) => {
+        isLoadingPreviewHeaders.value = true;
+        errorMessage.value = "";
+        contentChunked.value = false;
+        contentTruncated.value = null;
+        sanitizedJobImported.value = false;
+        sanitizedToolId.value = null;
+
+        const controller = new AbortController();
+        onCleanup(() => controller.abort());
+
         try {
-            const { headers } = await fetch(withPrefix(previewUrl.value), { method: "HEAD" });
+            const { headers } = await fetch(withPrefix(url), {
+                method: "HEAD",
+                signal: controller.signal,
+            });
             contentChunked.value = !!headers.get("x-content-chunked");
             contentTruncated.value = headers.get("x-content-truncated")
                 ? Number(headers.get("x-content-truncated"))
                 : null;
             sanitizedJobImported.value = !!headers.get("x-sanitized-job-imported");
             sanitizedToolId.value = headers.get("x-sanitized-tool-id");
-            errorMessage.value = "";
-        } catch (e) {
-            errorMessage.value = errorMessageAsString(e);
-            console.error(e);
+        } catch (error) {
+            if (!controller.signal.aborted) {
+                errorMessage.value = errorMessageAsString(error);
+                console.error(error);
+            }
+        } finally {
+            if (!controller.signal.aborted) {
+                isLoadingPreviewHeaders.value = false;
+            }
         }
     },
     { immediate: true },
@@ -86,6 +105,7 @@ watch(
         <FontAwesomeIcon :icon="faExclamationTriangle" />
         <span>Dataset is unavailable. Please check the history panel for details.</span>
     </BAlert>
+    <LoadingSpan v-else-if="isLoadingPreviewHeaders" message="Loading dataset content" />
     <div v-else class="dataset-display h-100">
         <Alert v-if="sanitizedMessage" :dismissible="true" variant="warning" data-description="sanitization warning">
             {{ sanitizedMessage }}
