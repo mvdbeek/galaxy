@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from inspect import signature
 from typing import (
     Any,
+    cast,
     Optional,
     Union,
 )
@@ -81,7 +82,7 @@ def get_openapi(
     for route in routes or []:
         if isinstance(route, routing.APIRoute):
             result = get_openapi_path(
-                route=route,
+                route=cast(Any, route),
                 operation_ids=operation_ids,
                 model_name_map=model_name_map,
                 field_mapping=field_mapping,
@@ -99,7 +100,7 @@ def get_openapi(
     for webhook in webhooks or []:
         if isinstance(webhook, routing.APIRoute):
             result = get_openapi_path(
-                route=webhook,
+                route=cast(Any, webhook),
                 operation_ids=operation_ids,
                 model_name_map=model_name_map,
                 field_mapping=field_mapping,
