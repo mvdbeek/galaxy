@@ -51,7 +51,7 @@ export function okCount(jobSummary: InvocationJobsSummary): number {
 }
 
 export function runningCount(jobSummary: InvocationJobsSummary): number {
-    return countStates(jobSummary, ["running"]);
+    return countStates(jobSummary, ["running", "finalizing"]);
 }
 
 export function numTerminal(jobSummary: InvocationJobsSummary): number {

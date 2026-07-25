@@ -1755,6 +1755,7 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
         states.WAITING,
         states.QUEUED,
         states.RUNNING,
+        states.FINALIZING,
     ]
 
     # Please include an accessor (get/set pair) for any new columns/members.
@@ -2136,14 +2137,21 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
         if self.state == state:
             # Nothing changed, no action needed
             return False
+        if self.state == Job.states.FINALIZING and state not in Job.finished_states:
+            return False
         session = object_session(self)
         if session and self.id and state not in Job.finished_states:
+            where_clauses = [
+                Job.id == self.id,
+                ~Job.state.in_((state, *Job.finished_states)),
+                Job.state != Job.states.FINALIZING,
+            ]
             # Do not update if job is in a terminal state
             rval = cast(  # https://docs.sqlalchemy.org/en/20/changelog/changelog_20.html#change-0651b868cdc88d28c57469affceaf05f
                 CursorResult,
                 session.execute(
                     update(Job)
-                    .where(Job.id == self.id, ~Job.state.in_((state, *Job.finished_states)))
+                    .where(*where_clauses)
                     .values(state=state)
                 ),
             )
@@ -2158,6 +2166,41 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
             self.state = state
             self.state_history.append(JobStateHistory(self))
             return True
+
+    def claim_finalization(self) -> bool:
+        """Atomically claim terminal processing without changing dataset states.
+
+        A job already in ``FINALIZING`` is resumable by the current Relay
+        lease owner. Other source states are deliberately rejected.
+        """
+        allowed_states = (
+            Job.states.QUEUED,
+            Job.states.RUNNING,
+            Job.states.STOPPING,
+            Job.states.STOPPED,
+        )
+        if self.state == Job.states.FINALIZING:
+            return True
+        if self.state not in allowed_states:
+            return False
+        session = object_session(self)
+        if session and self.id:
+            rval = cast(
+                CursorResult,
+                session.execute(
+                    update(Job)
+                    .where(Job.id == self.id, Job.state.in_(allowed_states))
+                    .values(state=Job.states.FINALIZING)
+                ),
+            )
+            if rval.rowcount != 1:
+                session.expire(self, ["state"])
+                return self.state == Job.states.FINALIZING
+            session.expire(self, ["state"])
+        else:
+            self.state = Job.states.FINALIZING
+        self.state_history.append(JobStateHistory(self))
+        return True
 
     @deprecated("Use tool.get_param_values(job) instead")
     def get_param_values(self, app, ignore_errors=False):

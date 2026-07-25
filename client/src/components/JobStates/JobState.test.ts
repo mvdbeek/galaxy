@@ -76,6 +76,13 @@ describe("JobState.vue", () => {
         expect(wrapper.find(SELECTORS.STOP_BTN).exists()).toBe(true);
     });
 
+    it("shows finalizing as active but no longer stoppable", async () => {
+        const wrapper = mountJobState({ ...BASE_JOB, state: "finalizing" });
+        await flushPromises();
+        expect(wrapper.find(SELECTORS.STATE_BADGE).text()).toContain("finalizing");
+        expect(wrapper.find(SELECTORS.STOP_BTN).exists()).toBe(false);
+    });
+
     it("hides the stop button for terminal states", async () => {
         for (const state of ["ok", "error", "deleted", "failed"] as JobStateType[]) {
             const wrapper = mountJobState({ ...BASE_JOB, state });

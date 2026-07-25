@@ -71,6 +71,12 @@ describe("useInvocationGraph — step state", () => {
             expect(steps.value[0]?.state).toBe("running");
         });
 
+        it("is finalizing", async () => {
+            const { steps, load } = withJobStates({ finalizing: 1 });
+            await load();
+            expect(steps.value[0]?.state).toBe("finalizing");
+        });
+
         it("is paused", async () => {
             const { steps, load } = withJobStates({ paused: 1 });
             await load();

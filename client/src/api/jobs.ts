@@ -18,7 +18,17 @@ export type JobMessage =
     | components["schemas"]["RegexJobMessage"]
     | components["schemas"]["MaxDiscoveredFilesJobMessage"];
 
-export const NON_TERMINAL_STATES = ["new", "queued", "running", "waiting", "paused", "resubmitted", "upload"];
+export const NON_TERMINAL_STATES = [
+    "new",
+    "queued",
+    "running",
+    "finalizing",
+    "waiting",
+    "paused",
+    "resubmitted",
+    "upload",
+];
+export const STOPPABLE_STATES = NON_TERMINAL_STATES.filter((state) => state !== "finalizing");
 export const ERROR_STATES = ["error", "deleted", "deleting", "failed"];
 export const TERMINAL_STATES = ["ok", "skipped", "stop", "stopping"].concat(ERROR_STATES);
 

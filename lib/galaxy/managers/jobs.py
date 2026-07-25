@@ -2141,7 +2141,7 @@ def summarize_job_outputs(job: model.Job, tool, params):
 
 def get_jobs_to_check_at_startup(session: galaxy_scoped_session, track_jobs_in_database: bool, config):
     if track_jobs_in_database:
-        in_list = (Job.states.QUEUED, Job.states.RUNNING, Job.states.STOPPED)
+        in_list = (Job.states.QUEUED, Job.states.RUNNING, Job.states.FINALIZING, Job.states.STOPPED)
     else:
         in_list = (Job.states.NEW, Job.states.QUEUED, Job.states.RUNNING)
 

@@ -5,7 +5,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 
 import { isRegisteredUser } from "@/api";
-import { deleteJob, type JobBaseModel, NON_TERMINAL_STATES, type ShowFullJobResponse } from "@/api/jobs";
+import { deleteJob, type JobBaseModel, STOPPABLE_STATES, type ShowFullJobResponse } from "@/api/jobs";
 import { useToast } from "@/composables/toast";
 import { getHeaderClass, iconClasses } from "@/composables/useInvocationGraph";
 import { useUserStore } from "@/stores/userStore";
@@ -46,7 +46,7 @@ const userOwnsJob = computed(() => {
  * 1. If the job is not the user's own
  * 2. Job is not in a terminal state
  */
-const canStopJob = computed(() => userOwnsJob.value && NON_TERMINAL_STATES.includes(props.job.state));
+const canStopJob = computed(() => userOwnsJob.value && STOPPABLE_STATES.includes(props.job.state));
 
 /** Whether the stop job action is currently being performed */
 const stopping = ref(false);

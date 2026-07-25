@@ -4,6 +4,7 @@ More information on Pulsar can be found at https://pulsar.readthedocs.io/ .
 """
 
 import copy
+import datetime
 import errno
 import logging
 import os
@@ -217,6 +218,19 @@ PULSAR_PARAM_SPECS = dict(
         map=specs.to_str_or_none,
         default=None,
     ),
+    relay_handler_id=dict(
+        map=specs.to_str_or_none,
+        default=None,
+    ),
+    relay_status_group=dict(
+        map=specs.to_str_or_none,
+        default="galaxy-job-status-v1",
+    ),
+    relay_status_max_inflight=dict(
+        map=int,
+        valid=lambda value: value > 0,
+        default=1,
+    ),
 )
 
 
@@ -282,6 +296,8 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         for kwd in self.runner_params.keys():
             if kwd.startswith("amqp_") or kwd.startswith("transport_") or kwd.startswith("relay_"):
                 client_manager_kwargs[kwd] = self.runner_params[kwd]
+        if self.runner_params.relay_url and not client_manager_kwargs.get("relay_handler_id"):
+            client_manager_kwargs["relay_handler_id"] = self.app.config.server_name
 
         return client_manager_kwargs
 
@@ -702,6 +718,18 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             job_state, AsynchronousJobState
         ), f"job_state type is '{type(job_state)}', expected AsynchronousJobState"
         job_wrapper = job_state.job_wrapper
+        relay_delivery = getattr(job_state, "relay_delivery", None)
+        if relay_delivery and not self.client_manager.touch_status_update(relay_delivery):
+            log.warning(
+                "Skipping finalization for job %s after losing Relay delivery %s",
+                job_wrapper.job_id,
+                relay_delivery.get("message_id"),
+            )
+            return
+        if job_wrapper.get_state() in (model.Job.states.DELETING, model.Job.states.DELETED):
+            if relay_delivery:
+                self.client_manager.acknowledge_status_update(relay_delivery)
+            return
         try:
             client = self.get_client_from_state(job_state)
             run_results = client.full_status()
@@ -728,7 +756,9 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             # Use Pulsar client code to transfer/copy files back
             # and cleanup job if needed.
             completed_normally = state not in [model.Job.states.ERROR, model.Job.states.DELETED]
-            if completed_normally and state == model.Job.states.STOPPED:
+            if completed_normally and (
+                state == model.Job.states.STOPPED or getattr(job_state, "finalizing_from_stopped", False)
+            ):
                 # Discard pulsar exit code (probably -9), we know the user stopped the job
                 log.debug("Setting exit code for stopped job {job_wrapper.job_id} to 0 (was {exit_code})")
                 exit_code = 0
@@ -750,6 +780,7 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         except Exception:
             self.fail_job(job_state, message=GENERIC_REMOTE_ERROR, exception=True)
             log.exception("failure finishing job %d", job_wrapper.job_id)
+            self._acknowledge_relay_finalization(job_state)
             return
         if not PulsarJobRunner.__remote_metadata(client):
             # we need an actual exit code file in the job working directory to detect job errors in the metadata script
@@ -761,6 +792,12 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         job_metrics_directory = os.path.join(job_wrapper.working_directory, "metadata")
         # Finish the job
         try:
+            if relay_delivery and not self.client_manager.touch_status_update(relay_delivery):
+                log.warning(
+                    "Aborting final commit for job %s after losing its Relay lease",
+                    job_wrapper.job_id,
+                )
+                return
             job_wrapper.finish(
                 tool_stdout,
                 tool_stderr,
@@ -773,6 +810,24 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         except Exception:
             log.exception("Job wrapper finish method failed")
             job_wrapper.fail("Unable to finish job", exception=True, job_metrics_directory=job_metrics_directory)
+        self._acknowledge_relay_finalization(job_state)
+
+    def _acknowledge_relay_finalization(self, job_state: AsynchronousJobState) -> None:
+        delivery = getattr(job_state, "relay_delivery", None)
+        if delivery and job_state.job_wrapper.get_state() in model.Job.terminal_states:
+            self.client_manager.acknowledge_status_update(delivery)
+
+    @staticmethod
+    def _state_before_finalizing(job: model.Job) -> Optional[model.JobState]:
+        histories = sorted(
+            job.state_history,
+            key=lambda history: (history.create_time or datetime.datetime.min, history.id or 0),
+            reverse=True,
+        )
+        for history in histories:
+            if history.state != model.Job.states.FINALIZING:
+                return history.state
+        return None
 
     def check_pid(self, pid):
         try:
@@ -840,11 +895,20 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         job_state = self._job_state(job, job_wrapper)
         job_wrapper.command_line = job.get_command_line()
         state = job.get_state()
-        if state in [model.Job.states.RUNNING, model.Job.states.QUEUED, model.Job.states.STOPPED]:
+        if state in [
+            model.Job.states.RUNNING,
+            model.Job.states.QUEUED,
+            model.Job.states.FINALIZING,
+            model.Job.states.STOPPED,
+        ]:
             log.debug(f"(Pulsar/{job.id}) is still in {state} state, adding to the Pulsar queue")
-            job_state.old_state = state if state != model.Job.states.STOPPED else model.Job.states.RUNNING
+            previous_state = self._state_before_finalizing(job) if state == model.Job.states.FINALIZING else state
+            job_state.finalizing_from_stopped = previous_state == model.Job.states.STOPPED
+            job_state.old_state = previous_state if previous_state != model.Job.states.STOPPED else model.Job.states.RUNNING
             job_state.running = state != model.Job.states.QUEUED
             self.monitor_queue.put(job_state)
+            if self.use_mq and hasattr(self.client_manager, "relay_transport"):
+                self.get_client_from_state(job_state).get_status()
 
     def shutdown(self):
         super().shutdown()
@@ -1088,7 +1152,7 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
                 metadata_kwds["datatypes_config"] = datatypes_config
         return metadata_kwds
 
-    def __async_update(self, full_status: dict[str, Any]) -> None:
+    def __async_update(self, full_status: dict[str, Any]) -> Union[bool, str]:
         galaxy_job_id = None
         remote_job_id = None
         try:
@@ -1103,7 +1167,34 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             assert isinstance(self.app.job_manager.job_handler.job_queue, JobHandlerQueue)
             job, job_wrapper = self.app.job_manager.job_handler.job_queue.job_pair_for_id(galaxy_job_id)
             job_state = self._job_state(job, job_wrapper)
+            relay_delivery = full_status.get("_relay_delivery")
+            if relay_delivery:
+                status = full_status["status"]
+                if job.get_state() in model.Job.finished_states:
+                    return True
+                if status in {"complete", "cancelled", "failed", "lost"}:
+                    previous_state = job.get_state()
+                    if not job.claim_finalization():
+                        # Do not ACK a terminal status unless Galaxy is already
+                        # terminal or has durably claimed finalization. Leaving
+                        # it unacknowledged lets Relay retry after the lease.
+                        return "retry"
+                    self.sa_session.commit()
+                    job_state.finalizing_from_stopped = (
+                        previous_state == model.Job.states.STOPPED
+                        or self._state_before_finalizing(job) == model.Job.states.STOPPED
+                    )
+                    job_state.relay_delivery = relay_delivery
+                    if not self.client_manager.touch_status_update(relay_delivery):
+                        return False
+                    self._update_job_state_for_status(job_state, status, full_status=full_status)
+                    # Successful/failed remote jobs are failed synchronously;
+                    # completed jobs are finalized later on the runner queue.
+                    return status in {"failed", "lost"}
+                if job.get_state() == model.Job.states.FINALIZING:
+                    return True
             self._update_job_state_for_status(job_state, full_status["status"], full_status=full_status)
+            return True
         except Exception:
             log.exception(f"Failed to update Pulsar job status for job_id ({galaxy_job_id}/{remote_job_id})")
             raise

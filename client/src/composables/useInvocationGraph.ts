@@ -64,6 +64,7 @@ export const iconClasses: Record<GraphStepState, { icon: IconDefinition; spin?: 
     scheduled: { icon: faClock },
     // active
     running: { icon: faSpinner, spin: true },
+    finalizing: { icon: faSpinner, spin: true },
     upload: { icon: faSpinner, spin: true },
     setting_metadata: { icon: faSpinner, spin: true },
     // paused / info
@@ -90,12 +91,13 @@ export const statePlaceholders: Record<string, string> = {
     error: "failed",
     upload: "uploading",
     setting_metadata: "setting metadata",
+    finalizing: "finalizing",
     failed_metadata: "have metadata errors",
     stop: "stopping",
 };
 
 /** Only one job needs to be in one of these states for the graph step to be in that state */
-const SINGLE_INSTANCE_STATES: GraphStepState[] = ["error", "running", "paused", "deleting"];
+const SINGLE_INSTANCE_STATES: GraphStepState[] = ["error", "finalizing", "running", "paused", "deleting"];
 /** All jobs need to be in one of these states for the graph step to be in that state */
 const ALL_INSTANCES_STATES: GraphStepState[] = ["deleted", "skipped", "new", "queued"];
 
