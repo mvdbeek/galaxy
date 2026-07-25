@@ -912,7 +912,9 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             log.debug(f"(Pulsar/{job.id}) is still in {state} state, adding to the Pulsar queue")
             previous_state = self._state_before_finalizing(job) if state == model.Job.states.FINALIZING else state
             job_state.finalizing_from_stopped = previous_state == model.Job.states.STOPPED
-            job_state.old_state = previous_state if previous_state != model.Job.states.STOPPED else model.Job.states.RUNNING
+            job_state.old_state = (
+                previous_state if previous_state != model.Job.states.STOPPED else model.Job.states.RUNNING
+            )
             job_state.running = state != model.Job.states.QUEUED
             self.monitor_queue.put(job_state)
             if self.use_mq and hasattr(self.client_manager, "relay_transport"):

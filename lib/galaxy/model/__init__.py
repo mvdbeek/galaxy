@@ -2149,11 +2149,7 @@ class Job(Base, JobLike, UsesCreateAndUpdateTime, Dictifiable, Serializable):
             # Do not update if job is in a terminal state
             rval = cast(  # https://docs.sqlalchemy.org/en/20/changelog/changelog_20.html#change-0651b868cdc88d28c57469affceaf05f
                 CursorResult,
-                session.execute(
-                    update(Job)
-                    .where(*where_clauses)
-                    .values(state=state)
-                ),
+                session.execute(update(Job).where(*where_clauses).values(state=state)),
             )
             if rval.rowcount == 1:
                 # Need to expire state since we just updated it, but ORM doesn't know about it.

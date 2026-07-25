@@ -31,9 +31,7 @@ def test_nonterminal_states_do_not_replace_finalizing_state():
     assert job.state == Job.states.FINALIZING
 
 
-def test_database_claim_is_durable_and_rejects_stale_nonterminal_update(
-    session, make_job
-):
+def test_database_claim_is_durable_and_rejects_stale_nonterminal_update(session, make_job):
     job = make_job()
     job.set_state(Job.states.RUNNING)
     session.commit()
