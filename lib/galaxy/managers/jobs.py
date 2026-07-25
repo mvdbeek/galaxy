@@ -87,6 +87,7 @@ from galaxy.schema.credentials import CredentialsContext
 from galaxy.schema.schema import (
     JobIndexQueryPayload,
     JobIndexSortByEnum,
+    JobState,
 )
 from galaxy.schema.tasks import (
     MaterializeDatasetInstanceTaskRequest,
@@ -2140,6 +2141,7 @@ def summarize_job_outputs(job: model.Job, tool, params):
 
 
 def get_jobs_to_check_at_startup(session: galaxy_scoped_session, track_jobs_in_database: bool, config):
+    in_list: tuple[JobState, ...]
     if track_jobs_in_database:
         in_list = (Job.states.QUEUED, Job.states.RUNNING, Job.states.FINALIZING, Job.states.STOPPED)
     else:

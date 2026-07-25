@@ -5,7 +5,7 @@ import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 
 import { isRegisteredUser } from "@/api";
-import { deleteJob, type JobBaseModel, STOPPABLE_STATES, type ShowFullJobResponse } from "@/api/jobs";
+import { deleteJob, type JobBaseModel, type ShowFullJobResponse, STOPPABLE_STATES } from "@/api/jobs";
 import { useToast } from "@/composables/toast";
 import { getHeaderClass, iconClasses } from "@/composables/useInvocationGraph";
 import { useUserStore } from "@/stores/userStore";

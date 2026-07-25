@@ -55,6 +55,7 @@ from galaxy.jobs.runners import (
     JobState,
 )
 from galaxy.model.base import check_database_connection
+from galaxy.schema.schema import JobState as JobStateEnum
 from galaxy.tool_util.deps import dependencies
 from galaxy.tool_util.parser.output_collection_def import FilePatternDatasetCollectionDescription
 from galaxy.tool_util.parser.output_objects import ToolOutput
@@ -98,6 +99,13 @@ UPGRADE_PULSAR_ERROR = "Galaxy is misconfigured, please contact administrator. T
 
 # Is there a good way to infer some default for this? Can only use
 # url_for from web threads. https://gist.github.com/jmchilton/9098762
+
+
+class PulsarJobState(AsynchronousJobState):
+    finalizing_from_stopped: bool = False
+    relay_delivery: Optional[dict[str, Any]] = None
+
+
 DEFAULT_GALAXY_URL = "http://localhost:8080"
 
 PULSAR_PARAM_SPECS = dict(
@@ -514,7 +522,7 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             log.exception("failure running job %d", job_wrapper.job_id)
             return
 
-        pulsar_job_state = AsynchronousJobState(
+        pulsar_job_state = PulsarJobState(
             job_wrapper=job_wrapper, job_destination=job_destination, job_id=external_job_id
         )
         pulsar_job_state.old_state = model.Job.states.NEW
@@ -818,7 +826,7 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             self.client_manager.acknowledge_status_update(delivery)
 
     @staticmethod
-    def _state_before_finalizing(job: model.Job) -> Optional[model.JobState]:
+    def _state_before_finalizing(job: model.Job) -> Optional[JobStateEnum]:
         histories = sorted(
             job.state_history,
             key=lambda history: (history.create_time or datetime.datetime.min, history.id or 0),
@@ -826,7 +834,7 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         )
         for history in histories:
             if history.state != model.Job.states.FINALIZING:
-                return history.state
+                return JobStateEnum(history.state) if history.state else None
         return None
 
     def check_pid(self, pid):
@@ -916,11 +924,11 @@ class PulsarJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         if self.pulsar_app:
             self.pulsar_app.shutdown()
 
-    def _job_state(self, job: model.Job, job_wrapper: "MinimalJobWrapper") -> AsynchronousJobState:
+    def _job_state(self, job: model.Job, job_wrapper: "MinimalJobWrapper") -> PulsarJobState:
         # TODO: Determine why this is set when using normal message queue updates
         # but not CLI submitted MQ updates...
         raw_job_id = job.get_job_runner_external_id() or str(job_wrapper.job_id)
-        job_state = AsynchronousJobState(
+        job_state = PulsarJobState(
             job_wrapper=job_wrapper, job_destination=job_wrapper.job_destination, job_id=raw_job_id
         )
         return job_state

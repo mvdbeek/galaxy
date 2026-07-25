@@ -52,6 +52,8 @@ def test_database_claim_is_durable_and_rejects_stale_nonterminal_update(
         assert not stale_job.set_state(Job.states.STOPPED)
         stale_session.rollback()
         stale_session.expire_all()
-        assert stale_session.get(Job, job.id).state == Job.states.FINALIZING
+        finalizing_job = stale_session.get(Job, job.id)
+        assert finalizing_job is not None
+        assert finalizing_job.state == Job.states.FINALIZING
     finally:
         stale_session.close()
