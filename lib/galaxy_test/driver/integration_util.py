@@ -184,6 +184,7 @@ class IntegrationInstance(UsesApiTestCaseMixin, UsesCeleryTasks):
         """Configure and start Galaxy for a test."""
         cls._app_available = False
         cls._test_driver = GalaxyTestDriver()
+        cls._test_driver.timing_instance_name = f"{cls.__module__}.{cls.__name__}"
         cls._prepare_galaxy()
         cls._test_driver.setup(config_object=cls)
         cls._app_available = True

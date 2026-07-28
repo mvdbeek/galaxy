@@ -62,6 +62,7 @@ from galaxy_test.base.env import (
     DEFAULT_WEB_HOST,
     target_url_parts,
 )
+from . import timing
 from .test_logging import logging_config_file
 
 galaxy_root = galaxy_directory()
@@ -586,10 +587,13 @@ def build_galaxy_app(simple_kwargs) -> GalaxyUniverseApplication:
     log.info("Galaxy database connection: %s", simple_kwargs["database_connection"])
     simple_kwargs["global_conf"] = get_webapp_global_conf()
     simple_kwargs["global_conf"]["__file__"] = "lib/galaxy/config/sample/galaxy.yml.sample"
-    simple_kwargs = load_app_properties(kwds=simple_kwargs)
+    with timing.phase("load_app_properties"):
+        simple_kwargs = load_app_properties(kwds=simple_kwargs)
     # Build the Universe Application
-    app = GalaxyUniverseApplication(**simple_kwargs, is_webapp=True)
+    with timing.phase("universe_application"):
+        app = GalaxyUniverseApplication(**simple_kwargs, is_webapp=True)
     log.info("Embedded Galaxy application started")
+    timing.current().set("app_startup_stages", app.startup_stages.stages)
 
     global install_context
     install_context = app.install_model.context
@@ -599,7 +603,8 @@ def build_galaxy_app(simple_kwargs) -> GalaxyUniverseApplication:
     # without building a webapp (app.is_webapp = False for this test kit).
     # We need to ensure to build an index for the test galaxy app -- this is
     # pretty fast with the limited toolset
-    app.reindex_tool_search()
+    with timing.phase("reindex_tool_search"):
+        app.reindex_tool_search()
 
     return app
 
@@ -671,7 +676,8 @@ class EmbeddedServerWrapper(ServerWrapper):
 
         if self._server is not None and hasattr(self._server, "server_close"):
             log.info(f"Shutting down embedded {self.name} Paste server")
-            self._server.server_close()
+            with timing.phase("paste_server_close"):
+                self._server.server_close()
             log.info(f"Embedded web server {self.name} stopped")
 
         if self._server is not None and hasattr(self._server, "shutdown"):
@@ -681,12 +687,14 @@ class EmbeddedServerWrapper(ServerWrapper):
 
         if self._thread is not None:
             log.info("Stopping embedded server thread")
-            self._thread.join()
+            with timing.phase("server_thread_join"):
+                self._thread.join()
             log.info("Embedded server thread stopped")
 
         if self._app is not None:
             log.info(f"Stopping application {self.name}")
-            self._app.shutdown()
+            with timing.phase("app_shutdown"):
+                self._app.shutdown()
             log.info(f"Application {self.name} stopped.")
 
         thread_count = threading.active_count()
@@ -912,6 +920,7 @@ def caching_fast_app_factory(gx_wsgi_webapp, gx_app):
 
     topology_differs = gx_app.config.galaxy_url_prefix != "/" or gx_app.config.enable_mcp_server
     if topology_differs:
+        timing.current().set("fast_app_cache", "topology_differs")
         return init_galaxy_fast_app(gx_wsgi_webapp, gx_app)
     slot = _test_fast_app_slot()
     existing = slot.get("app")
@@ -924,12 +933,15 @@ def caching_fast_app_factory(gx_wsgi_webapp, gx_app):
     )
     if existing is None:
         log.debug("Creating cached FastAPI app")
+        timing.current().set("fast_app_cache", "miss")
         return _build_and_cache_app()
     if slot.get("tus_state") != tus_state:
         log.debug(
             "Rebuilding cached FastAPI app because TUS state changed from %s to %s", slot.get("tus_state"), tus_state
         )
+        timing.current().set("fast_app_cache", "tus_state_changed")
         return _build_and_cache_app()
+    timing.current().set("fast_app_cache", "hit")
     _rebind_fast_app_for_launch(existing, gx_wsgi_webapp, gx_app, slot["lifespan_context"])
     return existing
 
@@ -966,19 +978,24 @@ def launch_server(
         gravity_wrapper.wait_for_server()
         return gravity_wrapper
 
-    app = app_factory()
+    with timing.phase("build_app"):
+        app = app_factory()
     url_prefix = getattr(app.config, f"{name}_url_prefix", "/")
-    wsgi_webapp = webapp_factory(
-        galaxy_config["global_conf"],
-        app=app,
-        use_translogger=False,
-        static_enabled=True,
-        register_shutdown_at_exit=False,
-    )
-    asgi_app = init_fast_app(wsgi_webapp, app)
+    with timing.phase("build_wsgi_webapp"):
+        wsgi_webapp = webapp_factory(
+            galaxy_config["global_conf"],
+            app=app,
+            use_translogger=False,
+            static_enabled=True,
+            register_shutdown_at_exit=False,
+        )
+    with timing.phase("init_fast_app"):
+        asgi_app = init_fast_app(wsgi_webapp, app)
 
-    server, port, thread = uvicorn_serve(asgi_app, host=host, port=port)
-    set_and_wait_for_http_target(prefix, host, port, url_prefix=url_prefix)
+    with timing.phase("uvicorn_serve"):
+        server, port, thread = uvicorn_serve(asgi_app, host=host, port=port)
+    with timing.phase("wait_for_http"):
+        set_and_wait_for_http_target(prefix, host, port, url_prefix=url_prefix)
     log.debug(f"Embedded uvicorn web server for {name} started at {host}:{port}{url_prefix}")
     return EmbeddedServerWrapper(app, server, name, host, port, thread=thread, prefix=url_prefix)
 
@@ -997,15 +1014,22 @@ class TestDriver:
         """Setup tracked resources."""
         self.server_wrappers: list[ServerWrapper] = []
         self.temp_directories: list[str] = []
+        # Identifies this driver in timing records; test cases set it to their class name.
+        self.timing_instance_name: str = type(self).__name__
 
     def setup(self) -> None:
         """Called before tests are built."""
 
     def tear_down(self) -> None:
         """Cleanup resources tracked by this object."""
-        self.stop_servers()
-        for temp_directory in self.temp_directories:
-            cleanup_directory(temp_directory)
+        with timing.timed_cycle("teardown", instance=self.timing_instance_name) as timings:
+            timings.set("threads_before", threading.active_count())
+            with timings.phase("stop_servers"):
+                self.stop_servers()
+            with timings.phase("cleanup_directories"):
+                for temp_directory in self.temp_directories:
+                    cleanup_directory(temp_directory)
+            timings.set("threads_after", threading.active_count())
 
     def stop_servers(self) -> None:
         for server_wrapper in self.server_wrappers:
@@ -1069,8 +1093,11 @@ class GalaxyTestDriver(TestDriver):
         ```config_object``` (defaults to self).
         """
         self._saved_galaxy_config = None
-        self._configure(config_object)
-        self._register_and_run_servers(config_object)
+        with timing.timed_cycle("startup", instance=self.timing_instance_name) as timings:
+            with timings.phase("configure"):
+                self._configure(config_object)
+            with timings.phase("register_and_run_servers"):
+                self._register_and_run_servers(config_object)
 
     def get_logs(self) -> str | None:
         if not self.server_wrappers:
@@ -1079,8 +1106,11 @@ class GalaxyTestDriver(TestDriver):
         return server_wrapper.get_logs()
 
     def restart(self, config_object=None, handle_config=None) -> None:
-        self.stop_servers()
-        self._register_and_run_servers(config_object, handle_config=handle_config)
+        with timing.timed_cycle("restart", instance=self.timing_instance_name) as timings:
+            with timings.phase("stop_servers"):
+                self.stop_servers()
+            with timings.phase("register_and_run_servers"):
+                self._register_and_run_servers(config_object, handle_config=handle_config)
 
     def _register_and_run_servers(self, config_object=None, handle_config=None) -> None:
         config_object = self._ensure_config_object(config_object)
@@ -1100,20 +1130,23 @@ class GalaxyTestDriver(TestDriver):
                 if callable(galaxy_config):
                     galaxy_config = galaxy_config()
                 if galaxy_config is None:
-                    galaxy_config = setup_galaxy_config(
-                        galaxy_db_path,
-                        use_test_file_dir=not self.testing_shed_tools,
-                        default_install_db_merged=True,
-                        default_tool_conf=self.default_tool_conf,
-                        datatypes_conf=self.datatypes_conf_override,
-                        prefer_template_database=getattr(config_object, "prefer_template_database", False),
-                        log_format=self.log_format,
-                        conda_auto_init=getattr(config_object, "conda_auto_init", False),
-                        conda_auto_install=getattr(config_object, "conda_auto_install", False),
-                        use_shared_connection_for_amqp=getattr(config_object, "use_shared_connection_for_amqp", False),
-                        allow_tool_conf_override=self.allow_tool_conf_override,
-                        allow_path_paste=getattr(config_object, "allow_path_paste", False),
-                    )
+                    with timing.phase("setup_galaxy_config"):
+                        galaxy_config = setup_galaxy_config(
+                            galaxy_db_path,
+                            use_test_file_dir=not self.testing_shed_tools,
+                            default_install_db_merged=True,
+                            default_tool_conf=self.default_tool_conf,
+                            datatypes_conf=self.datatypes_conf_override,
+                            prefer_template_database=getattr(config_object, "prefer_template_database", False),
+                            log_format=self.log_format,
+                            conda_auto_init=getattr(config_object, "conda_auto_init", False),
+                            conda_auto_install=getattr(config_object, "conda_auto_install", False),
+                            use_shared_connection_for_amqp=getattr(
+                                config_object, "use_shared_connection_for_amqp", False
+                            ),
+                            allow_tool_conf_override=self.allow_tool_conf_override,
+                            allow_path_paste=getattr(config_object, "allow_path_paste", False),
+                        )
 
                     isolate_galaxy_config = getattr(config_object, "isolate_galaxy_config", False)
                     if isolate_galaxy_config:
@@ -1124,7 +1157,9 @@ class GalaxyTestDriver(TestDriver):
             if galaxy_config is not None:
                 handle_galaxy_config_kwds = handle_config or getattr(config_object, "handle_galaxy_config_kwds", None)
                 if handle_galaxy_config_kwds is not None:
-                    handle_galaxy_config_kwds(galaxy_config)
+                    with timing.phase("handle_galaxy_config_kwds"):
+                        handle_galaxy_config_kwds(galaxy_config)
+            timing.record_config_fingerprint(galaxy_config, [self.galaxy_test_tmp_dir])
 
             launch_kwargs: dict[str, Any] = dict(
                 app_factory=lambda: self.build_galaxy_app(galaxy_config),
@@ -1136,7 +1171,8 @@ class GalaxyTestDriver(TestDriver):
             custom_init_fast_app = getattr(config_object, "init_fast_app", None)
             if custom_init_fast_app is not None:
                 launch_kwargs["init_fast_app"] = custom_init_fast_app
-            server_wrapper = launch_server(**launch_kwargs)
+            with timing.phase("launch_server"):
+                server_wrapper = launch_server(**launch_kwargs)
             self.server_wrappers.append(server_wrapper)
         else:
             log.info(f"Functional tests will be run against test external Galaxy server {self.external_galaxy}")

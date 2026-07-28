@@ -334,6 +334,7 @@ fi
 xunit_report_file=""
 structured_data_report_file=""
 structured_data_html=0
+duration_args=""
 # Detect blocking I/O in async handlers during tests via aiocop
 # (https://github.com/Feverup/aiocop).  Set to 0 to disable.
 GALAXY_TEST_AIOCOP=${GALAXY_TEST_AIOCOP:-1}
@@ -568,6 +569,9 @@ do
       -i|-integration|--integration)
           GALAXY_TEST_TOOL_CONF="lib/galaxy/config/sample/tool_conf.xml.sample,test/functional/tools/sample_tool_conf.xml"
           report_file="./run_integration_tests.html"
+          # Each test class boots its own Galaxy, so knowing which tests are slow is
+          # the starting point for every optimization of this suite.
+          duration_args="--durations=50 --durations-min=1.0"
           if [ $# -gt 1 ]; then
               integration_extra=$2
               shift 2
@@ -698,7 +702,7 @@ if [ -n "$marker" ]; then
 else
     marker_args=()
 fi
-args=(-v $debug $structured_data_args --html "$report_file" --self-contained-html $coverage_arg $xunit_args $extra_args "${marker_args[@]}" "$@")
+args=(-v $debug $duration_args $structured_data_args --html "$report_file" --self-contained-html $coverage_arg $xunit_args $extra_args "${marker_args[@]}" "$@")
 "$test_script" "${args[@]}"
 exit_status=$?
 echo "Testing complete. HTML report is in \"$report_file\"." 1>&2

@@ -124,10 +124,23 @@ jobs:
           GALAXY_TEST_MULLED_RESOLUTION_CACHE_SEED: '${{ runner.temp }}/mulled-resolution-seed/biocontainers.json'
           GALAXY_CONFIG_OVERRIDE_MULLED_RESOLUTION_CACHE_DATA_DIR: '${{ runner.temp }}/mulled-resolution-cache/data'
           GALAXY_CONFIG_OVERRIDE_MULLED_RESOLUTION_CACHE_LOCK_DIR: '${{ runner.temp }}/mulled-resolution-cache/locks'
+          GALAXY_TEST_TIMING_FILE: 'instance_timings.jsonl'
         run: |
           . .ci/minikube-test-setup/start_services.sh
-          ./run_tests.sh --coverage -integration test/integration -- --num-shards=4 --shard-id=${{ matrix.chunk }}
+          ./run_tests.sh --coverage --structured_data_report_file test_results.json -integration test/integration -- --num-shards=4 --shard-id=${{ matrix.chunk }}
         working-directory: 'galaxy root'
+      - name: Summarize where the time went
+        if: always()
+        run: python scripts/summarize_test_timings.py instance_timings.jsonl --json-report test_results.json >> "$GITHUB_STEP_SUMMARY"
+        working-directory: 'galaxy root'
+        continue-on-error: true
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: Integration test timings (${{ matrix.python-version }}, ${{ matrix.chunk }})
+          path: |
+            galaxy root/instance_timings.jsonl
+            galaxy root/test_results.json
       - uses: codecov/codecov-action@v7.0.0
         with:
           flags: integration
