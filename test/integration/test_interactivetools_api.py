@@ -102,6 +102,11 @@ class AbstractTestCases:
             target = self.entry_point_target(entry_point0["id"])
             content = self.wait_on_proxied_content(target)
             assert content == "moo cow\n", content
+            # An interactive tool runs until its entry point is stopped, so leaving it
+            # behind holds a job slot for every later test sharing this Galaxy instance.
+            stop_response = self.dataset_populator._delete(f"entry_points/{entry_point0['id']}")
+            stop_response.raise_for_status()
+            self.dataset_populator.wait_for_job(job0["id"], assert_ok=True)
 
         def test_multi_server_realtime_tool(self, history_id: str) -> None:
             response_dict = self.dataset_populator.run_tool("interactivetool_two_entry_points", {}, history_id)

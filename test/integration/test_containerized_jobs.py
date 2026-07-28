@@ -219,6 +219,7 @@ class TestDockerizedJobsIntegration(BaseJobEnvironmentIntegrationTestCase, Mulle
             data={
                 "tool_ids": tool_ids,
                 "container_type": self.container_type,
+                "resolver_type": resolver_type,
                 "include_containers": True,
                 "index_by": "tools",
             },
