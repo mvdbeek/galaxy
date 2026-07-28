@@ -33,6 +33,20 @@ VOLATILE_CONFIG_KEYS = frozenset(
         "global_conf",
     }
 )
+# Directories ``setup_galaxy_config`` creates with ``tempfile.mkdtemp``, so their names
+# carry per-launch randomness. Their values are masked wherever they appear, not just
+# under these keys, since other settings embed them.
+VOLATILE_PATH_KEYS = (
+    "config_dir",
+    "data_dir",
+    "galaxy_data_manager_data_path",
+    "job_working_directory",
+    "new_file_path",
+    "template_cache_path",
+    "file_path",
+    "tool_data_path",
+    "shed_tool_data_path",
+)
 TEMPORARY_DATABASE_NAME = re.compile(r"gxtest[A-Za-z0-9]+")
 
 _write_lock = threading.Lock()
@@ -155,9 +169,24 @@ def config_fingerprint(galaxy_config: dict[str, Any] | None, volatile_paths: lis
     """
     if galaxy_config is None:
         return "none"
-    normalized = _normalize(galaxy_config, sorted(volatile_paths or [], key=len, reverse=True), top_level=True)
+    normalized = _normalize(galaxy_config, _volatile_paths(galaxy_config, volatile_paths), top_level=True)
     serialized = json.dumps(normalized, sort_keys=True, default=repr)
     return hashlib.sha256(serialized.encode()).hexdigest()[:12]
+
+
+def _volatile_paths(galaxy_config: dict[str, Any], extra: list[str] | None) -> list[str]:
+    """Every per-launch directory to mask, longest first so nested paths go first.
+
+    Both the path and its realpath are masked - on macOS the temp root resolves under
+    ``/private``, and the config mixes the two forms.
+    """
+    paths = set(extra or [])
+    for key in VOLATILE_PATH_KEYS:
+        value = galaxy_config.get(key)
+        if isinstance(value, str) and value:
+            paths.add(value)
+    paths.update(os.path.realpath(path) for path in list(paths))
+    return sorted(paths, key=len, reverse=True)
 
 
 def _normalize(value: Any, volatile_paths: list[str], top_level: bool = False) -> Any:
