@@ -66,7 +66,8 @@ def summarize_timing_records(records: list[dict[str, Any]]) -> None:
 
     _print_phase_totals("startup phases", startups)
     _print_phase_totals("teardown phases", teardowns)
-    _print_app_stage_totals(startups)
+    _print_app_stage_totals("application startup stages", startups, "app_startup_stages")
+    _print_app_stage_totals("application shutdown stages", teardowns, "app_shutdown_stages")
     _print_slowest_launches(startups)
     _print_shareable_instances(startups)
 
@@ -89,11 +90,11 @@ def _print_phase_totals(title: str, records: list[dict[str, Any]]) -> None:
         print(f"  {seconds / 60:7.1f}m  mean {seconds / len(records):6.2f}s  {name}")
 
 
-def _print_app_stage_totals(startups: list[dict[str, Any]]) -> None:
+def _print_app_stage_totals(title: str, records: list[dict[str, Any]], field: str) -> None:
     totals: dict[str, float] = defaultdict(float)
     counted = 0
-    for record in startups:
-        stages = record.get("app_startup_stages")
+    for record in records:
+        stages = record.get(field)
         if not stages:
             continue
         counted += 1
@@ -101,7 +102,7 @@ def _print_app_stage_totals(startups: list[dict[str, Any]]) -> None:
             totals[name] += seconds
     if not counted:
         return
-    print(f"\napplication startup stages ({counted} launches):")
+    print(f"\n{title} ({counted} records):")
     for name, seconds in sorted(totals.items(), key=lambda item: item[1], reverse=True):
         print(f"  {seconds / 60:7.1f}m  mean {seconds / counted:6.2f}s  {name}")
 

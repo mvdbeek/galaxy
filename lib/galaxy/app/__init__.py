@@ -214,12 +214,12 @@ log = logging.getLogger(__name__)
 app = None
 
 
-class StartupStageTimings:
-    """Wall-clock time spent in each stage of application startup.
+class StageTimings:
+    """Wall-clock time spent in each stage of application startup or shutdown.
 
-    Integration tests build a fresh application per test class, so the total startup
-    time reported at the end of ``UniverseApplication.__init__`` is not enough to act
-    on - the breakdown is what identifies which stage to attack.
+    Integration tests build and tear down a fresh application per test class, so the
+    totals reported at the end of ``UniverseApplication.__init__`` and ``shutdown`` are
+    not enough to act on - the breakdown is what identifies which stage to attack.
     """
 
     def __init__(self) -> None:
@@ -244,15 +244,18 @@ class HaltableContainer(Container):
     def __init__(self) -> None:
         super().__init__()
         self.haltables = []
+        self.shutdown_stages = StageTimings()
 
     def shutdown(self):
         exception = None
         for what, haltable in self.haltables:
             try:
-                haltable()
+                with self.shutdown_stages.stage(what):
+                    haltable()
             except Exception as e:
                 log.exception(f"Failed to shutdown {what} cleanly")
                 exception = exception or e
+        log.info("Galaxy app shutdown stages: %s", self.shutdown_stages.summary())
         if exception is not None:
             raise exception
 
@@ -331,7 +334,7 @@ class MinimalGalaxyApplication(BasicSharedApp, HaltableContainer, SentryClientMi
 
     def __init__(self, fsmon=False, **kwargs) -> None:
         super().__init__()
-        self.startup_stages = StartupStageTimings()
+        self.startup_stages = StageTimings()
         self._genome_builds = None
         self._tool_data_tables = None
         self.haltables = [

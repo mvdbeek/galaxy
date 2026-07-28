@@ -692,6 +692,7 @@ class EmbeddedServerWrapper(ServerWrapper):
             log.info(f"Stopping application {self.name}")
             with timing.phase("app_shutdown"):
                 self._app.shutdown()
+            timing.current().set("app_shutdown_stages", self._app.shutdown_stages.stages)
             log.info(f"Application {self.name} stopped.")
 
         thread_count = threading.active_count()
