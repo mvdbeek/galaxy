@@ -34,6 +34,10 @@ from galaxy.model import (
 from galaxy.model.metadata import FileParameter
 from galaxy.model.none_like import NoneDataset
 from galaxy.security.object_wrapper import wrap_with_safe_string
+from galaxy.tool_util.data import (
+    BUNDLE_INDEX_FILE_NAME,
+    resolve_consumed_bundle_column,
+)
 from galaxy.tool_util_models.sample_sheet import SampleSheetRow
 from galaxy.tools.parameters.basic import (
     BooleanToolParameter,
@@ -221,10 +225,38 @@ class SelectToolParameterWrapper(ToolParameterValueWrapper):
             self._fields: dict[str, list[str]] = {}
             self._compute_environment = compute_environment
 
+        def _resolve_consumed_bundle_path(self, column_name: str) -> str | None:
+            """Resolve a path column from a consumed data-manager bundle HDA.
+
+            When the field source is a bundle HDA, resolve the path the way a normal
+            install/import would (applying the data manager ``<move>`` +
+            ``<value_translation>``) into the per-job working dir, instead of the
+            naive ``extra_files_path`` join. Returns ``None`` when the source is not
+            a bundle (no index file) so the caller falls back to today's behavior.
+            """
+            extra_files_path = self._value.extra_files_path
+            if not os.path.exists(os.path.join(extra_files_path, BUNDLE_INDEX_FILE_NAME)):
+                return None
+            table_name = self._input.options.tool_data_table_name
+            if not table_name:
+                return None
+            return resolve_consumed_bundle_column(
+                extra_files_path,
+                table_name,
+                column_name,
+                self._compute_environment.working_directory(),
+            )
+
         def __getattr__(self, name: str) -> Any:
             if name not in self._fields:
                 if isinstance(self._value, DatasetInstance):
-                    self._fields[name] = [self._input.options.get_option_from_dataset(self._value)[name]]
+                    resolved = None
+                    if name in PATH_ATTRIBUTES and self._compute_environment:
+                        resolved = self._resolve_consumed_bundle_path(name)
+                    if resolved is not None:
+                        self._fields[name] = [resolved]
+                    else:
+                        self._fields[name] = [self._input.options.get_option_from_dataset(self._value)[name]]
                 else:
                     self._fields[name] = self._input.options.get_field_by_name_for_value(
                         name, self._value, None, self._other_values

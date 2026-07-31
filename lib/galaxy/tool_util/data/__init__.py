@@ -13,6 +13,7 @@ import logging
 import os
 import os.path
 import re
+import shutil
 import string
 from collections.abc import (
     Callable,
@@ -1568,6 +1569,7 @@ def _process_move(
     source_base_path: str,
     bundle_description: DataTableBundleProcessorDescription,
     options: BundleProcessingOptions,
+    transfer: Callable[[str, str], None] = util.move_merge,
     **kwd,
 ):
     move_by_data_table_column = bundle_description.move_by_data_table_column
@@ -1624,7 +1626,7 @@ def _process_move(
                     raise e
         # moving a directory and the target already exists, we move the contents instead
         if os.path.exists(source):
-            util.move_merge(source, target)
+            transfer(source, target)
 
         if move.relativize_symlinks:
             util.relativize_symlinks(target)
@@ -1657,3 +1659,77 @@ def _process_value_translations(
                 value = value_translation(value)
     assert value
     return value
+
+
+def _copy_merge(source: str, target: str) -> None:
+    """Non-destructive counterpart to :func:`galaxy.util.move_merge`.
+
+    Copies ``source`` into ``target`` (merging into an existing target directory)
+    instead of moving it, so the source tree is left intact. This matters when the
+    source is a live bundle HDA extra-files dir that a later import stage reuses.
+    Idempotent: an already-materialized target file is left untouched, so repeated
+    calls are a no-op.
+    """
+    if os.path.isdir(source) and os.path.exists(target) and os.path.isdir(target):
+        for name in os.listdir(source):
+            _copy_merge(os.path.join(source, name), os.path.join(target, name))
+    elif os.path.exists(target):
+        # Already materialized by a previous call; leave it in place.
+        return
+    elif os.path.isdir(source):
+        shutil.copytree(source, target, symlinks=True)
+    else:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
+        shutil.copy2(source, target)
+
+
+def resolve_consumed_bundle_column(
+    extra_files_path: str,
+    table_name: str,
+    column_name: str,
+    staging_root: str,
+) -> str:
+    """Resolve a data-table column value for a bundle consumed by a downstream tool.
+
+    When a data-manager bundle HDA is fed into another tool via ``from_data_table``,
+    the tool must see the same on-disk layout a normal install/import would produce.
+    This reads the bundle index from ``extra_files_path`` and, for a column the data
+    manager relocates with a ``<move>`` (or rewrites with a ``<value_translation>``),
+    applies that move into ``staging_root`` (the per-job working dir) and returns the
+    translated path. The move is non-destructive so the bundle HDA extra-files remain
+    intact for the import stage, and idempotent so repeated resolution is a no-op.
+
+    For a plain column (no move and no value translation) this returns
+    ``os.path.join(extra_files_path, raw_value)`` -- exactly the naive layout used
+    before, so path tables without a move (e.g. metaphlan, samestr) are unchanged.
+    """
+    index_json = os.path.join(extra_files_path, BUNDLE_INDEX_FILE_NAME)
+    with open(index_json) as f:
+        index = json.load(f)
+    bundle = DataTableBundle(**index)
+    description = bundle.processor_description
+    # Use the raw index row (not a caller-mutated one): move/value_translation
+    # templates fill from the raw column values recorded in the bundle.
+    raw_row = next(_iter_bundle_rows(bundle.data_tables.get(table_name)), {})
+
+    move_by_column = description.move_by_data_table_column.get(table_name, {})
+    translation_by_column = description.value_translation_by_data_table_column.get(table_name, {})
+    if column_name not in move_by_column and column_name not in translation_by_column:
+        return os.path.join(extra_files_path, raw_row.get(column_name, ""))
+
+    options = BundleProcessingOptions(
+        what="bundle chain consume",
+        data_manager_path=staging_root,
+        target_config_file="",
+        tool_data_file_path=None,
+    )
+    _process_move(
+        table_name,
+        column_name,
+        source_base_path=extra_files_path,
+        bundle_description=description,
+        options=options,
+        transfer=_copy_merge,
+        **raw_row,
+    )
+    return _process_value_translations(table_name, column_name, description, options, **raw_row)

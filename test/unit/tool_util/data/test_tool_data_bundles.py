@@ -6,11 +6,15 @@ from dataclasses import dataclass
 import pytest
 
 from galaxy.tool_util.data import (
+    _copy_merge,
+    _process_move,
     BUNDLE_INDEX_FILE_NAME,
     BundleProcessingOptions,
+    resolve_consumed_bundle_column,
 )
 from galaxy.tool_util.data.bundles.models import (
     convert_data_tables_xml,
+    DataTableBundle,
     DataTableBundleProcessorDescription,
     get_path_headers,
 )
@@ -522,6 +526,184 @@ def test_undeclared_tables(tdt_manager, tmp_path):
     assert new_row[0] == "newvalue"
     assert new_row[1] == "mynewname"
     assert new_row[2] == str(tmp_path / "newvalue.txt")
+
+
+def _motus_column(*, with_move: bool) -> dict:
+    column: dict = {"name": "path", "data_table_name": "path", "output_ref": "out1"}
+    if with_move:
+        column["moves"] = [
+            {
+                "type": "directory",
+                "relativize_symlinks": False,
+                "source_value": "${path}",
+                "target_base": "${GALAXY_DATA_MANAGER_DATA_PATH}",
+                "target_value": "motus_database/${value}/db_mOTU",
+            }
+        ]
+        column["value_translations"] = [
+            {"value": "${GALAXY_DATA_MANAGER_DATA_PATH}/motus_database/${value}/db_mOTU", "type": "template"}
+        ]
+    return column
+
+
+def _write_consumed_bundle(tmp_path, *, with_move: bool):
+    """Build a bundle HDA extra-files dir with a raw db dir and a bundle index.
+
+    Mirrors the mOTUs data manager: a ``<move>`` relocates the raw ``db_mOTU``
+    directory to ``${GALAXY_DATA_MANAGER_DATA_PATH}/motus_database/${value}/db_mOTU``
+    and a value translation resolves the column to that path. ``with_move=False``
+    models a plain ``path`` table (e.g. metaphlan/samestr) with no move.
+    """
+    extra_files_path = tmp_path / "extra"
+    db_dir = extra_files_path / "db_mOTU"
+    db_dir.mkdir(parents=True)
+    (db_dir / "db_mOTU_versions").write_text("3.1.0")
+
+    description = DataTableBundleProcessorDescription(
+        undeclared_tables=False,
+        data_tables=[
+            {
+                "name": "motus_db",
+                "output": {"columns": [{"name": "value"}, {"name": "name"}, _motus_column(with_move=with_move)]},
+            }
+        ],
+    )
+    bundle = DataTableBundle(
+        processor_description=description,
+        data_tables={"motus_db": [{"value": "3.1.0", "name": "mOTUs 3.1.0", "path": "db_mOTU"}]},
+        output_name="out1",
+    )
+    (extra_files_path / BUNDLE_INDEX_FILE_NAME).write_text(bundle.model_dump_json())
+    return extra_files_path, db_dir
+
+
+def test_resolve_consumed_bundle_column_applies_move(tmp_path):
+    """Consuming a bundle applies the DM move so the downstream tool sees the install layout."""
+    extra_files_path, db_dir = _write_consumed_bundle(tmp_path, with_move=True)
+    staging_root = tmp_path / "staging"
+    staging_root.mkdir()
+
+    resolved = resolve_consumed_bundle_column(str(extra_files_path), "motus_db", "path", str(staging_root))
+
+    expected = staging_root / "motus_database" / "3.1.0" / "db_mOTU"
+    # (i) files were materialized under the staging root and (ii) the returned path points there.
+    assert (expected / "db_mOTU_versions").exists()
+    assert resolved == str(expected)
+    # (iii) the source bundle extra-files dir is untouched (import reuses it).
+    assert (db_dir / "db_mOTU_versions").exists()
+
+    # (iv) a second call is idempotent and returns the same path.
+    resolved_again = resolve_consumed_bundle_column(str(extra_files_path), "motus_db", "path", str(staging_root))
+    assert resolved_again == str(expected)
+    assert (expected / "db_mOTU_versions").exists()
+    assert (db_dir / "db_mOTU_versions").exists()
+
+
+def test_resolve_consumed_bundle_column_without_move_is_naive_join(tmp_path):
+    """A move-less path table resolves to the same joined path as before (metaphlan/samestr)."""
+    extra_files_path, _ = _write_consumed_bundle(tmp_path, with_move=False)
+    staging_root = tmp_path / "staging"
+    staging_root.mkdir()
+
+    resolved = resolve_consumed_bundle_column(str(extra_files_path), "motus_db", "path", str(staging_root))
+
+    assert resolved == os.path.join(str(extra_files_path), "db_mOTU")
+    # Nothing is staged for a move-less column.
+    assert not (staging_root / "motus_database").exists()
+
+
+def _single_move_description() -> DataTableBundleProcessorDescription:
+    return DataTableBundleProcessorDescription(
+        undeclared_tables=False,
+        data_tables=[
+            {
+                "name": "motus_db",
+                "output": {
+                    "columns": [
+                        {"name": "value"},
+                        {
+                            "name": "path",
+                            "data_table_name": "path",
+                            "output_ref": "out1",
+                            "moves": [
+                                {
+                                    "type": "directory",
+                                    "relativize_symlinks": False,
+                                    "source_value": "${path}",
+                                    "target_base": "${GALAXY_DATA_MANAGER_DATA_PATH}",
+                                    "target_value": "motus_database/${value}/db_mOTU",
+                                }
+                            ],
+                        },
+                    ]
+                },
+            }
+        ],
+    )
+
+
+def test_process_move_default_transfer_is_destructive(tmp_path):
+    """The default transfer still moves (empties the source), as the import path relies on."""
+    source_root = tmp_path / "src"
+    (source_root / "db_mOTU").mkdir(parents=True)
+    (source_root / "db_mOTU" / "file").write_text("data")
+    options = BundleProcessingOptions(
+        what="data manager 'mock'", data_manager_path=str(tmp_path / "dm"), target_config_file=""
+    )
+
+    _process_move(
+        "motus_db",
+        "path",
+        source_base_path=str(source_root),
+        bundle_description=_single_move_description(),
+        options=options,
+        value="3.1.0",
+        path="db_mOTU",
+    )
+
+    moved_target = tmp_path / "dm" / "motus_database" / "3.1.0" / "db_mOTU"
+    assert (moved_target / "file").exists()
+    # Default transfer is util.move_merge, which removes the moved source.
+    assert not (source_root / "db_mOTU").exists()
+
+
+def test_process_move_copy_transfer_leaves_source_intact(tmp_path):
+    """A copy transfer materializes the target without emptying the source."""
+    source_root = tmp_path / "src"
+    (source_root / "db_mOTU").mkdir(parents=True)
+    (source_root / "db_mOTU" / "file").write_text("data")
+    options = BundleProcessingOptions(
+        what="data manager 'mock'", data_manager_path=str(tmp_path / "dm"), target_config_file=""
+    )
+
+    _process_move(
+        "motus_db",
+        "path",
+        source_base_path=str(source_root),
+        bundle_description=_single_move_description(),
+        options=options,
+        transfer=_copy_merge,
+        value="3.1.0",
+        path="db_mOTU",
+    )
+
+    copied_target = tmp_path / "dm" / "motus_database" / "3.1.0" / "db_mOTU"
+    assert (copied_target / "file").exists()
+    # Copy transfer must not empty the source.
+    assert (source_root / "db_mOTU" / "file").exists()
+
+
+def test_copy_merge_is_idempotent_and_non_destructive(tmp_path):
+    source = tmp_path / "src"
+    source.mkdir()
+    (source / "file").write_text("data")
+    target = tmp_path / "dst"
+
+    _copy_merge(str(source), str(target))
+    _copy_merge(str(source), str(target))  # second call must not raise
+
+    assert (target / "file").read_text() == "data"
+    assert (source / "file").exists()
 
 
 def _last_row(loc_file):
