@@ -1362,6 +1362,9 @@ class ToolDataTableManager(Dictifiable):
             _relativize_bundle_data_table_paths(
                 data_manager_dict.get("data_tables", {}), source_extra_files_path, bundle_description
             )
+            _apply_bundle_moves_to_layout(
+                data_manager_dict.get("data_tables", {}), extra_files_path, bundle_description
+            )
             bundle = DataTableBundle(
                 data_tables=data_manager_dict.get("data_tables", {}),
                 output_name=output_name,
@@ -1424,6 +1427,70 @@ def _relativize_bundle_data_table_paths(
                     rel = os.path.relpath(path, extra_files_path)
                     if rel != os.pardir and not rel.startswith(os.pardir + os.sep):
                         row[header] = rel
+
+
+def _apply_bundle_moves_to_layout(
+    data_tables: dict[str, Any],
+    extra_files_path: str,
+    bundle_description: DataTableBundleProcessorDescription,
+) -> None:
+    """Stage the ``<move>`` target's *relative* layout into the bundle at write time.
+
+    A data manager's ``<move>`` relocates its output into an installed layout at
+    import time (e.g. ``motus_database/${value}/db_mOTU``). The base of that layout
+    (``${GALAXY_DATA_MANAGER_DATA_PATH}``) is only known when the bundle is imported
+    onto a server, but the relative part (``target_value``) is known now. Applying
+    that relative move physically within ``extra_files_path`` means:
+
+    * a downstream tool that consumes the bundle mid-workflow reads the moved layout
+      via a plain ``os.path.join(extra_files_path, recorded_path)`` (no consume-side
+      code), and
+    * import still performs a single ``<move>`` from ``extra_files/<recorded path>``
+      to ``${GALAXY_DATA_MANAGER_DATA_PATH}/<recorded path>``, yielding the same
+      final install layout as before.
+
+    Tables/columns without a ``<move>`` are never in ``move_by_data_table_column``
+    and are left untouched. Must run *after* ``_relativize_bundle_data_table_paths``
+    so the source is bundle-relative.
+    """
+    move_by_data_table_column = bundle_description.move_by_data_table_column
+    for data_table_name, data_table_values in data_tables.items():
+        moves = move_by_data_table_column.get(data_table_name)
+        if not moves:
+            continue
+        for row in _iter_bundle_rows(data_table_values):
+            for column, move in moves.items():
+                if not move.target_value:
+                    # Nothing relative to stage (whole-directory move handled at import).
+                    continue
+                # Bundle-relative source, mirroring _process_move but rooted at
+                # extra_files_path and without GALAXY_DATA_MANAGER_DATA_PATH.
+                if move.source_base:
+                    source = fill_template(move.source_base, **row).strip()
+                else:
+                    source = ""
+                if move.source_value:
+                    source = os.path.join(source, fill_template(move.source_value, **row).strip())
+                rel_source = source or (row.get(column) or "")
+                if not rel_source or os.path.normpath(rel_source) in (os.curdir, ""):
+                    # Whole-extra-files-dir move: relocating it into a child of
+                    # itself is nonsensical; that case is resolved at import.
+                    continue
+                rel_target = fill_template(move.target_value, **row).strip()
+                if not rel_target:
+                    continue
+                abs_source = os.path.normpath(os.path.join(extra_files_path, rel_source))
+                abs_target = os.path.normpath(os.path.join(extra_files_path, rel_target))
+                if not os.path.exists(abs_source):
+                    # The recorded path never resolved under extra_files (e.g. a
+                    # compute-side path); leave the relativized value untouched.
+                    continue
+                if abs_source == abs_target or abs_target.startswith(abs_source + os.sep):
+                    # Target is the source or nested within it; nothing to stage.
+                    continue
+                os.makedirs(os.path.dirname(abs_target), exist_ok=True)
+                util.move_merge(abs_source, abs_target)
+                row[column] = rel_target
 
 
 def _data_manager_dict(out_data: dict[str, OutputDataset], ensure_single_output: bool = False) -> dict[str, Any]:

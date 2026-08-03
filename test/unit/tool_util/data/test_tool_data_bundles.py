@@ -285,11 +285,14 @@ def test_import_bundle_with_absolute_recorded_path(tdt_manager, tmp_path, table_
     )
     tdt_manager.write_bundle(out_data, process_description, None)
 
-    # Write stored the absolute job path relative to the extra-files dir.
+    # Write relativized the absolute job path and staged the move's relative layout.
     bundle_index = json.loads((tmp_path / "extra" / BUNDLE_INDEX_FILE_NAME).read_text())
     stored_path = bundle_index["data_tables"][table_name][0][path_column]
-    assert stored_path == index
+    assert stored_path == os.path.join("metaphlan", "data", index)
     assert not os.path.isabs(stored_path)
+    # The files were physically moved into that layout, raw dir gone.
+    assert os.path.exists(tmp_path / "extra" / stored_path / f"{index}.pkl")
+    assert not (tmp_path / "extra" / index).exists()
 
     # Transport the bundle: the location it was written at is gone by import.
     transported = tmp_path / "imported"
@@ -522,6 +525,144 @@ def test_undeclared_tables(tdt_manager, tmp_path):
     assert new_row[0] == "newvalue"
     assert new_row[1] == "mynewname"
     assert new_row[2] == str(tmp_path / "newvalue.txt")
+
+
+def prepare_motus_style_output_and_description(tmp_path):
+    """Mirror mOTUs: a ``<move>`` into ``motus_database/${value}/db_mOTU`` whose base
+    (``${GALAXY_DATA_MANAGER_DATA_PATH}``) is only known at import, plus a
+    ``value_translation`` to that same relative layout (no ``${path}`` suffix)."""
+    value = "3.1.0"
+    raw_dir_name = "db_from_dm"
+    extra_files_path = tmp_path / "extra"
+    staged = extra_files_path / raw_dir_name
+    staged.mkdir(parents=True)
+    (staged / "db_mOTU_versions").write_text("VERSIONS")
+    (staged / "db_mOTU_DB_CEN.fasta").write_text("FASTA")
+
+    output = {"data_tables": {"testalpha": [{"value": value, "name": "mOTUs 3.1.0", "path": raw_dir_name}]}}
+    output_dataset_path = tmp_path / "output.dat"
+    output_dataset_path.write_text(json.dumps(output))
+    output_dataset = OutputDataset(output_dataset_path, extra_files_path)
+    out_data = {"out1": output_dataset}
+    data_table = {
+        "name": "testalpha",
+        "output": {
+            "columns": [
+                {"name": "value"},
+                {"name": "name"},
+                {
+                    "name": "path",
+                    "output_ref": "out1",
+                    "moves": [
+                        {
+                            "type": "directory",
+                            "relativize_symlinks": False,
+                            "source_value": "${path}",
+                            "target_value": "motus_database/${value}/db_mOTU",
+                            "target_base": "${GALAXY_DATA_MANAGER_DATA_PATH}",
+                        }
+                    ],
+                    "value_translations": [
+                        {
+                            "value": "${GALAXY_DATA_MANAGER_DATA_PATH}/motus_database/${value}/db_mOTU",
+                            "type": "template",
+                        },
+                        {"value": "abspath", "type": "function"},
+                    ],
+                },
+            ]
+        },
+    }
+    process_description = DataTableBundleProcessorDescription(
+        **{"undeclared_tables": False, "data_tables": [data_table]}
+    )
+    return value, raw_dir_name, extra_files_path, out_data, process_description
+
+
+def test_write_bundle_stages_move_layout(tdt_manager, tmp_path):
+    """write_bundle physically restructures the extra_files into the move's relative
+    layout, records that path, and leaves no copy of the raw dir behind."""
+    value, raw_dir_name, extra_files_path, out_data, process_description = prepare_motus_style_output_and_description(
+        tmp_path
+    )
+    tdt_manager.write_bundle(out_data, process_description, None)
+
+    moved_dir = extra_files_path / "motus_database" / value / "db_mOTU"
+    assert (moved_dir / "db_mOTU_versions").exists()
+    assert (moved_dir / "db_mOTU_DB_CEN.fasta").exists()
+    # The raw dir was moved, not copied.
+    assert not (extra_files_path / raw_dir_name).exists()
+
+    bundle_index = json.loads((extra_files_path / BUNDLE_INDEX_FILE_NAME).read_text())
+    recorded_path = bundle_index["data_tables"]["testalpha"][0]["path"]
+    assert recorded_path == os.path.join("motus_database", value, "db_mOTU")
+
+
+def test_consume_join_lands_in_moved_layout(tdt_manager, tmp_path):
+    """A downstream (chained) tool resolves the recorded path with a naive join and
+    lands exactly on the moved db_mOTU dir with its files."""
+    value, _raw, extra_files_path, out_data, process_description = prepare_motus_style_output_and_description(tmp_path)
+    tdt_manager.write_bundle(out_data, process_description, None)
+
+    bundle_index = json.loads((extra_files_path / BUNDLE_INDEX_FILE_NAME).read_text())
+    recorded_path = bundle_index["data_tables"]["testalpha"][0]["path"]
+
+    consumed = os.path.join(str(extra_files_path), recorded_path)
+    assert os.path.isdir(consumed)
+    assert os.path.exists(os.path.join(consumed, "db_mOTU_versions"))
+
+
+def test_move_layout_round_trips_through_import(tdt_manager, tmp_path):
+    """Importing the write-time-staged bundle yields the SAME final install layout
+    (a single move to GALAXY_DATA_MANAGER_DATA_PATH) and the same translated .loc value."""
+    value, _raw, extra_files_path, out_data, process_description = prepare_motus_style_output_and_description(tmp_path)
+    tdt_manager.write_bundle(out_data, process_description, None)
+
+    # Transport the bundle to another host: the write location is gone by import.
+    transported = tmp_path / "imported"
+    os.rename(extra_files_path, transported)
+
+    install_root = tmp_path / "install"
+    install_root.mkdir()
+    options = BundleProcessingOptions(
+        what="data manager 'mock'",
+        data_manager_path=str(install_root),
+        target_config_file=str(tmp_path / "sample_data_managers_conf.xml"),
+    )
+    tdt_manager.import_bundle(str(transported), options)
+
+    expected_dir = install_root / "motus_database" / value / "db_mOTU"
+    assert (expected_dir / "db_mOTU_versions").exists()
+    assert (expected_dir / "db_mOTU_DB_CEN.fasta").exists()
+
+    new_row = _last_row(tmp_path / "testalpha.loc")
+    assert new_row[0] == value
+    assert new_row[-1] == str(expected_dir)
+
+
+def test_write_bundle_leaves_move_less_table_untouched(tdt_manager, tmp_path):
+    """A table/column without a ``<move>`` keeps the naive relative path and layout."""
+    target_path = tmp_path / "extra" / "newvalue.txt"
+    target_path.parent.mkdir()
+    target_path.write_text("Moo Cow")
+    output = {"data_tables": {"testalpha": [{"value": "newvalue", "name": "mynewname", "path": "newvalue.txt"}]}}
+    output_dataset_path = tmp_path / "output.dat"
+    output_dataset_path.write_text(json.dumps(output))
+    output_dataset = OutputDataset(output_dataset_path, tmp_path / "extra")
+    out_data = {"out1": output_dataset}
+    data_table = {
+        "name": "testalpha",
+        "output": {"columns": [{"name": "value"}, {"name": "name"}, {"name": "path"}]},
+    }
+    process_description = DataTableBundleProcessorDescription(
+        **{"undeclared_tables": False, "data_tables": [data_table]}
+    )
+    tdt_manager.write_bundle(out_data, process_description, None)
+
+    # Layout and recorded path unchanged: file still at its original relative location.
+    assert (tmp_path / "extra" / "newvalue.txt").exists()
+    bundle_index = json.loads((tmp_path / "extra" / BUNDLE_INDEX_FILE_NAME).read_text())
+    assert bundle_index["data_tables"]["testalpha"][0]["path"] == "newvalue.txt"
 
 
 def _last_row(loc_file):
