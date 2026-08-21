@@ -1,5 +1,7 @@
 """Define abstraction for capturing the metadata of job's output datasets."""
 
+from __future__ import annotations
+
 import abc
 import json
 import os
@@ -11,11 +13,11 @@ from typing import (
 )
 
 import galaxy.model
-from galaxy.model import store
-from galaxy.model.metadata import (
+from galaxy.datatypes.metadata import (
     FileParameter,
     MetadataTempFile,
 )
+from galaxy.model import store
 from galaxy.model.store import DirectoryModelExportStore
 from galaxy.util import safe_makedirs
 
@@ -64,7 +66,7 @@ class MetadataCollectionStrategy(metaclass=abc.ABCMeta):
         self,
         datasets_dict,
         out_collections,
-        sa_session: "scoped_session",
+        sa_session: scoped_session,
         exec_dir=None,
         tmp_dir=None,
         dataset_files_path=None,
@@ -143,7 +145,7 @@ class PortableDirectoryMetadataGenerator(MetadataCollectionStrategy):
         self,
         datasets_dict,
         out_collections,
-        sa_session: "scoped_session",
+        sa_session: scoped_session,
         exec_dir=None,
         tmp_dir=None,
         dataset_files_path=None,
