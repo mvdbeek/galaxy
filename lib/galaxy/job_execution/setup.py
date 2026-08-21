@@ -21,6 +21,12 @@ from galaxy.job_execution.datasets import (
     DeferrableObjectsT,
     get_path_rewriter,
 )
+from galaxy.job_execution.metadata_constants import (  # noqa: F401 - compatibility re-export
+    TOOL_PROVIDED_JOB_METADATA_FILE,
+)
+from galaxy.job_execution.metadata_constants import (  # noqa: F401 - compatibility re-export
+    TOOL_PROVIDED_JOB_METADATA_KEYS,
+)
 from galaxy.model import (
     DatasetInstance,
     Job,
@@ -30,10 +36,6 @@ from galaxy.model import (
 from galaxy.util import safe_makedirs
 from galaxy.util.dictifiable import UsesDictVisibleKeys
 from galaxy.util.path import StrPath
-
-TOOL_PROVIDED_JOB_METADATA_FILE = "galaxy.json"
-TOOL_PROVIDED_JOB_METADATA_KEYS = ["name", "info", "dbkey", "created_from_basename"]
-
 
 OutputHdasAndType = dict[str, tuple[DatasetInstance, DatasetPath]]
 OutputPaths = list[DatasetPath]
