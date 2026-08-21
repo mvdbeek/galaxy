@@ -3,7 +3,10 @@ import logging
 import os
 import socket
 import tempfile
-from typing import Optional
+from typing import (
+    Optional,
+    TYPE_CHECKING,
+)
 from urllib.parse import urlparse
 
 from galaxy.exceptions import (
@@ -15,12 +18,14 @@ from galaxy.files import (
     ConfiguredFileSources,
     NoMatchingFileSource,
 )
-from galaxy.files.models import FilesSourceOptions
 from galaxy.util import (
     stream_to_open_named_file,
     unicodify,
 )
 from galaxy.util.config_parsers import IpAllowedListEntryT
+
+if TYPE_CHECKING:
+    from galaxy.files.models import FilesSourceOptions
 
 log = logging.getLogger(__name__)
 
@@ -43,7 +48,7 @@ def stream_url_to_file(
     dir: str | None = None,
     user_context=None,
     target_path: str | None = None,
-    file_source_opts: FilesSourceOptions | None = None,
+    file_source_opts: "FilesSourceOptions | None" = None,
 ) -> str:
     file_sources = ensure_file_sources(file_sources)
     file_source, rel_path = file_sources.get_file_source_path(url)

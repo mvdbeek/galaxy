@@ -15,7 +15,7 @@ from pydantic import (
     Field,
 )
 
-from galaxy.files.sources._defaults import (
+from galaxy.files._defaults import (
     DEFAULT_SCHEME,
     DEFAULT_WRITABLE,
 )
