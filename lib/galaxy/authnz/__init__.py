@@ -9,6 +9,11 @@ Additionally, this package implements functionalist's to request temporary acces
 credentials for cloud-based resource providers (e.g., Amazon AWS, Microsoft Azure).
 """
 
+# Shown whenever a deferred account-creation confirmation cannot be honoured. The text is
+# deliberately identical for every rejection reason so it does not tell a caller which of
+# the checks (session binding, expiry, CSRF token, request method) it tripped.
+PENDING_AUTHENTICATION_ERROR = "Unable to confirm this external account. Please restart the login process."
+
 
 class IdentityProvider:
     """

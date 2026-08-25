@@ -18,11 +18,12 @@ import { withPrefix } from "@/utils/redirect";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 interface Props {
+    sessionCsrfToken: string;
     termsUrl?: string;
     registrationWarningMessage?: string;
 }
 
-defineProps<Props>();
+const props = defineProps<Props>();
 
 const emit = defineEmits<{
     (e: "setRedirect", value: string): void;
@@ -36,7 +37,6 @@ const messageText = ref("");
 const termsRead = ref(false);
 const messageVariant = ref("");
 const provider = ref(urlParams.get("provider"));
-const token = ref(urlParams.get("provider_token"));
 
 function login() {
     // set url to redirect user to 3rd party management after login
@@ -45,18 +45,18 @@ function login() {
 }
 
 async function submit() {
-    if (!provider.value || !token.value) {
+    if (!provider.value) {
         messageVariant.value = "danger";
-        messageText.value = "Missing provider and/or token.";
+        messageText.value = "Missing provider.";
     } else {
         try {
-            const response = await axios.post(withPrefix(`/authnz/${provider.value}/create_user?token=${token.value}`));
+            const formData = new FormData();
+            formData.append("session_csrf_token", props.sessionCsrfToken);
+            const response = await axios.post(withPrefix(`/authnz/${provider.value}/create_user`), formData);
 
-            if (response.data.redirect_uri) {
-                router.push(response.data.redirect_uri);
-            } else {
-                router.push("/");
-            }
+            // Confirmation logs the new account in, which replaces the session. Navigate rather
+            // than route so the application reloads against the new session.
+            window.location.href = response.data.redirect_uri || withPrefix("/");
         } catch (error: any) {
             messageVariant.value = "danger";
             messageText.value = errorMessageAsString(error, "Login failed for an unknown reason.");

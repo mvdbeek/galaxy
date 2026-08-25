@@ -12,6 +12,7 @@ from galaxy import (
     exceptions,
     web,
 )
+from galaxy.authnz import PENDING_AUTHENTICATION_ERROR
 from galaxy.util import url_get
 from galaxy.web import url_for
 from galaxy.webapps.base.controller import JSAppLauncher
@@ -156,31 +157,41 @@ class OIDC(JSAppLauncher):
         return trans.response.send_redirect(url_for(redirect_url))
 
     @web.expose
+    @web.json
     def create_user(self, trans, provider, **kwargs):
+        # Only ever called over XHR from the new user confirmation page, so this answers in
+        # JSON: a redirect response would be followed transparently and the caller would have
+        # no way to tell a rejected confirmation from a successful one.
         try:
+            csrf_message = trans.check_csrf_token(kwargs)
+            if trans.request.method != "POST" or csrf_message:
+                log.warning(
+                    "Rejected create_user for provider '%s': method=%s, csrf=%s",
+                    provider,
+                    trans.request.method,
+                    csrf_message or "ok",
+                )
+                raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
             success, message, (redirect_url, user) = trans.app.authnz_manager.create_user(
-                provider, token=kwargs.get("token", " "), trans=trans, login_redirect_url=url_for("/")
+                provider, trans=trans, login_redirect_url=url_for("/")
             )
         except exceptions.AuthenticationFailed as e:
-            return trans.response.send_redirect(
-                f"{trans.request.url_path + url_for('/')}root/login?message={str(e) or 'Duplicate Email'}"
-            )
+            return self.message_exception(trans, str(e) or PENDING_AUTHENTICATION_ERROR)
 
         if success is False:
-            return trans.show_error_message(message)
+            return self.message_exception(trans, message)
         user = user if user is not None else trans.user
         if user is None:
-            return trans.show_error_message(
+            return self.message_exception(
+                trans,
                 f"An unknown error occurred when handling the callback from `{provider}` "
                 "identity provider. Please try again, and if the problem persists, "
-                "contact the Galaxy instance admin."
+                "contact the Galaxy instance admin.",
             )
         trans.handle_user_login(user)
         # Record which idp provider was logged into, so we can logout of it later
         trans.set_cookie(value=provider, name=PROVIDER_COOKIE_NAME)
-        if redirect_url is None:
-            redirect_url = url_for("/")
-        return trans.response.send_redirect(url_for(redirect_url))
+        return {"redirect_uri": redirect_url or url_for("/")}
 
     @web.expose
     @web.require_login("authenticate against the selected identity provider")

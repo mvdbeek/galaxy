@@ -1,6 +1,7 @@
 import hashlib
 import json
 import os
+import time
 import uuid
 from datetime import (
     datetime,
@@ -11,7 +12,10 @@ from typing import (
     Optional,
     TYPE_CHECKING,
 )
-from unittest import SkipTest
+from unittest import (
+    mock,
+    SkipTest,
+)
 from urllib.parse import (
     parse_qs,
     quote,
@@ -21,10 +25,14 @@ from urllib.parse import (
 import jwt
 import pytest
 
+from galaxy import exceptions
 from galaxy.app_unittest_utils.galaxy_mock import MockTrans
 from galaxy.authnz import custos_authnz
+from galaxy.authnz.managers import AuthnzManager
 from galaxy.model import (
     CustosAuthnzToken,
+    GalaxySession,
+    PSAPartial,
     User,
 )
 from galaxy.util import (
@@ -32,9 +40,27 @@ from galaxy.util import (
     unicodify,
 )
 from galaxy.util.unittest import TestCase
+from galaxy.webapps.galaxy.controllers.authnz import OIDC
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import scoped_session
+
+
+def _pending_state(**overrides):
+    """A structurally valid pending payload with the given fields replaced."""
+    state = {
+        "provider": "custos",
+        "external_user_id": "external-user-id",
+        "email": "test-email",
+        "username": "test-username",
+        "access_token": "access-token",
+        "id_token": "id-token",
+        "refresh_token": None,
+        "expiration_time": "2026-08-25T13:00:00",
+        "refresh_expiration_time": None,
+    }
+    state.update(overrides)
+    return json.dumps(state)
 
 
 class TestCustosAuthnz(TestCase):
@@ -42,6 +68,8 @@ class TestCustosAuthnz(TestCase):
     _fetch_token_called = False
     _get_userinfo_called = False
     _raw_token = None
+    _omit_from_raw_token: set = set()
+    _userinfo_overrides: dict = {}
 
     def _get_idp_url(self):
         # it would be ideal is we can use a URI as the following:
@@ -81,6 +109,9 @@ class TestCustosAuthnz(TestCase):
             },
         )
         self.setupMocks()
+        self._omit_from_raw_token = set()
+        self._userinfo_overrides = {}
+        self.custos_authnz.config.require_create_confirmation = False
         self.test_state = "abc123"
         self.test_nonce = b"4662892146306485421546981092"
         self.test_nonce_hash = hashlib.sha256(self.test_nonce).hexdigest()
@@ -140,6 +171,8 @@ class TestCustosAuthnz(TestCase):
                 "expires_in": self.test_expires_in,
                 "refresh_expires_in": self.test_refresh_expires_in,
             }
+            for key in self._omit_from_raw_token:
+                self._raw_token.pop(key, None)
             return self._raw_token
 
         custos_authnz._fetch_token = fetch_token
@@ -154,6 +187,7 @@ class TestCustosAuthnz(TestCase):
                 "alt_username": self.test_alt_username,
                 "alt_email": self.test_alt_email,
                 "alt_id": self.test_alt_user_id,
+                **self._userinfo_overrides,
             }
 
         custos_authnz._get_userinfo = get_userinfo
@@ -252,6 +286,42 @@ class TestCustosAuthnz(TestCase):
                 return self.cookies[name]
 
         return Trans()
+
+    def realTrans(self):
+        class Trans(MockTrans):
+            def __init__(self):
+                super().__init__()
+                self.cookies = {}
+
+            def set_cookie(self, value, name=None, **kwargs):
+                self.cookies[name] = value
+
+            def get_cookie(self, name):
+                return self.cookies.get(name)
+
+        trans = Trans()
+        trans.app.config.fixed_delegated_auth = False
+        trans.request.url = (
+            f"https://localhost:8000/authnz/custos/oidc/callback?state={self.test_state}&code={self.test_code}"
+        )
+        galaxy_session = GalaxySession(session_key=str(uuid.uuid4()), is_valid=True)
+        trans.sa_session.add(galaxy_session)
+        trans.sa_session.commit()
+        trans.galaxy_session = galaxy_session
+        return trans
+
+    def create_pending_confirmation(self, trans=None):
+        trans = trans or self.realTrans()
+        self.custos_authnz.config.require_create_confirmation = True
+        trans.set_cookie(value=self.test_state, name=custos_authnz.STATE_COOKIE_NAME)
+        trans.set_cookie(value=self.test_nonce, name=custos_authnz.NONCE_COOKIE_NAME)
+        redirect_url, user = self.custos_authnz.callback(
+            state_token=self.test_state,
+            authz_code=self.test_code,
+            trans=trans,
+            login_redirect_url="http://localhost:8000/",
+        )
+        return trans, redirect_url, user
 
     def tearDown(self):
         requests.get = self.orig_requests_get
@@ -391,99 +461,179 @@ class TestCustosAuthnz(TestCase):
         assert self._fetch_token_called
         assert not self._get_userinfo_called
 
-    @pytest.mark.skip(reason="Test broken due to excessive mocking of SQLAlchemy objects")
-    def test_callback_user_not_created_when_does_not_exists(self):
-        self.custos_authnz = custos_authnz.CustosAuthFactory.GetCustosBasedAuthProvider(
-            "Keycloak",
-            {"VERIFY_SSL": True},
-            {
-                "url": self._get_idp_url(),
-                "client_id": "test-client-id",
-                "client_secret": "test-client-secret",
-                "redirect_uri": "https://test-redirect-uri",
-                "realm": "test-realm",
-                "label": "test-identity-provider",
-                "require_create_confirmation": True,
-            },
-        )
-        self.setupMocks()
-        self.trans.set_cookie(value=self.test_state, name=custos_authnz.STATE_COOKIE_NAME)
-        self.trans.set_cookie(value=self.test_nonce, name=custos_authnz.NONCE_COOKIE_NAME)
-
-        assert (
-            self.trans.sa_session.query(CustosAuthnzToken)
-            .filter_by(external_user_id=self.test_user_id, provider=self.custos_authnz.config.provider)
-            .one_or_none()
-            is None
-        )
-        assert 0 == len(self.trans.sa_session.items)
-        login_redirect_url, user = self.custos_authnz.callback(
-            state_token="xxx", authz_code=self.test_code, trans=self.trans, login_redirect_url="http://localhost:8000/"
-        )
+    def test_confirmation_redirect_stores_tokens_only_server_side(self):
+        trans, redirect_url, user = self.create_pending_confirmation()
 
         assert user is None
-        assert "http://localhost:8000/login/start?confirm=true&provider_token=" in login_redirect_url
-        assert "&provider=keycloak" in login_redirect_url
-        assert self._fetch_token_called
+        assert redirect_url == "http://localhost:8000/login/start?confirm=true&provider=custos"
+        assert "provider_token" not in redirect_url
+        for secret in (self.test_access_token, self.test_id_token, self.test_refresh_token):
+            assert secret not in redirect_url
 
-    def test_create_user(self):
-        assert (
-            self.trans.sa_session.query(CustosAuthnzToken)
-            .filter_by(external_user_id=self.test_user_id, provider=self.custos_authnz.config.provider)
-            .one_or_none()
-            is None
-        )
-        assert 0 == len(self.trans.sa_session.items)
+        pending = trans.sa_session.query(PSAPartial).one()
+        assert pending.backend == custos_authnz.PENDING_AUTHENTICATION_BACKEND
+        # The session key is a bearer credential in its own right, so the lookup key must be a
+        # digest of it rather than the key itself.
+        assert trans.galaxy_session.session_key not in pending.token
+        assert pending.token == hashlib.sha256(f"{trans.galaxy_session.session_key}\0custos".encode()).hexdigest()[:32]
+        # Pin the ten minute window to a literal; deriving it from the constant under test
+        # would make this assertion pass for any value.
+        assert abs(pending.next_step - (time.time() + 600)) < 5
 
-        test_id_token = unicodify(
-            jwt.encode(
-                {
-                    "nonce": self.test_nonce_hash,
-                    "email": self.test_email,
-                    "preferred_username": self.test_username_invalid,
-                    "sub": self.test_sub,
-                    "aud": "test-client-id",
-                },
-                key="",
-                algorithm="HS256",
-            )
+        pending_state = json.loads(pending.data)
+        assert pending_state["provider"] == "custos"
+        assert pending_state["external_user_id"] == self.test_user_id
+        assert pending_state["email"] == self.test_email
+        assert pending_state["username"] == self.test_username
+        assert pending_state["access_token"] == self.test_access_token
+        assert pending_state["id_token"] == self.test_id_token
+        assert pending_state["refresh_token"] == self.test_refresh_token
+
+    def test_create_user_requires_pending_authentication(self):
+        trans = self.realTrans()
+
+        with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+            self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert trans.sa_session.query(User).count() == 0
+        assert trans.sa_session.query(CustosAuthnzToken).count() == 0
+
+    def test_pending_authentication_is_provider_bound(self):
+        trans, _, _ = self.create_pending_confirmation()
+        original_provider = self.custos_authnz.config.provider
+        self.custos_authnz.config.provider = "keycloak"
+        try:
+            with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+                self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+        finally:
+            self.custos_authnz.config.provider = original_provider
+
+        assert trans.sa_session.query(PSAPartial).count() == 1
+        assert trans.sa_session.query(User).count() == 0
+
+    def test_pending_authentication_is_session_bound(self):
+        trans, _, _ = self.create_pending_confirmation()
+        other_session = GalaxySession(session_key=str(uuid.uuid4()), is_valid=True)
+        trans.sa_session.add(other_session)
+        trans.sa_session.commit()
+        trans.galaxy_session = other_session
+
+        with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+            self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert trans.sa_session.query(PSAPartial).count() == 1
+        assert trans.sa_session.query(User).count() == 0
+
+    def test_pending_authentication_rejected_for_invalidated_session(self):
+        trans, _, _ = self.create_pending_confirmation()
+        trans.galaxy_session.is_valid = False
+        trans.sa_session.commit()
+
+        with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+            self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert trans.sa_session.query(PSAPartial).count() == 1
+        assert trans.sa_session.query(User).count() == 0
+
+    def test_pending_authentication_is_single_use(self):
+        trans, _, _ = self.create_pending_confirmation()
+
+        redirect_url, user = self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert redirect_url == "http://localhost:8000/"
+        assert user.email == self.test_email
+        assert user.username == self.test_username
+        association = trans.sa_session.query(CustosAuthnzToken).one()
+        assert association.user == user
+        assert association.external_user_id == self.test_user_id
+        assert association.provider == "custos"
+        assert association.access_token == self.test_access_token
+        assert association.id_token == self.test_id_token
+        assert association.refresh_token == self.test_refresh_token
+        assert trans.sa_session.query(PSAPartial).count() == 0
+
+        expected_expiration = datetime.now() + timedelta(seconds=self.test_expires_in)
+        assert abs((expected_expiration - association.expiration_time).total_seconds()) < 5
+        expected_refresh_expiration = datetime.now() + timedelta(seconds=self.test_refresh_expires_in)
+        assert abs((expected_refresh_expiration - association.refresh_expiration_time).total_seconds()) < 5
+
+        with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+            self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert trans.sa_session.query(User).count() == 1
+        assert trans.sa_session.query(CustosAuthnzToken).count() == 1
+
+    def test_pending_authentication_sanitizes_username_from_userinfo(self):
+        self._userinfo_overrides = {"preferred_username": self.test_username_invalid}
+        trans, _, _ = self.create_pending_confirmation()
+
+        _, user = self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert user.username == self.test_username
+        assert user.email == self.test_email
+
+    def test_pending_authentication_without_refresh_token_round_trips(self):
+        self._omit_from_raw_token = {"refresh_token", "refresh_expires_in"}
+        trans, _, _ = self.create_pending_confirmation()
+
+        _, user = self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        association = trans.sa_session.query(CustosAuthnzToken).one()
+        assert association.user == user
+        assert association.refresh_token is None
+        assert association.refresh_expiration_time is None
+
+    def test_expired_pending_authentication_is_consumed(self):
+        trans, _, _ = self.create_pending_confirmation()
+        pending = trans.sa_session.query(PSAPartial).one()
+        pending.next_step = int(time.time()) - 1
+        trans.sa_session.commit()
+
+        with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+            self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert trans.sa_session.query(PSAPartial).count() == 0
+        assert trans.sa_session.query(User).count() == 0
+
+    @pytest.mark.parametrize(
+        "corrupt_state",
+        [
+            "not json at all",
+            '{"access_token": "stored-secret"}',
+            _pending_state(provider="keycloak"),
+            _pending_state(external_user_id=""),
+            _pending_state(access_token=1),
+            _pending_state(expiration_time="2026-08-25T13:00:00+02:00"),
+        ],
+    )
+    def test_malformed_pending_authentication_is_consumed(self, corrupt_state):
+        trans, _, _ = self.create_pending_confirmation()
+        pending = trans.sa_session.query(PSAPartial).one()
+        pending.data = corrupt_state
+        trans.sa_session.commit()
+
+        with pytest.raises(exceptions.AuthenticationFailed, match="restart the login process"):
+            self.custos_authnz.create_user(trans=trans, login_redirect_url="http://localhost:8000/")
+
+        assert trans.sa_session.query(PSAPartial).count() == 0
+        assert trans.sa_session.query(User).count() == 0
+
+    def test_callback_without_confirmation_creates_user_immediately(self):
+        trans = self.realTrans()
+        trans.set_cookie(value=self.test_state, name=custos_authnz.STATE_COOKIE_NAME)
+        trans.set_cookie(value=self.test_nonce, name=custos_authnz.NONCE_COOKIE_NAME)
+
+        redirect_url, user = self.custos_authnz.callback(
+            state_token=self.test_state,
+            authz_code=self.test_code,
+            trans=trans,
+            login_redirect_url="http://localhost:8000/",
         )
 
-        self._raw_token = {
-            "access_token": self.test_access_token,
-            "id_token": test_id_token,
-            "refresh_token": self.test_refresh_token,
-            "expires_in": self.test_expires_in,
-            "refresh_expires_in": self.test_refresh_expires_in,
-        }
-        login_redirect_url, user = self.custos_authnz.create_user(
-            token=json.dumps(self._raw_token), trans=self.trans, login_redirect_url="http://localhost:8000/"
-        )
-        assert login_redirect_url == "http://localhost:8000/"
-        self.trans.set_user(user)
-        assert 2 == len(self.trans.sa_session.items), "Session has new User & new CustosAuthnzToken"
-        added_user = self.trans.get_user()
-        assert isinstance(added_user, User)
-        assert self.test_username == added_user.username
-        assert self.test_email == added_user.email
-        assert added_user.password is not None
-        # Verify added_custos_authnz_token
-        added_custos_authnz_token = self.trans.sa_session.items[1]
-        assert isinstance(added_custos_authnz_token, CustosAuthnzToken)
-        assert user is added_custos_authnz_token.user
-        assert self.test_access_token == added_custos_authnz_token.access_token
-        assert test_id_token == added_custos_authnz_token.id_token
-        assert self.test_refresh_token == added_custos_authnz_token.refresh_token
-        expected_expiration_time = datetime.now() + timedelta(seconds=self.test_expires_in)
-        expiration_timedelta = expected_expiration_time - added_custos_authnz_token.expiration_time
-        assert expiration_timedelta.total_seconds() < 1
-        expected_refresh_expiration_time = datetime.now() + timedelta(seconds=self.test_refresh_expires_in)
-        refresh_expiration_timedelta = (
-            expected_refresh_expiration_time - added_custos_authnz_token.refresh_expiration_time
-        )
-        assert refresh_expiration_timedelta.total_seconds() < 1
-        assert self.custos_authnz.config.provider == added_custos_authnz_token.provider
-        assert self.trans.sa_session.commit_called
+        assert redirect_url.startswith("http://localhost:8000/user/external_ids")
+        assert user.email == self.test_email
+        assert trans.sa_session.query(CustosAuthnzToken).one().user == user
+        assert trans.sa_session.query(PSAPartial).count() == 0
 
     @pytest.mark.skip(reason="Test broken due to excessive mocking of SQLAlchemy objects")
     def test_callback_galaxy_user_not_created_when_user_logged_in_and_no_custos_authnz_token_exists(self):
@@ -705,3 +855,77 @@ class TestCustosAuthnz(TestCase):
         redirect_url = self.custos_authnz.logout(self.trans, logout_redirect_url)
 
         assert redirect_url == "https://test-end-session-endpoint?redirect_uri=" + quote(logout_redirect_url)
+
+    # --- /authnz/{provider}/create_user endpoint, exercised against real rows ---
+
+    def controllerTrans(self):
+        trans, _, _ = self.create_pending_confirmation()
+
+        class Manager(AuthnzManager):
+            def _get_authnz_backend(manager_self, provider, idphint=None):
+                return True, "", self.custos_authnz
+
+        manager = Manager.__new__(Manager)
+        trans.app.authnz_manager = manager
+        trans.check_csrf_token = lambda payload: None
+        trans.request.method = "POST"
+        trans.request.url_path = "http://localhost:8000/"
+        trans.response.status = 200
+        return trans
+
+    def invokeCreateUser(self, trans, url_for_function=None, **kwargs):
+        controller = OIDC(trans.app)
+        url_for_function = url_for_function or (lambda path, **kw: path)
+        with mock.patch("galaxy.webapps.galaxy.controllers.authnz.url_for", url_for_function):
+            # The endpoint is @web.json, so the decorated call yields a serialised body.
+            return json.loads(controller.create_user(trans, "custos", **kwargs))
+
+    def test_create_user_endpoint_ignores_attacker_supplied_token(self):
+        trans = self.controllerTrans()
+
+        response = self.invokeCreateUser(
+            trans, session_csrf_token="session-csrf-token", token="attacker-supplied-token"
+        )
+
+        assert response == {"redirect_uri": "/"}
+        assert trans.response.status == 200
+        user = trans.sa_session.query(User).one()
+        assert user.email == self.test_email
+        association = trans.sa_session.query(CustosAuthnzToken).one()
+        assert association.user == user
+        assert association.access_token == self.test_access_token
+
+    def test_create_user_endpoint_does_not_prefix_redirect_twice(self):
+        trans = self.controllerTrans()
+
+        response = self.invokeCreateUser(
+            trans,
+            url_for_function=lambda path, **kw: f"/galaxy{path}",
+            session_csrf_token="session-csrf-token",
+        )
+
+        assert response == {"redirect_uri": "/galaxy/"}
+
+    def test_create_user_endpoint_rejects_get(self):
+        trans = self.controllerTrans()
+        trans.request.method = "GET"
+
+        response = self.invokeCreateUser(trans, token="attacker-supplied-token")
+
+        assert trans.response.status == 400
+        assert "restart the login process" in response["err_msg"]
+        assert "attacker-supplied-token" not in str(response)
+        assert trans.sa_session.query(User).count() == 0
+        assert trans.sa_session.query(CustosAuthnzToken).count() == 0
+
+    def test_create_user_endpoint_rejects_bad_csrf_token(self):
+        trans = self.controllerTrans()
+        trans.check_csrf_token = lambda payload: "Wrong session token found, denying request."
+
+        response = self.invokeCreateUser(trans, token="attacker-supplied-token")
+
+        assert trans.response.status == 400
+        assert "restart the login process" in response["err_msg"]
+        assert "attacker-supplied-token" not in str(response)
+        assert trans.sa_session.query(User).count() == 0
+        assert trans.sa_session.query(CustosAuthnzToken).count() == 0

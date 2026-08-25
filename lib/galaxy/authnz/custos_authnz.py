@@ -17,7 +17,12 @@ from urllib.parse import quote
 import jwt
 from oauthlib.common import generate_nonce
 from requests_oauthlib import OAuth2Session
-from sqlalchemy import func
+from sqlalchemy import (
+    delete,
+    func,
+    or_,
+    select,
+)
 
 from galaxy import (
     exceptions,
@@ -25,11 +30,15 @@ from galaxy import (
 )
 from galaxy.model import (
     CustosAuthnzToken,
+    PSAPartial,
     User,
 )
 from galaxy.model.orm.util import add_object_to_object_session
 from galaxy.util import requests
-from . import IdentityProvider
+from . import (
+    IdentityProvider,
+    PENDING_AUTHENTICATION_ERROR,
+)
 
 try:
     import pkce
@@ -41,6 +50,8 @@ STATE_COOKIE_NAME = "galaxy-oidc-state"
 NONCE_COOKIE_NAME = "galaxy-oidc-nonce"
 VERIFIER_COOKIE_NAME = "galaxy-oidc-verifier"
 KEYCLOAK_BACKENDS = {"custos", "cilogon", "keycloak"}
+PENDING_AUTHENTICATION_MAX_AGE = timedelta(minutes=10)
+PENDING_AUTHENTICATION_BACKEND = "custos-confirmation"
 
 
 class InvalidAuthnzConfigException(Exception):
@@ -262,7 +273,9 @@ class OIDCAuthnzBase(IdentityProvider):
                         )
                         return login_redirect_url, None
                 elif self.config.require_create_confirmation:
-                    login_redirect_url = f"{login_redirect_url}login/start?confirm=true&provider_token={json.dumps(token)}&provider={self.config.provider}"
+                    self._discard_pending_authentication(trans)
+                    self._store_pending_authentication(trans, processed_token)
+                    login_redirect_url = f"{login_redirect_url}login/start?confirm=true&provider={self.config.provider}"
                     return login_redirect_url, None
                 else:
                     user = trans.app.user_manager.create(email=email, username=username)
@@ -310,31 +323,16 @@ class OIDCAuthnzBase(IdentityProvider):
 
         return redirect_url, custos_authnz_token.user
 
-    def create_user(self, token, trans, login_redirect_url):
-        token_dict = json.loads(token)
-
-        access_token = token_dict["access_token"]
-        id_token = token_dict["id_token"]
-        refresh_token = token_dict["refresh_token"] if "refresh_token" in token_dict else None
-        expiration_time = datetime.now() + timedelta(
-            seconds=token_dict.get("expires_in", 3600)
-        )  # might be a problem cause times no long valid
-        refresh_expiration_time = (
-            (datetime.now() + timedelta(seconds=token_dict["refresh_expires_in"]))
-            if "refresh_expires_in" in token_dict
-            else None
-        )
-
-        # Get nonce from token['id_token'] and validate. 'nonce' in the
-        # id_token is a hash of the nonce stored in the NONCE_COOKIE_NAME
-        # cookie.
-        userinfo = self._decode_token_no_signature(id_token)
-
-        # Get userinfo and create Galaxy user record
-        email = userinfo["email"]
-        # Check if username if already taken
-        username = self._username_from_userinfo(trans, userinfo)
-        user_id = userinfo["sub"]
+    def create_user(self, trans, login_redirect_url):
+        pending_authentication = self._consume_pending_authentication(trans)
+        access_token = pending_authentication["access_token"]
+        id_token = pending_authentication["id_token"]
+        refresh_token = pending_authentication["refresh_token"]
+        expiration_time = pending_authentication["expiration_time"]
+        refresh_expiration_time = pending_authentication["refresh_expiration_time"]
+        email = pending_authentication["email"]
+        username = pending_authentication["username"]
+        user_id = pending_authentication["external_user_id"]
 
         user = trans.app.user_manager.create(email=email, username=username)
         if trans.app.config.user_activation_on:
@@ -356,6 +354,111 @@ class OIDCAuthnzBase(IdentityProvider):
         trans.sa_session.add(custos_authnz_token)
         trans.sa_session.commit()
         return login_redirect_url, user
+
+    def _discard_pending_authentication(self, trans):
+        pending_authentication_key = self._pending_authentication_key(trans)
+        if pending_authentication_key is None:
+            return
+        trans.sa_session.execute(
+            delete(PSAPartial).where(
+                PSAPartial.backend == PENDING_AUTHENTICATION_BACKEND,
+                or_(
+                    PSAPartial.token == pending_authentication_key,
+                    PSAPartial.next_step <= int(time.time()),
+                ),
+            )
+        )
+        trans.sa_session.commit()
+
+    def _store_pending_authentication(self, trans, processed_token):
+        pending_authentication_key = self._pending_authentication_key(trans)
+        if pending_authentication_key is None:
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+        refresh_expiration_time = processed_token["refresh_expiration_time"]
+        pending_state = {
+            "provider": self.config.provider,
+            "external_user_id": processed_token["user_id"],
+            "email": processed_token["email"],
+            "username": processed_token["username"],
+            "access_token": processed_token["access_token"],
+            "id_token": processed_token["id_token"],
+            "refresh_token": processed_token["refresh_token"],
+            "expiration_time": processed_token["expiration_time"].isoformat(),
+            "refresh_expiration_time": refresh_expiration_time.isoformat() if refresh_expiration_time else None,
+        }
+        pending_authentication = PSAPartial(
+            token=pending_authentication_key,
+            data=json.dumps(pending_state),
+            next_step=int(time.time() + PENDING_AUTHENTICATION_MAX_AGE.total_seconds()),
+            backend=PENDING_AUTHENTICATION_BACKEND,
+        )
+        trans.sa_session.add(pending_authentication)
+        trans.sa_session.commit()
+
+    def _consume_pending_authentication(self, trans):
+        pending_authentication_key = self._pending_authentication_key(trans)
+        if pending_authentication_key is None:
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+        pending_authentication = trans.sa_session.scalars(
+            select(PSAPartial)
+            .where(
+                PSAPartial.token == pending_authentication_key,
+                PSAPartial.backend == PENDING_AUTHENTICATION_BACKEND,
+            )
+            .limit(1)
+        ).first()
+        if pending_authentication is None:
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+
+        pending_data = pending_authentication.data
+        pending_expiration = pending_authentication.next_step
+        delete_result = trans.sa_session.execute(
+            delete(PSAPartial)
+            .where(
+                PSAPartial.token == pending_authentication_key,
+                PSAPartial.backend == PENDING_AUTHENTICATION_BACKEND,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if delete_result.rowcount < 1:
+            trans.sa_session.rollback()
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+        # Commit consumption before creating the user so retries cannot replay
+        # this authentication if account creation fails after this point.
+        trans.sa_session.commit()
+
+        if not isinstance(pending_expiration, int) or pending_expiration <= int(time.time()):
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+        try:
+            pending_state = json.loads(pending_data)
+            pending_state["expiration_time"] = datetime.fromisoformat(pending_state["expiration_time"])
+            if pending_state["refresh_expiration_time"]:
+                pending_state["refresh_expiration_time"] = datetime.fromisoformat(
+                    pending_state["refresh_expiration_time"]
+                )
+        except (KeyError, TypeError, ValueError):
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR) from None
+        required_strings = ("external_user_id", "email", "username", "access_token", "id_token")
+        if (
+            pending_state.get("provider") != self.config.provider
+            or not all(isinstance(pending_state.get(key), str) and pending_state[key] for key in required_strings)
+            or (pending_state.get("refresh_token") is not None and not isinstance(pending_state["refresh_token"], str))
+            or (
+                pending_state.get("refresh_expiration_time") is not None
+                and not isinstance(pending_state["refresh_expiration_time"], datetime)
+            )
+        ):
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+        if pending_state["expiration_time"].tzinfo is not None:
+            raise exceptions.AuthenticationFailed(PENDING_AUTHENTICATION_ERROR)
+        return pending_state
+
+    def _pending_authentication_key(self, trans):
+        galaxy_session = trans.galaxy_session
+        if galaxy_session is None or galaxy_session.is_valid is not True or not galaxy_session.session_key:
+            return None
+        key_material = f"{galaxy_session.session_key}\0{self.config.provider}".encode()
+        return hashlib.sha256(key_material).hexdigest()[:32]
 
     def disconnect(self, provider, trans, disconnect_redirect_url=None, email=None, association_id=None):
         try:

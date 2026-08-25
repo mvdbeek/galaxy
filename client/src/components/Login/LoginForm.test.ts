@@ -9,6 +9,7 @@ import { useServerMock } from "@/api/client/__mocks__";
 import { HttpResponse } from "@/api/client/__mocks__/index";
 
 import MountTarget from "./LoginForm.vue";
+import NewUserConfirmation from "./NewUserConfirmation.vue";
 
 const localVue = getLocalVue(true);
 const testingPinia = createTestingPinia({ stubActions: false });
@@ -162,5 +163,17 @@ describe("LoginForm", () => {
         const postedURL = axiosMock.history.post?.[0]?.url;
         expect(postedURL).toBe("/user/login");
         await flushPromises();
+    });
+
+    it("passes the session csrf token to the new user confirmation", async () => {
+        const originalLocation = window.location;
+        jest.spyOn(window, "location", "get").mockImplementation(() => ({
+            ...originalLocation,
+            search: "?confirm=true&provider=test_provider",
+        }));
+
+        const wrapper = await mountLoginForm();
+
+        expect(wrapper.findComponent(NewUserConfirmation).props("sessionCsrfToken")).toBe("sessionCsrfToken");
     });
 });
