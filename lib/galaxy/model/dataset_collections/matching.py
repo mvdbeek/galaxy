@@ -1,14 +1,101 @@
-from typing import Optional
+from typing import (
+    Literal,
+    Optional,
+    TypedDict,
+)
 
 from galaxy import exceptions
-from galaxy.util import bunch
+from galaxy.model import DatasetCollectionElement
+from galaxy.util import (
+    bunch,
+    shrink_string_by_size,
+)
 from .structure import (
     get_collection,
     get_structure,
     leaf,
 )
 
-CANNOT_MATCH_ERROR_MESSAGE = "Cannot match collection types."
+# The rendered message is persisted in workflow_invocation_message.details, a
+# TrimmedString(255). Bound every interpolated value so the whole sentence fits.
+MAX_DISPLAYED_COLLECTION_NAME = 30
+MAX_DISPLAYED_COLLECTION_TYPE = 20
+
+
+class CollectionReference(TypedDict):
+    """A structured (src, id) reference to a collection instance."""
+
+    src: Literal["hdca", "dce"]
+    id: int
+
+
+class CollectionStructureMismatch(exceptions.MessageException):
+    """Collections a step maps over together cannot be matched up element by element.
+
+    ``collection_references`` identifies the mismatched collection instances in the
+    order the message names them, so callers can surface the actual collections.
+    """
+
+    def __init__(
+        self,
+        input_name: str,
+        other_input_name: str,
+        message: str,
+        collection_references: list[CollectionReference] | None = None,
+    ) -> None:
+        self.input_name = input_name
+        self.other_input_name = other_input_name
+        self.collection_references = collection_references or []
+        super().__init__(message)
+
+
+def _collection_reference(hdca) -> CollectionReference | None:
+    if hdca.id is None:
+        return None
+    src: Literal["hdca", "dce"] = "dce" if isinstance(hdca, DatasetCollectionElement) else "hdca"
+    return {"src": src, "id": hdca.id}
+
+
+def _display_collection_name(hdca, input_name: str) -> str:
+    if isinstance(hdca, DatasetCollectionElement):
+        name = hdca.element_identifier
+    else:
+        name = hdca.name
+    return shrink_string_by_size(name or input_name, MAX_DISPLAYED_COLLECTION_NAME)
+
+
+def _element_count_description(structure) -> str:
+    count = len(structure.children)
+    if count == 0:
+        return "no elements"
+    if count == 1:
+        return "1 element"
+    return f"{count} elements"
+
+
+def _structure_mismatch_message(name: str, structure, other_name: str, other_structure) -> str:
+    """Explain in end-user terms why two collections cannot be mapped over together.
+
+    Element counts are rendered only for the compatible-type case, where both
+    structures are enumerated trees: a structure with unknown children can only
+    mismatch on collection type.
+    """
+    type_description = structure.collection_type_description
+    other_type_description = other_structure.collection_type_description
+    if not type_description.compatible(other_type_description):
+        collection_type = shrink_string_by_size(type_description.collection_type, MAX_DISPLAYED_COLLECTION_TYPE)
+        other_collection_type = shrink_string_by_size(
+            other_type_description.collection_type, MAX_DISPLAYED_COLLECTION_TYPE
+        )
+        return (
+            f"Collections '{name}' ({collection_type}) and '{other_name}' ({other_collection_type}) have "
+            "incompatible collection types. To map them together, use collections of the same type."
+        )
+    return (
+        f"Collections '{name}' ({_element_count_description(structure)}) and "
+        f"'{other_name}' ({_element_count_description(other_structure)}) have different element structures. "
+        "To map them together, use collections with the same number and nesting of elements."
+    )
 
 
 class CollectionsToMatch:
@@ -45,6 +132,7 @@ class MatchingCollections:
 
     def __init__(self):
         self.linked_structure = None
+        self.linked_input_name: str | None = None
         self.unlinked_structures = []
         self.collections = {}
         self.subcollection_types = {}
@@ -57,15 +145,38 @@ class MatchingCollections:
         structure = get_structure(
             child_collection, collection_type_description, leaf_subcollection_type=subcollection_type
         )
-        if not self.linked_structure:
+        linked_structure = self.linked_structure
+        linked_input_name = self.linked_input_name
+        if (
+            linked_structure is not None
+            and linked_input_name is not None
+            and not linked_structure.compatible_shape(structure)
+        ):
+            linked_hdca = self.collections[linked_input_name]
+            collection_references = [
+                reference
+                for reference in (_collection_reference(linked_hdca), _collection_reference(hdca))
+                if reference is not None
+            ]
+            raise CollectionStructureMismatch(
+                input_name,
+                linked_input_name,
+                _structure_mismatch_message(
+                    _display_collection_name(linked_hdca, linked_input_name),
+                    linked_structure,
+                    _display_collection_name(hdca, input_name),
+                    structure,
+                ),
+                collection_references=collection_references,
+            )
+        # The reference structure drives slicing, which needs enumerated children;
+        # an unenumerated structure only vouches for its collection type. Prefer
+        # enumerated structures so the choice is independent of input-name order.
+        if linked_structure is None or (structure.children_known and not linked_structure.children_known):
             self.linked_structure = structure
-            self.collections[input_name] = hdca
-            self.subcollection_types[input_name] = subcollection_type
-        else:
-            if not self.linked_structure.compatible_shape(structure):
-                raise exceptions.MessageException(CANNOT_MATCH_ERROR_MESSAGE)
-            self.collections[input_name] = hdca
-            self.subcollection_types[input_name] = subcollection_type
+            self.linked_input_name = input_name
+        self.collections[input_name] = hdca
+        self.subcollection_types[input_name] = subcollection_type
 
     def slice_collections(self):
         self.linked_structure.when_values = self.when_values

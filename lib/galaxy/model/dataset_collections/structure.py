@@ -61,6 +61,10 @@ class UninitializedTree(BaseTree):
     def __len__(self):
         raise Exception("Unknown length")
 
+    def compatible_shape(self, other_structure):
+        """Compare collection types only - element counts are not yet known."""
+        return self.collection_type_description.compatible(other_structure.collection_type_description)
+
     def multiply(self, other_structure):
         if other_structure.is_leaf:
             return self.clone()
@@ -147,6 +151,10 @@ class Tree(BaseTree):
         """
         if not self.collection_type_description.compatible(other_structure.collection_type_description):
             return False
+
+        if not other_structure.children_known:
+            # Matching collection types is as far as the comparison can go.
+            return True
 
         if len(self.children) != len(other_structure.children):
             return False

@@ -82,6 +82,12 @@ const dependentInvocationStep = computed(() => {
 const { activeNodeId } = storeToRefs(useWorkflowStateStore(props.storeId));
 
 const jobId = computed(() => "job_id" in props.invocationMessage && props.invocationMessage.job_id);
+const collectionReferences = computed(() => {
+    if ("collection_references" in props.invocationMessage && props.invocationMessage.collection_references) {
+        return props.invocationMessage.collection_references;
+    }
+    return [];
+});
 const HdaId = computed(() => "hda_id" in props.invocationMessage && props.invocationMessage.hda_id);
 const HdcaId = computed(() => "hdca_id" in props.invocationMessage && props.invocationMessage.hdca_id);
 
@@ -158,6 +164,10 @@ function handleFailingStepClick() {
             <GCard v-if="HdcaId" grid-view>
                 This dataset collection failed:
                 <GenericHistoryItem :item-id="HdcaId" item-src="hdca" />
+            </GCard>
+            <GCard v-for="(reference, index) in collectionReferences" :key="`collection-reference-${index}`" grid-view>
+                Mismatched collection:
+                <GenericHistoryItem :item-id="reference.id" :item-src="reference.src" />
             </GCard>
             <GCard v-if="jobId" clickable grid-view @click="openJobInNewTab(jobId)">
                 <span>

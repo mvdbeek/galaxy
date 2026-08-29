@@ -11,6 +11,7 @@ export const INVOCATION_MSG_LEVEL = {
     cancelled_on_review: "cancel",
     dataset_failed: "error",
     collection_failed: "error",
+    collection_structure_mismatch: "error",
     job_failed: "error",
     output_not_found: "error",
     expression_evaluation_failed: "error",

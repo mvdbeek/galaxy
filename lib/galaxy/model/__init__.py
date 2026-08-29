@@ -10618,6 +10618,7 @@ class WorkflowInvocationMessage(Base, Dictifiable, Serializable):
     hda_id: Mapped[int | None] = mapped_column(ForeignKey("history_dataset_association.id"))
     hdca_id: Mapped[int | None] = mapped_column(ForeignKey("history_dataset_collection_association.id"))
     workflow_step_index_path: Mapped[list[int] | None] = mapped_column(JSON)
+    collection_references: Mapped[list[dict] | None] = mapped_column(JSON)
 
     workflow_invocation: Mapped["WorkflowInvocation"] = relationship(back_populates="messages", lazy=True)
     workflow_step: Mapped[Optional["WorkflowStep"]] = relationship(foreign_keys=workflow_step_id, lazy=True)

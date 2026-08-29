@@ -1,3 +1,9 @@
+import pytest
+
+from galaxy.model import (
+    DatasetCollection,
+    DatasetCollectionElement,
+)
 from galaxy.model.dataset_collections import (
     matching,
     query,
@@ -32,6 +38,97 @@ def test_lists_of_different_cardinality_do_not_match():
     list_2 = list_instance(ids=["data1", "data2", "data3"])
     assert_cannot_match(list_1, list_2)
     assert_cannot_match(list_2, list_1)
+
+
+def test_empty_list_does_not_match_non_empty_list_in_either_order():
+    empty_list = list_instance(ids=[])
+    non_empty_list = list_instance(ids=["data1", "data2"])
+    assert_cannot_match(empty_list, non_empty_list)
+    assert_cannot_match(non_empty_list, empty_list)
+
+
+def test_empty_lists_match_each_other_and_yield_no_slices():
+    matched = assert_can_match(list_instance(ids=[]), list_instance(ids=[]))
+    assert list(matched.slice_collections()) == []
+
+
+def test_unenumerated_structure_does_not_match_other_type_in_either_order():
+    unenumerated_pair = (pair_instance(), "paired")
+    assert_cannot_match(unenumerated_pair, list_instance())
+    assert_cannot_match(list_instance(), unenumerated_pair)
+
+
+def test_matching_prefers_enumerated_structure_regardless_of_order():
+    unenumerated_pair = (pair_instance(), "paired")
+    assert assert_can_match(pair_instance(), unenumerated_pair).linked_structure.children_known
+    assert assert_can_match(unenumerated_pair, pair_instance()).linked_structure.children_known
+
+
+def test_type_mismatch_details_describe_both_collections():
+    mismatch = assert_cannot_match(list_instance(name="a list"), pair_instance(name="a pair"))
+    assert str(mismatch) == (
+        "Collections 'a list' (list) and 'a pair' (paired) have incompatible collection types. "
+        "To map them together, use collections of the same type."
+    )
+
+
+def test_element_mismatch_details_describe_both_collections():
+    mismatch = assert_cannot_match(list_instance(ids=[], name="empty input"), list_instance(name="populated input"))
+    assert str(mismatch) == (
+        "Collections 'empty input' (no elements) and 'populated input' (2 elements) have different "
+        "element structures. To map them together, use collections with the same number and nesting of elements."
+    )
+
+
+def test_mismatch_details_fall_back_to_input_names_for_unnamed_collections():
+    mismatch = assert_cannot_match(list_instance(ids=["data1"]), list_instance(ids=[]))
+    assert str(mismatch).startswith("Collections 'input_0' (1 element) and 'input_1' (no elements)")
+
+
+def test_mismatch_references_persisted_collections_in_message_order():
+    empty_list = collection_instance(collection_type="list", elements=[], id=7)
+    populated_list = collection_instance(collection_type="list", elements=[hda_element("data1")], id=11)
+    mismatch = assert_cannot_match(empty_list, populated_list)
+    assert mismatch.collection_references == [{"src": "hdca", "id": 7}, {"src": "hdca", "id": 11}]
+
+
+def test_mismatch_references_omit_unpersisted_collections():
+    persisted_list = collection_instance(collection_type="list", elements=[hda_element("data1")], id=11)
+    mismatch = assert_cannot_match(list_instance(ids=[]), persisted_list)
+    assert mismatch.collection_references == [{"src": "hdca", "id": 11}]
+
+
+def test_mismatch_references_identify_collection_elements():
+    dce = DatasetCollectionElement(
+        collection=DatasetCollection(collection_type="list"),
+        element=DatasetCollection(collection_type="list"),
+        element_identifier="outer element",
+    )
+    dce.id = 13
+    persisted_list = collection_instance(collection_type="list", elements=[hda_element("data1")], id=11)
+    mismatch = assert_cannot_match(dce, persisted_list)
+    assert str(mismatch).startswith("Collections 'outer element' (no elements) and 'input_1' (1 element)")
+    assert mismatch.collection_references == [{"src": "dce", "id": 13}, {"src": "hdca", "id": 11}]
+
+
+# "list" mismatches on element count, "paired" on collection type - the two
+# message shapes have different lengths and both must fit the details column.
+@pytest.mark.parametrize("other_collection_type", ["list", "paired"])
+def test_structure_mismatch_identifies_inputs_with_persistable_details(other_collection_type):
+    input_name = f"input_{'a' * 100}"
+    other_input_name = f"input_{'b' * 100}"
+    to_match = matching.CollectionsToMatch()
+    to_match.add(input_name, list_instance(ids=["data1", "data2"], name="c" * 300))
+    to_match.add(
+        other_input_name, collection_instance(collection_type=other_collection_type, elements=[], name="d" * 300)
+    )
+
+    with pytest.raises(matching.CollectionStructureMismatch) as exc_info:
+        matching.MatchingCollections.for_collections(to_match, TYPE_DESCRIPTION_FACTORY)
+
+    assert exc_info.value.input_name == other_input_name
+    assert exc_info.value.other_input_name == input_name
+    assert len(str(exc_info.value)) <= 255
 
 
 def test_valid_collection_subcollection_matching():
@@ -113,19 +210,18 @@ def test_query_always_direct_match_if_no_collection_type_on_input_specified():
     assert q.direct_match(list_of_lists) is True
 
 
-def assert_can_match(*items):
+def assert_can_match(*items) -> matching.MatchingCollections:
     to_match = build_collections_to_match(*items)
-    matching.MatchingCollections.for_collections(to_match, TYPE_DESCRIPTION_FACTORY)
+    matched = matching.MatchingCollections.for_collections(to_match, TYPE_DESCRIPTION_FACTORY)
+    assert matched is not None
+    return matched
 
 
-def assert_cannot_match(*items):
+def assert_cannot_match(*items) -> matching.CollectionStructureMismatch:
     to_match = build_collections_to_match(*items)
-    threw_exception = False
-    try:
+    with pytest.raises(matching.CollectionStructureMismatch) as exc_info:
         matching.MatchingCollections.for_collections(to_match, TYPE_DESCRIPTION_FACTORY)
-    except Exception:
-        threw_exception = True
-    assert threw_exception
+    return exc_info.value
 
 
 def build_collections_to_match(*items):
@@ -178,13 +274,14 @@ def list_of_lists_instance():
     )
 
 
-def pair_instance():
+def pair_instance(name=None):
     paired_collection_instance = collection_instance(
         collection_type="paired",
         elements=[
             hda_element("left"),
             hda_element("right"),
         ],
+        name=name,
     )
     return paired_collection_instance
 
@@ -238,18 +335,20 @@ def paired_or_unpaired_pair_instance():
     return paired_collection_instance
 
 
-def list_instance(collection_type="list", elements=None, ids=None):
+def list_instance(collection_type="list", elements=None, ids=None, name=None):
     if not elements:
         if ids is None:
             ids = ["data1", "data2"]
         elements = [hda_element(_) for _ in ids]
-    list_collection_instance = collection_instance(collection_type=collection_type, elements=elements)
+    list_collection_instance = collection_instance(collection_type=collection_type, elements=elements, name=name)
     return list_collection_instance
 
 
 class MockCollectionInstance:
-    def __init__(self, collection_type, elements):
+    def __init__(self, collection_type, elements, name=None, id=None):
         self.collection = MockCollection(collection_type, elements)
+        self.name = name
+        self.id = id
 
 
 class MockCollection:

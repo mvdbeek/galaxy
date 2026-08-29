@@ -9039,6 +9039,21 @@ export interface components {
              */
             tags?: string[] | null;
         };
+        /** CollectionReferenceResponse */
+        CollectionReferenceResponse: {
+            /**
+             * Id
+             * @description ID of the referenced collection instance.
+             * @example 0123456789ABCDEF
+             */
+            id: string;
+            /**
+             * Src
+             * @description Source model of the referenced collection instance.
+             * @enum {string}
+             */
+            src: "hdca" | "dce";
+        };
         /**
          * CollectionSourceType
          * @enum {string}
@@ -16877,6 +16892,34 @@ export interface components {
              */
             workflow_step_index_path?: number[] | null;
         };
+        /** InvocationFailureCollectionStructureMismatchResponse */
+        InvocationFailureCollectionStructureMismatchResponse: {
+            /**
+             * Collection References
+             * @description References to the mismatched collection instances, in the order the details message names them.
+             */
+            collection_references?: components["schemas"]["CollectionReferenceResponse"][] | null;
+            /**
+             * Details
+             * @description Explains which collection inputs have incompatible structures.
+             */
+            details: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            reason: "collection_structure_mismatch";
+            /**
+             * Workflow Step Id
+             * @description Workflow step id of step that failed.
+             */
+            workflow_step_id: number;
+            /**
+             * Workflow Step Index Path
+             * @description Path of workflow step IDs from parent workflow through subworkflows (excludes the failing step itself).
+             */
+            workflow_step_index_path?: number[] | null;
+        };
         /** InvocationFailureDatasetFailedResponse */
         InvocationFailureDatasetFailedResponse: {
             /**
@@ -17134,6 +17177,7 @@ export interface components {
             | components["schemas"]["InvocationCancellationUserRequestResponse"]
             | components["schemas"]["InvocationFailureDatasetFailedResponse"]
             | components["schemas"]["InvocationFailureCollectionFailedResponse"]
+            | components["schemas"]["InvocationFailureCollectionStructureMismatchResponse"]
             | components["schemas"]["InvocationFailureJobFailedResponse"]
             | components["schemas"]["InvocationFailureOutputNotFoundResponse"]
             | components["schemas"]["InvocationFailureExpressionEvaluationFailedResponse"]

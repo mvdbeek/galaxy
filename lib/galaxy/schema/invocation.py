@@ -81,6 +81,7 @@ class WarningReason(str, Enum):
 class FailureReason(str, Enum):
     dataset_failed = "dataset_failed"
     collection_failed = "collection_failed"
+    collection_structure_mismatch = "collection_structure_mismatch"
     job_failed = "job_failed"
     output_not_found = "output_not_found"
     expression_evaluation_failed = "expression_evaluation_failed"
@@ -99,6 +100,7 @@ class FailureReason(str, Enum):
 FAILURE_REASONS_EXPECTED = (
     FailureReason.dataset_failed,
     FailureReason.collection_failed,
+    FailureReason.collection_structure_mismatch,
     FailureReason.job_failed,
     FailureReason.output_not_found,
     FailureReason.when_not_boolean,
@@ -166,6 +168,22 @@ class GenericInvocationFailureCollectionFailed(InvocationFailureMessageBase[Data
         ...,
         description="Workflow step id of step that caused failure.",
         validation_alias="dependent_workflow_step_index",
+    )
+
+
+class GenericCollectionReference(GenericModel, Generic[DatabaseIdT]):
+    src: Literal["hdca", "dce"] = Field(..., description="Source model of the referenced collection instance.")
+    id: DatabaseIdT = Field(..., description="ID of the referenced collection instance.")
+
+
+class GenericInvocationFailureCollectionStructureMismatch(
+    InvocationFailureMessageBase[DatabaseIdT], Generic[DatabaseIdT]
+):
+    reason: Literal[FailureReason.collection_structure_mismatch]
+    details: str = Field(..., description="Explains which collection inputs have incompatible structures.")
+    collection_references: list[GenericCollectionReference[DatabaseIdT]] | None = Field(
+        None,
+        description="References to the mismatched collection instances, in the order the details message names them.",
     )
 
 
@@ -256,6 +274,8 @@ InvocationCancellationHistoryDeleted = GenericInvocationCancellationHistoryDelet
 InvocationCancellationUserRequest = GenericInvocationCancellationUserRequest[int]
 InvocationFailureDatasetFailed = GenericInvocationFailureDatasetFailed[int]
 InvocationFailureCollectionFailed = GenericInvocationFailureCollectionFailed[int]
+InvocationCollectionReference = GenericCollectionReference[int]
+InvocationFailureCollectionStructureMismatch = GenericInvocationFailureCollectionStructureMismatch[int]
 InvocationFailureJobFailed = GenericInvocationFailureJobFailed[int]
 InvocationFailureOutputNotFound = GenericInvocationFailureOutputNotFound[int]
 InvocationFailureExpressionEvaluationFailed = GenericInvocationFailureExpressionEvaluationFailed[int]
@@ -271,6 +291,7 @@ InvocationMessageUnion = (
     | InvocationCancellationUserRequest
     | InvocationFailureDatasetFailed
     | InvocationFailureCollectionFailed
+    | InvocationFailureCollectionStructureMismatch
     | InvocationFailureJobFailed
     | InvocationFailureOutputNotFound
     | InvocationFailureExpressionEvaluationFailed
@@ -287,6 +308,9 @@ InvocationCancellationHistoryDeletedResponseModel = GenericInvocationCancellatio
 InvocationCancellationUserRequestResponseModel = GenericInvocationCancellationUserRequest[EncodedDatabaseIdField]
 InvocationFailureDatasetFailedResponseModel = GenericInvocationFailureDatasetFailed[EncodedDatabaseIdField]
 InvocationFailureCollectionFailedResponseModel = GenericInvocationFailureCollectionFailed[EncodedDatabaseIdField]
+InvocationFailureCollectionStructureMismatchResponseModel = GenericInvocationFailureCollectionStructureMismatch[
+    EncodedDatabaseIdField
+]
 InvocationFailureJobFailedResponseModel = GenericInvocationFailureJobFailed[EncodedDatabaseIdField]
 InvocationFailureOutputNotFoundResponseModel = GenericInvocationFailureOutputNotFound[EncodedDatabaseIdField]
 InvocationFailureExpressionEvaluationFailedResponseModel = GenericInvocationFailureExpressionEvaluationFailed[
@@ -308,6 +332,7 @@ _InvocationMessageResponseUnion = Annotated[
     | InvocationCancellationUserRequestResponseModel
     | InvocationFailureDatasetFailedResponseModel
     | InvocationFailureCollectionFailedResponseModel
+    | InvocationFailureCollectionStructureMismatchResponseModel
     | InvocationFailureJobFailedResponseModel
     | InvocationFailureOutputNotFoundResponseModel
     | InvocationFailureExpressionEvaluationFailedResponseModel

@@ -140,6 +140,12 @@ const messageInfo = computed(() => {
             }, but dataset collection entered a failed state.`,
             hasStepPath: false,
         };
+    } else if (reason === "collection_structure_mismatch") {
+        return {
+            prefix: FAIL_FRAGMENT,
+            suffix: `cannot map over its inputs. ${invocationMessage.details}`,
+            hasStepPath: true,
+        };
     } else if (reason === "dataset_failed") {
         if (
             invocationMessage.dependent_workflow_step_id !== null &&
@@ -228,7 +234,10 @@ const infoString = computed(() => {
     const info = messageInfo.value;
     if (info.hasStepPath) {
         const stepRef = buildStepPath(props.invocationMessage);
-        return `${info.prefix} ${stepRef} ${info.suffix}`;
+        return [info.prefix, stepRef, info.suffix]
+            .map((part) => part?.trim())
+            .filter(Boolean)
+            .join(" ");
     }
     return info.text || "";
 });

@@ -6000,6 +6000,75 @@ input1:
             )
             assert "0\n" == self.dataset_populator.get_history_dataset_content(history_id)
 
+    @skip_without_tool("empty_list")
+    @skip_without_tool("cat1")
+    @pytest.mark.parametrize("empty_input", ["input1", "queries_0|input2"])
+    def test_mapping_over_empty_and_non_empty_collections_reports_structure_mismatch(self, empty_input):
+        # Collections are matched in sorted input-name order, so parametrizing over which
+        # cat1 input receives the empty collection covers both matching orderings.
+        populated_input = "queries_0|input2" if empty_input == "input1" else "input1"
+        with self.dataset_populator.test_history() as history_id:
+            summary = self._run_workflow(
+                f"""
+class: GalaxyWorkflow
+inputs:
+  input1: data
+  populated_collection:
+    type: collection
+    collection_type: list
+steps:
+  empty_collection:
+    tool_id: empty_list
+    in:
+      input1: input1
+  map_over_both:
+    tool_id: cat1
+    in:
+      {empty_input}: empty_collection/output
+      {populated_input}: populated_collection
+""",
+                test_data="""
+input1:
+  value: 1.bed
+  type: File
+populated_collection:
+  collection_type: list
+  name: populated collection
+  elements:
+    - identifier: el1
+      content: "1"
+    - identifier: el2
+      content: "2"
+""",
+                history_id=history_id,
+                wait=True,
+                assert_ok=False,
+            )
+            populated_hdca_id = summary.inputs["populated_collection"]["id"]
+            collections = self.dataset_populator.get_history_contents_of_type(history_id, "dataset_collections")
+            empty_hdca_id = next(c["id"] for c in collections if c["name"] == "lines")
+            # the empty_list output collection is labeled "lines"
+            empty = ("'lines' (no elements)", {"src": "hdca", "id": empty_hdca_id})
+            populated = ("'populated collection' (2 elements)", {"src": "hdca", "id": populated_hdca_id})
+            if empty_input == "input1":
+                first, second = empty, populated
+            else:
+                first, second = populated, empty
+            invocation = self._invocation_details(summary.workflow_id, summary.invocation_id)
+            assert invocation["state"] == "failed"
+            assert invocation["messages"] == [
+                {
+                    "details": (
+                        f"Collections {first[0]} and {second[0]} have different element structures. "
+                        "To map them together, use collections with the same number and nesting of elements."
+                    ),
+                    "reason": "collection_structure_mismatch",
+                    "workflow_step_id": 3,
+                    "workflow_step_index_path": None,
+                    "collection_references": [first[1], second[1]],
+                }
+            ]
+
     @skip_without_tool("cat")
     def test_cancel_new_workflow_when_history_deleted(self):
         with self.dataset_populator.test_history() as history_id:

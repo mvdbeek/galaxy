@@ -61,6 +61,8 @@ from galaxy.schema.invocation import (
     CancelReason,
     FailureReason,
     InvocationCancellationReviewFailed,
+    InvocationCollectionReference,
+    InvocationFailureCollectionStructureMismatch,
     InvocationFailureDatasetFailed,
     InvocationFailureExpressionEvaluationFailed,
     InvocationFailureOutputNotFound,
@@ -696,7 +698,18 @@ class WorkflowModule:
         """
         collections_to_match = self._find_collections_to_match(progress, step, all_inputs)
         # Have implicit collections...
-        collection_info = self.trans.app.dataset_collection_manager.match_collections(collections_to_match)
+        try:
+            collection_info = self.trans.app.dataset_collection_manager.match_collections(collections_to_match)
+        except matching.CollectionStructureMismatch as exc:
+            raise FailWorkflowEvaluation(
+                why=InvocationFailureCollectionStructureMismatch(
+                    reason=FailureReason.collection_structure_mismatch,
+                    workflow_step_id=step.id,
+                    details=str(exc),
+                    collection_references=[InvocationCollectionReference(**ref) for ref in exc.collection_references]
+                    or None,
+                )
+            ) from exc
         if collection_info:
             if progress.subworkflow_collection_info:
                 # We've mapped over a subworkflow. Slices of the invocation might be conditional

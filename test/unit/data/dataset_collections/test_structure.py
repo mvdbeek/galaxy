@@ -1,4 +1,7 @@
-from galaxy.model.dataset_collections.structure import get_structure
+from galaxy.model.dataset_collections.structure import (
+    get_structure,
+    UninitializedTree,
+)
 from galaxy.model.dataset_collections.type_description import CollectionTypeDescriptionFactory
 from .test_matching import (
     list_instance,
@@ -80,6 +83,17 @@ def test_tree_compatible_shape_sample_sheet_list_symmetric():
     list_tree = get_structure(list_instance(collection_type="list").collection, list_td)
     assert ss_tree.compatible_shape(list_tree)
     assert list_tree.compatible_shape(ss_tree)
+
+
+def test_compatible_shape_with_unenumerated_structure_compares_types_only():
+    list_td = factory.for_collection_type("list")
+    paired_td = factory.for_collection_type("paired")
+    list_tree = get_structure(list_instance().collection, list_td)
+
+    assert UninitializedTree(list_td).compatible_shape(list_tree)
+    assert list_tree.compatible_shape(UninitializedTree(list_td))
+    assert not UninitializedTree(paired_td).compatible_shape(list_tree)
+    assert not list_tree.compatible_shape(UninitializedTree(paired_td))
 
 
 def test_tree_compatible_shape_sample_sheet_paired_list_paired_symmetric():
