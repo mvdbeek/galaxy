@@ -58,6 +58,7 @@ dependencies = [
     "Markdown",
     "MarkupSafe",
     "mercurial>=7.2",  # Python 3.14 support
+    "mini-racer>=0.14.0",  # sandboxed V8 isolate for CWL/ECMAScript expression evaluation
     "mrcfile",
     "more-itertools",
     "msal",

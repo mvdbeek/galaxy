@@ -477,9 +477,14 @@
     process composes its named store with the default
     (``tool_source_database_connection``) store at runtime, with reads
     tried in declared order and writes always landing on the default.
-    Each entry takes a SQLAlchemy ``url`` and an optional ``read_only:
-    true`` flag. For SQLite connection-level read-only, use a SQLite
-    URI with ``mode=ro&uri=true``.
+    Each entry takes either a normal SQLAlchemy ``url`` or an
+    ``external_store_directory`` containing versioned publisher
+    bundles. Galaxy never consults manifests for a normal URL. For an
+    external directory it reads the sidecars and automatically selects
+    the newest cohort compatible with its store/source/index formats
+    and index schema. External stores are always read-only.
+    For SQLite connection-level read-only, use a SQLite URI with
+    ``mode=ro&uri=true``.
     For details see
     https://docs.galaxyproject.org/en/master/admin/tool_source_storage.html
 :Default: ``None``
@@ -4398,6 +4403,48 @@
 :Type: bool
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``expression_evaluation_isolation_command``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Optionally evaluate workflow ``when``/``valueFrom`` JavaScript
+    expressions in a separate, jailed worker process for
+    defence-in-depth OS-level containment. Galaxy already evaluates
+    these expressions in an embedded V8 isolate that exposes no host
+    bindings; this setting adds an OS-level jail around that
+    evaluation. When empty (the default) expressions are evaluated
+    in-process.
+    Set this to ``bubblewrap`` to use a built-in bubblewrap jail. It
+    clears the environment, unshares the PID/IPC/UTS namespaces, and
+    read-only-binds only what the worker needs to run: the Python
+    runtime, the worker script, and the system library/binary
+    directories (``/usr``, ``/lib``, ``/lib64``, ...). Galaxy's
+    config, database and the rest of the filesystem are NOT mounted,
+    so a compromised worker cannot read secrets from disk; it gets
+    ``/proc``, a minimal ``/dev`` and a private in-memory ``/tmp``
+    only. This is applied only on Linux and only when ``bwrap``
+    (bubblewrap) is found on PATH; on any other platform, or if bwrap
+    is missing, expressions are evaluated in-process instead.
+    bubblewrap requires unprivileged user namespaces. On distributions
+    that restrict them (Ubuntu >= 24.04,
+    ``kernel.apparmor_restrict_unprivileged_userns=1``), install the
+    bubblewrap AppArmor profile (shipped with the package) or relax
+    the restriction, otherwise bwrap fails with "setting up uid map:
+    Permission denied" and evaluation would error.
+    The network namespace is not unshared, because ``--unshare-net``
+    requires bubblewrap to configure a loopback interface, which fails
+    on many container and CI hosts. Control egress at the network
+    layer, or add ``--unshare-net`` via a custom command on hosts that
+    support it.
+    Advanced: set this to a full command prefix to use a custom jail
+    (e.g. a specific bwrap invocation, nsjail, or firejail). The value
+    is tokenized and used verbatim on all platforms, with the
+    configured Python interpreter and worker script appended.
+:Default: ``""``
+:Type: str
+
+
 ~~~~~~~~~~~~~~~
 ``enable_oidc``
 ~~~~~~~~~~~~~~~
@@ -5619,8 +5666,8 @@
     https://docs.celeryq.dev/projects/kombu/en/stable/userguide/connections.html
     When this option is not specified, Galaxy uses the configured
     database_connection with the SQLAlchemy transport. If
-    database_connection is not explicitly configured, Galaxy creates
-    a separate SQLite database at <data_dir>/control.sqlite.
+    database_connection is not explicitly configured, Galaxy creates a
+    separate SQLite database at <data_dir>/control.sqlite.
 :Default: ``None``
 :Type: str
 

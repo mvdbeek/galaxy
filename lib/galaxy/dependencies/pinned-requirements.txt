@@ -145,6 +145,7 @@ markupsafe==3.0.3
 mcp==1.29.1
 mdurl==0.1.2
 mercurial==7.2.4
+mini-racer==0.14.1
 mistune==3.3.4
 more-itertools==11.1.0
 mrcfile==1.5.4
