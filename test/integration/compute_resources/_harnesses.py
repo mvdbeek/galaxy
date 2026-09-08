@@ -160,6 +160,12 @@ def bring_up_pulsar(
     persistence = pulsar_dir / "persistence"
     for p in (pulsar_dir, staging, persistence):
         p.mkdir(parents=True, exist_ok=True)
+        # mkdir() masks its mode against the ambient umask, so an explicit
+        # chmod is required: CredentialsFile.save below refuses a group- or
+        # world-writable parent. Passing mode= to mkdir() does not help
+        # (that mode is masked too), and the chmod must follow the mkdir
+        # since exist_ok=True leaves an existing directory's mode untouched.
+        p.chmod(0o700)
 
     credentials_path = pulsar_dir / "relay_credentials.json"
     CredentialsFile(str(credentials_path)).save(
