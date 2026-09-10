@@ -428,7 +428,14 @@ class DetailedUserModel(BaseUserModel, AnonUserModel):
 
 
 class UserUpdatePayload(Model):
-    active: Annotated[Optional[bool], Field(None, title="Active", description="User is active")]
+    active: Annotated[
+        Optional[bool],
+        Field(
+            None,
+            title="Active",
+            description="Whether the account is active. Only an administrator can change this.",
+        ),
+    ]
     username: Annotated[Optional[str], Field(None, title="Username", description="The name of the user.")]
     preferred_object_store_id: Annotated[Optional[str], PreferredObjectStoreIdField]
 
