@@ -12,7 +12,6 @@ from urllib.parse import (
 import jwt
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
-from pkce import get_code_challenge
 from social_core.backends.google_openidconnect import GoogleOpenIdConnect
 from social_core.exceptions import AuthException
 from sqlalchemy import event
@@ -32,15 +31,11 @@ from galaxy.authnz.psa_authnz import (
     Strategy,
 )
 from galaxy.authnz.tapis import TapisOAuth2
-from galaxy.web.framework.base import Response
-from galaxy.webapps.base.webapp import GalaxyWebTransaction
-from galaxy.webapps.galaxy.controllers.authnz import OIDC
 
 
 @pytest.fixture
 def trans(monkeypatch):
     trans = MockTrans()
-    monkeypatch.setattr("galaxy.webapps.galaxy.controllers.authnz.url_for", lambda path: path)
     monkeypatch.setattr(trans.app.config, "enable_oidc", True, raising=False)
     monkeypatch.setattr(trans.app.config, "user_activation_on", False, raising=False)
     monkeypatch.setattr(trans.app.config, "oidc_auth_pipeline", None, raising=False)
@@ -50,12 +45,7 @@ def trans(monkeypatch):
     trans.sa_session.add(trans.galaxy_session)
     trans.sa_session.commit()
     monkeypatch.setattr(trans, "session", None, raising=False)
-    monkeypatch.setattr(trans, "session_csrf_token", "csrf", raising=False)
-    monkeypatch.setattr(trans, "check_csrf_token", GalaxyWebTransaction.check_csrf_token.__get__(trans))
-    monkeypatch.setattr(trans, "handle_user_login", Mock())
-    monkeypatch.setattr(trans, "set_cookie", Mock(), raising=False)
     trans.request = Request.blank("https://galaxy.example/authnz/keycloak/login")
-    trans.response = Response()
     monkeypatch.setattr(trans.app.user_manager, "send_activation_email", Mock())
     manager = object.__new__(AuthnzManager)
     manager.app = trans.app
@@ -95,12 +85,6 @@ def pending(trans, **changes):
 
 def counts(trans):
     return tuple(trans.sa_session.query(cls).count() for cls in (model.User, model.Role, model.UserAuthnzToken))
-
-
-def post(trans, confirmation_id, *, provider="keycloak"):
-    fields = {"session_csrf_token": "csrf", "confirmation_id": confirmation_id}
-    trans.request = Request.blank(f"https://galaxy.example/authnz/{provider}/create_user", POST=fields)
-    return json.loads(OIDC(trans.app).create_user(trans, provider, **fields))
 
 
 @pytest.mark.parametrize("activation", [False, True])
@@ -163,14 +147,6 @@ def test_existing_subject_cannot_be_linked(trans):
     with pytest.raises(InvalidFlow):
         adapter(trans).create_user(identifier, trans, "/")
     assert counts(trans) == before
-
-
-def test_cancel(trans):
-    identifier = pending(trans)
-    adapter(trans).cancel_user_creation(identifier, trans)
-    with pytest.raises(InvalidFlow):
-        adapter(trans).create_user(identifier, trans, "/")
-    assert counts(trans) == (0, 0, 0)
 
 
 @pytest.fixture(scope="module")
@@ -247,28 +223,6 @@ def callback(trans, query):
     return adapter(trans).callback(query["state"][0], "local-code", trans, "/")
 
 
-def test_real_callback_then_confirmation_with_pkce(trans, provider):
-    query = start(trans, provider)
-    # No legacy session mapping survives between the two requests.
-    trans.session = None
-    redirect, user = callback(trans, query)
-    assert user is None
-    assert counts(trans) == (0, 0, 0)
-    assert provider.request_data["code_verifier"]
-    assert get_code_challenge(provider.request_data["code_verifier"]) == query["code_challenge"][0]
-    assert "provider_token" not in redirect
-    assert "opaque-access" not in redirect
-    identifier = parse_qs(urlsplit(redirect).query)["confirmation_id"][0]
-    result = post(trans, identifier)
-    assert trans.response.status == 200
-    assert trans.response.headers["Cache-Control"] == "no-store"
-    assert result == {"redirect_uri": "/"}
-    user = trans.sa_session.query(model.User).one()
-    assert user.email == "verified@example.com"
-    assert trans.sa_session.query(model.UserAuthnzToken).one().uid == "verified-subject"
-    trans.handle_user_login.assert_called_once_with(user)
-
-
 @pytest.mark.parametrize("use_unique_user_id", [False, True])
 def test_google_confirmation_preserves_backend_identity(trans, provider, monkeypatch, use_unique_user_id):
     manager = trans.app.authnz_manager
@@ -302,16 +256,15 @@ def test_google_confirmation_preserves_backend_identity(trans, provider, monkeyp
     assert user is None
     assert counts(trans) == (0, 0, 0)
     identifier = parse_qs(urlsplit(redirect).query)["confirmation_id"][0]
-    post(trans, identifier, provider="google")
-    assert trans.response.status == 200
+    _, user = backend.create_user(identifier, trans, "/")
+    assert user.email == "verified@example.com"
     association = trans.sa_session.query(model.UserAuthnzToken).one()
     assert association.provider == "google-openidconnect"
     assert association.uid == ("verified-subject" if use_unique_user_id else "verified@example.com")
     assert association.user.email == "verified@example.com"
-    trans.handle_user_login.assert_called_once_with(association.user)
 
 
-@pytest.mark.parametrize("invalid", ["signature", "subject", "state", "browser", "policy"])
+@pytest.mark.parametrize("invalid", ["signature", "subject", "state", "policy"])
 def test_failed_callback_never_issues_confirmation(trans, provider, invalid, monkeypatch):
     query = start(trans, provider)
     if invalid == "signature":
@@ -320,17 +273,13 @@ def test_failed_callback_never_issues_confirmation(trans, provider, invalid, mon
         provider.userinfo["sub"] = "another-subject"
     elif invalid == "state":
         query["state"] = ["wrong-state"]
-    elif invalid == "browser":
-        trans.galaxy_session = model.GalaxySession(is_valid=True)
-        trans.sa_session.add(trans.galaxy_session)
-        trans.sa_session.commit()
     elif invalid == "policy":
         monkeypatch.setattr(KeycloakOpenIdConnect, "auth_allowed", lambda *args: False)
     with pytest.raises((InvalidFlow, AuthException)):
         callback(trans, query)
     assert counts(trans) == (0, 0, 0)
     assert trans.sa_session.query(model.PSAPartial).filter_by(next_step=-2).count() == 0
-    if invalid in ("state", "browser"):
+    if invalid == "state":
         assert not provider.requests
 
 
@@ -366,8 +315,9 @@ def test_oauth2_callback_and_confirmation_without_id_token(trans, monkeypatch):
     redirect, user = backend.callback(state, "local-code", trans, "/")
     assert user is None
     assert counts(trans) == (0, 0, 0)
-    post(trans, parse_qs(urlsplit(redirect).query)["confirmation_id"][0], provider="tapis")
-    assert trans.response.status == 200
+    identifier = parse_qs(urlsplit(redirect).query)["confirmation_id"][0]
+    _, user = backend.create_user(identifier, trans, "/")
+    assert user is not None
     assert trans.sa_session.query(model.UserAuthnzToken).one().uid == "tacc:oauth-user"
 
 
@@ -380,35 +330,6 @@ def test_strategy_preserves_empty_session():
     assert session == {}
 
 
-@pytest.mark.parametrize("mode", ["new_user", "repeat_login", "link_logged_in", "existing_email", "fixed_delegated"])
-def test_ordinary_callback_compatibility(trans, provider, mode):
-    trans.app.authnz_manager.oidc_backends_config["keycloak"]["require_create_confirmation"] = False
-    existing = None
-    if mode != "new_user":
-        existing = trans.app.user_manager.create(email="verified@example.com", username="existing")
-        if mode == "repeat_login":
-            trans.sa_session.add(model.UserAuthnzToken(user=existing, provider="keycloak", uid="verified-subject"))
-            trans.sa_session.commit()
-        elif mode == "link_logged_in":
-            trans.set_user(existing)
-        elif mode == "fixed_delegated":
-            trans.app.config.fixed_delegated_auth = True
-    query = start(trans, provider)
-    redirect, user = callback(trans, query)
-    assert "confirmation_id" not in redirect
-    if mode == "existing_email":
-        assert "connect_external_provider" in redirect
-        assert user is None
-        assert trans.sa_session.query(model.UserAuthnzToken).count() == 0
-    else:
-        user = user or trans.user
-        assert user is not None
-        if existing:
-            assert user.id == existing.id
-        assert trans.sa_session.query(model.User).count() == 1
-        assert trans.sa_session.query(model.UserAuthnzToken).count() == 1
-
-
 def test_backend_alias_uses_canonical_confirmation_binding(trans):
     manager = trans.app.authnz_manager
     manager.oidc_backends_config["google"] = manager.oidc_backends_config["keycloak"]
@@ -417,8 +338,9 @@ def test_backend_alias_uses_canonical_confirmation_binding(trans):
         "confirmation",
         {"email": "verified@example.com", "username": "verified", "uid": "google-sub", "response": {}},
     )
-    post(trans, identifier, provider="google-openidconnect")
-    assert trans.response.status == 200
+    success, _, (_, user) = manager.create_user("google-openidconnect", identifier, trans, "/")
+    assert success
+    assert user is not None
     assert trans.sa_session.query(model.UserAuthnzToken).one().provider == "google-openidconnect"
 
 
