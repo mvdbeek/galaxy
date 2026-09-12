@@ -29,7 +29,7 @@ def test_file_source_drs_http():
                 {
                     "type": "https",
                     "access_url": {
-                        "url": "https://my.respository.org/myfile.txt",
+                        "url": "https://93.184.216.34/myfile.txt",
                         "headers": ["Authorization: Basic Z2E0Z2g6ZHJz"],
                     },
                     "access_id": "1234",
@@ -48,11 +48,11 @@ def test_file_source_drs_http():
     test_url = "drs://drs.example.org/314159"
 
     def check_specific_header(request, **kwargs):
-        assert request.full_url == "https://my.respository.org/myfile.txt"
+        assert request.full_url == "https://93.184.216.34/myfile.txt"
         assert request.headers["Authorization"] == "Basic Z2E0Z2g6ZHJz"
         response: Any = io.StringIO("hello drs world")
         response.headers = {}
-        response.geturl = lambda: test_url
+        response.geturl = lambda: request.full_url
         return response
 
     with mock.patch.object(urllib.request, "urlopen", new=check_specific_header):
