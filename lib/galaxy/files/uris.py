@@ -94,7 +94,7 @@ def split_port(parsed_url: str, url: str) -> tuple[str, int]:
 
 def validate_non_local(uri: str, ip_allowlist: list[IpAllowedListEntryT]) -> str:
     # If it doesn't look like a URL, ignore it.
-    if not (uri.lstrip().startswith("http://") or uri.lstrip().startswith("https://")):
+    if not uri.lstrip().lower().startswith(("http://", "https://", "ftp://", "ftps://")):
         return uri
 
     # Strip leading whitespace before passing url to urlparse()
@@ -128,6 +128,9 @@ def validate_non_local(uri: str, ip_allowlist: list[IpAllowedListEntryT]) -> str
             # This should finally be ipv4 with port. It cannot be IPv6 as that
             # was caught by earlier cases, and it cannot be due to credentials.
             parsed_url, port = split_port(parsed_url=parsed_url, url=url)
+
+    if parsed_url.startswith("[") and parsed_url.endswith("]"):
+        parsed_url = parsed_url[1:-1]
 
     # safe to log out, no credentials/request path, just an IP + port
     log.debug("parsed url %s, port:  %s", parsed_url, port)

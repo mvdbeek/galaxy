@@ -20,7 +20,10 @@ from galaxy.exceptions import (
     AdminRequiredException,
     ConfigDoesNotAllowException,
 )
-from galaxy.files.uris import stream_to_file
+from galaxy.files.uris import (
+    stream_to_file,
+    validate_non_local,
+)
 from galaxy.util import (
     asbool,
     inflector,
@@ -453,6 +456,7 @@ class UploadDataset(Group):
                             if not start_of_url(line):
                                 continue  # non-url line, ignore
 
+                            validate_non_local(line, trans.app.config.fetch_url_allowlist_ips)
                             if "file://" in line:
                                 if not trans.user_is_admin:
                                     raise AdminRequiredException()

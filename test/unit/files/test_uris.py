@@ -1,5 +1,7 @@
 import ipaddress
 
+import pytest
+
 from galaxy.exceptions import (
     AdminRequiredException,
     ConfigDoesNotAllowException,
@@ -53,3 +55,18 @@ def validates(uri: str, is_admin, allow_list):
     except (ConfigDoesNotAllowException, AdminRequiredException):
         return False
     return True
+
+
+@pytest.mark.parametrize(
+    "url, allowlist_entry",
+    [
+        ("ftp://user:pass@127.0.0.1:2121/data", ipaddress.ip_address("127.0.0.1")),
+        ("FTP://127.0.0.1/data", ipaddress.ip_network("127.0.0.0/24")),
+        ("ftps://127.0.0.1/data", ipaddress.ip_address("127.0.0.1")),
+        ("ftp://[::1]:2121/data", ipaddress.ip_network("::1/128")),
+    ],
+)
+def test_validate_ftp_access(url, allowlist_entry):
+    with pytest.raises(ConfigDoesNotAllowException):
+        validate_non_local(url, [])
+    assert validate_non_local(url, [allowlist_entry]) == url

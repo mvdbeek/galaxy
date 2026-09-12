@@ -23,17 +23,13 @@ import os
 import re
 import shutil
 import tempfile
-from typing import (
-    Any,
-)
+from typing import Any
 
 from requests import Response
 
 from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.util.unittest import TestCase
-from galaxy_test.api.test_dataset_collections import (
-    upload_flat_sample_sheet,
-)
+from galaxy_test.api.test_dataset_collections import upload_flat_sample_sheet
 from galaxy_test.base.api_util import TEST_USER
 from galaxy_test.base.constants import (
     ONE_TO_SIX_ON_WINDOWS,
@@ -403,6 +399,51 @@ class TestLocalAddressWhitelisting(BaseUploadContentConfigurationTestCase):
         }
         response = self.fetch_target(target, history_id)
         self._assert_status_code_is(response, 403)
+
+
+class TestMultilineUrlAddressWhitelisting(BaseUploadContentConfigurationTestCase):
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config) -> None:
+        super().handle_galaxy_config_kwds(config)
+        config["fetch_url_allowlist"] = "127.0.0.1"
+
+    def test_blocked_second_url(self, history_id: str) -> None:
+        for first_url in ("http://127.0.0.1/allowed", "gxfiles://fixture/allowed", "ftp://127.0.0.1/allowed"):
+            payload = self.dataset_populator.upload_payload(
+                history_id, f" {first_url} \r\n\nignored text\nhttp://127.0.0.2/blocked", file_type="txt"
+            )
+            response = self.dataset_populator.tools_post(payload)
+            assert response.status_code >= 400, response.text
+            assert self.dataset_populator.history_jobs(history_id) == []
+            assert self.dataset_populator.get_history_contents(history_id) == []
+
+    def test_blocked_ftp_url(self, history_id: str) -> None:
+        for paste in ("ftp://127.0.0.2/blocked", "http://127.0.0.1/allowed\nftp://127.0.0.2/blocked"):
+            payload = self.dataset_populator.upload_payload(history_id, paste, file_type="txt")
+            response = self.dataset_populator.tools_post(payload)
+            assert response.status_code >= 400, response.text
+            assert self.dataset_populator.history_jobs(history_id) == []
+            assert self.dataset_populator.get_history_contents(history_id) == []
+
+    def test_blocked_ftp_url_for_fetch(self, history_id: str) -> None:
+        target = {
+            "destination": {"type": "hdas"},
+            "elements": [{"src": "url", "url": "ftp://127.0.0.2/blocked"}],
+        }
+        response = self.fetch_target(target, history_id)
+        self._assert_status_code_is(response, 403)
+        assert self.dataset_populator.history_jobs(history_id) == []
+        assert self.dataset_populator.get_history_contents(history_id) == []
+
+    def test_blocked_second_url_in_library(self) -> None:
+        library = self.library_populator.new_private_library("multiline_url_allowlist")
+        initial_contents = self.library_populator.get_library_contents(library["id"])
+        payload, _ = self.library_populator.create_dataset_request(library, file_type="txt")
+        for scheme in ("http", "ftp"):
+            payload["files_0|url_paste"] = f"http://127.0.0.1/allowed\n{scheme}://127.0.0.2/blocked"
+            response = self.library_populator.raw_library_contents_create(library["id"], payload)
+            assert response.status_code >= 400, response.text
+            assert self.library_populator.get_library_contents(library["id"]) == initial_contents
 
 
 class BaseFtpUploadConfigurationTestCase(BaseUploadContentConfigurationTestCase):
