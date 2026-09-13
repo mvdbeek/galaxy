@@ -144,6 +144,7 @@ const isActiveHost = computed(() => props.host === activeToastHost.value);
 
     .g-toast-body {
         margin-top: 0.25rem;
+        word-break: break-all;
     }
 }
 
