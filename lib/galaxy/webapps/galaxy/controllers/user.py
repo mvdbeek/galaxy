@@ -34,6 +34,7 @@ from galaxy.webapps.base.controller import (
     UsesFormDefinitionsMixin,
 )
 from ..api import depends
+from ..api.users import ensure_account_modification_allowed
 
 log = logging.getLogger(__name__)
 
@@ -344,6 +345,9 @@ class User(BaseUIController, UsesFormDefinitionsMixin):
             * confirm:          new password (confirmation)
         """
         payload = payload or {}
+        if not payload.get("token"):
+            # Token based resets stay available; this is the same change as PUT /api/users/{id}/password/inputs.
+            ensure_account_modification_allowed(trans, "Password changes are not allowed in this Galaxy instance")
         user, message = self.user_manager.change_password(trans, **payload)
         if user is None:
             return self.message_exception(trans, message)
