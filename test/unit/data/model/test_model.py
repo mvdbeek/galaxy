@@ -7,7 +7,13 @@ import pytest
 
 from galaxy import model
 from galaxy.exceptions import RequestParameterInvalidException
+from galaxy.model.item_attrs import add_item_annotation
 from galaxy.util import MAX_ANNOTATION_SIZE
+
+
+@pytest.fixture(scope="module")
+def init_model(engine):
+    model.Base.metadata.create_all(engine)
 
 
 def test_get_uuid():
@@ -85,20 +91,59 @@ def test_resubmission_count_counts_resubmitted_state_history_entries():
     assert job.resubmission_count == 2
 
 
-ANNOTATION_MODELS = model.ItemAnnotationAssociation.__subclasses__()
+ANNOTATED_ITEMS = (
+    model.History,
+    model.HistoryDatasetAssociation,
+    model.StoredWorkflow,
+    model.WorkflowStep,
+    model.Page,
+    model.Visualization,
+    model.HistoryDatasetCollectionAssociation,
+    model.LibraryDatasetCollectionAssociation,
+)
 
 
-@pytest.mark.parametrize("annotation_model", ANNOTATION_MODELS, ids=lambda cls: cls.__name__)
-def test_annotation_size_limit(annotation_model):
+@pytest.mark.parametrize("item_class", ANNOTATED_ITEMS, ids=lambda cls: cls.__name__)
+def test_annotation_size_limit(item_class):
+    item = item_class()
     at_limit = "a" * MAX_ANNOTATION_SIZE
-    assert annotation_model(annotation=None).annotation is None
-    assert annotation_model(annotation=at_limit).annotation == at_limit
-    with pytest.raises(RequestParameterInvalidException, match="Annotation too large"):
-        annotation_model(annotation=at_limit + "a")
+    association = add_item_annotation(None, None, item, at_limit)
+    assert association.annotation == at_limit
+    with pytest.raises(RequestParameterInvalidException, match="String should have at most"):
+        add_item_annotation(None, None, item, at_limit + "a")
+    assert item.annotations == [association]
+    assert association.annotation == at_limit
+
+
+@pytest.mark.parametrize("item_class", [model.History, model.LibraryDatasetCollectionAssociation])
+def test_update_item_annotation(session, item_class):
+    first, second = item_class(), item_class()
+    session.add_all([first, second])
+    session.flush()
+    original = add_item_annotation(session, None, first, "original")
+    session.flush()
+    other = add_item_annotation(session, None, second, "other")
+    session.flush()
+    assert original is not other
+    with pytest.raises(RequestParameterInvalidException):
+        add_item_annotation(session, None, first, "a" * (MAX_ANNOTATION_SIZE + 1))
+    assert original.annotation == "original"
+    assert add_item_annotation(session, None, first, "updated") is original
+    assert original.annotation == "updated"
+    assert other.annotation == "other"
+
+
+def test_copy_workflow_step_validates_annotation():
+    step = model.WorkflowStep()
+    step.annotations = [model.WorkflowStepAnnotationAssociation(annotation="a" * (MAX_ANNOTATION_SIZE + 1))]
+    copied_step = model.WorkflowStep()
+    with pytest.raises(RequestParameterInvalidException, match="String should have at most"):
+        step.copy_to(copied_step, {}, model.User())
+    assert not copied_step.annotations
 
 
 def test_annotation_columns_are_not_indexed():
     tables = [table for table in model.Base.metadata.tables.values() if "annotation" in table.columns]
-    assert len(tables) == len(ANNOTATION_MODELS)  # every annotated table carries the length validator
+    assert len(tables) == len(ANNOTATED_ITEMS)
     for table in tables:
         assert not any(list(index.columns.keys()) == ["annotation"] for index in table.indexes)

@@ -1451,8 +1451,9 @@ steps:
         assert annotation in {step["annotation"] for step in updated["steps"].values()}
 
     @pytest.mark.parametrize("target", ["workflow", "step"])
-    def test_annotation_size_limit(self, target):
-        # Exact bound lives in galaxy.model; this covers the error reaching the client as a 400.
+    @pytest.mark.parametrize("operation", ["import", "update"])
+    def test_annotation_size_limit(self, target, operation):
+        # Both legacy write paths must return validation errors as a 400.
         oversized = "a" * 100_000
         workflow_id = self._upload_yaml_workflow(WORKFLOW_SIMPLE)
         editable = self._download_workflow(workflow_id, style="editor")
@@ -1460,9 +1461,12 @@ steps:
             editable["annotation"] = oversized
         else:
             next(iter(editable["steps"].values()))["annotation"] = oversized
-        response = self._update_workflow(workflow_id, editable)
+        if operation == "import":
+            response = self._post("workflows", data={"workflow": json.dumps(editable)})
+        else:
+            response = self._update_workflow(workflow_id, editable)
         self._assert_status_code_is(response, 400)
-        assert_error_message_contains(response, "Annotation too large")
+        assert_error_message_contains(response, "String should have at most 65536 characters")
 
     def test_import_subworkflows(self):
         def get_subworkflow_content_id(workflow_id):

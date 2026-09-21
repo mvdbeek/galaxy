@@ -4,8 +4,16 @@ from typing import (
     Literal,
 )
 
-from pydantic import ValidationInfo
+from pydantic import (
+    Field,
+    ValidationInfo,
+)
 from pydantic.functional_validators import AfterValidator
+
+from galaxy.util import MAX_ANNOTATION_SIZE
+
+# Input constraint only: response/export fields must accept existing annotations.
+Annotation = Annotated[str, Field(max_length=MAX_ANNOTATION_SIZE)]
 
 # Relative URLs cannot be validated with AnyUrl, they need a scheme.
 # Making them an alias of `str` for now
