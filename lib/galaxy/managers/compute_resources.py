@@ -516,7 +516,7 @@ class ComputeResourceManager:
 
         galaxy_url = self._config.galaxy_infrastructure_url or ""
         relay_url = self._config.compute_resource_relay_url or ""
-        one_liner = f"pulsar-config register-with-galaxy --galaxy {galaxy_url} --token {row.token} --relay {relay_url}"
+        one_liner = f"pulsar-config --register-with-galaxy {galaxy_url} --galaxy-token {row.token} --relay-url {relay_url}"
         return RegistrationTicketData(
             bootstrap_token=row.token,
             expires_at=row.expiration_time,
