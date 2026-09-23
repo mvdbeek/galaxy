@@ -5,6 +5,8 @@ import "fake-indexeddb/auto";
 import failOnConsole from "jest-fail-on-console";
 import Vue from "vue";
 
+import { vSanitizeHtml } from "@/directives/vSanitizeHtml";
+
 // not available in jsdom, mock it out
 Element.prototype.scrollIntoView = jest.fn();
 
@@ -27,6 +29,11 @@ jest.mock("vue", () => {
 /* still don't understand what was invoking the following, but nothing should,
 and this makes the tag tests work correctly */
 global.setImmediate = global.setTimeout;
+
+// v-sanitize-html is the real directive; only the DOMPurify call behind it is
+// replaced with a pass-through spy (see directives/__mocks__/sanitizeHtml.ts).
+jest.mock("@/directives/sanitizeHtml");
+Vue.directive("sanitize-html", vSanitizeHtml);
 
 // Always mock the following imports
 jest.mock("@/composables/hashedUserId");

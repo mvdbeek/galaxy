@@ -7,11 +7,16 @@ import { iconPlugin, localizationPlugin, vueRxShortcutPlugin } from "components/
 import { createPinia, getActivePinia, PiniaVuePlugin } from "pinia";
 import Vue from "vue";
 
+import { vSanitizeHtml } from "@/directives/vSanitizeHtml";
+
 // Load Pinia
 Vue.use(PiniaVuePlugin);
 
 // Bootstrap components
 Vue.use(BootstrapVue);
+
+// Renders markup through DOMPurify; the replacement for raw v-html
+Vue.directive("sanitize-html", vSanitizeHtml);
 
 // localization filters and directives
 Vue.use(localizationPlugin);
