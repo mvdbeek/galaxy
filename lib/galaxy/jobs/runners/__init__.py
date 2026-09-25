@@ -677,14 +677,30 @@ class BaseJobRunner:
         # Not convinced this is the best way to indicate this state, but
         # something necessary
         if not job_state.runner_state_handled:
-            # full_status currently only passed in pulsar runner,
-            # but might be useful for other runners in the future.
+            # full_status is only passed by the Pulsar runner, which gets the streams from the remote job.
             full_status = full_status or {}
             tool_stdout = full_status.get("stdout")
             tool_stderr = full_status.get("stderr")
+            job_stdout = full_status.get("job_stdout")
+            job_stderr = full_status.get("job_stderr")
+            exit_code = full_status.get("returncode")
+            if tool_stdout is None and tool_stderr is None:
+                # Keep what the tool wrote before the DRM ended the job, missing streams are expected
+                # for jobs that never started.
+                tool_streams, _ = self._read_tool_streams(job_state.job_wrapper)
+                tool_stdout, tool_stderr = tool_streams["stdout"], tool_streams["stderr"]
+                job_stdout, job_stderr = self._read_job_streams(job_state)
+            if exit_code is None:
+                exit_code = job_state.recorded_exit_code()
             fail_message = getattr(job_state, "fail_message", message)
             job_state.job_wrapper.fail(
-                fail_message, tool_stdout=tool_stdout, tool_stderr=tool_stderr, exception=exception
+                fail_message,
+                tool_stdout=tool_stdout,
+                tool_stderr=tool_stderr,
+                exit_code=exit_code,
+                job_stdout=job_stdout,
+                job_stderr=job_stderr,
+                exception=exception,
             )
 
     def mark_as_resubmitted(self, job_state: "JobState", info: str | None = None):
@@ -699,6 +715,41 @@ class BaseJobRunner:
             stream, DATABASE_MAX_STRING_SIZE, join_by="\n..\n", left_larger=True, beginning_on_size_error=True
         )
 
+    def _read_tool_streams(
+        self, job_wrapper: "MinimalJobWrapper"
+    ) -> tuple[dict[str, str], dict[str, tuple[str, OSError]]]:
+        """Read the tool's stdout and stderr from the job working directory.
+
+        Returns the streams (empty when unreadable) and, per unreadable stream, its path and the error.
+        """
+        outputs_directory = os.path.join(job_wrapper.working_directory, "outputs")
+        if not os.path.exists(outputs_directory):
+            outputs_directory = job_wrapper.working_directory
+        tool_streams = {"stdout": "", "stderr": ""}
+        read_errors: dict[str, tuple[str, OSError]] = {}
+        for stream in tool_streams:
+            path = os.path.join(outputs_directory, f"tool_{stream}")
+            try:
+                with open(path, "rb") as stream_file:
+                    tool_streams[stream] = self._job_io_for_db(stream_file)
+            except OSError as exc:
+                read_errors[stream] = (path, exc)
+        return tool_streams, read_errors
+
+    def _read_job_streams(self, job_state: "JobState") -> tuple[str | None, str | None]:
+        """Read the job script's stdout and stderr if the DRM wrote them, without waiting for them to appear."""
+        streams: list[str | None] = []
+        for attribute in ("output_file", "error_file"):
+            stream = None
+            if path := getattr(job_state, attribute, None):
+                try:
+                    with open(path, "rb") as stream_file:
+                        stream = self._job_io_for_db(stream_file)
+                except OSError:
+                    pass
+            streams.append(stream)
+        return streams[0], streams[1]
+
     def _finish_or_resubmit_job(self, job_state: "JobState", job_stdout, job_stderr, job_id=None, external_job_id=None):
         job_wrapper = job_state.job_wrapper
         try:
@@ -709,37 +760,30 @@ class BaseJobRunner:
                 external_job_id = job.get_job_runner_external_id()
             exit_code = job_state.read_exit_code()
 
-            outputs_directory = os.path.join(job_wrapper.working_directory, "outputs")
-            if not os.path.exists(outputs_directory):
-                outputs_directory = job_wrapper.working_directory
-
-            tool_streams = {"stdout": "", "stderr": ""}
+            tool_streams, read_errors = self._read_tool_streams(job_wrapper)
             stdio_errors: list[StdioReadErrorJobMessage] = []
             cancelled = False
-            for stream in tool_streams:
-                path = os.path.join(outputs_directory, f"tool_{stream}")
-                try:
-                    with open(path, "rb") as stream_file:
-                        tool_streams[stream] = self._job_io_for_db(stream_file)
-                except OSError as exc:
-                    if isinstance(exc, FileNotFoundError) and job.state in (
-                        model.Job.states.DELETING,
-                        model.Job.states.DELETED,
-                    ):
-                        # Cancellation can prevent the tool streams from being created.
-                        cancelled = True
-                        continue
-                    desc = f"Job failed because the tool {stream} file could not be read: {exc.strerror or type(exc).__name__}"
-                    stdio_errors.append(
-                        StdioReadErrorJobMessage(
-                            type="stdio_read_error",
-                            stream=stream,
-                            errno=exc.errno,
-                            desc=desc,
-                            error_level=StdioErrorLevel.FATAL,
-                        )
+            for stream, (path, exc) in read_errors.items():
+                if isinstance(exc, FileNotFoundError) and job.state in (
+                    model.Job.states.DELETING,
+                    model.Job.states.DELETED,
+                ):
+                    # Cancellation can prevent the tool streams from being created.
+                    cancelled = True
+                    continue
+                desc = (
+                    f"Job failed because the tool {stream} file could not be read: {exc.strerror or type(exc).__name__}"
+                )
+                stdio_errors.append(
+                    StdioReadErrorJobMessage(
+                        type="stdio_read_error",
+                        stream=stream,
+                        errno=exc.errno,
+                        desc=desc,
+                        error_level=StdioErrorLevel.FATAL,
                     )
-                    log.warning("(%s/%s) %s (%s)", job_id, external_job_id, desc, path)
+                )
+                log.warning("(%s/%s) %s (%s)", job_id, external_job_id, desc, path)
             tool_stdout = tool_streams["stdout"]
             tool_stderr = tool_streams["stderr"] or ("Job cancelled" if cancelled else "")
 
@@ -814,7 +858,7 @@ class JobState:
         self.runner_state_handled = False
         self.job_wrapper = job_wrapper
         self.job_destination = job_destination
-        self.runner_state = None
+        self.runner_state: str | None = None
         self.redact_email_in_job_name = True
         self._exit_code_file = None
         self.stop_job = True
@@ -849,6 +893,12 @@ class JobState:
 
     def read_exit_code(self):
         return read_exit_code_from(self.exit_code_file, self.job_wrapper.get_id_tag())
+
+    def recorded_exit_code(self) -> int | None:
+        """The tool exit code recorded by the job script, or ``None`` if the tool command did not complete."""
+        if not os.path.exists(self.exit_code_file):
+            return None
+        return self.read_exit_code()
 
     def cleanup(self):
         for file in [getattr(self, a) for a in self.cleanup_file_attributes if hasattr(self, a)]:

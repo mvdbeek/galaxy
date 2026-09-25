@@ -1101,64 +1101,6 @@ class KubernetesJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             ajs.running = False
             self.monitor_queue.put(ajs)
 
-    # added to make sure that stdout and stderr is captured for Kubernetes
-    def fail_job(
-        self,
-        job_state: "JobState",
-        exception: bool = False,
-        message: str = "Job failed",
-        full_status: dict[str, Any] | None = None,
-    ) -> None:
-        log.debug("PP Getting into fail_job in k8s runner")
-        gxy_job = job_state.job_wrapper.get_job()
-
-        # Get STDOUT and STDERR from the job and tool to be stored in the database #
-        # This is needed because when calling finish_job on a failed job, the check_output method
-        # overrides the job error state and tries to figure it out from the job output files
-        # breaking OOM resubmissions.
-        # To ensure that files below are readable, ownership must be reclaimed first
-        job_state.job_wrapper.reclaim_ownership()
-
-        _, job_stdout, job_stderr = self._collect_job_output(gxy_job.id, gxy_job.job_runner_external_id, job_state)
-
-        # get stderr and stdout to database
-        outputs_directory = os.path.join(job_state.job_wrapper.working_directory, "outputs")
-        if not os.path.exists(outputs_directory):
-            outputs_directory = job_state.job_wrapper.working_directory
-
-        tool_stdout_path = os.path.join(outputs_directory, "tool_stdout")
-        tool_stderr_path = os.path.join(outputs_directory, "tool_stderr")
-
-        # TODO: These might not exist for running jobs at the upgrade to 19.XX, remove that
-        # assumption in 20.XX.
-        tool_stderr = "Galaxy issue: stderr could not be retrieved from the job working directory."
-        tool_stdout = "Galaxy issue: stdout could not be retrieved from the job working directory."
-        if os.path.exists(tool_stdout_path):
-            with open(tool_stdout_path, "rb") as stdout_file:
-                tool_stdout = self._job_io_for_db(stdout_file)
-        else:
-            # Legacy job, were getting a merged output - assume it is mostly tool output.
-            tool_stdout = job_stdout
-            job_stdout = None
-
-        if os.path.exists(tool_stderr_path):
-            with open(tool_stderr_path, "rb") as stdout_file:
-                tool_stderr = self._job_io_for_db(stdout_file)
-        else:
-            # Legacy job, were getting a merged output - assume it is mostly tool output.
-            tool_stderr = job_stderr
-            job_stderr = None
-
-        # full status empty leaves the UI without stderr/stdout
-        full_status = {"stderr": tool_stderr, "stdout": tool_stdout}
-        log.debug(f"({gxy_job.id}/{gxy_job.job_runner_external_id}) tool_stdout: {tool_stdout}")
-        log.debug(f"({gxy_job.id}/{gxy_job.job_runner_external_id}) tool_stderr: {tool_stderr}")
-        log.debug(f"({gxy_job.id}/{gxy_job.job_runner_external_id}) job_stdout: {job_stdout}")
-        log.debug(f"({gxy_job.id}/{gxy_job.job_runner_external_id}) job_stderr: {job_stderr}")
-
-        # run super method
-        super().fail_job(job_state, exception, message, full_status)
-
     def _finish_job(self, job_state: AsynchronousJobState) -> None:
         super()._finish_job(job_state)
         jobs = find_job_object_by_name(self._pykube_api, job_state.job_id, self.runner_params["k8s_namespace"])
