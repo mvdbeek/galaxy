@@ -21,6 +21,7 @@ from galaxy import (
     model,
     util,
 )
+from galaxy.job_execution.output_collect import default_exit_code_file
 from galaxy.jobs.job_destination import JobDestination
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
@@ -239,7 +240,7 @@ class PBSJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
         # define job attributes
         ofile = os.path.join(job_wrapper.working_directory, f"{job_wrapper.job_id}.o")
         efile = os.path.join(job_wrapper.working_directory, f"{job_wrapper.job_id}.e")
-        ecfile = os.path.join(job_wrapper.working_directory, f"{job_wrapper.job_id}.ec")
+        ecfile = default_exit_code_file(job_wrapper.working_directory, job_wrapper.get_id_tag())
 
         output_fnames = job_wrapper.job_io.get_output_fnames()
 
@@ -544,7 +545,7 @@ class PBSJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             job_file=os.path.join(job_wrapper.working_directory, f"{job.id}.sh"),
             output_file=os.path.join(job_wrapper.working_directory, f"{job.id}.o"),
             error_file=os.path.join(job_wrapper.working_directory, f"{job.id}.e"),
-            exit_code_file=os.path.join(job_wrapper.working_directory, f"{job.id}.ec"),
+            exit_code_file=default_exit_code_file(job_wrapper.working_directory, job_wrapper.get_id_tag()),
         )
         job_wrapper.command_line = job.command_line
         if job.state in (model.Job.states.RUNNING, model.Job.states.STOPPED):
