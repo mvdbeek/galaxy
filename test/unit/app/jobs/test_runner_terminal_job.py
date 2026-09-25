@@ -10,6 +10,7 @@ from galaxy.jobs.runners import (
     AsynchronousJobRunner,
     AsynchronousJobState,
     BaseJobRunner,
+    cli as cli_runner,
     drmaa as drmaa_runner,
     slurm as slurm_runner,
 )
@@ -239,3 +240,27 @@ def test_job_script_exit_code(tmp_path, instrument_post_commands, exit_statement
 
     assert result.returncode == script_exit_code
     assert exit_code_file.read_text().strip() == str(tool_exit_code)
+
+
+@pytest.mark.parametrize(
+    "runner_state, method",
+    [
+        (None, "finish_or_fail_job"),
+        (AsynchronousJobState.runner_states.MEMORY_LIMIT_REACHED, "mark_as_failed"),
+    ],
+)
+def test_cli_error_is_decided_by_tool_exit_code(monkeypatch, job_state, runner_state, method):
+    runner = object.__new__(cli_runner.ShellJobRunner)
+    runner.work_queue = Queue()
+    job_state.old_state = "running"
+    runner.watched = [job_state]
+    job_interface = Mock()
+    job_interface.parse_failure_reason.return_value = runner_state
+    monkeypatch.setattr(runner, "_ShellJobRunner__get_job_states", lambda: {"1234": "error"})
+    monkeypatch.setattr(runner, "parse_destination_params", lambda params: ({}, {}))
+    monkeypatch.setattr(runner, "get_cli_plugins", lambda shell_params, job_params: (Mock(), job_interface))
+
+    runner.check_watched_items()
+
+    assert queued(runner) == [(method, job_state)]
+    assert runner.watched == []
