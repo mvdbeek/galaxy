@@ -903,7 +903,13 @@ class JobState:
 
     def recorded_exit_code(self) -> int | None:
         """The tool exit code recorded by the job script, or ``None`` if the tool command did not complete."""
-        if not os.path.exists(self.exit_code_file):
+        try:
+            with open(self.exit_code_file) as exit_code_file:
+                recorded = exit_code_file.read(32).strip()
+        except FileNotFoundError:
+            return None
+        # An empty file may still be being written, or was staged before the job ran.
+        if not recorded:
             return None
         return self.read_exit_code()
 

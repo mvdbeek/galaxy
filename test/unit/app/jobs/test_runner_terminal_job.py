@@ -152,6 +152,15 @@ def test_recorded_exit_code_finishes_job(runner, job_state, exit_code):
     runner.fail_job.assert_not_called()
 
 
+def test_empty_exit_code_file_fails_job(runner, job_state):
+    open(job_state.exit_code_file, "w").close()
+
+    runner.finish_or_fail_job(job_state)
+
+    runner.fail_job.assert_called_once_with(job_state)
+    runner.finish_job.assert_not_called()
+
+
 def test_missing_exit_code_fails_job(runner, job_state):
     runner.finish_or_fail_job(job_state)
 
