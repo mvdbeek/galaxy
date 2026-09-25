@@ -117,6 +117,10 @@ class BaseJobRunner:
     #: Whether ``recover()`` knows how to resume a job left in the FINISHING state by an
     #: interrupted ``_handle_metadata_externally``.
     recovers_finishing_jobs = False
+    #: Default for the ``propagate_tool_exit_code`` destination parameter, whether the job script exits with the
+    #: tool's exit code. Runners whose backend retries or fails a job on a non-zero exit, bypassing the tool's
+    #: stdio rules, default to exiting 0.
+    propagate_tool_exit_code = True
     DEFAULT_SPECS = dict(recheck_missing_job_retries=dict(map=int, valid=lambda x: int(x) >= 0, default=0))
 
     def __init__(self, app: "GalaxyManagerApplication", nworkers: int, **kwargs) -> None:
@@ -554,7 +558,7 @@ class BaseJobRunner:
             preserve_python_environment=job_wrapper.tool.requires_galaxy_python_environment,
             exit_statement=(
                 EXIT_WITH_TOOL_EXIT_CODE
-                if asbool(destination.params.get("propagate_tool_exit_code", True))
+                if asbool(destination.params.get("propagate_tool_exit_code", self.propagate_tool_exit_code))
                 else EXIT_WITH_ZERO
             ),
         )

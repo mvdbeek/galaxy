@@ -61,6 +61,8 @@ class DRMAAWaitUnusable(Exception):
 
 class UnivaJobRunner(DRMAAJobRunner):
     runner_name = "UnivaJobRunner"
+    # Grid Engine reschedules jobs that exit with 99 and holds jobs that exit with 100.
+    propagate_tool_exit_code = False
     # restrict job name length as in the DRMAAJobRunner
     # restrict_job_name_length = 15
 

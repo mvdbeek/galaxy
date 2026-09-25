@@ -99,6 +99,8 @@ class GoogleCloudBatchJobRunner(AsynchronousJobRunner):
     """
 
     runner_name = "GoogleCloudBatchJobRunner"
+    # Batch retries failed tasks (max_retry_count) and the runner fails FAILED jobs.
+    propagate_tool_exit_code = False
     always_handle_metadata_externally = True
 
     def __init__(self, app, nworkers, **kwargs):

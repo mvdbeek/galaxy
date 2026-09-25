@@ -5,7 +5,9 @@ from unittest.mock import Mock
 
 import pytest
 
+from galaxy.job_metrics import NULL_JOB_INSTRUMENTER
 from galaxy.jobs.command_factory import CommandsBuilder
+from galaxy.jobs.job_destination import JobDestination
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
     AsynchronousJobState,
@@ -13,6 +15,7 @@ from galaxy.jobs.runners import (
     cli as cli_runner,
     drmaa as drmaa_runner,
     slurm as slurm_runner,
+    univa as univa_runner,
 )
 from galaxy.jobs.runners.util.job_script import (
     EXIT_WITH_TOOL_EXIT_CODE,
@@ -264,3 +267,41 @@ def test_cli_error_is_decided_by_tool_exit_code(monkeypatch, job_state, runner_s
 
     assert queued(runner) == [(method, job_state)]
     assert runner.watched == []
+
+
+def job_script_exit_statement(runner_class, params):
+    job_wrapper = Mock()
+    job_wrapper.app.job_metrics.job_instrumenters = {"destination": NULL_JOB_INSTRUMENTER}
+    job_wrapper.job_destination = JobDestination(id="destination", params=params)
+    job_wrapper.environment_variables = []
+    job_wrapper.get_env_setup_clause.return_value = ""
+    job_wrapper.working_directory = "/tmp/job"
+    job_wrapper.runner_command_line = "true"
+    runner = object.__new__(runner_class)
+    return runner.get_job_file(job_wrapper).rstrip().splitlines()[-1]
+
+
+@pytest.mark.parametrize(
+    "runner_class, params, exit_statement",
+    [
+        (AsynchronousJobRunner, {}, EXIT_WITH_TOOL_EXIT_CODE),
+        (AsynchronousJobRunner, {"propagate_tool_exit_code": "false"}, EXIT_WITH_ZERO),
+        (univa_runner.UnivaJobRunner, {}, EXIT_WITH_ZERO),
+        (univa_runner.UnivaJobRunner, {"propagate_tool_exit_code": "true"}, EXIT_WITH_TOOL_EXIT_CODE),
+    ],
+)
+def test_job_script_exit_statement(runner_class, params, exit_statement):
+    assert job_script_exit_statement(runner_class, params) == exit_statement
+
+
+@pytest.mark.parametrize("module", ["aws", "gcp_batch"])
+def test_batch_runners_exit_zero_by_default(module):
+    runner_module = pytest.importorskip(f"galaxy.jobs.runners.{module}")
+    runner_class = next(
+        value
+        for value in vars(runner_module).values()
+        if isinstance(value, type)
+        and issubclass(value, AsynchronousJobRunner)
+        and value.__module__ == runner_module.__name__
+    )
+    assert job_script_exit_statement(runner_class, {}) == EXIT_WITH_ZERO

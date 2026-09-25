@@ -90,6 +90,8 @@ class AWSBatchJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
     """
 
     runner_name = "AWSBatchRunner"
+    # The runner fails FAILED jobs, and Batch retries them if a retry strategy is configured.
+    propagate_tool_exit_code = False
     RUNNER_PARAM_SPEC_KEY = "runner_param_specs"
     JOB_NAME_PREFIX = "galaxy-"
     # AWS Batch queries up to 100 jobs at once.
