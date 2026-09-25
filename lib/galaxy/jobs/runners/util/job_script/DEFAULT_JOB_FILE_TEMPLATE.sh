@@ -63,4 +63,6 @@ cd $working_directory
 $memory_statement
 $instrument_pre_commands
 $command
+_galaxy_tool_exit_code=$?
 $instrument_post_commands
+$exit_statement

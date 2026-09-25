@@ -1,15 +1,22 @@
+import subprocess
 from queue import Queue
 from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
+from galaxy.jobs.command_factory import CommandsBuilder
 from galaxy.jobs.runners import (
     AsynchronousJobRunner,
     AsynchronousJobState,
     BaseJobRunner,
     drmaa as drmaa_runner,
     slurm as slurm_runner,
+)
+from galaxy.jobs.runners.util.job_script import (
+    EXIT_WITH_TOOL_EXIT_CODE,
+    EXIT_WITH_ZERO,
+    job_script,
 )
 from galaxy.util import commands
 
@@ -193,3 +200,33 @@ def test_drmaa_failed_with_drm_reason_fails_job(slurm, job_state):
     drmaa_runner.DRMAAJobRunner._complete_terminal_job(runner, job_state, drmaa_state=DRMAA_JOB_STATES.FAILED)
 
     assert queued(runner) == [("fail_job", job_state)]
+
+
+@pytest.mark.parametrize("instrument_post_commands", ["", "date +%s > __instrument_core_epoch_end"])
+@pytest.mark.parametrize(
+    "exit_statement, tool_exit_code, script_exit_code",
+    [
+        (EXIT_WITH_TOOL_EXIT_CODE, 0, 0),
+        (EXIT_WITH_TOOL_EXIT_CODE, 3, 3),
+        (EXIT_WITH_ZERO, 3, 0),
+    ],
+)
+def test_job_script_exit_code(tmp_path, instrument_post_commands, exit_statement, tool_exit_code, script_exit_code):
+    exit_code_file = tmp_path / "galaxy_1.ec"
+    builder = CommandsBuilder(f"exit_with() {{ return $1; }}; exit_with {tool_exit_code}")
+    builder.capture_return_code(str(exit_code_file))
+    script = tmp_path / "galaxy_1.sh"
+    script.write_text(
+        job_script(
+            working_directory=str(tmp_path),
+            command=builder.build(),
+            instrument_post_commands=instrument_post_commands,
+            exit_statement=exit_statement,
+            integrity_injection="",
+        )
+    )
+
+    result = subprocess.run(["/bin/bash", str(script)], cwd=tmp_path)
+
+    assert result.returncode == script_exit_code
+    assert exit_code_file.read_text().strip() == str(tool_exit_code)

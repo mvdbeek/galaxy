@@ -129,7 +129,6 @@ class LocalJobRunner(BaseJobRunner):
                         failure_message = f"job process was killed by signal {-proc.returncode}"
                     else:
                         failure_message = f"job process exited with return code {proc.returncode}"
-                    log.error("(%s) %s", job_id, failure_message)
                 if terminated:
                     return
                 elif check_pg(proc.pid):
@@ -166,6 +165,7 @@ class LocalJobRunner(BaseJobRunner):
         ):
             # The script died before recording the tool exit code. Preserve the
             # process failure instead of trying to collect missing tool outputs.
+            log.error("(%s) %s", job_id, failure_message)
             job_wrapper.reclaim_ownership()
             job_wrapper.fail(
                 failure_message,

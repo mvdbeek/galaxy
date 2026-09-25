@@ -39,6 +39,8 @@ from galaxy.jobs.runners.util import runner_states
 from galaxy.jobs.runners.util.env import env_to_statement
 from galaxy.jobs.runners.util.job_script import (
     DescribesScriptIntegrityChecks,
+    EXIT_WITH_TOOL_EXIT_CODE,
+    EXIT_WITH_ZERO,
     job_script,
     write_script,
 )
@@ -550,6 +552,11 @@ class BaseJobRunner:
             command=command_line,
             shell=job_wrapper.shell,
             preserve_python_environment=job_wrapper.tool.requires_galaxy_python_environment,
+            exit_statement=(
+                EXIT_WITH_TOOL_EXIT_CODE
+                if asbool(destination.params.get("propagate_tool_exit_code", True))
+                else EXIT_WITH_ZERO
+            ),
         )
         # Additional logging to enable if debugging from_work_dir handling, metadata
         # commands, etc... (or just peak in the job script.)

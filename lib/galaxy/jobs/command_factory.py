@@ -332,7 +332,8 @@ class CommandsBuilder:
 
         # Coping work dir outputs or setting metadata will mask return code of
         # tool command. If these are used capture the return code and ensure
-        # the last thing that happens is an exit with return code.
+        # the last thing that happens is an exit with return code. The job script
+        # and Pulsar both take the exit status of this command as the tool's.
         self.return_code_captured = False
 
     def prepend_command(self, command, sep=";"):

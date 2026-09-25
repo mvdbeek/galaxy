@@ -51,6 +51,11 @@ PREPARE_DIRS_TEMPLATE = """for dir in working outputs configs; do
 done
 """
 
+# The job script exits with the tool's exit code so the DRM's accounting and failure detection see failed tools.
+# Galaxy itself reads the exit code recorded by the command, not the job script's exit status.
+EXIT_WITH_TOOL_EXIT_CODE = "exit $_galaxy_tool_exit_code"
+EXIT_WITH_ZERO = "exit 0"
+
 INTEGRITY_SYNC_COMMAND = "/bin/sync"
 DEFAULT_INTEGRITY_CHECK = True
 DEFAULT_INTEGRITY_COUNT = 35
@@ -69,6 +74,7 @@ OPTIONAL_TEMPLATE_PARAMS: dict[str, Any] = {
     "preserve_python_environment": True,
     "tmp_dir_creation_statement": '""',
     "prepare_dirs_statement": "",
+    "exit_statement": EXIT_WITH_TOOL_EXIT_CODE,
 }
 
 

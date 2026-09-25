@@ -580,8 +580,8 @@ class KubernetesJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             # command line execution, separated by ;, which is what Galaxy does
             # to assemble the command.
             "command": [ajs.job_wrapper.shell],
-            # Make sure that the exit code is propagated to k8s, so k8s knows why the tool failed (e.g. OOM)
-            "args": ["-c", f"{ajs.job_file}; exit $(cat {ajs.exit_code_file})"],
+            # The job script exits with the tool exit code (unless propagate_tool_exit_code is false), so k8s sees failed tools
+            "args": ["-c", ajs.job_file],
             "workingDir": ajs.job_wrapper.working_directory,
             "volumeMounts": deduplicate_entries(mounts),
         }

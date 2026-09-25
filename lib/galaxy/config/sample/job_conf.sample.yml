@@ -719,6 +719,12 @@ execution:
       # Set to False if cluster nodes don't shared Galaxy library,
       # it will perform metadata calculation locally after the job finishes.
       embed_metadata_in_job: true
+      # The job script exits with the tool's exit code (the default), so the DRM's accounting
+      # and its memory and walltime post-mortem see failed tools. Galaxy reads the exit code the
+      # tool command recorded either way. Set to false to always exit 0 if a non-zero exit has
+      # side effects on your DRM, e.g. Grid Engine reschedules jobs that exit with 99 and puts
+      # jobs that exit with 100 into an error state.
+      propagate_tool_exit_code: true
       # If jobs are configured to run as the real user, this option allows
       # users that are not mapped to any real users to run jobs
       # as a Galaxy (fallback). Default is false.
