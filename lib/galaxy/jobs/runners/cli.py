@@ -190,7 +190,11 @@ class ShellJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
                     # Try to find out the reason for exiting - this needs to happen before change_state
                     # otherwise jobs depending on resubmission outputs see that job as failed and pause.
                     self.__handle_job_failure_reasons(ajs, external_job_id)
-                    self.work_queue.put((self.mark_as_failed, ajs))
+                    if ajs.runner_state is None:
+                        # No DRM specific reason, a non-zero job script exit is decided by the recorded tool exit code.
+                        self.mark_as_terminal(ajs)
+                    else:
+                        self.work_queue.put((self.mark_as_failed, ajs))
                     # Don't add the job to the watched items once it fails, deals with https://github.com/galaxyproject/galaxy/issues/7820
                     continue
                 if not state == model.Job.states.OK:

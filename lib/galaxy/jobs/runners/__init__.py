@@ -1149,3 +1149,36 @@ class AsynchronousJobRunner(BaseJobRunner, Monitors, Generic[T]):
 
     def mark_as_failed(self, job_state):
         self.work_queue.put((self.fail_job, job_state))
+
+    def mark_as_terminal(self, job_state: T) -> None:
+        """Handle a job whose script the DRM reports as ended unsuccessfully, without a more specific reason.
+
+        Runners call this when the DRM only knows that the job script exited non-zero. DRM specific
+        failures (memory or walltime limits, node failures, cancellation) set ``runner_state`` and
+        ``fail_message`` and go to ``fail_job`` instead.
+        """
+        self.work_queue.put((self.finish_or_fail_job, job_state))
+
+    def finish_or_fail_job(self, job_state: T) -> None:
+        """Finish the job if the tool command completed, fail it otherwise.
+
+        The exit code recorded by the job script, not the script's own exit status, tells whether the
+        tool ran. If it did, ``finish_job`` collects its outputs and the tool's stdio rules decide the
+        job state.
+        """
+        job_state.job_wrapper.reclaim_ownership()
+        if self._wait_for_recorded_exit_code(job_state) is None:
+            job_state.stop_job = False
+            self.fail_job(job_state)
+        else:
+            self.finish_job(job_state)
+
+    def _wait_for_recorded_exit_code(self, job_state: T) -> int | None:
+        # The exit code file may not be visible yet on a shared filesystem, retry like the job output collection.
+        retries = self.app.config.retry_job_output_collection
+        for attempt in range(retries + 1):
+            if (exit_code := job_state.recorded_exit_code()) is not None:
+                return exit_code
+            if attempt < retries:
+                time.sleep(1)
+        return None

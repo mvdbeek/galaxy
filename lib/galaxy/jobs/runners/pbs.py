@@ -416,7 +416,11 @@ class PBSJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
                     pbs_job_state.fail_message = CLUSTER_ERROR_MESSAGE % error_message
                     log.error(f"({galaxy_job_id}/{job_id}) PBS job failed: {error_message}")
                     pbs_job_state.stop_job = False
-                    self.work_queue.put((self.fail_job, pbs_job_state))
+                    if exit_status > 0:
+                        # Positive values are the job script's exit status, the recorded tool exit code decides.
+                        self.mark_as_terminal(pbs_job_state)
+                    else:
+                        self.work_queue.put((self.fail_job, pbs_job_state))
                     continue
                 except AttributeError:
                     # No exit_status, can't verify proper completion so we just have to assume success.

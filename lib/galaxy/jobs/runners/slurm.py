@@ -133,6 +133,20 @@ class SlurmJobRunner(DRMAAJobRunner):
                         ajs.job_id,
                     )
                     drmaa_state = self.drmaa_job_states.DONE
+                elif slurm_state == "FAILED":
+                    # The job script exited non-zero, which it does when the tool fails.
+                    log.debug(
+                        "(%s/%s) SLURM reported a non-zero job script exit",
+                        ajs.job_wrapper.get_id_tag(),
+                        ajs.job_id,
+                    )
+                    ajs.fail_message = (
+                        "This job failed before the tool command completed."
+                        "\nPlease click the bug icon to report this problem if you need help."
+                    )
+                    ajs.stop_job = False
+                    self.mark_as_terminal(ajs)
+                    return None
                 elif slurm_state == "TIMEOUT":
                     log.info("(%s/%s) Job hit walltime", ajs.job_wrapper.get_id_tag(), ajs.job_id)
                     ajs.fail_message = (

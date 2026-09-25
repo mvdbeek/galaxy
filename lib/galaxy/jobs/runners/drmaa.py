@@ -268,7 +268,11 @@ class DRMAAJobRunner(AsynchronousJobRunner[DRMAAJobState]):
             if job_state != model.Job.states.DELETED:
                 ajs.stop_job = False
                 ajs.fail_message = "The cluster DRM system terminated this job"
-                self.work_queue.put((self.fail_job, ajs))
+                if ajs.runner_state is None:
+                    # DRMAA reports a non-zero job script exit as FAILED, the recorded tool exit code decides.
+                    self.mark_as_terminal(ajs)
+                else:
+                    self.work_queue.put((self.fail_job, ajs))
         elif drmaa_state == drmaa.JobState.DONE or job_state == model.Job.states.STOPPED:
             if job_state != model.Job.states.DELETED:
                 self.work_queue.put((self.finish_job, ajs))

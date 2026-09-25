@@ -1,11 +1,19 @@
+from queue import Queue
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
 
 from galaxy.jobs.runners import (
+    AsynchronousJobRunner,
     AsynchronousJobState,
     BaseJobRunner,
+    drmaa as drmaa_runner,
+    slurm as slurm_runner,
 )
+from galaxy.util import commands
+
+DRMAA_JOB_STATES = SimpleNamespace(DONE="done", FAILED="failed")
 
 
 @pytest.fixture
@@ -91,3 +99,97 @@ def test_fail_job_prefers_remote_status(tmp_path, job_state):
         job_stderr="remote job stderr",
         exception=False,
     )
+
+
+@pytest.fixture
+def runner(monkeypatch):
+    runner = object.__new__(AsynchronousJobRunner)
+    runner.app = Mock()
+    runner.app.config.retry_job_output_collection = 0
+    runner.work_queue = Queue()
+    monkeypatch.setattr(runner, "finish_job", Mock())
+    monkeypatch.setattr(runner, "fail_job", Mock())
+    return runner
+
+
+@pytest.fixture
+def slurm(monkeypatch):
+    monkeypatch.setattr(drmaa_runner, "drmaa", SimpleNamespace(JobState=DRMAA_JOB_STATES))
+    runner = object.__new__(slurm_runner.SlurmJobRunner)
+    runner.drmaa_job_states = DRMAA_JOB_STATES
+    runner.work_queue = Queue()
+
+    def reports(slurm_state):
+        monkeypatch.setattr(commands, "execute", lambda cmd: f"JobId=1234 JobState={slurm_state} Reason=None")
+        return runner
+
+    return reports
+
+
+def queued(runner):
+    items = []
+    while not runner.work_queue.empty():
+        method, arg = runner.work_queue.get_nowait()
+        items.append((method.__name__, arg))
+    return items
+
+
+@pytest.mark.parametrize("exit_code", [0, 1, 137])
+def test_recorded_exit_code_finishes_job(runner, job_state, exit_code):
+    with open(job_state.exit_code_file, "w") as f:
+        f.write(f"{exit_code}\n")
+
+    runner.finish_or_fail_job(job_state)
+
+    runner.finish_job.assert_called_once_with(job_state)
+    runner.fail_job.assert_not_called()
+
+
+def test_missing_exit_code_fails_job(runner, job_state):
+    runner.finish_or_fail_job(job_state)
+
+    runner.fail_job.assert_called_once_with(job_state)
+    runner.finish_job.assert_not_called()
+    assert job_state.stop_job is False
+
+
+def test_slurm_failed_is_decided_by_tool_exit_code(slurm, job_state):
+    runner = slurm("FAILED")
+
+    runner._complete_terminal_job(job_state, drmaa_state=DRMAA_JOB_STATES.FAILED)
+
+    assert queued(runner) == [("finish_or_fail_job", job_state)]
+    assert job_state.stop_job is False
+
+
+@pytest.mark.parametrize(
+    "slurm_state, runner_state",
+    [
+        ("OUT_OF_MEMORY", AsynchronousJobState.runner_states.MEMORY_LIMIT_REACHED),
+        ("TIMEOUT", AsynchronousJobState.runner_states.WALLTIME_REACHED),
+    ],
+)
+def test_slurm_limit_reached_fails_job(slurm, job_state, slurm_state, runner_state):
+    runner = slurm(slurm_state)
+
+    runner._complete_terminal_job(job_state, drmaa_state=DRMAA_JOB_STATES.FAILED)
+
+    assert queued(runner) == [("fail_job", job_state)]
+    assert job_state.runner_state == runner_state
+
+
+def test_drmaa_failed_is_decided_by_tool_exit_code(slurm, job_state):
+    runner = slurm("FAILED")
+
+    drmaa_runner.DRMAAJobRunner._complete_terminal_job(runner, job_state, drmaa_state=DRMAA_JOB_STATES.FAILED)
+
+    assert queued(runner) == [("finish_or_fail_job", job_state)]
+
+
+def test_drmaa_failed_with_drm_reason_fails_job(slurm, job_state):
+    runner = slurm("FAILED")
+    job_state.runner_state = job_state.runner_states.MEMORY_LIMIT_REACHED
+
+    drmaa_runner.DRMAAJobRunner._complete_terminal_job(runner, job_state, drmaa_state=DRMAA_JOB_STATES.FAILED)
+
+    assert queued(runner) == [("fail_job", job_state)]
