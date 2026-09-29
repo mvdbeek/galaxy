@@ -240,6 +240,14 @@ describe("user-defined tool authoring help", () => {
         );
     });
 
+    it("links only to sections that exist", () => {
+        for (const section of authoringHelpSections) {
+            for (const [, href] of section.body.matchAll(/\]\((#[^)\s]+)\)/g)) {
+                expect(linkedAuthoringHelpSection(href!), `${section.id} links to ${href}`).toBeDefined();
+            }
+        }
+    });
+
     it("recognizes embedded authoring-reference links", () => {
         expect(linkedAuthoringHelpSection("https://schema.galaxyproject.org/customTool.json")).toBe("tool-format");
         expect(linkedAuthoringHelpSection("#outputs")).toBe("outputs");

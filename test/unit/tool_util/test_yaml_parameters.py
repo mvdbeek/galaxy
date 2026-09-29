@@ -8,11 +8,13 @@ Covers:
 """
 
 import json
+import re
 from pathlib import Path
 from typing import Any
 
 import pydantic
 import pytest
+import yaml
 from pydantic import (
     TypeAdapter,
     ValidationError,
@@ -427,6 +429,29 @@ def test_each_output_type_publishes_one_valid_example():
             }
         )
         assert tool.outputs[0].type == output_type
+
+
+def test_authoring_help_tool_examples_validate():
+    help_path = PROJECT_ROOT / "client" / "src" / "components" / "Tool" / "authoringHelp.yml"
+    sections = yaml.safe_load(help_path.read_text())["sections"]
+    identity = {
+        "class": "GalaxyUserTool",
+        "id": "example",
+        "name": "Example",
+        "version": "0.1.0",
+        "container": "busybox",
+    }
+    tools = [
+        (section["id"], example)
+        for section in sections
+        for block in re.findall(r"```yaml\n(.+?)\n```", section["body"], re.DOTALL)
+        if "shell_command:" in block
+        and isinstance(example := yaml.safe_load(block), dict)
+        and {"shell_command", "outputs"} <= set(example)
+    ]
+    assert any(section_id == "output-labels" for section_id, _ in tools)
+    for _, example in tools:
+        UserToolSource.model_validate({**identity, **example})
 
 
 def test_user_tool_schema_publishes_one_valid_quick_start_example():

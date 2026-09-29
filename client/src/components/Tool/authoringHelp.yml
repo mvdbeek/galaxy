@@ -150,7 +150,9 @@ sections:
     body: |
       Each output declares a `type` and a `name`. Dataset outputs identify the
       produced file with `from_work_dir`; collection outputs use
-      `discover_datasets`.
+      `discover_datasets`. An optional `label` sets the name shown in the
+      history and can include input values; see
+      [Output labels](#output-labels).
 
       {{output_type_index}}
 
@@ -292,6 +294,82 @@ sections:
             - |
               function basename(path) { return path.split('/').pop(); }
       ```
+
+  - id: output-labels
+    title: Output labels
+    kind: reference
+    body: |
+      An output's `label` is the name its dataset or collection gets in the
+      history. A label is plain text with optional parameter references,
+      which Galaxy fills in when it creates the job.
+
+      | Reference | Value |
+      | --- | --- |
+      | `$(inputs.num_lines)` | A text, integer, float, boolean, color or select input. |
+      | `$(inputs.reads.element_identifier)` | For a run mapped over a collection, the identifier of the element this job runs on, such as a sample name. Otherwise the same as `name`. |
+      | `$(inputs.reads.name)` | A dataset input's name in the history. |
+      | `$(inputs.reads.format)` | A dataset input's Galaxy datatype. |
+      | `$(inputs.pairs.name)`, `$(inputs.pairs.collection_type)` | A collection input's name and type. For a job mapped over the elements of a nested collection, `name` is the element's identifier. |
+      | `$(inputs.pairs.elements.forward.name)`, `$(inputs.samples.elements[0].name)` | An element of a collection input, by identifier, or by position for a list. |
+      | `$(inputs.options.mode)`, `$(inputs.extra_files[0].input_file.name)` | An input inside a conditional, section or repeat. |
+      | `$(inputs.modes[0])`, `$(inputs.modes.length)` | One item of a multiple select, multiple dataset input or repeat, and the number of items. |
+      | `$(runtime.on_string)` | The input description other tools use, such as `data 1 and data 2`. |
+
+      `$(inputs['reads'])` is the same as `$(inputs.reads)`. Text fills in
+      as it is, a boolean as `true` or `false`, and a list or group of
+      inputs as JSON. A reference through an optional input left empty fills
+      in as nothing.
+
+      When you save the tool, Galaxy checks each reference: it must name a
+      declared input and something that input provides. Labels cannot run
+      JavaScript, so `${ ... }` blocks, expressions such as `$(1 + 1)` and
+      functions from a `javascript` requirement are rejected. Paths, file
+      locations, file names and contents, such as `$(inputs.reads.path)` or
+      `$(inputs.reads.basename)`, are not available: the label is filled in
+      when the job is created, and an input that an earlier job is still
+      writing has no file yet. A label can be at most 250 characters long.
+
+      Write `\$(`, `\${` and `\\` for a literal `$(`, `${` and `\`. In YAML,
+      leave such a label unquoted or put it in single quotes; inside double
+      quotes `\$` is an error.
+
+      When the job is created, a reference that can't be filled in is kept
+      as written, and the rest of the label is still filled in. Galaxy keeps
+      the first 250 characters of the result.
+
+      ```yaml
+      inputs:
+        - name: reads
+          type: data
+          format: [fastqsanger]
+        - name: num_lines
+          type: integer
+          value: 400
+      shell_command: head -n $(inputs.num_lines) '$(inputs.reads.path)' > head.fastq
+      outputs:
+        - name: head
+          type: data
+          format: fastqsanger
+          from_work_dir: head.fastq
+          label: $(inputs.reads.element_identifier) (first $(inputs.num_lines) lines)
+      ```
+
+      Prefer `element_identifier` for naming outputs after an input. For a
+      run mapped over a collection it is the sample name, which carries
+      through a workflow unchanged, while a dataset's history name usually
+      describes the step that made it, such as `Trim on data 1`. For a
+      single dataset, `element_identifier` is the same as `name`.
+
+      When a run maps a dataset input over a collection, each output
+      dataset's label sees the element its job runs on. The output
+      collection's label sees the input collection, so for the collection
+      `$(inputs.reads.element_identifier)` is the input collection's name.
+      A collection has no `format`, so `$(inputs.reads.format)` is kept as
+      written in the collection's name.
+
+      In the workflow editor, `$(runtime.on_string)` is shown as
+      `input dataset(s)`, and a reference to a value only known at run
+      time, such as a connected input, is shown as written.
 
   - id: expressions-shell
     title: Why do some shell constructs fail?
