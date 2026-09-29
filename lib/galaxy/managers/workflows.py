@@ -195,7 +195,7 @@ class WorkflowsManager(sharable.SharableModelManager[model.StoredWorkflow], dele
             ):
                 continue
             tool_copies[dynamic_tool.id] = self.dynamic_tool_manager.create_unprivileged_tool(
-                user, DynamicUnprivilegedToolCreatePayload(representation=dynamic_tool.value)
+                user, DynamicUnprivilegedToolCreatePayload.from_existing_representation(dynamic_tool.value)
             )
         copied_workflow = workflow.copy(user=user)
         for step in _tool_steps(copied_workflow):

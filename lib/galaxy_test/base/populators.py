@@ -67,7 +67,10 @@ from typing import (
     Optional,
     Union,
 )
-from uuid import UUID
+from uuid import (
+    UUID,
+    uuid4,
+)
 
 import cwltest.compare
 import requests
@@ -169,6 +172,42 @@ TOOL_WITH_SHELL_COMMAND = {
         }
     ],
 }
+
+
+def user_defined_tool_run_workflow_dict(content_id: Optional[str], tool_uuid: str) -> dict[str, Any]:
+    """A workflow that runs the user-defined tool ``tool_uuid`` on its one dataset input."""
+    return {
+        "a_galaxy_workflow": "true",
+        "name": "wf running a UDT",
+        "annotation": "",
+        "format-version": "0.1",
+        "steps": {
+            "0": {
+                "id": 0,
+                "type": "data_input",
+                "label": "input",
+                "tool_state": json.dumps({"name": "input"}),
+                "inputs": [{"name": "input", "description": ""}],
+                "input_connections": {},
+                "workflow_outputs": [],
+                "uuid": str(uuid4()),
+            },
+            "1": {
+                "id": 1,
+                "type": "tool",
+                "content_id": content_id,
+                "tool_uuid": tool_uuid,
+                # Export shape: the representation lets a mismatched stored content_id import.
+                "tool_representation": TOOL_WITH_SHELL_COMMAND,
+                "tool_state": "{}",
+                "input_connections": {"input": {"id": 0, "output_name": "output"}},
+                "workflow_outputs": [{"output_name": "output", "label": "udt_output"}],
+                "post_job_actions": {},
+                "uuid": str(uuid4()),
+            },
+        },
+    }
+
 
 DEFAULT_TIMEOUT = 60  # Secs to wait for state to turn ok
 

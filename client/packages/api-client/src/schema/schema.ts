@@ -16434,7 +16434,7 @@ export interface components {
             hidden?: boolean | null;
             /**
              * Label
-             * @description Name shown for the produced dataset or collection in the history.
+             * @description Name shown for the produced dataset or collection in the history. May contain parameter references such as `$(inputs.reads.element_identifier)`.
              */
             label?: string | null;
             /**
@@ -16497,7 +16497,7 @@ export interface components {
             hidden?: boolean | null;
             /**
              * Label
-             * @description Name shown for the produced dataset or collection in the history.
+             * @description Name shown for the produced dataset or collection in the history. May contain parameter references such as `$(inputs.reads.element_identifier)`.
              */
             label?: string | null;
             /**

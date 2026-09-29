@@ -98,16 +98,13 @@ describe("user-defined tool authoring help", () => {
             expect(parse(yamlExample!).outputs[0]).toEqual(definition.examples[0]);
         }
 
-        const expectedUsageFields = {
-            collection: ["collection_type", "collection_type_source", "structured_like"],
-            data: ["format", "format_source", "metadata_source", "from_work_dir", "precreate_directory"],
-        };
-        for (const outputType of Object.keys(expectedUsageFields) as Array<keyof typeof expectedUsageFields>) {
+        for (const outputType of Object.keys(mapping) as Array<keyof typeof mapping>) {
             const outputSection = outputSections.find((section) => section.id === `output-${outputType}`)!;
             const definitionName = mapping[outputType].split("/").at(-1)!;
             const definition = definitions[definitionName] as {
                 "x-usage-examples": Array<{ field: string; definition: Record<string, unknown> }>;
             };
+            const usageFields = definition["x-usage-examples"].map((usageExample) => usageExample.field);
             const attributeSections = authoringHelpSections.filter(
                 (section) => section.parentId === `output-${outputType}`,
             );
@@ -115,11 +112,9 @@ describe("user-defined tool authoring help", () => {
                 (section) => section.body.match(/```yaml\n([\s\S]+?)\n```/)?.[1],
             );
 
-            expect(definition["x-usage-examples"].map((usageExample) => usageExample.field)).toEqual(
-                expectedUsageFields[outputType],
-            );
-            expect(attributeSections.map((section) => section.title)).toEqual(expectedUsageFields[outputType]);
-            for (const [index, field] of expectedUsageFields[outputType].entries()) {
+            expect(usageFields.length).toBeGreaterThan(0);
+            expect(attributeSections.map((section) => section.title)).toEqual(usageFields);
+            for (const [index, field] of usageFields.entries()) {
                 const sectionId = `output-${outputType}-${field.replaceAll("_", "-")}`;
                 expect(attributeSections[index]?.id).toBe(sectionId);
                 expect(parse(attributeYamlExamples[index]!)).toEqual(definition["x-usage-examples"][index]?.definition);

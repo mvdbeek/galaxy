@@ -694,8 +694,9 @@ def test_general_incoming_outputs_retain_tool_provided_metadata_discovery(output
 def test_user_tool_output_attributes_publish_complete_examples_and_validate():
     definitions = UserToolSource.model_json_schema()["$defs"]
     expected_usage_fields = {
-        "IncomingUserToolOutputCollection": ["collection_type", "collection_type_source", "structured_like"],
+        "IncomingUserToolOutputCollection": ["label", "collection_type", "collection_type_source", "structured_like"],
         "IncomingUserToolOutputDataset": [
+            "label",
             "format",
             "format_source",
             "metadata_source",

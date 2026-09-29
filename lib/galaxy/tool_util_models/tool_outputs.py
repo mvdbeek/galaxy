@@ -26,6 +26,7 @@ from typing_extensions import (
 )
 
 from ._base import ToolSourceBaseModel
+from .user_tool_labels import MAX_LABEL_LENGTH
 
 AnyT = TypeVar("AnyT")
 NotRequired = Optional[AnyT]
@@ -360,6 +361,18 @@ class IncomingToolOutputCollection(GenericToolOutputCollection[NotRequired[bool]
     ] = None
 
 
+UserToolOutputLabel = Annotated[
+    Optional[str],
+    Field(
+        description=(
+            "Name shown for the produced dataset or collection in the history. May contain parameter references "
+            "such as `$(inputs.reads.element_identifier)`."
+        ),
+        max_length=MAX_LABEL_LENGTH,
+    ),
+]
+
+
 class IncomingUserToolOutputDataset(IncomingToolOutputDataset):
     """A user-defined tool dataset discovered only from files inside the job working directory."""
 
@@ -376,6 +389,38 @@ class IncomingUserToolOutputDataset(IncomingToolOutputDataset):
                 }
             ],
             "x-usage-examples": [
+                {
+                    "field": "label",
+                    "description": (
+                        "`label` can be used to name the output after the run's inputs. `$(inputs.reads.element_identifier)` is "
+                        "the sample name when the run maps over a collection, and the dataset's name otherwise. "
+                        "[Output labels](#output-labels) lists the references a label can use."
+                    ),
+                    "definition": {
+                        "inputs": [
+                            {
+                                "name": "reads",
+                                "type": "data",
+                                "format": ["fastqsanger"],
+                            },
+                            {
+                                "name": "num_lines",
+                                "type": "integer",
+                                "value": 400,
+                            },
+                        ],
+                        "shell_command": "head -n '$(inputs.num_lines)' '$(inputs.reads.path)' > first.fastq",
+                        "outputs": [
+                            {
+                                "name": "first_reads",
+                                "type": "data",
+                                "format": "fastqsanger",
+                                "label": "$(inputs.reads.element_identifier) (first $(inputs.num_lines) lines)",
+                                "from_work_dir": "first.fastq",
+                            }
+                        ],
+                    },
+                },
                 {
                     "field": "format",
                     "description": (
@@ -504,6 +549,7 @@ class IncomingUserToolOutputDataset(IncomingToolOutputDataset):
         },
     )
 
+    label: UserToolOutputLabel = None
     # Pydantic intentionally narrows this authoring model's accepted schema.
     discover_datasets: Annotated[
         Optional[List[FilePatternDatasetCollectionDescription]],
@@ -526,6 +572,38 @@ class IncomingUserToolOutputCollection(IncomingToolOutputCollection):
                 }
             ],
             "x-usage-examples": [
+                {
+                    "field": "label",
+                    "description": (
+                        "`label` can be used to name the collection after the run's inputs, with the same references as a "
+                        "[dataset label](#output-data-label)."
+                    ),
+                    "definition": {
+                        "inputs": [
+                            {
+                                "name": "reads",
+                                "type": "data",
+                                "format": ["fastqsanger"],
+                            }
+                        ],
+                        "shell_command": "mkdir parts && split -l 400 '$(inputs.reads.path)' parts/part_",
+                        "outputs": [
+                            {
+                                "name": "parts",
+                                "type": "collection",
+                                "collection_type": "list",
+                                "label": "$(inputs.reads.element_identifier) parts",
+                                "discover_datasets": [
+                                    {
+                                        "pattern": "(?P<name>.+)",
+                                        "directory": "parts",
+                                        "format": "fastqsanger",
+                                    }
+                                ],
+                            }
+                        ],
+                    },
+                },
                 {
                     "field": "collection_type",
                     "description": (
@@ -630,6 +708,7 @@ class IncomingUserToolOutputCollection(IncomingToolOutputCollection):
         }
     )
 
+    label: UserToolOutputLabel = None
     # Pydantic intentionally narrows this authoring model's accepted schema.
     discover_datasets: Annotated[
         Optional[List[FilePatternDatasetCollectionDescription]],

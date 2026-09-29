@@ -254,3 +254,159 @@ cases:
     expected_format:
       - "id: String should match pattern '^[a-z][a-z0-9_-]*$'"
       - "container: container must not be empty"
+
+  - name: label_parameter_references_accepted
+    doc:
+      outputs:
+        - type: data
+          name: out
+          from_work_dir: out.txt
+          label: "$(inputs.data_input.element_identifier) $(inputs['data_input'].format) n=$(inputs.n_lines) on $(runtime.on_string)"
+    valid: true
+
+  - name: label_escapes_and_lone_dollars_accepted
+    doc:
+      outputs:
+        - type: data
+          name: out
+          from_work_dir: out.txt
+          label: '\$(inputs.undeclared) \${literal} costs $5 (approx)'
+    valid: true
+
+  - name: collection_output_label_accepted
+    doc:
+      outputs:
+        - type: collection
+          name: outs
+          collection_type: list
+          discover_datasets:
+            - {pattern: "*.txt"}
+          label: "$(inputs.data_input.element_identifier) parts"
+    valid: true
+
+  - name: label_nested_references_accepted
+    doc:
+      shell_command: "echo > out.txt"
+      inputs:
+        - type: conditional
+          name: cond
+          test_parameter: {type: boolean, name: flag}
+          whens:
+            - {discriminator: true, parameters: [{type: text, name: suffix}]}
+            - {discriminator: false, parameters: []}
+        - {type: repeat, name: rep, parameters: [{type: data, name: file}]}
+        - {type: section, name: sec, parameters: [{type: integer, name: n}]}
+        - {type: data, name: many, multiple: true}
+        - {type: select, name: modes, multiple: true, options: [{label: A, value: a}]}
+        - {type: data_collection, name: pairs, collection_type: paired}
+      outputs:
+        - type: data
+          name: out
+          from_work_dir: out.txt
+          label: "$(inputs.cond.flag) $(inputs.cond.suffix) $(inputs.rep[0].file.name) $(inputs.rep.length) $(inputs.sec.n) $(inputs.many[1].format) $(inputs.modes[0]) $(inputs.pairs.name) $(inputs.pairs.elements.forward.name)"
+    valid: true
+
+  - name: label_javascript_block_rejected
+    doc:
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "label ${1 + 1}"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "output 'out' label: '${' JavaScript blocks are not allowed, write '\\${'"
+
+  - name: label_expressions_rejected
+    # An expression, a method call and an unterminated reference are all not parameter references.
+    doc:
+      outputs:
+        - type: data
+          name: out
+          from_work_dir: out.txt
+          label: "$(inputs.n_lines * 2) $(inputs.data_input.name.toUpperCase()) $(inputs.data_input"
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "labels only take the parameter references"
+
+  - name: label_other_symbols_rejected
+    doc:
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs) $(inputs[0]) $(self.x) $(runtime.outdir)"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "'$(self.x)' is not allowed"
+
+  - name: label_undeclared_input_rejected
+    doc:
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs.missing.name)"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "no input named 'missing' is declared"
+
+  - name: label_dataset_path_rejected
+    doc:
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs.data_input.path)"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "a dataset only provides name, element_identifier"
+
+  - name: label_scalar_attribute_rejected
+    doc:
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs.n_lines.value)"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "has no attributes"
+
+  - name: label_too_long_rejected
+    doc:
+      outputs:
+        - type: data
+          name: out
+          from_work_dir: out.txt
+          label: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    expected_errors:
+      - code: string_too_long
+
+  - name: label_conditional_branches_with_shared_name_accepted
+    # Either branch order: the reference is valid for the branch that declares `x` as data.
+    doc:
+      shell_command: "echo > out.txt"
+      inputs:
+        - type: conditional
+          name: cond
+          test_parameter: {type: boolean, name: flag}
+          whens:
+            - {discriminator: true, parameters: [{type: text, name: x}]}
+            - {discriminator: false, parameters: [{type: data, name: x}]}
+        - type: conditional
+          name: swapped
+          test_parameter: {type: boolean, name: flag}
+          whens:
+            - {discriminator: true, parameters: [{type: data, name: x}]}
+            - {discriminator: false, parameters: [{type: text, name: x}]}
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs.cond.x.name) $(inputs.swapped.x.name)"}
+    valid: true
+
+  - name: label_collection_element_path_rejected
+    doc:
+      inputs:
+        - {type: data_collection, name: pairs, collection_type: paired}
+      shell_command: "echo > out.txt"
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs.pairs.elements.forward.path)"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "a collection element only provides"
+
+  - name: label_whole_collection_elements_rejected
+    doc:
+      inputs:
+        - {type: data_collection, name: pairs, collection_type: paired}
+      shell_command: "echo > out.txt"
+      outputs:
+        - {type: data, name: out, from_work_dir: out.txt, label: "$(inputs.pairs.elements)"}
+    expected_errors:
+      - code: dynamic_tool.invalid_label_reference
+        msg_contains: "elements are read one at a time"

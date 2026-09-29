@@ -1486,7 +1486,7 @@ class DynamicTool(Base, Dictifiable, RepresentById):
     tool_directory: Mapped[Optional[str]] = mapped_column(Unicode(255))
     hidden: Mapped[Optional[bool]] = mapped_column(default=True)
     active: Mapped[Optional[bool]] = mapped_column(default=True)
-    value: Mapped[Optional[dict[str, Any]]] = mapped_column(MutableJSONType)
+    value: Mapped[dict[str, Any]] = mapped_column(MutableJSONType, nullable=True)
     public: Mapped[bool] = mapped_column(default=False, server_default=false())
 
     dict_collection_visible_keys = (

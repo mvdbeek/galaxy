@@ -36,6 +36,7 @@ from galaxy_test.base.populators import (
     RunJobsSummary,
     skip_without_tool,
     TOOL_WITH_SHELL_COMMAND,
+    user_defined_tool_run_workflow_dict,
     wait_on,
     workflow_str,
     WorkflowPopulator,
@@ -10246,39 +10247,6 @@ outer_input:
                 t["representation"]["name"] == TOOL_WITH_SHELL_COMMAND["name"] for t in owned
             ), f"Expected an owned UDT after workflow import: {owned}"
 
-    def _build_user_defined_tool_run_workflow_dict(self, content_id: Optional[str], tool_uuid: str) -> dict[str, Any]:
-        return {
-            "a_galaxy_workflow": "true",
-            "name": "wf running a UDT",
-            "annotation": "",
-            "format-version": "0.1",
-            "steps": {
-                "0": {
-                    "id": 0,
-                    "type": "data_input",
-                    "label": "input",
-                    "tool_state": json.dumps({"name": "input"}),
-                    "inputs": [{"name": "input", "description": ""}],
-                    "input_connections": {},
-                    "workflow_outputs": [],
-                    "uuid": str(uuid4()),
-                },
-                "1": {
-                    "id": 1,
-                    "type": "tool",
-                    "content_id": content_id,
-                    "tool_uuid": tool_uuid,
-                    # Export shape: the representation lets a mismatched stored content_id import.
-                    "tool_representation": TOOL_WITH_SHELL_COMMAND,
-                    "tool_state": "{}",
-                    "input_connections": {"input": {"id": 0, "output_name": "output"}},
-                    "workflow_outputs": [{"output_name": "output", "label": "udt_output"}],
-                    "post_job_actions": {},
-                    "uuid": str(uuid4()),
-                },
-            },
-        }
-
     def _run_user_defined_tool_workflow(self, workflow_id: str, history_id: str) -> str:
         hda = self.dataset_populator.new_dataset(history_id, content="abc", wait=True)
         invocation_id = self.workflow_populator.invoke_workflow_and_assert_ok(
@@ -10323,7 +10291,7 @@ outer_input:
             )
             for content_id in ("cat_user_defined", unprivileged_tool["uuid"], None):
                 workflow_id = self.workflow_populator.create_workflow(
-                    self._build_user_defined_tool_run_workflow_dict(content_id, unprivileged_tool["uuid"])
+                    user_defined_tool_run_workflow_dict(content_id, unprivileged_tool["uuid"])
                 )
                 self._assert_user_defined_tool_step_resolves(workflow_id, unprivileged_tool)
 
@@ -10333,7 +10301,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict(unprivileged_tool["uuid"], unprivileged_tool["uuid"])
+                user_defined_tool_run_workflow_dict(unprivileged_tool["uuid"], unprivileged_tool["uuid"])
             )
             with self.dataset_populator.test_history() as history_id:
                 invocation_id = self._run_user_defined_tool_workflow(workflow_id, history_id)
@@ -10353,7 +10321,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict(unprivileged_tool["uuid"], unprivileged_tool["uuid"])
+                user_defined_tool_run_workflow_dict(unprivileged_tool["uuid"], unprivileged_tool["uuid"])
             )
             native = self.workflow_populator.download_workflow(workflow_id, style="ga")
             native_reimported_id = self.workflow_populator.import_workflow(native)["id"]
@@ -10379,7 +10347,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"])
+                user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"])
             )
             native = self.workflow_populator.download_workflow(workflow_id, style="ga")
         with self._different_user(), self.dataset_populator.user_tool_execute_permissions():
@@ -10392,7 +10360,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"]),
+                user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"]),
                 publish=True,
             )
         with self._different_user(), self.dataset_populator.user_tool_execute_permissions():
@@ -10406,7 +10374,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"]),
+                user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"]),
                 publish=True,
             )
         with self._different_user():
@@ -10419,7 +10387,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"])
+                user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"])
             )
             actions = [{"action_type": "upgrade_all_steps"}]
             dry_run_response = self.workflow_populator.refactor_workflow(workflow_id, actions, dry_run=True)
@@ -10436,7 +10404,7 @@ outer_input:
                 UserToolSource(**TOOL_WITH_SHELL_COMMAND)
             )
             workflow_id = self.workflow_populator.create_workflow(
-                self._build_user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"])
+                user_defined_tool_run_workflow_dict("basecommand", unprivileged_tool["uuid"])
             )
             actions = [{"action_type": "upgrade_tool", "step": {"order_index": 1}}]
             refactor_response = self.workflow_populator.refactor_workflow(workflow_id, actions, dry_run=True)
@@ -10448,7 +10416,7 @@ outer_input:
         dynamic_tool = self.dataset_populator.create_tool(
             dict(TOOL_WITH_SHELL_COMMAND, **{"class": "GalaxyTool", "id": tool_id})
         )
-        workflow_dict = self._build_user_defined_tool_run_workflow_dict(tool_id, dynamic_tool["uuid"])
+        workflow_dict = user_defined_tool_run_workflow_dict(tool_id, dynamic_tool["uuid"])
         del workflow_dict["steps"]["1"]["tool_representation"]
         workflow_id = self.workflow_populator.create_workflow(workflow_dict)
         actions = [{"action_type": "upgrade_tool", "step": {"order_index": 1}}]

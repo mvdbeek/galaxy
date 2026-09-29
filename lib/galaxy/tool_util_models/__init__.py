@@ -4,6 +4,7 @@ This is abstraction exported by newer tool shed APIS (circa 2024) and should be 
 for reasoning about tool state externally from Galaxy.
 """
 
+import copy
 import re
 from typing import (
     Any,
@@ -28,9 +29,13 @@ from pydantic import (
     RootModel,
     SerializerFunctionWrapHandler,
     Tag,
+    TypeAdapter,
     ValidationError,
 )
-from pydantic_core import PydanticCustomError
+from pydantic_core import (
+    ErrorDetails,
+    PydanticCustomError,
+)
 from typing_extensions import (
     Annotated,
     Literal,
@@ -66,6 +71,10 @@ from .tool_source import (
     Stdio,
     XrefDict,
     YamlTemplateConfigFile,
+)
+from .user_tool_labels import (
+    label_problems,
+    lift_label,
 )
 from .yaml_parameters import YamlGalaxyToolParameter
 
@@ -124,6 +133,9 @@ TOOL_ID_PATTERN = r"^[a-z][a-z0-9_-]*$"
 # catching obvious typos cheaply, not modelling ecmascript scope.
 _TEMPLATE_BLOCK_RE = re.compile(r"\$\((.*?)\)", re.DOTALL)
 _INPUTS_REF_RE = re.compile(r"\binputs\.([A-Za-z_][A-Za-z0-9_]*)")
+
+
+INVALID_LABEL_REFERENCE = "dynamic_tool.invalid_label_reference"
 
 
 def _command_input_refs(text: Optional[str]) -> Set[str]:
@@ -293,6 +305,15 @@ class _DynamicToolSourceBase(ToolSourceBaseModel):
         return self
 
     @model_validator(mode="after")
+    def _check_labels(self) -> "_DynamicToolSourceBase":
+        self._check_output_labels()
+        return self
+
+    def _check_output_labels(self) -> None:
+        # Admin tools fill output labels as Cheetah templates, so any label text is allowed.
+        pass
+
+    @model_validator(mode="after")
     def _check_output_claims(self) -> "_DynamicToolSourceBase":
         errors: List[str] = []
         for output in self.outputs:
@@ -446,6 +467,21 @@ class UserToolSourceAuthoringView(_DynamicToolSourceBase):
             )
         return value
 
+    def _check_output_labels(self) -> None:
+        inputs = [param.root for param in self.inputs]
+        problems: List[str] = []
+        for output in self.outputs:
+            if output.label:
+                problems.extend(
+                    f"output '{output.name}' label: {problem}" for problem in label_problems(output.label, inputs)
+                )
+        if problems:
+            raise PydanticCustomError(
+                INVALID_LABEL_REFERENCE,
+                "{problems}",
+                {"problems": "; ".join(problems)},
+            )
+
     @model_serializer(mode="wrap")
     def _canonical_order(self, handler: SerializerFunctionWrapHandler, info: Any):
         # Runs for both direct ``model_dump`` calls and nested serialization
@@ -557,8 +593,10 @@ DynamicToolSources = Annotated[Union[UserToolSource, YamlToolSource], Field(disc
 # `container` regex). `lift_user_tool_source` validates against the strict
 # schema and:
 #   - on success: returns ("ok", parsed_model, []).
-#   - on `extra_forbidden`-only failure: strips the offending paths and
-#     re-validates. Returns ("lifted", parsed_model, dropped_paths).
+#   - on a failure made only of `extra_forbidden` fields and output labels
+#     the label rules reject: strips the offending paths, rewrites the labels
+#     with `lift_label` so what they can't use is kept as written, then
+#     re-validates. Returns ("lifted", parsed_model, changed_paths).
 #   - on any other failure: returns ("invalid", original_dict, error_summary).
 #     The endpoint exposes this so legacy/broken rows don't crash the API -- e.g.
 #     a stored row that predates the required `version` comes back as the raw dict
@@ -566,6 +604,31 @@ DynamicToolSources = Annotated[Union[UserToolSource, YamlToolSource], Field(disc
 # ---------------------------------------------------------------------------
 
 LiftStatus = Literal["ok", "lifted", "invalid"]
+_USER_TOOL_INPUTS: TypeAdapter[List[YamlGalaxyToolParameter]] = TypeAdapter(List[YamlGalaxyToolParameter])
+
+
+def _is_label_error(err: ErrorDetails) -> bool:
+    loc = err.get("loc", ())
+    return err.get("type") == INVALID_LABEL_REFERENCE or (
+        err.get("type") == "string_too_long" and bool(loc) and loc[0] == "outputs" and loc[-1] == "label"
+    )
+
+
+def _lift_output_labels(value: Dict[str, Any]) -> List[str]:
+    normalize_dict(value, ["inputs", "outputs"])
+    try:
+        inputs = [param.root for param in _USER_TOOL_INPUTS.validate_python(value.get("inputs") or [])]
+    except ValidationError:
+        return []
+    changed: List[str] = []
+    for index, output in enumerate(value.get("outputs") or []):
+        label = output.get("label") if isinstance(output, dict) else None
+        if isinstance(label, str):
+            lifted = lift_label(label, inputs)
+            if lifted != label:
+                output["label"] = lifted
+                changed.append(f"outputs.{index}.label")
+    return changed
 
 
 def _navigable_path(value: Any, loc: tuple) -> Tuple[Optional[Any], List[Any]]:
@@ -615,24 +678,22 @@ def lift_user_tool_source(
     """Validate `value` against the strict UserToolSource, lifting drift where
     safe. See module docstring above for the contract.
     """
-    import copy
-
     try:
         return ("ok", UserToolSource.model_validate(value), [])
     except ValidationError as e:
         errors = e.errors()
 
-    extra_forbidden = [err for err in errors if err.get("type") == "extra_forbidden"]
-    other = [err for err in errors if err.get("type") != "extra_forbidden"]
-    if extra_forbidden and not other:
-        stripped = copy.deepcopy(value)
-        dropped: List[str] = []
-        for err in extra_forbidden:
+    if all(err.get("type") == "extra_forbidden" or _is_label_error(err) for err in errors):
+        lifted = copy.deepcopy(value)
+        changed: List[str] = []
+        for err in errors:
             loc = tuple(err["loc"])
-            if _strip_path(stripped, loc):
-                dropped.append(_format_loc(value, loc))
+            if err.get("type") == "extra_forbidden" and _strip_path(lifted, loc):
+                changed.append(_format_loc(value, loc))
+        # Field errors hide label errors, so labels are lifted whatever the first pass reported.
+        changed.extend(_lift_output_labels(lifted))
         try:
-            return ("lifted", UserToolSource.model_validate(stripped), dropped)
+            return ("lifted", UserToolSource.model_validate(lifted), changed)
         except ValidationError as e2:
             errors = e2.errors()
 

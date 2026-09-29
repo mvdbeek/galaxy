@@ -2423,7 +2423,10 @@ class ToolModule(WorkflowModule):
             if trans.user is None:
                 raise exceptions.InsufficientPermissionsException("User is not allowed to run unprivileged tools")
             if not (tool_uuid and trans.app.toolbox.get_unprivileged_tool_or_none(trans.user, tool_uuid=tool_uuid)):
-                unprivileged_request = DynamicUnprivilegedToolCreatePayload(representation=tool_representation)
+                trans.app.dynamic_tool_manager.ensure_can_use_unprivileged_tool(trans.user)
+                unprivileged_request = DynamicUnprivilegedToolCreatePayload.from_existing_representation(
+                    tool_representation
+                )
                 dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool(trans.user, unprivileged_request)
                 tool_uuid = dynamic_tool.uuid
         elif tool_representation and tool_id is None and tool_uuid is None:
