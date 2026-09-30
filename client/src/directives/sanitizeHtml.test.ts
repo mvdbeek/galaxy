@@ -68,8 +68,8 @@ describe("sanitizeHtml", () => {
         expect(config.USE_PROFILES).toEqual({ html: true, svg: true, mathMl: true });
         expect(config.ADD_ATTR).toEqual(["target"]);
         expect(config.ADD_TAGS).toEqual(["semantics", "annotation"]);
-        // The authoring help renders copy buttons, so only <style> is dropped here
-        expect(config.FORBID_TAGS).toEqual(["style"]);
+        // The authoring help renders copy buttons, so <button> is the one form control kept
+        expect(config.FORBID_TAGS).toEqual(["style", "form", "input", "textarea", "select"]);
         const uriPattern = config.ALLOWED_URI_REGEXP!;
         for (const uri of [
             "gxhelp://term",

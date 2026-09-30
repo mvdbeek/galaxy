@@ -10,7 +10,7 @@
  *   markdown -- links, plus what Galaxy markdown renders: KaTeX's SVG and
  *               MathML, the gxhelp:/gxstatic:/gxdatasetasimage: URIs that
  *               useGxUris and the help popovers rewrite after render, and the
- *               buttons the authoring help adds.
+ *               buttons the authoring help adds (but no other form controls).
  */
 
 import purify, { type Config, type DOMPurify } from "dompurify";
@@ -32,7 +32,8 @@ export const PROFILE_CONFIGS: Record<SanitizeHtmlProfile, Config> = {
     links: { ...HTML_ONLY, ADD_ATTR: ["target"] },
     markdown: {
         USE_PROFILES: { html: true, svg: true, mathMl: true },
-        FORBID_TAGS: ["style"],
+        // The authoring help renders copy buttons; the other form controls stay out
+        FORBID_TAGS: ["style", ...FORM_TAGS.filter((tag) => tag !== "button")],
         // KaTeX wraps its MathML in <semantics> with the TeX source in <annotation>
         ADD_TAGS: ["semantics", "annotation"],
         ADD_ATTR: ["target"],
