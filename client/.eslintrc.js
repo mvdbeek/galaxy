@@ -35,6 +35,12 @@ const baseRules = {
             message:
                 "v-no-sanitize-html skips DOMPurify. Prefer v-sanitize-html; if the markup really is trusted, disable this line with a reason.",
         },
+        {
+            // `:innerHTML.prop`, `:srcdoc` and friends are v-html by another name
+            selector:
+                "VAttribute[directive=true][key.name.name='bind'][key.argument.name=/^((inner|outer)-?h-?t-?m-?l|srcdoc)$/i]",
+            message: "Binding raw markup skips DOMPurify. Use v-sanitize-html instead.",
+        },
     ],
 
     // Prettier compromises/workarounds -- mostly #wontfix?
