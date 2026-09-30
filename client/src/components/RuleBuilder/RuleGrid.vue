@@ -4,6 +4,7 @@ import type { ColDef, IHeaderParams, ValueGetterParams } from "ag-grid-community
 import { computed, ref, watch } from "vue";
 
 import { useAgGrid } from "@/composables/useAgGrid";
+import { sanitizeHtml } from "@/directives/sanitizeHtml";
 
 interface Props {
     data: string[][];
@@ -53,7 +54,7 @@ class CustomHeader {
     init(params: IHeaderParams) {
         this.eGui = document.createElement("div");
         this.eGui.style.cssText = "width: 100%; text-align: center";
-        this.eGui.innerHTML = `${params.displayName}`;
+        this.eGui.innerHTML = sanitizeHtml(params.displayName);
     }
 
     getGui() {

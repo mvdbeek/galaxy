@@ -43,6 +43,31 @@ const baseRules = {
         },
     ],
 
+    // The script-side equivalents of v-html: markup written through these skips
+    // DOMPurify unless the code sanitizes it first, so each use outside the
+    // sanitizing directives needs a disable saying why it is safe.
+    "no-restricted-syntax": [
+        "error",
+        {
+            // Clearing an element, or assigning what sanitizeHtml()/DOMPurify returned, is fine
+            selector:
+                "AssignmentExpression[left.property.name=/^(inner|outer)HTML$/]:not([right.type='Literal'][right.value='']):not([right.callee.name='sanitizeHtml']):not([right.callee.property.name='sanitize'])",
+            message: "Setting innerHTML/outerHTML skips DOMPurify. Use textContent, DOM methods or sanitizeHtml().",
+        },
+        {
+            selector: "CallExpression[callee.property.name='insertAdjacentHTML']",
+            message: "Writing markup skips DOMPurify. Use DOM methods or sanitizeHtml().",
+        },
+        {
+            selector: "CallExpression[callee.object.name='document'][callee.property.name=/^(write|writeln)$/]",
+            message: "Writing markup skips DOMPurify. Use DOM methods or sanitizeHtml().",
+        },
+        {
+            selector: "Property[key.name='domProps'] > ObjectExpression > Property[key.name=/^(inner|outer)HTML$/]",
+            message: "Rendering innerHTML skips DOMPurify. Use v-sanitize-html instead.",
+        },
+    ],
+
     // Prettier compromises/workarounds -- mostly #wontfix?
     "vue/html-indent": "off",
     "vue/max-attributes-per-line": "off",

@@ -58,6 +58,7 @@ export default class {
         }
     }
     render() {
+        // eslint-disable-next-line no-restricted-syntax -- a constant template
         this.el.innerHTML = this._template();
         this.$header = this.el.querySelector(".modal-header");
         this.$dialog = this.el.querySelector(".modal-dialog");
@@ -68,11 +69,18 @@ export default class {
         if (this.options.body === "progress") {
             const div = document.createElement("div");
             div.className = "progress progress-striped active";
-            div.innerHTML = '<div class="progress-bar progress-bar-info" style="width:100%"></div>';
+            const bar = document.createElement("div");
+            bar.className = "progress-bar progress-bar-info";
+            bar.style.width = "100%";
+            div.append(bar);
             this.options.body = div;
         }
+        // Every caller builds its title and body from constants and escaped values,
+        // and the bodies hold form controls the sanitizer would drop.
+        // eslint-disable-next-line no-restricted-syntax -- see above
         this.$header.querySelector(".title").innerHTML = this.options.title;
         if (typeof this.options.body === "string") {
+            // eslint-disable-next-line no-restricted-syntax -- see above
             this.$body.innerHTML = this.options.body;
         } else {
             this.$body.innerHTML = "";

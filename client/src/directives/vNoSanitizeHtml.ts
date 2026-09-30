@@ -16,10 +16,12 @@ type NoSanitizeHtmlBinding = string | null | undefined;
 
 export const vNoSanitizeHtml: ObjectDirective<HTMLElement, NoSanitizeHtmlBinding> = {
     bind(el, binding: DirectiveBinding<NoSanitizeHtmlBinding>) {
+        // eslint-disable-next-line no-restricted-syntax -- this directive is the reviewed way to skip the sanitizer
         el.innerHTML = binding.value ?? "";
     },
     update(el, binding: DirectiveBinding<NoSanitizeHtmlBinding>) {
         if (binding.value !== binding.oldValue) {
+            // eslint-disable-next-line no-restricted-syntax -- as in bind
             el.innerHTML = binding.value ?? "";
         }
     },

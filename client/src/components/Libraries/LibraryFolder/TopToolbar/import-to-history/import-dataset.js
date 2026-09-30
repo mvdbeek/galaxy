@@ -123,6 +123,7 @@ class ImportDatasetModal {
     }
 
     initChainCallControlToHistory(options) {
+        // eslint-disable-next-line no-restricted-syntax -- the template escapes the history name
         modal.$body.innerHTML = this.templateImportIntoHistoryProgressBar({ history_name: options.history_name });
         this.progress = 0;
         this.progressStep = 100 / options.length;

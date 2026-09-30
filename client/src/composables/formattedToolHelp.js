@@ -28,7 +28,7 @@ function increaseHeadingLevel(node, level, increaseBy) {
     // create new headings with target level and copy contents + attributes
     Array.from(headings).forEach((heading) => {
         const newTag = heading.ownerDocument.createElement(`h${targetLevel}`);
-        newTag.innerHTML = heading.innerHTML;
+        newTag.append(...heading.childNodes);
 
         Array.from(heading.attributes).forEach((attribute) => {
             newTag.setAttribute(attribute.name, attribute.value);
