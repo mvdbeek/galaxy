@@ -65,6 +65,16 @@ describe("v-sanitize-html", () => {
         expect(wrapper.find(".target").element.innerHTML).toBe("<i>sanitized:second</i>");
     });
 
+    test("re-sanitizes when a dynamic profile changes", async () => {
+        const Host = defineComponent({
+            props: { profile: { type: String, default: "default" } },
+            template: `<div class="target" v-sanitize-html:[profile]="'<a>x</a>'" />`,
+        });
+        const wrapper = mount(Host as object, { propsData: { profile: "default" } });
+        await wrapper.setProps({ profile: "links" });
+        expect(sanitizeSpy).toHaveBeenLastCalledWith("<a>x</a>", "links");
+    });
+
     test("leaves the DOM alone when an unrelated re-render keeps the same content", async () => {
         const wrapper = mountWith("same", "v-sanitize-html:links");
         const target = wrapper.find(".target").element;

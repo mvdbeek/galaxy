@@ -37,9 +37,10 @@ export const vSanitizeHtml: ObjectDirective<HTMLElement, SanitizeHtmlBinding> = 
         render(el, binding);
     },
     update(el, binding) {
-        // Like v-html, only touch the DOM when the content changes, so code that
-        // decorates the rendered nodes after mount is not undone on every re-render.
-        if (binding.value !== binding.oldValue) {
+        // Like v-html, only touch the DOM when the content or profile changes, so
+        // code that decorates the rendered nodes after mount is not undone on
+        // every re-render.
+        if (binding.value !== binding.oldValue || binding.arg !== binding.oldArg) {
             render(el, binding);
         }
     },
