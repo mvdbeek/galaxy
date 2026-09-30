@@ -219,6 +219,7 @@ describe("WorkflowComment", () => {
             const [html, profile] = vi.mocked(sanitizeHtml).mock.calls[0]!;
             expect(profile).toBe("links");
             expect(html).toContain('target="_blank"');
+            expect(html).toContain('class="prevent-zoom"');
             // markdown-it escapes raw HTML in the source before it reaches the sanitizer
             expect(html).toContain("&lt;b&gt;raw&lt;/b&gt;");
             expect(wrapper.find(".rendered-markdown .sanitized").exists()).toBe(true);

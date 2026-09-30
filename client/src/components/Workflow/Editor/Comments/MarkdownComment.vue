@@ -51,8 +51,8 @@ const { renderMarkdown } = useMarkdown({ openLinksInNewPage: true, increaseHeadi
 const content = computed(() => {
     const renderedMarkdown = renderMarkdown(props.comment.data.text);
 
-    const node = document.createElement("div");
-    node.innerHTML = renderedMarkdown;
+    // DOMParser gives an inert document, so nothing in the markup loads before it is sanitized
+    const node = new DOMParser().parseFromString(renderedMarkdown, "text/html").body;
 
     // make all rendered text selectable by dragging
     const allChildren = node.querySelectorAll("*");
