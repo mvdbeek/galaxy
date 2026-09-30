@@ -1,3 +1,5 @@
+import { sanitizeHtml } from "@/directives/sanitizeHtml";
+
 let globalModalInstance = null;
 export default class {
     constructor() {
@@ -75,12 +77,9 @@ export default class {
             div.append(bar);
             this.options.body = div;
         }
-        // Every caller builds its title and body from constants and escaped values,
-        // and the bodies hold form controls the sanitizer would drop.
-        // eslint-disable-next-line no-restricted-syntax -- see above
-        this.$header.querySelector(".title").innerHTML = this.options.title;
+        this.$header.querySelector(".title").innerHTML = sanitizeHtml(this.options.title);
         if (typeof this.options.body === "string") {
-            // eslint-disable-next-line no-restricted-syntax -- see above
+            // eslint-disable-next-line no-restricted-syntax -- every caller builds its body from constants and escaped values, and the bodies hold form controls the sanitizer would drop
             this.$body.innerHTML = this.options.body;
         } else {
             this.$body.innerHTML = "";
