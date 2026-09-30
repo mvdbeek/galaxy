@@ -1,6 +1,7 @@
 import { getLocalVue } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
 import { describe, expect, it, vi } from "vitest";
+import { nextTick } from "vue";
 
 import { sanitizeHtml } from "@/directives/sanitizeHtml";
 
@@ -9,15 +10,17 @@ import PageHtml from "./PageHtml.vue";
 describe("PageHtml", () => {
     it("renders each top-level block of the page through v-sanitize-html with the links profile", async () => {
         vi.mocked(sanitizeHtml).mockClear();
-        const wrapper = mount(PageHtml, { localVue: getLocalVue(), propsData: { page: { content: "" } } });
-
-        await wrapper.setProps({
-            page: {
-                content:
-                    '<div><a href="https://galaxyproject.org" target="_blank">Galaxy</a></div>' +
-                    '<div class="embedded-item" id="History-abc123"></div>',
+        const wrapper = mount(PageHtml, {
+            localVue: getLocalVue(),
+            propsData: {
+                page: {
+                    content:
+                        '<div><a href="https://galaxyproject.org" target="_blank">Galaxy</a></div>' +
+                        '<div class="embedded-item" id="History-abc123"></div>',
+                },
             },
         });
+        await nextTick();
 
         const calls = vi.mocked(sanitizeHtml).mock.calls;
         expect(calls).toEqual([

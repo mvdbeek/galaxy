@@ -22,8 +22,12 @@ export default {
         };
     },
     watch: {
-        page() {
-            this.processHtml(this.page.content);
+        page: {
+            handler() {
+                this.processHtml(this.page.content);
+            },
+            // PageView only mounts this once the page has loaded
+            immediate: true,
         },
     },
     methods: {
