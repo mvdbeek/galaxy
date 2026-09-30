@@ -2,6 +2,7 @@ import axios from "axios";
 import { escape } from "lodash";
 
 import { Toast } from "@/composables/toast";
+import { sanitizeHtml } from "@/directives/sanitizeHtml";
 import { getAppRoot } from "@/onload/loadConfig";
 import _l from "@/utils/localization";
 import Modal from "@/utils/modal";
@@ -123,8 +124,9 @@ class ImportDatasetModal {
     }
 
     initChainCallControlToHistory(options) {
-        // eslint-disable-next-line no-restricted-syntax -- the template escapes the history name
-        modal.$body.innerHTML = this.templateImportIntoHistoryProgressBar({ history_name: options.history_name });
+        modal.$body.innerHTML = sanitizeHtml(
+            this.templateImportIntoHistoryProgressBar({ history_name: options.history_name }),
+        );
         this.progress = 0;
         this.progressStep = 100 / options.length;
         this.options.chain_call_control.total_number = options.length;
