@@ -1,3 +1,4 @@
+import { escape } from "lodash";
 import Vue from "vue";
 
 import { rawToTable } from "@/components/Collections/tables";
@@ -36,7 +37,7 @@ async function ruleBasedCollectionCreatorModal(elements, elementsType, importTyp
     const vm = document.createElement("div");
 
     // Prepare modal
-    const titleSuffix = options.historyName ? `From history: <b>${options.historyName}</b>` : "";
+    const titleSuffix = options.historyName ? `From history: <b>${escape(options.historyName)}</b>` : "";
     const titleHtml = `<div class='d-flex justify-content-between unselectable'>
         <span>${title}</span>
         <span>${titleSuffix}</span>
