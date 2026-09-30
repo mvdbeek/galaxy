@@ -28,4 +28,16 @@ describe("ToolHelpMarkdown", () => {
         const links = wrapper.findAll("a");
         expect(links.at(1).attributes("href")).toBe("/galaxy/help/terms/tool");
     });
+
+    it("renders nothing for empty help", async () => {
+        const wrapper = mount(ToolHelpMarkdown as object, {
+            localVue: getLocalVue(),
+            pinia: createTestingPinia({ createSpy: vi.fn }),
+            propsData: { content: "" },
+            stubs: { MarkdownHelpPopovers: true },
+        });
+        await flushPromises();
+
+        expect(wrapper.text()).toBe("");
+    });
 });

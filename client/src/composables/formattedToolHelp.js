@@ -42,7 +42,7 @@ function increaseHeadingLevel(node, level, increaseBy) {
 export function useFormattedToolHelp(helpContent, headingLevelIncrease = 2) {
     const formattedContent = computed(() => {
         // DOMParser gives an inert document, so nothing in the help loads before it is sanitized
-        const node = new DOMParser().parseFromString(unref(helpContent), "text/html").body;
+        const node = new DOMParser().parseFromString(unref(helpContent) ?? "", "text/html").body;
 
         const links = node.getElementsByTagName("a");
         Array.from(links).forEach((link) => {
