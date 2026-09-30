@@ -7,8 +7,8 @@ import { vi } from "vitest";
 // Vue configuration
 import Vue from "vue";
 
-import { vSanitizeHtml } from "@/directives/vSanitizeHtml";
 import { vNoSanitizeHtml } from "@/directives/vNoSanitizeHtml";
+import { vSanitizeHtml } from "@/directives/vSanitizeHtml";
 
 Vue.config.productionTip = false;
 Vue.config.devtools = false;
