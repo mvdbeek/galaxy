@@ -66,7 +66,7 @@ export async function fetchPlugins(datasetId?: string): Promise<Array<Plugin>> {
 
 export async function fetchPlugin(id: string): Promise<Plugin> {
     try {
-        const { data } = await axios.get(withPrefix(`/api/plugins/${id}`));
+        const { data } = await axios.get(withPrefix(`/api/plugins/${encodeURIComponent(id)}`));
         return data;
     } catch (error) {
         rethrowSimple(error);
@@ -75,7 +75,9 @@ export async function fetchPlugin(id: string): Promise<Plugin> {
 
 export async function fetchPluginHistoryItems(id: string, history_id: string): Promise<PluginData> {
     try {
-        const { data } = await axios.get(withPrefix(`/api/plugins/${id}?history_id=${history_id}`));
+        const { data } = await axios.get(
+            withPrefix(`/api/plugins/${encodeURIComponent(id)}?history_id=${encodeURIComponent(history_id)}`),
+        );
         return data;
     } catch (error) {
         rethrowSimple(error);

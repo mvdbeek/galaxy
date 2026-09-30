@@ -31,7 +31,7 @@ const iframeRef = ref<HTMLIFrameElement | null>(null);
 async function render() {
     if (props.name) {
         try {
-            const { data: plugin } = await axios.get(`${getAppRoot()}api/plugins/${props.name}`);
+            const { data: plugin } = await axios.get(`${getAppRoot()}api/plugins/${encodeURIComponent(props.name)}`);
             const pluginPath = plugin.href;
             const dataIncoming = {
                 root: window.location.origin + getAppRoot(),
@@ -56,7 +56,7 @@ async function render() {
                         iframeDocument.body.appendChild(script);
                     } else {
                         const error = iframeDocument.createElement("div");
-                        error.innerHTML = `Unable to locate plugin module for: ${props.name}.`;
+                        error.textContent = `Unable to locate plugin module for: ${props.name}.`;
                         iframeDocument.body.appendChild(error);
                     }
 
