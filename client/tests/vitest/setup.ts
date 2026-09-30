@@ -3,10 +3,11 @@ import "@testing-library/jest-dom/vitest";
 import "fake-indexeddb/auto";
 import "vitest-location-mock";
 
-import { vi } from "vitest";
+import { afterEach, vi } from "vitest";
 // Vue configuration
 import Vue from "vue";
 
+import { sanitizeHtml } from "@/directives/sanitizeHtml";
 import { vNoSanitizeHtml } from "@/directives/vNoSanitizeHtml";
 import { vSanitizeHtml } from "@/directives/vSanitizeHtml";
 
@@ -25,6 +26,11 @@ Vue.directive("g-tooltip", {
 vi.mock("@/directives/sanitizeHtml");
 Vue.directive("sanitize-html", vSanitizeHtml);
 Vue.directive("no-sanitize-html", vNoSanitizeHtml);
+
+// Tests that swap in their own sanitizer output get the pass-through back afterwards
+afterEach(() => {
+    vi.mocked(sanitizeHtml).mockReset();
+});
 
 // Mock hashedUserId and userLocalStorage by default
 vi.mock("@/composables/hashedUserId");
