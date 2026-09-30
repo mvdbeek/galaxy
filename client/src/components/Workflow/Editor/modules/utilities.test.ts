@@ -29,6 +29,22 @@ describe("getStateUpgradeMessages", () => {
         expect(message!.details).toEqual(["Tool is not installed", "Value changed"]);
     });
 
+    it("lists each error of a subworkflow step", () => {
+        const [message] = getStateUpgradeMessages({
+            steps: {
+                "1": {
+                    name: "Subworkflow",
+                    type: "subworkflow",
+                    label: "inner",
+                    errors: ["cat1 is not installed", "sort1 is not installed"],
+                },
+            },
+            upgrade_messages: {},
+        });
+
+        expect(message!.details).toEqual(["cat1 is not installed", "sort1 is not installed"]);
+    });
+
     it("skips steps without messages", () => {
         const messages = getStateUpgradeMessages({
             steps: { "0": { name: "Tool", type: "tool", label: "" } },

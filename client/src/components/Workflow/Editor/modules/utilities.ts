@@ -11,7 +11,7 @@ export interface UpgradeMessage {
 // Subworkflow steps nest their inner steps' messages ({"Step 2": {"inttest": "..."}}),
 // and the messages themselves are already self-describing, so only the leaves are shown.
 function flattenUpgradeMessages(messages: unknown): string[] {
-    if (messages === null || messages === undefined) {
+    if (messages === null || messages === undefined || messages === "") {
         return [];
     }
     if (typeof messages === "object") {
@@ -26,18 +26,18 @@ export function getStateUpgradeMessages(data: {
             name: string;
             type: string;
             label: string;
-            errors?: string;
+            errors?: string | string[] | null;
         };
     };
     upgrade_messages: { [step_id: string]: any };
 }): UpgradeMessage[] {
     const messages: UpgradeMessage[] = [];
     for (const [step_id, step] of Object.entries(data.steps)) {
-        const details: string[] = [];
-        if (step.errors) {
-            details.push(step.errors);
-        }
-        details.push(...flattenUpgradeMessages(data.upgrade_messages[step_id]));
+        // Subworkflow steps report their inner steps' errors as a list
+        const details = [
+            ...flattenUpgradeMessages(step.errors),
+            ...flattenUpgradeMessages(data.upgrade_messages[step_id]),
+        ];
         if (details.length) {
             const iconType = WorkflowIcons[step.type as keyof typeof WorkflowIcons];
             const message: UpgradeMessage = {
