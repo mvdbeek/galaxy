@@ -54,7 +54,7 @@ defineProps<Props>();
                     <td>Filesize</td>
 
                     <td id="file-size">
-                        <strong>{{ bytesToString(dataset.file_size) }}</strong>
+                        <strong>{{ dataset.file_size ? bytesToString(dataset.file_size) : "-" }}</strong>
                     </td>
                 </tr>
 

@@ -218,7 +218,7 @@ watch(
                     <h4>Download Required</h4>
                     <p>This file type ({{ dataset.file_ext }}) will download automatically when accessed directly.</p>
                     <p>
-                        File size: <strong>{{ bytesToString(dataset.file_size || 0) }}</strong>
+                        File size: <strong>{{ dataset.file_size ? bytesToString(dataset.file_size) : "-" }}</strong>
                     </p>
                     <a :href="downloadUrl" class="btn btn-primary mt-2" download>
                         <FontAwesomeIcon :icon="faFileAlt" class="mr-1" /> Download File
@@ -238,7 +238,7 @@ watch(
                     <h4>Download Required</h4>
                     <p>This file type ({{ dataset.file_ext }}) will download automatically when accessed directly.</p>
                     <p>
-                        File size: <strong>{{ bytesToString(dataset.file_size || 0) }}</strong>
+                        File size: <strong>{{ dataset.file_size ? bytesToString(dataset.file_size) : "-" }}</strong>
                     </p>
                     <a :href="downloadUrl" class="btn btn-primary mt-2" download>
                         <FontAwesomeIcon :icon="faFileAlt" class="mr-1" /> Download File

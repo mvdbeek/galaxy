@@ -89,6 +89,12 @@ describe("DatasetInformation/DatasetInformation", () => {
         expect(fileSize.html()).toBe(`<strong>${datasetResponse.file_size} b</strong>`);
     });
 
+    it("shows a dash for an unknown file size", async () => {
+        await wrapper.setProps({ dataset: { ...datasetResponse, file_size: 0 } });
+
+        expect(datasetInfoTable.find("#file-size").text()).toBe("-");
+    });
+
     it("Date should be formatted", async () => {
         const date = datasetInfoTable.find(".utc-time").text();
 
