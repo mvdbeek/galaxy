@@ -14,6 +14,7 @@ LIBRARY_DESCRIPTION = (
     "<style>body { display: none; }</style>"
     "<form><button>Go</button></form>"
     '<a href="javascript:void(0)">plain link</a>'
+    '<img src="missing.png" onerror="window.markupHandlerRan = true">'
 )
 
 
@@ -43,6 +44,8 @@ class TestRenderedMarkup(SeleniumTestCase):
                 style: field.querySelector("style") !== null,
                 form: field.querySelector("form, button") !== null,
                 plainLink: field.querySelector("a:not([href])")?.textContent ?? null,
+                imageHandler: field.querySelector("img")?.getAttribute("onerror") ?? null,
+                handlerRan: window.markupHandlerRan === true,
             };
             """)
         assert description == {
@@ -51,7 +54,29 @@ class TestRenderedMarkup(SeleniumTestCase):
             "style": False,
             "form": False,
             "plainLink": "plain link",
+            "imageHandler": None,
+            "handlerRan": False,
         }
+
+    @selenium_test
+    def test_html_page_links_opening_a_new_window_drop_the_opener(self):
+        page = self.dataset_populator.new_page(
+            slug=self._get_random_name(prefix="links"),
+            content=(
+                '<p><a href="https://galaxyproject.org/new-tab" target="_blank">new tab</a> '
+                '<a href="https://galaxyproject.org/same-tab" target="_top">same tab</a></p>'
+            ),
+        )
+        self.get(f"published/page?id={page['id']}")
+        self.wait_for_selector_visible("a[href$='/new-tab']")
+
+        rels = self.execute_script("""
+            return {
+                newTab: document.querySelector("a[href$='/new-tab']").getAttribute("rel"),
+                sameTab: document.querySelector("a[href$='/same-tab']").getAttribute("rel"),
+            };
+            """)
+        assert rels == {"newTab": "noopener noreferrer", "sameTab": None}
 
     @selenium_test
     def test_markdown_page_keeps_katex_math(self):
@@ -72,3 +97,20 @@ class TestRenderedMarkup(SeleniumTestCase):
             };
             """)
         assert math == {"annotation": "\\sqrt{x^2}", "svg": True}
+
+    @selenium_test
+    def test_markdown_page_keeps_galaxy_help_links(self):
+        page = self.dataset_populator.new_page(
+            slug=self._get_random_name(prefix="gxhelp"),
+            content_format="markdown",
+            content="See [the term](gxhelp://unnamed.dataset).",
+        )
+        self.get(f"published/page?id={page['id']}")
+        self.components.pages.markdown_wrapper.wait_for_visible()
+        self.wait_for_selector_visible(".markdown-wrapper .text-justify a")
+
+        # useGxUris only rewrites the link if the sanitizer kept the gxhelp: href
+        href = self.execute_script("""
+            return document.querySelector(".markdown-wrapper .text-justify a").getAttribute("href");
+            """)
+        assert href.endswith("help/terms/unnamed.dataset")
