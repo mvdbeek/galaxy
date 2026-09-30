@@ -163,7 +163,8 @@ function returnToLogin() {
             <template v-if="!confirmURL">
                 <div>
                     <BAlert :show="!!messageText" :variant="messageVariant">
-                        <span v-sanitize-html="messageText" />
+                        <!-- The server's activation messages link home with target="_top" -->
+                        <span v-sanitize-html:links="messageText" />
                     </BAlert>
 
                     <BAlert :show="!!connectExternalProvider" variant="info">

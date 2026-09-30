@@ -203,7 +203,7 @@ describe("LoginForm", () => {
         const wrapper = await mountLoginForm();
         await flushPromises();
 
-        expect(sanitizeHtml).toHaveBeenCalledWith("<b>note</b>", "default");
+        expect(sanitizeHtml).toHaveBeenCalledWith("<b>note</b>", "links");
         expect(wrapper.find(".alert b").text()).toBe("note");
 
         window.location.href = originalHref;
