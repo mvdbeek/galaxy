@@ -42,7 +42,7 @@ const props = defineProps({
 
 const emit = defineEmits(["input"]);
 
-const { rankedItems: rankedOptions, onSearchChange } = useRankedSearch(() => props.options, ["text"]);
+const { rankedItems: rankedOptions, onSearchChange } = useRankedSearch(() => props.options, ["text", "id"]);
 
 const currentValue = computed({
     get: () => props.options.find((option) => option.id === props.value),

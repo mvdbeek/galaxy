@@ -74,7 +74,7 @@ const emit = defineEmits<{
 const selectedItem = ref<Item | null>(getInitialSelection());
 const { rankedItems, onSearchChange } = useRankedSearch(
     () => props.items,
-    () => [props.label],
+    () => [props.label, props.trackBy],
 );
 
 const loadingMessage = computed(() => `Loading ${props.collectionName}...`);
