@@ -64,6 +64,7 @@ const currentValue = computed({
         :id="id"
         v-model="currentValue"
         class="upload-settings-select rounded"
+        :allow-empty="false"
         deselect-label=""
         :disabled="disabled"
         :searchable="searchable"
