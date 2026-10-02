@@ -30,7 +30,7 @@
 import { computed, ref, watch } from "vue";
 import Multiselect from "vue-multiselect";
 
-import { buildSearchIndex, rankSearchIndex } from "@/composables/filter/filterFunction";
+import { useRankedSearch } from "@/composables/useRankedSearch";
 
 import LoadingSpan from "@/components/LoadingSpan.vue";
 
@@ -72,9 +72,10 @@ const emit = defineEmits<{
 }>();
 
 const selectedItem = ref<Item | null>(getInitialSelection());
-const searchQuery = ref("");
-
-const rankedItems = computed(() => rankSearchIndex(buildSearchIndex(props.items, [props.label]), searchQuery.value));
+const { rankedItems, onSearchChange } = useRankedSearch(
+    () => props.items,
+    () => [props.label],
+);
 
 const loadingMessage = computed(() => `Loading ${props.collectionName}...`);
 
@@ -94,10 +95,6 @@ function getInitialSelection(): Item | null {
         return list[0]!;
     }
     return null;
-}
-
-function onSearchChange(query: string) {
-    searchQuery.value = query;
 }
 
 function onSelectItem(item: Item | null) {
