@@ -173,6 +173,7 @@ class WorkflowController(BaseUIController, SharableMixin, UsesStoredWorkflowMixi
             return "Workflow cannot be exported due to missing tools."
         sname = stored.name
         sname = "".join(c in FILENAME_VALID_CHARS and c or "_" for c in sname)[0:150]
-        trans.response.headers["Content-Disposition"] = f'attachment; filename="Galaxy-Workflow-{sname}.ga"'
+        extension = "ga" if stored_dict.get("format-version") == "0.1" else "gxwf.json"
+        trans.response.headers["Content-Disposition"] = f'attachment; filename="Galaxy-Workflow-{sname}.{extension}"'
         trans.response.set_content_type("application/galaxy-archive")
         return stored_dict

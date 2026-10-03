@@ -4329,7 +4329,9 @@
 
 :Description:
     Default format for the export of workflows. Possible values are
-    'ga' or 'format2'.
+    'ga' or 'format2'. If conversion to 'format2' fails, the default
+    export falls back to 'ga'. Explicit format requests do not fall
+    back.
 :Default: ``ga``
 :Type: str
 

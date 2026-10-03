@@ -416,6 +416,22 @@ class TestWorkflowsApi(BaseWorkflowsApiTestCase, ChangeDatatypeTests):
         response.raise_for_status()
         assert response.json()["name"] == "test_preview"
 
+    def test_download_workflow_formats(self):
+        workflow_id = self.workflow_populator.simple_workflow("download_formats")
+        for style, extension in [("ga", "ga"), ("format2", "gxwf.json")]:
+            response = self._get(f"workflows/{workflow_id}/download", data={"style": style, "format": "json-download"})
+            self._assert_status_code_is(response, 200)
+            assert response.headers["Content-Disposition"].endswith(f'.{extension}"')
+            exported = response.json()
+            if style == "ga":
+                assert exported["a_galaxy_workflow"] == "true"
+            else:
+                assert exported["class"] == "GalaxyWorkflow"
+            reimported_id = self.workflow_populator.create_workflow(exported)
+            reimported = self.workflow_populator.download_workflow(reimported_id, style="ga")
+            assert reimported["name"] == "download_formats"
+            assert len(reimported["steps"]) == 3
+
     @skip_without_tool("export_remote")
     def test_download_workflow_with_missing_file_source(self):
         """Test that workflows referencing non-existent file sources can be downloaded.

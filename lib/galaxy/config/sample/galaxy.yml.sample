@@ -2401,7 +2401,8 @@ galaxy:
   #default_panel_view: default
 
   # Default format for the export of workflows. Possible values are 'ga'
-  # or 'format2'.
+  # or 'format2'. If conversion to 'format2' fails, the default export
+  # falls back to 'ga'. Explicit format requests do not fall back.
   #default_workflow_export_format: ga
 
   # If multiple job handlers are enabled, allow Galaxy to schedule

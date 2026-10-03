@@ -16,6 +16,17 @@
                 This workflow is not accessible. Please use the sharing option to "Make Workflow Accessible and Publish"
                 to obtain a URL for importing to another Galaxy.
             </b-alert>
+            <b-form-group label="Workflow file format" label-for="workflow-export-format">
+                <b-form-select
+                    id="workflow-export-format"
+                    v-model="downloadStyle"
+                    :options="downloadFormats"
+                    class="w-auto" />
+            </b-form-group>
+            <b-alert v-if="downloadStyle === 'format2'" variant="warning" show>
+                gxformat2 exports currently omit workflow README, help text, logo, DOIs and source metadata. Choose
+                Galaxy native (.ga) to preserve these.
+            </b-alert>
             <a :href="downloadUrl">Download Workflow</a>
             <div>
                 <small class="text-muted">
@@ -63,11 +74,18 @@ export default {
         return {
             error: null,
             workflow: null,
+            downloadStyle: "export",
+            downloadFormats: [
+                { value: "export", text: "Server default" },
+                { value: "ga", text: "Galaxy native (.ga)" },
+                { value: "format2", text: "gxformat2 (.gxwf.json)" },
+            ],
         };
     },
     computed: {
         downloadUrl() {
-            return withPrefix(`/api/workflows/${this.workflow.id}/download?format=json-download`);
+            const style = this.downloadStyle === "export" ? "" : `&style=${this.downloadStyle}`;
+            return withPrefix(`/api/workflows/${this.workflow.id}/download?format=json-download${style}`);
         },
         importUrl() {
             const location = window.location;

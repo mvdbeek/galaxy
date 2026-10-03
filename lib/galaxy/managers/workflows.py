@@ -2,6 +2,7 @@ import json
 import logging
 import os
 import uuid
+from copy import deepcopy
 from typing import (
     Annotated,
     Any,
@@ -1017,6 +1018,7 @@ class WorkflowContentsManager(UsesAnnotations):
                     version = i
                     break
         workflow = stored.get_internal_version(version)
+        use_default_format = style == "export"
         if style == "export":
             style = self.app.config.default_workflow_export_format
         if style == "editor":
@@ -1029,29 +1031,20 @@ class WorkflowContentsManager(UsesAnnotations):
             wf_dict = self._workflow_to_dict_run(trans, stored, workflow=workflow, history=history or trans.history)
         elif style == "preview":
             wf_dict = self._workflow_to_dict_preview(trans, workflow=workflow)
-        elif style == "format2":
+        elif style in ("ga", "format2", "format2_wrapped_yaml"):
             wf_dict = self._workflow_to_dict_export(
                 trans,
                 workflow=workflow,
                 stored=stored,
                 preserve_external_subworkflow_links=preserve_external_subworkflow_links,
             )
-            wf_dict = to_format_2(wf_dict)
-        elif style == "format2_wrapped_yaml":
-            wf_dict = self._workflow_to_dict_export(
-                trans,
-                workflow=workflow,
-                stored=stored,
-                preserve_external_subworkflow_links=preserve_external_subworkflow_links,
-            )
-            wf_dict = to_format_2(wf_dict, json_wrapper=True)
-        elif style == "ga":
-            wf_dict = self._workflow_to_dict_export(
-                trans,
-                workflow=workflow,
-                stored=stored,
-                preserve_external_subworkflow_links=preserve_external_subworkflow_links,
-            )
+            if style != "ga":
+                try:
+                    wf_dict = to_format_2(deepcopy(wf_dict), json_wrapper=style == "format2_wrapped_yaml")
+                except Exception:
+                    if not use_default_format:
+                        raise
+                    log.exception("Failed to export workflow as gxformat2; falling back to native Galaxy format")
         else:
             raise exceptions.RequestParameterInvalidException(f"Unknown workflow style {style}")
         if version is not None:
