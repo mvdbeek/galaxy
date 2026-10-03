@@ -984,6 +984,12 @@ tag | details
 
 ### Examples
 
+For locally installed tools, relative image paths are resolved within the tool's
+directory, looking in ``static/images/`` first and then relative to the tool XML.
+The legacy ``$PATH_TO_IMAGES/my_figure.png`` syntax is also supported. Images must
+remain inside the tool directory, including when symbolic links are used.
+Remote URLs and existing ``${static_path}`` image URLs are preserved.
+
 Show a warning sign to remind users that this tool accept fasta format files only, followed by an example of the query sequence and a figure.
 
 ```xml

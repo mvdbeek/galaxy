@@ -152,6 +152,7 @@ from galaxy.tools.actions.data_source import DataSourceToolAction
 from galaxy.tools.actions.model_operations import ModelOperationToolAction
 from galaxy.tools.evaluation import global_tool_errors
 from galaxy.tools.execution_helpers import ToolExecutionCache
+from galaxy.tools.help import set_local_image_paths
 from galaxy.tools.imp_exp import JobImportHistoryArchiveWrapper
 from galaxy.tools.parameters import (
     check_param,
@@ -1954,15 +1955,18 @@ class Tool(AbstractTool, UsesDictVisibleKeys, MaybeToolParameterBundle):
         if help_content and help_content.format == "restructuredtext":
             help_text = help_content.content or ""
             try:
-                if help_text.find(".. image:: ") >= 0 and (self.tool_shed_repository or self.repository_id):
-                    help_text = set_image_paths(
-                        self.app,
-                        help_text,
-                        encoded_repository_id=self.repository_id,
-                        tool_shed_repository=self.tool_shed_repository,
-                        tool_id=self.old_id,
-                        tool_version=self.version,
-                    )
+                if self.tool_shed_repository or self.repository_id:
+                    if help_text.find(".. image:: ") >= 0:
+                        help_text = set_image_paths(
+                            self.app,
+                            help_text,
+                            encoded_repository_id=self.repository_id,
+                            tool_shed_repository=self.tool_shed_repository,
+                            tool_id=self.old_id,
+                            tool_version=self.version,
+                        )
+                elif self.tool_dir and self.id:
+                    help_text = set_local_image_paths(help_text, self.id, self.version)
             except Exception:
                 log.exception(
                     "Exception in parse_help, so images may not be properly displayed for tool with id '%s'", self.id

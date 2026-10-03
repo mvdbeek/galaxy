@@ -231,6 +231,22 @@ class FetchTools:
         return parse(payload)
 
     @router.get(
+        "/api/tools/{tool_id:path}/help_image",
+        summary="Get an image from a tool's help",
+        response_class=FileResponse,
+        public=True,
+    )
+    def get_help_image(
+        self,
+        tool_id: str,
+        image_file: str = Query(..., description="Image path relative to the tool directory."),
+        tool_version: str | None = ToolVersionQueryParam,
+        trans: ProvidesUserContext = DependsOnTrans,
+    ) -> FileResponse:
+        image_path, media_type = self.service.get_tool_help_image(trans, tool_id, image_file, tool_version)
+        return FileResponse(image_path, media_type=media_type, headers={"X-Content-Type-Options": "nosniff"})
+
+    @router.get(
         "/api/tools/{tool_id:path}/icon",
         summary="Get the icon image associated with a tool",
         response_class=PNGIconResponse,

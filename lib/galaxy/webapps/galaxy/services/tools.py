@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 import os
 import shutil
 import tempfile
@@ -569,6 +570,28 @@ class ToolsService(ServiceBase):
                 if tool and tool.allow_user_access(trans.user):
                     detected_versions.append(tool.version)
         return detected_versions
+
+    def get_tool_help_image(
+        self, trans: ProvidesUserContext, tool_id: str, image_file: str, tool_version: str | None = None
+    ) -> tuple[str, str]:
+        """Resolve an image inside the requested tool's directory."""
+        tool = self._get_materialized_tool(
+            trans, tool_id, tool_version, user=trans.user, materialization_reason="detail"
+        )
+        if tool_version is not None and tool.version != tool_version:
+            raise exceptions.ObjectNotFound("Tool version not found.")
+        media_type, _ = mimetypes.guess_type(image_file)
+        if not tool.tool_dir or not media_type or not media_type.startswith("image/"):
+            raise exceptions.RequestParameterInvalidException("Invalid tool help image path.")
+        tool_dir = os.path.realpath(tool.tool_dir)
+        # Match the Tool Shed convention of looking in static/images first.
+        for base in (os.path.join(tool_dir, "static", "images"), tool_dir):
+            image_path = os.path.realpath(os.path.join(base, image_file))
+            if not safe_contains(tool_dir, image_path):
+                raise exceptions.RequestParameterInvalidException("Invalid tool help image path.")
+            if os.path.isfile(image_path):
+                return image_path, media_type
+        raise exceptions.ObjectNotFound("Tool help image not found.")
 
     def get_tool_icon_path(self, trans: ProvidesUserContext, tool_id, tool_version=None) -> str | None:
         tool = self._get_tool(trans, tool_id, tool_version)
