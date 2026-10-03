@@ -16,6 +16,7 @@ from galaxy.model import (
     JobToInputDatasetAssociation,
     JobToOutputDatasetAssociation,
 )
+from galaxy.model.none_like import NoneDataset
 from galaxy.tool_util.parser.output_objects import ToolOutput
 from galaxy.tool_util_models.tool_source import XmlTemplateConfigFile
 from galaxy.tools.evaluation import ToolEvaluator
@@ -119,6 +120,47 @@ class TestToolEvaluator(TestCase, UsesApp):
         self._set_compute_environment()
         command_line = self.evaluator.build()[0]
         assert command_line == "prog1 --opt_input='None'"
+
+    def test_nested_dependent_select_fields(self):
+        self.app.config.tool_data_path = self.test_directory
+        with open(os.path.join(self.test_directory, "assignment_cache.loc"), "w") as cache_file:
+            cache_file.write("v1.9\tCache v1.9\t/old/cache\n")
+        release = SelectToolParameter(
+            cast("Tool", self.tool),
+            XML('<param name="release" type="select"><option value="v1.9">v1.9</option></param>'),
+        )
+        cache = SelectToolParameter(
+            cast("Tool", self.tool),
+            XML("""<param name="assignment_cache_release" type="select">
+                <options from_file="assignment_cache.loc">
+                    <column name="value" index="0" />
+                    <column name="name" index="1" />
+                    <column name="path" index="2" />
+                    <filter type="param_value" ref="release" column="0" />
+                </options>
+            </param>"""),
+        )
+        conditional = Conditional("pangolin_data")
+        conditional.test_param = SelectToolParameter(
+            cast("Tool", self.tool),
+            XML('<param name="source" type="select"><option value="cached">Cached</option></param>'),
+        )
+        when = ConditionalWhen()
+        when.value = "cached"
+        when.inputs = {"release": release, "assignment_cache_release": cache}
+        conditional.cases = [when]
+        self.tool.set_params({"pangolin_data": conditional})
+        self.tool.options = Bunch(sanitize=True)
+        self.job.parameters = [
+            JobParameter(
+                name="pangolin_data",
+                value='{"source": "cached", "__current_case__": 0, "release": "v1.9", "assignment_cache_release": "v1.9"}',
+            )
+        ]
+        self.evaluator.param_dict["align1"] = NoneDataset(datatypes_registry=self.app.datatypes_registry)
+        self.tool._command_line = "prog1 $pangolin_data.assignment_cache_release.fields.path"
+        self._set_compute_environment(unstructured_path_rewrites={"/old": "/new"})
+        assert self.evaluator.build()[0] == "prog1 /new/cache"
 
     def test_evaluation_with_path_rewrites_wrapped(self):
         self.tool.check_values = True

@@ -9,6 +9,8 @@ from galaxy.datatypes.metadata import MetadataSpecCollection
 from galaxy.job_execution.compute_environment import ComputeEnvironment
 from galaxy.job_execution.datasets import DatasetPath
 from galaxy.model import DatasetInstance
+from galaxy.model.none_like import NoneDataset
+from galaxy.security.object_wrapper import wrap_with_safe_string
 from galaxy.tools.parameters.basic import (
     BooleanToolParameter,
     DrillDownSelectToolParameter,
@@ -120,6 +122,17 @@ def test_raw_object_wrapper():
 
     false_wrapper = RawObjectWrapper(False)
     assert not false_wrapper
+
+
+def test_safe_string_wrapper_none_dataset(caplog):
+    dataset = NoneDataset(datatypes_registry=Mock())
+    wrapper = wrap_with_safe_string(dataset)
+    assert isinstance(wrapper, NoneDataset)
+    assert wrapper.unsanitized is dataset
+    assert not wrapper
+    assert wrapper.ext == "data"
+    assert wrapper.get_file_name() == "None"
+    assert "Unable to create dynamic subclass" not in caplog.text
 
 
 def valuewrapper(tool, value, paramtype, optional=False):
