@@ -61,7 +61,7 @@
                 v-else-if="configForm?.inputs"
                 :id="formDisplayId"
                 :key="formKey"
-                :inputs="configForm.inputs"
+                :inputs="formInputs"
                 @onChange="onChange" />
             <div v-if="isSubworkflow">
                 <FormOutputLabel
@@ -85,6 +85,7 @@ import { useWorkflowStores } from "@/composables/workflowStores";
 import { useRefreshFromStore } from "@/stores/refreshFromStore";
 import type { Step } from "@/stores/workflowStepStore";
 
+import { useParameterDefaultInputs } from "../composables/useParameterDefaultInputs";
 import { useStepProps } from "../composables/useStepProps";
 import { useUniqueLabelError } from "../composables/useUniqueLabelError";
 
@@ -113,7 +114,8 @@ const emit = defineEmits([
 const stepRef = toRef(props, "step");
 const { stepId, contentId, annotation, label, name, type, configForm, stepInputs, postJobActions } =
     useStepProps(stepRef);
-const { stepStore } = useWorkflowStores();
+const { stepStore, connectionStore } = useWorkflowStores();
+const formInputs = useParameterDefaultInputs(stepRef, stepStore, connectionStore);
 const uniqueErrorLabel = useUniqueLabelError(stepStore, label.value);
 const stepTitle = computed(() => {
     if (isSubworkflow.value) {

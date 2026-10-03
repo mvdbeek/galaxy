@@ -66,7 +66,7 @@
                 :id="getPrefix(input.name)"
                 v-model="input.value"
                 :title="localize(input.label || input.name)"
-                :type="input.type"
+                :type="input.attributes?.type ?? input.type"
                 :error="input.error"
                 :warning="input.warning"
                 :help="localize(input.help)"
