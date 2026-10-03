@@ -11,6 +11,7 @@ import GButton from "../BaseComponents/GButton.vue";
 const props = defineProps<{
     step: TourStep;
     isPlaying: boolean;
+    isAdvancing?: boolean;
     isLast: boolean;
     waitingOnElement?: string | null;
 }>();
@@ -107,7 +108,12 @@ function createStep() {
                         <FontAwesomeIcon :icon="faPlay" />
                         Auto-Play Tour
                     </GButton>
-                    <GButton class="tour-next" size="small" color="blue" @click.prevent="emit('next')">
+                    <GButton
+                        class="tour-next"
+                        size="small"
+                        color="blue"
+                        :disabled="isAdvancing"
+                        @click.prevent="emit('next')">
                         <FontAwesomeIcon :icon="faArrowRight" />
                         Continue
                     </GButton>

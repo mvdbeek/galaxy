@@ -15,8 +15,11 @@ import GModal from "../BaseComponents/GModal.vue";
 import LoadingSpan from "../LoadingSpan.vue";
 import TourStep from "./TourStep.vue";
 
-/** Popup display duration when auto-playing the tour */
-const PLAY_DELAY = 3000;
+/** Allow time to read even short steps when auto-playing the tour. */
+const MIN_PLAY_DELAY = 10000;
+/** Reading time per word at 200 words per minute, plus time to orient to each step. */
+const WORD_DELAY = 300;
+const STEP_DELAY = 2000;
 
 const props = defineProps<{
     steps: TourStepType[];
@@ -33,10 +36,13 @@ const router = useRouter();
 
 const errorMessage = ref("");
 const isPlaying = ref(false);
+const isAdvancing = ref(false);
+let playTimeout: ReturnType<typeof setTimeout> | undefined;
+let isActive = true;
 
 // Store variables
 const historyStore = useHistoryStore();
-const { currentHistory, historiesLoading } = storeToRefs(historyStore);
+const { currentHistory } = storeToRefs(historyStore);
 const { currentUser } = storeToRefs(useUserStore());
 const tourStore = useTourStore();
 const { currentTour } = storeToRefs(tourStore);
@@ -82,12 +88,12 @@ const modalContents = computed<{
             variant: "danger",
             ok: async () => {
                 errorMessage.value = "";
-                isPlaying.value = false;
+                pause();
             },
         };
     }
 
-    if (historiesLoading.value) {
+    if (!currentHistory.value || !currentUser.value) {
         return {
             title: "Preparing Tour",
             message: "Evaluating Requirements",
@@ -162,6 +168,7 @@ watch(
             showModal.value = Boolean(newValue);
 
             if (showModal.value) {
+                pause();
                 await nextTick();
                 modalRef.value?.showModal?.();
             }
@@ -173,25 +180,61 @@ watch(
 start();
 
 onUnmounted(() => {
+    isActive = false;
+    pause();
+    window.removeEventListener("pointerdown", pause, true);
+    window.removeEventListener("keydown", pause, true);
     window.removeEventListener("keyup", handleKeyup);
 });
 
 function start() {
+    window.addEventListener("pointerdown", pause, true);
+    window.addEventListener("keydown", pause, true);
     window.addEventListener("keyup", handleKeyup);
 }
 
 function play(isCurrentlyPlaying: boolean) {
+    clearPlayTimeout();
     isPlaying.value = isCurrentlyPlaying;
     if (isPlaying.value) {
-        next();
+        scheduleNext();
     }
 }
 
+function clearPlayTimeout() {
+    clearTimeout(playTimeout);
+    playTimeout = undefined;
+}
+
+function pause() {
+    isPlaying.value = false;
+    clearPlayTimeout();
+}
+
+function scheduleNext() {
+    if (!isPlaying.value || isAdvancing.value || isLast.value || !currentStep.value || modalContents.value) {
+        return;
+    }
+
+    const { title, content } = currentStep.value;
+    const text = new DOMParser().parseFromString(`${title || ""} ${content || ""}`, "text/html").body.textContent || "";
+    const wordCount = text.trim().split(/\s+/).length;
+    playTimeout = setTimeout(next, Math.max(MIN_PLAY_DELAY, wordCount * WORD_DELAY + STEP_DELAY));
+}
+
 async function next() {
+    if (!isActive || isAdvancing.value || modalContents.value) {
+        return;
+    }
+    clearPlayTimeout();
+    isAdvancing.value = true;
     try {
         // do post-actions
         if (currentStep.value) {
             await props.onNext(currentStep.value);
+        }
+        if (!isActive) {
+            return;
         }
         // do pre-actions
         const nextIndex = currentIndex.value + 1;
@@ -199,25 +242,22 @@ async function next() {
             const nextStep = props.steps[nextIndex];
             if (nextStep) {
                 await props.onBefore(nextStep);
-
-                // automatically continues to next step if enabled, unless its the last one
-                if (isPlaying.value && nextIndex !== numberOfSteps.value - 1) {
-                    setTimeout(() => {
-                        if (isPlaying.value) {
-                            next();
-                        }
-                    }, PLAY_DELAY);
-                }
             }
         } else {
             // End Tour
             endTour();
         }
         // go to next step
-        currentIndex.value = nextIndex;
+        if (isActive) {
+            currentIndex.value = nextIndex;
+        }
     } catch (e) {
+        pause();
         errorMessage.value = errorMessageAsString(e);
+    } finally {
+        isAdvancing.value = false;
     }
+    scheduleNext();
 }
 
 /** Ends the tour
@@ -225,8 +265,9 @@ async function next() {
  * _In the case that_ `TourRunner` _is the parent, this will unmount the component._
  */
 function endTour() {
+    isActive = false;
     tourStore.setTour(undefined);
-    isPlaying.value = false;
+    pause();
     errorMessage.value = "";
 
     emit("end-tour");
@@ -289,6 +330,7 @@ function modalDismiss(ok = true) {
             :key="currentIndex"
             :step="currentStep"
             :is-playing="isPlaying"
+            :is-advancing="isAdvancing"
             :is-last="isLast"
             :waiting-on-element="waitingOnElement"
             @next="next"
