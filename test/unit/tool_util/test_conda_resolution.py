@@ -3,7 +3,10 @@ import tempfile
 
 import pytest
 
-from galaxy.tool_util.deps import DependencyManager
+from galaxy.tool_util.deps import (
+    CachedDependencyManager,
+    DependencyManager,
+)
 from galaxy.tool_util.deps.conda_util import (
     best_search_result,
     CondaContext,
@@ -22,7 +25,24 @@ from galaxy.tool_util.deps.resolvers.conda import (
     DEFAULT_ENSURE_CHANNELS,
     MergedCondaDependency,
 )
+from galaxy.util.bunch import Bunch
 from .util import external_dependency_management
+
+
+def test_cached_environment_path_recorded(tmp_path, monkeypatch):
+    manager = CachedDependencyManager(str(tmp_path))
+    context = CondaContext(conda_prefix=str(tmp_path / "conda"))
+    dependency = CondaDependency(context, "/job/conda-env", exact=True, name="samtools", version="1.10")
+    requirement = ToolRequirement(name="samtools", version="1.10", type="package")
+    monkeypatch.setattr(manager, "_requirements_to_dependencies_dict", lambda *args, **kwds: {requirement: dependency})
+    cache_path = manager.get_hashed_dependencies_path([dependency])
+    os.makedirs(cache_path)
+    tool = Bunch(dependencies=[])
+
+    commands = manager.dependency_shell_commands(ToolRequirements([requirement]), tool_instance=tool)
+
+    assert tool.dependencies[0]["environment_path"] == cache_path
+    assert any(cache_path in command for command in commands)
 
 
 @external_dependency_management

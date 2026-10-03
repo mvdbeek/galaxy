@@ -431,6 +431,8 @@ class CachedDependencyManager(DependencyManager):
         if os.path.exists(hashed_dependencies_dir):
             [dep.set_cache_path(hashed_dependencies_dir) for dep in cacheable_dependencies]
         commands = [dep.shell_commands() for dep in resolved_dependencies.values()]
+        if "tool_instance" in kwds:
+            kwds["tool_instance"].dependencies = [dep.to_dict() for dep in resolved_dependencies.values()]
         return commands
 
     def hash_dependencies(self, resolved_dependencies):

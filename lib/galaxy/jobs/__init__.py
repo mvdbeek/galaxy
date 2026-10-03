@@ -1168,6 +1168,8 @@ class MinimalJobWrapper(HasResourceParameters):
             self._dependency_shell_commands = self.tool.build_dependency_shell_commands(
                 job_directory=self.working_directory
             )
+            self.get_job().set_dependencies(self.tool.dependencies)
+            self.sa_session.commit()
         return self._dependency_shell_commands
 
     @property
@@ -1351,7 +1353,7 @@ class MinimalJobWrapper(HasResourceParameters):
             self.app.tool_data_tables.to_json(
                 path=os.path.join(self.working_directory, "metadata", "outputs_new", "tool_data_tables.json")
             )
-        job.dependencies = self.tool.dependencies
+        job.set_dependencies([])
         self.sa_session.add(job)
         self.sa_session.commit()
         log.debug(f"Job wrapper for Job [{job.id}] prepared {prepare_timer}")

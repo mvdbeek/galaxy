@@ -4,6 +4,8 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
 from galaxy import model
 from galaxy.app_unittest_utils import galaxy_mock
 from galaxy.app_unittest_utils.tools_support import UsesApp
@@ -48,6 +50,82 @@ class TestErrorReporter(TestCase, UsesApp):
         assert "cat1" in email_json["body"]
         assert "cat1" in email_json["html"]
         assert TEST_USER_EMAIL == email_json["reply_to"]
+
+    @pytest.mark.parametrize("dependencies", [None, []])
+    def test_environment_not_recorded(self, dependencies):
+        user, hda = self._setup_model_objects()
+        job = hda.creating_job
+        job.dependencies = dependencies
+        self._commit_objects([job])
+
+        EmailErrorReporter(hda, self.app).send_report(user, email=TEST_USER_SUPPLIED_EMAIL)
+
+        email_json = json.loads(self.email_path.read_text())
+        assert "container id: Not recorded" in email_json["body"]
+        assert "container type: Not recorded" in email_json["body"]
+        assert "job dependencies:\nNot recorded" in email_json["body"]
+        assert "<td>Container ID</td><td>Not recorded</td>" in email_json["html"]
+        assert "<td>Container Type</td><td>Not recorded</td>" in email_json["html"]
+        assert "<h4>Job Dependencies</h4>" in email_json["html"]
+
+    def test_recorded_dependencies(self):
+        user, hda = self._setup_model_objects()
+        job = hda.creating_job
+        dependencies = [
+            {
+                "name": "samtools",
+                "version": "1.10",
+                "dependency_type": "conda",
+                "environment_path": "/conda/envs/samtools<1.10>",
+            },
+            {
+                "name": "bwa",
+                "version": "0.7.17",
+                "dependency_type": "conda",
+                "environment_path": "/jobs/1/conda-env",
+            },
+            {
+                "name": "other",
+                "version": "1.0",
+                "dependency_type": "galaxy_package",
+                "path": "/dependencies/other/1.0",
+            },
+        ]
+        job.dependencies = dependencies
+        self._commit_objects([job])
+
+        EmailErrorReporter(hda, self.app).send_report(user, email=TEST_USER_SUPPLIED_EMAIL)
+
+        email_json = json.loads(self.email_path.read_text())
+        reported_dependencies = email_json["body"].split("job dependencies:\n", 1)[1].split("\n---", 1)[0]
+        assert json.loads(reported_dependencies) == dependencies
+        assert "/conda/envs/samtools&lt;1.10&gt;" in email_json["html"]
+        assert "/conda/envs/samtools<1.10>" not in email_json["html"]
+        assert "/jobs/1/conda-env" in email_json["html"]
+        assert "/dependencies/other/1.0" in email_json["html"]
+
+    @pytest.mark.parametrize("container_type", ["docker", "singularity"])
+    def test_recorded_container_metrics(self, container_type):
+        user, hda = self._setup_model_objects()
+        job = hda.creating_job
+        container_id = "quay.io/biocontainers/samtools:1.10<test>"
+        job.add_metric("core", "container_id", container_id)
+        job.add_metric("core", "container_type", container_type)
+        job.add_metric("env", "container_id", "unrelated-container")
+        job.add_metric("env", "SECRET_TOKEN", "secret-value")
+        self._commit_objects([job])
+
+        EmailErrorReporter(hda, self.app).send_report(user, email=TEST_USER_SUPPLIED_EMAIL)
+
+        email_json = json.loads(self.email_path.read_text())
+        assert f"container id: {container_id}" in email_json["body"]
+        assert f"container type: {container_type}" in email_json["body"]
+        assert "quay.io/biocontainers/samtools:1.10&lt;test&gt;" in email_json["html"]
+        assert container_id not in email_json["html"]
+        assert f"<td>Container Type</td><td>{container_type}</td>" in email_json["html"]
+        for report in (email_json["body"], email_json["html"]):
+            assert "unrelated-container" not in report
+            assert "secret-value" not in report
 
     def test_workflow_error_reporting(self):
         user, invocation, trans = self._setup_invocation_model_objects()

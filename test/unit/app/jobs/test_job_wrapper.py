@@ -94,12 +94,36 @@ class AbstractTestCases:
             with self._prepared_wrapper() as wrapper:
                 assert TEST_DEPENDENCIES_COMMANDS == wrapper.dependency_shell_commands
 
+        def test_dependency_resolution_saved_on_job(self, monkeypatch):
+            wrapper = self._wrapper()
+            tool = wrapper.tool
+            assert tool is not None
+            dependencies = [{"dependency_type": "conda", "environment_path": "/jobs/345/conda-env"}]
+
+            def resolve(job_directory):
+                tool.dependencies = dependencies
+                return TEST_DEPENDENCIES_COMMANDS
+
+            monkeypatch.setattr(tool, "build_dependency_shell_commands", resolve)
+            assert wrapper.dependency_shell_commands == TEST_DEPENDENCIES_COMMANDS
+            assert self.job.get_dependencies() == dependencies
+
+            tool.dependencies = []
+            assert wrapper.dependency_shell_commands == TEST_DEPENDENCIES_COMMANDS
+            assert self.job.get_dependencies() == dependencies
+
         @abc.abstractmethod
         def _wrapper(self) -> JobWrapper:
             pass
 
 
 class TestJobWrapper(AbstractTestCases.BaseWrapperTestCase):
+    def test_prepare_clears_previous_tool_dependency_resolution(self):
+        wrapper = self._wrapper()
+        wrapper.tool.dependencies = [{"environment_path": "/previous-job/conda-env"}]
+        with self._prepared_wrapper():
+            assert self.job.get_dependencies() == []
+
     def _wrapper(self):
         return JobWrapper(self.job, self.queue)
 

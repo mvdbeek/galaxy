@@ -2,6 +2,7 @@
 Functionality for dealing with tool errors.
 """
 
+import json
 import string
 
 import markupsafe
@@ -9,6 +10,10 @@ import markupsafe
 from galaxy import (
     model,
     util,
+)
+from galaxy.job_metrics.instrumenters.core import (
+    CONTAINER_ID,
+    CONTAINER_TYPE,
 )
 from galaxy.security.validate_user_input import validate_email_str
 from galaxy.util import unicodify
@@ -41,6 +46,11 @@ tool id: ${job_tool_id}
 tool version: ${tool_version}
 job pid or drm id: ${job_runner_external_id}
 job tool version: ${job_tool_version}
+container id: ${container_id}
+container type: ${container_type}
+-----------------------------------------------------------------------------
+job dependencies:
+${job_dependencies}
 -----------------------------------------------------------------------------
 job command line:
 ${job_command_line}
@@ -95,8 +105,15 @@ Job environment and execution information is available at the job <a href="${hda
         <tr><td>Tool Version</td><td>${tool_version}</td></tr>
         <tr style="background-color: #f2f2f2"><td>Job PID or DRM id</td><td>${job_runner_external_id}</td></tr>
         <tr><td>Job Tool Version</td><td>${job_tool_version}</td></tr>
+        <tr style="background-color: #f2f2f2"><td>Container ID</td><td>${container_id}</td></tr>
+        <tr><td>Container Type</td><td>${container_type}</td></tr>
     </tbody>
 </table>
+
+<h4>Job Dependencies</h4>
+<pre style="white-space: pre-wrap;background: #eeeeee;border:1px solid black;padding:1em;">
+${job_dependencies}
+</pre>
 
 <h3>Job Execution and Failure Information</h3>
 
@@ -192,6 +209,11 @@ class ErrorReporter:
             else:
                 email_str = "'%s'" % (email or "anonymous")
 
+        container_metrics = {
+            metric.metric_name: metric.metric_value
+            for metric in job.text_metrics
+            if metric.plugin == "core" and metric.metric_name in (CONTAINER_ID, CONTAINER_TYPE)
+        }
         report_variables = dict(
             host=host,
             dataset_id_encoded=self.app.security.encode_id(hda.dataset_id),
@@ -206,6 +228,9 @@ class ErrorReporter:
             job_tool_id=job.tool_id,
             job_tool_version=hda.tool_version,
             job_runner_external_id=job.job_runner_external_id,
+            container_id=container_metrics.get(CONTAINER_ID) or "Not recorded",
+            container_type=container_metrics.get(CONTAINER_TYPE) or "Not recorded",
+            job_dependencies=json.dumps(job.dependencies, indent=2) if job.dependencies else "Not recorded",
             job_command_line=job.command_line,
             job_stderr=util.unicodify(job.stderr),
             job_stdout=util.unicodify(job.stdout),
