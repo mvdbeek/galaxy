@@ -1506,7 +1506,14 @@ class MinimalJobWrapper(HasResourceParameters):
             if exception:
                 # Save the traceback immediately in case we generate another
                 # below
-                job.traceback = unicodify(traceback.format_exc(), strip_null=True)
+                job.traceback = unicodify(
+                    (
+                        exception.traceback
+                        if isinstance(exception, store.FileTracebackException)
+                        else traceback.format_exc()
+                    ),
+                    strip_null=True,
+                )
                 # Get the exception and let the tool attempt to generate
                 # a better message
                 etype, evalue, tb = sys.exc_info()
@@ -2133,8 +2140,8 @@ class MinimalJobWrapper(HasResourceParameters):
         job = self.get_job()
 
         def fail(message=job.info, exception=None):
-            if not isinstance(exception, (AssertionError, MessageException)):
-                # Only attach MessageException and AssertionErrors to job.traceback
+            if not isinstance(exception, (AssertionError, MessageException, store.FileTracebackException)):
+                # Only attach expected failures to job.traceback.
                 exception = None
             return self.fail(
                 message,
@@ -2227,9 +2234,18 @@ class MinimalJobWrapper(HasResourceParameters):
                 if object_import_tracker.job_states_by_id.get(job.id) == job.states.ERROR:
                     final_job_state = job.states.ERROR
             except store.FileTracebackException as e:
-                job.traceback = e.traceback
-                log.exception(f"Problem generating command line for Job {job.id}.\n{job.traceback}")
-                return fail(str(e), exception=e)
+                message = "Job failed during external metadata processing. See the job traceback for details."
+                log.exception("Job %s failed during external metadata processing.\n%s", job.id, e.traceback)
+                return fail(message, exception=e)
+            except store.ModelStoreNotFoundException as e:
+                message = (
+                    "Job failed during external metadata processing: the output model store is missing. "
+                    "Check the set_metadata process logs. If using Celery, check the Celery worker logs and ensure "
+                    "its Galaxy version and Python dependencies match the server. "
+                    f"{e}"
+                )
+                log.exception("Job %s: %s", job.id, message)
+                return fail(message)
             except Exception as e:
                 log.exception(f"problem importing job outputs. stdout [{job.stdout}] stderr [{job.stderr}]")
                 return fail(str(e), exception=e)

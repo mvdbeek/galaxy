@@ -1532,7 +1532,12 @@ class ObjectImportTracker:
 
 class FileTracebackException(Exception):
     def __init__(self, traceback: str, *args, **kwargs) -> None:
+        super().__init__("Failed to import model store: an error traceback was recorded.")
         self.traceback = traceback
+
+
+class ModelStoreNotFoundException(Exception):
+    pass
 
 
 def get_import_model_store_for_directory(
@@ -1540,13 +1545,13 @@ def get_import_model_store_for_directory(
 ) -> Union["DirectoryImportModelStore1901", "DirectoryImportModelStoreLatest"]:
     traceback_file = os.path.join(archive_dir, TRACEBACK)
     if not os.path.isdir(archive_dir):
-        raise Exception(
+        raise ModelStoreNotFoundException(
             f"Could not find import model store for directory [{archive_dir}] (full path [{os.path.abspath(archive_dir)}])"
         )
+    if os.path.exists(traceback_file):
+        with open(traceback_file) as tb:
+            raise FileTracebackException(traceback=tb.read())
     if os.path.exists(os.path.join(archive_dir, ATTRS_FILENAME_EXPORT)):
-        if os.path.exists(traceback_file):
-            with open(traceback_file) as tb:
-                raise FileTracebackException(traceback=tb.read())
         return DirectoryImportModelStoreLatest(archive_dir, **kwd)
     else:
         return DirectoryImportModelStore1901(archive_dir, **kwd)

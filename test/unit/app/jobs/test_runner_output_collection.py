@@ -13,6 +13,7 @@ from galaxy.jobs.runners import (
     BaseJobRunner,
     JobState,
 )
+from galaxy.model import store
 from galaxy.tool_util.output_checker import AnyJobMessage
 from galaxy.tool_util.parser.stdio import StdioErrorLevel
 
@@ -60,6 +61,60 @@ def finishing_job(tmp_path, request):
 
 def finish(runner, state):
     runner._finish_or_resubmit_job(state, job_stdout="runner stdout", job_stderr="runner stderr")
+
+
+def test_missing_metadata_store_fails_with_diagnostics(finishing_job, tmp_path, caplog):
+    _, state, job = finishing_job
+    wrapper = state.job_wrapper
+    wrapper.external_output_metadata.extended = True
+    wrapper.get_tool_provided_job_metadata.return_value.has_failed_outputs.return_value = False
+
+    JobWrapper.finish(wrapper, "tool stdout", "tool stderr", tool_exit_code=0)
+
+    assert job.state == job.states.ERROR
+    assert "external metadata processing" in job.info
+    assert "set_metadata" in job.info
+    assert "Celery worker" in job.info
+    assert "Python dependencies" in job.info
+    assert str(tmp_path / "metadata" / "outputs_populated") in job.info
+    assert job.tool_stdout == "tool stdout"
+    assert job.tool_stderr == "tool stderr"
+    assert job.exit_code == 0
+    assert job.info in caplog.text
+
+
+@pytest.mark.parametrize("has_export_attrs", [False, True])
+@pytest.mark.parametrize("finishing_job", [model.Job], indirect=True)
+def test_metadata_traceback_is_preserved(finishing_job, tmp_path, caplog, has_export_attrs):
+    _, state, job = finishing_job
+    wrapper = state.job_wrapper
+    wrapper.external_output_metadata.extended = True
+    wrapper.get_tool_provided_job_metadata.return_value.has_failed_outputs.return_value = False
+    export_dir = tmp_path / "metadata" / "outputs_populated"
+    export_dir.mkdir(parents=True)
+    traceback_message = "FileNotFoundError: metadata/params.json"
+    (export_dir / store.TRACEBACK).write_text(traceback_message)
+    if has_export_attrs:
+        (export_dir / store.ATTRS_FILENAME_EXPORT).write_text("{}")
+
+    engine = create_engine("sqlite:///:memory:")
+    try:
+        model.Base.metadata.create_all(engine)
+        with Session(engine, autoflush=False) as session:
+            wrapper.sa_session = session
+            session.add(job)
+            session.commit()
+
+            JobWrapper.finish(wrapper, "tool stdout", "tool stderr", tool_exit_code=0)
+            session.expire_all()
+
+            assert job.state == job.states.ERROR
+            assert "external metadata processing" in job.info
+            assert job.traceback == traceback_message
+            assert "external metadata processing" in caplog.text
+            assert traceback_message in caplog.text
+    finally:
+        engine.dispose()
 
 
 @pytest.mark.parametrize("missing", [("stdout",), ("stderr",), ("stdout", "stderr")])

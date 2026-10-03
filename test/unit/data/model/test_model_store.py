@@ -788,6 +788,26 @@ def test_import_traceback_handling():
     assert exc.value.traceback == traceback_message
 
 
+def test_import_missing_model_store(tmp_path):
+    archive_dir = str(tmp_path / "missing")
+    with pytest.raises(store.ModelStoreNotFoundException) as exc:
+        store.get_import_model_store_for_directory(archive_dir)
+    assert archive_dir in str(exc.value)
+
+
+@pytest.mark.parametrize("has_export_attrs", [False, True])
+def test_import_traceback_before_export_attrs(tmp_path, has_export_attrs):
+    traceback_message = "ModuleNotFoundError: No module named 'missing_dependency'"
+    (tmp_path / store.TRACEBACK).write_text(traceback_message)
+    if has_export_attrs:
+        (tmp_path / store.ATTRS_FILENAME_EXPORT).write_text("{}")
+
+    with pytest.raises(store.FileTracebackException) as exc:
+        store.get_import_model_store_for_directory(str(tmp_path))
+    assert exc.value.traceback == traceback_message
+    assert "error traceback was recorded" in str(exc.value)
+
+
 def test_export_history_with_orphan_icjja(tmp_path):
     """Orphan ImplicitCollectionJobsJobAssociation rows (job_id NULL) are
     persisted by the import path when an ICJ references a job key not in
