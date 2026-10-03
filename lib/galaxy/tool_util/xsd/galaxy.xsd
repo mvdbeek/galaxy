@@ -78,6 +78,7 @@ List of behavior changes associated with profile versions:
 
 ### 26.2
 
+- Abort tool execution if an output `filter` raises an exception, instead of ignoring the exception and creating the output.
 - Do not implicitly load the default `galaxy.json` tool-provided metadata file. Tools must opt in by explicitly setting
   `provided_metadata_file` or `provided_metadata_style`, using `format="auto"`, or declaring a
   `discover_datasets` collector with `from_provided_metadata="true"` (represented as
@@ -6671,6 +6672,12 @@ appear as ``$options.selection_mode`` in Cheetah. Similarly ``options["vcf_outpu
 would appear as ``$options.vcf_output`` having the values ``'--vcf'`` when true and
 ``''`` when false in Cheetah.
 Note that also parameters in sections are accessed via a dictionary.
+
+For tools with ``profile="26.2"`` or newer, an exception while evaluating a filter aborts tool execution.
+The error identifies the tool, output, and filter expression. Older profiles ignore the exception and continue
+evaluating any remaining filters, creating the output if none excludes it. Guard references to parameters in
+inactive conditional branches, as in the example below. Output discovery before execution may evaluate filters
+with incomplete inputs and tolerates exceptions regardless of the profile.
 
 ### Example
 

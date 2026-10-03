@@ -1,5 +1,7 @@
 import string
+from types import SimpleNamespace
 from typing import (
+    Any,
     cast,
 )
 
@@ -7,7 +9,10 @@ import pytest
 
 from galaxy import model
 from galaxy.app_unittest_utils import tools_support
-from galaxy.exceptions import UserActivationRequiredException
+from galaxy.exceptions import (
+    MessageException,
+    UserActivationRequiredException,
+)
 from galaxy.managers.context import ProvidesHistoryContext
 from galaxy.objectstore import BaseObjectStore
 from galaxy.tool_util.parser.output_objects import ToolOutput
@@ -21,6 +26,7 @@ from galaxy.tools.actions import (
     determine_output_format,
 )
 from galaxy.tools.execution_helpers import (
+    filter_output,
     on_text_for_dataset_and_collections,
     on_text_for_numeric_ids,
 )
@@ -117,6 +123,42 @@ def test_on_text_for_dataset_and_collections():
     assert_on_text_is("dataset 1 and SampleA and SampleB", [1], None, ["SampleA", "SampleB"])
 
 
+@pytest.mark.parametrize("raise_on_error", [False, True])
+@pytest.mark.parametrize(
+    "filters, expected",
+    [([], False), (["True"], False), (["False"], True), (["True", "False"], True), (["param1 == 'moo'"], False)],
+)
+def test_output_filters(filters, expected, raise_on_error):
+    tool = SimpleNamespace(id="test_tool")
+    output = SimpleNamespace(name="out1", filters=[XML(f"<filter>{expression}</filter>") for expression in filters])
+    assert filter_output(tool, output, {"param1": "moo"}, raise_on_error=raise_on_error) is expected
+
+
+@pytest.mark.parametrize(
+    "expression, error_type",
+    [
+        ("missing", NameError),
+        ("options['missing']", KeyError),
+        ("param1.missing", AttributeError),
+        ("'bed' in optional", TypeError),
+        ("True and", SyntaxError),
+    ],
+)
+def test_output_filter_errors(expression, error_type):
+    tool = SimpleNamespace(id="test_tool")
+    output = SimpleNamespace(name="out1", filters=[XML(f"<filter>{expression}</filter>")])
+    incoming: dict[str, Any] = {"options": {}, "param1": "moo", "optional": None}
+    assert filter_output(tool, output, incoming) is False
+    with pytest.raises(MessageException) as exc_info:
+        filter_output(tool, output, incoming, raise_on_error=True)
+    assert isinstance(exc_info.value.__cause__, error_type)
+    assert f"Tool test_tool output out1: output filter ({expression}) failed:" in str(exc_info.value)
+
+    # An ignored error does not prevent a later filter from excluding the output.
+    output.filters.append(XML("<filter>False</filter>"))
+    assert filter_output(tool, output, incoming) is True
+
+
 class TestDefaultToolAction(TestCase, tools_support.UsesTools):
     def test_on_text_multiple_true_collection(self):
         # Create a collection with three datasets
@@ -155,6 +197,35 @@ class TestDefaultToolAction(TestCase, tools_support.UsesTools):
         _, output = self._simple_execute()
         assert len(output) == 1
         assert "out1" in output
+
+    def test_output_filter_error_legacy_profile(self):
+        for profile in [None, "26.1"]:
+            _, output = self._simple_execute(contents=self._output_filter_tool(profile))
+            assert "out1" in output
+
+    def test_output_filter_error_new_profile(self):
+        for output_type in ["data", "collection"]:
+            with pytest.raises(MessageException, match="Tool test_tool output out1: output filter"):
+                self._simple_execute(contents=self._output_filter_tool("26.2", output_type=output_type))
+
+    def test_output_filter_new_profile_valid(self):
+        for expression, expected_count in [("param1 == 'moo'", 1), ("param1 != 'moo'", 0)]:
+            _, output = self._simple_execute(contents=self._output_filter_tool("26.2", expression=expression))
+            assert len(output) == expected_count
+
+    @staticmethod
+    def _output_filter_tool(profile, output_type="data", expression="missing"):
+        profile_attribute = f'profile="{profile}"' if profile else ""
+        output_attributes = 'format="txt"' if output_type == "data" else 'type="list"'
+        return f"""<tool id="test_tool" name="Test Tool" version="1.0" {profile_attribute}>
+            <command>echo "$param1"</command>
+            <inputs><param type="text" name="param1" /></inputs>
+            <outputs>
+                <{output_type} name="out1" {output_attributes}>
+                    <filter>{expression}</filter>
+                </{output_type}>
+            </outputs>
+        </tool>"""
 
     def test_output_label(self):
         _, output = self._simple_execute()

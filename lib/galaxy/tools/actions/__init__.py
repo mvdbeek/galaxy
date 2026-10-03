@@ -673,7 +673,7 @@ class DefaultToolAction(ToolAction):
         child_dataset_names: set[str] = set()
 
         for name, output in tool.outputs.items():
-            if not filter_output(tool, output, incoming):
+            if not filter_output(tool, output, incoming, raise_on_error=Version(str(tool.profile)) >= Version("26.2")):
                 handle_output_timer = ExecutionTimer()
                 if tool_output_is_collection(output):  # Only XML tools include collections in tool.outputs
                     if completed_job and dataset_collection_elements and name in dataset_collection_elements:

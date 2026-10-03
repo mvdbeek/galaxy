@@ -9,6 +9,7 @@ from typing import Any
 
 from more_itertools import consecutive_groups
 
+from galaxy.exceptions import MessageException
 from galaxy.managers.context import ProvidesUserContext
 
 log = logging.getLogger(__name__)
@@ -42,13 +43,21 @@ class ToolExecutionCache:
         return chrom_info_pair
 
 
-def filter_output(tool, output, incoming):
+def filter_output(tool, output, incoming, *, raise_on_error: bool = False):
+    """Return whether to exclude an output, optionally failing on invalid filters.
+
+    Output discovery can run with incomplete inputs, so only execution should
+    enable strict error handling.
+    """
     for filter in output.filters:
         try:
             if not eval(filter.text.strip(), globals(), incoming):
                 return True  # do not create this dataset
         except Exception as e:
-            log.debug(f"Tool {tool.id} output {output.name}: dataset output filter ({filter.text}) failed: {e}")
+            message = f"Tool {tool.id} output {output.name}: output filter ({filter.text}) failed: {e}"
+            if raise_on_error:
+                raise MessageException(message) from e
+            log.debug(message)
     return False
 
 
