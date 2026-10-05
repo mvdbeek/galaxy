@@ -56,6 +56,7 @@ from galaxy.job_execution.compute_environment import SharedComputeEnvironment
 from galaxy.job_execution.output_collect import (
     collect_extra_files,
     collect_shrinked_content_from_path,
+    PermissionProvider,
 )
 from galaxy.job_execution.setup import (
     create_working_directory_for_job,
@@ -2132,6 +2133,7 @@ class MinimalJobWrapper(HasResourceParameters):
                         return fail(f"Job {job.id}'s output dataset(s) could not be read")
 
         job_context = ExpressionContext(dict(stdout=tool_stdout, stderr=tool_stderr))
+        imported_hdas: list[model.HistoryDatasetAssociation] = []
         if extended_metadata:
             try:
                 import_options = store.ImportOptions(allow_dataset_object_edit=True, allow_edit=True)
@@ -2143,6 +2145,10 @@ class MinimalJobWrapper(HasResourceParameters):
                     tag_handler=self.app.tag_handler.create_tag_handler_session(job.galaxy_session),
                 )
                 object_import_tracker = import_model_store.perform_import(history=job.history, job=job)
+                imported_hdas = [
+                    *object_import_tracker.hdas_by_key.values(),
+                    *object_import_tracker.hdas_by_id.values(),
+                ]
                 # The import leaves job.state untouched so nothing polling the job can see it finish before
                 # exec_after_process and the final commit below have run.
                 if object_import_tracker.job_states_by_id.get(job.id) == job.states.ERROR:
@@ -2161,6 +2167,18 @@ class MinimalJobWrapper(HasResourceParameters):
 
         output_dataset_associations = job.output_datasets + job.output_library_datasets
         inp_data, out_data, out_collections = job.io_dicts()
+
+        if extended_metadata:
+            # Datasets discovered during remote metadata collection are imported without permissions. Datasets
+            # expanded into the history (fetch with elements_from) are not job outputs, so cover all imported HDAs.
+            permission_provider = PermissionProvider(inp_data, self.app.security_agent, job)
+            seen_datasets = set()
+            for hda in [dataset_assoc.dataset for dataset_assoc in job.output_datasets] + imported_hdas:
+                if hda.dataset in seen_datasets:
+                    continue
+                seen_datasets.add(hda.dataset)
+                if not hda.dataset.actions:
+                    permission_provider.set_default_hda_permissions(hda)
 
         if not extended_metadata:
             # importing metadata will discover outputs if extended metadata

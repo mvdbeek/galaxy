@@ -88,6 +88,13 @@ class PermissionProvider(AbstractPermissionProvider):
             existing_datasets = [inp for inp in inp_data.values() if inp]
             if existing_datasets:
                 permissions = self._security_agent.guess_derived_permissions_for_datasets(existing_datasets)
+                # Like explicit outputs, keep the history's default access restriction when the
+                # inputs are less restrictive (https://github.com/galaxyproject/galaxy/issues/21802).
+                if self._job.history is not None:
+                    default_permissions = self._security_agent.history_get_default_permissions(self._job.history)
+                    access_action = self._security_agent.get_action("access")
+                    if access_action in default_permissions and access_action not in permissions:
+                        permissions[access_action] = default_permissions[access_action]
             else:
                 # No valid inputs, we will use history defaults
                 permissions = self._security_agent.history_get_default_permissions(self._job.history)
