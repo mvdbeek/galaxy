@@ -63,3 +63,13 @@ def test_get_if_set_returns_default_for_nonexistent_key(sa_session):
     sa_session.commit()
     assert hda.metadata.get_if_set("nonexistent_key") is None
     assert hda.metadata.get_if_set("nonexistent_key", "fallback") == "fallback"
+
+
+def test_from_json_dict_drops_elements_missing_from_spec(sa_session):
+    hda = HistoryDatasetAssociation(extension="bed")
+    sa_session.add(hda)
+    # A dataset set before an element was removed from its datatype still carries it.
+    hda._metadata = {"retired_element": "stale", "columns": 3, "__extension__": "bed"}
+    hda.metadata.from_JSON_dict(json_dict={"columns": 3})
+    assert hda._metadata == {"columns": 3, "__extension__": "bed"}
+    assert hda.metadata.retired_element is None
