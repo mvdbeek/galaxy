@@ -276,11 +276,6 @@ class MetadataCollection(Mapping):
             dataset.validated_state = JSONified_dict["__validated_state__"]
         if "__validated_state_message__" in JSONified_dict:
             dataset.validated_state_message = JSONified_dict["__validated_state_message__"]
-        for name in list(dataset._metadata):
-            # Elements the (possibly just sniffed) datatype does not define, e.g. a retired one,
-            # are never externally set, so drop them instead of keeping a stale value.
-            if name not in self.spec and not name.startswith("__"):
-                del dataset._metadata[name]
         flag_modified(dataset, "_metadata")
 
     def to_JSON_dict(self, filename=None):
