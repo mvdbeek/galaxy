@@ -552,7 +552,7 @@ class GroupModel(Model, WithModelClass):
     """User group model"""
 
     model_class: GROUP_MODEL_CLASS = ModelClassField(GROUP_MODEL_CLASS)
-    id: DecodedDatabaseIdField = Field(
+    id: EncodedDatabaseIdField = Field(
         ...,  # ...
         title="ID",
         description="Encoded group ID",
@@ -3937,7 +3937,7 @@ class PageSummaryBase(Model):
         default=None,
         title="Identifier",
         description="The identifying slug for the page URL, must be unique. Required for non-history pages.",
-        pattern=r"^[a-z0-9-]+$",
+        pattern=r"^[^/:?#]+$",
     )
 
 

@@ -13,6 +13,8 @@ from sqlalchemy.orm.exc import DetachedInstanceError
 
 from galaxy.datatypes.sniff import (
     convert_function,
+    FilePrefix,
+    should_convert_text,
     stream_url_to_file,
 )
 from galaxy.exceptions import ObjectAttributeInvalidException
@@ -234,6 +236,7 @@ class DatasetInstanceMaterializer:
                 include_tags=attached,
                 include_metadata=True,
             )
+            materialized_dataset_instance.name = dataset_instance.name
         elif replacement_dataset:
             materialized_dataset_instance.dataset = replacement_dataset.dataset
             materialized_dataset_instance.dataset_id = replacement_dataset.dataset_id
@@ -283,16 +286,19 @@ class DatasetInstanceMaterializer:
             else:
                 raise Exception(f"Failed to materialize dataset, unknown transformation action {action} applied.")
         if to_posix_lines or spaces_to_tabs:
-            convert_fxn = convert_function(to_posix_lines, spaces_to_tabs)
-            convert_result = convert_fxn(path, False)
-            assert convert_result.converted_path
-            path = convert_result.converted_path
-            if convert_result.converted_newlines:
-                applied_transforms.append({"action": "to_posix_lines"})
-            if convert_result.converted_regex:
-                # TODO: rename this converted_regex nonsense to converted_spaces to match upload
-                # utility used in data_fetch.py.
-                applied_transforms.append({"action": "spaces_to_tabs"})
+            file_prefix = FilePrefix(path)
+            # deferred sources are never decompressed, so compressed content must be left untouched
+            if should_convert_text(file_prefix, is_compressed=bool(file_prefix.compressed_format)):
+                convert_fxn = convert_function(to_posix_lines, spaces_to_tabs)
+                convert_result = convert_fxn(path, False)
+                assert convert_result.converted_path
+                path = convert_result.converted_path
+                if convert_result.converted_newlines:
+                    applied_transforms.append({"action": "to_posix_lines"})
+                if convert_result.converted_regex:
+                    # TODO: rename this converted_regex nonsense to converted_spaces to match upload
+                    # utility used in data_fetch.py.
+                    applied_transforms.append({"action": "spaces_to_tabs"})
         if datatype_groom and datatype.dataset_content_needs_grooming(path):
             datatype.groom_dataset_content(path)
             applied_transforms.append(

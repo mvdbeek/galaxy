@@ -1,5 +1,7 @@
+import posixpath
 import re
 from enum import Enum
+from pathlib import PurePosixPath
 from typing import (
     List,
     Optional,
@@ -9,6 +11,7 @@ from typing import (
 from pydantic import (
     ConfigDict,
     Field,
+    field_validator,
     model_validator,
     with_config,
 )
@@ -23,7 +26,20 @@ from typing_extensions import (
 from ._base import ToolSourceBaseModel
 
 
+def is_relative_subpath(path: str) -> bool:
+    """Whether ``path`` names an entry below the directory it is joined to, judged lexically."""
+    pure_path = PurePosixPath(path)
+    return (
+        "\0" not in path
+        and not pure_path.is_absolute()
+        and bool(pure_path.parts)
+        and posixpath.pardir not in pure_path.parts
+    )
+
+
 class Container(ToolSourceBaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     type: Literal["docker", "singularity"]
     container_id: str
 
@@ -33,6 +49,8 @@ class Requirement(ToolSourceBaseModel):
 
 
 class ContainerRequirement(ToolSourceBaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     type: Literal["container"]
     container: Container
 
@@ -62,6 +80,17 @@ ResourceRequirementValue = Union[int, float, str, None]
 
 
 class ResourceRequirement(ToolSourceBaseModel):
+    """A tool's compute resource request.
+
+    Set the minimum resources needed to run the job and, when useful, an upper
+    limit. Galaxy exposes the allocated CPU count to the command as
+    ``$GALAXY_SLOTS``. Use numbers or numeric strings. Other strings are
+    reserved for expressions, which are not supported yet: a non-numeric value
+    fails the create-time lint check.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
     type: Literal["resource"]
     cores_min: Annotated[
         ResourceRequirementValue, Field(description=f"{cores_min_description}\n{cores_description}")
@@ -71,14 +100,38 @@ class ResourceRequirement(ToolSourceBaseModel):
     ] = None
     ram_min: Annotated[ResourceRequirementValue, Field(description=f"{ram_min_description}\n{ram_description}")] = 256
     ram_max: Annotated[ResourceRequirementValue, Field(description=f"{ram_max_description}\n{ram_description}")] = None
-    tmpdir_min: ResourceRequirementValue = None
-    tmpdir_max: ResourceRequirementValue = None
-    cuda_version_min: ResourceRequirementValue = None
-    cuda_compute_capability: ResourceRequirementValue = None
-    gpu_memory_min: ResourceRequirementValue = None
-    cuda_device_count_min: ResourceRequirementValue = None
-    cuda_device_count_max: ResourceRequirementValue = None
-    shm_size: ResourceRequirementValue = None
+    tmpdir_min: Annotated[
+        ResourceRequirementValue,
+        Field(description="Minimum reserved temporary directory space, in mebibytes (2**20)."),
+    ] = None
+    tmpdir_max: Annotated[
+        ResourceRequirementValue,
+        Field(description="Maximum reserved temporary directory space, in mebibytes (2**20)."),
+    ] = None
+    cuda_version_min: Annotated[
+        ResourceRequirementValue,
+        Field(description="Minimum CUDA runtime version required, e.g. 11.2."),
+    ] = None
+    cuda_compute_capability: Annotated[
+        ResourceRequirementValue,
+        Field(description="Minimum CUDA compute capability required, e.g. 7.5."),
+    ] = None
+    gpu_memory_min: Annotated[
+        ResourceRequirementValue,
+        Field(description="Minimum GPU memory required, in mebibytes (2**20)."),
+    ] = None
+    cuda_device_count_min: Annotated[
+        ResourceRequirementValue,
+        Field(description="Minimum number of GPUs to reserve."),
+    ] = None
+    cuda_device_count_max: Annotated[
+        ResourceRequirementValue,
+        Field(description="Maximum number of GPUs to reserve."),
+    ] = None
+    shm_size: Annotated[
+        ResourceRequirementValue,
+        Field(description="Size of /dev/shm to request, in bytes."),
+    ] = None
     timelimit: Annotated[
         ResourceRequirementValue,
         Field(description="Maximum time in seconds the tool is allowed to run. Job will be terminated if exceeded."),
@@ -86,6 +139,8 @@ class ResourceRequirement(ToolSourceBaseModel):
 
 
 class JavascriptRequirement(ToolSourceBaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     type: Literal["javascript"]
     expression_lib: Optional[
         List[
@@ -93,7 +148,10 @@ class JavascriptRequirement(ToolSourceBaseModel):
                 str,
                 Field(
                     title="expression_lib",
-                    description="Provide Javascript/ECMAScript 5.1 code here that will be available for expressions inside the `shell_command` field.",
+                    description=(
+                        "Provide Javascript/ECMAScript 5.1 code here that will be available for expressions "
+                        "inside `shell_command` and `configfiles[*].content`."
+                    ),
                     examples=[r"""function pickValue() {
     if (inputs.conditional_parameter.test_parameter == "a") {
         return inputs.conditional_parameter.integer_parameter
@@ -145,7 +203,22 @@ class XmlTemplateConfigFile(TemplateConfigFile):
 
 
 class YamlTemplateConfigFile(TemplateConfigFile):
+    model_config = ConfigDict(extra="forbid")
+
     eval_engine: Literal["ecmascript"] = "ecmascript"
+
+    @field_validator("filename", mode="after")
+    @classmethod
+    def _check_relative_filename(cls, filename: Optional[str]) -> Optional[str]:
+        # The file is linked below the job working directory, so the name must be a
+        # relative path that names a file and cannot climb out of that directory.
+        if filename is not None and not is_relative_subpath(filename):
+            raise PydanticCustomError(
+                "dynamic_tool.configfile_filename_invalid",
+                "configfile filename '{filename}' must be a relative path without '..' components",
+                {"filename": filename},
+            )
+        return filename
 
 
 # DOI: '10.<registrant>/<suffix>' per Crossref's published shape.
@@ -159,6 +232,8 @@ BIBTEX_RE = re.compile(r"^@[a-zA-Z]+\s*\{", re.MULTILINE)
 
 
 class Citation(ToolSourceBaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     type: str
     content: str
 
@@ -205,8 +280,14 @@ class Citation(ToolSourceBaseModel):
 
 
 class HelpContent(ToolSourceBaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     format: Literal["restructuredtext", "plain_text", "markdown"]
     content: str
+
+
+class MarkdownHelpContent(HelpContent):
+    format: Literal["markdown"]
 
 
 StdioExitCodeRangeValue = Union[int, float, Literal["-inf", "inf"]]

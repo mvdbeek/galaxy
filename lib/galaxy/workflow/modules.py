@@ -12,8 +12,11 @@ from typing import (
     Any,
     cast,
     get_args,
+    NamedTuple,
     Optional,
+    Protocol,
     TYPE_CHECKING,
+    TypeAlias,
     Union,
 )
 
@@ -32,6 +35,7 @@ from galaxy.job_execution.compute_environment import ComputeEnvironment
 from galaxy.managers.credentials import _build_user_credentials_query
 from galaxy.model import (
     DatasetInstance,
+    DynamicTool,
     HistoryDatasetCollectionAssociation,
     Job,
     PostJobAction,
@@ -62,6 +66,7 @@ from galaxy.schema.invocation import (
     InvocationFailureStepInputDeleted,
     InvocationFailureWhenNotBoolean,
     InvocationFailureWorkflowParameterInvalid,
+    InvocationUnexpectedFailure,
 )
 from galaxy.tool_util.cwl.util import set_basename_and_derived_properties
 from galaxy.tool_util.parser import get_input_source
@@ -86,7 +91,10 @@ from galaxy.tools.execute import (
     PartialJobExecution,
 )
 from galaxy.tools.execution_helpers import filter_output
-from galaxy.tools.expressions import do_eval
+from galaxy.tools.expressions import (
+    do_eval,
+    resolve_isolation_command,
+)
 from galaxy.tools.parameters import (
     check_param,
     params_to_incoming,
@@ -129,7 +137,6 @@ from galaxy.util import (
 from galaxy.util.bunch import Bunch
 from galaxy.util.json import safe_loads
 from galaxy.util.rules_dsl import RuleSet
-from galaxy.util.template import fill_template
 from galaxy.util.tool_shed.common_util import get_tool_shed_url_from_tool_shed_registry
 from galaxy.util.tool_version import remove_version_from_guid
 from galaxy.workflow.workflow_parameter_input_definitions import (
@@ -160,8 +167,94 @@ class OptionDict(TypedDict):
     selected: bool
 
 
+class InputConnection(Protocol):
+    """Anything naming a connected step input, e.g. a ``WorkflowStepConnection``."""
+
+    @property
+    def input_name(self) -> str: ...
+
+
+class ConnectedInputName(NamedTuple):
+    """Connection known only by input name, before step connections exist."""
+
+    input_name: str
+
+
 class ConditionalStepWhen(BooleanToolParameter):
     pass
+
+
+ExpressionJsonValue: TypeAlias = Union[None, bool, int, float, str, list, dict]
+
+# Values accepted while connecting workflow outputs and defaults to tool inputs.
+StepInputReplacement: TypeAlias = Union[
+    NoReplacement,
+    model.HistoryItem,
+    model.DatasetCollectionElement,
+    PromoteCollectionElementToCollectionAdapter,
+    ExpressionJsonValue,
+]
+
+
+# Workflow schedulers may temporarily see a just-written expression.json as missing
+# or empty on shared filesystems. Bound retries by dataset update time so permanently
+# malformed datasets eventually fail.
+EXPRESSION_JSON_GRACE_PERIOD_SECONDS = 60
+
+
+def read_expression_json(
+    dataset_instance: model.DatasetInstance, step: Optional[WorkflowStep] = None
+) -> ExpressionJsonValue:
+    """Return the value stored in an ``expression.json`` dataset.
+
+    With a workflow step, delay a recent missing or invalid dataset and fail once its
+    grace period elapses. Other read errors, and all errors without a step, propagate
+    unchanged.
+    """
+    try:
+        with open(dataset_instance.get_file_name()) as f:
+            # safe_loads preserves non-container JSON values as their source text.
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError) as e:
+        if step is None:
+            # Job-side callers do not handle workflow-control exceptions.
+            raise
+        # str(e) can contain the dataset path, keep that out of the invocation message.
+        problem = e.msg if isinstance(e, json.JSONDecodeError) else "file not found"
+        details = f"Contents of expression.json dataset {dataset_instance.id} could not be read: {problem}"
+        log.exception("%s. Dataset was last updated at %s.", details, dataset_instance.update_time)
+        # A dataset without a known update time counts as old, so that a permanently
+        # unreadable dataset can never delay the invocation indefinitely.
+        recently_updated = (
+            dataset_instance.update_time is not None
+            and dataset_instance.seconds_since_updated < EXPRESSION_JSON_GRACE_PERIOD_SECONDS
+        )
+        if recently_updated:
+            raise DelayedWorkflowEvaluation(why=details)
+        raise FailWorkflowEvaluation(
+            why=InvocationUnexpectedFailure(
+                reason=FailureReason.unexpected_failure,
+                details=details,
+                workflow_step_id=step.id,
+            )
+        )
+
+
+def replace_expression_json_dataset(
+    replacement: StepInputReplacement, step: Optional[WorkflowStep] = None
+) -> StepInputReplacement:
+    """Resolve a non-data parameter connected to an ``expression.json`` output to its value.
+
+    Anything not backed by an ``expression.json`` dataset is returned unchanged.
+    """
+    dataset_instance: Optional[model.DatasetInstance] = None
+    if isinstance(replacement, model.DatasetCollectionElement):
+        dataset_instance = replacement.hda
+    elif isinstance(replacement, model.DatasetInstance):
+        dataset_instance = replacement
+    if dataset_instance is not None and dataset_instance.extension == "expression.json":
+        return read_expression_json(dataset_instance, step=step)
+    return replacement
 
 
 def to_cwl(
@@ -196,9 +289,7 @@ def to_cwl(
                     )
                 )
         if value.ext == "expression.json":
-            with open(value.get_file_name()) as f:
-                # OUR safe_loads won't work, will not load numbers, etc...
-                return json.load(f)
+            return read_expression_json(value, step=step)
         else:
             hda_references.append(value)
             properties = {
@@ -286,10 +377,14 @@ def evaluate_value_from_expressions(progress, step, execution_state, extra_step_
         if when_expression == "${inputs.when}":
             # Fallback for workflows defined on 23.0
             when_expression = "$(inputs.when)"
+        isolation_command = resolve_isolation_command(
+            progress.module_injector.trans.app.config.expression_evaluation_isolation_command
+        )
         try:
             as_cwl_value = do_eval(
                 when_expression,
                 step_state,
+                sandbox_command=isolation_command,
             )
         except Exception:
             # Exception contains script and traceback, which could be helpful for debugging workflows,
@@ -457,7 +552,7 @@ class WorkflowModule:
         module, try to update. Returns a list of messages to be displayed
         """
 
-    def add_dummy_datasets(self, connections=None, steps=None):
+    def add_dummy_datasets(self, connections: Optional[Iterable[InputConnection]] = None, steps=None):
         """Replace connected inputs with placeholder/dummy values."""
 
     def get_config_form(self, step=None):
@@ -614,9 +709,9 @@ class WorkflowModule:
         for input_dict in all_inputs:
             name = input_dict["name"]
             data = progress.replacement_for_input(self.trans, step, input_dict)
-            can_map_over = hasattr(data, "collection") and data.collection.allow_implicit_mapping
-
-            if not can_map_over:
+            if not isinstance(data, (model.DatasetCollectionInstance, model.DatasetCollectionElement)):
+                continue
+            if not data.collection.allow_implicit_mapping:
                 continue
 
             is_data_param = input_dict["input_type"] == "dataset"
@@ -685,9 +780,7 @@ class WorkflowModule:
                     collections_to_match.add(name, data, subcollection_type=subcollection_type_description)
                 continue
 
-            if data is not NO_REPLACEMENT:
-                collections_to_match.add(name, data)
-                continue
+            collections_to_match.add(name, data)
 
         known_input_names = {input_dict["name"] for input_dict in all_inputs}
 
@@ -2334,31 +2427,44 @@ class ToolModule(WorkflowModule):
             if tool_id:
                 tool_id = remove_version_from_guid(tool_id) or tool_id
             kwds = dict(kwds, exact_tools=False)
-        if tool_id is None and tool_uuid is None:
-            tool_representation = d.get("tool_representation")
-            if tool_representation:
-                if tool_representation.get("class") == "GalaxyUserTool":
-                    # User-defined tool embedded in the workflow: create it as a
-                    # private UDT owned by the importing user. Requires
-                    # USER_TOOL_EXECUTE; create_unprivileged_tool raises
-                    # InsufficientPermissionsException otherwise.
-                    if trans.user is None:
-                        raise exceptions.InsufficientPermissionsException(
-                            "User is not allowed to run unprivileged tools"
-                        )
-                    unprivileged_request = DynamicUnprivilegedToolCreatePayload(representation=tool_representation)
-                    dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool(
-                        trans.user, unprivileged_request
-                    )
-                else:
-                    if not trans.user_is_admin:
-                        raise exceptions.AdminRequiredException("Only admin users can create tools dynamically.")
-                    create_request = DynamicToolCreatePayload(src="representation", representation=tool_representation)
-                    dynamic_tool = trans.app.dynamic_tool_manager.create_tool(create_request)
+        tool_representation = d.get("tool_representation")
+        if tool_representation and tool_representation.get("class") == "GalaxyUserTool":
+            # User-defined tool embedded in the workflow. A referenced tool the
+            # importing user owns is reused; otherwise (an export by another
+            # user or from another Galaxy) the embedded definition becomes a
+            # private UDT owned by the importing user. Requires
+            # USER_TOOL_EXECUTE; create_unprivileged_tool raises
+            # InsufficientPermissionsException otherwise.
+            if trans.user is None:
+                raise exceptions.InsufficientPermissionsException("User is not allowed to run unprivileged tools")
+            if not (tool_uuid and trans.app.toolbox.get_unprivileged_tool_or_none(trans.user, tool_uuid=tool_uuid)):
+                unprivileged_request = DynamicUnprivilegedToolCreatePayload(representation=tool_representation)
+                dynamic_tool = trans.app.dynamic_tool_manager.create_unprivileged_tool(trans.user, unprivileged_request)
                 tool_uuid = dynamic_tool.uuid
+        elif tool_representation and tool_id is None and tool_uuid is None:
+            if not trans.user_is_admin:
+                raise exceptions.AdminRequiredException("Only admin users can create tools dynamically.")
+            create_request = DynamicToolCreatePayload(src="representation", representation=tool_representation)
+            dynamic_tool = trans.app.dynamic_tool_manager.create_tool(create_request)
+            tool_uuid = dynamic_tool.uuid
         if tool_id is None and tool_uuid is None:
             raise exceptions.RequestParameterInvalidException(f"No content id could be located for for step [{d}]")
         module = super().from_dict(trans, d, tool_id=tool_id, tool_version=tool_version, tool_uuid=tool_uuid, **kwds)
+        # Steps that embed ``tool_representation`` are exported workflows, which may carry any
+        # tool_id, and still import. A step that references a user-defined tool only by uuid
+        # must name it consistently.
+        if (
+            tool_id is not None
+            and tool_uuid is not None
+            and not d.get("tool_representation")
+            and module.tool
+            and module.tool.is_unprivileged_tool
+            and tool_id != module.tool.id
+        ):
+            raise exceptions.RequestParameterInvalidException(
+                f"tool_id '{tool_id}' does not match user-defined tool {tool_uuid} (id '{module.tool.id}'); "
+                f"omit tool_id or pass '{module.tool.id}' when referencing a tool by tool_uuid"
+            )
         module.post_job_actions = d.get("post_job_actions", {})
         module.workflow_outputs = d.get("workflow_outputs", [])
         if module.tool:
@@ -2374,11 +2480,12 @@ class ToolModule(WorkflowModule):
 
     @classmethod
     def from_workflow_step(Class, trans, step, **kwds):
+        tool_id = step.effective_tool_id
         tool_version = step.tool_version
         tool_uuid = step.tool_uuid
         kwds["exact_tools"] = False
         module = super().from_workflow_step(
-            trans, step, tool_id=step.tool_id, tool_version=tool_version, tool_uuid=tool_uuid, **kwds
+            trans, step, tool_id=tool_id, tool_version=tool_version, tool_uuid=tool_uuid, **kwds
         )
         module.workflow_outputs = step.workflow_outputs
         module.post_job_actions = {}
@@ -2386,13 +2493,10 @@ class ToolModule(WorkflowModule):
             module.post_job_actions[pja.action_type] = pja
         if module.tool:
             message = ""
-            if (
-                step.tool_id
-                and step.tool_id != module.tool.id
-                or step.tool_version
-                and step.tool_version != module.tool.version
+            if tool_id and (
+                tool_id != module.tool.id or step.tool_version and step.tool_version != module.tool.version
             ):  # This means the exact version of the tool is not installed. We inform the user.
-                old_tool_shed = step.tool_id.split("/repos/")[0]
+                old_tool_shed = tool_id.split("/repos/")[0]
                 if (
                     old_tool_shed not in module.tool.id
                 ):  # Only display the following warning if the tool comes from a different tool shed
@@ -2409,12 +2513,12 @@ class ToolModule(WorkflowModule):
             if step.tool_version and (
                 step.tool_version != module.tool.version and not get_safe_version(module.tool, step.tool_version)
             ):
-                message += f"<span title=\"tool id '{step.tool_id}'\">Using version '{module.tool.version}' instead of version '{step.tool_version}' specified in this workflow. "
+                message += f"<span title=\"tool id '{tool_id}'\">Using version '{module.tool.version}' instead of version '{step.tool_version}' specified in this workflow. "
             if message:
                 log.debug(message)
                 module.version_changes.append(message)
         else:
-            log.warning(f"The tool '{step.tool_id}' is missing. Cannot build workflow module.")
+            log.warning(f"The tool '{tool_id}' is missing. Cannot build workflow module.")
         return module
 
     # ---- Saving in various forms ------------------------------------------
@@ -2429,7 +2533,12 @@ class ToolModule(WorkflowModule):
         if tool_uuid := getattr(self, "tool_uuid", None):
             tool = self.trans.app.toolbox.get_tool(tool_uuid=tool_uuid, user=self.trans.user)
             if tool:
-                step.dynamic_tool_id = tool.dynamic_tool.id
+                # Set the relationship, not just the foreign key, so unsaved steps (refactor
+                # dry runs) can resolve the tool through it.
+                step.dynamic_tool = self.trans.sa_session.get(DynamicTool, tool.dynamic_tool_id)
+                if tool.is_unprivileged_tool:
+                    # Identified by ``dynamic_tool``, see ``WorkflowStep.effective_tool_id``.
+                    step.tool_id = None
         if not detached:
             for k, v in self.post_job_actions.items():
                 pja = self.__to_pja(k, v, step)
@@ -2564,13 +2673,11 @@ class ToolModule(WorkflowModule):
                         formats.append(format)
                 if tool_output.label:
                     try:
-                        params = make_dict_copy(self.state.inputs)
-                        params["on_string"] = "input dataset(s)"
-                        params["tool"] = self.tool
-                        extra_kwds["label"] = fill_template(
+                        extra_kwds["label"] = self.tool.render_output_label(
                             tool_output.label,
-                            context=params,
-                            python_template_version=self.tool.python_template_version,
+                            make_dict_copy(self.state.inputs),
+                            "input dataset(s)",
+                            tool_state=self.state.inputs,
                         )
                     except Exception:
                         pass
@@ -2590,7 +2697,7 @@ class ToolModule(WorkflowModule):
         if self.tool:
             return self.tool.check_and_update_param_values(self.state.inputs, self.trans, workflow_building_mode=True)
 
-    def add_dummy_datasets(self, connections=None, steps=None):
+    def add_dummy_datasets(self, connections: Optional[Iterable[InputConnection]] = None, steps=None):
         if self.tool:
             if connections:
                 # Store connections by input name
@@ -2749,8 +2856,9 @@ class ToolModule(WorkflowModule):
     ) -> Optional[bool]:
         invocation = invocation_step.workflow_invocation
         step = invocation_step.workflow_step
+        tool_id = step.effective_tool_id
         tool = trans.app.toolbox.get_tool(
-            step.tool_id, tool_version=step.tool_version, tool_uuid=step.tool_uuid, user=trans.user
+            tool_id, tool_version=step.tool_version, tool_uuid=step.tool_uuid, user=trans.user
         )
         if not tool.is_workflow_compatible:
             # TODO: why do we even create an invocation, seems like something we could check on submit?
@@ -2799,9 +2907,7 @@ class ToolModule(WorkflowModule):
             def callback(input, prefixed_name: str, **kwargs):
                 input_dict = all_inputs_by_name[prefixed_name]
 
-                replacement: Union[model.Dataset, NoReplacement, PromoteCollectionElementToCollectionAdapter] = (
-                    NO_REPLACEMENT
-                )
+                replacement: StepInputReplacement = NO_REPLACEMENT
                 if iteration_elements and prefixed_name in iteration_elements:  # noqa: B023
                     replacement = iteration_elements[prefixed_name]  # noqa: B023
                     # When mapping flat collections over paired_or_unpaired via
@@ -2824,14 +2930,7 @@ class ToolModule(WorkflowModule):
                 if replacement is not NO_REPLACEMENT:
                     if not isinstance(input, BaseDataToolParameter):
                         # Probably a parameter that can be replaced
-                        dataset_instance: Optional[model.DatasetInstance] = None
-                        if isinstance(replacement, model.DatasetCollectionElement):
-                            dataset_instance = replacement.hda
-                        elif isinstance(replacement, model.DatasetInstance):
-                            dataset_instance = replacement
-                        if dataset_instance and dataset_instance.extension == "expression.json":
-                            with open(dataset_instance.get_file_name()) as f:
-                                replacement = json.load(f)
+                        replacement = replace_expression_json_dataset(replacement, step)
                     found_replacement_keys.add(prefixed_name)  # noqa: B023
 
                     # bool cast should be fine, can only have true/false on ConditionalStepWhen

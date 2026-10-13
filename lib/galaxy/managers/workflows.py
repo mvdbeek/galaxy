@@ -56,11 +56,13 @@ from galaxy.managers import (
     sharable,
 )
 from galaxy.managers.base import (
+    apply_sort_column,
     decode_id,
     security_check,
 )
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.managers.executables import artifact_class
+from galaxy.managers.tools import DynamicToolManager
 from galaxy.model import (
     History,
     StoredWorkflow,
@@ -84,6 +86,7 @@ from galaxy.model.item_attrs import UsesAnnotations
 from galaxy.schema.invocation import InvocationCancellationUserRequest
 from galaxy.schema.schema import WorkflowIndexQueryPayload
 from galaxy.structured_app import MinimalManagerApp
+from galaxy.tool_util_models.dynamic_tool_models import DynamicUnprivilegedToolCreatePayload
 from galaxy.tools.parameters import (
     params_to_incoming,
     visit_input_values,
@@ -111,6 +114,7 @@ from galaxy.util.search import (
 )
 from galaxy.work.context import WorkRequestContext
 from galaxy.workflow.modules import (
+    ConnectedInputName,
     module_factory,
     PickValueModule,
     SubWorkflowModule,
@@ -153,6 +157,16 @@ INDEX_SEARCH_FILTERS = {
 }
 
 
+def _tool_steps(workflow: model.Workflow) -> list[model.WorkflowStep]:
+    steps = []
+    for step in workflow.steps:
+        if step.type == "tool":
+            steps.append(step)
+        elif step.type == "subworkflow" and step.subworkflow:
+            steps.extend(_tool_steps(step.subworkflow))
+    return steps
+
+
 class WorkflowsManager(sharable.SharableModelManager[model.StoredWorkflow], deletable.DeletableManagerMixin):
     """Handle CRUD type operations related to workflows. More interesting
     stuff regarding workflow execution, step sorting, etc... can be found in
@@ -163,9 +177,32 @@ class WorkflowsManager(sharable.SharableModelManager[model.StoredWorkflow], dele
     foreign_key_name = "stored_workflow"
     user_share_model = model.StoredWorkflowUserShareAssociation
 
-    def __init__(self, app: MinimalManagerApp):
+    def __init__(self, app: MinimalManagerApp, dynamic_tool_manager: DynamicToolManager):
         super().__init__(app)
         self.app = app
+        self.dynamic_tool_manager = dynamic_tool_manager
+
+    def copy_workflow_for_user(self, user: model.User, workflow: model.Workflow) -> model.Workflow:
+        """Copy ``workflow`` for ``user``, with private copies of the user-defined tools they don't own."""
+        # Created before copying, so a user who may not create user-defined tools
+        # gets an error instead of a workflow they cannot run.
+        tool_copies: dict[int, model.DynamicTool] = {}
+        for step in _tool_steps(workflow):
+            dynamic_tool = step.dynamic_tool
+            if dynamic_tool is None or dynamic_tool.public or dynamic_tool.id in tool_copies:
+                continue
+            if dynamic_tool.uuid is None or self.dynamic_tool_manager.get_unprivileged_tool_by_uuid(
+                user, dynamic_tool.uuid
+            ):
+                continue
+            tool_copies[dynamic_tool.id] = self.dynamic_tool_manager.create_unprivileged_tool(
+                user, DynamicUnprivilegedToolCreatePayload(representation=dynamic_tool.value)
+            )
+        copied_workflow = workflow.copy(user=user)
+        for step in _tool_steps(copied_workflow):
+            if step.dynamic_tool is not None and step.dynamic_tool.id in tool_copies:
+                step.dynamic_tool = tool_copies[step.dynamic_tool.id]
+        return copied_workflow
 
     def index_query(
         self, trans: ProvidesUserContext, payload: WorkflowIndexQueryPayload, include_total_count: bool = False
@@ -288,9 +325,7 @@ class WorkflowsManager(sharable.SharableModelManager[model.StoredWorkflow], dele
             stmt = stmt.order_by(desc(StoredWorkflow.update_time))
         else:
             sort_column = getattr(StoredWorkflow, payload.sort_by)
-            if payload.sort_desc:
-                sort_column = sort_column.desc()
-            stmt = stmt.order_by(sort_column)
+            stmt = apply_sort_column(stmt, sort_column, payload.sort_desc, StoredWorkflow.id)
         if payload.limit is not None:
             stmt = stmt.limit(payload.limit)
         if payload.offset is not None:
@@ -1149,12 +1184,13 @@ class WorkflowContentsManager(UsesAnnotations):
             step_model = None
             if step.type == "tool":
                 incoming: dict[str, Any] = {}
+                tool_id = step.effective_tool_id
                 tool = trans.app.toolbox.get_tool(
-                    step.tool_id, tool_version=step.tool_version, tool_uuid=step.tool_uuid, user=trans.user
+                    tool_id, tool_version=step.tool_version, tool_uuid=step.tool_uuid, user=trans.user
                 )
                 if not tool:
                     raise exceptions.MessageException(
-                        f"Following tool missing or inaccessible: '{step.tool_id}/{step.tool_uuid}'"
+                        f"Following tool missing or inaccessible: '{tool_id}/{step.tool_uuid}'"
                     )
                 assert step.state is not None
                 params_to_incoming(incoming, tool.inputs, step.state.inputs, trans.app)
@@ -1327,8 +1363,9 @@ class WorkflowContentsManager(UsesAnnotations):
                 step_dicts.append(step_dict)
                 continue
             if step.type == "tool":
-                tool = trans.app.toolbox.get_tool(step.tool_id, step.tool_version)
-                step_dict["tool_id"] = step.tool_id
+                tool_id = step.effective_tool_id
+                tool = trans.app.toolbox.get_tool(tool_id, step.tool_version, tool_uuid=step.tool_uuid, user=trans.user)
+                step_dict["tool_id"] = tool_id
                 step_dict["tool_version"] = step.tool_version
                 step_dict["label"] = step.label or tool.name
                 step_dict["inputs"] = do_inputs(tool.inputs, step.state.inputs, "", step)
@@ -1684,7 +1721,7 @@ class WorkflowContentsManager(UsesAnnotations):
                 "when": step.when_expression,
             }
             if step.type == "tool":
-                step_dict["tool_id"] = content_id if allow_upgrade else step.tool_id
+                step_dict["tool_id"] = content_id if allow_upgrade else step.effective_tool_id
                 step_dict["tool_uuid"] = str(step.tool_uuid) if step.tool_uuid else None
             # Add tool shed repository information and post-job actions to step dict.
             if isinstance(module, ToolModule):
@@ -1704,6 +1741,10 @@ class WorkflowContentsManager(UsesAnnotations):
                     if util.is_uuid(step_dict["content_id"]):
                         step_dict["content_id"] = None
                         step_dict["tool_id"] = None
+                        step_dict["tool_uuid"] = None
+                    elif step.user_defined_tool is not None and not internal:
+                        # A user-defined tool's uuid only resolves for its owner on this server;
+                        # a portable export carries the definition instead.
                         step_dict["tool_uuid"] = None
 
                 step_dict["post_job_actions"] = _step_pja_dict(step)
@@ -1886,7 +1927,7 @@ class WorkflowContentsManager(UsesAnnotations):
             step_dict = {
                 "id": step_id,
                 "type": step_type,
-                "tool_id": step.tool_id,
+                "tool_id": step.effective_tool_id,
                 "tool_uuid": str(step.tool_uuid) if step.tool_uuid else None,
                 "tool_version": step.tool_version,
                 "annotation": self.get_item_annotation_str(sa_session, stored.user, step),
@@ -2009,6 +2050,8 @@ class WorkflowContentsManager(UsesAnnotations):
         """Create a WorkflowStep model object and corresponding module
         representing type-specific functionality from the incoming dictionary.
         """
+        if "id" not in step_dict:
+            raise exceptions.ObjectAttributeMissingException("Workflow step is missing required 'id' attribute.")
         dry_run = kwds.get("dry_run", False)
         step = model.WorkflowStep()
         step.position = step_dict.get("position", model.WorkflowStep.DEFAULT_POSITION)
@@ -2018,6 +2061,11 @@ class WorkflowContentsManager(UsesAnnotations):
             step.label = step_dict["label"]
 
         module = module_factory.from_dict(trans, step_dict, detached=dry_run, **kwds)
+        connected_input_names = [name for name, conns in step_dict.get("input_connections", {}).items() if conns]
+        if connected_input_names and isinstance(module, ToolModule) and module.tool:
+            # Descriptions may carry no state for connected inputs (e.g. format2 `in:`), which
+            # recovering state fills with RuntimeValue - mark them connected before saving.
+            module.add_dummy_datasets(connections=[ConnectedInputName(name) for name in connected_input_names])
         self.__set_default_label(step, module, step_dict.get("tool_state"))
         module.save_to_step(step, detached=dry_run)
 
@@ -2338,15 +2386,15 @@ class WorkflowContentsManager(UsesAnnotations):
         tools = []
         for step in workflow.steps:
             if step.type == "tool":
-                if step.tool_id:
+                if tool_id := step.effective_tool_id:
                     if {
-                        "tool_id": step.tool_id,
+                        "tool_id": tool_id,
                         "tool_version": step.tool_version,
                         "tool_uuid": str(step.tool_uuid) if step.tool_uuid else None,
                     } not in tools:
                         tools.append(
                             {
-                                "tool_id": step.tool_id,
+                                "tool_id": tool_id,
                                 "tool_version": step.tool_version,
                                 "tool_uuid": str(step.tool_uuid) if step.tool_uuid else None,
                             }

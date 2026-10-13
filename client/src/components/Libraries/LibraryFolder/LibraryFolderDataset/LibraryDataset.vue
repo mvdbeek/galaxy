@@ -86,8 +86,13 @@
                         :value="row.item.value" />
                     <DatatypesProvider
                         v-else-if="row.item.name === fieldTitles.file_ext"
-                        v-slot="{ item: datatypes, loading: loadingDatatypes }">
+                        v-slot="{ item: datatypes, loading: loadingDatatypes, error: datatypesError }">
+                        <span v-if="datatypesError" data-test-id="datatypes-error">
+                            {{ dataset.file_ext }}
+                            <span class="text-danger">(Unable to load datatypes: {{ datatypesError }})</span>
+                        </span>
                         <SingleItemSelector
+                            v-else
                             collection-name="Data Types"
                             :loading="loadingDatatypes"
                             :items="datatypes"
@@ -134,7 +139,7 @@
         </div>
 
         <!-- Peek View -->
-        <div v-if="dataset.peek" data-test-id="peek-view" class="break-word" v-html="dataset.peek" />
+        <div v-if="dataset.peek" v-sanitize-html="dataset.peek" data-test-id="peek-view" class="break-word" />
     </div>
 </template>
 

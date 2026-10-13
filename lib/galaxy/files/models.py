@@ -1,5 +1,10 @@
 """Template-aware configuration models for file sources."""
 
+import logging
+from datetime import (
+    datetime,
+    timezone,
+)
 from typing import (
     Annotated,
     Any,
@@ -13,9 +18,13 @@ from typing import (
 
 from pydantic import (
     BaseModel,
+    BeforeValidator,
     ConfigDict,
     Field,
+    TypeAdapter,
+    ValidationError,
 )
+from typing_extensions import TypedDict
 
 from galaxy.files.sources._defaults import (
     DEFAULT_SCHEME,
@@ -34,6 +43,8 @@ from galaxy.util.template import fill_template
 
 if TYPE_CHECKING:
     from galaxy.files import OptionalUserContext
+
+log = logging.getLogger(__name__)
 
 
 class StrictModel(BaseModel):
@@ -341,10 +352,42 @@ class RemoteFileHash(StrictModel):
     hash_value: str
 
 
+# Timestamp values file sources hand to RemoteFile.ctime, see to_utc_datetime.
+RemoteFileTimestamp = Union[str, float, datetime, None]
+
+_DATETIME_ADAPTER = TypeAdapter(datetime)
+
+
+def to_utc_datetime(value: Any) -> Optional[datetime]:
+    """Parse a file source timestamp (epoch seconds, ISO 8601 string or datetime) as an aware UTC datetime.
+
+    Naive values are taken to be UTC. A value that cannot be parsed is dropped instead of failing the listing.
+    """
+    if value is None or value == "":
+        return None
+    try:
+        parsed = _DATETIME_ADAPTER.validate_python(value)
+    except ValidationError:
+        log.warning("Ignoring unparseable file source timestamp %r", value)
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
+
+
 class RemoteFile(RemoteEntry):
+    model_config = ConfigDict(validate_assignment=True)
+
     class_: Annotated[Literal["File"], Field(..., serialization_alias="class")] = "File"
     size: Annotated[int, Field(..., title="Size", description="The size of the file in bytes.")] = 0
-    ctime: Annotated[Optional[str], Field(title="Creation time", description="The creation time of the file.")] = None
+    ctime: Annotated[
+        Optional[datetime],
+        BeforeValidator(to_utc_datetime),
+        Field(
+            title="Creation time",
+            description="When the file was created or last modified, in UTC, or null if the file source does not report it.",
+        ),
+    ] = None
     hashes: Annotated[
         Optional[list[RemoteFileHash]],
         Field(
@@ -454,12 +497,22 @@ def resolve_file_source_template(
     return resolved_config_class(**expanded_dict)
 
 
-class FilesSourceRuntimeContext(Generic[TResolvedConfig]):
-    """Context for file source operations, providing user data and resolved configuration."""
+class RealizedSourceMetadata(TypedDict, total=False):
+    """What a file source learned while realizing a source - every key optional."""
 
-    def __init__(self, user_data: UserData, config: TResolvedConfig):
+    name: str
+
+
+class FilesSourceRuntimeContext(Generic[TResolvedConfig]):
+    """Context for file source operations: user data, resolved configuration, and an
+    optional channel for a source to report metadata back to the caller."""
+
+    def __init__(
+        self, user_data: UserData, config: TResolvedConfig, metadata_out: Optional[RealizedSourceMetadata] = None
+    ):
         self._user_data = user_data
         self._config = config
+        self._metadata_out = metadata_out
 
     @property
     def user_data(self) -> UserData:
@@ -470,3 +523,14 @@ class FilesSourceRuntimeContext(Generic[TResolvedConfig]):
     def config(self) -> TResolvedConfig:
         """Resolved configuration for the file source with all templates expanded."""
         return self._config
+
+    @property
+    def metadata_out(self) -> Optional[RealizedSourceMetadata]:
+        """Caller-supplied dict a file source may populate with metadata about the realized source.
+
+        This is how a file source reports back things it learns while realizing a
+        source that the caller cannot derive from the URI alone -- currently only the
+        DRS file source uses it, to report the object's ``name``. ``None`` when the
+        caller isn't interested.
+        """
+        return self._metadata_out

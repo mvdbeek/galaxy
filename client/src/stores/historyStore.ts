@@ -28,7 +28,7 @@ import {
     setCurrentHistoryOnServer,
     updateHistoryFields,
 } from "@/stores/services/history.services";
-import { isRetryableApiError, MAX_RETRIES, rethrowSimple } from "@/utils/simple-error";
+import { ApiError, isRetryableApiError, MAX_RETRIES, rethrowSimple } from "@/utils/simple-error";
 import { sortByObjectProp } from "@/utils/sorting";
 import {
     ACTIVE_POLLING_INTERVAL,
@@ -100,10 +100,15 @@ export const useHistoryStore = defineStore("historyStore", () => {
         return (historyId: string, shouldFetchIfMissing = true) => {
             if (!storedHistories.value[historyId] && shouldFetchIfMissing) {
                 const existingError = historyLoadErrors.value[historyId];
+                // Errors that are not an ``ApiError`` come from requests that got no response at all,
+                // which are retried like a 5xx response.
                 const canRetry =
-                    existingError && isRetryableApiError(existingError) && (retryCounts[historyId] ?? 0) <= MAX_RETRIES;
+                    existingError &&
+                    (isRetryableApiError(existingError) || !(existingError instanceof ApiError)) &&
+                    (retryCounts[historyId] ?? 0) <= MAX_RETRIES;
                 if (!existingError || canRetry) {
-                    loadHistoryById(historyId);
+                    // The failure is recorded in ``historyLoadErrors`` and shown by views reading ``getHistoryLoadError``.
+                    loadHistoryById(historyId).catch((e) => console.warn(`Failed to load history ${historyId}`, e));
                 }
             }
             return storedHistories.value[historyId] ?? null;
@@ -369,21 +374,20 @@ export const useHistoryStore = defineStore("historyStore", () => {
     async function loadHistories(paginate = true, queryString?: string) {
         if (!historiesLoading.value) {
             setHistoriesLoading(true);
-            let limit: number | null = null;
-            if (!queryString || queryString == "") {
-                if (paginate) {
-                    await loadTotalHistoryCount();
-                    if (historiesOffset.value >= totalHistoryCount.value) {
-                        setHistoriesLoading(false);
-                        return;
-                    }
-                    limit = PAGINATION_LIMIT;
-                } else {
-                    historiesOffset.value = 0;
-                }
-            }
-            const offset = queryString ? 0 : historiesOffset.value;
             try {
+                let limit: number | null = null;
+                if (!queryString || queryString == "") {
+                    if (paginate) {
+                        await loadTotalHistoryCount();
+                        if (historiesOffset.value >= totalHistoryCount.value) {
+                            return;
+                        }
+                        limit = PAGINATION_LIMIT;
+                    } else {
+                        historiesOffset.value = 0;
+                    }
+                }
+                const offset = queryString ? 0 : historiesOffset.value;
                 const histories = (await getHistoryList(offset, limit, queryString)) as HistorySummary[];
                 setHistories(histories);
                 if (paginate && !queryString && historiesOffset.value == offset) {
@@ -527,17 +531,24 @@ export const useHistoryStore = defineStore("historyStore", () => {
                     del(historyLoadErrors.value, historyId);
                     delete retryCounts[historyId];
                 }
+            } catch (error) {
+                retryCounts[historyId] = (retryCounts[historyId] ?? 0) + 1;
+                set(historyLoadErrors.value, historyId, error as Error);
+                throw error;
             } finally {
                 isLoadingHistory.delete(historyId);
             }
         }
     }
 
-    async function secureHistory(history: HistorySummary): Promise<{ sharingStatusChanged: boolean }> {
-        const { securedHistory, sharingStatusChanged } = await secureHistoryOnServer(history);
+    async function secureHistory(
+        history: HistorySummary,
+    ): Promise<{ sharingStatusChanged: boolean; skippedDatasets: number }> {
+        const { securedHistory, sharingStatusChanged, skippedDatasets } = await secureHistoryOnServer(history);
         setHistory(securedHistory);
         return {
             sharingStatusChanged,
+            skippedDatasets,
         };
     }
 

@@ -9,6 +9,8 @@ from typing import (
     Any,
     ClassVar,
     Dict,
+    FrozenSet,
+    get_args,
     List,
     Optional,
     Set,
@@ -50,7 +52,9 @@ from .tool_outputs import (
     IncomingToolOutput,
     IncomingToolOutputCollection,
     IncomingToolOutputDataset,
+    IncomingUserToolOutput,
     ToolOutput,
+    USER_TOOL_LABEL_REFERENCE_RE,
 )
 from .tool_source import (
     Citation,
@@ -58,6 +62,7 @@ from .tool_source import (
     ContainerRequirement,
     HelpContent,
     JavascriptRequirement,
+    MarkdownHelpContent,
     OutputCompareType,
     PackageRequirement,
     ResourceRequirement,
@@ -66,7 +71,42 @@ from .tool_source import (
     XrefDict,
     YamlTemplateConfigFile,
 )
-from .yaml_parameters import YamlGalaxyToolParameter
+from .yaml_parameters import (
+    YamlGalaxyParameterT,
+    YamlGalaxyToolParameter,
+)
+
+UserToolInputs = Annotated[
+    List[YamlGalaxyToolParameter],
+    Field(
+        description=(
+            "Parameters displayed on the tool form. Each item needs a unique `name` and a supported `type`. "
+            "Reference scalar values as `$(inputs.input_name)` and data inputs as "
+            "`$(inputs.input_name.path)` in "
+            "`shell_command` or config files. Conditional, repeat, and section inputs contain nested parameters."
+        )
+    ),
+]
+UserToolOutputs = Annotated[
+    List[IncomingUserToolOutput],
+    Field(
+        description=(
+            "Datasets and dataset collections Galaxy collects after the command finishes. A data output "
+            "identifies its produced file with `from_work_dir` or `discover_datasets`; a collection output "
+            "uses `discover_datasets`."
+        )
+    ),
+]
+DynamicToolOutputs = Annotated[
+    List[IncomingToolOutput],
+    Field(
+        description=(
+            "Results Galaxy collects after the command finishes. A data output identifies its produced file "
+            "with `from_work_dir` or `discover_datasets`; a collection output uses `discover_datasets`. "
+            "Scalar output types are `text`, `integer`, `float`, and `boolean`."
+        )
+    ),
+]
 
 
 def normalize_dict(values, keys: List[str]):
@@ -155,25 +195,40 @@ class _DynamicToolSourceBase(ToolSourceBaseModel):
         ),
     ] = None
     configfiles: Annotated[
-        Optional[List[YamlTemplateConfigFile]], Field(description="A list of config files for this tool.")
+        Optional[List[YamlTemplateConfigFile]],
+        Field(
+            description=(
+                "Files Galaxy writes into the job working directory before running the command. Their content "
+                "is evaluated with the same sandboxed ECMAScript expressions as `shell_command`. Put scripts "
+                "and other substantial command logic here, then keep `shell_command` to a short invocation."
+            )
+        ),
     ] = None
     requirements: Annotated[
         Optional[List[Union[JavascriptRequirement, ResourceRequirement, ContainerRequirement]]],
-        Field(
-            description="A list of requirements needed to execute this tool. These can be javascript expressions, resource requirements or container images."
-        ),
+        Field(description=("JavaScript helpers and compute resource requests needed to execute this tool.")),
     ] = []
     shell_command: Annotated[
         str,
         Field(
             title="shell_command",
-            description="A string that contains the command to be executed. Parameters can be referenced inside $().",
+            description=(
+                "A string that contains the command to be executed. Reference inputs inside `$()` as "
+                "`$(inputs.input_name)` for scalar values and `$(inputs.input_name.path)` for files; `${ ... }` evaluates a "
+                "JavaScript function body that must return a value. Substituted values are not shell-quoted, "
+                "so quote them yourself. Because `$(` and `${` are consumed by the expression evaluator, shell "
+                "command substitution and braced parameter expansion do not reach the shell: escape them as "
+                "`\\$(` and `\\${`, and prefer unbraced variables such as `$GALAXY_SLOTS`."
+            ),
             examples=["head -n '$(inputs.num_lines)' '$(inputs.input_file.path)' > output.txt"],
         ),
     ]
-    inputs: List[YamlGalaxyToolParameter] = []
-    outputs: List[IncomingToolOutput] = []
-    citations: Optional[List[Citation]] = None
+    inputs: UserToolInputs = []
+    outputs: DynamicToolOutputs = []
+    citations: Annotated[
+        Optional[List[Citation]],
+        Field(description="DOI or BibTeX references for publications describing the wrapped tool."),
+    ] = None
     license: Annotated[
         Optional[str],
         Field(
@@ -181,11 +236,28 @@ class _DynamicToolSourceBase(ToolSourceBaseModel):
             examples=["MIT"],
         ),
     ] = None
-    edam_operations: Optional[List[str]] = None
-    edam_topics: Optional[List[str]] = None
-    xrefs: Optional[List[XrefDict]] = None
+    edam_operations: Annotated[
+        Optional[List[str]],
+        Field(description="EDAM operation identifiers such as `operation_0308`."),
+    ] = None
+    edam_topics: Annotated[
+        Optional[List[str]],
+        Field(description="EDAM topic identifiers such as `topic_0102`."),
+    ] = None
+    xrefs: Annotated[
+        Optional[List[XrefDict]],
+        Field(description="External registry identifiers, each with a registry `type` and identifier `value`."),
+    ] = None
     profile: Optional[float] = None
-    help: Annotated[Optional[HelpContent], Field(description="Help text shown below the tool interface.")] = None
+    help: Annotated[
+        Optional[HelpContent],
+        Field(
+            description=(
+                "Help shown below the tool form. Set `format` to `markdown`, `restructuredtext`, or "
+                "`plain_text`, and put the documentation in `content`."
+            )
+        ),
+    ] = None
     # NOTE: `tests` is intentionally NOT declared here. It lives on the concrete
     # subclasses (`UserToolSource`, `YamlToolSource`) so that the slim
     # `UserToolSourceAuthoringView` can inherit everything *except* the test
@@ -216,6 +288,10 @@ class _DynamicToolSourceBase(ToolSourceBaseModel):
         referenced: Set[str] = _command_input_refs(self.shell_command)
         for configfile in self.configfiles or []:
             referenced |= _command_input_refs(configfile.content)
+        for output in self.outputs:
+            for match in USER_TOOL_LABEL_REFERENCE_RE.finditer(output.label or ""):
+                if match["input"]:
+                    referenced.add(match["input"])
         undeclared = sorted(referenced - declared_inputs)
         if undeclared:
             joined = "; ".join(
@@ -265,6 +341,29 @@ class CondaPackage(BaseModel):
     version: Optional[str] = None
 
 
+_USER_TOOL_SOURCE_FIELD_ORDER: Tuple[str, ...] = (
+    "class_",
+    "id",
+    "name",
+    "version",
+    "description",
+    "container",
+    "requirements",
+    "shell_command",
+    "configfiles",
+    "inputs",
+    "outputs",
+    "citations",
+    "license",
+    "profile",
+    "edam_operations",
+    "edam_topics",
+    "xrefs",
+    "help",
+    "tests",
+)
+
+
 # Schema-narrowed view of ``UserToolSource`` for LLM tool authoring.
 #
 # This is the *parent* of ``UserToolSource`` and carries every field and
@@ -287,17 +386,34 @@ class CondaPackage(BaseModel):
 class UserToolSourceAuthoringView(_DynamicToolSourceBase):
     """A Galaxy user-defined tool: a containerized shell command wrapped with typed inputs and outputs.
 
-    Provide the tool's identity (``id``, ``name``, ``version``), a ``container``
+    Provide the tool's identity (``id``, ``name``, ``version``), a container
     image to run in, and a ``shell_command`` that references inputs as
-    ``$(inputs.NAME)`` for scalar values or ``$(inputs.NAME.path)`` for files.
+    ``$(inputs.input_name)`` for scalar values or ``$(inputs.input_name.path)`` for files.
     Declare every referenced input under ``inputs`` and every produced file under
     ``outputs`` (each output must set ``from_work_dir`` or ``discover_datasets``).
     """
 
     class_: Annotated[Literal["GalaxyUserTool"], Field(alias="class")]
     container: Annotated[
-        str, Field(description="Container image to use for this tool.", examples=["quay.io/biocontainers/python:3.13"])
+        str,
+        Field(
+            description=(
+                "Docker container image for the tool, as a fully qualified "
+                "registry/repository:tag string. "
+                "This image is the tool's entire execution environment, so every command used by shell_command "
+                "must already exist in it. Do not prefix the value with 'docker://' -- Galaxy adds that itself "
+                "for Singularity and Apptainer destinations. An unqualified name is resolved against the "
+                "container runtime's own default registry (Docker Hub), which is rarely what you want."
+            ),
+            examples=["quay.io/biocontainers/python:3.13"],
+        ),
     ]
+    # User-defined tools select their image only through the top-level ``container``
+    # field, so the trusted-tool container requirement form is not offered here.
+    requirements: Annotated[
+        Optional[List[Union[JavascriptRequirement, ResourceRequirement]]],
+        Field(description="JavaScript helpers and compute resource requests needed to execute this tool."),
+    ] = []  # type: ignore[assignment]
     # Required here (it's optional on the base for stored/legacy rows). Galaxy's
     # linter rejects a versionless tool, so forcing it into the structured-output
     # ``required`` set stops the model dropping it -- notably on a retry, where the
@@ -311,38 +427,38 @@ class UserToolSourceAuthoringView(_DynamicToolSourceBase):
     # model to emit them. ``UserToolSource`` restores the lenient defaults so stored /
     # API-authored tools may still omit them. An empty list is allowed -- this forces the
     # key to be present, not non-empty.
-    inputs: List[YamlGalaxyToolParameter]
-    outputs: List[IncomingToolOutput]
+    inputs: UserToolInputs
+    # Pydantic intentionally narrows the mutable base-model list so the
+    # user-tool schema exposes only dataset and collection outputs.
+    outputs: UserToolOutputs  # type: ignore[assignment]
+    # User-defined tool help is author text, so it is limited to Markdown, which
+    # the client renders without raw HTML.
+    help: Annotated[
+        Optional[MarkdownHelpContent],
+        Field(
+            description="Help shown below the tool form. Set `format` to `markdown` and put the documentation in `content`."
+        ),
+    ] = None
 
     # Field declaration order puts subclass fields (class_, container) after
     # parent ones, which serializes them at the end. Re-order on dump so the
     # YAML the tool editor renders leads with identity + runtime.
-    _CANONICAL_FIELD_ORDER: ClassVar[Tuple[str, ...]] = (
-        "class_",
-        "id",
-        "name",
-        "version",
-        "description",
-        "container",
-        "requirements",
-        "shell_command",
-        "configfiles",
-        "inputs",
-        "outputs",
-        "citations",
-        "license",
-        "profile",
-        "edam_operations",
-        "edam_topics",
-        "xrefs",
-        "help",
-        "tests",
-    )
+    _CANONICAL_FIELD_ORDER: ClassVar[Tuple[str, ...]] = _USER_TOOL_SOURCE_FIELD_ORDER
+
+    @model_validator(mode="before")
+    @classmethod
+    def _require_container(cls, values):
+        if isinstance(values, dict) and values.get("container") is None:
+            raise PydanticCustomError(
+                "dynamic_tool.container_required",
+                "set the top-level container field",
+            )
+        return values
 
     @field_validator("container", mode="after")
     @classmethod
     def _reject_blank_container(cls, value: str) -> str:
-        if not value or not value.strip():
+        if not value.strip():
             raise PydanticCustomError(
                 "dynamic_tool.blank_container",
                 "container must not be empty",
@@ -381,15 +497,58 @@ class UserToolSource(UserToolSourceAuthoringView):
     back here so direct authors and stored rows can still carry tests.
     """
 
+    model_config = ConfigDict(
+        json_schema_extra={
+            "x-field-order": [
+                "class",
+                *[field for field in _USER_TOOL_SOURCE_FIELD_ORDER if field != "class_"],
+            ],
+            "examples": [
+                {
+                    "class": "GalaxyUserTool",
+                    "id": "remove_comments",
+                    "name": "Remove Comment Lines",
+                    "version": "0.1.0",
+                    "description": "from a text file",
+                    "container": "quay.io/biocontainers/grep:3.4--hf43ccf4_4",
+                    "shell_command": "grep -v '^#' '$(inputs.input_file.path)' > output.txt || test \"$?\" = 1",
+                    "inputs": [
+                        {
+                            "name": "input_file",
+                            "type": "data",
+                            "format": ["txt"],
+                        }
+                    ],
+                    "outputs": [
+                        {
+                            "name": "output_file",
+                            "type": "data",
+                            "format_source": "input_file",
+                            "from_work_dir": "output.txt",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
     # ``version`` is required (inherited from UserToolSourceAuthoringView). A stored
     # row that predates the requirement won't validate; ``lift_user_tool_source``
     # returns it as the raw dict with status "invalid" so its author still sees it.
-    tests: Optional[List["YamlToolTest"]] = None
+    tests: Annotated[
+        Optional[List["YamlToolTest"]],
+        Field(
+            description=(
+                "Tool test declarations with input values and expected outputs. Database-stored user-defined "
+                "tools retain these declarations but do not currently run them in the application."
+            )
+        ),
+    ] = None
     # Restore lenient defaults: the required-ness of ``inputs``/``outputs`` on the
     # authoring view is a structured-output nudge for the LLM only. The canonical
     # model (API surface, stored rows) must still accept tools that omit them.
-    inputs: List[YamlGalaxyToolParameter] = []
-    outputs: List[IncomingToolOutput] = []
+    inputs: UserToolInputs = []
+    outputs: UserToolOutputs = []
 
 
 class YamlToolSource(_DynamicToolSourceBase):
@@ -417,8 +576,11 @@ DynamicToolSources = Annotated[Union[UserToolSource, YamlToolSource], Field(disc
 # `container` regex). `lift_user_tool_source` validates against the strict
 # schema and:
 #   - on success: returns ("ok", parsed_model, []).
-#   - on `extra_forbidden`-only failure: strips the offending paths and
-#     re-validates. Returns ("lifted", parsed_model, dropped_paths).
+#   - on failure, first drops input validators whose type the parameter no
+#     longer accepts (e.g. the Python `expression` validator older rows could
+#     store on text inputs), then, on `extra_forbidden`-only failure, strips
+#     the offending paths and re-validates. Returns ("lifted", parsed_model,
+#     dropped_paths); a dropped validator's entry also names its type and input.
 #   - on any other failure: returns ("invalid", original_dict, error_summary).
 #     The endpoint exposes this so legacy/broken rows don't crash the API -- e.g.
 #     a stored row that predates the required `version` comes back as the raw dict
@@ -469,6 +631,69 @@ def _strip_path(value: dict, loc: tuple) -> bool:
     return False
 
 
+def _validator_types_by_parameter_type() -> Dict[str, FrozenSet[str]]:
+    allowed: Dict[str, FrozenSet[str]] = {}
+    for parameter_model in get_args(YamlGalaxyParameterT):
+        validators_field = parameter_model.model_fields.get("validators")
+        if validators_field is None:
+            continue
+        (parameter_type,) = get_args(parameter_model.model_fields["type"].annotation)
+        (validator_union,) = get_args(validators_field.annotation)
+        validator_models = get_args(validator_union) or (validator_union,)
+        allowed[parameter_type] = frozenset(model.model_fields["type"].default for model in validator_models)
+    return allowed
+
+
+# Validator types each user-defined tool parameter type accepts.
+_USER_TOOL_VALIDATOR_TYPES = _validator_types_by_parameter_type()
+
+
+def _drop_unsupported_validators(parameters: Any, path: str, dropped: List[str]) -> None:
+    """Remove, in place, validators a parameter type does not accept, recording each one."""
+    if not isinstance(parameters, list):
+        return
+    for index, parameter in enumerate(parameters):
+        if isinstance(parameter, dict):
+            _drop_parameter_validators(parameter, f"{path}.{index}", dropped)
+
+
+def _drop_parameter_validators(parameter: Dict[str, Any], path: str, dropped: List[str]) -> None:
+    allowed = _USER_TOOL_VALIDATOR_TYPES.get(str(parameter.get("type")))
+    validators = parameter.get("validators")
+    if allowed is not None and isinstance(validators, list):
+        kept = []
+        for index, validator in enumerate(validators):
+            validator_type = validator.get("type") if isinstance(validator, dict) else None
+            # Only a well-formed validator of an unsupported type is dropped; malformed
+            # values stay in place so schema validation reports them.
+            if isinstance(validator_type, str) and validator_type not in allowed:
+                dropped.append(
+                    f"{path}.validators.{index} (unsupported '{validator_type}' validator on input "
+                    f"'{parameter.get('name')}')"
+                )
+            else:
+                kept.append(validator)
+        parameter["validators"] = kept
+    if isinstance(test_parameter := parameter.get("test_parameter"), dict):
+        _drop_parameter_validators(test_parameter, f"{path}.test_parameter", dropped)
+    if isinstance(whens := parameter.get("whens"), list):
+        for index, when in enumerate(whens):
+            if isinstance(when, dict):
+                _drop_unsupported_validators(when.get("parameters"), f"{path}.whens.{index}.parameters", dropped)
+    _drop_unsupported_validators(parameter.get("parameters"), f"{path}.parameters", dropped)
+
+
+def _help_as_markdown(value: Dict[str, Any], lifted: List[str]) -> None:
+    """Relabel, in place, help in a format user-defined tools no longer accept as Markdown."""
+    help_content = value.get("help")
+    if isinstance(help_content, dict) and (help_format := help_content.get("format")) in (
+        "restructuredtext",
+        "plain_text",
+    ):
+        help_content["format"] = "markdown"
+        lifted.append(f"help.format ({help_format} help is shown as Markdown)")
+
+
 def lift_user_tool_source(
     value: dict,
 ) -> Tuple[LiftStatus, Union["UserToolSource", Dict[str, Any]], List[str]]:
@@ -482,22 +707,32 @@ def lift_user_tool_source(
     except ValidationError as e:
         errors = e.errors()
 
+    stripped = copy.deepcopy(value)
+    rewritten: List[str] = []
+    _drop_unsupported_validators(stripped.get("inputs"), "inputs", rewritten)
+    _help_as_markdown(stripped, rewritten)
+    if rewritten:
+        try:
+            return ("lifted", UserToolSource.model_validate(stripped), rewritten)
+        except ValidationError as e:
+            errors = e.errors()
+
+    dropped = list(rewritten)
+
     extra_forbidden = [err for err in errors if err.get("type") == "extra_forbidden"]
     other = [err for err in errors if err.get("type") != "extra_forbidden"]
     if extra_forbidden and not other:
-        stripped = copy.deepcopy(value)
-        dropped: List[str] = []
         for err in extra_forbidden:
             loc = tuple(err["loc"])
             if _strip_path(stripped, loc):
-                dropped.append(_format_loc(value, loc))
+                dropped.append(_format_loc(stripped, loc))
         try:
             return ("lifted", UserToolSource.model_validate(stripped), dropped)
         except ValidationError as e2:
             errors = e2.errors()
 
-    summary = [f"{_format_loc(value, tuple(err['loc']))}: {err.get('msg', err.get('type', ''))}" for err in errors]
-    return ("invalid", value, summary)
+    summary = [f"{_format_loc(stripped, tuple(err['loc']))}: {err.get('msg', err.get('type', ''))}" for err in errors]
+    return ("invalid", value, rewritten + summary)
 
 
 class ParsedTool(ToolSourceBaseModel):
@@ -656,6 +891,9 @@ class TestDataOutputAssertions(BaseTestOutputModel):
 class TestCollectionCollectionElementAssertions(StrictModel):
     model_config = ConfigDict(extra="forbid", title="TestCollectionCollectionElementAssertions")
     class_: Optional[Literal["Collection"]] = Field("Collection", alias="class", title="Class")
+    count: Annotated[Optional[int], Field(title="Count")] = None
+    min: Annotated[Optional[int], Field(title="Minimum Count")] = None
+    max: Annotated[Optional[int], Field(title="Maximum Count")] = None
     elements: Annotated[
         Optional[Dict[str, "TestCollectionElementAssertion"]],
         Field(title="Elements"),

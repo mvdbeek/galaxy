@@ -1,7 +1,6 @@
 import abc
 import builtins
 import os
-import time
 from datetime import (
     datetime,
     timezone,
@@ -31,6 +30,7 @@ from galaxy.files.models import (
     FilesSourceProperties,
     FilesSourceRuntimeContext,
     FilesSourceTemplateContext,
+    RealizedSourceMetadata,
     resolve_file_source_template,
     TResolvedConfig,
     TTemplateConfig,
@@ -114,6 +114,7 @@ class SingleFileSource(metaclass=abc.ABCMeta):
         native_path: str,
         user_context: "OptionalUserContext" = None,
         opts: Optional[FilesSourceOptions] = None,
+        metadata_out: Optional[RealizedSourceMetadata] = None,
     ):
         """Realize source path (relative to uri root) to local file system path.
 
@@ -125,6 +126,10 @@ class SingleFileSource(metaclass=abc.ABCMeta):
         :type user_context: OptionalUserContext, optional
         :param opts: A set of options to exercise additional control over the realize_to method. Filesource specific, defaults to None
         :type opts: Optional[FilesSourceOptions], optional
+        :param metadata_out: An optional dict the file source may populate with metadata about the
+            realized source that isn't derivable from the URI - currently only a ``name`` key
+            reported by the DRS file source. Filesource specific, defaults to None
+        :type metadata_out: Optional[RealizedSourceMetadata], optional
         """
 
     @abc.abstractmethod
@@ -451,18 +456,11 @@ class BaseFilesSource(FilesSource, Generic[TTemplateConfig, TResolvedConfig]):
             exclude=COMMON_FILE_SOURCE_PROP_NAMES,
         )
 
-    def to_dict_time(self, ctime) -> Optional[str]:
-        if ctime is None:
-            return None
-        elif isinstance(ctime, (int, float)):
-            return time.strftime("%m/%d/%Y %I:%M:%S %p", time.localtime(ctime))
-        else:
-            return ctime.strftime("%m/%d/%Y %I:%M:%S %p")
-
     def _get_runtime_context(
         self,
         opts: Optional[FilesSourceOptions] = None,
         user_context: "OptionalUserContext" = None,
+        metadata_out: Optional[RealizedSourceMetadata] = None,
     ) -> FilesSourceRuntimeContext:
         """
         Get the runtime context for this file source, resolving the template configuration
@@ -480,7 +478,7 @@ class BaseFilesSource(FilesSource, Generic[TTemplateConfig, TResolvedConfig]):
             updated_headers = self._inject_oidc_bearer_token(dict(resolved_config.http_headers or {}), user_context)
             if updated_headers is not None:
                 resolved_config = resolved_config.model_copy(update={"http_headers": updated_headers})
-        return FilesSourceRuntimeContext(user_data=user_data, config=resolved_config)
+        return FilesSourceRuntimeContext(user_data=user_data, config=resolved_config, metadata_out=metadata_out)
 
     def _apply_defaults_to_template(
         self, defaults: dict[str, Any], template_config: TTemplateConfig
@@ -535,7 +533,7 @@ class BaseFilesSource(FilesSource, Generic[TTemplateConfig, TResolvedConfig]):
 
         resolved_config = self._get_runtime_context(opts, user_context)
         write_intent = opts.write_intent if opts else False
-        return self._list(resolved_config, path, recursive, write_intent, limit, offset, query)
+        return self._list(resolved_config, path, recursive, write_intent, limit, offset, query, sort_by)
 
     def _list(
         self,
@@ -597,10 +595,11 @@ class BaseFilesSource(FilesSource, Generic[TTemplateConfig, TResolvedConfig]):
         native_path: str,
         user_context: "OptionalUserContext" = None,
         opts: Optional[FilesSourceOptions] = None,
+        metadata_out: Optional[RealizedSourceMetadata] = None,
     ):
         self._check_user_access(user_context)
         self._check_credentials_fresh()
-        resolved_config = self._get_runtime_context(opts, user_context)
+        resolved_config = self._get_runtime_context(opts, user_context, metadata_out=metadata_out)
         self._realize_to(source_path, native_path, resolved_config)
 
     @abc.abstractmethod

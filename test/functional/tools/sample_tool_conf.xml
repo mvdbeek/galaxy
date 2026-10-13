@@ -48,6 +48,7 @@
   <tool file="tool_provided_metadata_10.xml" />
   <tool file="tool_provided_metadata_11.xml" />
   <tool file="tool_provided_metadata_12.xml" />
+  <tool file="tool_provided_metadata_security.xml" />
   <tool file="empty_datasets.xml" />
   <tool file="is_of_type.xml" />
   <tool file="data_optional.xml" />
@@ -58,6 +59,7 @@
   <tool file="filter_multiple_splitter.xml" />
   <tool file="filter_param_value.xml" />
   <tool file="filter_param_value_ref_attribute.xml" />
+  <tool file="filter_param_value_nested_conditional.xml" />
   <tool file="filter_static_regexp.xml" />
   <tool file="select_from_dataset.xml" />
   <tool file="select_from_dataset_in_conditional.xml" />
@@ -172,6 +174,7 @@
   <tool file="implicit_conversion.xml" />
   <tool file="implicit_conversion_format_input.xml" />
   <tool file="implicit_conversion_optional_param.xml" />
+  <tool file="implicit_conversion_shared_input_y.yml" />
   <tool file="implicit_collection_conversion.xml" />
   <tool file="implicit_nested_list_conversion.xml" />
   <tool file="explicit_conversion.xml" />
@@ -218,6 +221,9 @@
   <tool file="collection_creates_dynamic_list_of_pairs.xml" />
   <tool file="collection_type_source.xml" />
   <tool file="collection_type_source_map_over.xml" />
+  <tool file="collection_type_source_conditional.xml" />
+  <tool file="collection_type_source_digit_name.xml" />
+  <tool file="collection_type_source_section_repeat.xml" />
   <tool file="collection_creates_list_fail.xml" />
   <tool file="collection_creates_dynamic_nested_fail.xml" />
   <tool file="collection_list_or_nested_list_input.xml" />

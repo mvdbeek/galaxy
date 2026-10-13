@@ -34,6 +34,7 @@ from galaxy.util.resources import (
     as_file,
     resource_path,
 )
+from .oidc_utils import PKCECodeVerifierMissing
 from .psa_authnz import (
     BACKENDS,
     BACKENDS_NAME,
@@ -330,8 +331,6 @@ class AuthnzManager:
                 raise exceptions.AuthenticationFailed("Provider is not set")
             success, message, backend = self._get_authnz_backend(auth.provider)
             if backend is None:
-                msg = f"Provider `{auth.provider}` not found"
-                log.error(msg)
                 return {"refreshed": False, "reauthentication_required": False}
             if success is False:
                 msg = f"An error occurred when refreshing user token on `{auth.provider}` identity provider: {message}"
@@ -361,7 +360,6 @@ class AuthnzManager:
         if not isinstance(user, model.User):
             return None
         for auth in user.social_auth or []:
-            result = self.refresh_expiring_oidc_tokens_for_provider(trans, auth)
             if auth.provider is None:
                 continue
             provider = self._unify_provider_name(auth.provider)
@@ -369,7 +367,9 @@ class AuthnzManager:
                 continue
             config = self.oidc_backends_config.get(provider, None)
             if config is None:
+                # Token from a provider that is no longer configured on this server; nothing to refresh.
                 continue
+            result = self.refresh_expiring_oidc_tokens_for_provider(trans, auth)
             # Redirect to OIDC login if refresh fails and require_session_refresh is enabled
             if config.get("require_session_refresh") and result["reauthentication_required"]:
                 return provider
@@ -425,6 +425,14 @@ class AuthnzManager:
                 f"The account from `{provider}` is already linked to a different Galaxy user. "
                 "Please log in to the Galaxy account that is already linked to this identity, "
                 "or use a different identity provider account."
+            )
+            log.warning(msg)
+            return False, msg, (None, None)
+        except PKCECodeVerifierMissing:
+            msg = (
+                f"Login with `{provider}` could not be completed because the browser did not return Galaxy's "
+                "login cookie, or the login took longer than 10 minutes. Please allow cookies for this site "
+                "and try logging in again."
             )
             log.warning(msg)
             return False, msg, (None, None)

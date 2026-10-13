@@ -262,9 +262,7 @@ class PageManager(sharable.SharableModelManager[model.Page], UsesAnnotations):
         else:
             total_matches = None
         sort_column = getattr(Page, payload.sort_by)
-        if payload.sort_desc:
-            sort_column = sort_column.desc()
-        stmt = stmt.order_by(sort_column)
+        stmt = base.apply_sort_column(stmt, sort_column, payload.sort_desc, Page.id)
         if payload.limit is not None:
             stmt = stmt.limit(payload.limit)
         if payload.offset is not None:
@@ -303,6 +301,7 @@ class PageManager(sharable.SharableModelManager[model.Page], UsesAnnotations):
                 raise exceptions.RequestParameterMissingException("title is required for non-history pages")
             if not payload.slug:
                 raise exceptions.RequestParameterMissingException("slug is required for non-history pages")
+            _validate_slug(payload.slug)
             if page_exists(trans.sa_session, user, payload.slug):
                 raise exceptions.DuplicatedSlugException("Page identifier must be unique")
             content_format = payload.content_format
@@ -356,6 +355,7 @@ class PageManager(sharable.SharableModelManager[model.Page], UsesAnnotations):
 
         # Validate slug changes (only for non-history pages)
         if payload.slug is not None and payload.slug != page.slug:
+            _validate_slug(payload.slug)
             if page_exists(trans.sa_session, user, payload.slug):
                 raise exceptions.DuplicatedSlugException("Page identifier must be unique")
             page.slug = payload.slug
@@ -789,6 +789,13 @@ def get_shared_pages(session: galaxy_scoped_session, user: User):
         .order_by(desc(Page.update_time))
     )
     return session.scalars(stmt)
+
+
+def _validate_slug(slug: str) -> None:
+    if not slug or not sharable.SlugBuilder.is_valid_slug(slug):
+        raise exceptions.RequestParameterInvalidException(
+            "Page identifier must consist of lowercase letters, numbers, and single '-' separators", slug=slug
+        )
 
 
 def get_page(session: galaxy_scoped_session, user: User, slug: str):

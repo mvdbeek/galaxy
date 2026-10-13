@@ -592,8 +592,7 @@ class UsesStoredWorkflowMixin(SharableItemSecurityMixin, UsesAnnotations):
     def get_stored_workflow(self, trans, id, check_ownership=True, check_accessible=False):
         """Get a StoredWorkflow from the database by id, verifying ownership."""
         # Load workflow from database
-        workflow_contents_manager = workflows.WorkflowsManager(self.app)
-        workflow = workflow_contents_manager.get_stored_workflow(trans=trans, workflow_id=id)
+        workflow = self.app.workflow_manager.get_stored_workflow(trans=trans, workflow_id=id)
 
         if not workflow:
             error("Workflow not found")
@@ -623,7 +622,7 @@ class UsesStoredWorkflowMixin(SharableItemSecurityMixin, UsesAnnotations):
         # Copy workflow.
         imported_stored = StoredWorkflow()
         imported_stored.name = f"imported: {stored.name}"
-        workflow = stored.latest_workflow.copy(user=trans.user)
+        workflow = self.app.workflow_manager.copy_workflow_for_user(trans.user, stored.latest_workflow)
         workflow.stored_workflow = imported_stored
         imported_stored.latest_workflow = workflow
         imported_stored.user = trans.user
@@ -739,8 +738,8 @@ class SharableMixin:
     def set_slug_async(self, trans, id, new_slug):
         item = self.get_item(trans, id)
         if item:
-            # Only update slug if slug is not already in use.
-            if not slug_exists(trans.sa_session, item.__class__, item.user, new_slug):
+            # Only update slug if slug is valid and not already in use.
+            if self._is_valid_slug(new_slug) and not slug_exists(trans.sa_session, item.__class__, item.user, new_slug):
                 item.slug = new_slug
                 trans.sa_session.commit()
 

@@ -1,4 +1,5 @@
 # Test tools API.
+import base64
 import contextlib
 import json
 import os
@@ -29,7 +30,10 @@ from galaxy_test.base.api_asserts import (
     assert_has_keys,
     assert_status_code_is,
 )
-from galaxy_test.base.decorators import requires_new_history
+from galaxy_test.base.decorators import (
+    requires_new_history,
+    requires_new_user,
+)
 from galaxy_test.base.populators import (
     BaseDatasetCollectionPopulator,
     DatasetCollectionPopulator,
@@ -132,6 +136,13 @@ class TestToolsApi(ApiTestCase, TestsTools):
         tool_ids = self.__tool_ids()
         assert "upload1" in tool_ids
 
+    def test_direct_data_fetch_tool_execution_is_blocked(self, history_id):
+        response = self.dataset_populator.run_tool_raw("__DATA_FETCH__", {}, history_id)
+        assert_status_code_is(response, 400)
+        assert response.json()["err_msg"] == (
+            "Cannot execute tool [__DATA_FETCH__] directly, must use alternative endpoint."
+        )
+
     @skip_without_tool("cat1")
     def test_search_cat(self):
         url = self._api_url("tools")
@@ -197,6 +208,21 @@ class TestToolsApi(ApiTestCase, TestsTools):
         # returned.
         tool_ids = [_["id"] for _ in tools_index]
         assert "upload1" in tool_ids
+
+    @skip_without_tool("bibtex")
+    def test_no_panel_index_returns_raw_tool_help(self):
+        index = self._get("tools", data=dict(in_panel=False, tool_help=True))
+        self._assert_status_code_is_ok(index)
+        tool = next(t for t in index.json() if t["id"] == "bibtex")
+        assert tool["help_format"] == "restructuredtext"
+        assert "**WARNING:**" in tool["help"]
+
+    @skip_without_tool("help_features_markdown")
+    def test_no_panel_index_tool_help_markdown(self):
+        tools_index = self._get("tools", data=dict(in_panel=False, tool_help=True)).json()
+        tool = next(t for t in tools_index if t["id"] == "help_features_markdown")
+        assert tool["help_format"] == "markdown"
+        assert "**This is bold text**" in tool["help"]
 
     @skip_without_tool("test_sam_to_bam_conversions")
     def test_requirements(self):
@@ -324,6 +350,17 @@ class TestToolsApi(ApiTestCase, TestsTools):
             assert "hg19_value" in option_values
             assert "hg18_value" in option_values
             assert "mm10_value" in option_values
+
+    @skip_without_tool("filter_param_value_nested_conditional")
+    def test_build_request_param_value_filter_in_inactive_nested_case(self):
+        # https://github.com/galaxyproject/galaxy/issues/23077
+        with self.dataset_populator.test_history() as history_id:
+            build = self.dataset_populator.build_tool_state("filter_param_value_nested_conditional", history_id)
+            outer = build["inputs"][0]
+            inner = outer["cases"][0]["inputs"][0]
+            select1, select2 = inner["cases"][1]["inputs"]
+            assert select1["value"] == "hg19_value"
+            assert [o[1] for o in select2["options"]] == ["hg19_value"]
 
     @skip_without_tool("dbkey_filter_multi_input")
     def test_build_request_dbkey_filter_hdca_multi_input(self):
@@ -1971,6 +2008,85 @@ class TestToolsApi(ApiTestCase, TestsTools):
             job_details = self.dataset_populator.get_job_details(copied_job_id, full=True).json()
             assert job_details["copied_from_job_id"] == outputs_one["jobs"][0]["id"]
 
+    def _run_and_get_job(self, tool_id, history_id, inputs, use_cached_job=False):
+        outputs = self._run(
+            tool_id, history_id, inputs=inputs, use_cached_job=use_cached_job, assert_ok=True, wait_for_job=True
+        )
+        return self.dataset_populator.get_job_details(outputs["jobs"][0]["id"], full=True).json()
+
+    @skip_without_tool("multi_data_optional")
+    @requires_new_history
+    @requires_new_user
+    def test_run_multi_data_optional_map_over_empty_subcollection_use_cached_job(self):
+        # Empty collections have no datasets that are unique to this test, so a fresh user keeps
+        # jobs from earlier runs against the same database out of the cache lookup.
+        with self._different_user_and_history(f"{uuid4()}@test.com") as history_id:
+
+            def run(hdca_id, use_cached_job=False):
+                inputs = {
+                    "input1": {"batch": True, "values": [{"src": "hdca", "map_over_type": "list", "id": hdca_id}]}
+                }
+                return self._run_and_get_job("multi_data_optional", history_id, inputs, use_cached_job)
+
+            populated_hdca = self.dataset_collection_populator.upload_collection(
+                history_id,
+                "list:list",
+                elements=[{"name": "sample", "elements": [{"src": "pasted", "paste_content": "1\n", "name": "read"}]}],
+                wait=True,
+            ).json()["output_collections"][0]
+            empty_hdca = self.dataset_collection_populator.upload_collection(
+                history_id, "list:list", elements=[{"name": "sample", "elements": []}], wait=True
+            ).json()["output_collections"][0]
+            empty_hdca_copy = self.dataset_collection_populator.copy_collection(history_id, empty_hdca["id"]).json()
+
+            run(populated_hdca["id"])
+            empty_job = run(empty_hdca["id"], use_cached_job=True)
+            assert empty_job["copied_from_job_id"] is None
+            cached_job = run(empty_hdca_copy["id"], use_cached_job=True)
+            assert cached_job["copied_from_job_id"] == empty_job["id"]
+
+    @skip_without_tool("multi_data_optional")
+    @requires_new_history
+    @requires_new_user
+    def test_run_multi_data_optional_empty_collection_use_cached_job(self):
+        with self._different_user_and_history(f"{uuid4()}@test.com") as history_id:
+
+            def run(hdca_id, use_cached_job=False):
+                inputs = {"input1": {"batch": False, "values": [{"src": "hdca", "id": hdca_id}]}}
+                return self._run_and_get_job("multi_data_optional", history_id, inputs, use_cached_job)
+
+            populated_hdca = self.dataset_collection_populator.create_list_in_history(
+                history_id, contents=["1\n"], wait=True
+            ).json()["output_collections"][0]
+            empty_hdca = self.dataset_collection_populator.create_list_in_history(
+                history_id, contents=[], wait=True
+            ).json()["output_collections"][0]
+            empty_hdca_copy = self.dataset_collection_populator.copy_collection(history_id, empty_hdca["id"]).json()
+
+            run(populated_hdca["id"])
+            empty_job = run(empty_hdca["id"], use_cached_job=True)
+            assert empty_job["copied_from_job_id"] is None
+            cached_job = run(empty_hdca_copy["id"], use_cached_job=True)
+            assert cached_job["copied_from_job_id"] == empty_job["id"]
+
+    @skip_without_tool("identifier_all_collection_types")
+    @requires_new_history
+    def test_run_identifier_all_collection_types_empty_inner_lists_use_cached_job(self):
+        with self.dataset_populator.test_history_for(
+            self.test_run_identifier_all_collection_types_empty_inner_lists_use_cached_job
+        ) as history_id:
+
+            def run(outer_identifier, use_cached_job=False):
+                hdca = self.dataset_collection_populator.upload_collection(
+                    history_id, "list:list", elements=[{"name": outer_identifier, "elements": []}], wait=True
+                ).json()["output_collections"][0]
+                inputs = {"input1": {"src": "hdca", "id": hdca["id"]}}
+                return self._run_and_get_job("identifier_all_collection_types", history_id, inputs, use_cached_job)
+
+            run("a")
+            job = run("b", use_cached_job=True)
+            assert job["copied_from_job_id"] is None
+
     @skip_without_tool("identifier_single")
     @requires_new_history
     def test_run_identifier_single_use_cached_job_renamed_input(self):
@@ -2244,6 +2360,15 @@ class TestToolsApi(ApiTestCase, TestsTools):
         self.dataset_populator.wait_for_history(history_id, assert_ok=True)
         response = self._run("validation_empty_dataset", history_id, inputs)
         self._assert_status_code_is(response, 400)
+        error = response.json()
+        assert error["err_msg"] == (
+            "Parameter 'input1': The selected dataset is empty, this tool expects non-empty files."
+        )
+        assert error["param_errors"]["input1"] == {
+            "message": "Parameter 'input1': The selected dataset is empty, this tool expects non-empty files.",
+            "message_suffix": "The selected dataset is empty, this tool expects non-empty files.",
+            "parameter_name": "input1",
+        }
 
     @skip_without_tool("validation_repeat")
     def test_validation_in_repeat(self, history_id):
@@ -3722,6 +3847,37 @@ class TestToolsApi(ApiTestCase, TestsTools):
         assert output_details["state"] == "ok"
         output_content = self.dataset_populator.get_history_dataset_content(history_id, dataset=output)
         assert output_content.strip() == source_uri.strip()
+
+    @skip_without_tool("gx_allow_uri_if_protocol_single")
+    def test_allow_uri_if_protocol_on_single_deferred_zarr_input(self, history_id):
+        top_level_uri = "https://example.org/data/top_level.zarr"
+        nested_uri = "https://example.org/data/nested.zarr"
+        top_level_hda = self.dataset_populator.create_deferred_hda(history_id, top_level_uri, ext="zarr")
+        nested_hda = self.dataset_populator.create_deferred_hda(history_id, nested_uri, ext="zarr")
+
+        inputs = {"input1": dataset_to_param(top_level_hda), "nested|input2": dataset_to_param(nested_hda)}
+        run_response = self.dataset_populator.run_tool(
+            tool_id="gx_allow_uri_if_protocol_single", inputs=inputs, history_id=history_id
+        )
+        output = run_response["outputs"][0]
+        self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+        output_content = self.dataset_populator.get_history_dataset_content(history_id, dataset=output)
+        assert output_content.splitlines() == [top_level_uri, nested_uri]
+
+    @skip_without_tool("gx_allow_uri_if_protocol_single")
+    def test_allow_uri_if_protocol_materializes_other_protocols(self, history_id):
+        content = "materialized content\n"
+        source_uri = f"base64://{base64.b64encode(content.encode()).decode()}"
+        deferred_hda = self.dataset_populator.create_deferred_hda(history_id, source_uri, ext="txt")
+
+        inputs = {"input1": dataset_to_param(deferred_hda)}
+        run_response = self.dataset_populator.run_tool(
+            tool_id="gx_allow_uri_if_protocol_single", inputs=inputs, history_id=history_id
+        )
+        output = run_response["outputs"][0]
+        self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+        output_content = self.dataset_populator.get_history_dataset_content(history_id, dataset=output)
+        assert output_content == content
 
     @skip_without_tool("gx_allow_uri_if_protocol")
     def test_allow_uri_if_protocol_on_collection_with_deferred(self, history_id):

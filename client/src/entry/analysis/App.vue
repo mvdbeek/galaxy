@@ -17,8 +17,8 @@
                     class="rounded-0 m-0 p-2"
                     :variant="config.message_box_class || 'info'">
                     <span class="fa fa-fw mr-1 fa-exclamation" />
-                    <!-- eslint-disable-next-line vue/no-v-html -->
-                    <span v-html="config.message_box_content"></span>
+                    <!-- eslint-disable-next-line vue/no-restricted-syntax -- message_box_content only comes from the operator's galaxy.yml, and sites put embeds and styled banners in it -->
+                    <span v-no-sanitize-html="config.message_box_content"></span>
                 </Alert>
                 <Alert
                     v-if="showInactivityWarning && config.inactivity_box_content"
@@ -32,6 +32,12 @@
                     </span>
                 </Alert>
             </template>
+
+            <Alert v-if="(configLoadError || userLoadError) && !embedded" id="startup-load-error" variant="danger">
+                <div v-if="configLoadError">Unable to load the Galaxy configuration: {{ configLoadError }}</div>
+                <div v-if="userLoadError">Unable to load your user data: {{ userLoadError }}</div>
+                <button type="button" class="btn btn-link p-0" @click="retryStartupLoad">Retry</button>
+            </Alert>
 
             <router-view @update:confirmation="confirmation = $event" />
         </div>
@@ -62,12 +68,14 @@ import { setGlobalUploadModal } from "@/composables/globalUploadModal";
 import { useRouteQueryBool } from "@/composables/route";
 import { setToastComponentRef } from "@/composables/toast";
 import { getAppRoot } from "@/onload";
+import { useConfigStore } from "@/stores/configurationStore";
 import { useEntryPointStore } from "@/stores/entryPointStore";
 import { useHistoryStore } from "@/stores/historyStore";
 import { useNotificationsStore } from "@/stores/notificationsStore";
 import { useTourStore } from "@/stores/tourStore";
 import { useUserStore } from "@/stores/userStore";
 import { useWindowManagerStore } from "@/stores/windowManagerStore";
+import { errorMessageAsString } from "@/utils/simple-error";
 
 import Alert from "@/components/Alert.vue";
 import ConfirmDialog from "@/components/ConfirmDialog.vue";
@@ -135,13 +143,35 @@ export default {
             historyStore.startWatchingHistory();
         }
 
+        const configStore = useConfigStore();
+        const { loadError: configLoadError } = storeToRefs(configStore);
+
+        const userLoadError = ref("");
+        async function loadUser() {
+            userLoadError.value = "";
+            try {
+                await userStore.loadUser();
+            } catch (error) {
+                userLoadError.value = errorMessageAsString(error);
+            }
+        }
+
+        function retryStartupLoad() {
+            if (configLoadError.value) {
+                configStore.loadConfig();
+            }
+            if (userLoadError.value) {
+                loadUser();
+            }
+        }
+
         watch(
             () => embedded.value,
             () => {
                 if (embedded.value) {
                     userStore.$reset();
                 } else {
-                    userStore.loadUser();
+                    loadUser();
                 }
             },
             { immediate: true },
@@ -167,6 +197,9 @@ export default {
         );
 
         return {
+            configLoadError,
+            userLoadError,
+            retryStartupLoad,
             confirmation,
             toastRef,
             confirmDialogRef,

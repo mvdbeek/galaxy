@@ -16,7 +16,7 @@ MOCK_COMMAND_LINE = "/opt/galaxy/tools/bowtie /mnt/galaxyData/files/000/input000
 TEST_METADATA_LINE = "set_metadata_and_stuff.sh"
 TEE_REDIRECT = '> "$__out" 2> "$__err"'
 RETURN_CODE_CAPTURE = "; return_code=$?; echo $return_code > galaxy_1.ec"
-CP_WORK_DIR_OUTPUTS = '; \nif [ -f "foo" -a -f "bar" ] ; then cp "foo" "bar" ; fi'
+CP_WORK_DIR_OUTPUTS = "; \nif [ -f foo -a -f bar ] ; then cp foo bar ; fi"
 
 
 class TestCommandFactory(TestCase):
@@ -85,6 +85,40 @@ class TestCommandFactory(TestCase):
         self.job_wrapper.prepare_input_files_cmds = ["/opt/split1", "/opt/split2"]
         self._assert_command_is(self._surround_command(f"/opt/split1; /opt/split2; {MOCK_COMMAND_LINE}"))
 
+    def test_remote_tool_eval_command(self):
+        self.include_work_dir_outputs = False
+        self.job_wrapper.remote_command_line = True
+
+        source_command = self.__command()
+
+        assert (
+            'PYTHONPATH="$GALAXY_LIB:$PYTHONPATH" '
+            '"${GALAXY_PYTHON:-python}" "$GALAXY_LIB"/galaxy/tools/remote_tool_eval.py'
+        ) in source_command
+        assert (
+            'PYTHONPATH="$GALAXY_LIB:$PYTHONPATH" python "$GALAXY_LIB"/galaxy/tools/remote_tool_eval.py'
+            not in source_command
+        )
+
+        self.job_wrapper.galaxy_lib_dir = None
+        package_command = self.__command()
+        assert "galaxy-remote-tool-eval" in package_command
+        assert '"$GALAXY_LIB"/galaxy/tools/remote_tool_eval.py' not in package_command
+
+    def test_remote_tool_eval_command_for_pulsar_defers_to_remote_layout(self):
+        self.include_work_dir_outputs = False
+        self.job_wrapper.remote_command_line = True
+        pulsar_params = {"pulsar_version": "0.15.0"}
+
+        source_command = self.__command(remote_command_params=pulsar_params)
+        self.job_wrapper.galaxy_lib_dir = None
+        package_command = self.__command(remote_command_params=pulsar_params)
+
+        # Pulsar sets GALAXY_LIB itself, so the command cannot depend on this Galaxy's lib dir.
+        assert source_command == package_command
+        assert 'if [ "$GALAXY_LIB" != "None" ]' in source_command
+        assert '"$GALAXY_LIB"/galaxy/tools/remote_tool_eval.py; else galaxy-remote-tool-eval; fi' in source_command
+
     def test_workdir_outputs(self):
         self.include_work_dir_outputs = True
         self.workdir_outputs = [("foo", "bar")]
@@ -95,7 +129,7 @@ class TestCommandFactory(TestCase):
         self.workdir_outputs = [("foo*bar", "foo_x_bar")]
         self._assert_command_is(
             self._surround_command(
-                MOCK_COMMAND_LINE, '; \nif [ -f "foo"*"bar" -a -f "foo_x_bar" ] ; then cp "foo"*"bar" "foo_x_bar" ; fi'
+                MOCK_COMMAND_LINE, "; \nif [ -f foo*bar -a -f foo_x_bar ] ; then cp foo*bar foo_x_bar ; fi"
             )
         )
 
@@ -223,6 +257,7 @@ class MockJobWrapper:
         self.shell = "/bin/sh"
         self.use_metadata_binary = False
         self.job_id = 1
+        self.galaxy_lib_dir: str | None = "/galaxy/lib"
         self.remote_command_line = False
 
     def get_command_line(self):

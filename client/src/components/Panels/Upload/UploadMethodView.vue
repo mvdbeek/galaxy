@@ -74,6 +74,10 @@ function handleCancel() {
     router.push("/upload");
 }
 
+function handleUnknownMethod() {
+    router.replace("/upload");
+}
+
 function handleStart() {
     if (!canStartUpload.value) {
         return;
@@ -82,8 +86,8 @@ function handleStart() {
     if (!prepared) {
         return;
     }
-    // Fire-and-forget: progress is tracked in uploadState, visible in the progress view
-    void submitPreparedUpload(targetHistoryId.value, prepared);
+    // Fire-and-forget: progress and failures are tracked per item in uploadState, visible in the progress view
+    submitPreparedUpload(targetHistoryId.value, prepared).catch(() => undefined);
     uploadMethodRef.value?.reset?.();
     router.push("/upload/progress");
 }
@@ -122,7 +126,8 @@ function handleReadyStateChange(ready: boolean) {
             </div>
         </div>
         <div v-else class="flex-grow-1 text-center text-muted py-5">
-            <p>Loading...</p>
+            <p>Unknown import method.</p>
+            <GButton color="blue" @click="handleUnknownMethod">Back to import methods</GButton>
         </div>
 
         <!-- Fixed Footer -->

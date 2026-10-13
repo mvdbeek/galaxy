@@ -193,6 +193,11 @@ def _normalize_step_parameters(
                 step.subworkflow.steps, subworkflow_param_dict, legacy=legacy, already_normalized=already_normalized
             )
         if param_dict:
+            if step.type == "parameter_input" and "input" not in param_dict:
+                raise exceptions.RequestParameterInvalidException(
+                    f"{step.label or step.order_index + 1}: legacy workflow parameter inputs must specify an 'input' value. "
+                    "Prefer passing the parameter value directly in 'inputs'."
+                )
             normalized_param_map[step.id] = param_dict
     return normalized_param_map
 
@@ -222,7 +227,7 @@ def _step_parameters(step: "WorkflowStep", param_map: dict, legacy: bool = False
 
     Note that this format allows only one parameter to be set per step.
     """
-    param_dict = param_map.get(step.tool_id, {}).copy()
+    param_dict = param_map.get(step.effective_tool_id, {}).copy()
     if legacy:
         param_dict.update(param_map.get(str(step.id), {}))
     else:
@@ -385,6 +390,11 @@ def build_workflow_run_configs(
                 continue
             step = steps_by_id[key]
             if step.type == "parameter_input":
+                if isinstance(input_dict, dict):
+                    raise exceptions.RequestParameterInvalidException(
+                        f"{step.label or step.order_index + 1}: workflow parameter inputs cannot be dictionaries. "
+                        "Pass the parameter value directly in 'inputs', without a 'parameter_value' wrapper."
+                    )
                 module_injector.inject(step)
                 assert step.module
                 input_param = step.module.get_runtime_inputs(step.module)["input"]
