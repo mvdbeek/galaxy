@@ -155,7 +155,7 @@ export default {
                 if (found) {
                     result[0] = found.id;
                 } else {
-                    result[1] = name;
+                    result[1] = name.trim();
                 }
             }
             return result;
