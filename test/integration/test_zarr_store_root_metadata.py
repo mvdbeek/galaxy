@@ -1,4 +1,4 @@
-"""Zarr datasets created before store_root was removed must keep working after a metadata reset."""
+"""Zarr datasets created with their store in a wrapper folder must keep working after a metadata reset."""
 
 from galaxy.model import HistoryDatasetAssociation
 from galaxy.tool_util.verify.test_data import TestDataResolver
@@ -19,24 +19,52 @@ class TestZarrStoreRootMetadataResetIntegration(IntegrationTestCase):
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
 
-    def test_reset_metadata_clears_store_root_of_moved_store(self, history_id):
+    def test_reset_metadata_keeps_a_wrapped_store_in_place(self, history_id):
         dataset_id = self._create_historical_zarr_dataset(history_id)
+        # A copy shares the files of the dataset whose metadata is reset.
+        copy_id = self._copy_dataset(history_id, dataset_id)
 
         self._put(f"histories/{history_id}/contents/{dataset_id}/validate").raise_for_status()
         self.dataset_populator.wait_for_history(history_id, assert_ok=True)
 
         hda = self._get_hda(dataset_id)
-        assert "store_root" not in (hda._metadata or {})
+        assert hda.metadata.store_root == "wrapped.zarr"
         assert str(hda.metadata.zarr_format) == "2"
-        # Published wrappers read $input.extra_files_path/$input.metadata.store_root.
-        response = self.dataset_populator.run_tool(
-            "zarr_store_root_compat", {"input": {"src": "hda", "id": dataset_id}}, history_id
-        )
+        preview = self._get(f"histories/{history_id}/contents/{dataset_id}/display?preview=true")
+        preview.raise_for_status()
+        assert "zarr_format" in preview.text
+        for input_id in (dataset_id, copy_id):
+            # Published wrappers read $input.extra_files_path/$input.metadata.store_root.
+            assert ".zgroup" in self._run_and_read(history_id, "zarr_store_root_compat", input_id)
+            # YAML tools get the store's folder as the path of a class: Directory input.
+            assert ".zgroup" in self._request_and_read(history_id, "directory_or_file_user_defined", input_id)
+
+    def _run_and_read(self, history_id: str, tool_id: str, dataset_id: str) -> list[str]:
+        response = self.dataset_populator.run_tool(tool_id, {"input": {"src": "hda", "id": dataset_id}}, history_id)
         self.dataset_populator.wait_for_job(response["jobs"][0]["id"], assert_ok=True)
-        listing = self.dataset_populator.get_history_dataset_content(
+        content = self.dataset_populator.get_history_dataset_content(
             history_id, dataset_id=response["outputs"][0]["id"]
         )
-        assert ".zgroup" in listing.splitlines()
+        return content.splitlines()
+
+    def _request_and_read(self, history_id: str, tool_id: str, dataset_id: str) -> list[str]:
+        # The tool request API builds the runtime inputs of YAML tools from validated state.
+        response = self.dataset_populator.tool_request_raw(
+            tool_id, {"input1": {"src": "hda", "id": dataset_id}}, history_id
+        )
+        response.raise_for_status()
+        assert self.dataset_populator.wait_on_tool_request(response.json()["tool_request_id"])
+        self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+        return self.dataset_populator.get_history_dataset_content(history_id).splitlines()
+
+    def _copy_dataset(self, history_id: str, dataset_id: str) -> str:
+        response = self._post(
+            f"histories/{history_id}/contents",
+            data={"source": "hda", "content": dataset_id, "type": "dataset"},
+            json=True,
+        )
+        response.raise_for_status()
+        return response.json()["id"]
 
     def _create_historical_zarr_dataset(self, history_id: str) -> str:
         # A plain directory keeps the wrapper folder, which is how older Galaxy stored a zarr
@@ -66,7 +94,7 @@ class TestZarrStoreRootMetadataResetIntegration(IntegrationTestCase):
 
         hda = self._get_hda(dataset_id)
         hda.extension = "zarr"
-        hda._metadata = {**(hda._metadata or {}), "store_root": "wrapped.zarr", "zarr_format": "2"}
+        hda._metadata = {**(hda._metadata or {}), "store_root": "wrapped.zarr"}
         self._app.model.session.commit()
         return dataset_id
 
