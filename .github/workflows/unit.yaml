@@ -57,7 +57,7 @@ jobs:
         env:
           PYTEST_ADDOPTS: -n 4
           # Coverage slows the tests down; collect it for pushes and scheduled runs only.
-          TOX_ENV: ${{ github.event_name == 'pull_request' && 'unit' || 'unit-coverage' }}
+          TOX_ENV: unit
         working-directory: 'galaxy root'
       - uses: codecov/codecov-action@v7.1.1
         if: github.event_name != 'pull_request'

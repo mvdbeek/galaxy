@@ -68,7 +68,7 @@ jobs:
         run: ./run_tests.sh --framework-workflows -- -n 4
         env:
           # Coverage slows the tests down; collect it for pushes and scheduled runs only.
-          GALAXY_TEST_COVERAGE: ${{ github.event_name != 'pull_request' && '1' || '' }}
+          GALAXY_TEST_COVERAGE: ''
         working-directory: 'galaxy root'
       - uses: codecov/codecov-action@v7.1.1
         if: github.event_name != 'pull_request'

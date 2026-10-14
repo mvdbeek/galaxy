@@ -117,7 +117,7 @@ jobs:
         run: ./run_tests.sh -playwright lib/galaxy_test/selenium/test_tool_form_harness.py -- -n 3
         env:
           # Coverage slows the tests down; collect it for pushes and scheduled runs only.
-          GALAXY_TEST_COVERAGE: ${{ github.event_name != 'pull_request' && '1' || '' }}
+          GALAXY_TEST_COVERAGE: ''
         working-directory: 'galaxy root'
       - uses: codecov/codecov-action@v7.1.1
         if: github.event_name != 'pull_request'
