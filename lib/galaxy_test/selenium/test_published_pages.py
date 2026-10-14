@@ -23,7 +23,8 @@ class TestPublishedPagesGrid(SharedStateSeleniumTestCase):
         self.user2_email = self._get_random_email("test2")
         self.register(self.user1_email)
         page_1 = self.new_public_page(content_format="markdown", content="# Published Content\n\nVisible to all.")
-        self.page_id_1 = page_1["id"]
+        # Shared state is set up by whichever test runs first; later tests are new instances.
+        type(self).page_id_1 = page_1["id"]
         self.slug_1 = page_1["slug"]
         self.logout_if_needed()
 
