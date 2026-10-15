@@ -86,6 +86,9 @@ class SSEConnectionManager:
     def __init__(self, statsd_client: VanillaGalaxyStatsdClient | None = None) -> None:
         self._connections: dict[int, set[asyncio.Queue]] = defaultdict(set)
         self._session_connections: dict[int, set[asyncio.Queue]] = defaultdict(set)
+        # Sessions connected without a user. A galaxy session never changes
+        # user (login and logout both start a new session), so a session stays
+        # anonymous until its last connection closes.
         self._anonymous_session_ids: set[int] = set()
         self._broadcast_connections: set[asyncio.Queue] = set()
         self._loop: asyncio.AbstractEventLoop | None = None
@@ -302,6 +305,16 @@ class SSEConnectionManager:
         """Number of active SSE connections bound to a specific user_id."""
         return sum(len(queues) for queues in self._connections.values())
 
+    @property
+    def total_connected_users(self) -> int:
+        """Number of distinct users with at least one active SSE connection."""
+        return len(self._connections)
+
+    @property
+    def total_anonymous_sessions(self) -> int:
+        """Number of distinct anonymous galaxy sessions with at least one active SSE connection."""
+        return len(self._anonymous_session_ids)
+
     def emit_connection_gauges(self, server_name: str) -> None:
         """Publish this worker's SSE connection counts as statsd gauges.
 
@@ -326,12 +339,12 @@ class SSEConnectionManager:
         )
         self._statsd_client.gauge(
             "galaxy.sse.users.active",
-            len(self._connections),
+            self.total_connected_users,
             tags={"kind": "user", "server_name": server_name},
         )
         self._statsd_client.gauge(
             "galaxy.sse.users.active",
-            len(self._anonymous_session_ids),
+            self.total_anonymous_sessions,
             tags={"kind": "anonymous", "server_name": server_name},
         )
 

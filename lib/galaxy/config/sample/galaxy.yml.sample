@@ -2086,9 +2086,11 @@ galaxy:
   # 0 to disable all background gauges.
   #queue_metrics_interval: 15
 
-  # Emit the galaxy.sse.connections.active gauge from each web worker,
-  # reporting how many Server-Sent Events connections that worker
-  # currently holds (tagged by kind and server_name). Sampled on the
+  # Emit the galaxy.sse.connections.active and galaxy.sse.users.active
+  # gauges from each web worker, reporting how many Server-Sent Events
+  # connections that worker currently holds and how many distinct
+  # logged-in users and anonymous browser sessions they belong to
+  # (tagged by kind and server_name). Sampled on the
   # queue_metrics_interval cadence. Off by default so that enabling
   # statsd does not by itself start measuring SSE connections; requires
   # statsd_host to be set and queue_metrics_interval greater than 0.
