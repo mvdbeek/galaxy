@@ -480,17 +480,86 @@ def is_aborted(session: galaxy_scoped_session, job_id: int):
     ).scalar()
 
 
+def _pebble_diag(future, job_id, elapsed):
+    import faulthandler
+    import io
+    import os
+    import signal
+    import tempfile
+    import threading
+    import time as _time
+
+    pool = celery_app.fork_pool
+    lines = [f"PEBBLE-DIAG job {job_id} future running for {elapsed:.1f}s: {future!r} running={future.running()} done={future.done()}"]
+    try:
+        ctx = pool._context
+        lines.append(f"pool status={ctx.status} alive={ctx.alive} task_queue={ctx.task_queue.qsize()} loops={[t.is_alive() for t in pool._loops]}")
+        pm = pool._pool_manager
+        tasks = list(pm.task_manager.tasks.values())
+        lines.append(f"tasks={[(t.id, t.worker_id, t.timestamp, t.future._state) for t in tasks]}")
+        wm = pm.worker_manager
+        lines.append(f"workers={[(pid, w.is_alive(), w.exitcode) for pid, w in wm.workers.items()]}")
+        lines.append(f"pool_channel_poll={wm.pool_channel.poll(0)}")
+        reader_free = wm.workers_channel.mutex.reader_mutex.acquire(block=False)
+        if reader_free:
+            wm.workers_channel.mutex.reader_mutex.release()
+        writer_free = wm.workers_channel.mutex.writer_mutex.acquire(block=False)
+        if writer_free:
+            wm.workers_channel.mutex.writer_mutex.release()
+        lines.append(f"channel reader_mutex_free={reader_free} writer_mutex_free={writer_free}")
+        diag_dir = os.environ.get("GALAXY_PEBBLE_DIAG_DIR") or tempfile.gettempdir()
+        for pid in list(wm.workers):
+            if not os.path.exists(os.path.join(diag_dir, f"pebble-worker-{pid}.txt")):
+                lines.append(f"worker {pid} has not run its initializer yet; not signalling")
+                continue
+            try:
+                os.kill(pid, signal.SIGUSR1)
+            except OSError as e:
+                lines.append(f"kill {pid}: {e}")
+        _time.sleep(2)
+        for pid in list(wm.workers):
+            path = os.path.join(diag_dir, f"pebble-worker-{pid}.txt")
+            try:
+                with open(path) as fh:
+                    lines.append(f"worker {pid} stack:\n{fh.read()}")
+            except OSError as e:
+                lines.append(f"worker {pid} stack unreadable: {e}")
+        try:
+            with open("/proc/loadavg") as fh:
+                lines.append(f"loadavg {fh.read().strip()}")
+        except OSError:
+            lines.append(f"loadavg {os.getloadavg()}")
+    except Exception as e:  # noqa: BLE001
+        lines.append(f"diag failed: {type(e).__name__}: {e}")
+    buf = io.StringIO()
+    with tempfile.TemporaryFile("w+") as fh:
+        faulthandler.dump_traceback(file=fh, all_threads=True)
+        fh.seek(0)
+        buf.write(fh.read())
+    lines.append(f"main process threads ({[t.name for t in threading.enumerate()]}):\n{buf.getvalue()}")
+    log.error("\n".join(lines))
+
+
 def abort_when_job_stops(function: Callable, session: galaxy_scoped_session, job_id: int, **kwargs) -> Any:
+    import time as _time
+    import os
+
     if not is_aborted(session, job_id):
         future = celery_app.fork_pool.submit(
             function,
             None,
             **kwargs,
         )
+        start = _time.monotonic()
+        diagnosed = False
         while True:
             try:
                 return future.result(timeout=1)
             except TimeoutError:
+                elapsed = _time.monotonic() - start
+                if not diagnosed and elapsed > float(os.environ.get("GALAXY_PEBBLE_DIAG_AFTER", "15")):
+                    diagnosed = True
+                    _pebble_diag(future, job_id, elapsed)
                 if is_aborted(session, job_id):
                     future.cancel()
                     return

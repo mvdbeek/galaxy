@@ -176,7 +176,18 @@ def get_config():
     return Configuration(**kwargs)
 
 
+_DIAG_FILES = []
+
+
 def init_fork_pool():
+    import faulthandler
+    import signal as _signal
+    import tempfile as _tempfile
+
+    diag_dir = os.environ.get("GALAXY_PEBBLE_DIAG_DIR") or _tempfile.gettempdir()
+    diag_file = open(os.path.join(diag_dir, f"pebble-worker-{os.getpid()}.txt"), "w")
+    _DIAG_FILES.append(diag_file)
+    faulthandler.register(_signal.SIGUSR1, file=diag_file, all_threads=True)
     # Do slow imports when workers boot.
     from galaxy.datatypes import registry  # noqa: F401
     from galaxy.metadata import set_metadata  # noqa: F401
