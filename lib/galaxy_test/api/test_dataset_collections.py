@@ -760,9 +760,12 @@ class TestDatasetCollectionsApi(ApiTestCase):
         self.dataset_populator.wait_for_history(history_id, assert_ok=True)
         elements = self.dataset_populator.get_history_collection_details(history_id, hid=hdca["hid"])["elements"]
         role_id = self.dataset_populator.user_private_role_id()
+        # access follows new_user_dataset_access_role_default_private, so compare it with a plain upload
+        hda = self.dataset_populator.new_dataset(history_id, wait=True)
+        expected_access = self._get(f"datasets/{hda['id']}").json()["permissions"]["access"]
         for element in elements:
             permissions = self._get(f"datasets/{element['object']['id']}").json()["permissions"]
-            assert permissions == {"manage": [role_id], "access": [role_id]}
+            assert permissions == {"manage": [role_id], "access": expected_access}
 
     def test_dataset_collection_element_security(self):
         with self.dataset_populator.test_history(require_new=False) as history_id:
