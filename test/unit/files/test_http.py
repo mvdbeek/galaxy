@@ -1,12 +1,17 @@
 import io
+import json
 import os
 import urllib
+from ipaddress import ip_network
 from typing import Any
 from unittest import mock
 
 import pytest
 
 from galaxy import exceptions
+from galaxy.files import ConfiguredFileSources
+from galaxy.files.models import FileSourcePluginsConfig
+from galaxy.files.uris import stream_url_to_file
 from ._util import (
     assert_realizes_as,
     assert_realizes_contains,
@@ -85,6 +90,7 @@ def test_file_source_http_generic():
         assert_realizes_as(file_sources, test_url, "hello generic world", user_context=user_context)
 
 
+@pytest.mark.usefixtures("fake_public_dns")
 def test_file_source_ftp_url():
     test_url = "ftp://ftp.gnu.org/README"
 
@@ -138,3 +144,21 @@ def test_file_source_http_without_stock_specific():
         assert file_source_pair.file_source.id == "test1"
 
         assert_realizes_as(file_sources, test_url, "hello specific world 2", user_context=user_context)
+
+
+def test_private_http_url_requires_allowlist(tmp_path, httpserver):
+    httpserver.expect_request("/data").respond_with_data("private content")
+    url = httpserver.url_for("/data").replace("localhost", "127.0.0.1")
+    target = tmp_path / "download"
+    with pytest.raises(exceptions.ConfigDoesNotAllowException):
+        stream_url_to_file(url, target_path=str(target))
+    assert httpserver.log == []
+    assert not target.exists()
+
+    # Job-side file sources must retain the allowlist after JSON serialization.
+    sources = ConfiguredFileSources(
+        FileSourcePluginsConfig(fetch_url_allowlist=[ip_network("127.0.0.0/24")]), load_stock_plugins=True
+    )
+    serialized = json.loads(json.dumps(sources.to_dict(for_serialization=True)))
+    stream_url_to_file(url, file_sources=ConfiguredFileSources.from_dict(serialized), target_path=str(target))
+    assert target.read_text() == "private content"

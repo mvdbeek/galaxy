@@ -7,9 +7,7 @@ from json import (
     dump,
     dumps,
 )
-from typing import (
-    Optional,
-)
+from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
@@ -17,10 +15,7 @@ from webob.compat import cgi_FieldStorage
 
 from galaxy import util
 from galaxy.exceptions import RequestParameterInvalidException
-from galaxy.files.uris import (
-    stream_to_file,
-    validate_non_local,
-)
+from galaxy.files.uris import stream_to_file
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.model import (
     DatasetPermissions,
@@ -68,7 +63,7 @@ def persist_uploads(params, trans):
                 and upload_dataset["url_paste"].strip() != ""
             ):
                 upload_dataset["url_paste"] = stream_to_file(
-                    StringIO(validate_non_local(upload_dataset["url_paste"], trans.app.config.fetch_url_allowlist_ips)),
+                    StringIO(upload_dataset["url_paste"]),
                     prefix="strio_url_paste_",
                 )
             else:

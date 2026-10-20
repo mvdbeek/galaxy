@@ -64,11 +64,13 @@ class HTTPFilesSource(BaseFilesSource[HTTPFileSourceTemplateConfiguration, HTTPF
         self, source_path: str, native_path: str, context: FilesSourceRuntimeContext[HTTPFileSourceConfiguration]
     ):
         config = context.config
+        allowlist = self._allowlist or config.fetch_url_allowlist
+        validate_non_local(source_path, allowlist)
         req = urllib.request.Request(source_path, headers=config.http_headers)
 
         with urllib.request.urlopen(req, timeout=DEFAULT_SOCKET_TIMEOUT) as page:
             # Verify url post-redirects is still allowlisted
-            validate_non_local(page.geturl(), self._allowlist or config.fetch_url_allowlist)
+            validate_non_local(page.geturl(), allowlist)
             f = open(native_path, "wb")  # fd will be .close()ed in stream_to_open_named_file
             return stream_to_open_named_file(
                 page, f.fileno(), native_path, source_encoding=get_charset_from_http_headers(page.headers)

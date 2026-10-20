@@ -1,5 +1,11 @@
 import os
+from ipaddress import ip_address
 
+import pytest
+
+from galaxy.exceptions import ConfigDoesNotAllowException
+from galaxy.files.models import FileSourcePluginsConfig
+from galaxy.files.uris import stream_url_to_file
 from ._util import (
     assert_realizes_contains,
     configured_file_sources,
@@ -38,7 +44,8 @@ def test_file_source_ftp_specific(ftp_server: FtpServerFixture):
                 "id": "test2",
                 "doc": "A default ftp handler, built-in and not needed other than for tests",
             },
-        ]
+        ],
+        file_sources_config=FileSourcePluginsConfig(fetch_url_allowlist=[ip_address(ftp_server.host)]),
     )
     file_source_pair = file_sources.get_file_source_path(test_url)
 
@@ -57,7 +64,10 @@ def test_file_source_ftp_generic(ftp_server: FtpServerFixture):
     (ftp_server.root / "welcome.msg").write_text("Served by the generic file source.\n")
     test_url = f"ftp://{ftp_server.host}:{ftp_server.port}/welcome.msg"
     user_context = user_context_fixture()
-    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+    file_sources = configured_file_sources(
+        FILE_SOURCES_CONF,
+        file_sources_config=FileSourcePluginsConfig(fetch_url_allowlist=[ip_address(ftp_server.host)]),
+    )
     file_source_pair = file_sources.get_file_source_path(test_url)
 
     assert file_source_pair.path == test_url
@@ -95,3 +105,14 @@ def test_file_source_ftp_host_specific_not_matched_by_port_prefix():
     assert file_sources.get_file_source_path("ftp://ftp.example.org/README").file_source.id == "test1"
     # The credentials configured for port 21 must not be sent to another port on the same host.
     assert file_sources.get_file_source_path("ftp://ftp.example.org:2121/README").file_source.id == "test2"
+
+
+@pytest.mark.parametrize("plugin", ["http", "ftp"])
+def test_private_ftp_url_rejected(tmp_path, ftp_server: FtpServerFixture, plugin):
+    (ftp_server.root / "data").write_text("private content")
+    sources = configured_file_sources([{"type": plugin, "id": "test"}])
+    target = tmp_path / "download"
+    url = f"ftp://{ftp_server.host}:{ftp_server.port}/data"
+    with pytest.raises(ConfigDoesNotAllowException):
+        stream_url_to_file(url, file_sources=sources, target_path=str(target))
+    assert not target.exists()

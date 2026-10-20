@@ -1,5 +1,23 @@
 # Security considerations
 
+## Uploads from private network addresses
+
+HTTP, HTTPS and FTP uploads to private network addresses require the destination
+IP address or network in [`fetch_url_allowlist`](galaxy_options.html#fetch-url-allowlist).
+Set this option in `galaxy.yml` to a comma-separated list of addresses or networks,
+for example:
+
+```yaml
+galaxy:
+  fetch_url_allowlist: "10.10.10.10,10.0.1.0/24,fd00::/8"
+```
+
+Only include destinations that users should be able to access through Galaxy.
+Each URL in a multiline paste is checked. Private `ftp://` destinations also
+require an allowlist entry when the URL matches an administrator-configured FTP
+file source. Access to configured FTP sources through `gxfiles://` paths is
+unchanged.
+
 ## Protect Galaxy against data loss due to misbehaving tools
 
 Tools have access to the paths of input and output data sets which are stored in

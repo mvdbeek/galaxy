@@ -12,6 +12,7 @@ from galaxy.files.models import (
     BaseFileSourceTemplateConfiguration,
     FilesSourceRuntimeContext,
 )
+from galaxy.files.uris import validate_non_local
 from galaxy.util.config_templates import TemplateExpansion
 from ._pyfilesystem2 import PyFilesystem2FilesSource
 
@@ -65,6 +66,7 @@ class FtpFilesSource(PyFilesystem2FilesSource[FTPFileSourceTemplateConfiguration
     def _realize_to(
         self, source_path: str, native_path: str, context: FilesSourceRuntimeContext[FTPFileSourceConfiguration]
     ):
+        validate_non_local(source_path, self._file_sources_config.fetch_url_allowlist)
         path = self._parse_url_and_get_path(source_path, context.config)
         super()._realize_to(path, native_path, context)
 
