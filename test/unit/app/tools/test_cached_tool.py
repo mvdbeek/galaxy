@@ -533,6 +533,37 @@ def test_index_tool_files_parses_indexed_files_and_reloads_after_a_write(tmp_pat
     assert box._store.invalidate_index_cache.called is bool(indexes_written)
 
 
+def test_index_tool_files_reloads_a_stale_index_another_populate_already_wrote(tmp_path, monkeypatch):
+    # A toolbox reload during a repository update indexed the file mid-update,
+    # and the install's own populate has since stored and indexed the new
+    # content, so this populate writes nothing.
+    guid = "toolshed.example.com/repos/owner/repo/updated/1.0"
+    tool_file = tmp_path / "updated.xml"
+    tool_file.write_text("<tool id='updated' version='1.0'/>")
+    box = _seam_box()
+    box._tool_index.add_entry(_entry(id=guid, version="1.0", source_hash="before-update"))
+    box._store.get_by_source_path.return_value = StoredToolSource(
+        hash="after-update",
+        tool_source_class="XmlToolSource",
+        raw_source="<tool/>",
+        tool_id=guid,
+        tool_version="1.0",
+        tool_dir=None,
+        source_path=str(tool_file),
+        stored_at=datetime.now(timezone.utc),
+    )
+    current = ToolIndex()
+    current.add_entry(_entry(id=guid, version="1.0", source_hash="after-update"))
+    box._store.load_index.return_value = current
+    monkeypatch.setattr(mod, "populate_for_paths", lambda *args, **kwargs: {"indexes_written": 0})
+
+    box.index_tool_files({str(tool_file): guid})
+
+    entry = box._tool_index.get(guid, "1.0")
+    assert entry is not None
+    assert entry.source_hash == "after-update"
+
+
 def test_create_tool_stamps_data_manager_conf_id_on_entry():
     box = _seam_box()
     e = _entry(id="dm_tool", tool_type="manage_data")
