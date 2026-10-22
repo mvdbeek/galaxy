@@ -1065,6 +1065,15 @@ class OutputDataset(HasExtraFiles, Protocol):
     def get_file_name(self, sync_cache=True) -> str: ...
 
 
+@dataclass(frozen=True)
+class ToolDataTableConfig:
+    """A read source, retaining its configured path for XML-relative references."""
+
+    filename: StrPath
+    from_shed_config: bool = False
+    optional: bool = False
+
+
 class ToolDataTableManager(Dictifiable):
     """Manages a collection of tool data tables"""
 
@@ -1078,7 +1087,11 @@ class ToolDataTableManager(Dictifiable):
         tool_data_table_config_path_set=None,
         other_config_dict: Optional[StoresConfigFilePaths] = None,
         filesystem: Optional[ToolDataFilesystem] = None,
+        config_sources: Optional[List[ToolDataTableConfig]] = None,
+        on_registration: Optional[Callable[[List[str]], None]] = None,
     ) -> None:
+        self.config_sources = config_sources
+        self.on_registration = on_registration
         self.tool_data_path = tool_data_path
         # This stores all defined data table entries from both the tool_data_table_conf.xml file and the shed_tool_data_table_conf.xml file
         # at server startup. If tool shed repositories are installed that contain a valid file named tool_data_table_conf.xml.sample, entries
@@ -1086,6 +1099,8 @@ class ToolDataTableManager(Dictifiable):
         self.data_tables = {}
         self.tool_data_path_files = ToolDataPathFiles(self.tool_data_path, filesystem=filesystem)
         self.other_config_dict = other_config_dict or {}
+        if config_sources is not None:
+            self.reload_tables()
         for single_config_filename in util.listify(config_filename):
             if not single_config_filename:
                 continue
@@ -1141,7 +1156,11 @@ class ToolDataTableManager(Dictifiable):
             out.write(json.dumps(self.to_dict()))
 
     def load_from_config_file(
-        self, config_filename: StrPath, tool_data_path: Optional[StrPath], from_shed_config: bool = False
+        self,
+        config_filename: StrPath,
+        tool_data_path: Optional[StrPath],
+        from_shed_config: bool = False,
+        table_names: Optional[List[str]] = None,
     ) -> List[Element]:
         """
         This method is called under 3 conditions:
@@ -1159,6 +1178,8 @@ class ToolDataTableManager(Dictifiable):
         # the per-table exists() checks don't each re-walk the tool-data tree.
         with self.tool_data_path_files.cached():
             for table_elem in root.findall("table"):
+                if table_names is not None and table_elem.get("name") not in table_names:
+                    continue
                 table = self.from_elem(
                     table_elem,
                     tool_data_path,
@@ -1229,6 +1250,8 @@ class ToolDataTableManager(Dictifiable):
             </table>
 
         """
+        if persist and self.config_sources is not None:
+            return self._register_from_config_file(config_filename, tool_data_path, shed_tool_data_table_config)
         error_message = ""
         try:
             table_elems = self.load_from_config_file(
@@ -1244,6 +1267,81 @@ class ToolDataTableManager(Dictifiable):
             # Persist Galaxy's version of the changed tool_data_table_conf.xml file.
             self.to_xml_file(shed_tool_data_table_config, table_elems)
         return table_elems, error_message
+
+    def _new_staging_manager(self) -> "ToolDataTableManager":
+        staging = type(self)(self.tool_data_path, other_config_dict=self.other_config_dict)
+        staging.tool_data_path_files = self.tool_data_path_files
+        return staging
+
+    def _register_from_config_file(
+        self, config_filename: StrPath, tool_data_path: Optional[StrPath], destination: StrPath
+    ) -> Tuple[List[Element], str]:
+        # Validate the entire registration before modifying either live tables or disk.
+        staging = self._new_staging_manager()
+        try:
+            table_elems = staging.load_from_config_file(config_filename, tool_data_path, from_shed_config=True)
+            for name, table in staging.data_tables.items():
+                if existing := self.data_tables.get(name):
+                    assert type(existing) is type(table), f"Incompatible data table types for {name}"
+                    if isinstance(table, TabularToolDataTable):
+                        self.assert_data_table_consistency(name, table.columns)
+        except Exception as exc:
+            message = f"Error attempting to parse file {os.path.basename(config_filename)}: {util.unicodify(exc)}"
+            log.debug(message, exc_info=True)
+            return [], message
+        self.to_xml_file(destination, table_elems)
+        names = list(staging.data_tables)
+        if names:
+            try:
+                self.reload_tables(names)
+            finally:
+                # The registration is on disk even if this process cannot reload it.
+                if self.on_registration:
+                    self.on_registration(names)
+        return table_elems, ""
+
+    def _reload_from_config_sources(self, table_names: Optional[List[str]], path: Optional[str]) -> List[str]:
+        assert self.config_sources is not None
+        staging = self._new_staging_manager()
+        # Re-read XML as well as rows so peers can discover new registrations.
+        # Build everything before publishing, leaving live tables intact on error.
+        with self.tool_data_path_files.cached():
+            for source in self.config_sources:
+                try:
+                    staging.load_from_config_file(
+                        source.filename, self.tool_data_path, source.from_shed_config, table_names=table_names
+                    )
+                except OSError as exc:
+                    if not source.optional or exc.errno != errno.ENOENT:
+                        raise
+        if table_names is None:
+            if path:
+                table_names = list(
+                    dict.fromkeys(self.get_table_names_by_path(path) + staging.get_table_names_by_path(path))
+                )
+            else:
+                table_names = list(dict.fromkeys([*self.data_tables, *staging.data_tables]))
+        for name in table_names:
+            existing = self.data_tables.get(name)
+            rebuilt = staging.data_tables.get(name)
+            if existing is not None and rebuilt is not None:
+                assert type(existing) is type(rebuilt), f"Incompatible data table types for {name}"
+        for name in table_names:
+            existing = self.data_tables.get(name)
+            rebuilt = staging.data_tables.get(name)
+            if existing is not None:
+                version = existing._loaded_content_version + 1
+                if rebuilt is None:
+                    existing.data = []
+                    existing._update_version(version)
+                    del self.data_tables[name]
+                else:
+                    rebuilt._update_version(version)
+                    # Keep references held by tools while publishing the rebuilt state together.
+                    existing.__dict__ = rebuilt.__dict__
+            elif rebuilt is not None:
+                self.data_tables[name] = rebuilt
+        return table_names
 
     def to_xml_file(
         self,
@@ -1262,7 +1360,7 @@ class ToolDataTableManager(Dictifiable):
             new_elems = []
         if not remove_elems:
             remove_elems = []
-        full_path = os.path.abspath(shed_tool_data_table_config)
+        full_path = os.path.realpath(shed_tool_data_table_config)
         # FIXME: we should lock changing this file by other threads / head nodes
         try:
             try:
@@ -1296,6 +1394,9 @@ class ToolDataTableManager(Dictifiable):
         """
         Reload tool data tables. If neither table_names nor path is given, reloads all tool data tables.
         """
+        if self.config_sources is not None:
+            names = util.listify(table_names) if table_names else None
+            return self._reload_from_config_sources(names, path)
         tables = self.get_tables()
         if not table_names:
             if path:

@@ -348,6 +348,8 @@ def reload_tool_data_tables(app, **kwargs):
     table_names = path or table_name or "all tables"
     log.debug("Executing tool data table reload for %s", table_names)
     table_names = app.tool_data_tables.reload_tables(table_names=table_name, path=path)
+    if hasattr(app, "watchers"):
+        app.watchers.update_watch_data_table_paths()
     log.debug("Finished data table reload for %s", table_names)
 
 

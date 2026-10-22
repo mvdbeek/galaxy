@@ -86,17 +86,67 @@ base name is checked (many tools use something like `tool-data/xyz.loc` and
 store example `loc` files in a `tool-data/` directory in the tool repository).
 Currently also `.loc.sample` may be used in case the specified `.loc` is absent.
 
-Galaxy uses two tool data table config files:
+### Configuration order
 
-- `tool_data_table_config_path`: by default `tool_data_table_conf.xml` in Galaxy's `config/` directory.
-- `shed_tool_data_table_config`: by default `shed_tool_data_table_conf.xml` in
-Galaxy's `config/` directory. This file lists all tool data tables of tools
-installed from a toolshed. Note that the entries are versioned, i.e. there is a
-separate entry for each tool and tool version.
+`tool_data_table_config_path` is the ordered list of XML files Galaxy reads.
+It accepts a YAML list or comma-separated paths, and defaults to
+`tool_data_table_conf.xml` in `config_dir`. `shed_tool_data_table_config` is the
+file Galaxy writes when registering Tool Shed data tables, defaulting to
+`shed_tool_data_table_conf.xml` in `managed_config_dir`.
 
-The tool data table config files can (and do) contain multiple entries for the same data table
-(identified by the same name). These content of the corresponding `loc` files are merged when
-they are loaded.
+Include the managed file in the read list to choose its position. For example,
+to prefer administrator-local references, then installed references, then a
+read-only reference repository:
+
+```yaml
+galaxy:
+  shed_tool_data_table_config: /srv/galaxy/var/shed_tool_data_table_conf.xml
+  tool_data_table_config_path:
+    - /srv/galaxy/config/tool_data_table_conf.xml
+    - /srv/galaxy/var/shed_tool_data_table_conf.xml
+    - /mnt/idc/tool_data_table_conf.xml
+```
+
+IDC is an ordinary configured source: moving its XML file earlier gives it
+earlier precedence. Galaxy writes registrations only to
+`shed_tool_data_table_config`; the other configuration sources can be read-only.
+Use absolute paths when the two settings have different base directories:
+relative read-list paths resolve against `config_dir`, while the managed write
+path resolves against `managed_config_dir`.
+
+If the managed file is absent from the read list, Galaxy appends it, preserving
+the legacy order. If listed more than once, including through equivalent paths
+or symlinks, Galaxy reads it once at its first position. Path matching does not
+change the path used to interpret XML-relative `${__HERE__}` references.
+A missing default managed file is allowed and keeps its position if a later
+installation creates it. An explicitly configured missing managed file, or a
+missing ordinary source, is an error.
+
+Definitions with the same table name must have matching columns. Galaxy merges
+them in configuration order, preserving XML definition order, `<file>` order,
+and `.loc` row order. Identical rows from later definitions are skipped; rows
+with the same value but different versions, paths, or other columns remain
+available to tool filters. Field lookup uses the first matching row after the
+tool's filters and sorting. Tool-defined sorting can therefore change which
+row wins.
+
+For the example above, assuming the rows survive filters without reordering:
+
+| Sources containing `hg38` | Selected path comes from |
+| --- | --- |
+| Local and IDC | Local |
+| Managed Tool Shed and IDC | Managed Tool Shed |
+| IDC only | IDC |
+
+Adding a matching value in an earlier source intentionally changes precedence;
+adding it in a later source does not displace the first matching row. This is
+not reference pinning: a saved `hg38` value does not record a physical source or
+its contents.
+
+The configured order also applies after Tool Shed registration, data-manager
+writes, targeted reloads, and reload notifications in other Galaxy processes.
+Reloads re-read XML definitions so peers discover newly registered tables and
+files. Changes to the order in `galaxy.yml` require a restart.
 
 When a new tool is installed that uses a data table a new entry is added to
 `shed_tool_data_table_config` and a `loc` file is placed in a versioned
