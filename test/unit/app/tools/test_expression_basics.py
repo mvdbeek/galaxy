@@ -252,12 +252,9 @@ def test_worker_that_cannot_start_is_a_worker_error():
         evaluate_program("JSON.stringify(42)", sandbox_command=["/nonexistent/jail/binary"])
 
 
-def test_worker_io_failure_is_a_worker_error(monkeypatch):
-    def no_space(*args, **kwargs):
-        raise OSError(28, "No space left on device")
-
-    monkeypatch.setattr(tempfile, "TemporaryFile", no_space)
-    with pytest.raises(ExpressionWorkerError, match="No space left on device"):
+def test_missing_temporary_directory_is_a_worker_error(monkeypatch, tmp_path):
+    monkeypatch.setattr(tempfile, "tempdir", str(tmp_path / "missing"))
+    with pytest.raises(ExpressionWorkerError, match="No such file or directory"):
         evaluate_program("JSON.stringify(42)")
 
 
