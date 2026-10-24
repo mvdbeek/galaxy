@@ -20,6 +20,7 @@ from requests import (
     RequestException,
     Response,
 )
+from urllib3.exceptions import HTTPError
 
 from galaxy.exceptions import (
     MessageException,
@@ -318,7 +319,7 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
                         yield response
                         return
                 raise MessageException("HAL returned too many redirects.")
-        except RequestException as exc:
+        except (RequestException, HTTPError) as exc:
             raise MessageException(f"Unable to fetch HAL resource: {exc}") from exc
 
 
