@@ -5,6 +5,8 @@ import re
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
+from datetime import datetime
+from email.utils import parsedate_to_datetime
 from typing import TypedDict
 from urllib.parse import (
     quote,
@@ -145,27 +147,33 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
         ]
         start = offset or 0
         page = entries[start : start + limit if limit is not None else None]
-        if page:
-            # Only probe visible files, with bounded concurrency so a large record remains responsive.
+        if page and limit is not None:
+            # Only probe a requested page, with bounded concurrency so a large record remains responsive.
             with ThreadPoolExecutor(max_workers=MAX_SIZE_LOOKUP_WORKERS) as executor:
-                sizes = executor.map(self._file_size, (files[entry.path][1] for entry in page))
-                for entry, size in zip(page, sizes):
+                metadata = executor.map(self._file_metadata, [files[entry.path][1] for entry in page])
+                for entry, (size, ctime) in zip(page, metadata):
                     if isinstance(entry, RemoteFile):
                         entry.size = size
+                        entry.ctime = ctime
         return page, len(entries)
 
-    def _file_size(self, url: str) -> int:
-        """Best-effort metadata lookup; never download a body to calculate a file's size."""
+    def _file_metadata(self, url: str) -> tuple[int, datetime | None]:
+        """Best-effort size and modification time; never download a body to calculate a file's size."""
         try:
             with self._open_url(url, method="HEAD", timeout=SIZE_LOOKUP_TIMEOUT) as response:
-                # Content-Length describes the encoded representation if the server ignores identity.
-                if response.status_code != 200 or response.headers.get("Content-Encoding", "identity") != "identity":
-                    return 0
+                if response.status_code != 200:
+                    return 0, None
+                size = 0
                 length = response.headers.get("Content-Length", "")
-                return int(length) if re.fullmatch(r"[0-9]+", length) else 0
-        except (MessageException, ValueError):
-            log.debug("Could not retrieve HAL file size for %s", url, exc_info=True)
-            return 0
+                # Content-Length describes the encoded representation if the server ignores identity.
+                if response.headers.get("Content-Encoding", "identity") == "identity" and re.fullmatch(
+                    r"[0-9]+", length
+                ):
+                    size = int(length)
+                return size, _parse_http_date(response.headers.get("Last-Modified"))
+        except MessageException:
+            log.debug("Could not retrieve HAL file metadata for %s", url, exc_info=True)
+            return 0, None
 
     def _realize_to(
         self, source_path: str, native_path: str, context: FilesSourceRuntimeContext[HALFileSourceConfiguration]
@@ -307,6 +315,15 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
                 raise MessageException("HAL returned too many redirects.")
         except RequestException as exc:
             raise MessageException(f"Unable to fetch HAL resource: {exc}") from exc
+
+
+def _parse_http_date(value: str | None) -> datetime | None:
+    if not value:
+        return None
+    try:
+        return parsedate_to_datetime(value)
+    except (TypeError, ValueError):
+        return None
 
 
 __all__ = ("HALFilesSource",)
