@@ -44,6 +44,8 @@ from galaxy.util import (
 from galaxy.util.config_templates import TemplateExpansion
 
 DEFAULT_API_URL = "https://api.hal.science/search/"
+# Redirects versioned file URLs to the portal that hosts the deposit.
+HAL_URL = "https://hal.science"
 RECORD_RE = re.compile(r"([a-z][a-z0-9-]*-[0-9]+)v([1-9][0-9]*)")
 FIELDS = "halId_s,version_i,title_s,files_s,fileAnnexes_s"
 SIZE_LOOKUP_TIMEOUT = 5
@@ -129,7 +131,13 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
         record_id, filename = self._split_path(path)
         if filename is not None:
             raise ObjectNotFound(f"HAL path is not a directory: {path}")
-        files = self._record_files(record_id, context.config)
+        record = self._current_record(record_id, context.config)
+        if self._record_id(record) != record_id:
+            raise MessageException(
+                f"HAL search only exposes the current version of {record_id}; "
+                f"browse {self._record_id(record)} to list its current files."
+            )
+        files = self._record_files(record, record_id)
         entries = [
             RemoteFile(name=name, path=file_path, uri=self.uri_from_path(file_path))
             for file_path, (name, _) in files.items()
@@ -165,11 +173,20 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
         record_id, filename = self._split_path(source_path)
         if filename is None:
             raise ObjectNotFound(f"HAL path is not a file: {source_path}")
-        files = self._record_files(record_id, context.config)
-        file_path = f"/{record_id}/{filename}"
-        if file_path not in files:
-            raise ObjectNotFound(f"File not found in HAL deposit: {source_path}")
-        with self._open_url(files[file_path][1]) as response:
+        record = self._current_record(record_id, context.config)
+        if self._record_id(record) == record_id:
+            file_path = f"/{record_id}/{filename}"
+            files = self._record_files(record, record_id)
+            if file_path not in files:
+                raise ObjectNotFound(f"File not found in HAL deposit: {source_path}")
+            url = files[file_path][1]
+        else:
+            # The index only holds the current version, but HAL keeps serving the files of every version.
+            name = self._attachment_name(filename)
+            if name is None:
+                raise ObjectNotFound(f"Invalid HAL file name: {source_path}")
+            url = f"{HAL_URL}/{record_id}/file/{quote(name, safe='')}"
+        with self._open_url(url) as response:
             response.raw.decode_content = True
             stream_to_path(response.raw, native_path)
 
@@ -188,20 +205,18 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
             except (ValueError, KeyError, TypeError) as exc:
                 raise MessageException("Invalid response from the HAL search API.") from exc
 
-    def _record_files(self, record_id: str, config: HALFileSourceConfiguration) -> dict[str, tuple[str, str]]:
+    def _current_record(self, record_id: str, config: HALFileSourceConfiguration) -> HALRecord:
+        """Look up the indexed deposit, which is always its current version."""
         match = RECORD_RE.fullmatch(record_id)
         assert match is not None  # checked by _split_path
         hal_id, _ = match.groups()
-        # The search index exposes the current version only. Never substitute that version for a saved path.
         result = self._search(config, q=f'halId_s:"{hal_id}"', rows=1)
         if not result["docs"]:
             raise ObjectNotFound(f"HAL deposit not found: {record_id}")
-        record = result["docs"][0]
-        if self._record_id(record) != record_id:
-            raise MessageException(
-                "HAL returned a different deposit version than requested. "
-                "The search API only exposes the current version; browse the deposit again to select its current files."
-            )
+        return result["docs"][0]
+
+    def _record_files(self, record: HALRecord, record_id: str) -> dict[str, tuple[str, str]]:
+        hal_id = record.get("halId_s")
         files: dict[str, tuple[str, str]] = {}
         for url in [*record.get("files_s", []), *record.get("fileAnnexes_s", [])]:
             parsed = urlsplit(url)
@@ -210,8 +225,8 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
             # hosted by other repositories are outside this source's scope.
             if parsed.scheme != "https" or len(parts) != 4 or parts[1] not in (hal_id, record_id) or parts[2] != "file":
                 continue
-            name = unquote(parts[3])
-            if not name or name in (".", "..") or "/" in name or "\\" in name:
+            name = self._attachment_name(parts[3])
+            if name is None:
                 continue
             # HAL's index returns unversioned URLs; pin them before exposing or downloading the file.
             versioned_url = urlunsplit((parsed.scheme, parsed.netloc, f"/{record_id}/file/{parts[3]}", "", ""))
@@ -220,6 +235,13 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
                 raise MessageException(f"HAL returned ambiguous attachments named {name}.")
             files[file_path] = (name, versioned_url)
         return dict(sorted(files.items()))
+
+    @staticmethod
+    def _attachment_name(quoted_name: str) -> str | None:
+        name = unquote(quoted_name)
+        if not name or name in (".", "..") or "/" in name or "\\" in name:
+            return None
+        return name
 
     @staticmethod
     def _record_id(record: HALRecord) -> str:
