@@ -456,10 +456,17 @@ def test_expression_error_message_names_the_javascript_error():
     assert "<input>" not in message  # script positions are left out
 
 
-def test_expression_error_message_keeps_a_thrown_string():
+@pytest.mark.parametrize(
+    "thrown, message",
+    [
+        ("'at least one input is required'", "at least one input is required"),
+        ("'  indented\\nsecond line'", "indented"),
+    ],
+)
+def test_expression_error_message_keeps_a_thrown_string(thrown, message):
     with pytest.raises(WorkflowException) as exc:
-        do_eval("${ throw 'at least one input is required'; }", {})
-    assert expression_error_message(exc.value) == "at least one input is required"
+        do_eval(f"${{ throw {thrown}; }}", {})
+    assert expression_error_message(exc.value) == message
 
 
 def test_escaped_command_substitution_survives_evaluation():
