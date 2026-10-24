@@ -75,7 +75,9 @@ def expression_error_message(exc: Exception) -> str:
     """The JavaScript error from a failed evaluation (e.g. ``TypeError: ...``), without the script positions."""
     lines = str(exc).splitlines()
     # The first line is cwl_utils' header.
-    message = next((line for line in lines[1:] if line.strip() and not STACK_FRAME.match(line)), lines[0] if lines else "")
+    message = next(
+        (line for line in lines[1:] if line.strip() and not STACK_FRAME.match(line)), lines[0] if lines else ""
+    )
     return message.strip()
 
 

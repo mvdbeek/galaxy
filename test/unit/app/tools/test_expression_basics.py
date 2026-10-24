@@ -4,6 +4,7 @@ import platform
 import shutil
 import subprocess
 import sys
+import tempfile
 import time
 
 import psutil
@@ -257,7 +258,7 @@ def test_worker_io_failure_is_a_worker_error(monkeypatch):
     def no_space(*args, **kwargs):
         raise OSError(28, "No space left on device")
 
-    monkeypatch.setattr(js_engine.tempfile, "TemporaryFile", no_space)
+    monkeypatch.setattr(tempfile, "TemporaryFile", no_space)
     with pytest.raises(ExpressionWorkerError, match="No space left on device"):
         evaluate_program("JSON.stringify(42)")
 
