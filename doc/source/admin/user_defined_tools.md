@@ -54,7 +54,7 @@ See https://training.galaxyproject.org/training-material/topics/admin/tutorials/
 and see https://github.com/galaxyproject/galaxy/blob/dev/test/integration/embedded_pulsar_job_conf.yml#L29 for a simple example that uses embedded pulsar to isolate mounts and disables network access.
 While the feature is in beta we recommend that only trusted users are allowed to use this feature.
 
-When a JavaScript expression in a user-defined tool fails while Galaxy builds the job, the job fails with the JavaScript error, for example `TypeError: cannot read property '0' of undefined`. This happens regardless of `expose_dataset_path`. The error can quote the job's input values, including the path of an input dataset. This is the path in the job's compute environment, so routing user-defined tool jobs to a remote destination such as Pulsar keeps paths on Galaxy's own storage out of these messages.
+When a JavaScript expression in a user-defined tool fails while Galaxy builds the job, the job fails with the JavaScript error, for example `TypeError: cannot read property '0' of undefined`. This happens regardless of `expose_dataset_path`. The error can quote the job's input values, including the path of an input dataset. This is the path in the job's compute environment when Galaxy builds the command line, so routing user-defined tool jobs to a Pulsar destination with `rewrite_parameters: true` keeps paths on Galaxy's own storage out of these messages. Without `rewrite_parameters`, Galaxy builds the command line with its own paths and Pulsar rewrites them afterwards.
 
 ## Routing user-defined tool jobs
 
