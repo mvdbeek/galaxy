@@ -1,0 +1,26 @@
+- doc: |
+    A user-defined tool mapped over a list reads each element's identifier.
+  job:
+    samples:
+      class: Collection
+      collection_type: list
+      elements:
+        - identifier: sample_a
+          class: File
+          contents: "a"
+        - identifier: sample_b
+          class: File
+          contents: "b"
+  outputs:
+    out:
+      class: Collection
+      collection_type: list
+      elements:
+        sample_a:
+          asserts:
+            - that: has_line
+              line: sample_a
+        sample_b:
+          asserts:
+            - that: has_line
+              line: sample_b

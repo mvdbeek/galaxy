@@ -1,0 +1,28 @@
+class: GalaxyWorkflow
+inputs:
+  samples:
+    type: collection
+    collection_type: list
+outputs:
+  out:
+    outputSource: udt_echo/output1
+steps:
+  udt_echo:
+    run:
+      class: GalaxyUserTool
+      id: echo_element_identifier
+      version: "0.1"
+      name: echo_element_identifier
+      container: busybox
+      shell_command: echo '$(inputs.input1.element_identifier)' > output.txt
+      inputs:
+        - name: input1
+          type: data
+          format: txt
+      outputs:
+        - name: output1
+          type: data
+          format: txt
+          from_work_dir: output.txt
+    in:
+      input1: samples
