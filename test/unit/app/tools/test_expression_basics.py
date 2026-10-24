@@ -253,6 +253,15 @@ def test_worker_that_cannot_start_is_a_worker_error():
         evaluate_program("JSON.stringify(42)", sandbox_command=["/nonexistent/jail/binary"])
 
 
+def test_worker_io_failure_is_a_worker_error(monkeypatch):
+    def no_space(*args, **kwargs):
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(js_engine.tempfile, "TemporaryFile", no_space)
+    with pytest.raises(ExpressionWorkerError, match="No space left on device"):
+        evaluate_program("JSON.stringify(42)")
+
+
 def test_worker_without_quickjs_is_a_worker_error():
     wrapper = [
         sys.executable,

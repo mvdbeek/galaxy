@@ -195,8 +195,8 @@ def _evaluate_in_subprocess(program: str, timeout: float, sandbox_command: Seque
         raise ExpressionWorkerError("Expression request exceeds protocol limit")
     # Files avoid unbounded pipe capture, including diagnostics from custom wrappers.
     # The worker also bounds its response before writing it.
-    with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
-        try:
+    try:
+        with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
             with subprocess.Popen(
                 argv, stdin=subprocess.PIPE, stdout=stdout, stderr=stderr, start_new_session=True
             ) as proc:
@@ -210,14 +210,14 @@ def _evaluate_in_subprocess(program: str, timeout: float, sandbox_command: Seque
                         pass
                     proc.wait()
                     raise ExpressionWorkerError("Expression evaluation timed out in worker subprocess") from e
-        except OSError as e:
-            raise ExpressionWorkerError(f"Could not run expression worker: {e}") from e
-        if proc.returncode != 0:
-            stderr.seek(0)
-            detail = stderr.read(500).decode("utf-8", "replace").strip()
-            raise ExpressionWorkerError(f"Expression worker exited with code {proc.returncode}: {detail}")
-        stdout.seek(0)
-        output = stdout.read(MAX_MESSAGE_BYTES + 1)
+            if proc.returncode != 0:
+                stderr.seek(0)
+                detail = stderr.read(500).decode("utf-8", "replace").strip()
+                raise ExpressionWorkerError(f"Expression worker exited with code {proc.returncode}: {detail}")
+            stdout.seek(0)
+            output = stdout.read(MAX_MESSAGE_BYTES + 1)
+    except OSError as e:
+        raise ExpressionWorkerError(f"Could not run expression worker: {e}") from e
     if len(output) > MAX_MESSAGE_BYTES:
         raise ExpressionWorkerError("Expression response exceeds protocol limit")
     try:
