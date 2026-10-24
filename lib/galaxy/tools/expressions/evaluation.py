@@ -1,11 +1,13 @@
-import re
 from collections.abc import Sequence
 from typing import (
     cast,
     Optional,
 )
 
-from cwl_utils.errors import SubstitutionError
+from cwl_utils.errors import (
+    JavascriptException,
+    SubstitutionError,
+)
 from cwl_utils.expression import (
     do_eval as _do_eval,
     needs_parsing,
@@ -26,9 +28,6 @@ from .js_engine import (
 
 # How much of an unparseable template is quoted back to its author.
 TEMPLATE_SNIPPET_LENGTH = 80
-
-# QuickJS indents the stack frames it appends to an error message.
-STACK_FRAME = re.compile(r"\s+at\s")
 
 
 class ExpressionTemplateError(MessageException):
@@ -72,13 +71,9 @@ def _unterminated_message(expression: str, scan: str, consumed: int, description
 
 
 def expression_error_message(exc: Exception) -> str:
-    """The JavaScript error from a failed evaluation (e.g. ``TypeError: ...``), without the script positions."""
-    lines = str(exc).splitlines()
-    # The first line is cwl_utils' header.
-    message = next(
-        (line for line in lines[1:] if line.strip() and not STACK_FRAME.match(line)), lines[0] if lines else ""
-    )
-    return message.strip()
+    """The JavaScript error from a failed evaluation (e.g. ``TypeError: ...``), without cwl_utils' header."""
+    cause = exc.__cause__
+    return str(cause if isinstance(cause, JavascriptException) else exc)
 
 
 def do_eval(
