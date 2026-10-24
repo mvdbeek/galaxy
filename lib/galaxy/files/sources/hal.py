@@ -150,17 +150,19 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
         if page and limit is not None:
             # Only probe a requested page, with bounded concurrency so a large record remains responsive.
             with ThreadPoolExecutor(max_workers=MAX_SIZE_LOOKUP_WORKERS) as executor:
-                metadata = executor.map(self._file_metadata, [files[entry.path][1] for entry in page])
+                metadata = executor.map(
+                    self._file_metadata, [entry.name for entry in page], [files[entry.path][1] for entry in page]
+                )
                 for entry, (size, ctime) in zip(page, metadata):
                     if isinstance(entry, RemoteFile):
                         entry.size = size
                         entry.ctime = ctime
         return page, len(entries)
 
-    def _file_metadata(self, url: str) -> tuple[int, datetime | None]:
+    def _file_metadata(self, name: str, url: str) -> tuple[int, datetime | None]:
         """Best-effort size and modification time; never download a body to calculate a file's size."""
         try:
-            with self._open_url(url, method="HEAD", timeout=SIZE_LOOKUP_TIMEOUT) as response:
+            with self._open_url(url, method="HEAD", timeout=SIZE_LOOKUP_TIMEOUT, allow_html=_is_html(name)) as response:
                 if response.status_code != 200:
                     return 0, None
                 size = 0
@@ -187,14 +189,15 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
             files = self._record_files(record, record_id)
             if file_path not in files:
                 raise ObjectNotFound(f"File not found in HAL deposit: {source_path}")
-            url = files[file_path][1]
+            name, url = files[file_path]
         else:
             # The index only holds the current version, but HAL keeps serving the files of every version.
-            name = self._attachment_name(filename)
-            if name is None:
+            attachment_name = self._attachment_name(filename)
+            if attachment_name is None:
                 raise ObjectNotFound(f"Invalid HAL file name: {source_path}")
+            name = attachment_name
             url = f"{HAL_URL}/{record_id}/file/{quote(name, safe='')}"
-        with self._open_url(url) as response:
+        with self._open_url(url, allow_html=_is_html(name)) as response:
             response.raw.decode_content = True
             stream_to_path(response.raw, native_path)
 
@@ -272,6 +275,7 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
         params: dict[str, str | int] | None = None,
         method: str = "GET",
         timeout: float = DEFAULT_SOCKET_TIMEOUT,
+        allow_html: bool = False,
     ) -> Iterator[Response]:
         """Validate every redirect before making the next request, including metadata-supplied URLs."""
         allowlist = self._file_sources_config.fetch_url_allowlist or []
@@ -308,13 +312,18 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
                         if response.status_code in (401, 403):
                             raise MessageException("This HAL file is not publicly accessible; it may be under embargo.")
                         response.raise_for_status()
-                        if response.headers.get("Content-Type", "").lower().startswith("text/html"):
+                        content_type = response.headers.get("Content-Type", "").lower()
+                        if not allow_html and content_type.startswith("text/html"):
                             raise MessageException("HAL returned an HTML page instead of the requested data.")
                         yield response
                         return
                 raise MessageException("HAL returned too many redirects.")
         except RequestException as exc:
             raise MessageException(f"Unable to fetch HAL resource: {exc}") from exc
+
+
+def _is_html(name: str) -> bool:
+    return name.lower().endswith((".html", ".htm"))
 
 
 def _parse_http_date(value: str | None) -> datetime | None:
