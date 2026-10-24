@@ -205,17 +205,10 @@ class HALFilesSource(BaseFilesSource[HALFileSourceTemplateConfiguration, HALFile
         files: dict[str, tuple[str, str]] = {}
         for url in [*record.get("files_s", []), *record.get("fileAnnexes_s", [])]:
             parsed = urlsplit(url)
-            host = parsed.hostname or ""
-            if parsed.scheme != "https" or not (
-                host == "hal.science"
-                or host.endswith(".hal.science")
-                or host == "hal.inrae.fr"
-                or host == "archives-ouvertes.fr"
-                or host.endswith(".archives-ouvertes.fr")
-            ):
-                continue  # Associated datasets hosted by other repositories are outside this source's scope.
             parts = parsed.path.split("/")
-            if len(parts) != 4 or parts[1] not in (hal_id, record_id) or parts[2] != "file":
+            # HAL portals serve deposits from many hosts, all as /<hal-id>/file/<name>. Associated datasets
+            # hosted by other repositories are outside this source's scope.
+            if parsed.scheme != "https" or len(parts) != 4 or parts[1] not in (hal_id, record_id) or parts[2] != "file":
                 continue
             name = unquote(parts[3])
             if not name or name in (".", "..") or "/" in name or "\\" in name:
