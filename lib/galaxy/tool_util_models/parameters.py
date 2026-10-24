@@ -850,9 +850,15 @@ class DataInternalJson(StrictModel):
     # "secondaryFiles": List[Any],
     checksum: Optional[str] = None
     size: int
-    # When a gx_data param receives a DCE (subcollection mapping), preserve element_identifier
-    # for output naming and collection traceability
-    element_identifier: Optional[str] = None
+    element_identifier: Annotated[
+        Optional[str],
+        Field(
+            description=(
+                "The identifier of the collection element the job runs on when it is mapped over a collection, "
+                "else the dataset's name."
+            )
+        ),
+    ] = None
 
 
 class DataCollectionElementInternalJson(DataInternalJson):

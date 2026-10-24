@@ -279,6 +279,11 @@ sections:
       | `$( ... )` | Parameter reference or single expression. | `$(inputs.num_lines)`, `$(inputs.query.path)` |
       | `${ ... }` | Function body that must return a value. | `${ return inputs.num_lines * 2 }` |
 
+      A data input is a file object. `$(inputs.reads.path)` is the file's path
+      in the job and `$(inputs.reads.element_identifier)` is the identifier of
+      the collection element the job runs on when the run is mapped over a
+      collection, such as a sample name, else the dataset's name.
+
       Substituted values are inserted literally; Galaxy does **not** shell-quote
       them. Quote any substitution that can contain spaces yourself, as
       `'$(inputs.query.path)'`.
