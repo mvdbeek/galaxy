@@ -307,10 +307,14 @@ def test_adapt_dataset_element_identifier():
     app, original, _ = _csv_with_tabular_conversion()
     request = DataRequestInternalHda(src="hda", id=1)
 
-    _, adapt_dataset, _ = setup_for_runtimeify(cast(Any, app), None, {"input": original}, None, {1: "sample_a"})
+    _, adapt_dataset, _ = setup_for_runtimeify(
+        cast(Any, app), cast(Any, RewritingComputeEnvironment()), {"input": original}, None, {1: "sample_a"}
+    )
     assert adapt_dataset(request, ["csv"]).element_identifier == "sample_a"
 
-    _, adapt_dataset, _ = setup_for_runtimeify(cast(Any, app), None, {"input": original})
+    _, adapt_dataset, _ = setup_for_runtimeify(
+        cast(Any, app), cast(Any, RewritingComputeEnvironment()), {"input": original}
+    )
     assert adapt_dataset(request, ["csv"]).element_identifier == "input"
 
 

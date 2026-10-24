@@ -450,7 +450,9 @@ def test_to_cwl_dataset_collection_element():
 def test_to_cwl_element_identifier():
     hda = model.HistoryDatasetAssociation(name="plain.txt", create_dataset=True, flush=False)
     hda.id = 1
+    assert hda.dataset is not None
     hda.dataset.state = model.Dataset.states.OK
+    hda.dataset.external_filename = "/data/plain.txt"
     dce = model.DatasetCollectionElement(
         collection=model.DatasetCollection(collection_type="list"), element_identifier="sample_a", element=hda
     )
