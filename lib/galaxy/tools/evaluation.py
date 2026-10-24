@@ -1055,27 +1055,6 @@ class PartialToolEvaluator(ToolEvaluator):
         )
 
 
-def _add_element_identifiers(cwl_style_inputs, input_datasets, incoming) -> None:
-    """Set ``element_identifier`` on input files of a job mapped over a collection.
-
-    The job records each mapped dataset's identifier as ``<name>|__identifier__``, which XML tools
-    read through ``ElementIdentifierMapper``; neither ``runtimeify`` nor ``to_cwl`` carries it over.
-    """
-    if not isinstance(cwl_style_inputs, dict) or not input_datasets:
-        return
-    for name in input_datasets:
-        identifier = incoming.get(f"{name}|__identifier__")
-        if identifier is None:
-            continue
-        *parents, leaf = name.split("|")
-        node: Any = cwl_style_inputs
-        for part in parents:
-            node = node.get(part) if isinstance(node, dict) else None
-        value = node.get(leaf) if isinstance(node, dict) else None
-        if isinstance(value, dict) and value.get("class") == "File" and not value.get("element_identifier"):
-            value["element_identifier"] = identifier
-
-
 class UserToolEvaluator(ToolEvaluator):
 
     param_dict_style = "json"
@@ -1123,6 +1102,12 @@ class UserToolEvaluator(ToolEvaluator):
         """
         compute_environment = self.compute_environment
         job_working_directory = compute_environment.working_directory()
+        # A job mapped over a collection records each element's identifier under its input's name.
+        element_identifiers = {
+            dataset.id: incoming[f"{name}|__identifier__"]
+            for name, dataset in input_datasets.items()
+            if dataset is not None and f"{name}|__identifier__" in incoming
+        }
         hda_references: list[model.HistoryDatasetAssociation]
         if validated_tool_state is not None:
             from galaxy.tool_util.parameters.convert import runtimeify
@@ -1137,7 +1122,7 @@ class UserToolEvaluator(ToolEvaluator):
                 input_dataset_collections[assoc.name] = assoc.dataset_collection_element
 
             hda_references, adapt_datasets, adapt_collections = setup_for_runtimeify(
-                self.app, compute_environment, input_datasets, input_dataset_collections
+                self.app, compute_environment, input_datasets, input_dataset_collections, element_identifiers
             )
             if self.tool.parameters is None:
                 raise RequestParameterInvalidException(f"Tool {self.tool.id} has no parameters defined")
@@ -1158,8 +1143,12 @@ class UserToolEvaluator(ToolEvaluator):
                 "Building CWL style inputs using deprecated to_cwl function - tool may work differently in the future."
             )
             hda_references = []
-            cwl_style_inputs = to_cwl(incoming, hda_references=hda_references, compute_environment=compute_environment)
-        _add_element_identifiers(cwl_style_inputs, input_datasets, incoming)
+            cwl_style_inputs = to_cwl(
+                incoming,
+                hda_references=hda_references,
+                compute_environment=compute_environment,
+                element_identifiers=element_identifiers,
+            )
         return {"inputs": cwl_style_inputs, "outdir": job_working_directory}
 
     def _build_command_line(self):

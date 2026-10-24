@@ -447,6 +447,19 @@ def test_to_cwl_dataset_collection_element():
     assert result[0]["basename"] == "inner"
 
 
+def test_to_cwl_element_identifier():
+    hda = model.HistoryDatasetAssociation(name="plain.txt", create_dataset=True, flush=False)
+    hda.id = 1
+    hda.dataset.state = model.Dataset.states.OK
+    dce = model.DatasetCollectionElement(
+        collection=model.DatasetCollection(collection_type="list"), element_identifier="sample_a", element=hda
+    )
+    assert modules.to_cwl(dce, [], model.WorkflowStep())["element_identifier"] == "sample_a"
+    mapped = modules.to_cwl(hda, [], model.WorkflowStep(), element_identifiers={1: "sample_b"})
+    assert mapped["element_identifier"] == "sample_b"
+    assert modules.to_cwl(hda, [], model.WorkflowStep())["element_identifier"] == "plain.txt"
+
+
 def _expression_json_hda(path, content: Optional[str], seconds_since_updated: int = 0):
     hda = model.HistoryDatasetAssociation(extension="expression.json", create_dataset=True, flush=False)
     hda.id = 1

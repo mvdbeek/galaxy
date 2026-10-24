@@ -7,7 +7,10 @@ import logging
 import math
 import re
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import (
+    Iterable,
+    Mapping,
+)
 from typing import (
     Any,
     cast,
@@ -262,8 +265,17 @@ def replace_expression_json_dataset(
 
 
 def to_cwl(
-    value, hda_references, step: Optional[WorkflowStep] = None, compute_environment: Optional[ComputeEnvironment] = None
+    value,
+    hda_references,
+    step: Optional[WorkflowStep] = None,
+    compute_environment: Optional[ComputeEnvironment] = None,
+    element_identifiers: Optional[Mapping[int, str]] = None,
 ):
+    """Convert a tool state value to its CWL representation.
+
+    A dataset gets the identifier of the collection element it comes from, else the identifier
+    ``element_identifiers`` holds for its id, else its name, as ``element_identifier``.
+    """
     element_identifier = None
     if isinstance(value, NoReplacement):
         value = None
@@ -305,13 +317,20 @@ def to_cwl(
             set_basename_and_derived_properties(
                 properties, value.dataset.created_from_basename or element_identifier or value.name
             )
-            if element_identifier is not None:
-                properties["element_identifier"] = element_identifier
+            if element_identifier is None:
+                element_identifier = (element_identifiers or {}).get(value.id, value.name)
+            properties["element_identifier"] = element_identifier
             return properties
     elif isinstance(value, model.DatasetCollection):
         if value.collection_type == "list":
             return [
-                to_cwl(dce, hda_references=hda_references, step=step, compute_environment=compute_environment)
+                to_cwl(
+                    dce,
+                    hda_references=hda_references,
+                    step=step,
+                    compute_environment=compute_environment,
+                    element_identifiers=element_identifiers,
+                )
                 for dce in value.dataset_elements
             ]
         else:
@@ -323,18 +342,32 @@ def to_cwl(
                     hda_references=hda_references,
                     step=step,
                     compute_environment=compute_environment,
+                    element_identifiers=element_identifiers,
                 )
             return rval
     elif isinstance(value, list):
         return [
-            to_cwl(v, hda_references=hda_references, step=step, compute_environment=compute_environment) for v in value
+            to_cwl(
+                v,
+                hda_references=hda_references,
+                step=step,
+                compute_environment=compute_environment,
+                element_identifiers=element_identifiers,
+            )
+            for v in value
         ]
     elif is_runtime_value(value):
         return None
     elif isinstance(value, dict):
         # Nested tool state, such as conditionals
         return {
-            k: to_cwl(v, hda_references=hda_references, step=step, compute_environment=compute_environment)
+            k: to_cwl(
+                v,
+                hda_references=hda_references,
+                step=step,
+                compute_environment=compute_environment,
+                element_identifiers=element_identifiers,
+            )
             for k, v in value.items()
         }
     else:

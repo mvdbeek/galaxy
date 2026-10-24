@@ -303,6 +303,17 @@ def test_adapt_dataset_resolves_an_implicitly_converted_input():
     assert result.path == "/job/inputs/dataset_2.dat"
 
 
+def test_adapt_dataset_element_identifier():
+    app, original, _ = _csv_with_tabular_conversion()
+    request = DataRequestInternalHda(src="hda", id=1)
+
+    _, adapt_dataset, _ = setup_for_runtimeify(cast(Any, app), None, {"input": original}, None, {1: "sample_a"})
+    assert adapt_dataset(request, ["csv"]).element_identifier == "sample_a"
+
+    _, adapt_dataset, _ = setup_for_runtimeify(cast(Any, app), None, {"input": original})
+    assert adapt_dataset(request, ["csv"]).element_identifier == "input"
+
+
 def test_runtimeify_resolves_a_dataset_used_directly_and_converted():
     app, original, converted = _csv_with_tabular_conversion()
     parameters = ToolParameterBundleModel(

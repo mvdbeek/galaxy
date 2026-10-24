@@ -1,4 +1,7 @@
-from collections.abc import Callable
+from collections.abc import (
+    Callable,
+    Mapping,
+)
 from typing import (
     Any,
     Optional,
@@ -54,8 +57,12 @@ def setup_for_runtimeify(
     compute_environment: Optional["ComputeEnvironment"],
     input_datasets: InpDataDictT,
     input_dataset_collections: Optional[InpDataCollectionsDictT] = None,
+    element_identifiers: Optional[Mapping[int, str]] = None,
 ):
     """Set up callbacks for runtimeify to convert tool state to runtime representations.
+
+    An input dataset gets the identifier ``element_identifiers`` holds for its id, else its name, as
+    ``element_identifier``.
 
     Returns:
         Tuple of (hda_references, adapt_dataset, adapt_collection)
@@ -127,6 +134,7 @@ def setup_for_runtimeify(
             "listing": [],
         }
         set_basename_and_derived_properties(properties, hda_entry.dataset.created_from_basename or hda_entry.name)
+        properties["element_identifier"] = (element_identifiers or {}).get(hda_entry.id, hda_entry.name)
         return DataInternalJson(**properties)
 
     def adapt_collection(
