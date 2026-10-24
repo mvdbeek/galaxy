@@ -18,6 +18,7 @@ from galaxy.tools.expressions import (
     evaluate,
     expression_error_message,
     ExpressionTemplateError,
+    ExpressionWorkerError,
     js_engine,
     validate_expression_template,
 )
@@ -242,8 +243,24 @@ def test_no_host_apis():
 
 @pytest.mark.parametrize("program", ["JSON.stringify(()", "throw new Error('bad expression')"])
 def test_javascript_errors_are_translated(program):
-    with pytest.raises(JavascriptException):
+    with pytest.raises(JavascriptException) as exc:
         evaluate_program(program)
+    assert not isinstance(exc.value, ExpressionWorkerError)
+
+
+def test_worker_that_cannot_start_is_a_worker_error():
+    with pytest.raises(ExpressionWorkerError, match="Could not run expression worker"):
+        evaluate_program("JSON.stringify(42)", sandbox_command=["/nonexistent/jail/binary"])
+
+
+def test_worker_without_quickjs_is_a_worker_error():
+    wrapper = [
+        sys.executable,
+        "-c",
+        "import runpy, sys; sys.modules['quickjs'] = None; runpy.run_path(sys.argv[2], run_name='__main__')",
+    ]
+    with pytest.raises(ExpressionWorkerError, match="requires Python 3.10\\+ and the quickjs-ng package"):
+        evaluate_program("JSON.stringify(42)", sandbox_command=wrapper)
 
 
 @pytest.mark.parametrize("character", ["x", "é"])
