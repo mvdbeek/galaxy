@@ -456,6 +456,12 @@ def test_expression_error_message_names_the_javascript_error():
     assert "<input>" not in message  # script positions are left out
 
 
+def test_expression_error_message_keeps_a_thrown_string():
+    with pytest.raises(WorkflowException) as exc:
+        do_eval("${ throw 'at least one input is required'; }", {})
+    assert expression_error_message(exc.value) == "at least one input is required"
+
+
 def test_escaped_command_substitution_survives_evaluation():
     # What the error message tells authors to write has to actually work.
     assert do_eval("echo \\$(date) > $(inputs.out)", {"out": "out.txt"}) == "echo $(date) > out.txt"
