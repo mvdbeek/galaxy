@@ -105,6 +105,9 @@
     </datatype>
     <datatype extension="parquet" type="galaxy.datatypes.binary:Parquet" display_in_upload="true">
       <converter file="parquet_to_csv_converter.xml" target_datatype="csv"/>
+      <converter file="parquet_to_tabular_converter.xml" target_datatype="tabular"/>
+      <converter file="parquet_to_tsv_converter.xml" target_datatype="tsv"/>
+      <visualization plugin="atlas" />
     </datatype>
     <datatype extension="arrow" type="galaxy.datatypes.binary:Binary" subclass="true" display_in_upload="true" description="Apache Arrow IPC file format" description_url="https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format"/>
     <datatype extension="idat" type="galaxy.datatypes.binary:Idat" display_in_upload="true"/>
@@ -132,6 +135,7 @@
     <datatype extension="geocsv" type="galaxy.datatypes.tabular:GeoCSV" description="CSV format compatible with Kepler.gl, expected to contain latitude and longitude fields." description_url="https://docs.kepler.gl/docs/user-guides/b-kepler-gl-workflow/a-add-data-to-the-map#csv" />
     <datatype extension="tsv" type="galaxy.datatypes.tabular:TSV" display_in_upload="true">
       <converter file="tabular_to_csv.xml" target_datatype="csv"/>
+      <converter file="tsv_to_parquet_converter.xml" target_datatype="parquet"/>
     </datatype>
     <datatype extension="intermine_tabular" type="galaxy.datatypes.tabular:TSV" subclass="true" display_in_upload="true">
       <display file="intermine/intermine_simple.xml"/>
@@ -159,9 +163,15 @@
     <datatype extension="d3_hierarchy" type="galaxy.datatypes.text:Json" mimetype="application/json" subclass="true" display_in_upload="true"/>
     <datatype extension="cytoscapejson" type="galaxy.datatypes.text:CytoscapeJson" mimetype="application/json" display_in_upload="true" description="Cytoscape JSON format for network visualization, typically containing 'nodes' and 'edges' in a JSON object." description_url="https://js.cytoscape.org/#notation/elements-json" />
     <datatype extension="freq.json" type="galaxy.datatypes.text:Json" mimetype="application/json" subclass="true" display_in_upload="True" description="A JSON-formatted array of objects containing longitude, latitude, and frequency attributes."/>
+    <datatype extension="rmsx.json" type="galaxy.datatypes.text:Json" mimetype="application/json" subclass="true" display_in_upload="true" description="RMSX Molstar viewer manifest containing per-slice structures and residue-level RMSX values.">
+      <visualization plugin="rmsxflipbook" />
+    </datatype>
     <datatype extension="imgt.json" type="galaxy.datatypes.text:ImgtJson" mimetype="application/json" display_in_upload="True"/>
     <datatype extension="geojson" type="galaxy.datatypes.text:GeoJson" mimetype="application/json" display_in_upload="True">
       <visualization plugin="openlayers" />
+    </datatype>
+    <datatype extension="varri.json" type="galaxy.datatypes.text:Json" mimetype="application/json" subclass="true" display_in_upload="True" description="Annotated RNA-RNA interactions in a JSON object.">
+      <visualization plugin="varri" />
     </datatype>
     <datatype extension="vitessce.json" type="galaxy.datatypes.text:VitessceJson" mimetype="application/json" display_in_upload="True">
       <visualization plugin="vitessce" />
@@ -247,6 +257,9 @@
         <infer_from suffix="hdf5" />
         <visualization plugin="h5web" />
     </datatype>
+    <!-- XPS Datatypes -->
+    <datatype extension="nxxps" type="galaxy.datatypes.xps:NXxps" mimetype="application/octet-stream" display_in_upload="true" description="NeXus HDF5 file conforming to the NXxps application definition for X-ray photoelectron spectroscopy." description_url="https://manual.nexusformat.org/classes/applications/NXxps.html"/>
+    <datatype extension="vamas" type="galaxy.datatypes.xps:Vamas" mimetype="text/plain" display_in_upload="true" description="ISO 14976 VAMAS surface analysis file (XPS, AES, ...)." description_url="https://www.iso.org/standard/24269.html"/>
     <datatype extension="scool" type="galaxy.datatypes.binary:H5" mimetype="application/octet-stream" display_in_upload="true" subclass="true"/>
     <datatype extension="grib" type="galaxy.datatypes.binary:Grib" mimetype="application/octet-stream" display_in_upload="true"/>
     <datatype extension="loom" type="galaxy.datatypes.binary:Loom" description="An HDF5-based Loom File" mimetype="application/octet-stream" display_in_upload="true"/>
@@ -370,6 +383,7 @@
         <converter file="archive_to_directory.xml" target_datatype="ome_zarr" />
     </datatype>
     <datatype extension="spatialdata.zip" type="galaxy.datatypes.binary:SpatialData" mimetype="application/octet-stream" display_in_upload="true" description="A data framework that comprises a FAIR storage format and a collection of python libraries for performant access, alignment, and processing of uni- and multi-modal spatial omics datasets" description_url="https://github.com/scverse/spatialdata"/>
+    <datatype extension="warc.gz" type="galaxy.datatypes.binary:Warc" mimetype="application/gzip" display_in_upload="true" description="Web ARChive, gzip-compressed." description_url="https://iipc.github.io/warc-specifications/"/>
     <datatype extension="tar" auto_compressed_types="gz,bz2" type="galaxy.datatypes.binary:CompressedArchive" subclass="true" display_in_upload="true">
       <converter file="archive_to_directory.xml" target_datatype="directory"/>
     </datatype>
@@ -418,6 +432,12 @@
     <datatype extension="mztab2" type="galaxy.datatypes.proteomics:MzTab2" display_in_upload="true" description="mzTab-M is a lightweight, tab-delimited file format for reporting mass spectrometry-based metabolomics results. This is the version 2.x-M of mzTab format which is a refined version of version 1.x to take into account metabolomics aspects." description_url="https://github.com/HUPO-PSI/mzTab/" />
     <datatype extension="mzml" type="galaxy.datatypes.proteomics:MzML" mimetype="application/xml" display_in_upload="true">
         <infer_from suffix="mzml" />
+    </datatype>
+    <datatype extension="mzspeclib.json" type="galaxy.datatypes.proteomics:MzSpecLibJson" mimetype="application/json" display_in_upload="true" description="mzSpecLib in JSON format." description_url="https://github.com/HUPO-PSI/mzSpecLib">
+      <infer_from suffix="mzspeclib.json" />
+    </datatype>
+    <datatype extension="mzspeclib.txt" type="galaxy.datatypes.proteomics:MzSpecLibTxt" mimetype="text/plain" display_in_upload="true" description="mzSpecLib in text format." description_url="https://github.com/HUPO-PSI/mzSpecLib">
+      <infer_from suffix="mzspeclib.txt" />
     </datatype>
     <datatype extension="nmrml" type="galaxy.datatypes.proteomics:NmrML" mimetype="application/xml" display_in_upload="true" description="nmrML is an open mark-up language for NMR data." description_url="http://nmrml.org/schema/"/>
     <datatype extension="meryldb" type="galaxy.datatypes.binary:Meryldb" subclass="true" display_in_upload="true" description="MerylDB is a tar.gz archive containing 64 binaries + 64 indexes." />
@@ -506,6 +526,7 @@
     <datatype extension="deeptools_compute_matrix_archive" type="galaxy.datatypes.binary:CompressedArchive" subclass="true" display_in_upload="true"/>
     <datatype extension="deeptools_coverage_matrix" type="galaxy.datatypes.binary:CompressedArchive" subclass="true" display_in_upload="true"/>
     <datatype extension="netcdf" type="galaxy.datatypes.binary:NetCDF" mimetype="application/octet-stream" display_in_upload="true" description="Format used by netCDF software library for writing and reading chromatography-MS data files."/>
+    <datatype extension="netcdf4" type="galaxy.datatypes.binary:NetCDF4" mimetype="application/octet-stream" display_in_upload="true" description="netCDF4 file (HDF5-based)."/>
     <datatype extension="eps" type="galaxy.datatypes.images:Eps" mimetype="image/eps"/>
     <datatype extension="rast" type="galaxy.datatypes.images:Rast" mimetype="image/rast"/>
     <datatype extension="laj" type="galaxy.datatypes.images:Laj"/>
@@ -576,6 +597,7 @@
     <datatype extension="taxonomy" type="galaxy.datatypes.tabular:Taxonomy" display_in_upload="true"/>
     <datatype extension="tabular" type="galaxy.datatypes.tabular:Tabular" auto_compressed_types="gz" display_in_upload="true" description="Any data in tab delimited format (tabular)." description_url="https://wiki.galaxyproject.org/Learn/Datatypes#Tabular_.28tab_delimited.29">
       <converter file="tabular_to_csv.xml" target_datatype="csv"/>
+      <converter file="tabular_to_parquet_converter.xml" target_datatype="parquet"/>
       <display file="minerva/tabular.xml"/>
     </datatype>
     <datatype extension="twobit" type="galaxy.datatypes.binary:TwoBit" mimetype="application/octet-stream" display_in_upload="true"/>
@@ -827,7 +849,7 @@
     <datatype extension="acedb" type="galaxy.datatypes.data:Text" subclass="true"/>
     <datatype extension="clustal" type="galaxy.datatypes.data:Text" subclass="true"/>
     <datatype extension="codata" type="galaxy.datatypes.data:Text" subclass="true"/>
-    <datatype extension="embl" type="galaxy.datatypes.data:Text" subclass="true" display_in_upload="true"/>
+    <datatype extension="embl" type="galaxy.datatypes.data:Text" auto_compressed_types="gz" subclass="true" display_in_upload="true"/>
     <datatype extension="fitch" type="galaxy.datatypes.data:Text" subclass="true"/>
     <datatype extension="gcg" type="galaxy.datatypes.data:Text" subclass="true"/>
     <datatype extension="genbank" auto_compressed_types="gz" sniff_compressed_types="true" type="galaxy.datatypes.sequence:Genbank" display_in_upload="True">
@@ -980,7 +1002,7 @@
     <datatype extension="obfs" type="galaxy.datatypes.molecules:OBFS" mimetype="text/html" display_in_upload="true"/>
     <datatype extension="drf" type="galaxy.datatypes.molecules:DRF" display_in_upload="true"/>
     <datatype extension="phar" type="galaxy.datatypes.molecules:PHAR" display_in_upload="true"/>
-    <datatype extension="pdb" type="galaxy.datatypes.molecules:PDB" display_in_upload="true">
+    <datatype extension="pdb" auto_compressed_types="gz" type="galaxy.datatypes.molecules:PDB" display_in_upload="true">
         <infer_from suffix="pdb" />
         <visualization plugin="molstar" />
         <display file="icn3d/icn3d_simple.xml"/>
@@ -1310,6 +1332,8 @@
     <sniffer type="galaxy.datatypes.binary:Anndata"/>
     <sniffer type="galaxy.datatypes.binary:Biom2"/>
     <sniffer type="galaxy.datatypes.binary:HexrdMaterials"/>
+    <sniffer type="galaxy.datatypes.xps:NXxps"/>
+    <sniffer type="galaxy.datatypes.binary:NetCDF4"/>
     <sniffer type="galaxy.datatypes.binary:H5"/>
     <sniffer type="galaxy.datatypes.binary:Grib"/>
     <sniffer type="galaxy.datatypes.binary:HexrdImagesNpz"/>
@@ -1383,6 +1407,8 @@
     <sniffer type="galaxy.datatypes.proteomics:MzIdentML"/>
     <sniffer type="galaxy.datatypes.proteomics:MzML"/>
     <sniffer type="galaxy.datatypes.proteomics:MzQuantML"/>
+    <sniffer type="galaxy.datatypes.proteomics:MzSpecLibTxt"/>
+    <sniffer type="galaxy.datatypes.proteomics:MzSpecLibJson"/>
     <sniffer type="galaxy.datatypes.proteomics:MzTab"/>
     <sniffer type="galaxy.datatypes.proteomics:MzTab2"/>
     <sniffer type="galaxy.datatypes.proteomics:ParamXml"/>
@@ -1563,6 +1589,7 @@
     <sniffer type="galaxy.datatypes.text:BCSLmodel"/>
     <sniffer type="galaxy.datatypes.text:StormSample"/>
     <sniffer type="galaxy.datatypes.text:StormCheck"/>
+    <sniffer type="galaxy.datatypes.xps:Vamas"/>
     <sniffer type="galaxy.datatypes.text:SourmashSignature"/>
   </sniffers>
 </datatypes>

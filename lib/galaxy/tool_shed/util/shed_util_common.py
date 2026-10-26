@@ -1,10 +1,16 @@
 import logging
 import re
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 from galaxy import util
+from galaxy.managers.context import ProvidesAppContext
 from galaxy.tool_shed.util import repository_util
 from galaxy.util.tool_shed import common_util
+
+if TYPE_CHECKING:
+    from galaxy.model.tool_shed_install import ToolShedRepository
+    from galaxy.tool_shed.tools.data_table_manager import RequiredAppT
 
 log = logging.getLogger(__name__)
 
@@ -29,7 +35,7 @@ def can_eliminate_repository_dependency(metadata_dict, tool_shed_url, name, owne
     return True
 
 
-def clean_dependency_relationships(trans, metadata_dict, tool_shed_repository, tool_shed_url):
+def clean_dependency_relationships(trans: ProvidesAppContext, metadata_dict, tool_shed_repository, tool_shed_url):
     """
     Repositories of type tool_dependency_definition allow for defining a
     package dependency at some point in the change log and then removing the
@@ -136,12 +142,22 @@ def have_shed_tool_conf_for_install(app):
     return bool(app.toolbox.dynamic_confs(include_migrated_tool_conf=False))
 
 
-def set_image_paths(app, text, encoded_repository_id=None, tool_shed_repository=None, tool_id=None, tool_version=None):
+def set_image_paths(
+    app: "RequiredAppT",
+    text: str,
+    encoded_repository_id: str | None = None,
+    tool_shed_repository: "ToolShedRepository | None" = None,
+    tool_id: str | None = None,
+    tool_version: str | None = None,
+    changeset_revision: str | None = None,
+) -> str:
     """
     Handle tool help image display for tools that are contained in repositories in
     the tool shed or installed into Galaxy as well as image display in repository
     README files.  This method will determine the location of the image file and
-    return the path to it that will enable the caller to open the file.
+    return the path to it that will enable the caller to open the file.  In the tool shed, pass
+    changeset_revision to point at the images as of that repository revision rather than the
+    current files; Galaxy's image routes ignore it.
     """
     if text:
         if repository_util.is_tool_shed_client(app) and encoded_repository_id:
@@ -167,7 +183,15 @@ def set_image_paths(app, text, encoded_repository_id=None, tool_shed_repository=
         # settings like .. images:: http_files/images/help.png
         for match in re.findall(".. image:: (?!http)/?(.+)", text):
             text = text.replace(match, match.replace("/", "%2F"))
-        text = re.sub(r"\.\. image:: (?!https?://)/?(.+)", rf".. image:: {route_to_images}/\1", text)
+
+        def route_image(match: re.Match[str]) -> str:
+            image_path = match.group(1)
+            if changeset_revision:
+                separator = "&" if "?" in image_path else "?"
+                image_path = f"{image_path}{separator}changeset_revision={changeset_revision}"
+            return f".. image:: {route_to_images}/{image_path}"
+
+        text = re.sub(r"\.\. image:: (?!https?://)/?(.+)", route_image, text)
     return text
 
 

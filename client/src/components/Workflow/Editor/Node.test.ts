@@ -4,19 +4,26 @@ import { mount, shallowMount } from "@vue/test-utils";
 import { zoomIdentity } from "d3-zoom";
 import flushPromises from "flush-promises";
 import { setActivePinia } from "pinia";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 
 import { testDatatypesMapper } from "@/components/Datatypes/test_fixtures";
+import { useConnectionStore } from "@/stores/workflowConnectionStore";
 import { useWorkflowNodeInspectorStore } from "@/stores/workflowNodeInspectorStore";
+import type { Connection } from "@/stores/workflowStoreTypes";
 
 import { mockOffset } from "./test_fixtures";
 
 import Node from "./Node.vue";
+import NodeInput from "./NodeInput.vue";
+import NodeOutput from "./NodeOutput.vue";
+import GPopover from "@/components/BaseComponents/GPopover.vue";
+
+const galaxyConfig = vi.hoisted(() => ({ enable_tool_recommendations: false }));
 
 vi.mock("@/app", () => ({
     getGalaxyInstance: vi.fn(() => ({
-        config: { enable_tool_recommendations: false },
+        config: galaxyConfig,
     })),
 }));
 
@@ -37,9 +44,26 @@ const TOOL_STEP = {
     position: { top: 0, left: 0 },
 };
 
-function mountNode(mounter: typeof shallowMount = shallowMount, propsData = {}) {
+const MISSING_TOOL_STEP = {
+    ...TOOL_STEP,
+    errors: "Tool is not installed",
+};
+
+const MISSING_TOOL_CONNECTIONS: Connection[] = [
+    {
+        input: { stepId: 0, name: "input1", connectorType: "input" },
+        output: { stepId: 1, name: "output", connectorType: "output" },
+    },
+    {
+        input: { stepId: 2, name: "input1", connectorType: "input" },
+        output: { stepId: 0, name: "out_file1", connectorType: "output" },
+    },
+];
+
+function mountNode(mounter: typeof shallowMount = shallowMount, propsData = {}, connections: Connection[] = []) {
     const testingPinia = createTestingPinia({ createSpy: vi.fn });
     setActivePinia(testingPinia);
+    useConnectionStore("mock-workflow").$patch({ stepToConnections: { 0: connections } });
 
     const wrapper = mounter(Node as any, {
         propsData: {
@@ -53,9 +77,11 @@ function mountNode(mounter: typeof shallowMount = shallowMount, propsData = {}) 
             scroll: MOCK_SCROLL,
             ...propsData,
         },
-        localVue,
+        global: {
+            ...localVue,
+            provide: { workflowId: "mock-workflow", transform: ref(zoomIdentity), isDragging: ref(false) },
+        },
         pinia: testingPinia,
-        provide: { workflowId: "mock-workflow", transform: ref(zoomIdentity) },
     });
 
     return { wrapper, inspectorStore: useWorkflowNodeInspectorStore() };
@@ -80,48 +106,97 @@ describe("Node", () => {
         expect(workflowTitle.text()).toBe("step label");
     });
 
-    describe("double click", () => {
-        beforeEach(() => vi.useFakeTimers({ toFake: ["Date"] }));
-        afterEach(() => vi.useRealTimers());
+    describe("step with errors", () => {
+        it("renders terminals for connections of a missing tool", async () => {
+            const { wrapper } = mountNode(mount, { step: MISSING_TOOL_STEP }, MISSING_TOOL_CONNECTIONS);
+            await flushPromises();
 
+            expect(wrapper.find(".node-error").text()).toBe("Tool is not installed");
+            expect(wrapper.find(".node-error").classes()).not.toContain("rounded-bottom");
+            const inputs = wrapper.findAllComponents(NodeInput);
+            expect(inputs).toHaveLength(1);
+            expect(inputs.at(0)!.props("input")).toMatchObject({ name: "input1", valid: false });
+            const outputs = wrapper.findAllComponents(NodeOutput);
+            expect(outputs).toHaveLength(1);
+            expect(outputs.at(0)!.props("output")).toMatchObject({ name: "out_file1", valid: false });
+        });
+
+        it("renders only the error for a missing tool without connections", async () => {
+            const { wrapper } = mountNode(mount, { step: MISSING_TOOL_STEP });
+            await flushPromises();
+
+            expect(wrapper.find(".node-error").classes()).toContain("rounded-bottom");
+            expect(wrapper.find(".node-body").exists()).toBe(false);
+        });
+    });
+
+    it("lets keyboard users into the tool recommendations popover", async () => {
+        galaxyConfig.enable_tool_recommendations = true;
+        try {
+            const { wrapper } = mountNode(shallowMount);
+            await flushPromises();
+
+            expect(wrapper.findComponent(GPopover).props("interactive")).toBe(true);
+        } finally {
+            galaxyConfig.enable_tool_recommendations = false;
+        }
+    });
+
+    it("keeps Enter on the tool recommendations button from activating the node", async () => {
+        galaxyConfig.enable_tool_recommendations = true;
+        const { wrapper } = mountNode(mount);
+        try {
+            await flushPromises();
+
+            await wrapper.find("button.node-recommendations").trigger("keyup.enter");
+
+            expect(wrapper.emitted("onActivate")).toBeUndefined();
+
+            await wrapper.find(".card-header").trigger("keyup.enter");
+
+            expect(wrapper.emitted("onActivate")).toEqual([[0]]);
+        } finally {
+            wrapper.unmount();
+            galaxyConfig.enable_tool_recommendations = false;
+        }
+    });
+
+    describe("double click", () => {
         async function clickNode(wrapper: ReturnType<typeof mount>) {
             const header = wrapper.find(".card-header");
             await header.trigger("pointerdown");
             await header.trigger("pointerup");
         }
 
-        it("maximizes the inspector when the node is clicked twice within the double click timeout", async () => {
+        it("maximizes the inspector on a native double click", async () => {
             const { wrapper, inspectorStore } = mountNode(mount);
             await flushPromises();
 
             await clickNode(wrapper);
             expect(inspectorStore.setMaximized).not.toHaveBeenCalled();
 
-            vi.advanceTimersByTime(100);
-            await clickNode(wrapper);
+            await wrapper.find(".card-header").trigger("dblclick");
 
             expect(inspectorStore.setMaximized).toHaveBeenCalledWith(TOOL_STEP, true);
         });
 
-        it("does not maximize the inspector when the node is clicked twice beyond the double click timeout", async () => {
+        it("does not maximize the inspector for consecutive pointer clicks", async () => {
             const { wrapper, inspectorStore } = mountNode(mount);
             await flushPromises();
 
             await clickNode(wrapper);
-            vi.advanceTimersByTime(600);
             await clickNode(wrapper);
 
             expect(inspectorStore.setMaximized).not.toHaveBeenCalled();
         });
 
-        it("does not maximize the inspector when a button inside the node was clicked in between", async () => {
+        it("does not maximize the inspector for clicks or double clicks on a node control", async () => {
             const { wrapper, inspectorStore } = mountNode(mount);
             await flushPromises();
 
             await clickNode(wrapper);
-            vi.advanceTimersByTime(100);
             await wrapper.find("button.node-clone").trigger("pointerup");
-            vi.advanceTimersByTime(100);
+            await wrapper.find("button.node-clone").trigger("dblclick");
             await clickNode(wrapper);
 
             expect(inspectorStore.setMaximized).not.toHaveBeenCalled();

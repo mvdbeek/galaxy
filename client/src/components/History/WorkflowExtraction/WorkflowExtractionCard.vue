@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { faFile, faFolder } from "@fortawesome/free-regular-svg-icons";
+import { faFile, faFolder, faStar as faStarRegular } from "@fortawesome/free-regular-svg-icons";
 import {
     faBan,
     faExclamationTriangle,
     faInfoCircle,
     faLayerGroup,
     faPencilAlt,
+    faStar as faStarSolid,
     faWrench,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
@@ -13,18 +14,28 @@ import { computed } from "vue";
 
 import type { CardBadge, TitleIcon } from "@/components/Common/GCard.types";
 
-import { isMappedTool, isWorkflowExtractionInput, type WorkflowExtractionRow } from "./types";
+import { type ExtractionOutput, type ExtractionRow, isInputStep, isMappedTool } from "./types";
 
 import DisplayedItem from "../Content/DisplayedItem.vue";
+import GButton from "@/components/BaseComponents/GButton.vue";
 import GCard from "@/components/Common/GCard.vue";
 import GenericHistoryItem from "@/components/History/Content/GenericItem.vue";
 
 /** Badge for renamable workflow inputs. Only applied to workflow inputs, never tool steps. */
 const INPUT_IS_RENAMABLE_BADGE: CardBadge = {
     id: "is-renamable-input",
-    label: "Renamable",
+    label: "Renamable Input",
     icon: faPencilAlt,
     title: "Click the pencil icon next to the step title to rename this workflow input",
+    class: "unselectable",
+};
+
+/** Badge for renamable workflow outputs. Only applied to tool steps with at least one exposed output. */
+const OUTPUT_IS_RENAMABLE_BADGE: CardBadge = {
+    id: "is-renamable-output",
+    label: "Renamable Output",
+    icon: faPencilAlt,
+    title: "Click the pencil icon next to an exposed output to rename it",
     class: "unselectable",
 };
 
@@ -49,17 +60,20 @@ function mappedBadge(size: number | null | undefined): CardBadge {
         icon: faLayerGroup,
         title: "This row represents a mapped tool step backed by an implicit collection job.",
         class: "unselectable",
-        variant: "info",
     };
 }
 
 const props = defineProps<{
-    job: WorkflowExtractionRow;
+    job: ExtractionRow;
 }>();
 
 const emit = defineEmits<{
     (e: "rename"): void;
     (e: "select"): void;
+    (e: "toggle-output", outputIndex: number): void;
+    (e: "rename-output", outputIndex: number): void;
+    (e: "label-step"): void;
+    (e: "clear-step-label"): void;
     (e: "view-job", jobId: string): void;
 }>();
 
@@ -113,8 +127,21 @@ const badges = computed<CardBadge[]>(() => {
         if (isMappedTool(props.job)) {
             badges.push(mappedBadge(props.job.implicit_collection_jobs_size));
         }
+        if (props.job.outputs.some((o) => o.output_name && o.exposed)) {
+            badges.push(OUTPUT_IS_RENAMABLE_BADGE);
+        }
     } else {
         badges.push(INPUT_IS_RENAMABLE_BADGE);
+    }
+    if (props.job.seed_warning) {
+        badges.push({
+            id: "seed-warning",
+            label: "Seeded as Input",
+            icon: faExclamationTriangle,
+            title: props.job.seed_warning,
+            class: "unselectable",
+            variant: "warning",
+        });
     }
     badges.push({
         id: "step-type",
@@ -130,24 +157,63 @@ const titleIcon = computed<TitleIcon>(() => {
     const { icon, label } = STEP_TYPE_META[props.job.step_type];
     return { icon, title: label };
 });
+
+/** Card title: input rows show their (editable) name; tool rows show the step
+ *  label when one is set, falling back to the tool name. Mirrors the workflow
+ *  editor, where a labeled node displays its label rather than the tool name. */
+const cardTitle = computed(() => {
+    if (isInputStep(props.job)) {
+        return props.job.newName;
+    }
+    return props.job.stepLabel || props.job.tool_name || props.job.tool_id || "Unnamed Step";
+});
+
+/** Title pencil tooltip: inputs are renamed, tool steps are labeled (add vs.
+ *  edit depending on whether a label is already set). */
+const renameTitle = computed(() => {
+    if (isInputStep(props.job)) {
+        return "Rename";
+    }
+    return props.job.stepLabel ? "Edit this workflow step's label" : "Add a workflow step label";
+});
+
+/** Tool steps with a label set get a clear (x) beside the pencil to drop it
+ *  back to the unlabeled default. Inputs always have a name, so no clear. */
+const canClearStepLabel = computed(
+    () => props.job.step_type === "tool" && Boolean(props.job.stepLabel) && props.job.checked && !props.job.invalid,
+);
+
+/** The title pencil drives input rename for inputs and label add/edit for tool
+ *  steps, so both step kinds share the same title-adjacent affordance. */
+function onTitleRename() {
+    if (props.job.step_type === "tool") {
+        emit("label-step");
+    } else {
+        emit("rename");
+    }
+}
+
+function displayLabel(output: ExtractionOutput): string {
+    return output.label || output.suggested_name || output.name || output.output_name || "Output";
+}
 </script>
 
 <template>
     <GCard
         :class="{ disabled: Boolean(props.job.invalid) }"
         :badges="badges"
-        :title="
-            isWorkflowExtractionInput(props.job)
-                ? props.job.newName
-                : props.job.tool_name || props.job.tool_id || 'Unnamed Step'
-        "
+        :title="cardTitle"
         :title-icon="titleIcon"
-        :can-rename-title="props.job.step_type !== 'tool' && props.job.checked"
+        :can-rename-title="props.job.checked && !props.job.invalid"
+        :rename-title="renameTitle"
+        :can-clear-title="canClearStepLabel"
+        clear-title-tooltip="Remove this workflow step's label"
         selectable
         :selected="props.job.checked"
         select-title="Include as a step in the workflow"
         dim-when-unselected
-        @rename="emit('rename')"
+        @rename="onTitleRename"
+        @clearTitle="emit('clear-step-label')"
         @select="emit('select')">
         <template v-slot:select>
             <FontAwesomeIcon
@@ -157,8 +223,26 @@ const titleIcon = computed<TitleIcon>(() => {
                 fixed-width />
         </template>
         <template v-slot:description>
-            <template v-if="props.job.outputs?.length">
-                <div v-for="(output, outputIndex) in props.job.outputs" :key="outputIndex">
+            <template v-if="props.job.outputs.length">
+                <div
+                    v-for="(output, outputIndex) in props.job.outputs"
+                    :key="outputIndex"
+                    class="workflow-extraction-output">
+                    <GButton
+                        v-if="props.job.step_type === 'tool' && output.output_name"
+                        class="output-star"
+                        data-output-star
+                        :class="{ active: output.exposed }"
+                        :color="output.exposed ? 'orange' : 'grey'"
+                        :disabled="Boolean(props.job.invalid) || output.deleted || !props.job.checked"
+                        :title="output.exposed ? 'Do not expose this output' : 'Expose this output'"
+                        size="large"
+                        transparent
+                        icon-only
+                        tooltip
+                        @click.stop="emit('toggle-output', outputIndex)">
+                        <FontAwesomeIcon :icon="output.exposed ? faStarSolid : faStarRegular" fixed-width />
+                    </GButton>
                     <DisplayedItem
                         v-if="props.job.invalid === 'custom_tool_inaccessible'"
                         :item-id="output.id"
@@ -169,8 +253,19 @@ const titleIcon = computed<TitleIcon>(() => {
                         :state="output.state" />
                     <GenericHistoryItem
                         v-else
+                        class="workflow-output-item"
                         :item-id="output.id"
                         :item-src="output.history_content_type === 'dataset' ? 'hda' : 'hdca'" />
+                    <GButton
+                        v-if="props.job.step_type === 'tool' && output.output_name && output.exposed"
+                        class="output-label-button"
+                        data-output-label
+                        :title="`Rename workflow output ${displayLabel(output)}`"
+                        transparent
+                        @click.stop="emit('rename-output', outputIndex)">
+                        <FontAwesomeIcon :icon="faPencilAlt" fixed-width />
+                        <span class="output-label-button-text">{{ displayLabel(output) }}</span>
+                    </GButton>
                 </div>
             </template>
         </template>
@@ -188,6 +283,41 @@ const titleIcon = computed<TitleIcon>(() => {
         font-size: 0.8rem;
         padding: 0.25rem 0.5rem;
         border-radius: 0.25rem 0.25rem 0 0;
+    }
+
+    // GCard renders the clear-title control as a neutral icon button; the
+    // destructive (muted -> red on hover) styling is our policy, so we keep it
+    // here rather than push it into GCard's default.
+    :deep(.g-card-clear-title) {
+        color: $text-muted;
+
+        &:hover {
+            background-color: $brand-danger;
+            color: $white;
+        }
+    }
+
+    .workflow-extraction-output {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        min-width: 0;
+    }
+
+    .workflow-output-item {
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .output-label-button {
+        max-width: 16rem;
+        min-width: 0;
+
+        .output-label-button-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     }
 }
 </style>

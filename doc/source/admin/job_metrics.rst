@@ -51,6 +51,29 @@ zone library and can be listed with the following command:
 
     python3 -c 'import zoneinfo; list(map(print, sorted(zoneinfo.available_timezones())))'
 
+The core plugin also records ``resubmission_count``, the number of Galaxy-level job
+resubmission events, on every job; the execution attempt number is ``resubmission_count + 1``.
+It counts configured ``resubmit`` rules and runner-triggered resubmissions such as Slurm
+node-failure recovery, but not scheduler-internal requeues Galaxy never observes -- a
+deployment that lets HTCondor requeue on its own will not see those here.
+
+It is recorded on every job but only *displayed* when it is non-zero, since a zero would
+otherwise appear on every job's metrics panel. Set ``show_zero_resubmissions`` (default:
+``false``) to display it everywhere:
+
+.. code-block:: yaml
+
+    - type: core
+      show_zero_resubmissions: true
+
+Display options are read from the default metrics configuration rather than a per-destination
+one, because metrics are rendered without reference to the destination the job ran on.
+
+Only jobs that finish after this metric ships record it, so it is absent from the metrics
+panel of older jobs rather than shown as zero. The state history it counts is retained
+regardless, so the same question can still be asked of those jobs by querying
+``job_state_history`` directly.
+
 cpuinfo
 ~~~~~~~
 
@@ -149,6 +172,51 @@ list of parameter names (files in the controller directory) to capture. For lega
 comma-separated string of cgroup parameter names.
 
 The cgroup plugin works on Linux only.
+
+pulsar
+~~~~~~
+
+.. code-block:: yaml
+
+    - type: pulsar
+
+The pulsar plugin reports how long Pulsar spent staging a job's files, how many
+files it moved and how many bytes, separately for inputs (staged in before the job runs) and
+outputs (staged back out afterwards).
+
+It has no options. The transfer figures require Pulsar 0.15.16 or newer; jobs that did not
+run on Pulsar record nothing.
+
+The figures cover the transfers Pulsar itself performs. A destination configured so that
+*Galaxy* pushes and pulls the files (the ``transfer`` file action rather than
+``remote_transfer``) leaves Pulsar with little to do and will report close to zero.
+
+It also records which Pulsar versions a job involved. These are only shown to admins (or
+with ``expose_potentially_sensitive_job_metrics``):
+
+``client_version``
+    Galaxy's own Pulsar client library (``pulsar-galaxy-lib``).
+``target_version``
+    The remote Pulsar version Galaxy made its decisions for when submitting the job.
+``target_version_source``
+    How Galaxy knew ``target_version``: ``remote`` (the remote Pulsar reported it),
+    ``destination`` (the environment's ``remote_pulsar_version``), ``container_image`` (a
+    published Pulsar staging image), ``client`` (not known, so the client library's version
+    stands in and a current Pulsar is assumed), or ``unreported`` (a Pulsar client library
+    too old to say). A destination reporting ``client`` can declare its remote's version
+    with ``remote_pulsar_version``, once Galaxy's Pulsar client library supports it - see
+    `Pulsar's Galaxy configuration documentation
+    <https://pulsar.readthedocs.io/en/latest/galaxy_conf.html>`__.
+``server_version``
+    The Pulsar version that actually ran the job.
+``server_version_source``
+    How Galaxy learned ``server_version``: ``status`` (reported when the job finished) or
+    ``job_files`` (written by Pulsar into the job's files - the only report from polling
+    Kubernetes, TES, and GCP Batch runners, whose staging image needs Pulsar 0.15.16 or
+    newer for it). Absent if the job never reported it.
+
+A ``target_version`` that differs from ``server_version`` means Galaxy submitted the job for
+a Pulsar other than the one that ran it.
 
 Overriding the Global Job Metrics Configuration
 -----------------------------------------------

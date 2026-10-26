@@ -6,6 +6,7 @@ this should be reusable by tool shed and pulsar as well.
 import os
 import os.path
 import sys
+from collections.abc import Iterable
 from configparser import (
     BasicInterpolation,
     ConfigParser,
@@ -18,13 +19,12 @@ from itertools import (
 )
 from typing import (
     cast,
-    Iterable,
-    Optional,
 )
 
 import yaml
 
 from galaxy.exceptions import InvalidFileFormatError
+from galaxy.util import is_galaxy_root
 from galaxy.util.path import (
     extensions,
     has_ext,
@@ -32,7 +32,7 @@ from galaxy.util.path import (
 )
 
 
-def get_from_env(key: str, prefixes: Iterable[str], default: Optional[str] = None):
+def get_from_env(key: str, prefixes: Iterable[str], default: str | None = None):
     """
     Return first available value for prefix+key set in the environment, or default.
     An empty prefix is ignored.
@@ -196,8 +196,7 @@ class NicerConfigParser(ConfigParser):
 
 
 def _running_from_source():
-    paths = ["run.sh", "lib/galaxy", "scripts/common_startup.sh"]
-    return all(map(os.path.exists, paths))
+    return is_galaxy_root(os.getcwd())
 
 
 running_from_source = _running_from_source()

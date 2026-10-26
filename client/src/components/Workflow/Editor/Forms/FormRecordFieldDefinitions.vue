@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { faCaretDown, faCaretUp, faTrashAlt } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BLink } from "bootstrap-vue";
 import { computed } from "vue";
 
 import type { FieldDict } from "@/api";
 import localize from "@/utils/localization";
 
 import FormRecordFieldDefinition from "./FormRecordFieldDefinition.vue";
+import GButton from "@/components/BaseComponents/GButton.vue";
+import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
+import GLink from "@/components/BaseComponents/GLink.vue";
 import FormCard from "@/components/Form/FormCard.vue";
 
 type FieldDefinitions = FieldDict[];
@@ -87,44 +89,44 @@ const emit = defineEmits(["onChange"]);
             <template v-slot:operations>
                 <!-- code modelled after FormRepeat -->
                 <span class="float-right">
-                    <b-button-group>
+                    <GButtonGroup>
                         <span v-g-tooltip.hover.bottom title="move down">
-                            <b-button
+                            <GButton
                                 :id="getButtonId(index, 'up')"
                                 v-g-tooltip.hover.bottom
                                 title="move up"
-                                role="button"
-                                variant="link"
-                                size="sm"
+                                transparent
+                                size="small"
+                                icon-only
                                 class="ml-0"
                                 @click="() => swap(index, index - 1, 'up')">
                                 <FontAwesomeIcon :icon="faCaretUp" />
-                            </b-button>
+                            </GButton>
                         </span>
                         <span v-g-tooltip.hover.bottom title="move down">
-                            <b-button
+                            <GButton
                                 :id="getButtonId(index, 'down')"
                                 v-g-tooltip.hover.bottom
                                 title="move down"
-                                role="button"
-                                variant="link"
-                                size="sm"
+                                transparent
+                                size="small"
+                                icon-only
                                 class="ml-0"
                                 @click="() => swap(index, index + 1, 'down')">
                                 <FontAwesomeIcon :icon="faCaretDown" />
-                            </b-button>
+                            </GButton>
                         </span>
-                    </b-button-group>
+                    </GButtonGroup>
                     <span v-g-tooltip.hover.bottom :title="deleteTooltip">
-                        <b-button
+                        <GButton
                             title="delete"
-                            role="button"
-                            variant="link"
-                            size="sm"
+                            transparent
+                            size="small"
+                            icon-only
                             class="ml-0"
                             @click="() => onRemove(index)">
                             <FontAwesomeIcon :icon="faTrashAlt" />
-                        </b-button>
+                        </GButton>
                     </span>
                 </span>
             </template>
@@ -136,7 +138,7 @@ const emit = defineEmits(["onChange"]);
                     @onChange="onChildUpdate" />
             </template>
         </FormCard>
-        <BLink @click="addField">Add field.</BLink>
+        <GLink @click="addField">Add field.</GLink>
     </div>
 </template>
 

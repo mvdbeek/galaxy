@@ -7,7 +7,6 @@ except ImportError:
 import posixpath
 from typing import (
     Annotated,
-    Union,
 )
 
 from pydantic import (
@@ -40,7 +39,7 @@ AccessTokenField = Field(
 
 
 class DropboxFileSourceTemplateConfiguration(FsspecBaseFileSourceTemplateConfiguration):
-    access_token: Annotated[Union[str, TemplateExpansion], AccessTokenField]
+    access_token: Annotated[str | TemplateExpansion, AccessTokenField]
 
 
 class DropboxFilesSourceConfiguration(FsspecBaseFileSourceConfiguration):

@@ -31,9 +31,7 @@ from requests import Response
 
 from galaxy.tool_util.verify.test_data import TestDataResolver
 from galaxy.util.unittest import TestCase
-from galaxy_test.api.test_dataset_collections import (
-    upload_flat_sample_sheet,
-)
+from galaxy_test.base.api_helpers import upload_flat_sample_sheet
 from galaxy_test.base.api_util import TEST_USER
 from galaxy_test.base.constants import (
     ONE_TO_SIX_ON_WINDOWS,
@@ -992,7 +990,6 @@ class TestLinkDataUploadExtendedMetadata(BaseUploadContentConfigurationTestCase)
 # but perfectly valid configurations for running metadata are not being tested by API
 # tests anymore.
 class TestUploadWithDirectoryMetadata(BaseUploadContentConfigurationTestCase):
-
     @classmethod
     def handle_galaxy_config_kwds(cls, config) -> None:
         super().handle_galaxy_config_kwds(config)
@@ -1003,7 +1000,6 @@ class TestUploadWithDirectoryMetadata(BaseUploadContentConfigurationTestCase):
 
 
 class TestUploadWithExtendedMetadata(BaseUploadContentConfigurationTestCase):
-
     @classmethod
     def handle_galaxy_config_kwds(cls, config) -> None:
         super().handle_galaxy_config_kwds(config)

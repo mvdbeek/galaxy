@@ -3,20 +3,30 @@
 import http.server
 import socketserver
 import threading
+import time
 from pathlib import Path
-from typing import Optional
+
+SLOW_PREFIX = "/slow"
+SLOW_DELAY = 0.5
 
 
 class TestHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
     """Custom request handler for serving test HTML files."""
 
-    def __init__(self, *args, directory: Optional[str] = None, **kwargs):
+    def __init__(self, *args, directory: str | None = None, **kwargs):
         """Initialize handler with custom directory."""
         super().__init__(*args, directory=directory, **kwargs)
 
     def log_message(self, format: str, *args):
         """Suppress log messages during tests."""
         pass
+
+    def do_GET(self):
+        """Serve `/slow/<path>` after a delay, leaving room to race a navigation."""
+        if self.path.startswith(f"{SLOW_PREFIX}/"):
+            time.sleep(SLOW_DELAY)
+            self.path = self.path[len(SLOW_PREFIX) :]
+        super().do_GET()
 
     def end_headers(self):
         """Override to add test cookies to all responses."""
@@ -27,7 +37,7 @@ class TestHTTPRequestHandler(http.server.SimpleHTTPRequestHandler):
 class TestHTTPServer:
     """Simple HTTP server for serving test HTML pages."""
 
-    def __init__(self, port: int = 0, directory: Optional[Path] = None):
+    def __init__(self, port: int = 0, directory: Path | None = None):
         """
         Initialize test HTTP server.
 
@@ -37,8 +47,8 @@ class TestHTTPServer:
         """
         self.port = port
         self.directory = directory or Path(__file__).parent / "fixtures"
-        self.server: Optional[socketserver.TCPServer] = None
-        self.thread: Optional[threading.Thread] = None
+        self.server: socketserver.TCPServer | None = None
+        self.thread: threading.Thread | None = None
 
     def start(self):
         """Start the HTTP server in a background thread."""

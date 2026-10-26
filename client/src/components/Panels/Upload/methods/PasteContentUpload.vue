@@ -13,6 +13,7 @@ import { useUploadDefaults } from "@/composables/upload/uploadDefaults";
 import { useUploadItemValidation } from "@/composables/upload/uploadItemValidation";
 import { useUploadOptionBindings } from "@/composables/upload/uploadOptionBindings";
 import { useUploadReadyState } from "@/composables/upload/uploadReadyState";
+import { useUploadTableSorting } from "@/composables/upload/uploadTableSorting";
 import { useUploadStaging } from "@/composables/upload/useUploadStaging";
 import { buildPreparedUpload } from "@/utils/upload";
 import { mapToPasteContentUpload } from "@/utils/upload/itemMappers";
@@ -87,6 +88,14 @@ const { clear: clearStaging } = useUploadStaging<PasteContentItem>(props.method.
     disableStore: props.transient,
 });
 
+function contentByteSize(content: string): number {
+    return new Blob([content]).size;
+}
+
+const { tableSortProps, tableSortEvents } = useUploadTableSorting(pasteItems, {
+    size: (item) => contentByteSize(item.content),
+});
+
 const isSingleMode = computed(() => props.multiple === false);
 
 const hasItems = computed(() => pasteItems.value.some((item) => item.content.trim().length > 0));
@@ -147,7 +156,7 @@ function reset() {
 }
 
 function getItemSize(content: string) {
-    return bytesToString(new Blob([content]).size);
+    return bytesToString(contentByteSize(content));
 }
 
 function getExpandToggleTitle(detailsShowing: boolean): string {
@@ -248,6 +257,7 @@ const tableFields = computed<TableField[]>(() => [
         key: "preview",
         label: "Content Preview",
         sortable: false,
+        width: "120px",
         align: "center",
         class: "preview-column",
     },
@@ -311,7 +321,16 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
             </div>
 
             <div ref="tableContainerRef" class="paste-table-container">
-                <GTable hover compact fixed stripped :items="pasteItems" :fields="tableFields" class="paste-table">
+                <GTable
+                    v-bind="tableSortProps"
+                    hover
+                    compact
+                    fixed
+                    stripped
+                    :items="pasteItems"
+                    :fields="tableFields"
+                    class="paste-table"
+                    v-on="tableSortEvents">
                     <!-- Expand toggle column header -->
                     <template v-slot:head(expand)>
                         <button
@@ -480,6 +499,7 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
             <div class="paste-list-actions mt-2">
                 <GButton
                     v-if="!isSingleMode"
+                    data-test-id="add-another-dataset"
                     color="grey"
                     tooltip
                     tooltip-placement="top"
@@ -529,7 +549,6 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
     }
 
     :deep(.preview-column) {
-        width: 100%;
         max-width: 300px;
         overflow: hidden;
     }
@@ -542,6 +561,9 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
         height: 100%;
         padding: 0.25rem;
         margin: -0.25rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
 
         .preview-text {
             overflow: hidden;

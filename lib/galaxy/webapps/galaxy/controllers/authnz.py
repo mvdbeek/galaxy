@@ -5,10 +5,7 @@ OAuth 2.0 and OpenID Connect Authentication and Authorization Controller.
 import datetime
 import json
 import logging
-from typing import (
-    Optional,
-    TYPE_CHECKING,
-)
+from typing import TYPE_CHECKING
 from urllib.parse import quote
 
 import jwt
@@ -19,6 +16,7 @@ from galaxy import (
 )
 from galaxy.authnz.flow_state import InvalidFlow
 from galaxy.util import (
+    asbool,
     is_safe_local_redirect,
     is_safe_login_redirect,
     url_get,
@@ -36,7 +34,7 @@ PROVIDER_COOKIE_NAME = "galaxy-oidc-provider"
 LOGIN_NEXT_COOKIE_NAME = "galaxy-oidc-login-next"
 
 
-def is_allowed_login_redirect(trans, target, base_url: Optional[str] = None) -> bool:
+def is_allowed_login_redirect(trans, target, base_url: str | None = None) -> bool:
     """Check a post-login destination against ``allowed_login_redirect_hosts``, logging refusals."""
     if is_safe_login_redirect(target, trans.app.config.allowed_login_redirect_hosts, base_url=base_url):
         return True
@@ -67,7 +65,7 @@ class OIDC(BaseUIController):
     @web.json
     @web.expose
     @web.require_login("list third-party identities")
-    def index(self, trans, **kwargs):
+    def index(self, trans: "GalaxyWebTransaction", **kwargs):
         """
         GET /authnz/
             returns a list of third-party identities associated with the user.
@@ -118,7 +116,7 @@ class OIDC(BaseUIController):
 
     @web.json
     @web.expose
-    def login(self, trans, provider, idphint=None, next=None, redirect=None):
+    def login(self, trans: "GalaxyWebTransaction", provider, idphint=None, next=None, redirect=None):
         if not trans.app.config.enable_oidc:
             msg = "Login to Galaxy using third-party identities is not enabled on this Galaxy instance."
             log.debug(msg)
@@ -138,7 +136,7 @@ class OIDC(BaseUIController):
             raise exceptions.AuthenticationFailed(message)
 
     @web.expose
-    def callback(self, trans, provider, idphint=None, **kwargs):
+    def callback(self, trans: "GalaxyWebTransaction", provider, idphint=None, **kwargs):
         user = trans.user.username if trans.user is not None else "anonymous"
         login_next = login_destination(trans)
         if not bool(kwargs):
@@ -245,7 +243,7 @@ class OIDC(BaseUIController):
 
     @web.expose
     @web.require_login("authenticate against the selected identity provider")
-    def disconnect(self, trans, provider, email=None, **kwargs):
+    def disconnect(self, trans: "GalaxyWebTransaction", provider, email=None, **kwargs):
         if trans.user is None:
             # Only logged in users are allowed here.
             return
@@ -260,28 +258,34 @@ class OIDC(BaseUIController):
 
     @web.json
     @web.expose
-    def logout(self, trans, provider, **kwargs):
+    def logout(self, trans: "GalaxyWebTransaction", provider, logout_all=False, **kwargs):
+        if not trans.app.config.enable_oidc:
+            msg = "Login to Galaxy using third-party identities is not enabled on this Galaxy instance."
+            log.debug(msg)
+            return {"message": msg}
         post_user_logout_href = trans.app.config.post_user_logout_href
         if post_user_logout_href is not None:
             post_user_logout_href = trans.request.base + url_for(post_user_logout_href)
         success, message, redirect_uri = trans.app.authnz_manager.logout(
             provider, trans, post_user_logout_href=post_user_logout_href
         )
-        trans.handle_user_logout()
+        trans.handle_user_logout(logout_all=asbool(logout_all))
         if success:
             return {"redirect_uri": redirect_uri}
         else:
             return {"message": message}
 
     @web.expose
-    def get_logout_url(self, trans, provider=None, **kwargs):
+    def get_logout_url(self, trans: "GalaxyWebTransaction", provider=None, logout_all=False, **kwargs):
         idp_provider = provider if provider else trans.get_cookie(name=PROVIDER_COOKIE_NAME)
         if idp_provider:
-            return trans.response.send_redirect(url_for(controller="authnz", action="logout", provider=idp_provider))
+            return trans.response.send_redirect(
+                url_for(controller="authnz", action="logout", provider=idp_provider, logout_all=logout_all)
+            )
 
     @web.expose
     @web.json
-    def get_cilogon_idps(self, trans, **kwargs):
+    def get_cilogon_idps(self, trans: "GalaxyWebTransaction", **kwargs):
         try:
             cilogon_idps = json.loads(url_get("https://cilogon.org/idplist/", params=dict(kwargs)))
         except Exception as e:

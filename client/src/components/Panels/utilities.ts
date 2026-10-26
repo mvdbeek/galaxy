@@ -205,8 +205,7 @@ export const types_to_icons = {
 
 // Converts filterSettings { key: value } to query = "key:value"
 export function createWorkflowQuery(filterSettings: Record<string, string | boolean>) {
-    let query = "";
-    query = Object.entries(filterSettings)
+    const query = Object.entries(filterSettings)
         .filter(([, value]) => value)
         .map(([filter, value]) => {
             if (value === true) {
@@ -287,7 +286,7 @@ export function determineWidth(
     direction: string,
     positionX: number,
 ) {
-    let newWidth = null;
+    let newWidth: number;
     if (direction === "right") {
         const offset = rectRoot.left - rectDraggable.left;
         newWidth = rectRoot.right - positionX - offset;
@@ -403,7 +402,7 @@ export function getValidPanelItems(
 
 /**
  * Given toolbox, keys to sort/search results by and a search query,
- * Does a direct string.match() comparison to find results,
+ * Does a direct substring comparison to find results,
  * If that produces nothing, runs Damerau-Levenshtein distance algorithm to allow misspells
  *
  * @param tools - toolbox
@@ -618,8 +617,8 @@ export function searchObjectsByKeys<T extends { id: string }>(
 
                 const wordMatches = Array.from(new Set(actualValueWords.filter((word) => queryWords.includes(word))));
                 if (!usesDL) {
-                    if (actualValue.match(queryValue)) {
-                        // if string.match() returns true, matching searchedObj found
+                    if (actualValue.includes(queryValue)) {
+                        // if actualValue contains the query, matching searchedObj found
                         matchedResults.push({ id: searchedObj.id, order });
                         break;
                     } else if (
@@ -632,7 +631,7 @@ export function searchObjectsByKeys<T extends { id: string }>(
                         break;
                     }
                 } else if (usesDL) {
-                    // if string.match() returns false, try DL distance once to see if there is a closestSubstring
+                    // if there is no substring match, try DL distance once to see if there is a closestSubstring
                     let substring = null;
                     if (nameKeys.includes(key) && queryValue.length >= MINIMUM_DL_LENGTH) {
                         substring = closestSubstring(queryValue, actualValue);
@@ -651,7 +650,7 @@ export function searchObjectsByKeys<T extends { id: string }>(
             }
         }
     }
-    // no results with string.match(): recursive call with usesDL
+    // no substring results: recursive call with usesDL
     if (!filteredQuery && !usesDL && matchedResults.length == 0) {
         return searchObjectsByKeys(objects, keys, query, nameKeys, true);
     }
@@ -767,11 +766,9 @@ function closestSubstring(query: string, actualStr: string) {
 
 // given array and a substring, get the closest matching term for substring
 function matchingTerm(termArray: string[], substring: string) {
-    const sanitized = sanitizeString(substring);
-
     for (const i in termArray) {
         const term = termArray[i];
-        if (term?.match(sanitized)) {
+        if (term?.includes(substring)) {
             return term;
         }
     }
@@ -791,7 +788,7 @@ function sanitizeString(value: string, targets: string[] = [], substitute = "") 
         sanitized = sanitized.replace(new RegExp(rep, "g"), substitute);
     });
 
-    return sanitized.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    return sanitized;
 }
 
 /**

@@ -18,7 +18,6 @@ from collections.abc import (
 )
 from typing import (
     Any,
-    Optional,
 )
 
 from galaxy import model
@@ -29,9 +28,9 @@ from galaxy.tool_util_models.tool_outputs import (
 
 
 def render_yaml_tool_label(
-    label: str, input_names: Container[str], state: Mapping[str, Any], on_string: Optional[str]
+    label: str, input_names: Container[str], state: Mapping[str, Any], on_string: str | None
 ) -> str:
-    def fill(match: re.Match) -> str:
+    def fill(match: re.Match[str]) -> str:
         if match["input"] is None:
             text = on_string
         elif match["input"] in input_names:
@@ -43,7 +42,7 @@ def render_yaml_tool_label(
     return USER_TOOL_LABEL_REFERENCE_RE.sub(fill, label[:MAX_USER_TOOL_LABEL_LENGTH])[:MAX_USER_TOOL_LABEL_LENGTH]
 
 
-def _resolve(keys: Sequence[str], state: Mapping[str, Any]) -> Optional[str]:
+def _resolve(keys: Sequence[str], state: Mapping[str, Any]) -> str | None:
     """Return the text ``state[keys[0]][keys[1]]...`` fills in, or None if it can't be filled in."""
     value: Any = state
     for position, key in enumerate(keys):
@@ -63,7 +62,7 @@ def _resolve(keys: Sequence[str], state: Mapping[str, Any]) -> Optional[str]:
     return str(value) if isinstance(value, (str, int, float)) else None
 
 
-def _dataset_attribute(value: Any, key: str) -> Optional[str]:
+def _dataset_attribute(value: Any, key: str) -> str | None:
     if isinstance(value, model.DatasetCollectionElement):
         # The element a job mapped over a nested collection runs on.
         return value.element_identifier if key in ("name", "element_identifier") else None
@@ -71,5 +70,6 @@ def _dataset_attribute(value: Any, key: str) -> Optional[str]:
         return value.name if key in ("name", "element_identifier") else None
     if key == "element_identifier":
         # Expanding a mapped-over collection records each element's identifier on its dataset.
-        return getattr(value, "element_identifier", None) or value.name
+        identifier: str | None = getattr(value, "element_identifier", None) or value.name
+        return identifier
     return {"name": value.name, "format": value.extension}.get(key)

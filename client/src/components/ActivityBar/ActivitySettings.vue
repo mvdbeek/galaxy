@@ -4,12 +4,15 @@ import { faStar, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { storeToRefs } from "pinia";
 import { computed, type ComputedRef } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
+import { useConfig } from "@/composables/config";
+import { isActivityAvailable } from "@/stores/activitySetup";
 import { useActivityStore } from "@/stores/activityStore";
 import type { Activity } from "@/stores/activityStoreTypes";
 import { useUnprivilegedToolStore } from "@/stores/unprivilegedToolStore";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 
 const props = defineProps<{
@@ -26,10 +29,11 @@ const activityStore = useActivityStore(props.activityBarId);
 const unprivilegedToolStore = useUnprivilegedToolStore();
 const { canUseUnprivilegedTools } = storeToRefs(unprivilegedToolStore);
 
+const { config } = useConfig();
+
 const optionalActivities = computed(() => {
-    return activityStore.activities.filter(
-        (a) => (a.optional && a.id !== "user-defined-tools") || canUseUnprivilegedTools.value,
-    );
+    const availability = { canUseUnprivilegedTools: canUseUnprivilegedTools.value, config: config.value };
+    return activityStore.activities.filter((a) => a.optional && isActivityAvailable(a.id, availability));
 });
 
 const filteredActivities = computed(() => {
@@ -143,7 +147,7 @@ function executeActivity(activity: Activity) {
             </button>
         </div>
         <div v-else>
-            <b-alert v-localize class="py-1 px-2" show> No matching activities found. </b-alert>
+            <GAlert v-localize class="py-1 px-2" show> No matching activities found. </GAlert>
         </div>
     </div>
 </template>

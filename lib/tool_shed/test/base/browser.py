@@ -1,9 +1,6 @@
 import abc
-from typing import (
-    Union,
-)
 
-FormValueType = Union[str, bool]
+FormValueType = str | bool
 
 
 class ShedBrowser(metaclass=abc.ABCMeta):
@@ -42,3 +39,7 @@ class ShedBrowser(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def grant_users_access(self, usernames: list[str]) -> None:
         """Select users to grant access to."""
+
+    @abc.abstractmethod
+    def revoke_user_access(self, username: str) -> None:
+        """Revoke the push access previously granted to a user."""

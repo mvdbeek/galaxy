@@ -1,22 +1,36 @@
 name: Mulled Unit Tests
 on:
   push:
-    paths-ignore:
-      - 'client/**'
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+    paths:
+      - '**'
+      - '!client/**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/mulled.yaml'
   pull_request:
-    paths-ignore:
-      - 'client/**'
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+    paths:
+      - '**'
+      - '!client/**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/mulled.yaml'
+env:
+  UV_HTTP_RETRIES: '6'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   test:
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
     name: Test
     runs-on: ubuntu-latest
     strategy:
@@ -24,15 +38,15 @@ jobs:
       matrix:
         python-version: ['3.10']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy root'
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: galaxy root/.tool-versions
+          python-version: ${{ matrix.python-version }}
       - name: Install Apptainer's singularity
         uses: './galaxy root/.github/actions/install_apptainer'
       - name: Install tox

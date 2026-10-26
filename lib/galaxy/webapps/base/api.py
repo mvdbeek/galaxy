@@ -7,7 +7,6 @@ from typing import (
     Any,
     Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 import anyio
@@ -57,7 +56,7 @@ from galaxy.schema.schema import MessageExceptionModel
 log = getLogger(__name__)
 
 
-def _get_range_header(range_header: str, file_size: int) -> Optional[tuple[int, int]]:
+def _get_range_header(range_header: str, file_size: int) -> tuple[int, int] | None:
     try:
         return parse_byte_range(range_header, file_size)
     except RangeNotSatisfiable:
@@ -107,6 +106,11 @@ def _release_request_sessions(sessions: list) -> None:
             log.warning("Failed to release request-scoped DB session before streaming", exc_info=True)
 
 
+def release_request_sessions() -> None:
+    """Return this request's pooled DB connection(s) before long non-DB work, e.g. reading a large request body."""
+    _release_request_sessions(_live_request_sessions())
+
+
 class GalaxyFileResponse(FileResponse):
     """
     Augments starlette FileResponse with x-accel-redirect/x-sendfile and byte-range handling.
@@ -117,18 +121,20 @@ class GalaxyFileResponse(FileResponse):
     database after the response is constructed.
     """
 
-    nginx_x_accel_redirect_base: Optional[str] = None
-    apache_xsendfile: Optional[bool] = None
+    nginx_x_accel_redirect_base: str | None = None
+    apache_xsendfile: bool | None = None
+    # Each chunk is a threadpool read and an ASGI send; starlette's 64 KiB makes large downloads hop-bound.
+    chunk_size = 1024 * 1024
 
     def __init__(
         self,
         path: StrPath,
         status_code: int = 200,
-        headers: Optional[Mapping[str, str]] = None,
-        media_type: Optional[str] = None,
+        headers: Mapping[str, str] | None = None,
+        media_type: str | None = None,
         background: Optional["BackgroundTask"] = None,
-        filename: Optional[str] = None,
-        stat_result: Optional[os.stat_result] = None,
+        filename: str | None = None,
+        stat_result: os.stat_result | None = None,
         content_disposition_type: str = "attachment",
     ) -> None:
         super().__init__(
@@ -248,6 +254,10 @@ class GalaxyStreamingResponse(StreamingResponse):
       lazily loads an ORM relationship, issues a query, or commits, it trips the
       FOOTGUN below.
 
+    RESOURCE OWNERSHIP: If synchronous response content exposes ``close()``,
+      this response calls it after streaming or when response setup/sending
+      fails, including failures before the content's first iteration.
+
     FOOTGUN: the request-id ``ContextVar`` that keys the ``scoped_session`` is
       still set while the body streams (same asyncio task). If body code touches
       ``app.model.session`` after we close it, ``scoped_session`` will SILENTLY
@@ -262,7 +272,15 @@ class GalaxyStreamingResponse(StreamingResponse):
     """
 
     def __init__(self, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
+        content = kwargs.get("content", args[0] if args else None)
+        close_content = getattr(content, "close", None)
+        self._close_content = close_content if callable(close_content) else None
+        try:
+            super().__init__(*args, **kwargs)
+        except BaseException:
+            if self._close_content is not None:
+                self._close_content()
+            raise
         # Capture concrete, already-open request-scoped sessions NOW, while we
         # are guaranteed to be in the request's asyncio task (so the request-id
         # ContextVar resolves). We never call the scoped proxy, which would
@@ -271,7 +289,11 @@ class GalaxyStreamingResponse(StreamingResponse):
 
     async def stream_response(self, send: "Send") -> None:
         _release_request_sessions(self._sessions_to_release)
-        await super().stream_response(send)
+        try:
+            await super().stream_response(send)
+        finally:
+            if self._close_content is not None:
+                self._close_content()
 
 
 def add_sentry_middleware(app: FastAPI) -> None:
@@ -297,7 +319,7 @@ def get_error_response_for_request(request: Request, exc: MessageException) -> J
     else:
         content = error_dict
 
-    retry_after: Optional[int] = getattr(exc, "retry_after", None)
+    retry_after: int | None = getattr(exc, "retry_after", None)
     headers: dict[str, str] = {}
     if retry_after:
         headers["Retry-After"] = str(retry_after)
@@ -321,7 +343,6 @@ def add_exception_handler(app: FastAPI) -> None:
 
 
 class AccessLoggingMiddleware(Plugin):
-
     key = "access_line"
 
     async def process_request(self, request):
@@ -358,14 +379,20 @@ def build_route_name_index(app: FastAPI) -> dict[str, list["BaseRoute"]]:
     """
     index: dict[str, list[BaseRoute]] = {}
     for route in app.routes:
-        name = getattr(route, "name", None)
-        if name:
-            index.setdefault(name, []).append(route)
+        # Recent FastAPI keeps an included router as one unnamed route instead
+        # of copying its routes into app.routes. Its effective route contexts
+        # carry the names and build the URLs, as the router itself does.
+        effective_route_contexts = getattr(route, "effective_route_contexts", None)
+        candidates = effective_route_contexts() if effective_route_contexts else (route,)
+        for candidate in candidates:
+            name = getattr(candidate, "name", None)
+            if name:
+                index.setdefault(name, []).append(candidate)
     return index
 
 
 def include_all_package_routers(app: FastAPI, package_name: str):
-    responses: dict[Union[int, str], dict[str, Any]] = {
+    responses: dict[int | str, dict[str, Any]] = {
         "4XX": {
             "description": "Request Error",
             "model": MessageExceptionModel,

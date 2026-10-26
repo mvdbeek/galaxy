@@ -1,67 +1,81 @@
 <template>
     <GModal
         id="repo-install-settings"
-        :show.sync="modalShow"
+        v-model:show="modalShow"
         size="small"
         :title="modalTitle"
         confirm
+        :ok-disabled="Boolean(sectionError)"
+        :ok-disabled-title="sectionError"
         @ok="onOk"
         @close="onHide">
         <div class="description mb-1">
             {{ repo.long_description || repo.description }}
         </div>
         <div class="revision text-muted small mb-3">{{ repo.owner }} rev. {{ changesetRevision }}</div>
-        <b-form-group
+        <BFormGroup
             v-if="requiresPanel"
             label="Target Section:"
-            description="Choose an existing tool panel section or create a new section to contain the installed tools (optional).">
-            <b-form-input v-model="toolSection" list="sectionSelect" />
-            <datalist id="sectionSelect">
-                <option v-for="section in toolSections" :key="section.id">
-                    {{ section.name }}
-                </option>
-            </datalist>
-        </b-form-group>
+            label-for="install-tool-section"
+            description="Choose an existing tool panel section or create a new section to contain the installed tools (optional)."
+            :state="sectionError ? false : null"
+            :invalid-feedback="sectionError">
+            <FormSelectOrText
+                id="install-tool-section"
+                v-model="toolSection"
+                :options="sectionOptions"
+                other-label="New section..."
+                other-placeholder="New section name"
+                @alert="sectionError = $event" />
+        </BFormGroup>
         <Heading separator size="sm" :collapse="advancedShow ? 'open' : 'closed'" @click="onAdvanced">
             {{ advancedTitle }} advanced settings
         </Heading>
         <GCollapse v-model="advancedShow" class="mt-2">
-            <b-card>
-                <b-form-group
+            <BCard>
+                <BFormGroup
                     v-if="toolConfigs.length > 1"
                     label="Tool Configuration:"
                     description="Choose a tool configuration.">
-                    <b-form-radio
-                        v-for="filename in toolConfigs"
-                        :key="filename"
-                        v-model="toolConfig"
-                        :value="filename">
+                    <BFormRadio v-for="filename in toolConfigs" :key="filename" v-model="toolConfig" :value="filename">
                         {{ filename }}
-                    </b-form-radio>
-                </b-form-group>
-                <b-form-group label="Dependencies:" description="Choose how to handle dependencies.">
-                    <b-form-checkbox v-model="installResolverDependencies">
+                    </BFormRadio>
+                </BFormGroup>
+                <BFormGroup label="Dependencies:" description="Choose how to handle dependencies.">
+                    <BFormCheckbox v-model="installResolverDependencies">
                         Install resolvable dependencies
-                    </b-form-checkbox>
-                    <b-form-checkbox v-model="installRepositoryDependencies">
+                    </BFormCheckbox>
+                    <BFormCheckbox v-model="installRepositoryDependencies">
                         Install repository dependencies
-                    </b-form-checkbox>
-                    <b-form-checkbox v-model="installToolDependencies"> Install tool dependencies </b-form-checkbox>
-                </b-form-group>
-            </b-card>
+                    </BFormCheckbox>
+                    <BFormCheckbox v-model="installToolDependencies"> Install tool dependencies </BFormCheckbox>
+                </BFormGroup>
+            </BCard>
         </GCollapse>
     </GModal>
 </template>
 <script>
+import { BCard, BFormCheckbox, BFormGroup, BFormRadio } from "bootstrap-vue";
+
 import { GalaxyApi } from "@/api";
 import { useConfig } from "@/composables/config";
 
 import GCollapse from "@/components/BaseComponents/GCollapse.vue";
 import GModal from "@/components/BaseComponents/GModal.vue";
 import Heading from "@/components/Common/Heading.vue";
+import FormSelectOrText from "@/components/Form/Elements/FormSelectOrText.vue";
 
 export default {
-    components: { GCollapse, GModal, Heading },
+    components: {
+        BCard,
+        BFormCheckbox,
+        BFormGroup,
+        BFormRadio,
+        FormSelectOrText,
+        GCollapse,
+        GModal,
+        Heading,
+    },
     props: {
         repo: {
             type: Object,
@@ -85,7 +99,7 @@ export default {
         },
     },
     setup() {
-        const { config, isConfigLoaded } = useConfig(true);
+        const { config, isConfigLoaded } = useConfig();
         return { config, isConfigLoaded };
     },
     data() {
@@ -98,6 +112,7 @@ export default {
             toolConfig: null,
             toolConfigs: [],
             toolSection: null,
+            sectionError: undefined,
         };
     },
     computed: {
@@ -106,6 +121,12 @@ export default {
         },
         modalTitle() {
             return `Installing '${this.repo.name}'`;
+        },
+        sectionOptions() {
+            return [
+                { label: "No section", value: null },
+                ...this.toolSections.map((section) => ({ label: section.name, value: section.name })),
+            ];
         },
         toolSections() {
             const panel = Object.values(this.currentPanel);
@@ -135,7 +156,7 @@ export default {
                 if (found) {
                     result[0] = found.id;
                 } else {
-                    result[1] = name;
+                    result[1] = name.trim();
                 }
             }
             return result;

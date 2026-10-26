@@ -1,20 +1,27 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import { useTargetHistoryUploadState } from "@/composables/history/useTargetHistoryUploadState";
+import { useUploadAdvancedMode } from "@/composables/upload/uploadAdvancedMode";
+import { usePrivateObjectStoreConfirmation } from "@/composables/upload/usePrivateObjectStoreConfirmation";
+import { useTargetObjectStoreSelectionState } from "@/composables/upload/useTargetObjectStoreSelectionState";
 import { useUploadSubmission } from "@/composables/upload/useUploadSubmission";
 import { useHistoryStore } from "@/stores/historyStore";
+import { useObjectStoreStore } from "@/stores/objectStoreStore";
 
 import type { UploadMethod, UploadMethodComponent } from "./types";
 import { getUploadRootBreadcrumb } from "./uploadBreadcrumb";
 import { getUploadMethod } from "./uploadMethodRegistry";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import GTip from "@/components/BaseComponents/GTip.vue";
 import BreadcrumbHeading from "@/components/Common/BreadcrumbHeading.vue";
 import TargetHistorySelector from "@/components/History/TargetHistorySelector.vue";
+import TargetObjectStoreSelector from "@/components/History/TargetObjectStoreSelector.vue";
 
 interface Props {
     methodId: UploadMethod;
@@ -31,7 +38,36 @@ const { submitPreparedUpload } = useUploadSubmission();
 const historyStore = useHistoryStore();
 const { currentHistoryId } = storeToRefs(historyStore);
 
+const { advancedMode } = useUploadAdvancedMode();
+
 const targetHistoryId = ref<string>(currentHistoryId.value || "");
+
+const objectStoreStore = useObjectStoreStore();
+const { selectableObjectStores } = storeToRefs(objectStoreStore);
+
+const {
+    targetObjectStoreId,
+    shouldShowObjectStoreSelector,
+    objectStoreUploadBlockReason,
+    objectStoreDisabledReason,
+    handleObjectStoreSelected,
+} = useTargetObjectStoreSelectionState(
+    targetHistoryId,
+    computed(() => advancedMode.value),
+);
+
+const { warningMessage: objectStoreWarningMessage, handlePrivateStoreSelection } = usePrivateObjectStoreConfirmation();
+
+const historyDiverged = computed(
+    () => !!targetHistoryId.value && !!currentHistoryId.value && targetHistoryId.value !== currentHistoryId.value,
+);
+const targetHistoryName = computed(() =>
+    targetHistoryId.value ? historyStore.getHistoryNameById(targetHistoryId.value) : "",
+);
+const currentHistoryName = computed(() =>
+    currentHistoryId.value ? historyStore.getHistoryNameById(currentHistoryId.value) : "",
+);
+const mismatchAlertKey = computed(() => `${targetHistoryId.value}-${currentHistoryId.value}`);
 
 // Keep targetHistoryId in sync with currentHistoryId
 watch(
@@ -50,11 +86,16 @@ const method = computed(() => {
 
 const { uploadBlockReason, warningMessage } = useTargetHistoryUploadState(computed(() => targetHistoryId.value));
 
-const canStartUpload = computed(() => !uploadBlockReason.value && canUpload.value);
+const canStartUpload = computed(
+    () => !uploadBlockReason.value && !objectStoreUploadBlockReason.value && canUpload.value,
+);
 
 const startButtonTitle = computed(() => {
     if (uploadBlockReason.value) {
         return warningMessage.value;
+    }
+    if (objectStoreUploadBlockReason.value) {
+        return objectStoreUploadBlockReason.value;
     }
     return canUpload.value ? "Start uploading to Galaxy" : "Configure upload options first";
 });
@@ -68,6 +109,15 @@ const breadcrumbItems = computed(() => {
 
 function handleHistorySelected(history: { id: string }) {
     targetHistoryId.value = history.id;
+}
+
+async function handleObjectStoreSelection(selection: { object_store_id: string | null; private: boolean }) {
+    const selectedStore = selection.object_store_id
+        ? selectableObjectStores.value?.find((store) => store.object_store_id === selection.object_store_id)
+        : null;
+
+    handleObjectStoreSelected(selectedStore ?? null);
+    await handlePrivateStoreSelection(selectedStore ?? null, targetHistoryId.value);
 }
 
 function handleCancel() {
@@ -87,7 +137,9 @@ function handleStart() {
         return;
     }
     // Fire-and-forget: progress and failures are tracked per item in uploadState, visible in the progress view
-    submitPreparedUpload(targetHistoryId.value, prepared).catch(() => undefined);
+    submitPreparedUpload(targetHistoryId.value, prepared, undefined, targetObjectStoreId.value ?? undefined).catch(
+        () => undefined,
+    );
     uploadMethodRef.value?.reset?.();
     router.push("/upload/progress");
 }
@@ -99,20 +151,62 @@ function handleReadyStateChange(ready: boolean) {
 
 <template>
     <div class="upload-method-view d-flex flex-column h-100">
-        <BreadcrumbHeading :items="breadcrumbItems" />
+        <BreadcrumbHeading :items="breadcrumbItems">
+            <GCheckbox
+                v-model="advancedMode"
+                v-g-tooltip.hover
+                data-test-id="upload-advanced-mode-toggle"
+                switch
+                class="ml-auto align-self-center"
+                title="Show advanced upload options">
+                <span>Advanced</span>
+            </GCheckbox>
+        </BreadcrumbHeading>
 
         <div v-if="method" class="upload-method-content flex-grow-1 d-flex flex-column overflow-hidden">
             <GTip v-if="method.tips" :tips="method.tips" variant="info" class="mb-1" />
 
             <!-- Target History Display -->
             <div v-if="method.requiresTargetHistory" class="target-history-banner px-3 py-2">
-                <TargetHistorySelector
-                    :target-history-id="targetHistoryId"
-                    history-caption="Target history"
-                    change-link-text="Choose another"
-                    change-link-tooltip="Change target history for this upload"
-                    modal-title="Select a history for upload"
-                    @select-history="handleHistorySelected" />
+                <div class="target-destination-grid">
+                    <div class="target-destination-item">
+                        <TargetHistorySelector
+                            :target-history-id="targetHistoryId"
+                            history-caption="Target history"
+                            change-link-text="Choose another"
+                            change-link-tooltip="Change target history for this upload"
+                            modal-title="Select a history for upload"
+                            @select-history="handleHistorySelected" />
+                    </div>
+                    <div v-if="shouldShowObjectStoreSelector" class="target-destination-item">
+                        <TargetObjectStoreSelector
+                            class="ml-4"
+                            :target-object-store-id="targetObjectStoreId"
+                            :target-history-id="targetHistoryId"
+                            store-caption="Target storage"
+                            change-link-tooltip="Change storage location for this upload"
+                            :disabled="!!objectStoreDisabledReason"
+                            :disabled-message="objectStoreDisabledReason"
+                            @select-store="handleObjectStoreSelection" />
+                    </div>
+                </div>
+
+                <GAlert v-if="objectStoreWarningMessage" show variant="warning" class="mb-0 mt-2 py-1">
+                    {{ objectStoreWarningMessage }}
+                </GAlert>
+
+                <GAlert
+                    v-if="historyDiverged"
+                    :key="mismatchAlertKey"
+                    variant="warning"
+                    dismissible
+                    class="mb-0 mt-2 py-1"
+                    data-test-id="upload-history-mismatch-alert">
+                    <span v-localize>
+                        The current history changed. These uploads will go to "{{ targetHistoryName }}" (the target
+                        history), not to current history "{{ currentHistoryName }}".
+                    </span>
+                </GAlert>
             </div>
 
             <!-- Upload Method Content (scrollable) -->
@@ -122,6 +216,7 @@ function handleReadyStateChange(ready: boolean) {
                     ref="uploadMethodRef"
                     :method="method"
                     :target-history-id="targetHistoryId"
+                    :target-object-store-id="targetObjectStoreId"
                     @ready="handleReadyStateChange" />
             </div>
         </div>
@@ -161,6 +256,24 @@ function handleReadyStateChange(ready: boolean) {
     background-color: $gray-100;
     border-bottom: 1px solid $border-color;
     flex-shrink: 0;
+}
+
+.target-destination-grid {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.target-destination-item {
+    flex: 1 1 22rem;
+    min-width: min(100%, 18rem);
+}
+
+@media (max-width: 768px) {
+    .target-destination-item {
+        flex-basis: 100%;
+        min-width: 0;
+    }
 }
 
 .target-history-name {

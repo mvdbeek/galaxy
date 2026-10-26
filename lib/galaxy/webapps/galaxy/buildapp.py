@@ -7,7 +7,6 @@ import logging
 import sys
 import threading
 import traceback
-from typing import Optional
 
 from paste import httpexceptions
 
@@ -16,27 +15,33 @@ import galaxy.datatypes.registry
 import galaxy.model
 import galaxy.model.mapping
 import galaxy.web.framework
-import galaxy.webapps.base.webapp
 from galaxy import util
-from galaxy.security.validate_user_input import VALID_PUBLICNAME_RE
+from galaxy.agents.factory import build_registry as build_agent_registry
+from galaxy.agents.registry import AgentRegistry
+from galaxy.managers.agents import AgentService
+from galaxy.managers.jobs import JobManager as JobQueryManager
 from galaxy.structured_app import MinimalApp
 from galaxy.util import asbool
 from galaxy.util.properties import load_app_properties
+from galaxy.util.user_input import VALID_PUBLICNAME_RE
 from galaxy.web.framework.middleware.error import ErrorMiddleware
 from galaxy.web.framework.middleware.request_id import RequestIDMiddleware
 from galaxy.web.framework.middleware.xforwardedhost import XForwardedHostMiddleware
-from galaxy.webapps.base.webapp import build_url_map
+from galaxy.webapps.base.webapp import (
+    build_url_map,
+    WebApplication,
+)
 from galaxy.webapps.util import wrap_if_allowed
 
 log = logging.getLogger(__name__)
 
 
-class GalaxyWebApplication(galaxy.webapps.base.webapp.WebApplication):
+class GalaxyWebApplication(WebApplication):
     injection_aware = True
+    # Client routes aren't registered server-side; the client app's router handles them
+    client_match = {"controller": "root", "action": "client"}
 
-    def __init__(
-        self, galaxy_app: MinimalApp, session_cookie: str = "galaxysession", name: Optional[str] = None
-    ) -> None:
+    def __init__(self, galaxy_app: MinimalApp, session_cookie: str = "galaxysession", name: str | None = None) -> None:
         super().__init__(galaxy_app, session_cookie, name)
         self.session_factories.append(galaxy_app.install_model)
 
@@ -68,6 +73,12 @@ def app_pair(global_conf, load_app_kwds=None, wsgi_preflight=True, **kwargs):
         except Exception:
             traceback.print_exc()
             sys.exit(1)
+
+    # The agent registry imports every agent class and with them pydantic-ai, so it
+    # is only built for the web app, which serves the agent API.
+    agent_registry = build_agent_registry(app.config)
+    app[AgentRegistry] = agent_registry
+    app[AgentService] = AgentService(app.config, JobQueryManager(app, app.history_manager), agent_registry)
 
     if kwargs.get("register_shutdown_at_exit", True):
         # Call app's shutdown method when the interpeter exits, this cleanly stops
@@ -190,151 +201,6 @@ def app_pair(global_conf, load_app_kwds=None, wsgi_preflight=True, **kwargs):
             conditions={"method": ["OPTIONS"]},
         )
 
-    # CLIENTSIDE ROUTES
-    # The following are routes that are handled completely on the clientside.
-    # The following routes don't bootstrap any information, simply provide the
-    # base analysis interface at which point the application takes over.
-    webapp.add_client_route("/")
-    webapp.add_client_route("/root")
-    webapp.add_client_route("/index")
-    webapp.add_client_route("/about")
-    webapp.add_client_route("/admin")
-    webapp.add_client_route("/admin/data_tables")
-    webapp.add_client_route("/admin/data_types")
-    webapp.add_client_route("/admin/jobs")
-    webapp.add_client_route("/admin/invocations")
-    webapp.add_client_route("/admin/toolbox_dependencies")
-    webapp.add_client_route("/admin/data_manager{path_info:.*}")
-    webapp.add_client_route("/admin/notifications{path_info:.*}")
-    webapp.add_client_route("/admin/error_stack")
-    webapp.add_client_route("/admin/users")
-    webapp.add_client_route("/admin/users/create")
-    webapp.add_client_route("/admin/display_applications")
-    webapp.add_client_route("/admin/reset_metadata")
-    webapp.add_client_route("/admin/roles")
-    webapp.add_client_route("/admin/forms")
-    webapp.add_client_route("/admin/notifications")
-    webapp.add_client_route("/admin/groups")
-    webapp.add_client_route("/admin/repositories")
-    webapp.add_client_route("/admin/sanitize_allow")
-    webapp.add_client_route("/admin/tool_versions")
-    webapp.add_client_route("/admin/toolshed")
-    webapp.add_client_route("/admin/quotas")
-    webapp.add_client_route("/admin/form/{form_id}")
-    webapp.add_client_route("/admin/api_keys")
-    webapp.add_client_route("/carbon_emissions_calculations")
-    webapp.add_client_route("/help/terms/{term_id}")
-    webapp.add_client_route("/datatypes")
-    webapp.add_client_route("/login/start")
-    webapp.add_client_route("/register/start")
-    webapp.add_client_route("/tools/list")
-    webapp.add_client_route("/tools/list/ontologies")
-    webapp.add_client_route("/tools/json")
-    webapp.add_client_route("/tools/editor")
-    webapp.add_client_route("/tools/editor/{uuid}")
-    webapp.add_client_route("/tool_landings/{uuid}")
-    webapp.add_client_route("/workflow_landings/{uuid}")
-    webapp.add_client_route("/tours")
-    webapp.add_client_route("/tours/{tour_id}")
-    webapp.add_client_route("/galaxyai")
-    webapp.add_client_route("/galaxyai/{exchange_id}")
-    webapp.add_client_route("/user")
-    webapp.add_client_route("/user/notifications{path:.*?}")
-    webapp.add_client_route("/user/{form_id}")
-    webapp.add_client_route("/object_store_instances/create")
-    webapp.add_client_route("/object_store_instances/index")
-    webapp.add_client_route("/object_store_instances/{user_object_store_id}/edit")
-    webapp.add_client_route("/object_store_instances/{user_object_store_id}/upgrade")
-    webapp.add_client_route("/object_store_templates/{template_id}/new")
-    webapp.add_client_route("/file_source_instances/create")
-    webapp.add_client_route("/file_source_instances/index")
-    webapp.add_client_route("/file_source_instances/{user_file_source_id}/edit")
-    webapp.add_client_route("/file_source_instances/{user_file_source_id}/upgrade")
-    webapp.add_client_route("/file_source_templates/{template_id}/new")
-    webapp.add_client_route("/welcome/new")
-    webapp.add_client_route("/visualizations")
-    webapp.add_client_route("/visualizations/create/{visualization}")
-    webapp.add_client_route("/visualizations/display{path:.*?}")
-    webapp.add_client_route("/visualizations/edit")
-    webapp.add_client_route("/visualizations/sharing")
-    webapp.add_client_route("/visualizations/list_published")
-    webapp.add_client_route("/visualizations/list_shared")
-    webapp.add_client_route("/visualizations/list")
-    webapp.add_client_route("/pages/list")
-    webapp.add_client_route("/pages/list_published")
-    webapp.add_client_route("/pages/create")
-    webapp.add_client_route("/pages/edit")
-    webapp.add_client_route("/pages/editor")
-    webapp.add_client_route("/pages/sharing")
-    webapp.add_client_route("/published/history")
-    webapp.add_client_route("/published/page")
-    webapp.add_client_route("/published/visualization")
-    webapp.add_client_route("/published/workflow")
-    webapp.add_client_route("/histories/citations")
-    webapp.add_client_route("/histories/list")
-    webapp.add_client_route("/histories/import")
-    webapp.add_client_route("/histories/{history_id}/export")
-    webapp.add_client_route("/histories/{history_id}/extract_workflow")
-    webapp.add_client_route("/histories/{history_id}/archive")
-    webapp.add_client_route("/histories/{history_id}/invocations")
-    webapp.add_client_route("/histories/{history_id}/graph")
-    webapp.add_client_route("/histories/{history_id}/pages")
-    webapp.add_client_route("/histories/{history_id}/pages/{page_id}")
-    webapp.add_client_route("/histories/{history_id}/storage/runs")
-    webapp.add_client_route("/histories/{history_id}/storage/runs/{path:.*?}")
-    webapp.add_client_route("/histories/archived")
-    webapp.add_client_route("/histories/list_published")
-    webapp.add_client_route("/histories/list_shared")
-    webapp.add_client_route("/histories/rename")
-    webapp.add_client_route("/histories/sharing")
-    webapp.add_client_route("/histories/permissions")
-    webapp.add_client_route("/histories/view")
-    webapp.add_client_route("/histories/view_multiple")
-    webapp.add_client_route("/datasets/copy")
-    webapp.add_client_route("/datasets/list")
-    webapp.add_client_route("/datasets/{dataset_id}/edit")
-    webapp.add_client_route("/datasets/{dataset_id}/error")
-    webapp.add_client_route("/datasets/{dataset_id}/details")
-    webapp.add_client_route("/datasets/{dataset_id}/preview")
-    webapp.add_client_route("/datasets/{dataset_id}/raw")
-    webapp.add_client_route("/datasets/{dataset_id}/report")
-    webapp.add_client_route("/datasets/{dataset_id}/show_params")
-    webapp.add_client_route("/datasets/{dataset_id}/visualize")
-    webapp.add_client_route("/datasets/{dataset_id}")
-    webapp.add_client_route("/display_applications/{path:.*?}")
-    webapp.add_client_route("/collection/{collection_id}/edit")
-    webapp.add_client_route("/collection/{collection_id}/sheet")
-    webapp.add_client_route("/collection/new_list")
-    webapp.add_client_route("/jobs/submission/success")
-    webapp.add_client_route("/jobs/{job_id}/view")
-    webapp.add_client_route("/rules")
-    webapp.add_client_route("/workflows/list")
-    webapp.add_client_route("/workflows/list_published")
-    webapp.add_client_route("/workflows/list_shared_with_me")
-    webapp.add_client_route("/workflows/edit")
-    webapp.add_client_route("/workflows/export")
-    webapp.add_client_route("/workflows/create")
-    webapp.add_client_route("/workflows/rerun")
-    webapp.add_client_route("/workflows/run")
-    webapp.add_client_route("/workflows/import")
-    webapp.add_client_route("/workflows/trs_import")
-    webapp.add_client_route("/workflows/trs_search")
-    webapp.add_client_route("/workflows/invocations")
-    webapp.add_client_route("/workflows/invocations/{invocation_id}")
-    webapp.add_client_route("/workflows/invocations/{invocation_id}/{tab:.*?}")
-    webapp.add_client_route("/workflows/invocations/import")
-    webapp.add_client_route("/workflows/sharing")
-    webapp.add_client_route("/workflows/{stored_workflow_id}/invocations")
-    webapp.add_client_route("/workflows/invocations/report")
-    # webapp.add_client_route('/workflows/invocations/view_bco')
-    webapp.add_client_route("/custom_builds")
-    webapp.add_client_route("/interactivetool_entry_points/list")
-    webapp.add_client_route("/libraries{path:.*?}")
-    webapp.add_client_route("/storage{path:.*?}")
-    webapp.add_client_route("/import/zip")
-    webapp.add_client_route("/downloads")
-    webapp.add_client_route("/upload{path:.*?}")
-
     # ==== Done
     # Indicate that all configuration settings have been provided
     webapp.finalize_config()
@@ -361,7 +227,7 @@ def postfork_setup():
     app.application_stack.log_startup()
 
 
-def populate_api_routes(webapp, app):
+def populate_api_routes(webapp: WebApplication, app: MinimalApp):
     webapp.add_api_controllers("galaxy.webapps.galaxy.api", app)
 
     _add_item_annotation_controller(
@@ -383,20 +249,6 @@ def populate_api_routes(webapp, app):
     )
     webapp.mapper.connect("/api/upload/resumable_upload", controller="uploads", action="hooks")
     webapp.mapper.connect("/api/upload/hooks", controller="uploads", action="hooks", conditions=dict(method=["POST"]))
-
-    webapp.mapper.connect(
-        "/api/job_files/resumable_upload/{session_id}",
-        controller="job_files",
-        action="tus_patch",
-        conditions=dict(method=["PATCH"]),
-    )
-    # user facing upload has this endpoint enabled but the middleware completely masks it and the controller
-    # is not used. Probably it isn't needed there but I am keeping the doc here until we remove both
-    # routes.
-    # webapp.mapper.connect("/api/job_files/resumable_upload", controller="job_files", action="tus_post")
-    webapp.mapper.connect(
-        "/api/job_files/tus_hooks", controller="job_files", action="tus_hooks", conditions=dict(method=["POST"])
-    )
 
     webapp.mapper.resource(
         "revision",
@@ -866,24 +718,6 @@ def populate_api_routes(webapp, app):
         controller="jobs",
         action="build_for_rerun",
         conditions=dict(method=["GET"]),
-    )
-
-    # Job files controllers. Only for consumption by remote job runners.
-    webapp.mapper.resource(
-        "file",
-        "files",
-        controller="job_files",
-        name_prefix="job_",
-        path_prefix="/api/jobs/{job_id}",
-        parent_resources=dict(member_name="job", collection_name="jobs"),
-    )
-
-    webapp.mapper.connect(
-        "index",
-        "/api/jobs/{job_id}/files",
-        controller="job_files",
-        action="index",
-        conditions=dict(method=["HEAD"]),
     )
 
     webapp.mapper.resource(

@@ -112,7 +112,7 @@ export function useWorkflowCardActions(
             });
 
             toast.info(`Workflow ${checked ? "added to" : "removed from"} bookmarks`);
-        } catch (error) {
+        } catch {
             toast.error("Failed to update workflow bookmark status");
         } finally {
             refreshCallback();
@@ -150,8 +150,7 @@ export function useWorkflowCardActions(
     }
 
     function copyPublicLink() {
-        copy(fullLink.value);
-        toast.success("Link to workflow copied");
+        copy(fullLink.value, "Link to workflow copied");
     }
 
     async function copyWorkflow() {

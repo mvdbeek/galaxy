@@ -78,7 +78,13 @@ class ShedToolDataTableManager(BaseShedToolDataTableManager):
         self.app = app
 
     def generate_repository_info_elem(
-        self, tool_shed: str, repository_name: str, changeset_revision: str, owner: str, parent_elem=None, **kwd
+        self,
+        tool_shed: str,
+        repository_name: str,
+        changeset_revision: str,
+        owner: str,
+        parent_elem: Element | None = None,
+        **kwd: str,
     ) -> Element:
         """Create and return an ElementTree repository info Element."""
         if parent_elem is None:
@@ -100,7 +106,11 @@ class ShedToolDataTableManager(BaseShedToolDataTableManager):
             new_elem.text = value
         return elem
 
-    def generate_repository_info_elem_from_repository(self, tool_shed_repository, parent_elem=None, **kwd):
+    def generate_repository_info_elem_from_repository(
+        self, tool_shed_repository: "ToolShedRepository", parent_elem: Element | None = None, **kwd: str
+    ) -> Element:
+        # Galaxy has no callers; the exec_before_job hook of the IUC data_manager_manual
+        # tool (tools-iuc data_managers/data_manager_manual) calls this.
         return self.generate_repository_info_elem(
             tool_shed_repository.tool_shed,
             tool_shed_repository.name,

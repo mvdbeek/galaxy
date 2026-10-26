@@ -1,4 +1,3 @@
-from typing import Optional
 from unittest.mock import Mock
 
 import pytest
@@ -16,7 +15,6 @@ from galaxy.model.unittest_utils.data_app import GalaxyDataTestConfig
 
 
 class MockJobConfig:
-
     def __init__(self) -> None:
         self.limits = JobConfigurationLimits()
 
@@ -25,8 +23,7 @@ class MockJobConfig:
 
 
 class GalaxyJobConfigApp(GalaxyDataTestApp):
-
-    def __init__(self, config: Optional[GalaxyDataTestConfig] = None, **kwd):
+    def __init__(self, config: GalaxyDataTestConfig | None = None, **kwd):
         super().__init__(config, **kwd)
         self.job_config = MockJobConfig()
 

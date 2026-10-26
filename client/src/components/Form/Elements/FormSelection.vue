@@ -1,15 +1,14 @@
 <script setup lang="ts">
-import { faCaretDown } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BDropdown, BDropdownItemButton } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, type PropType, ref, watch } from "vue";
 
 import { useUserFlagsStore } from "@/stores/userFlagsStore";
+import { uid } from "@/utils/utils";
 
 import FormCheck from "./FormCheck.vue";
 import FormRadio from "./FormRadio.vue";
 import FormSelect from "./FormSelect.vue";
+import FormSelectionPreference from "./FormSelectionPreference.vue";
 import FormSelectMany from "./FormSelectMany/FormSelectMany.vue";
 
 export interface SelectOption {
@@ -20,9 +19,11 @@ export interface SelectOption {
 const emit = defineEmits<{
     (e: "input", value: any): void;
     (e: "search-change", query: string): void;
+    (e: "preference-change", state: { showManyButton: boolean; showMultiButton: boolean }): void;
 }>();
 
 const props = defineProps({
+    id: { type: String, default: () => `form-selection-${uid()}` },
     value: {
         type: null as unknown as PropType<any>,
         default: null,
@@ -55,6 +56,20 @@ const props = defineProps({
     totalEstimate: {
         type: Number as PropType<number | null>,
         default: null,
+    },
+    /**
+     * When set, the simple/column select preference control is not rendered here.
+     * The parent is expected to render it (see ``FormSelectionPreference``) using
+     * the state exposed via ``preference-change`` and the exposed ``setUseMany``.
+     */
+    deferPreference: {
+        type: Boolean,
+        default: false,
+    },
+    /** Id of the element that names a checkbox or radio group, which a ``<label for>`` cannot reach */
+    ariaLabelledby: {
+        type: String,
+        default: undefined,
     },
 });
 
@@ -123,32 +138,58 @@ const displayMany = computed(() => showSelectPreference.value && useMany.value);
 const showManyButton = computed(() => showSelectPreference.value && !useMany.value);
 const showMultiButton = computed(() => displayMany.value);
 
+function setUseMany(value: boolean) {
+    useMany.value = value;
+}
+
+// Keep the parent in sync when the preference control is rendered externally.
+watch(
+    [showManyButton, showMultiButton],
+    ([many, multi]) => {
+        if (props.deferPreference) {
+            emit("preference-change", { showManyButton: many, showMultiButton: multi });
+        }
+    },
+    { immediate: true },
+);
+
 defineExpose({
     displayMany,
+    setUseMany,
 });
 </script>
 
 <template>
-    <div class="form-selection">
-        <FormCheck v-if="display === 'checkboxes'" v-model="currentValue" :options="currentOptions" />
-        <FormRadio v-else-if="display === 'radio'" v-model="currentValue" :options="currentOptions" />
+    <div :id="`${id}-container`" class="form-selection">
+        <FormCheck
+            v-if="display === 'checkboxes'"
+            v-model="currentValue"
+            :aria-labelledby="ariaLabelledby"
+            :options="currentOptions" />
+        <FormRadio
+            v-else-if="display === 'radio'"
+            v-model="currentValue"
+            :aria-labelledby="ariaLabelledby"
+            :options="currentOptions" />
         <FormSelectMany
             v-else-if="displayMany"
+            :id="id"
             v-model="currentValue"
             :options="currentOptions"
             :total-estimate="totalEstimate"
-            @search-change="(q) => $emit('search-change', q)">
+            @search-change="(q: string) => $emit('search-change', q)">
             <template v-slot:after-list>
                 <slot name="after-list" />
             </template>
         </FormSelectMany>
         <FormSelect
             v-else
+            :id="id"
             v-model="currentValue"
             :multiple="multiple"
             :optional="optional"
             :options="currentOptions"
-            @search-change="(q) => $emit('search-change', q)">
+            @search-change="(q: string) => $emit('search-change', q)">
             <template v-slot:no-options>
                 <slot name="no-options" />
             </template>
@@ -157,34 +198,11 @@ defineExpose({
             </template>
         </FormSelect>
 
-        <div v-if="showSelectPreference" class="d-flex">
-            <button v-if="showManyButton" class="ui-link ml-1" @click="useMany = true">switch to column select</button>
-            <button v-else-if="showMultiButton" class="ui-link ml-1" @click="useMany = false">
-                switch to simple select
-            </button>
-
-            <BDropdown toggle-class="inline-icon-button d-block px-1" variant="link" no-caret>
-                <template v-slot:button-content>
-                    <FontAwesomeIcon :icon="faCaretDown"></FontAwesomeIcon>
-                    <span class="sr-only">select element preferences</span>
-                </template>
-                <BDropdownItemButton
-                    :active="preferredFormSelectElement === 'none'"
-                    @click="preferredFormSelectElement = 'none'">
-                    No preference
-                </BDropdownItemButton>
-                <BDropdownItemButton
-                    :active="preferredFormSelectElement === 'multi'"
-                    @click="preferredFormSelectElement = 'multi'">
-                    Default to simple select
-                </BDropdownItemButton>
-                <BDropdownItemButton
-                    :active="preferredFormSelectElement === 'many'"
-                    @click="preferredFormSelectElement = 'many'">
-                    Default to column select
-                </BDropdownItemButton>
-            </BDropdown>
-        </div>
+        <FormSelectionPreference
+            v-if="!deferPreference && showSelectPreference"
+            :show-many-button="showManyButton"
+            :show-multi-button="showMultiButton"
+            @use-many="setUseMany" />
     </div>
 </template>
 

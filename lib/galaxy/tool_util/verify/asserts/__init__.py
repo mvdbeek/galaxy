@@ -1,15 +1,11 @@
 import logging
 import sys
+from collections.abc import Callable
 from inspect import (
     getfullargspec,
     getmembers,
 )
 from tempfile import NamedTemporaryFile
-from typing import (
-    Callable,
-    Dict,
-    Tuple,
-)
 
 from galaxy.util import unicodify
 from galaxy.util.compression_utils import get_fileobj
@@ -18,7 +14,7 @@ log = logging.getLogger(__name__)
 
 assertion_module_names = ["text", "tabular", "xml", "json", "hdf5", "archive", "size", "image"]
 
-assertion_module_and_functions: Dict[str, Tuple[str, Callable]] = {}
+assertion_module_and_functions: dict[str, tuple[str, Callable]] = {}
 
 for assertion_module_name in assertion_module_names:
     full_assertion_module_name = f"galaxy.tool_util.verify.asserts.{assertion_module_name}"
@@ -38,10 +34,10 @@ for assertion_module_name in assertion_module_names:
 # create a new module of assertion functions, create the needed python
 # source file "test/base/asserts/<MODULE_NAME>.py" and add
 # <MODULE_NAME> to the list of assertion module names defined above.
-assertion_functions: Dict[str, Callable] = {k: v[1] for (k, v) in assertion_module_and_functions.items()}
+assertion_functions: dict[str, Callable] = {k: v[1] for (k, v) in assertion_module_and_functions.items()}
 
 
-def verify_assertions(data: bytes, assertion_description_list: list, decompress: bool = False):
+def verify_assertions(data: bytes, assertion_description_list: list, decompress: bool = False, sep: str | None = None):
     """This function takes a list of assertions and a string to check
     these assertions against."""
     if decompress:
@@ -51,10 +47,10 @@ def verify_assertions(data: bytes, assertion_description_list: list, decompress:
             with get_fileobj(tmpfh.name, mode="rb", compressed_formats=None) as fh:
                 data = fh.read()
     for assertion_description in assertion_description_list:
-        verify_assertion(data, assertion_description)
+        verify_assertion(data, assertion_description, sep=sep)
 
 
-def verify_assertion(data: bytes, assertion_description):
+def verify_assertion(data: bytes, assertion_description, sep: str | None = None):
     tag = assertion_description["tag"]
     assert_function_name = "assert_" + tag
     assert_function = assertion_functions.get(assert_function_name)
@@ -102,6 +98,10 @@ def verify_assertion(data: bytes, assertion_description):
 
     if "children" in assert_function_args:
         args["children"] = assertion_description["children"]
+
+    # Only set sep if the assertion accepts it and it's not already specified in XML
+    if "sep" in assert_function_args and sep is not None and "sep" not in assertion_description["attributes"]:
+        args["sep"] = sep
 
     # TODO: Verify all needed function arguments are specified.
     assert_function(**args)

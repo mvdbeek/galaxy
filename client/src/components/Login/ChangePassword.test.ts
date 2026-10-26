@@ -1,5 +1,5 @@
-import { getLocalVue, injectTestRouter } from "@tests/vitest/helpers";
-import { mount, type Wrapper } from "@vue/test-utils";
+import { getLocalVue, injectTestRouter, nth } from "@tests/vitest/helpers";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -24,7 +24,7 @@ interface PostRequest {
 let postRequests: PostRequest[] = [];
 
 describe("ChangePassword", () => {
-    let wrapper: Wrapper<Vue>;
+    let wrapper: VueWrapper;
 
     beforeEach(async () => {
         postRequests = [];
@@ -39,13 +39,23 @@ describe("ChangePassword", () => {
         // when the component calls router.push("/") on successful submit
         await router.push("/change-password").catch(() => {});
         wrapper = mount(MountTarget as object, {
-            propsData: {
+            props: {
                 messageText: "message_text",
                 messageVariant: "message_variant",
             },
-            localVue,
-            router,
+            global: localVue,
         });
+    });
+
+    it("associates each password field with its visible label", async () => {
+        await wrapper.setProps({ expiredUser: "expired_user" });
+        const labels = wrapper.findAll("label");
+        expect(labels.map((label) => label.text())).toEqual(["Current Password", "New Password", "Confirm password"]);
+        const ids = labels.map((label) => label.attributes("for"));
+        expect(new Set(ids).size).toBe(3);
+        for (const id of ids) {
+            expect(wrapper.find(`input[id="${id}"]`).attributes("type")).toBe("password");
+        }
     });
 
     it("basics", async () => {
@@ -55,12 +65,12 @@ describe("ChangePassword", () => {
         const inputs = wrapper.findAll("input");
         expect(inputs.length).toBe(2);
 
-        const firstPwdField = inputs.at(0);
+        const firstPwdField = nth(inputs, 0);
         expect(firstPwdField.attributes("type")).toBe("password");
 
         await firstPwdField.setValue("test_first_pwd");
 
-        const secondPwdField = inputs.at(1);
+        const secondPwdField = nth(inputs, 1);
         expect(secondPwdField.attributes("type")).toBe("password");
 
         await secondPwdField.setValue("test_second_pwd");

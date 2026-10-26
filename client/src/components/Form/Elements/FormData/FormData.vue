@@ -2,7 +2,6 @@
 import { faExclamation, faLink, faUnlink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { useIntersectionObserver } from "@vueuse/core";
-import { BAlert, BFormCheckbox } from "bootstrap-vue";
 import { computed, onMounted, type Ref, ref, watch } from "vue";
 
 import {
@@ -19,10 +18,8 @@ import {
 import type { CollectionType } from "@/api/datasetCollections";
 import type { HistoryContentType } from "@/api/datasets";
 import { getGalaxyInstance } from "@/app";
-import {
-    COLLECTION_TYPE_TO_LABEL,
-    type CollectionBuilderType,
-} from "@/components/Collections/common/buildCollectionModal";
+import type { CollectionBuilderType } from "@/components/Collections/common/buildCollectionModal";
+import { COLLECTION_TYPE_SHORT_LABELS } from "@/components/Collections/common/knownCollectionTypes";
 import { useDatatypesMapper } from "@/composables/datatypesMapper";
 import { useUid } from "@/composables/utils/uid";
 import { type EventData, useEventStore } from "@/stores/eventStore";
@@ -34,9 +31,12 @@ import { containsDataOption, DEFAULT_OPTIONS_PAGE_SIZE, isDataOption } from "./t
 import { BATCH, isBatchSelection, SOURCE, VARIANTS } from "./variants";
 
 import FormSelection from "../FormSelection.vue";
+import FormSelectionPreference from "../FormSelectionPreference.vue";
 import FormDataContextButtons from "./FormDataContextButtons.vue";
 import FormDataExtensions from "./FormDataExtensions.vue";
 import FormDataWorkflowRunTabs from "./FormDataWorkflowRunTabs.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import FormSelect from "@/components/Form/Elements/FormSelect.vue";
 import HelpText from "@/components/Help/HelpText.vue";
 
@@ -49,7 +49,7 @@ type SingleOrMultipleHistoryItems = HistoryOrCollectionItem | HistoryOrCollectio
 
 /**
  * Response types from the data dialog callback.
- * DataOption[] is returned by the beta upload path for fresh uploads.
+ * DataOption[] is returned by the upload modal path for fresh uploads.
  * SingleOrMultipleHistoryItems (HistoryItemSummary and DCESummary) are returned for dataset/collection selection.
  */
 type DialogResponse = DataOption[] | SingleOrMultipleHistoryItems;
@@ -238,8 +238,8 @@ const mapOverUnit = computed((): { code?: string; text: string } | null => {
     if (!type || type === "single_datasets") {
         return { text: localize("dataset") };
     }
-    const label = COLLECTION_TYPE_TO_LABEL[type];
-    return label ? { text: localize(label.toLowerCase()) } : { code: type, text: localize("collection") };
+    const label = COLLECTION_TYPE_SHORT_LABELS[type];
+    return label ? { text: localize(label) } : { code: type, text: localize("collection") };
 });
 
 /**
@@ -427,6 +427,26 @@ const usingSimpleSelect = computed(
     () =>
         !formSelectionRef.value ||
         ("displayMany" in formSelectionRef.value && formSelectionRef.value.displayMany === false),
+);
+
+/**
+ * Mirrors `FormSelection`'s simple/column select preference so the control can be
+ * rendered below the "accepted formats" row instead of inside the select field.
+ */
+const formSelectionPreference = ref({ showManyButton: false, showMultiButton: false });
+
+function onPreferenceChange(state: { showManyButton: boolean; showMultiButton: boolean }) {
+    formSelectionPreference.value = state;
+}
+
+function setFormSelectionUseMany(value: boolean) {
+    formSelectionRef.value?.setUseMany(value);
+}
+
+const showSelectionPreference = computed(
+    () =>
+        Boolean(currentVariant.value?.multiple) &&
+        (formSelectionPreference.value.showManyButton || formSelectionPreference.value.showMultiButton),
 );
 
 /**
@@ -743,7 +763,7 @@ function isInKeepOptions(keepKey: string, newValue: DataOption): boolean {
  * @param response - The response from the data dialog
  */
 function onDataDialogResponse(response: DialogResponse): void {
-    // The data dialog's beta upload path returns DataOption[] directly
+    // The data dialog's upload modal path returns DataOption[] directly
     if (isDataOptionArray(response)) {
         handleUploadedDataOptions(response);
         return;
@@ -1022,13 +1042,13 @@ function onDragEnter(evt: DragEvent) {
         currentHighlighting.value = highlightingState;
         dragTarget.value = evt.target;
         dragData.value = eventData;
-    } else if (props.workflowRun && evt.dataTransfer?.items && workflowTab.value !== "create") {
+    } else if (props.workflowRun && evt.dataTransfer?.items && workflowTab.value !== "upload") {
         // if any item in DataTransfer is a file
         const hasFiles = Array.from(evt.dataTransfer.items).some((item) => item.kind === "file");
         if (hasFiles) {
             currentHighlighting.value = "success";
             $emit("alert", "Drop files in the upload area below to create datasets.");
-            workflowTab.value = "create";
+            workflowTab.value = "upload";
             dragTarget.value = evt.target;
         }
     }
@@ -1117,11 +1137,7 @@ const formatsVisible = ref(false);
 const formatsButtonId = useUid("form-data-formats-");
 
 function collectionTypeToText(collectionType: string): string {
-    if (COLLECTION_TYPE_TO_LABEL[collectionType]) {
-        return COLLECTION_TYPE_TO_LABEL[collectionType].toLowerCase();
-    } else {
-        return collectionType;
-    }
+    return COLLECTION_TYPE_SHORT_LABELS[collectionType] ?? collectionType;
 }
 
 const warningListAmount = 4;
@@ -1151,6 +1167,7 @@ const noOptionsWarningMessage = computed(() => {
         @drop.prevent="onDrop">
         <div class="d-flex flex-gapx-1">
             <FormDataContextButtons
+                v-model:workflow-tab="workflowTab"
                 :variant="variant"
                 :current-field="currentField"
                 :can-browse="canBrowse"
@@ -1163,11 +1180,10 @@ const noOptionsWarningMessage = computed(() => {
                 :multiple="Boolean(currentVariant?.multiple)"
                 show-field-options
                 :show-view-create-options="props.workflowRun && !usingSimpleSelect"
-                :workflow-tab.sync="workflowTab"
                 @create-collection-type="handleCollectionTypeChange"
                 @uploaded-data="handleUploadedDataOptions"
                 @on-browse="onBrowse"
-                @set-current-field="(value) => (currentField = value)" />
+                @set-current-field="(value: number) => (currentField = value)" />
 
             <div class="w-100 d-flex flex-gapx-1">
                 <FormSelect
@@ -1184,12 +1200,9 @@ const noOptionsWarningMessage = computed(() => {
                     :placeholder="`Select a ${placeholder}`"
                     @search-change="onSearchChange">
                     <template v-slot:no-options>
-                        <BAlert
-                            :class="props.workflowRun && 'py-0 my-0 d-flex w-100 h-100 align-items-center'"
-                            variant="warning"
-                            show>
+                        <GAlert class="form-data-no-options-alert" variant="warning" show>
                             {{ noOptionsWarningMessage }}
-                        </BAlert>
+                        </GAlert>
                     </template>
                     <template v-if="hasMoreInCurrentSource" v-slot:after-list>
                         <div ref="loadMoreSentinel" class="form-data-load-more-sentinel text-muted text-center py-2">
@@ -1207,13 +1220,15 @@ const noOptionsWarningMessage = computed(() => {
                     class="w-100"
                     :data="formattedOptions"
                     :total-estimate="currentSourceTotalEstimate"
+                    defer-preference
                     optional
                     multiple
+                    @preference-change="onPreferenceChange"
                     @search-change="onSearchChange">
                     <template v-slot:no-options>
-                        <BAlert class="py-2 my-0" variant="warning" show>
+                        <GAlert class="form-data-no-options-alert" variant="warning" show>
                             {{ noOptionsWarningMessage }}
-                        </BAlert>
+                        </GAlert>
                     </template>
                     <template v-if="hasMoreInCurrentSource" v-slot:after-list>
                         <div ref="loadMoreSentinel" class="form-data-load-more-sentinel text-muted text-center py-2">
@@ -1228,6 +1243,7 @@ const noOptionsWarningMessage = computed(() => {
 
             <FormDataContextButtons
                 v-if="props.workflowRun && usingSimpleSelect"
+                v-model:workflow-tab="workflowTab"
                 compact
                 :collection-types="props.collectionTypes"
                 :current-source="currentSource || undefined"
@@ -1235,21 +1251,27 @@ const noOptionsWarningMessage = computed(() => {
                 :extensions="props.extensions"
                 :multiple="Boolean(currentVariant?.multiple)"
                 show-view-create-options
-                :workflow-tab.sync="workflowTab"
                 @create-collection-type="handleCollectionTypeChange"
                 @uploaded-data="handleUploadedDataOptions" />
         </div>
 
-        <FormDataExtensions
-            v-if="restrictsExtensions"
-            class="mt-1"
-            :extensions="props.extensions"
-            :formats-button-id="formatsButtonId"
-            :formats-visible.sync="formatsVisible" />
+        <div v-if="restrictsExtensions || showSelectionPreference" class="d-flex align-items-center flex-gapx-1 mt-1">
+            <FormDataExtensions
+                v-if="restrictsExtensions"
+                v-model:formats-visible="formatsVisible"
+                :extensions="props.extensions"
+                :formats-button-id="formatsButtonId" />
+
+            <FormSelectionPreference
+                v-if="showSelectionPreference"
+                :show-many-button="formSelectionPreference.showManyButton"
+                :show-multi-button="formSelectionPreference.showMultiButton"
+                @use-many="setFormSelectionUseMany" />
+        </div>
 
         <div :class="{ 'd-flex justify-content-between': props.workflowRun }">
             <div v-if="showBatchInfo">
-                <BFormCheckbox
+                <GCheckbox
                     v-if="currentVariant?.batch === BATCH.ENABLED"
                     v-model="currentLinked"
                     class="checkbox no-highlight"
@@ -1264,7 +1286,7 @@ const noOptionsWarningMessage = computed(() => {
                         <b v-localize class="mr-1">Unlinked:</b>
                         <span v-localize>Dataset will be run against *all* other datasets.</span>
                     </span>
-                </BFormCheckbox>
+                </GCheckbox>
                 <div class="info text-info">
                     <FontAwesomeIcon :icon="faExclamation" />
                     <span v-if="mapsOver" class="ml-1">
@@ -1284,6 +1306,7 @@ const noOptionsWarningMessage = computed(() => {
 
         <FormDataWorkflowRunTabs
             v-if="props.workflowRun"
+            v-model:workflow-tab="workflowTab"
             class="mt-3"
             :current-value="currentValue"
             :current-variant="currentVariant"
@@ -1292,9 +1315,8 @@ const noOptionsWarningMessage = computed(() => {
             :collection-type="currentCollectionTypeTab"
             :extended-collection-type="extendedCollectionType"
             :step-title="props.userDefinedTitle"
-            :workflow-tab.sync="workflowTab"
             @focus="$emit('focus')"
-            @uploaded-data="($event) => handleIncoming($event, !$event?.length || $event.length <= 1)" />
+            @uploaded-data="handleUploadedDataOptions" />
     </div>
 </template>
 
@@ -1341,6 +1363,19 @@ const noOptionsWarningMessage = computed(() => {
                 padding-left: 5px;
             }
         }
+    }
+
+    .form-data-no-options-alert {
+        display: flex;
+        align-items: center;
+        width: 100%;
+        // Match the adjacent context-button / select control height so the warning
+        // aligns with the row instead of over-filling it (multiple mode pushes the
+        // "switch to column select" control below) or leaving default alert padding.
+        min-height: 2.125rem;
+        margin: 0;
+        padding-top: 0;
+        padding-bottom: 0;
     }
 }
 

@@ -3,7 +3,7 @@ import { faMagic, faTimes, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BSkeleton } from "bootstrap-vue";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { useRoute, useRouter } from "vue-router/composables";
+import { useRoute, useRouter } from "vue-router";
 
 import { GalaxyApi } from "@/api";
 import { type AgentResponse, useAgentActions } from "@/composables/agentActions";
@@ -31,12 +31,15 @@ import Heading from "@/components/Common/Heading.vue";
 const props = withDefaults(
     defineProps<{
         exchangeId?: string;
+        /** Question handed over through `/galaxyai/new?q=…`, prefilled once */
+        initialQuestion?: string;
         compact?: boolean;
         docked?: boolean;
         panel?: boolean;
     }>(),
     {
         exchangeId: undefined,
+        initialQuestion: undefined,
         compact: false,
         docked: false,
         panel: false,
@@ -139,6 +142,7 @@ onMounted(async () => {
         await fetchConversation(props.exchangeId);
     } else if (props.exchangeId === "new") {
         startNewChat();
+        consumeSeededQuestion();
     } else if (props.docked || props.panel) {
         const ctx = activeContext.value;
         // For notebook pages, always prefer the per-page cached exchange over the global
@@ -207,6 +211,33 @@ watch(
     () => startNewChat(),
 );
 
+// A seeded question can also arrive while this view is already showing a new
+// chat, where neither the route param nor the mount hook would notice it.
+watch(
+    () => props.initialQuestion,
+    (question) => {
+        if (question) {
+            startNewChat();
+            consumeSeededQuestion();
+        }
+    },
+);
+
+/**
+ * Takes over the question seeded through `/galaxyai/new?q=…` — the command
+ * palette starts conversations that way. It is only prefilled, never sent on the
+ * user's behalf, and the query parameter is dropped so a reload starts empty.
+ */
+function consumeSeededQuestion() {
+    if (!props.initialQuestion) {
+        return;
+    }
+    query.value = props.initialQuestion;
+    // `Analysis.vue` keys `/galaxyai` routes alike, so dropping `?q=` keeps the question mounted
+    const { q: _seeded, ...otherQuery } = route.query;
+    router.replace({ path: route.path, query: otherQuery });
+}
+
 function showWelcome() {
     messages.value.push({
         id: generateId(),
@@ -220,6 +251,25 @@ function showWelcome() {
         feedback: null,
         isSystemMessage: true,
     });
+}
+
+/** The message to show for a failed chat request. */
+function chatFailureMessage(error: unknown, status?: number): string {
+    // A gateway answers about itself, so its body says nothing about this chat.
+    switch (status) {
+        case 504:
+            return `GalaxyAI took too long to respond (${status}). Please try again.`;
+        case 502:
+        case 503:
+            return `GalaxyAI is temporarily unavailable (${status}). Please try again in a few minutes.`;
+    }
+
+    const fallback =
+        status === undefined
+            ? "Failed to get response from GalaxyAI."
+            : `GalaxyAI could not answer that request (${status}). Please try again.`;
+    // A string means nothing parsed the body, so there is no message to find in it.
+    return error !== null && typeof error === "object" ? errorMessageAsString(error, fallback) : fallback;
 }
 
 async function submitQuery() {
@@ -253,7 +303,7 @@ async function submitQuery() {
         const resolved = resolveMentions(parsed);
         const entityContext = buildEntityContext(resolved);
 
-        const { data, error } = await GalaxyApi().POST("/api/chat", {
+        const { data, error, response } = await GalaxyApi().POST("/api/chat", {
             params: {
                 query: {
                     agent_type: selectedAgentType.value,
@@ -272,7 +322,7 @@ async function submitQuery() {
         }
 
         if (error) {
-            const errorText = errorMessageAsString(error, "Failed to get response from GalaxyAI.");
+            const errorText = chatFailureMessage(error, response?.status);
             const errorMsg: ChatMessage = {
                 id: generateId(),
                 role: "assistant",
@@ -539,6 +589,13 @@ watch(currentChatId, async (newId) => {
         }
     }
 
+    // The history load above is awaited, so this handler can resume after a new chat
+    // was started. Pushing the route back to a conversation that is no longer current
+    // would re-fetch it through the exchangeId watch and discard the fresh one.
+    if (currentChatId.value !== newId) {
+        return;
+    }
+
     // Ensure the route is updated to reflect the current chat in center (non-window manager) mode
     if (isRouteMode.value) {
         const targetPath = newId ? `/galaxyai/${newId}` : "/galaxyai/new";
@@ -621,7 +678,7 @@ watch(currentChatId, async (newId) => {
         </div>
 
         <div class="galaxyai-footer">
-            <ChatInput v-model="query" :busy="busy" @submit="submitQuery" />
+            <ChatInput :value="query" :busy="busy" @input="(v: string) => (query = v)" @submit="submitQuery" />
         </div>
     </div>
 </template>

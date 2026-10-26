@@ -13,7 +13,7 @@ import {
     faWrench,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BPopover, BSkeleton } from "bootstrap-vue";
+import { BSkeleton } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 
@@ -29,6 +29,7 @@ import GButton from "../BaseComponents/GButton.vue";
 import GCard from "../Common/GCard.vue";
 import ToolHelp from "../Tool/ToolHelp.vue";
 import GLink from "@/components/BaseComponents/GLink.vue";
+import GPopover from "@/components/BaseComponents/GPopover.vue";
 
 type OntologyBadge = {
     id: string;
@@ -40,7 +41,7 @@ interface Props {
     name: string;
     edamOperations: string[];
     edamTopics: string[];
-    toolTags: string[];
+    toolTags?: string[];
     formStyle?: string;
     description?: string;
     summary?: string;
@@ -48,16 +49,14 @@ interface Props {
     helpFormat?: string;
     version?: string;
     link?: string;
-    workflowCompatible: boolean;
-    local: boolean;
+    workflowCompatible?: boolean;
+    local?: boolean;
     owner?: string;
-    fetching: boolean;
+    fetching?: boolean;
     gridView?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    id: "",
-    name: "",
     formStyle: undefined,
     description: undefined,
     summary: undefined,
@@ -100,7 +99,6 @@ const edamOperationsBadges = computed(() => getOntologyBadges("ontology:edam_ope
 const edamTopicsBadges = computed(() => getOntologyBadges("ontology:edam_topics", props.edamTopics));
 
 const showHelp = ref(false);
-const showPopover = ref(false);
 
 /** We add double quotes to the ontology id filter as well since the backend Whoosh search
  * requires it for exact matches, and the `Filtering` class only does single quotes. */
@@ -340,13 +338,12 @@ const {
                 icon-only
                 transparent
                 inline
-                style="cursor: help"
-                @click="showPopover = !showPopover">
+                aria-label="Tool info"
+                style="cursor: help">
                 <FontAwesomeIcon :icon="faInfoCircle" fixed-width />
             </GButton>
-            <BPopover
+            <GPopover
                 v-if="props.version || !props.workflowCompatible"
-                :show.sync="showPopover"
                 custom-class="tool-info-popover"
                 boundary="window"
                 placement="topleft"
@@ -360,7 +357,7 @@ const {
                         Not Workflow compatible
                     </div>
                 </div>
-            </BPopover>
+            </GPopover>
         </template>
 
         <template v-slot:description>

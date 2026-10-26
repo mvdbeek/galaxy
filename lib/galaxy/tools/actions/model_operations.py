@@ -1,6 +1,5 @@
 import logging
 from typing import (
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -42,6 +41,7 @@ log = logging.getLogger(__name__)
 
 class ModelOperationToolAction(DefaultToolAction):
     produces_real_jobs: bool = False
+    file_source_uri_discovery_complete = True
 
     def check_inputs_ready(self, tool, trans, incoming, history, execution_cache=None, collection_info=None):
         if execution_cache is None:
@@ -56,17 +56,17 @@ class ModelOperationToolAction(DefaultToolAction):
         self,
         tool: "Tool",
         trans,
-        incoming: Optional[ToolStateJobInstancePopulatedT] = None,
-        history: Optional[History] = None,
+        incoming: ToolStateJobInstancePopulatedT | None = None,
+        history: History | None = None,
         job_params=None,
-        rerun_remap_job_id: Optional[int] = DEFAULT_RERUN_REMAP_JOB_ID,
-        execution_cache: Optional[ToolExecutionCache] = None,
-        dataset_collection_elements: Optional[DatasetCollectionElementsSliceT] = DEFAULT_DATASET_COLLECTION_ELEMENTS,
-        completed_job: Optional[Job] = None,
-        collection_info: Optional[MatchingCollections] = None,
-        job_callback: Optional[JobCallbackT] = DEFAULT_JOB_CALLBACK,
-        preferred_object_store_id: Optional[str] = DEFAULT_PREFERRED_OBJECT_STORE_ID,
-        credentials_context: Optional[CredentialsContext] = None,
+        rerun_remap_job_id: int | None = DEFAULT_RERUN_REMAP_JOB_ID,
+        execution_cache: ToolExecutionCache | None = None,
+        dataset_collection_elements: DatasetCollectionElementsSliceT | None = DEFAULT_DATASET_COLLECTION_ELEMENTS,
+        completed_job: Job | None = None,
+        collection_info: MatchingCollections | None = None,
+        job_callback: JobCallbackT | None = DEFAULT_JOB_CALLBACK,
+        preferred_object_store_id: str | None = DEFAULT_PREFERRED_OBJECT_STORE_ID,
+        credentials_context: CredentialsContext | None = None,
         set_output_hid: bool = DEFAULT_SET_OUTPUT_HID,
         flush_job: bool = True,
         skip: bool = False,
@@ -126,8 +126,6 @@ class ModelOperationToolAction(DefaultToolAction):
             output_collections,
             incoming=incoming,
             history=history,
-            tags=preserved_tags,
-            hdca_tags=preserved_hdca_tags,
             skip=skip,
         )
         self._record_inputs(trans, tool, job, incoming, inp_data, inp_dataset_collections)
@@ -154,8 +152,6 @@ class ModelOperationToolAction(DefaultToolAction):
         output_collections,
         incoming,
         history,
-        tags,
-        hdca_tags,
         skip,
     ):
         tool.produce_outputs(
@@ -164,8 +160,6 @@ class ModelOperationToolAction(DefaultToolAction):
             output_collections,
             incoming,
             history=history,
-            tags=tags,
-            hdca_tags=hdca_tags,
         )
         if mapped_over_elements := output_collections.dataset_collection_elements:
             for name, value in out_data.items():

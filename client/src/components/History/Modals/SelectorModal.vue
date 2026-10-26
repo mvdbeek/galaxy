@@ -24,15 +24,17 @@ interface Props {
     title?: string;
     histories: HistorySummary[];
     additionalOptions?: AdditionalOptions[];
+    hideDeleted?: boolean;
     showModal: boolean;
+    selectionInstruction?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
     multiple: false,
     title: "Switch to history",
-    histories: () => [],
     additionalOptions: () => [],
-    showModal: false,
+    hideDeleted: false,
+    selectionInstruction: "Click a history to switch to it",
 });
 
 const emit = defineEmits<{
@@ -102,46 +104,37 @@ function selectHistories() {
 function setFilterValue(newFilter: string, newValue: string) {
     filter.value = HistoriesFilters.setFilterValue(filter.value, newFilter, newValue);
 }
-
-// hacky workaround for popovers in date pickers being cutoff
-// https://github.com/galaxyproject/galaxy/issues/17711
-const modalBodyClasses = computed(() => {
-    return [
-        showAdvanced.value
-            ? "history-selector-modal-body-allow-overflow"
-            : "history-selector-modal-body-prevent-overflow",
-    ];
-});
 </script>
 
 <template>
     <GModal
         ref="modal"
+        v-model:show="propShowModal"
         size="small"
-        fixed-height
-        :show.sync="propShowModal"
-        :class="modalBodyClasses"
+        :overflow-visible="showAdvanced"
+        :fixed-height="!showAdvanced"
         :title="localize(title)">
         <BFormGroup :description="localize('Filter histories')">
             <FilterMenu
                 ref="filterMenuRef"
+                v-model:filter-text="filter"
+                v-model:show-advanced="showAdvanced"
                 name="Histories"
                 placeholder="search histories"
                 :filter-class="HistoriesFilters"
-                :filter-text.sync="filter"
-                :loading="busy"
-                :show-advanced.sync="showAdvanced" />
+                :loading="busy" />
         </BFormGroup>
 
         <HistoryList
             v-show="!showAdvanced"
+            v-model:show-modal="propShowModal"
+            v-model:loading="busy"
             :multiple="props.multiple"
             :selected-histories="selectedHistories"
             :additional-options="props.additionalOptions"
-            :show-modal.sync="propShowModal"
+            :hide-deleted="props.hideDeleted"
             in-modal
             :filter="filter"
-            :loading.sync="busy"
             @selectHistory="selectHistory"
             @setFilter="setFilterValue">
             <template v-slot:footer-button-area>
@@ -164,19 +157,9 @@ const modalBodyClasses = computed(() => {
                         @click="selectHistories">
                         Change Selected
                     </GButton>
-                    <span v-else v-localize> Click a history to switch to it </span>
+                    <span v-else>{{ localize(props.selectionInstruction) }}</span>
                 </span>
             </template>
         </HistoryList>
     </GModal>
 </template>
-
-<style scoped lang="scss">
-.history-selector-modal-body-allow-overflow {
-    overflow: visible;
-}
-
-.history-selector-modal-body-prevent-overflow {
-    overflow: hidden;
-}
-</style>

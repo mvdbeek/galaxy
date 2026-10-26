@@ -1,7 +1,5 @@
 from typing import (
     Any,
-    Optional,
-    Union,
 )
 from unittest import SkipTest
 from uuid import uuid4
@@ -472,6 +470,14 @@ steps:
         self._assert_status_code_is(page_response, 400)
         self._assert_error_code_is(page_response, error_codes.error_codes_by_name["MALFORMED_CONTENTS"])
 
+    def test_400_on_unsupported_markdown_fence(self):
+        page_request = self._test_page_payload(slug="unsupported-markdown-fence", content_format="markdown")
+        page_request["content"] = """# Notes\n\n```loom-job\njob_id: 12345\n```\n"""
+        page_response = self._post("pages", page_request, json=True)
+        self._assert_status_code_is(page_response, 400)
+        self._assert_error_code_is(page_response, error_codes.error_codes_by_name["MALFORMED_CONTENTS"])
+        assert "Unsupported fenced block type [loom-job]" in page_response.json()["err_msg"]
+
     def test_show(self):
         response_json = self._create_valid_page_with_slug("pagetoshow")
         show_response = self._get(f"pages/{response_json['id']}")
@@ -624,21 +630,19 @@ steps:
         response = self._put(f"pages/{page_id}/share_with_users", data, json=True)
         api_asserts.assert_status_code_is_ok(response)
 
-    def _index_raw(self, params: Optional[dict[str, Any]] = None) -> Response:
+    def _index_raw(self, params: dict[str, Any] | None = None) -> Response:
         index_response = self._get("pages", data=params or {})
         return index_response
 
-    def _index(self, params: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
+    def _index(self, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         index_response = self._index_raw(params)
         self._assert_status_code_is(index_response, 200)
         return index_response.json()
 
-    def _index_ids(self, params: Optional[dict[str, Any]] = None) -> list[dict[str, Any]]:
+    def _index_ids(self, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         return [p["id"] for p in self._index(params)]
 
-    def _users_index_has_page_with_id(
-        self, has_id: Union[dict[str, Any], str], params: Optional[dict[str, Any]] = None
-    ):
+    def _users_index_has_page_with_id(self, has_id: dict[str, Any] | str, params: dict[str, Any] | None = None):
         pages = self._index(params)
         if isinstance(has_id, dict):
             target_id = has_id["id"]

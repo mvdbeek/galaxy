@@ -1,21 +1,22 @@
+import os
 import re
+import stat
+from collections.abc import Iterable
 from enum import Enum
 from logging import getLogger
+from pathlib import Path
 from typing import (
-    List,
-    Optional,
-    Tuple,
+    Literal,
     TYPE_CHECKING,
-    Union,
 )
 
 from typing_extensions import (
-    Literal,
     NotRequired,
     TypedDict,
 )
 
 from galaxy.tool_util.parser.stdio import StdioErrorLevel
+from galaxy.tool_util.runtime_environment import RUNTIME_ENVIRONMENT_WARNING_FILE
 
 if TYPE_CHECKING:
     from galaxy.tool_util.parser.stdio import (
@@ -35,19 +36,28 @@ class DETECTED_JOB_STATE(str, Enum):
 ERROR_PEEK_SIZE = 2000
 
 
-JobMessageTypeLiteral = Literal["regex", "exit_code", "max_discovered_files", "output_collection_security"]
+JobMessageTypeLiteral = Literal[
+    "regex",
+    "exit_code",
+    "max_discovered_files",
+    "output_collection_security",
+    "output_discovery",
+    "stdio_read_error",
+    "unknown_datatype",
+    "runtime_environment_warning",
+]
 
 
 class JobMessage(TypedDict):
-    desc: Optional[str]
-    code_desc: NotRequired[Optional[str]]
+    desc: str | None
+    code_desc: NotRequired[str | None]
     error_level: float  # Literal[0, 1, 1.1, 2, 3, 4] - mypy doesn't like literal floats.
 
 
 class RegexJobMessage(JobMessage):
     type: Literal["regex"]
-    stream: Optional[str]
-    match: Optional[str]
+    stream: str | None
+    match: str | None
 
 
 class ExitCodeJobMessage(JobMessage):
@@ -63,16 +73,63 @@ class OutputCollectionSecurityJobMessage(JobMessage):
     type: Literal["output_collection_security"]
 
 
-AnyJobMessage = Union[
-    ExitCodeJobMessage,
-    RegexJobMessage,
-    MaxDiscoveredFilesJobMessage,
-    OutputCollectionSecurityJobMessage,
-]
+class OutputDiscoveryJobMessage(JobMessage):
+    type: Literal["output_discovery"]
+
+
+class StdioReadErrorJobMessage(JobMessage):
+    type: Literal["stdio_read_error"]
+    stream: str
+    errno: int | None
+
+
+class UnknownDatatypeJobMessage(JobMessage):
+    type: Literal["unknown_datatype"]
+    extension: str
+
+
+class RuntimeEnvironmentWarningJobMessage(JobMessage):
+    type: Literal["runtime_environment_warning"]
+    variable_names: list[str]
+
+
+AnyJobMessage = (
+    ExitCodeJobMessage
+    | RegexJobMessage
+    | MaxDiscoveredFilesJobMessage
+    | OutputCollectionSecurityJobMessage
+    | OutputDiscoveryJobMessage
+    | StdioReadErrorJobMessage
+    | UnknownDatatypeJobMessage
+    | RuntimeEnvironmentWarningJobMessage
+)
+
+
+def output_discovery_job_message(reason: str | None = None) -> OutputDiscoveryJobMessage:
+    desc = "Failed to collect job outputs"
+    if reason:
+        desc = f"{desc}: {reason}"
+    return OutputDiscoveryJobMessage(
+        type="output_discovery",
+        desc=desc,
+        code_desc=None,
+        error_level=StdioErrorLevel.FATAL,
+    )
+
+
+def unknown_datatype_job_message(extension: str, count: int) -> UnknownDatatypeJobMessage:
+    datasets = "1 output dataset" if count == 1 else f"{count} output datasets"
+    return UnknownDatatypeJobMessage(
+        type="unknown_datatype",
+        desc=f"Extension '{extension}' is not a datatype on this Galaxy server, {datasets} set to 'data'",
+        code_desc=None,
+        error_level=StdioErrorLevel.WARNING,
+        extension=extension,
+    )
 
 
 def check_output_regex(
-    regex: "ToolStdioRegex", stream: str, stream_name: str, job_messages: List[AnyJobMessage], max_error_level: int
+    regex: "ToolStdioRegex", stream: str, stream_name: str, job_messages: list[AnyJobMessage], max_error_level: int
 ) -> int:
     """
     check a single regex against a stream
@@ -92,12 +149,12 @@ def check_output_regex(
 
 
 def check_output(
-    stdio_regexes: List["ToolStdioRegex"],
-    stdio_exit_codes: List["ToolStdioExitCode"],
+    stdio_regexes: list["ToolStdioRegex"],
+    stdio_exit_codes: list["ToolStdioExitCode"],
     stdout: str,
     stderr: str,
     tool_exit_code: int,
-) -> Tuple[str, str, str, List[AnyJobMessage]]:
+) -> tuple[str, str, str, list[AnyJobMessage]]:
     """
     Check the output of a tool - given the stdout, stderr, and the tool's
     exit code, return DETECTED_JOB_STATE.OK if the tool exited successfully or
@@ -119,7 +176,7 @@ def check_output(
     # messages are added it the order of detection
 
     # If job is failed, track why.
-    job_messages: List[AnyJobMessage] = []
+    job_messages: list[AnyJobMessage] = []
 
     try:
         # Check exit codes and match regular expressions against stdout and
@@ -221,7 +278,7 @@ def __regex_err_msg(match: re.Match, stream: str, regex: "ToolStdioRegex") -> Re
     mstart = match.start()
     mend = match.end()
     if mend - mstart > 256:
-        match_str = f"{match.string[mstart:mstart + 256]}..."
+        match_str = f"{match.string[mstart : mstart + 256]}..."
     else:
         match_str = match.string[mstart:mend]
 
@@ -239,3 +296,67 @@ def __regex_err_msg(match: re.Match, stream: str, regex: "ToolStdioRegex") -> Re
         "match": match_str,
         "error_level": regex.error_level,
     }
+
+
+# The warning file holds only variable names; anything larger is not ours.
+MAX_RUNTIME_ENVIRONMENT_WARNING_BYTES = 64 * 1024
+
+
+def _read_runtime_environment_warning_file(path: Path) -> str:
+    """Read a file the tool could have replaced: no symlinks, regular files only, bounded size."""
+    try:
+        link_stat = os.lstat(path)
+        if not stat.S_ISREG(link_stat.st_mode):
+            return ""
+        fd = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0))
+    except OSError:
+        return ""
+    with os.fdopen(fd, "rb") as warning_file:
+        # Without O_NOFOLLOW the path could be swapped for a symlink after lstat.
+        if not os.path.samestat(link_stat, os.fstat(warning_file.fileno())):
+            return ""
+        return warning_file.read(MAX_RUNTIME_ENVIRONMENT_WARNING_BYTES).decode("utf-8", errors="replace")
+
+
+def _runtime_environment_variable_names(job_directory: str, required_names: Iterable[str]) -> list[str]:
+    """Read the recorded unset names, keeping only names the tool declares as required."""
+    required = set(required_names)
+    if not required:
+        return []
+    names: list[str] = []
+    for directory in ("outputs", "metadata"):
+        contents = _read_runtime_environment_warning_file(
+            Path(job_directory) / directory / RUNTIME_ENVIRONMENT_WARNING_FILE
+        )
+        names.extend(name for name in contents.splitlines() if name in required)
+    return list(dict.fromkeys(names))
+
+
+def merge_runtime_environment_warnings(
+    job_directory: str, task_directories: Iterable[str], required_names: Iterable[str]
+) -> None:
+    """Publish task warnings before the parent job's metadata and output checks."""
+    required = list(required_names)
+    names = list(
+        dict.fromkeys(
+            name for directory in task_directories for name in _runtime_environment_variable_names(directory, required)
+        )
+    )
+    path = Path(job_directory) / "outputs" / RUNTIME_ENVIRONMENT_WARNING_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("".join(f"{name}\n" for name in names))
+
+
+def runtime_environment_job_messages(
+    job_directory: str, required_names: Iterable[str]
+) -> list[RuntimeEnvironmentWarningJobMessage]:
+    names = _runtime_environment_variable_names(job_directory, required_names)
+    if not names:
+        return []
+    desc = f"Required runtime environment variables are unset: {', '.join(names)}"
+    log.info(desc)
+    return [
+        RuntimeEnvironmentWarningJobMessage(
+            type="runtime_environment_warning", variable_names=names, desc=desc, error_level=StdioErrorLevel.WARNING
+        )
+    ]

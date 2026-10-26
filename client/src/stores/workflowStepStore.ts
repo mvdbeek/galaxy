@@ -1,8 +1,10 @@
-import { computed, del, ref, set } from "vue";
+import { computed, ref } from "vue";
 
 import type { FieldDict, SampleSheetColumnDefinitions } from "@/api";
 import { isWorkflowInput } from "@/components/Workflow/constants";
 import type { CollectionTypeDescriptor } from "@/components/Workflow/Editor/modules/collectionTypeDescription";
+import { analyzeInputReferences, expressionReferencesInput } from "@/components/Workflow/Editor/modules/whenExpression";
+import { resolveConnectionNameToInputPath } from "@/components/Workflow/Editor/modules/workflowInputPath";
 import { getConnectionId, useConnectionStore } from "@/stores/workflowConnectionStore";
 import { assertDefined } from "@/utils/assertions";
 
@@ -82,7 +84,7 @@ export interface DataCollectionStepInput extends BaseStepInput {
 
 export interface ParameterStepInput extends Omit<BaseStepInput, "input_type"> {
     input_type: "parameter";
-    type: typeof ParameterTypes;
+    type: typeof ParameterTypes | "select" | "data_column";
 }
 
 export type InputTerminalSource = DataStepInput | DataCollectionStepInput | ParameterStepInput;
@@ -191,6 +193,8 @@ export const useWorkflowStepStore = defineScopedStore("workflowStepStore", (work
         Boolean(Object.values(steps.value).find((step) => isWorkflowInput(step.type))),
     );
 
+    const hasGatedSteps = computed(() => Object.values(steps.value).some((step) => Boolean(step.when)));
+
     const workflowOutputs = computed(() => {
         const workflowOutputs: WorkflowOutputs = {};
 
@@ -238,7 +242,7 @@ export const useWorkflowStepStore = defineScopedStore("workflowStepStore", (work
         const stepId = newStep.id ?? getStepIndex.value + 1;
         const step = Object.freeze({ ...newStep, id: stepId } as Step);
 
-        set(steps.value, stepId.toString(), step);
+        steps.value[stepId.toString()] = step;
 
         if (createConnections) {
             stepToConnections(step).forEach((connection) => connectionStore.addConnection(connection));
@@ -294,18 +298,18 @@ export const useWorkflowStepStore = defineScopedStore("workflowStepStore", (work
     }
 
     function changeStepMapOver(stepId: number, mapOver: CollectionTypeDescriptor) {
-        set(stepMapOver.value, stepId, mapOver);
+        stepMapOver.value[stepId] = mapOver;
     }
 
     function resetStepInputMapOver(stepId: number) {
-        set(stepInputMapOver.value, stepId, {});
+        stepInputMapOver.value[stepId] = {};
     }
 
     function changeStepInputMapOver(stepId: number, inputName: string, mapOver: CollectionTypeDescriptor) {
         if (stepInputMapOver.value[stepId]) {
-            set(stepInputMapOver.value[stepId]!, inputName, mapOver);
+            stepInputMapOver.value[stepId]![inputName] = mapOver;
         } else {
-            set(stepInputMapOver.value, stepId, { [inputName]: mapOver });
+            stepInputMapOver.value[stepId] = { [inputName]: mapOver };
         }
     }
 
@@ -397,10 +401,10 @@ export const useWorkflowStepStore = defineScopedStore("workflowStepStore", (work
             .getConnectionsForStep(stepId)
             .forEach((connection) => connectionStore.removeConnection(getConnectionId(connection)));
 
-        del(steps.value, stepId.toString());
-        del(stepExtraInputs.value, stepId);
-        del(stateStore.multiSelectedSteps, stepId);
-        del(stepMapOver.value, stepId.toString());
+        delete steps.value[stepId.toString()];
+        delete stepExtraInputs.value[stepId];
+        delete stateStore.multiSelectedSteps[stepId];
+        delete stepMapOver.value[stepId];
 
         deleteStepPosition(stepId);
         deleteStepTerminals(stepId);
@@ -417,6 +421,7 @@ export const useWorkflowStepStore = defineScopedStore("workflowStepStore", (work
         getStepExtraInputs,
         getStepIndex,
         hasActiveOutputs,
+        hasGatedSteps,
         hasInputSteps,
         workflowOutputs,
         duplicateLabels,
@@ -475,21 +480,53 @@ function stepToConnections(step: Step): Connection[] {
 
 function findStepExtraInputs(step: Step) {
     const extraInputs: InputTerminalSource[] = [];
-    if (step.when !== undefined) {
-        Object.keys(step.input_connections).forEach((inputName) => {
-            if (!step.inputs.find((input) => input.name === inputName) && step.when?.includes(inputName)) {
-                const terminalSource = {
-                    name: inputName,
-                    optional: false,
-                    input_type: "parameter" as const,
-                    type: "boolean" as const,
-                    multiple: false,
-                    label: inputName,
-                    extensions: [],
-                };
-                extraInputs.push(terminalSource);
-            }
-        });
+    if (step.when === undefined) {
+        return extraInputs;
     }
+    const connectionNames = Object.keys(step.input_connections);
+    connectionNames.forEach((inputName) => {
+        if (step.inputs.find((input) => input.name === inputName)) {
+            return;
+        }
+        const inputPath = resolveConnectionNameToInputPath(inputName, step.tool_state);
+        if (!inputPath || !expressionReferencesInput(step.when, inputPath)) {
+            return;
+        }
+        extraInputs.push(gatePort(inputName));
+    });
+    // A gate input nothing is connected to still needs a port to connect it to.
+    unconnectedGateNames(step, connectionNames).forEach((name) => extraInputs.push(gatePort(name)));
     return extraInputs;
+}
+
+/** Top-level names the `when` reads that aren't a tool input, a connection or step state. */
+function unconnectedGateNames(step: Step, connectionNames: string[]): string[] {
+    const references = analyzeInputReferences(step.when ?? "");
+    if (references.hasDynamicInputsAccess) {
+        return [];
+    }
+    const names = new Set<string>();
+    references.staticPaths.forEach(([root]) => {
+        if (
+            typeof root === "string" &&
+            !connectionNames.includes(root) &&
+            !step.inputs.some((input) => input.name === root) &&
+            !Object.prototype.hasOwnProperty.call(step.tool_state ?? {}, root)
+        ) {
+            names.add(root);
+        }
+    });
+    return [...names];
+}
+
+function gatePort(name: string): InputTerminalSource {
+    return {
+        name,
+        optional: false,
+        input_type: "parameter",
+        type: "boolean",
+        multiple: false,
+        label: name,
+        extensions: [],
+    };
 }

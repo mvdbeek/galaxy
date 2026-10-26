@@ -1,5 +1,4 @@
 import logging
-from typing import Optional
 
 from sqlalchemy import (
     false,
@@ -8,7 +7,10 @@ from sqlalchemy import (
 )
 
 from galaxy import util
-from galaxy.managers.context import ProvidesUserContext
+from galaxy.managers.context import (
+    ProvidesAppContext,
+    ProvidesUserContext,
+)
 from galaxy.managers.groups import get_group_by_name
 from galaxy.managers.quotas import QuotaManager
 from galaxy.model import Quota
@@ -86,7 +88,8 @@ class QuotasService(ServiceBase):
         self.validate_in_users_and_groups(trans, payload)
 
         params = UpdateQuotaParams(**payload)
-        # FIXME: Doing it this way makes the update non-atomic if a method fails after an earlier one has succeeded.
+        # Each step below commits on its own, so validate the whole update first.
+        self.quota_manager.check_update(quota, params, manage_associations)
         methods = []
         if params.name or params.description:
             methods.append(self.quota_manager.rename_quota)
@@ -107,7 +110,7 @@ class QuotasService(ServiceBase):
         return "; ".join(messages)
 
     def delete(
-        self, trans: ProvidesUserContext, id: DecodedDatabaseIdField, payload: Optional[DeleteQuotaPayload] = None
+        self, trans: ProvidesUserContext, id: DecodedDatabaseIdField, payload: DeleteQuotaPayload | None = None
     ) -> str:
         """Marks a quota as deleted."""
         quota = self.quota_manager.get_quota(
@@ -128,7 +131,7 @@ class QuotasService(ServiceBase):
         quota = self.quota_manager.get_quota(trans, id, deleted=True)
         return self.quota_manager.undelete_quota(quota)
 
-    def validate_in_users_and_groups(self, trans, payload):
+    def validate_in_users_and_groups(self, trans: ProvidesAppContext, payload):
         """
         For convenience, in_users and in_groups can be encoded IDs or emails/group names in the API.
         """

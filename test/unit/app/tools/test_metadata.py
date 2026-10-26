@@ -1,6 +1,7 @@
 import json
 import os
 import subprocess
+from types import SimpleNamespace
 
 import pytest
 
@@ -11,6 +12,11 @@ from galaxy.metadata import get_metadata_compute_strategy
 from galaxy.metadata.set_metadata import load_job_metadata
 from galaxy.model.store.discover import InvalidDiscoveredFilePathError
 from galaxy.objectstore import ObjectStorePopulator
+from galaxy.objectstore._caching_base import CachingConcreteObjectStore
+from galaxy.objectstore.caching import (
+    CacheShard,
+    CacheShardManager,
+)
 from galaxy.tool_util.parser.yaml import YamlToolSource
 from galaxy.tool_util.provided_metadata import NullToolProvidedMetadata
 from galaxy.tool_util_models import UserToolSource
@@ -20,6 +26,36 @@ from galaxy.util import (
     safe_makedirs,
 )
 from galaxy.util.unittest import TestCase
+
+
+class MissingRemoteCachingObjectStore(CachingConcreteObjectStore):
+    def __init__(self, cache_path):
+        self._cache_shards = CacheShardManager([CacheShard(path=cache_path, weight=1, size=-1)])
+        self.config = SimpleNamespace(umask=0o002, gid=-1)
+        self.cache_updated_data = True
+        self.store_by = "id"
+        self.extra_dirs = {}
+
+    def _get_remote_size(self, rel_path):
+        return 0
+
+    def _exists_remotely(self, rel_path):
+        return False
+
+    def _download(self, rel_path, *, cache_path, cache_target):
+        return False
+
+    def _push_string_to_path(self, rel_path, from_string):
+        return True
+
+    def _push_file_to_path(self, rel_path, source_file):
+        return True
+
+    def _delete_existing_remote(self, rel_path):
+        return True
+
+    def _delete_remote_all(self, rel_path):
+        return True
 
 
 def test_extended_metadata_rejects_metadata_file_symlink_outside_working_directory(
@@ -70,6 +106,24 @@ class TestMetadata(TestCase, tools_support.UsesTools):
     def test_simple_output_extended(self):
         self.app.config.metadata_strategy = "extended"
         self._test_simple_output()
+
+    def test_setup_does_not_sync_empty_job_output(self):
+        self.app.config.metadata_strategy = "directory"
+        source_file_name = os.path.join(galaxy_directory(), "test/functional/tools/for_workflows/cat.xml")
+        self._init_tool_for_path(source_file_name)
+        output_dataset = self._create_output_dataset(extension="txt")
+        object_store = MissingRemoteCachingObjectStore(os.path.join(self.test_directory, "remote_cache"))
+        object_store.create(output_dataset.dataset)
+        output_path = object_store.get_filename(output_dataset.dataset, sync_cache=False)
+
+        output_dataset.dataset.object_store = object_store
+        self.metadata_command({"out_file1": output_dataset})
+
+        assert os.path.exists(output_path)
+        assert os.path.getsize(output_path) == 0
+        with open(os.path.join(self.job_working_directory, "metadata", "params.json")) as f:
+            metadata_params = json.load(f)
+        assert metadata_params["outputs"]["out_file1"]["filename_override"] == output_path
 
     def _test_simple_output(self):
         source_file_name = os.path.join(galaxy_directory(), "test/functional/tools/for_workflows/cat.xml")
@@ -344,6 +398,49 @@ class TestMetadata(TestCase, tools_support.UsesTools):
             output_dataset, "This tool is not permitted to create unnamed outputs."
         )
 
+    def test_extended_metadata_reports_invalid_unnamed_output(self):
+        self.app.config.metadata_strategy = "extended"
+        source_file_name = os.path.join(galaxy_directory(), "test/functional/tools/for_workflows/cat.xml")
+        self._init_tool_for_path(source_file_name)
+        self.tool.uses_tool_provided_metadata = True
+        self.tool.allows_unnamed_outputs = True
+        output_dataset = self._create_output_dataset(extension="txt")
+        self.app.model.session.commit()
+        command = self.metadata_command({"out_file1": output_dataset})
+        self._write_galaxy_json(
+            json.dumps(
+                {
+                    "__unnamed_outputs": [
+                        {
+                            "destination": {"type": "hdca"},
+                            "elements": [],
+                            "name": "missing collection type",
+                        }
+                    ]
+                }
+            )
+        )
+        self._write_output_dataset_contents(output_dataset, "original")
+        self._write_job_files()
+
+        self.exec_metadata_command(command)
+
+        jobs_attrs_path = os.path.join(
+            self.job_working_directory,
+            "metadata",
+            "outputs_populated",
+            "jobs_attrs.txt",
+        )
+        with open(jobs_attrs_path) as jobs_attrs_file:
+            jobs_attrs = json.load(jobs_attrs_file)
+        assert len(jobs_attrs) == 1
+        assert jobs_attrs[0]["state"] == model.Job.states.ERROR
+        discovery_messages = [
+            message for message in jobs_attrs[0]["job_messages"] if message["type"] == "output_discovery"
+        ]
+        assert len(discovery_messages) == 1
+        assert discovery_messages[0]["desc"] == "Failed to collect job outputs: Must specify an HDCA collection_type"
+
     def test_extended_metadata_rejects_dynamic_tool_spoofing_data_fetch(self):
         self.app.config.metadata_strategy = "extended"
         source_file_name = os.path.join(galaxy_directory(), "test/functional/tools/for_workflows/cat.xml")
@@ -465,7 +562,9 @@ class TestMetadata(TestCase, tools_support.UsesTools):
         safe_makedirs(os.path.join(self.job_working_directory, "metadata"))
         self.app.datatypes_registry.to_xml_file(path=datatypes_config)
         job_metadata = os.path.join(self.tool_working_directory, self.tool.provided_metadata_file)
-        output_fnames = [DatasetPath(o.dataset.id, o.dataset.get_file_name(), None) for o in output_datasets.values()]
+        output_fnames = [
+            DatasetPath(o.dataset.id, o.dataset.get_file_name(sync_cache=False), None) for o in output_datasets.values()
+        ]
         command = metadata_compute_strategy.setup_external_metadata(
             output_datasets,
             output_collections,

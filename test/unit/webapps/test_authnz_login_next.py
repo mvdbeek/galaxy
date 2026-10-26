@@ -5,8 +5,6 @@ the destination has to be validated -- doing it here covers every writer of the 
 including the ``next`` parameter accepted by ``OIDC.login``.
 """
 
-from typing import Optional
-
 import pytest
 from routes import (
     Mapper,
@@ -27,10 +25,10 @@ LANDING_PATH = "/tool_landings/1234-5678?public=true"
 class StubTrans:
     """The slice of the transaction interface ``OIDC.callback`` touches before it stops."""
 
-    def __init__(self, login_next_cookie: Optional[str], allowed_hosts=()):
+    def __init__(self, login_next_cookie: str | None, allowed_hosts=()):
         self.user = None
         self._cookies = {LOGIN_NEXT_COOKIE_NAME: login_next_cookie}
-        self.login_redirect_url: Optional[str] = None
+        self.login_redirect_url: str | None = None
         self.app = Bunch(
             config=Bunch(allowed_login_redirect_hosts=list(allowed_hosts)),
             authnz_manager=Bunch(callback=self._callback),
@@ -107,3 +105,27 @@ def test_callback_falls_back_to_root_without_a_destination(empty):
 )
 def test_callback_encodes_the_destination_for_url_for(galaxy_url_prefix, cookie_value, expected):
     assert chosen_redirect_for(cookie_value, allowed_hosts=["tools.example.org"]) == expected
+
+
+def test_logout_all_survives_oidc_provider_resolution(monkeypatch):
+    redirect_arguments = {}
+
+    def capture_url_for(**kwargs):
+        redirect_arguments.update(kwargs)
+        return "/provider-logout"
+
+    monkeypatch.setattr(authnz_module, "url_for", capture_url_for)
+    trans = Bunch(
+        get_cookie=lambda name: "keycloak",
+        response=Bunch(send_redirect=lambda url: url),
+    )
+
+    redirect = OIDC.get_logout_url(None, trans, logout_all="true")
+
+    assert redirect == "/provider-logout"
+    assert redirect_arguments == {
+        "controller": "authnz",
+        "action": "logout",
+        "provider": "keycloak",
+        "logout_all": "true",
+    }

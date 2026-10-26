@@ -26,7 +26,7 @@ galaxy.job\_metrics.instrumenters.core module
    :show-inheritance:
 
 galaxy.job\_metrics.instrumenters.cpuinfo module
-------------------------------------------------
+-------------------------------------------------
 
 .. automodule:: galaxy.job_metrics.instrumenters.cpuinfo
    :members:
@@ -53,6 +53,14 @@ galaxy.job\_metrics.instrumenters.meminfo module
 ------------------------------------------------
 
 .. automodule:: galaxy.job_metrics.instrumenters.meminfo
+   :members:
+   :undoc-members:
+   :show-inheritance:
+
+galaxy.job\_metrics.instrumenters.pulsar module
+-----------------------------------------------
+
+.. automodule:: galaxy.job_metrics.instrumenters.pulsar
    :members:
    :undoc-members:
    :show-inheritance:

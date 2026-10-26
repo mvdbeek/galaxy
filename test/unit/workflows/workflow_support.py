@@ -6,6 +6,7 @@ from galaxy import model
 from galaxy.app_unittest_utils import galaxy_mock
 from galaxy.managers.tools import DynamicToolManager
 from galaxy.managers.workflows import WorkflowsManager
+from galaxy.tools.parameters.workflow_utils import workflow_building_modes
 from galaxy.util.bunch import Bunch
 from galaxy.workflow.modules import module_factory
 
@@ -14,7 +15,10 @@ class MockTrans:
     def __init__(self):
         self.app = MockApp()
         self.app.trs_proxy = Bunch()
+        self.security = self.app.security
         self.sa_session = self.app.model.context
+        self.security = self.app.security
+        self.workflow_building_mode = workflow_building_modes.DISABLED
         self._user = None
 
     def save_workflow(self, workflow):
@@ -59,6 +63,9 @@ class MockToolbox:
     def get_tool(self, tool_id, tool_version=None, exact=False, tool_uuid=None):
         # Real tool box returns None of missing tool also
         return self.tools.get(tool_id, None)
+
+    def materialize_tool(self, tool, *, reason):
+        return tool
 
 
 def yaml_to_model(has_dict, id_offset=100):

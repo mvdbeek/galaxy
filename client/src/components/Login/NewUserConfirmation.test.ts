@@ -1,5 +1,5 @@
-import { getLocalVue, injectTestRouter } from "@tests/vitest/helpers";
-import { mount, type Wrapper } from "@vue/test-utils";
+import { getLocalVue, injectTestRouter, nth, withPlugins } from "@tests/vitest/helpers";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -20,7 +20,7 @@ let postRequests: PostRequest[] = [];
 let originalSearch: string;
 
 describe("NewUserConfirmation", () => {
-    let wrapper: Wrapper<Vue>;
+    let wrapper: VueWrapper;
 
     beforeEach(async () => {
         postRequests = [];
@@ -44,14 +44,13 @@ describe("NewUserConfirmation", () => {
         );
 
         wrapper = mount(MountTarget as object, {
-            propsData: { sessionCsrfToken: "session-csrf-token" },
-            localVue,
-            router,
+            props: { sessionCsrfToken: "session-csrf-token" },
+            global: withPlugins(localVue, router),
         });
     });
 
     afterEach(() => {
-        wrapper.destroy();
+        wrapper.unmount();
         vi.restoreAllMocks();
         // Restore original search
         Object.defineProperty(window.location, "search", {
@@ -68,7 +67,7 @@ describe("NewUserConfirmation", () => {
         const inputs = wrapper.findAll("input");
         expect(inputs.length).toBe(1);
 
-        const checkField = inputs.at(0);
+        const checkField = nth(inputs, 0);
         expect(checkField.attributes("type")).toBe("checkbox");
 
         const submitButton = wrapper.find("button[name='confirm']");
@@ -77,7 +76,7 @@ describe("NewUserConfirmation", () => {
 
         expect(postRequests.length).toBe(0);
 
-        await checkField.setChecked();
+        await checkField.setValue(true);
 
         await submitButton.trigger("click");
         await flushPromises();
@@ -121,11 +120,11 @@ describe("NewUserConfirmation", () => {
         document.head.prepend(indexLink);
         try {
             server.use(http.untyped.post(/.*create_user$/, () => HttpResponse.json({ redirect_uri: redirectUri })));
-            await wrapper.find("input[type='checkbox']").setChecked();
+            await wrapper.find("input[type='checkbox']").setValue(true);
             await wrapper.find("button[name='confirm']").trigger("click");
             await flushPromises();
             expect(window.location.assign).toHaveBeenCalledExactlyOnceWith(expected);
-            expect(router.currentRoute.path).toBe("/new-user-confirmation");
+            expect(router.currentRoute.value.path).toBe("/new-user-confirmation");
         } finally {
             indexLink.remove();
         }
@@ -138,7 +137,7 @@ describe("NewUserConfirmation", () => {
         expect(postRequests[0]?.url).toContain("/cancel_user_creation");
         expect(postRequests[0]?.body.get("confirmation_id")).toBe("sample_confirmation");
         expect(postRequests[0]?.body.get("session_csrf_token")).toBe("session-csrf-token");
-        expect(router.currentRoute.path).toBe("/login");
+        expect(router.currentRoute.value.path).toBe("/login");
     });
 
     it("shows expiry errors without redirecting", async () => {
@@ -150,11 +149,11 @@ describe("NewUserConfirmation", () => {
                 ),
             ),
         );
-        await wrapper.find("input[type='checkbox']").setChecked();
+        await wrapper.find("input[type='checkbox']").setValue(true);
         await wrapper.find("button[name='confirm']").trigger("click");
         await flushPromises();
         expect(wrapper.find(".alert-danger").text()).toContain("Authentication expired");
-        expect(router.currentRoute.path).toBe("/new-user-confirmation");
+        expect(router.currentRoute.value.path).toBe("/new-user-confirmation");
         expect(window.location.assign).not.toHaveBeenCalled();
     });
 
@@ -169,10 +168,10 @@ describe("NewUserConfirmation", () => {
                 return HttpResponse.json({ redirect_uri: "/" });
             }),
         );
-        await wrapper.find("input[type='checkbox']").setChecked();
+        await wrapper.find("input[type='checkbox']").setValue(true);
         await wrapper.find("form").trigger("submit");
         await flushPromises();
-        expect(wrapper.find("button[name='confirm']").attributes("disabled")).toBeDefined();
+        expect(wrapper.find("button[name='confirm']").attributes("aria-disabled")).toBe("true");
         await wrapper.find("form").trigger("submit");
         await flushPromises();
         expect(postRequests).toHaveLength(1);
@@ -181,18 +180,17 @@ describe("NewUserConfirmation", () => {
     });
 
     it("never resubmits credentials from a legacy link", async () => {
-        wrapper.destroy();
+        wrapper.unmount();
         Object.defineProperty(window.location, "search", {
             configurable: true,
             writable: true,
             value: "?provider=test_provider&provider_token=secret-provider-response",
         });
         wrapper = mount(MountTarget as object, {
-            propsData: { sessionCsrfToken: "session-csrf-token" },
-            localVue,
-            router,
+            props: { sessionCsrfToken: "session-csrf-token" },
+            global: withPlugins(localVue, router),
         });
-        await wrapper.find("input[type='checkbox']").setChecked();
+        await wrapper.find("input[type='checkbox']").setValue(true);
         await wrapper.find("form").trigger("submit");
         await flushPromises();
         expect(postRequests).toHaveLength(0);

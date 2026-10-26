@@ -2,7 +2,6 @@ from datetime import (
     datetime,
     timezone,
 )
-from typing import Optional
 
 from galaxy.files.plugins import FileSourcePluginsConfig
 from galaxy.files.sources.omero import (
@@ -29,7 +28,7 @@ class _Pixels:
 
 
 class _Image:
-    def __init__(self, date: Optional[datetime]):
+    def __init__(self, date: datetime | None):
         self._date = date
 
     def getDate(self):

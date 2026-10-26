@@ -587,6 +587,23 @@ export interface paths {
         patch?: never
         trace?: never
     }
+    "/api/tools/{tool_id}/versions/{tool_version}/interop": {
+        parameters: {
+            query?: never
+            header?: never
+            path?: never
+            cookie?: never
+        }
+        /** Return Galaxy's meta model description of the tool's metadata, inputs, and outputs. */
+        get: operations["tools__interop"]
+        put?: never
+        post?: never
+        delete?: never
+        options?: never
+        head?: never
+        patch?: never
+        trace?: never
+    }
     "/api/tools/{tool_id}/versions/{tool_version}/parameter_landing_request_schema": {
         parameters: {
             query?: never
@@ -741,6 +758,23 @@ export interface paths {
         patch?: never
         trace?: never
     }
+    "/api/users/{encoded_user_id}/password": {
+        parameters: {
+            query?: never
+            header?: never
+            path?: never
+            cookie?: never
+        }
+        get?: never
+        /** Set a user's password, without requiring their current one */
+        put: operations["users__set_password"]
+        post?: never
+        delete?: never
+        options?: never
+        head?: never
+        patch?: never
+        trace?: never
+    }
     "/api/version": {
         parameters: {
             query?: never
@@ -852,6 +886,26 @@ export interface paths {
         get: operations["repositories__internal_metadata"]
         put?: never
         post?: never
+        delete?: never
+        options?: never
+        head?: never
+        patch?: never
+        trace?: never
+    }
+    "/api_internal/reset_password": {
+        parameters: {
+            query?: never
+            header?: never
+            path?: never
+            cookie?: never
+        }
+        get?: never
+        put?: never
+        /**
+         * Reset Password
+         * @description email a password reset link to a user
+         */
+        post: operations["users__internal_reset_password"]
         delete?: never
         options?: never
         head?: never
@@ -3514,6 +3568,13 @@ export interface components {
              */
             type: "set_environment"
         }
+        /** SetPasswordRequest */
+        SetPasswordRequest: {
+            /** Confirm */
+            confirm: string
+            /** Password */
+            password: string
+        }
         /** ShedParsedTool */
         ShedParsedTool: {
             /** Citations */
@@ -4113,10 +4174,14 @@ export interface components {
         }
         /** UiChangePasswordRequest */
         UiChangePasswordRequest: {
+            /** Confirm */
+            confirm: string
             /** Current */
-            current: string
+            current?: string | null
             /** Password */
             password: string
+            /** Token */
+            token?: string | null
         }
         /** UiLoginRequest */
         UiLoginRequest: {
@@ -4166,6 +4231,13 @@ export interface components {
             activation_sent: boolean
             /** Contact Email */
             contact_email?: string | null
+            /** Email */
+            email: string
+        }
+        /** UiResetPasswordRequest */
+        UiResetPasswordRequest: {
+            /** Bear Field */
+            bear_field: string
             /** Email */
             email: string
         }
@@ -4239,9 +4311,9 @@ export interface components {
         }
         /** XrefDict */
         XrefDict: {
-            /** Type */
+            /** type */
             type: string
-            /** Value */
+            /** value */
             value: string
         }
     }
@@ -5850,6 +5922,49 @@ export interface operations {
             }
         }
     }
+    tools__interop: {
+        parameters: {
+            query?: never
+            header?: never
+            path: {
+                /** @description See also https://ga4gh.github.io/tool-registry-service-schemas/DataModel/#trs-tool-and-trs-tool-version-ids */
+                tool_id: string
+                /** @description The full version string defined on the Galaxy tool wrapper. */
+                tool_version: string
+            }
+            cookie?: never
+        }
+        requestBody?: never
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["ShedParsedTool"]
+                }
+            }
+            /** @description Request Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["MessageExceptionModel"]
+                }
+            }
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["MessageExceptionModel"]
+                }
+            }
+        }
+    }
     tools__parameter_landing_request_schema: {
         parameters: {
             query?: never
@@ -6302,6 +6417,49 @@ export interface operations {
             }
         }
     }
+    users__set_password: {
+        parameters: {
+            query?: never
+            header?: never
+            path: {
+                /** @description The encoded database identifier of the user. */
+                encoded_user_id: string
+            }
+            cookie?: never
+        }
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetPasswordRequest"]
+            }
+        }
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown
+                }
+                content?: never
+            }
+            /** @description Request Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["MessageExceptionModel"]
+                }
+            }
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["MessageExceptionModel"]
+                }
+            }
+        }
+    }
     configuration__version: {
         parameters: {
             query?: never
@@ -6529,6 +6687,46 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RepositoryMetadata"]
                 }
+            }
+            /** @description Request Error */
+            "4XX": {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["MessageExceptionModel"]
+                }
+            }
+            /** @description Server Error */
+            "5XX": {
+                headers: {
+                    [name: string]: unknown
+                }
+                content: {
+                    "application/json": components["schemas"]["MessageExceptionModel"]
+                }
+            }
+        }
+    }
+    users__internal_reset_password: {
+        parameters: {
+            query?: never
+            header?: never
+            path?: never
+            cookie?: never
+        }
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UiResetPasswordRequest"]
+            }
+        }
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown
+                }
+                content?: never
             }
             /** @description Request Error */
             "4XX": {
@@ -6951,7 +7149,10 @@ export interface operations {
     }
     legacy_install__display_image: {
         parameters: {
-            query?: never
+            query?: {
+                /** @description Serve the file as of this repository revision instead of the current repository files. */
+                changeset_revision?: string | null
+            }
             header?: never
             path: {
                 repository_id: string

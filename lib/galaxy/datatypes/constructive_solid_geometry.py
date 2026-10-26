@@ -8,7 +8,6 @@ import abc
 import logging
 import re
 from typing import (
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -393,8 +392,8 @@ class Vtk:
         return dataset
 
     def set_structure_metadata(
-        self, line: str, dataset: DatasetProtocol, dataset_type: Optional[str]
-    ) -> tuple[DatasetProtocol, Optional[str]]:
+        self, line: str, dataset: DatasetProtocol, dataset_type: str | None
+    ) -> tuple[DatasetProtocol, str | None]:
         """
         The fourth part of legacy VTK files is the dataset structure. The
         geometry part describes the geometry and topology of the dataset.
@@ -685,7 +684,7 @@ class NeperPoints(data.Text):
             with open(dataset.get_file_name(), errors="ignore") as fh:
                 dataset.metadata.dimension = self._get_dimension(fh)
 
-    def _get_dimension(self, fh: "TextIOBase", maxlines: int = 100, sep: Optional[str] = None) -> Optional[float]:
+    def _get_dimension(self, fh: "TextIOBase", maxlines: int = 100, sep: str | None = None) -> float | None:
         dim = None
         try:
             for i, line in enumerate(fh):
@@ -815,8 +814,43 @@ def get_next_line(fh):
     return line.strip()
 
 
+# Mapping of the value of the ``type`` attribute of the root ``VTKFile`` element to the
+# file extension VTK uses for the respective dataset type.
+# https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html
+VTK_XML_FILE_EXTENSIONS: dict[str, str] = {
+    # serial formats
+    "ImageData": "vti",
+    "PolyData": "vtp",
+    "RectilinearGrid": "vtr",
+    "StructuredGrid": "vts",
+    "UnstructuredGrid": "vtu",
+    # parallel formats
+    "PImageData": "pvti",
+    "PPolyData": "pvtp",
+    "PRectilinearGrid": "pvtr",
+    "PStructuredGrid": "pvts",
+    "PUnstructuredGrid": "pvtu",
+    "PTable": "pvtt",
+    "PHyperTreeGrid": "phtg",
+    # further dataset types with a dedicated extension
+    "Table": "vtt",
+    "HyperTreeGrid": "htg",
+    # composite datasets use the VTK class name as type
+    "vtkMultiBlockDataSet": "vtm",
+    "vtkPartitionedDataSet": "vtpd",
+    "vtkPartitionedDataSetCollection": "vtpc",
+    "vtkOverlappingAMR": "vth",
+    "vtkNonOverlappingAMR": "vth",
+    "vtkHierarchicalBoxDataSet": "vth",
+    "HierarchicalBoxDataSet": "vth",
+}
+
+
 class VtkXml(GenericXml):
-    """Format for defining VTK (XML based) and its sub-datatypes. https://docs.vtk.org/en/latest/design_documents/VTKFileFormats.html"""
+    """Format for defining VTK (XML based) and its sub-datatypes.
+
+    https://docs.vtk.org/en/latest/vtk_file_formats/vtkxml_file_format.html
+    """
 
     edam_format = "edam:format_2332"
     file_ext = "vtkxml"
@@ -856,6 +890,25 @@ class VtkXml(GenericXml):
         else:
             dataset.peek = "File does not exist"
             dataset.blurb = "File purged from disk"
+
+    def get_download_extension(self, dataset: DatasetProtocol) -> str:
+        """Return the extension VTK uses for the dataset type stored in the file.
+
+        The datatype uses the generic ``vtkxml`` extension for all VTK XML files,
+        but a more specific extension can be derived from the ``type`` attribute of
+        the file, which is collected as metadata (e.g. ``.vtu`` for
+        ``UnstructuredGrid`` or ``.vtp`` for ``PolyData``). If the dataset type is
+        unknown, the extension of the dataset is used.
+
+        >>> from galaxy.util.bunch import Bunch
+        >>> dataset = Bunch(extension="vtkxml", metadata=Bunch(dataset_type="UnstructuredGrid"))
+        >>> VtkXml().get_download_extension(dataset)
+        'vtu'
+        >>> dataset = Bunch(extension="vtkxml", metadata=Bunch(dataset_type=None))
+        >>> VtkXml().get_download_extension(dataset)
+        'vtkxml'
+        """
+        return VTK_XML_FILE_EXTENSIONS.get(dataset.metadata.dataset_type, dataset.extension)
 
     def sniff_prefix(self, file_prefix: FilePrefix) -> bool:
         """Check for the key string 'VTKFile' to determine if this is a VTK dataset file.
@@ -1030,14 +1083,12 @@ class GocadSGrid(data.Text):
     MetadataElement(name="name", default=None, desc="Grid name", readonly=True, optional=True, visible=True)
 
     def extract_version(self, line: str) -> str:
-        match = re.search(r"GOCAD SGrid\s+([\d.]+)", line)
-        if match:
+        if match := re.search(r"GOCAD SGrid\s+([\d.]+)", line):
             return match.group(1)
         return "?"
 
     def extract_name(self, line: str) -> str:
-        match = re.search(r"name:\s*(.*)", line)
-        if match:
+        if match := re.search(r"name:\s*(.*)", line):
             return match.group(1).strip()
         return "?"
 
@@ -1082,8 +1133,7 @@ class FeflowFem(data.Text):
     MetadataElement(name="problem_type", default=None, desc="Problem type", readonly=True, optional=True, visible=True)
 
     def extract_version(self, line: str) -> str:
-        match = re.search(r"\(([Vv][^)]+)\)", line)
-        if match:
+        if match := re.search(r"\(([Vv][^)]+)\)", line):
             return match.group(1)
         return "?"
 

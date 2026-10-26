@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { BAlert } from "bootstrap-vue";
 import { computed } from "vue";
 
 import { useDatasetStore } from "@/stores/datasetStore";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 
 type AttributeType = "name" | "misc_blurb" | "peek" | "extension";
@@ -47,7 +47,7 @@ const getClass = computed(() => `dataset-${ATTRIBUTES[props.name || ""]}`);
 </script>
 
 <template>
-    <BAlert v-if="error" show variant="warning">{{ error }}</BAlert>
+    <GAlert v-if="error" show variant="warning">{{ error }}</GAlert>
     <LoadingSpan v-else-if="loading" message="Loading Dataset" />
     <pre
         v-else-if="props.name === 'history_dataset_peek'"

@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from galaxy.objectstore.caching import CacheTarget
 from galaxy.objectstore.examples import get_example
 from galaxy.objectstore.s3 import S3ObjectStore
 from galaxy.objectstore.s3_boto3 import S3ObjectStore as Boto3ObjectStore
@@ -30,7 +31,7 @@ class UninitializedBoto3ObjectStore(Boto3ObjectStore):
 
 
 class FailedDownloadBoto3ObjectStore(UninitializedBoto3ObjectStore):
-    def _download(self, rel_path: str) -> bool:
+    def _download(self, rel_path: str, *, cache_path: str, cache_target: CacheTarget) -> bool:
         return False
 
 
@@ -78,7 +79,7 @@ def test_legacy_s3_does_not_publish_truncated_download(legacy_store):
     _serve_legacy_object(legacy_store, REMOTE_CONTENT[:5])
 
     with pytest.raises(OSError, match="downloaded object size"):
-        legacy_store._download("object")
+        legacy_store._pull_into_cache("object", object_id=1)
 
     _assert_nothing_published(legacy_store)
 
@@ -87,7 +88,7 @@ def test_boto3_does_not_publish_empty_download_for_nonempty_object(boto3_store):
     _serve_boto3_object(boto3_store, b"")
 
     with pytest.raises(OSError, match="downloaded object size"):
-        boto3_store._download("object")
+        boto3_store._pull_into_cache("object", object_id=1)
 
     _assert_nothing_published(boto3_store)
 
@@ -95,7 +96,7 @@ def test_boto3_does_not_publish_empty_download_for_nonempty_object(boto3_store):
 def test_boto3_preserves_legitimate_empty_remote_object(boto3_store):
     _serve_boto3_object(boto3_store, b"", remote_size=0)
 
-    assert boto3_store._download("object")
+    assert boto3_store._pull_into_cache("object", object_id=1)
     assert (_cache(boto3_store) / "object").read_bytes() == b""
 
 
@@ -111,7 +112,7 @@ def test_legacy_s3_axel_download_is_size_checked(legacy_store, monkeypatch):
     monkeypatch.setattr(legacy_store, "_axel_download", axel_download_that_writes_nothing)
 
     with pytest.raises(OSError, match="downloaded object size"):
-        legacy_store._download("object")
+        legacy_store._pull_into_cache("object", object_id=1)
 
     _assert_nothing_published(legacy_store)
 
@@ -132,7 +133,7 @@ def test_failed_download_does_not_remove_concurrently_published_file():
         store._ensure_staging_path_writable()
         (_cache(store) / "object").write_bytes(REMOTE_CONTENT)
 
-        assert not store._pull_into_cache("object")
+        assert not store._pull_into_cache("object", object_id=1)
         assert (_cache(store) / "object").read_bytes() == REMOTE_CONTENT
 
 

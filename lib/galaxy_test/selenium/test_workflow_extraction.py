@@ -6,36 +6,25 @@ reusing test setup infrastructure from API tests.
 
 from typing import (
     cast,
-    Optional,
 )
 
 from galaxy_test.base.populators import skip_without_tool
 from galaxy_test.base.workflow_assertions import WorkflowStructureAssertions
 from galaxy_test.base.workflow_fixtures import WORKFLOW_WITH_DYNAMIC_OUTPUT_COLLECTION
 from .framework import (
+    ExtractsWorkflows,
     managed_history,
     selenium_test,
     SeleniumTestCase,
 )
 
 
-class TestWorkflowExtractionSelenium(SeleniumTestCase, WorkflowStructureAssertions):
+class TestWorkflowExtractionSelenium(SeleniumTestCase, ExtractsWorkflows, WorkflowStructureAssertions):
     """Selenium tests for workflow extraction from history."""
 
     ensure_registered = True
 
     # --- Test Setup Helpers ---
-
-    def setup_cat1_history(self, history_id: str) -> str:
-        """Run cat1 workflow and return the cat1 job_id."""
-        workflow = self.workflow_populator.load_workflow(name="test_for_extract")
-        workflow_request, _, workflow_id = self.workflow_populator.setup_workflow_run(workflow, history_id=history_id)
-        self.workflow_populator.invoke_workflow_and_wait(workflow_id, request=workflow_request, history_id=history_id)
-        # Get cat1 job
-        jobs = self.dataset_populator.history_jobs(history_id)
-        cat1_jobs = [j for j in jobs if j["tool_id"] == "cat1"]
-        assert cat1_jobs, "Expected cat1 job to be present"
-        return cat1_jobs[0]["id"]
 
     def setup_mapped_collection_history(self, history_id: str) -> tuple:
         """Create paired collection and run random_lines mapped over it twice.
@@ -60,7 +49,7 @@ class TestWorkflowExtractionSelenium(SeleniumTestCase, WorkflowStructureAssertio
         self.dataset_populator.wait_for_history(history_id, assert_ok=True)
         return hdca, job_ids_run1 + job_ids_run2
 
-    def setup_copied_cat1_history(self, history_id: str) -> Optional[str]:
+    def setup_copied_cat1_history(self, history_id: str) -> str | None:
         """Run cat1 in one history, copy outputs to given history.
 
         Returns: cat1 job_id associated with the copied datasets.
@@ -151,62 +140,16 @@ test_data:
         hdca_hid = contents[0]["hid"]
         return hdca_hid, job_ids
 
-    # --- UI Extraction Helpers ---
-
-    def extract_workflow_set_name(self, name: str):
-        """Set the workflow name in extraction form."""
-        name_input = self.components.workflow_extract.workflow_name_input.wait_for_visible()
-        name_input.clear()
-        name_input.send_keys(name)
-
-    def extract_workflow_submit(self):
-        """Submit the extraction form."""
-        self.components.workflow_extract.create_button.wait_for_and_click()
-        self.sleep_for(self.wait_types.UX_TRANSITION)
-
-    def extract_workflow_toggle_job(self, job_id: str):
-        """Toggle the selection checkbox for a specific job card by job_id."""
-        checkbox = self.components.workflow_extract.card_checkbox_by_job_id(job_id=job_id)
-        element = checkbox.wait_for_present()
-        self.execute_script_click(element)
-
-    def find_workflow_by_name(self, name: str) -> str:
-        """Find workflow ID by name via API. Returns most recently created if multiple match."""
-        response = self.workflow_populator._get("workflows")
-        response.raise_for_status()
-        workflows = response.json()
-        matching = [w for w in workflows if w["name"] == name]
-        assert len(matching) >= 1, f"Expected at least 1 workflow '{name}', found 0: {[w['name'] for w in workflows]}"
-        # Return most recently created workflow if multiple match
-        matching.sort(key=lambda w: w["create_time"], reverse=True)
-        return matching[0]["id"]
-
-    def get_workflow_by_name(self, name: str) -> dict:
-        """Find and download workflow by name."""
-        workflow_id = self.find_workflow_by_name(name)
-        return self.workflow_populator.download_workflow(workflow_id)
-
-    def extract_workflow_and_download(self, name: str, screenshot_name: Optional[str] = None) -> dict:
-        """Navigate to extraction, submit form, return downloaded workflow."""
-        self.navigate_to_workflow_extraction()
-        if screenshot_name:
-            self.screenshot(screenshot_name)
-        self.extract_workflow_set_name(name)
-        self.extract_workflow_submit()
-        return self.get_workflow_by_name(name)
-
-    def count_job_checkboxes(self) -> int:
-        """Count the number of tool-step cards in the extraction form."""
-        return len(self.find_elements_by_selector(self.components.workflow_extract.tool_card_checkbox.selector))
-
-    def count_checked_job_checkboxes(self) -> int:
-        """Count the number of checked tool-step cards."""
-        return len(self.find_elements_by_selector(self.components.workflow_extract.tool_card_checkbox_checked.selector))
-
-    def get_job_checkbox_values(self) -> list:
-        """Get job IDs from all tool-step cards."""
-        cards = self.find_elements_by_selector(self.components.workflow_extract.tool_card.selector + "[data-job-id]")
-        return [card.get_attribute("data-job-id") for card in cards]
+    def extract_workflow_label_step(self, job_id: str, label: str):
+        """Click the label (pencil) control for the tool card, type a label in
+        the modal, and confirm. The control is only rendered when the card is
+        checked."""
+        badge = self.components.workflow_extract.step_label_add_for_job(job_id=job_id).wait_for_present()
+        self.execute_script_click(badge)
+        self.components.workflow_extract.step_rename_input.wait_for_and_clear_and_send_keys(label)
+        self.screenshot("workflow_extract_step_label_modal")
+        self.components.workflow_extract.step_rename_confirm.wait_for_and_click()
+        self.components.workflow_extract.step_rename_input.wait_for_absent()
 
     @selenium_test
     @managed_history
@@ -245,9 +188,7 @@ test_data:
         for job_id in rendered_job_ids:
             self.extract_workflow_toggle_job(job_id)
         # Also uncheck any remaining checked cards (e.g. input_collection / input_dataset)
-        for element in self.find_elements_by_selector(
-            self.components.workflow_extract.all_card_checkboxes_checked.selector
-        ):
+        for element in self.components.workflow_extract.all_card_checkboxes_checked.all():
             self.execute_script_click(element)
         self.sleep_for(self.wait_types.UX_RENDER)
 
@@ -293,20 +234,19 @@ test_data:
         # Toggle checkbox off
         self.extract_workflow_toggle_job(cat1_job_id)
         self.sleep_for(self.wait_types.UX_RENDER)
-        cat1_checkbox = self.find_element_by_selector(f'[data-job-id="{cat1_job_id}"] input[id^="g-card-select-"]')
+        cat1_checkbox = self.components.workflow_extract.card_checkbox_by_job_id(job_id=cat1_job_id).wait_for_present()
         assert not cat1_checkbox.is_selected(), "Expected checkbox unchecked after toggle"
 
         # Toggle back on
         self.extract_workflow_toggle_job(cat1_job_id)
         self.sleep_for(self.wait_types.UX_RENDER)
-        cat1_checkbox = self.find_element_by_selector(f'[data-job-id="{cat1_job_id}"] input[id^="g-card-select-"]')
+        cat1_checkbox = self.components.workflow_extract.card_checkbox_by_job_id(job_id=cat1_job_id).wait_for_present()
         assert cat1_checkbox.is_selected(), "Expected checkbox checked after second toggle"
         self.screenshot("workflow_extract_toggle_checkbox")
 
         # Extract workflow and verify structure
         workflow_name = "Selenium Extracted Cat1"
-        self.extract_workflow_set_name(workflow_name)
-        self.extract_workflow_submit()
+        self.extract_workflow_name_and_submit(workflow_name)
 
         workflow = self.get_workflow_by_name(workflow_name)
         self.assert_cat1_workflow_structure(workflow)
@@ -333,8 +273,8 @@ test_data:
         self.sleep_for(self.wait_types.UX_RENDER)
 
         # Verify first job unchecked, second job still checked
-        checkbox1 = self.find_element_by_selector(f'[data-job-id="{job_id_first}"] input[id^="g-card-select-"]')
-        checkbox2 = self.find_element_by_selector(f'[data-job-id="{job_id_second}"] input[id^="g-card-select-"]')
+        checkbox1 = self.components.workflow_extract.card_checkbox_by_job_id(job_id=job_id_first).wait_for_present()
+        checkbox2 = self.components.workflow_extract.card_checkbox_by_job_id(job_id=job_id_second).wait_for_present()
         assert not checkbox1.is_selected(), f"Expected job {job_id_first} unchecked"
         assert checkbox2.is_selected(), f"Expected job {job_id_second} still checked"
 
@@ -342,8 +282,7 @@ test_data:
 
         # Submit extraction
         workflow_name = "Selenium Job Subset"
-        self.extract_workflow_set_name(workflow_name)
-        self.extract_workflow_submit()
+        self.extract_workflow_name_and_submit(workflow_name)
 
         # Verify extracted workflow has 2 steps (1 input + 1 tool from second run only)
         workflow = self.get_workflow_by_name(workflow_name)
@@ -370,8 +309,7 @@ test_data:
 
         # Extract and verify structure
         workflow_name = "Selenium Copied Inputs"
-        self.extract_workflow_set_name(workflow_name)
-        self.extract_workflow_submit()
+        self.extract_workflow_name_and_submit(workflow_name)
 
         workflow = self.get_workflow_by_name(workflow_name)
         self.assert_cat1_workflow_structure(workflow)
@@ -412,8 +350,7 @@ test_data:
         self.screenshot("workflow_extract_reduce_collection")
 
         workflow_name = "Selenium Reduce Collection"
-        self.extract_workflow_set_name(workflow_name)
-        self.extract_workflow_submit()
+        self.extract_workflow_name_and_submit(workflow_name)
 
         workflow = self.get_workflow_by_name(workflow_name)
         # Should have 3 steps (1 collection input + 2 tools)
@@ -442,8 +379,7 @@ test_data:
         self.screenshot("workflow_extract_output_collections")
 
         workflow_name = "Selenium Output Collections"
-        self.extract_workflow_set_name(workflow_name)
-        self.extract_workflow_submit()
+        self.extract_workflow_name_and_submit(workflow_name)
 
         workflow = self.get_workflow_by_name(workflow_name)
         # Should have 5 steps (2 data inputs + 3 tools)
@@ -464,17 +400,16 @@ test_data:
         # one cat1 job per list element (typically 2, but may vary).
         job_count = self.count_job_checkboxes()
         assert job_count >= 1, f"Expected at least 1 job checkbox, found {job_count}"
-        mapped_cards = self.find_elements_by_selector(self.components.workflow_extract.mapped_tool_card.selector)
+        mapped_cards = self.components.workflow_extract.mapped_tool_card.all()
         assert len(mapped_cards) >= 1, "Expected at least one mapped-tool card on a list:paired mapped flow"
         for card in mapped_cards:
             assert card.get_attribute("data-icj-id"), "mapped-tool card missing data-icj-id"
-        mapped_badges = self.find_elements_by_selector(self.components.workflow_extract.mapped_badge.selector)
+        mapped_badges = self.components.workflow_extract.mapped_badge.all()
         assert len(mapped_badges) >= len(mapped_cards), "Expected mapped-tool cards to show a Mapped badge"
         self.screenshot("workflow_extract_nested_collection")
 
         workflow_name = "Selenium Nested Collection"
-        self.extract_workflow_set_name(workflow_name)
-        self.extract_workflow_submit()
+        self.extract_workflow_name_and_submit(workflow_name)
 
         workflow = self.get_workflow_by_name(workflow_name)
         # Should have 2 steps (1 collection input + 1 tool)
@@ -482,3 +417,105 @@ test_data:
 
         # Verify collection input is list:paired
         self.assert_input_step_collection_type(workflow, "list:paired")
+
+    @skip_without_tool("cat1")
+    @selenium_test
+    @managed_history
+    def test_extract_output_star_and_label_creates_workflow_output(self):
+        """Star + rename an output via the extraction UI, submit, and confirm
+        the downloaded workflow carries the renamed workflow_output."""
+        history_id = self.current_history_id()
+        cat1_job_id = self.setup_cat1_history(history_id)
+
+        self.navigate_to_workflow_extraction()
+        assert self.count_active_output_stars() == 0, "Outputs must default to unstarred"
+
+        self.extract_workflow_toggle_output_star(cat1_job_id)
+        self.components.workflow_extract.output_star_active_for_job(job_id=cat1_job_id).wait_for_present()
+        self.screenshot("workflow_extract_output_starred")
+
+        self.extract_workflow_rename_output(cat1_job_id, "cat1 result")
+
+        workflow_name = "Selenium Star And Label"
+        self.extract_workflow_name_and_submit(workflow_name)
+
+        workflow = self.get_workflow_by_name(workflow_name)
+        tool_steps = self.assert_steps_of_type(workflow, "tool", expected_len=1)
+        outputs = tool_steps[0]["workflow_outputs"]
+        assert len(outputs) == 1, outputs
+        assert outputs[0]["output_name"] == "out_file1"
+        assert outputs[0]["label"] == "cat1 result"
+
+    @skip_without_tool("cat1")
+    @selenium_test
+    @managed_history
+    def test_extract_step_label_creates_labeled_step(self):
+        """Label a tool step via the extraction UI, submit, and confirm the
+        downloaded workflow's tool step carries the label."""
+        history_id = self.current_history_id()
+        cat1_job_id = self.setup_cat1_history(history_id)
+
+        self.navigate_to_workflow_extraction()
+        self.components.workflow_extract.step_label_add_for_job(job_id=cat1_job_id).wait_for_present()
+        self.screenshot("workflow_extract_step_label_affordance")
+        self.extract_workflow_label_step(cat1_job_id, "my cat step")
+        self.screenshot("workflow_extract_step_labeled")
+
+        workflow_name = "Selenium Step Label"
+        self.extract_workflow_name_and_submit(workflow_name)
+
+        workflow = self.get_workflow_by_name(workflow_name)
+        tool_steps = self.assert_steps_of_type(workflow, "tool", expected_len=1)
+        assert tool_steps[0]["label"] == "my cat step", tool_steps[0]
+
+    @skip_without_tool("cat1")
+    @selenium_test
+    @managed_history
+    def test_extract_default_off_creates_no_workflow_outputs(self):
+        """Regression-guards the 'stars default off' UX decision: extracting
+        without touching stars must produce a workflow with no workflow_outputs."""
+        history_id = self.current_history_id()
+        self.setup_cat1_history(history_id)
+
+        self.navigate_to_workflow_extraction()
+        # Pin the UX default at the source: no stars active on initial render.
+        # Catches a regression that flips the default to on before the
+        # downstream workflow_outputs assertion would.
+        assert self.count_active_output_stars() == 0, "Outputs must default to unstarred"
+        self.screenshot("workflow_extract_default_no_outputs")
+
+        workflow_name = "Selenium Default No Outputs"
+        self.extract_workflow_name_and_submit(workflow_name)
+
+        workflow = self.get_workflow_by_name(workflow_name)
+        tool_steps = self.assert_steps_of_type(workflow, "tool", expected_len=1)
+        assert tool_steps[0]["workflow_outputs"] == [], tool_steps[0]["workflow_outputs"]
+
+    @skip_without_tool("cat1")
+    @selenium_test
+    @managed_history
+    def test_extract_cancel_rename_preserves_star_and_default_label(self):
+        """Cancelling the rename modal must leave the output starred but
+        keep the default label (no workflow_output label applied)."""
+        history_id = self.current_history_id()
+        cat1_job_id = self.setup_cat1_history(history_id)
+
+        self.navigate_to_workflow_extraction()
+        self.extract_workflow_toggle_output_star(cat1_job_id)
+        self.components.workflow_extract.output_star_active_for_job(job_id=cat1_job_id).wait_for_present()
+        self.extract_workflow_cancel_rename_output(cat1_job_id)
+        # Star must remain active after cancel.
+        self.components.workflow_extract.output_star_active_for_job(job_id=cat1_job_id).wait_for_present()
+
+        workflow_name = "Selenium Cancel Rename"
+        self.extract_workflow_name_and_submit(workflow_name)
+
+        workflow = self.get_workflow_by_name(workflow_name)
+        tool_steps = self.assert_steps_of_type(workflow, "tool", expected_len=1)
+        outputs = tool_steps[0]["workflow_outputs"]
+        assert len(outputs) == 1, outputs
+        assert outputs[0]["output_name"] == "out_file1"
+        # WorkflowExtractionForm's onOutputToggle auto-fills the label from
+        # suggested_name on star, so the label is non-empty even with no
+        # rename; the only invariant is that the cancelled rename did NOT apply.
+        assert outputs[0]["label"] != "discarded label", outputs[0]

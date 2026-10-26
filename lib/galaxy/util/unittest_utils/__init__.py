@@ -1,13 +1,10 @@
 import os
 import re
+from collections.abc import Callable
 from datetime import datetime
 from functools import wraps
 from typing import (
-    Callable,
-    List,
-    Optional,
     TypeVar,
-    Union,
 )
 from unittest import SkipTest
 
@@ -16,9 +13,10 @@ from typing_extensions import ParamSpec
 
 from galaxy.util import requests
 from galaxy.util.commands import which
+from galaxy.util.tool_shed.tool_shed_registry import DEFAULT_TOOL_SHED_URL
 
 
-def site_down_reason(url: str) -> Optional[str]:
+def site_down_reason(url: str) -> str | None:
     try:
         response = requests.get(url, timeout=10)
     except Exception as e:
@@ -36,11 +34,18 @@ def is_site_up(url: str) -> bool:
     return site_down_reason(url) is None
 
 
+def raise_skip_if_site_down(url: str) -> None:
+    """Raise ``SkipTest`` if ``url`` does not answer with HTTP 200, for setup code that isn't a test."""
+    reason = site_down_reason(url)
+    if reason:
+        raise SkipTest(f"Test depends on [{url}] being up and it appears to be down ({reason}).")
+
+
 P = ParamSpec("P")
 T = TypeVar("T")
 
 
-def _failure_texts(exception: Exception) -> List[str]:
+def _failure_texts(exception: Exception) -> list[str]:
     texts = [str(exception)]
     # requests.HTTPError carries the response, whose body holds the server's error message.
     response_text = getattr(getattr(exception, "response", None), "text", None)
@@ -49,9 +54,7 @@ def _failure_texts(exception: Exception) -> List[str]:
     return texts
 
 
-def skip_if_site_down(
-    url: str, unavailable_pattern: Optional[str] = None
-) -> Callable[[Callable[P, T]], Callable[P, T]]:
+def skip_if_site_down(url: str, unavailable_pattern: str | None = None) -> Callable[[Callable[P, T]], Callable[P, T]]:
     """Skip the test if ``url`` does not answer with HTTP 200.
 
     With ``unavailable_pattern``, a test that fails with an exception whose message or
@@ -62,9 +65,7 @@ def skip_if_site_down(
     def method_wrapper(method: Callable[P, T]) -> Callable[P, T]:
         @wraps(method)
         def wrapped_method(*args: P.args, **kwargs: P.kwargs) -> T:
-            reason = site_down_reason(url)
-            if reason:
-                raise SkipTest(f"Test depends on [{url}] being up and it appears to be down ({reason}).")
+            raise_skip_if_site_down(url)
             if unavailable_pattern is None:
                 return method(*args, **kwargs)
             try:
@@ -95,6 +96,7 @@ def skip_on_network_error(method: Callable[P, T]) -> Callable[P, T]:
 
 
 skip_if_github_down = skip_if_site_down("https://github.com/")
+skip_if_dockstore_down = skip_if_site_down("https://dockstore.org/")
 # Galaxy's TRS proxy reports these when WorkflowHub (or Cloudflare in front of it) is down or
 # blocking requests, which happens to CI runners while the homepage check still passes.
 skip_if_workflowhub_down = skip_if_site_down(
@@ -104,19 +106,26 @@ skip_if_workflowhub_down = skip_if_site_down(
         r"(responded with HTTP (403|429|5\d\d)|did not respond in time|could not be reached)"
     ),
 )
+# Quay's homepage can be available while API requests are rate-limited or fail during pagination.
+skip_if_quay_down = skip_if_site_down(
+    "https://quay.io/",
+    unavailable_pattern=r"\b(?:429 Client|5\d\d Server) Error: [^\n]* for url: https://quay\.io/api/",
+)
+skip_if_galaxy_depot_down = skip_if_site_down("https://depot.galaxyproject.org/")
+skip_if_toolshed_down = skip_if_site_down(DEFAULT_TOOL_SHED_URL)
 
 
 def _identity(func: Callable[P, T]) -> Callable[P, T]:
     return func
 
 
-def skip_unless_executable(executable: str) -> Union[Callable[[Callable[P, T]], Callable[P, T]], pytest.MarkDecorator]:
+def skip_unless_executable(executable: str) -> Callable[[Callable[P, T]], Callable[P, T]] | pytest.MarkDecorator:
     if which(executable):
         return _identity
     return pytest.mark.skip(f"PATH doesn't contain executable {executable}")
 
 
-def skip_unless_environ(env_var: str) -> Union[Callable[[Callable[P, T]], Callable[P, T]], pytest.MarkDecorator]:
+def skip_unless_environ(env_var: str) -> Callable[[Callable[P, T]], Callable[P, T]] | pytest.MarkDecorator:
     if os.environ.get(env_var):
         return _identity
 

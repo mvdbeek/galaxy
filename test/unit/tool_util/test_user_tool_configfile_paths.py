@@ -1,6 +1,5 @@
 from typing import (
     Any,
-    Dict,
 )
 
 import pytest
@@ -8,7 +7,7 @@ from pydantic import ValidationError
 
 from galaxy.tool_util_models import UserToolSource
 
-TOOL: Dict[str, Any] = {
+TOOL: dict[str, Any] = {
     "class": "GalaxyUserTool",
     "id": "configfile-tool",
     "name": "Configfile tool",
@@ -20,7 +19,7 @@ TOOL: Dict[str, Any] = {
 }
 
 
-def _tool_with_configfile_filename(filename: str) -> Dict[str, Any]:
+def _tool_with_configfile_filename(filename: str) -> dict[str, Any]:
     return {**TOOL, "configfiles": [{"name": "script", "filename": filename, "content": "echo hi > out.txt"}]}
 
 

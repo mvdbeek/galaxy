@@ -4,11 +4,6 @@ from copy import deepcopy
 from typing import (
     Any,
     cast,
-    Dict,
-    List,
-    Optional,
-    Tuple,
-    Union,
 )
 
 import packaging.version
@@ -24,7 +19,9 @@ from galaxy.tool_util.parser.util import (
     DEFAULT_DELTA,
     DEFAULT_DELTA_FRAC,
     DEFAULT_SORT,
+    ParseException,
 )
+from galaxy.tool_util.runtime_environment import parse_runtime_environment_variables
 from galaxy.tool_util_models import UserToolSource
 from galaxy.tool_util_models.parameter_validators import AnyValidatorModel
 from galaxy.tool_util_models.parameters import (
@@ -82,10 +79,10 @@ class UntrustedToolSourceError(ValueError):
 class YamlToolSource(ToolSource):
     language = "yaml"
 
-    def __init__(self, root_dict: Dict, source_path=None):
+    def __init__(self, root_dict: dict, source_path=None):
         self.root_dict = root_dict
         self._source_path = source_path
-        self._macro_paths: List[str] = []
+        self._macro_paths: list[str] = []
         if not self._trusted and (unsupported := sorted(set(root_dict) - USER_TOOL_ROOT_KEYS)):
             raise UntrustedToolSourceError(f"User-defined tools may not set {', '.join(unsupported)}.")
 
@@ -106,7 +103,7 @@ class YamlToolSource(ToolSource):
     def parse_tool_type(self):
         return self.root_dict.get("tool_type")
 
-    def parse_tool_module(self) -> Optional[Tuple[str, str]]:
+    def parse_tool_module(self) -> tuple[str, str] | None:
         # This should not be settable for user defined tools - placing this here to
         # ensure this. If we want to implement tool modules for YAML tools in the future
         # ensure class is not GalaxyUserTool.
@@ -115,7 +112,7 @@ class YamlToolSource(ToolSource):
     def parse_id(self):
         return self.root_dict.get("id")
 
-    def parse_version(self) -> Optional[str]:
+    def parse_version(self) -> str | None:
         version_raw = self.root_dict.get("version")
         return str(version_raw) if version_raw is not None else None
 
@@ -127,19 +124,25 @@ class YamlToolSource(ToolSource):
     def parse_description(self) -> str:
         return self.root_dict.get("description") or ""
 
-    def parse_icon(self) -> Optional[str]:
+    def parse_icon(self) -> str | None:
         icon_elem = self.root_dict.get("icon", {})
         return icon_elem.get("src") if icon_elem is not None else None
 
-    def parse_edam_operations(self) -> List[str]:
+    def parse_edam_operations(self) -> list[str]:
         return self.root_dict.get("edam_operations") or []
 
-    def parse_edam_topics(self) -> List[str]:
+    def parse_edam_topics(self) -> list[str]:
         return self.root_dict.get("edam_topics") or []
 
-    def parse_xrefs(self) -> List[XrefDict]:
+    def parse_xrefs(self) -> list[XrefDict]:
         xrefs = self.root_dict.get("xrefs") or []
         return [XrefDict(value=xref["value"], type=xref["type"]) for xref in xrefs if xref["type"]]
+
+    def parse_creator(self) -> list[dict[str, Any]]:
+        return self.root_dict.get("creator") or []
+
+    def parse_funding(self) -> list[dict[str, Any]]:
+        return [{"class": "Grant", **grant} for grant in self.root_dict.get("funding") or []]
 
     def parse_sanitize(self):
         return self.root_dict.get("sanitize", True)
@@ -156,14 +159,14 @@ class YamlToolSource(ToolSource):
     def parse_expression(self):
         return self.root_dict.get("expression")
 
-    def parse_shell_command(self) -> Optional[str]:
+    def parse_shell_command(self) -> str | None:
         return self.root_dict.get("shell_command")
 
-    def parse_base_command(self) -> Optional[List[str]]:
+    def parse_base_command(self) -> list[str] | None:
         """Return string containing script entrypoint."""
         return listify(self.root_dict.get("base_command"))
 
-    def parse_arguments(self) -> Optional[List[str]]:
+    def parse_arguments(self) -> list[str] | None:
         return self.root_dict.get("arguments")
 
     def parse_environment_variables(self):
@@ -181,8 +184,23 @@ class YamlToolSource(ToolSource):
     def parse_version_command_interpreter(self):
         return self.root_dict.get("runtime_version", {}).get("interpreter", None)
 
+    def parse_runtime_environment_variables(self, *, strict: bool = True):
+        return parse_runtime_environment_variables(
+            self.root_dict.get("runtime_environment_variables", []),
+            strict=strict,
+        )
+
     def parse_requirements(self):
-        mixed_requirements = self.root_dict.get("requirements", [])
+        mixed_requirements = self.root_dict.get("requirements") or []
+        if self.parse_class() == "GalaxyUserTool":
+            if not isinstance(mixed_requirements, list) or not all(
+                isinstance(requirement, dict) for requirement in mixed_requirements
+            ):
+                raise ParseException("User-defined tool requirements must be a list of mappings.")
+            if any(requirement.get("type") == "container" for requirement in mixed_requirements):
+                raise ParseException(
+                    "Container requirements are not supported for user-defined tools; set the top-level container field."
+                )
         container = self.root_dict.get("container")
         containers = self.root_dict.get("containers")
         if container:
@@ -213,7 +231,7 @@ class YamlToolSource(ToolSource):
     def parse_stdio(self):
         return error_on_exit_code()
 
-    def parse_help(self) -> Optional[HelpContent]:
+    def parse_help(self) -> HelpContent | None:
         help = self.root_dict.get("help")
         format = "markdown"
         if isinstance(help, dict):
@@ -225,7 +243,7 @@ class YamlToolSource(ToolSource):
         else:
             return None
 
-    def parse_outputs(self, app: Optional[ToolOutputActionApp]):
+    def parse_outputs(self, app: ToolOutputActionApp | None):
         outputs = deepcopy(self.root_dict.get("outputs", []))
         if isinstance(outputs, MutableMapping):
             for name, output_dict in outputs.items():
@@ -301,7 +319,7 @@ class YamlToolSource(ToolSource):
         return output_collection
 
     def parse_tests_to_dict(self) -> ToolSourceTests:
-        tests: List[ToolSourceTest] = []
+        tests: list[ToolSourceTest] = []
         rval: ToolSourceTests = dict(tests=tests)
 
         raw_tests = deepcopy(self.root_dict.get("tests") or [])
@@ -309,9 +327,11 @@ class YamlToolSource(ToolSource):
             inputs = test_dict.get("inputs", {})
             state = TestCaseJsonToolState(inputs)
             parameters = self._parse_parameters()
-            state.validate(parameters, name=f"test case json {i}")
+            if not test_dict.get("expect_failure", False):
+                # tests expecting failure may supply values the tool rejects
+                state.validate(parameters, name=f"test case json {i}")
 
-            flat_inputs: Dict[str, Any] = {}
+            flat_inputs: dict[str, Any] = {}
             self._flatten_parameters(inputs, parameters, flat_inputs=flat_inputs)
             test_dict["inputs"] = flat_inputs
             parsed_test = _parse_test(i, test_dict)
@@ -320,12 +340,12 @@ class YamlToolSource(ToolSource):
         return rval
 
     def _flatten_parameters(
-        self, test_dict: Dict[str, Any], input_models: ToolParameterBundle, flat_inputs, prefix=None
+        self, test_dict: dict[str, Any], input_models: ToolParameterBundle, flat_inputs, prefix=None
     ):
         for parameter in input_models.parameters:
             self._flatten_parameter(test_dict, parameter, flat_inputs, prefix=prefix)
 
-    def _flatten_parameter(self, test_dict: Dict[str, Any], parameter: ToolParameterT, flat_inputs, prefix=None):
+    def _flatten_parameter(self, test_dict: dict[str, Any], parameter: ToolParameterT, flat_inputs, prefix=None):
         name = parameter.name
         if prefix:
             flat_name = f"{prefix}|{name}"
@@ -338,12 +358,12 @@ class YamlToolSource(ToolSource):
 
             raw_conditional_state = test_dict[name]
             assert isinstance(raw_conditional_state, dict)
-            conditional_state = cast(Dict[str, Any], raw_conditional_state)
+            conditional_state = cast(dict[str, Any], raw_conditional_state)
 
             test_parameter = parameter.test_parameter
             test_parameter_name = test_parameter.name
 
-            explicit_test_value: Optional[DiscriminatorType] = (
+            explicit_test_value: DiscriminatorType | None = (
                 conditional_state[test_parameter_name] if test_parameter_name in conditional_state else None
             )
             test_value = validate_explicit_conditional_test_value(test_parameter_name, explicit_test_value)
@@ -353,7 +373,7 @@ class YamlToolSource(ToolSource):
         elif parameter.parameter_type == "gx_repeat":
             if name not in test_dict:
                 test_dict[name] = []
-            repeat_instances = cast(List[Dict[str, Any]], test_dict[name])
+            repeat_instances = cast(list[dict[str, Any]], test_dict[name])
             if parameter.min:
                 while len(repeat_instances) < parameter.min:
                     repeat_instances.append({})
@@ -380,7 +400,7 @@ class YamlToolSource(ToolSource):
         # a string. The ``-> str`` annotation was previously violated for numeric input.
         return str(self.root_dict.get("profile") or "24.2")
 
-    def parse_license(self) -> Optional[str]:
+    def parse_license(self) -> str | None:
         return self.root_dict.get("license")
 
     def parse_interactivetool(self):
@@ -397,7 +417,7 @@ class YamlToolSource(ToolSource):
         return json.dumps(self.root_dict, ensure_ascii=False, sort_keys=False)
 
 
-def __parse_test_inputs(i: int, test_inputs: Union[list, dict]) -> ToolSourceTestInputs:
+def __parse_test_inputs(i: int, test_inputs: list | dict) -> ToolSourceTestInputs:
     inputs: list = test_inputs if isinstance(test_inputs, list) else []
     if isinstance(test_inputs, dict):
         for key, value in test_inputs.items():
@@ -413,7 +433,7 @@ def __parse_test_inputs(i: int, test_inputs: Union[list, dict]) -> ToolSourceTes
 
 def _parse_test(i: int, test_dict: dict) -> ToolSourceTest:
     test_dict["inputs"] = __parse_test_inputs(i, deepcopy(test_dict["inputs"]))
-    outputs = test_dict["outputs"]
+    outputs = test_dict.get("outputs") or {}
 
     new_outputs = []
     if is_dict(outputs):
@@ -464,10 +484,10 @@ def _parse_test(i: int, test_dict: dict) -> ToolSourceTest:
     return cast(ToolSourceTest, test_dict)
 
 
-_direct_credential_adapter: TypeAdapter = TypeAdapter(List[DirectCredential])
+_direct_credential_adapter: TypeAdapter = TypeAdapter(list[DirectCredential])
 
 
-def __parse_credentials_yaml(credentials_data) -> Optional[List[DirectCredential]]:
+def __parse_credentials_yaml(credentials_data) -> list[DirectCredential] | None:
     """
     Parse credentials from YAML test definition.
 
@@ -500,7 +520,7 @@ def to_test_assert_list(assertions) -> AssertionList:
     if is_dict(assertions):
         assertions = map(expand_dict_form, assertions.items())
 
-    assert_list: List[AssertionDict] = []
+    assert_list: list[AssertionDict] = []
     for assertion in assertions:
         # TODO: not handling nested assertions correctly,
         # not sure these are used though.
@@ -602,10 +622,10 @@ class YamlInputSource(InputSource):
                 sources.append((discriminator, case_page_source))
         return sources
 
-    def parse_validators(self) -> List[AnyValidatorModel]:
+    def parse_validators(self) -> list[AnyValidatorModel]:
         return parse_dict_validators(self.input_dict.get("validators", []), trusted=self.trusted)
 
-    def parse_static_options(self) -> List[Tuple[str, str, bool]]:
+    def parse_static_options(self) -> list[tuple[str, str, bool]]:
         static_options = []
         input_dict = self.input_dict
         for option in input_dict.get("options", {}):
@@ -615,7 +635,7 @@ class YamlInputSource(InputSource):
             static_options.append((label, value, selected))
         return static_options
 
-    def parse_default(self) -> Optional[Dict[str, Any]]:
+    def parse_default(self) -> dict[str, Any] | None:
         input_dict = self.input_dict
         default_def = input_dict.get("default", None)
         return default_def

@@ -44,18 +44,32 @@ describe("userLogout", () => {
         expect(Toast.error).toHaveBeenCalledWith("Invalid session token.", "Logout failed");
     });
 
-    it("finishes logging out when only the identity provider logout fails", async () => {
+    it("reports a failed identity provider logout", async () => {
         vi.mocked(getGalaxyInstance).mockReturnValue({
             config: { post_user_logout_href: "/logged_out", enable_oidc: true },
             session_csrf_token: "token",
         });
-        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-        axios.get.mockResolvedValueOnce({ data: {} }).mockRejectedValueOnce(new Error("Network Error"));
+        axios.get.mockRejectedValueOnce({
+            response: { status: 500, data: { err_msg: "Identity provider unavailable." } },
+        });
         userLogout();
         await flushPromises();
-        expect(axios.get).toHaveBeenLastCalledWith(expect.stringContaining("/authnz/logout"));
-        expect(warn).toHaveBeenCalled();
-        expect(Toast.error).not.toHaveBeenCalled();
-        expect(window.top.location.href).toContain("/logged_out");
+        expect(axios.get).toHaveBeenCalledOnce();
+        expect(axios.get).toHaveBeenCalledWith(expect.stringContaining("/authnz/logout"));
+        expect(Toast.error).toHaveBeenCalledWith("Identity provider unavailable.", "Logout failed");
+    });
+
+    it("falls back to the Galaxy logout when the identity provider logout has nothing to do", async () => {
+        vi.mocked(getGalaxyInstance).mockReturnValue({
+            config: { post_user_logout_href: "/logged_out", enable_oidc: true },
+            session_csrf_token: "token",
+        });
+        axios.get.mockResolvedValueOnce({ data: {} }).mockRejectedValueOnce({
+            response: { status: 400, data: { err_msg: "Invalid session token." } },
+        });
+        userLogout();
+        await flushPromises();
+        expect(axios.get).toHaveBeenLastCalledWith(expect.stringContaining("/user/logout"));
+        expect(Toast.error).toHaveBeenCalledWith("Invalid session token.", "Logout failed");
     });
 });

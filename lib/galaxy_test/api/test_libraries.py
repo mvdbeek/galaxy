@@ -1,4 +1,6 @@
 import unittest
+import zipfile
+from io import BytesIO
 
 from galaxy.model.unittest_utils.store_fixtures import (
     one_ld_library_model_store_dict,
@@ -11,9 +13,12 @@ from galaxy_test.base.populators import (
     DatasetPopulator,
     FILE_URL,
     LibraryPopulator,
+    local_file_url,
     skip_without_asgi,
 )
 from ._framework import ApiTestCase
+
+VTK_POLY_DATA = '<?xml version="1.0"?>\n<VTKFile type="PolyData" version="0.1">\n</VTKFile>\n'
 
 
 class TestLibrariesApi(ApiTestCase):
@@ -45,6 +50,20 @@ class TestLibrariesApi(ApiTestCase):
         assert "id" in library_summary
         ld = self.library_populator.get_library_contents_with_path(library_summary["id"], "/my cool name")
         assert ld
+
+    @requires_new_library
+    def test_download_uses_download_extension(self):
+        ld = self.library_populator.new_library_dataset(
+            "DownloadExtensionLibrary", contents=VTK_POLY_DATA, file_type="vtkxml"
+        )
+        response = self._get("libraries/datasets/download/uncompressed", {"ld_ids": ld["id"]})
+        self._assert_status_code_is(response, 200)
+        assert response.headers["Content-Disposition"].endswith('.vtp"')
+
+        response = self._get("libraries/datasets/download/zip", {"ld_ids": ld["id"]})
+        self._assert_status_code_is(response, 200)
+        [archive_path] = zipfile.ZipFile(BytesIO(response.content)).namelist()
+        assert archive_path.endswith(".vtp")
 
     @requires_new_library
     def test_index(self):
@@ -288,8 +307,8 @@ class TestLibrariesApi(ApiTestCase):
         assert dataset["file_size"] == 61, dataset
 
     @requires_new_library
-    def test_fetch_single_url_to_folder(self):
-        library, response = self.library_populator.fetch_single_url_to_folder()
+    def test_fetch_single_url_to_folder(self, test_http_server):
+        library, response = self.library_populator.fetch_single_url_to_folder(url=local_file_url(test_http_server))
         dataset = self.library_populator.get_library_contents_with_path(library["id"], "/4.bed")
         assert dataset["file_size"] == 61, dataset
 
@@ -317,11 +336,11 @@ class TestLibrariesApi(ApiTestCase):
         assert create_response.json()["err_msg"] == "Requested extension 'xxx' unknown, cannot upload dataset."
 
     @requires_new_library
-    def test_fetch_failed_validation(self, mock_http_server):
+    def test_fetch_failed_validation(self, test_http_server):
         # Exception handling is really rough here - we should be creating a dataset in error instead
         # of just failing the job like this.
         history_id, library, destination = self._setup_fetch_to_folder("single_url")
-        url = mock_http_server.get_url(
+        url = test_http_server.get_url(
             remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed",
             file_path="test-data/4.bed",
         )
@@ -355,9 +374,9 @@ class TestLibrariesApi(ApiTestCase):
         assert dataset["state"] == "error", dataset
 
     @requires_new_library
-    def test_fetch_url_archive_to_folder(self, mock_http_server):
+    def test_fetch_url_archive_to_folder(self, test_http_server):
         history_id, library, destination = self._setup_fetch_to_folder("single_url")
-        url = mock_http_server.get_url(
+        url = test_http_server.get_url(
             remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/4.bed.zip",
             file_path="test-data/4.bed.zip",
         )

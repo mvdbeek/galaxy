@@ -2,10 +2,10 @@ import "@/composables/__mocks__/filter";
 
 import { createTestingPinia } from "@pinia/testing";
 import { getLocalVue } from "@tests/vitest/helpers";
-import { mount, type Wrapper } from "@vue/test-utils";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { setActivePinia } from "pinia";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
 
@@ -21,41 +21,49 @@ const PUBLISHED_WARNING_SELECTOR = "#broadcast-published-warning";
 
 const localVue = getLocalVue(true);
 
+// BroadcastForm gets its router via the Composition API's useRouter(), which resolves
+// through injection rather than the (Options API) `$router` global mocks used to cover.
+const mockPush = vi.fn();
+vi.mock("vue-router", () => ({
+    useRouter: () => ({
+        push: (...args: unknown[]) => mockPush(...args),
+    }),
+}));
+
+beforeEach(() => {
+    mockPush.mockClear();
+});
+
 async function mountBroadcastForm(props?: object) {
-    const pinia = createTestingPinia({ createSpy: vi.fn });
+    const pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false });
     setActivePinia(pinia);
 
-    const mockRouter = {
-        push: vi.fn(),
-    };
-
     const wrapper = mount(BroadcastForm as object, {
-        propsData: {
+        props: {
             ...props,
         },
-        localVue,
+        global: localVue,
         pinia,
         stubs: {
             FontAwesomeIcon: true,
-            FormElement: true,
+            // FormElement is rendered for real (not stubbed): the assertions below
+            // interact with its underlying <input> elements via setValue(), which a
+            // stub root element can't support.
             GDateTime: true,
             LoadingSpan: true,
             BroadcastContainer: true,
-        },
-        mocks: {
-            $router: mockRouter,
         },
     });
 
     await flushPromises();
 
-    return { wrapper, mockRouter };
+    return { wrapper, mockRouter: { push: mockPush } };
 }
 
 const { server, http } = useServerMock();
 
 describe("BroadcastForm.vue", () => {
-    function expectSubmitButton(wrapper: Wrapper<Vue>, enabled: boolean) {
+    function expectSubmitButton(wrapper: VueWrapper, enabled: boolean) {
         expect(wrapper.find(SUBMIT_BUTTON_SELECTOR).exists()).toBeTruthy();
         expect(wrapper.find(SUBMIT_BUTTON_SELECTOR).attributes("aria-disabled")).toBe(enabled ? undefined : "true");
         expect(wrapper.find(SUBMIT_BUTTON_SELECTOR).attributes("data-title")).toBe(
@@ -64,7 +72,7 @@ describe("BroadcastForm.vue", () => {
     }
 
     async function createBroadcast(
-        wrapper: Wrapper<Vue>,
+        wrapper: VueWrapper,
         mockRouter: { push: ReturnType<typeof vi.fn> },
         actionsLink = false,
     ) {
@@ -115,6 +123,29 @@ describe("BroadcastForm.vue", () => {
         const { wrapper, mockRouter } = await mountBroadcastForm();
 
         await createBroadcast(wrapper, mockRouter, true);
+    });
+
+    it("sends a new-tab target for an action link marked to open in a new tab", async () => {
+        let submittedActionLinks: unknown;
+        server.use(
+            http.post("/api/notifications/broadcast", async ({ request, response }) => {
+                submittedActionLinks = (await request.json()).content.action_links;
+                return response.untyped(HttpResponse.json({}, { status: 200 }));
+            }),
+        );
+        const { wrapper } = await mountBroadcastForm();
+
+        await wrapper.find(SUBJECT_INPUT_SELECTOR).setValue("Test subject");
+        await wrapper.find(MESSAGE_INPUT_SELECTOR).setValue("Test message");
+        await wrapper.find(ACTION_LINK_SELECTOR).trigger("click");
+        await flushPromises();
+        await wrapper.find("#broadcast-action-link-name-0").setValue("Costs");
+        await wrapper.find("#broadcast-action-link-link-0").setValue("/costs/");
+        await wrapper.find("#broadcast-action-link-new-tab-0").setValue(true);
+        await wrapper.find(SUBMIT_BUTTON_SELECTOR).trigger("click");
+        await flushPromises();
+
+        expect(submittedActionLinks).toEqual([{ action_name: "Costs", link: "/costs/", target: "_blank" }]);
     });
 
     it("should get broadcast data when id is defined", async () => {

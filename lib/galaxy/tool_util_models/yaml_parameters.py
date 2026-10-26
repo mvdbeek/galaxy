@@ -14,9 +14,9 @@ is not load-bearing for execution today.
 """
 
 from typing import (
-    List,
-    Optional,
-    Union,
+    Annotated,
+    Literal,
+    TypeAlias,
 )
 
 from pydantic import (
@@ -25,10 +25,6 @@ from pydantic import (
     Field,
     field_validator,
     RootModel,
-)
-from typing_extensions import (
-    Annotated,
-    Literal,
 )
 
 from .parameter_validators import (
@@ -71,13 +67,11 @@ class YamlLabelValue(BaseModel):
 
 
 # Narrow validator unions — drops XML-only validators like Expression.
-YamlTextValidators = Union[
-    LengthParameterValidatorModel,
-    RegexParameterValidatorModel,
-    EmptyFieldParameterValidatorModel,
-]
-YamlNumberValidators = Union[InRangeParameterValidatorModel,]
-YamlSelectValidators = Union[NoOptionsParameterValidatorModel,]
+YamlTextValidators: TypeAlias = (
+    LengthParameterValidatorModel | RegexParameterValidatorModel | EmptyFieldParameterValidatorModel
+)
+YamlNumberValidators: TypeAlias = InRangeParameterValidatorModel
+YamlSelectValidators: TypeAlias = NoOptionsParameterValidatorModel
 
 
 class _YamlParamBase(BaseModel):
@@ -88,11 +82,11 @@ class _YamlParamBase(BaseModel):
         Field(description="Identifier used to read this input from `shell_command` and other expressions."),
     ]
     label: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Label shown for the input on the tool form."),
     ] = None
     help: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Additional guidance shown on the tool form to help users choose a value."),
     ] = None
     optional: Annotated[
@@ -132,7 +126,7 @@ class YamlBooleanParameter(_YamlParamBase):
         Field(description="Presents a true-or-false choice and supplies the selected Boolean value to expressions."),
     ]
     value: Annotated[
-        Optional[bool],
+        bool | None,
         Field(description="Initial choice shown when the user first opens the tool form."),
     ] = False
 
@@ -164,19 +158,19 @@ class YamlIntegerParameter(_YamlParamBase):
         Field(description="Accepts a whole number and supplies it as a numeric value to expressions."),
     ]
     value: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Number prefilled when the user first opens the tool form."),
     ] = None
     min: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Rejects submitted values smaller than this inclusive lower bound."),
     ] = None
     max: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Rejects submitted values larger than this inclusive upper bound."),
     ] = None
     validators: Annotated[
-        List[YamlNumberValidators],
+        list[YamlNumberValidators],
         Field(description="Additional validation rules; supports `in_range`."),
     ] = []
 
@@ -215,19 +209,19 @@ class YamlFloatParameter(_YamlParamBase):
         Field(description="Accepts a number, including decimal values, and supplies it to expressions."),
     ]
     value: Annotated[
-        Optional[float],
+        float | None,
         Field(description="Number prefilled when the user first opens the tool form."),
     ] = None
     min: Annotated[
-        Optional[float],
+        float | None,
         Field(description="Rejects submitted values smaller than this inclusive lower bound."),
     ] = None
     max: Annotated[
-        Optional[float],
+        float | None,
         Field(description="Rejects submitted values larger than this inclusive upper bound."),
     ] = None
     validators: Annotated[
-        List[YamlNumberValidators],
+        list[YamlNumberValidators],
         Field(description="Additional validation rules; supports `in_range`."),
     ] = []
 
@@ -264,7 +258,7 @@ class YamlTextParameter(_YamlParamBase):
         Literal["text"],
         Field(description="Accepts user-entered text and supplies the resulting string to expressions."),
     ]
-    value: Optional[str] = Field(
+    value: str | None = Field(
         default=None,
         alias="value",
         description="Text prefilled when the user first opens the tool form.",
@@ -274,7 +268,7 @@ class YamlTextParameter(_YamlParamBase):
         Field(description="Set true to use a multiline editor instead of a single-line text box."),
     ] = False
     validators: Annotated[
-        List[YamlTextValidators],
+        list[YamlTextValidators],
         Field(description="Additional validation rules; supports `length`, `regex`, and `empty_field`."),
     ] = []
 
@@ -313,7 +307,7 @@ class YamlSelectParameter(_YamlParamBase):
         Field(description="Lets the user choose from the declared `options` and supplies the selected value."),
     ]
     options: Annotated[
-        List[YamlLabelValue],
+        list[YamlLabelValue],
         Field(min_length=1, description="Choices presented on the tool form, each with a display label and value."),
     ]
     multiple: Annotated[
@@ -321,7 +315,7 @@ class YamlSelectParameter(_YamlParamBase):
         Field(description="Set true to let the user select and supply several option values instead of one."),
     ] = False
     validators: Annotated[
-        List[YamlSelectValidators],
+        list[YamlSelectValidators],
         Field(description="Additional validation rules; supports `no_options`."),
     ] = []
 
@@ -357,7 +351,7 @@ class YamlColorParameter(_YamlParamBase):
         Field(description="Presents a color picker and supplies the selected hexadecimal color string."),
     ]
     value: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Color initially selected in the picker, written in hexadecimal notation."),
     ] = None
 
@@ -395,7 +389,7 @@ class YamlDataParameter(_YamlParamBase):
         Field(description="Lets the user select history datasets and exposes their paths and metadata to expressions."),
     ]
     format: Annotated[
-        List[str],
+        list[str],
         Field(description="Limits selectable datasets to these Galaxy datatype extensions."),
     ] = ["data"]
     multiple: Annotated[
@@ -448,11 +442,11 @@ reverse='$(inputs.reads.elements.reverse.path)'""",
         Field(description="Lets the user select a history collection and exposes its elements to expressions."),
     ]
     collection_type: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Limits selectable collections to this structure, such as `list` or `paired`."),
     ] = None
     format: Annotated[
-        List[str],
+        list[str],
         Field(description="Requires every selectable collection element to use one of these datatype extensions."),
     ] = ["data"]
 
@@ -471,14 +465,14 @@ reverse='$(inputs.reads.elements.reverse.path)'""",
         )
 
 
-YamlConditionalTestParameter = Annotated[Union[YamlBooleanParameter, YamlSelectParameter], Field(discriminator="type")]
+YamlConditionalTestParameter = Annotated[YamlBooleanParameter | YamlSelectParameter, Field(discriminator="type")]
 
 
 class YamlConditionalWhen(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    discriminator: Union[bool, str]
-    parameters: List["YamlGalaxyToolParameter"] = []
+    discriminator: bool | str
+    parameters: list["YamlGalaxyToolParameter"] = []
 
 
 class YamlConditionalParameter(_YamlParamBase):
@@ -525,7 +519,7 @@ class YamlConditionalParameter(_YamlParamBase):
         Field(description="Boolean or select input whose submitted value chooses the active `whens` branch."),
     ]
     whens: Annotated[
-        List[YamlConditionalWhen],
+        list[YamlConditionalWhen],
         Field(
             min_length=1,
             description="Maps each control value to the nested parameters shown and supplied for that branch.",
@@ -535,7 +529,7 @@ class YamlConditionalParameter(_YamlParamBase):
     def to_internal(self) -> ConditionalParameterModel:
         internal_test = self.test_parameter.to_internal()
         default_value = cond_test_parameter_default_value(internal_test)
-        internal_whens: List[ConditionalWhen] = []
+        internal_whens: list[ConditionalWhen] = []
         for when in self.whens:
             internal_params = [p.root.to_internal() for p in when.parameters]
             internal_whens.append(
@@ -577,15 +571,15 @@ class YamlRepeatParameter(_YamlParamBase):
         Field(description="Lets the user add multiple entries that all contain the same nested inputs."),
     ]
     parameters: Annotated[
-        List["YamlGalaxyToolParameter"],
+        list["YamlGalaxyToolParameter"],
         Field(description="Nested inputs that make up one entry in the repeated group."),
     ] = []
     min: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Keeps at least this many entries in the group and creates them when the form opens."),
     ] = None
     max: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Prevents the user from adding more than this many entries."),
     ] = None
 
@@ -629,7 +623,7 @@ class YamlSectionParameter(_YamlParamBase):
         Field(description="Places related inputs in a collapsible group to simplify the tool form."),
     ]
     parameters: Annotated[
-        List["YamlGalaxyToolParameter"],
+        list["YamlGalaxyToolParameter"],
         Field(description="Nested inputs displayed together inside the section."),
     ] = []
 
@@ -641,19 +635,19 @@ class YamlSectionParameter(_YamlParamBase):
         )
 
 
-YamlGalaxyParameterT = Union[
-    YamlBooleanParameter,
-    YamlIntegerParameter,
-    YamlFloatParameter,
-    YamlTextParameter,
-    YamlSelectParameter,
-    YamlColorParameter,
-    YamlDataParameter,
-    YamlDataCollectionParameter,
-    YamlConditionalParameter,
-    YamlRepeatParameter,
-    YamlSectionParameter,
-]
+YamlGalaxyParameterT = (
+    YamlBooleanParameter
+    | YamlIntegerParameter
+    | YamlFloatParameter
+    | YamlTextParameter
+    | YamlSelectParameter
+    | YamlColorParameter
+    | YamlDataParameter
+    | YamlDataCollectionParameter
+    | YamlConditionalParameter
+    | YamlRepeatParameter
+    | YamlSectionParameter
+)
 
 
 class YamlGalaxyToolParameter(RootModel):

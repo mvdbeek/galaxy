@@ -72,7 +72,7 @@ def move_file(current_dir, source, destination, rename_to=None):
     shutil.move(source_path, destination_path)
 
 
-def remove_dir(dir):
+def remove_dir(dir: str | None) -> None:
     """Attempt to remove a directory from disk."""
     if dir:
         if os.path.exists(dir):
@@ -82,7 +82,7 @@ def remove_dir(dir):
                 pass
 
 
-def size_string(raw_text, size=MAX_DISPLAY_SIZE):
+def size_string(raw_text: str | None, size: int = MAX_DISPLAY_SIZE) -> str:
     """Return a subset of a string (up to MAX_DISPLAY_SIZE) translated to a safe string for display in a browser."""
     if raw_text and len(raw_text) >= size:
         large_str = (
@@ -98,7 +98,7 @@ def stringify(list):
     return ""
 
 
-def strip_path(fpath):
+def strip_path(fpath: str) -> str:
     """Attempt to strip the path from a file name."""
     if not fpath:
         return fpath
@@ -109,17 +109,16 @@ def strip_path(fpath):
     return file_name
 
 
-def to_html_string(text):
+def to_html_string(text: str) -> str:
     """Translates the characters in text to an html string"""
-    if text:
-        try:
-            text = unicodify(text)
-        except UnicodeDecodeError as e:
-            return f"Error decoding string: {str(e)}"
-        text = str(markupsafe.escape(text))
-        text = text.replace("\n", "<br/>")
-        text = text.replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
-        text = text.replace(" ", "&nbsp;")
+    try:
+        text = unicodify(text)
+    except UnicodeDecodeError as e:
+        return f"Error decoding string: {str(e)}"
+    text = str(markupsafe.escape(text))
+    text = text.replace("\n", "<br/>")
+    text = text.replace("    ", "&nbsp;&nbsp;&nbsp;&nbsp;")
+    text = text.replace(" ", "&nbsp;")
     return text
 
 

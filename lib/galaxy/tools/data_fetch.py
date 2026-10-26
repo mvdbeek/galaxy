@@ -5,15 +5,17 @@ import os
 import shutil
 import sys
 import tempfile
+from collections.abc import Iterator
 from io import StringIO
+from itertools import chain
 from typing import (
     Any,
-    Optional,
 )
 
 import bdbag.bdbag_api
 
 from galaxy.datatypes import sniff
+from galaxy.datatypes.data import Directory
 from galaxy.datatypes.registry import Registry
 from galaxy.datatypes.upload_util import (
     handle_upload,
@@ -63,7 +65,7 @@ def do_fetch(
     request_path: str,
     working_directory: str,
     registry: Registry,
-    file_sources_dict: Optional[dict] = None,
+    file_sources_dict: dict | None = None,
 ):
     assert os.path.exists(request_path)
     with open(request_path) as f:
@@ -270,6 +272,105 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
                 raise Exception(f"Non-composite datatype [{datatype}] attempting to be created with composite data.")
             return _resolve_item_with_primary(item)
 
+    def _reject_symlinks(root: str, name: str) -> None:
+        """Raise UploadProblemException if the root or any entry is a symlink."""
+        for candidate in chain((root,), _walk_entries(root)):
+            if os.path.islink(candidate):
+                where = os.path.relpath(candidate, root) if candidate != root else "the directory itself"
+                raise UploadProblemException(
+                    f"Directory [{name}] contains a symbolic link [{where}]; "
+                    "symbolic links are not supported in directory uploads."
+                )
+
+    def _walk_entries(root: str) -> Iterator[str]:
+        for dirpath, dirnames, filenames in os.walk(root):
+            for entry in dirnames + filenames:
+                yield os.path.join(dirpath, entry)
+
+    def _stage_directory(path: str, staged: str, purge_source: bool) -> bool:
+        """Stage the directory and return whether the source was removed."""
+        os.makedirs(os.path.dirname(staged), exist_ok=True)
+        if purge_source:
+            try:
+                # Use rename to keep source deletion atomic.
+                os.rename(path, staged)
+                return True
+            except OSError:
+                # Different filesystem, or a source we may not unlink.
+                pass
+        shutil.copytree(path, staged, symlinks=True)
+        return False
+
+    def _resolve_directory_item(
+        item: dict[str, Any],
+        name: str,
+        path: str,
+        requested_ext: str | None,
+        link_data_only: bool,
+        purge_source: bool,
+    ):
+        """Stage a directory dataset with an empty primary file and content in extra files."""
+        if link_data_only:
+            raise UploadProblemException(
+                f"Directory [{name}] cannot be linked to without copying; linking directory datasets is not implemented."
+            )
+
+        registry = upload_config.registry
+        ext = requested_ext
+        sniff_ext = ext in (None, "auto", "data")
+        if not sniff_ext:
+            datatype = registry.get_datatype_by_extension(ext)
+            if not isinstance(datatype, Directory):
+                raise UploadProblemException(
+                    f"Directory [{name}] cannot be uploaded as datatype [{ext}], which is not a directory datatype."
+                )
+
+        if item.get("hashes") or any(item.get(hash_function) for hash_function in HASH_NAMES):
+            raise UploadProblemException(
+                f"Directory [{name}] was given a checksum, which cannot be verified for a directory; "
+                "checksums are not supported in directory uploads."
+            )
+
+        # Check containment before walking the tree to avoid scanning ancestors such as "/".
+        source_root = os.path.realpath(path)
+        working_directory = os.path.realpath(upload_config.working_directory)
+        if working_directory == source_root or in_directory(working_directory, source_root):
+            raise UploadProblemException(
+                f"Directory [{name}] contains the location it would be staged to and cannot be uploaded from there."
+            )
+
+        _reject_symlinks(path, name)
+
+        primary_file = stream_to_file(
+            StringIO(""), prefix="upload_directory_primary_file", dir=upload_config.working_directory
+        )
+        # Stage the directory's content at the root of extra files.
+        extra_files_path = f"{primary_file}_extra"
+        purged = _stage_directory(path, extra_files_path, purge_source)
+        # Reject links introduced since source validation.
+        _reject_symlinks(extra_files_path, name)
+        if purge_source and not purged:
+            shutil.rmtree(path, ignore_errors=True)
+
+        if sniff_ext:
+            ext = registry.sniff_directory(extra_files_path)
+        datatype = registry.get_datatype_by_extension(ext)
+        if isinstance(datatype, Directory):
+            datatype.groom_directory_content(extra_files_path)
+        rval: dict[str, Any] = {
+            "name": name,
+            "dbkey": item.get("dbkey", "?"),
+            "ext": ext,
+            "link_data_only": False,
+            "sources": [],
+            "hashes": [],
+            "info": f"uploaded {ext} directory",
+            "state": "ok",
+            "filename": primary_file,
+            "extra_files": os.path.abspath(extra_files_path),
+        }
+        return _copy_and_validate_simple_attributes(item, rval)
+
     def _resolve_item_with_primary(item):
         error_message = None
         converted_path = None
@@ -283,7 +384,7 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
             link_data_only, link_data_only_explicit = _link_data_only(item)
 
         name: str
-        path: Optional[str]
+        path: str | None
         default_in_place = False
         if not deferred:
             name, path, is_link = _has_src_to_path(
@@ -294,6 +395,19 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
                 default_in_place = True
         else:
             name, path = _has_src_to_name(item) or "Deferred Dataset", None
+
+        if path is not None and os.path.isdir(path):
+            # Strip trailing slashes before deriving the basename.
+            path = os.path.normpath(path)
+            return _resolve_directory_item(
+                item,
+                name or os.path.basename(path),
+                path,
+                item.get("ext", "auto"),
+                link_data_only,
+                item.get("purge_source", True),
+            )
+
         sources = []
 
         url = item.get("url")
@@ -332,7 +446,7 @@ def _fetch_target(upload_config: "UploadConfig", target: dict[str, Any]):
             requested_transform.append({"action": "to_posix_lines"})
         source_dict["requested_transform"] = requested_transform
         effective_state = "ok"
-        stdout: Optional[str] = None
+        stdout: str | None = None
         if not deferred and not error_message:
             in_place = item.get("in_place", default_in_place)
             purge_source = item.get("purge_source", True)
@@ -535,7 +649,7 @@ def _directory_to_items(directory):
     return items
 
 
-def _has_src_to_name(item) -> Optional[str]:
+def _has_src_to_name(item) -> str | None:
     # Logic should broadly match logic of _has_src_to_path but not resolve the item
     # into a path. Deliberately does not consult file source metadata the way
     # _has_src_to_path does - a DRS name would require the very fetch deferral avoids,
@@ -581,7 +695,7 @@ def _has_src_to_path(
                 return name, path, is_link
 
         headers = item.get("headers")
-        file_source_options: Optional[FilesSourceOptions] = None
+        file_source_options: FilesSourceOptions | None = None
         if headers:
             extra_props = PartialFilesSourceProperties(**{"http_headers": headers})
             file_source_options = FilesSourceOptions(extra_props=extra_props)
@@ -660,7 +774,7 @@ class UploadConfig:
         registry: Registry,
         working_directory: str,
         allow_failed_collections: bool,
-        file_sources_dict: Optional[dict] = None,
+        file_sources_dict: dict | None = None,
     ):
         self.registry = registry
         self.working_directory = working_directory

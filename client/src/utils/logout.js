@@ -4,6 +4,26 @@ import { getGalaxyInstance } from "@/app";
 import { Toast } from "@/composables/toast";
 import { withPrefix } from "@/utils/redirect";
 import { errorMessageAsString } from "@/utils/simple-error";
+import { addSearchParams } from "@/utils/url";
+
+function userLogoutUrl(sessionCsrfToken, logoutAll) {
+    return addSearchParams(withPrefix("/user/logout"), {
+        session_csrf_token: sessionCsrfToken,
+        logout_all: String(logoutAll),
+    });
+}
+
+function authnzLogoutUrl(provider, logoutAll) {
+    const params = { logout_all: String(logoutAll) };
+    if (provider) {
+        params.provider = provider;
+    }
+    return addSearchParams(withPrefix("/authnz/logout"), params);
+}
+
+function hasAuthnzLogoutResponse(response) {
+    return Boolean(response?.data?.redirect_uri || response?.data?.message);
+}
 
 /**
  * Handles user logout.  Invalidates the current session, checks to see if we
@@ -13,32 +33,23 @@ export function userLogout(logoutAll = false) {
     const Galaxy = getGalaxyInstance();
     const post_user_logout_href = Galaxy.config.post_user_logout_href;
     const session_csrf_token = Galaxy.session_csrf_token;
-    const url = `/user/logout?session_csrf_token=${session_csrf_token}&logout_all=${logoutAll}`;
-    axios
-        .get(withPrefix(url))
+    const provider = localStorage.getItem("galaxy-provider");
+    const logoutRequest = Galaxy.config.enable_oidc
+        ? axios.get(authnzLogoutUrl(provider, logoutAll)).then((response) => {
+              if (hasAuthnzLogoutResponse(response)) {
+                  return response;
+              }
+              return axios.get(userLogoutUrl(session_csrf_token, logoutAll));
+          })
+        : axios.get(userLogoutUrl(session_csrf_token, logoutAll));
+
+    localStorage.removeItem("galaxy-provider");
+
+    return logoutRequest
         .then((response) => {
             if (Galaxy.user) {
                 Galaxy.user.clearSessionStorage();
             }
-            // Check if we need to logout of OIDC IDP
-            if (Galaxy.config.enable_oidc) {
-                const provider = localStorage.getItem("galaxy-provider");
-                let idpLogoutUrl = "/authnz/logout";
-                if (provider) {
-                    localStorage.removeItem("galaxy-provider");
-                    idpLogoutUrl = `/authnz/logout?provider=${provider}`;
-                }
-                // The Galaxy session is already gone, so a failed IdP logout still ends on the logout page.
-                return axios.get(withPrefix(idpLogoutUrl)).catch((error) => {
-                    console.warn("Identity provider logout failed", error);
-                    return { data: {} };
-                });
-            } else {
-                // Otherwise pass through the initial logout response
-                return response;
-            }
-        })
-        .then((response) => {
             if (response.data?.redirect_uri) {
                 window.top.location.href = response.data.redirect_uri;
             } else {

@@ -1,8 +1,8 @@
 """Track whether the tools being parsed or loaded come from an untrusted source."""
 
+from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
-from typing import Iterator
 
 _loading_untrusted_tools: ContextVar[bool] = ContextVar("loading_untrusted_tools", default=False)
 

@@ -3,10 +3,8 @@ import logging
 import uuid
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
     TypeVar,
-    Union,
 )
 
 from pydantic import ValidationError
@@ -30,24 +28,32 @@ from galaxy.model import (
     WorkflowRequestStepState,
 )
 from galaxy.model.base import ensure_object_added_to_session
+from galaxy.security.validate_user_input import validate_preferred_object_store_id
 from galaxy.tool_util_models.parameters import (
     DataOrCollectionRequestAdapter,
     DataRequestCollectionUri,
+    DataRequestHda,
+    DataRequestHdca,
+    DataRequestLd,
+    DataRequestLdda,
     DataRequestUri,
     FileRequestUri,
 )
-from galaxy.tools.parameters.basic import ParameterValueError
+from galaxy.tools.parameters.basic import (
+    ParameterValueError,
+    TextToolParameter,
+)
 from galaxy.tools.parameters.meta import expand_workflow_inputs
 from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.workflow.modules import WorkflowModuleInjector
 from galaxy.workflow.resources import get_resource_mapper_function
 
 if TYPE_CHECKING:
+    from galaxy.managers.context import ProvidesHistoryContext
     from galaxy.model import (
         Workflow,
         WorkflowStep,
     )
-    from galaxy.webapps.base.webapp import GalaxyWebTransaction
 
 INPUT_STEP_TYPES = ["data_input", "data_collection_input", "parameter_input"]
 
@@ -90,19 +96,19 @@ class WorkflowRunConfig:
     def __init__(
         self,
         target_history: "History",
-        replacement_dict: Optional[dict[str, Any]] = None,
-        inputs: Optional[dict[int, Any]] = None,
-        param_map: Optional[dict[int, Any]] = None,
+        replacement_dict: dict[str, Any] | None = None,
+        inputs: dict[int, Any] | None = None,
+        param_map: dict[int, Any] | None = None,
         allow_tool_state_corrections: bool = False,
         copy_inputs_to_history: bool = False,
         use_cached_job: bool = False,
-        resource_params: Optional[dict[int, Any]] = None,
+        resource_params: dict[int, Any] | None = None,
         requires_materialization: bool = False,
-        preferred_object_store_id: Optional[str] = None,
-        preferred_outputs_object_store_id: Optional[str] = None,
-        preferred_intermediate_object_store_id: Optional[str] = None,
-        effective_outputs: Optional[list[EffectiveOutput]] = None,
-        on_complete: Optional[list[dict[str, Any]]] = None,
+        preferred_object_store_id: str | None = None,
+        preferred_outputs_object_store_id: str | None = None,
+        preferred_intermediate_object_store_id: str | None = None,
+        effective_outputs: list[EffectiveOutput] | None = None,
+        on_complete: list[dict[str, Any]] | None = None,
     ) -> None:
         self.target_history = target_history
         self.replacement_dict = replacement_dict or {}
@@ -271,10 +277,10 @@ def _flatten_step_params(param_dict: dict, prefix: str = "") -> dict:
 
 
 def _get_target_history(
-    trans: "GalaxyWebTransaction",
+    trans: "ProvidesHistoryContext",
     workflow: "Workflow",
     payload: dict[str, Any],
-    param_keys: Optional[list[list]] = None,
+    param_keys: list[list] | None = None,
     index: int = 0,
 ) -> History:
     param_keys = param_keys or []
@@ -316,9 +322,12 @@ def _get_target_history(
 
 
 def _get_input_or_not_found(
-    trans: "GalaxyWebTransaction", model_class: type[InputT], data_request, step: "WorkflowStep"
+    trans: "ProvidesHistoryContext",
+    model_class: type[InputT],
+    data_request: DataRequestHda | DataRequestLdda | DataRequestLd | DataRequestHdca,
+    step: "WorkflowStep",
 ) -> InputT:
-    item = trans.sa_session.get(model_class, trans.security.decode_id(data_request.id))
+    item: InputT | None = trans.sa_session.get(model_class, trans.security.decode_id(data_request.id))
     if item is None:
         raise exceptions.ObjectNotFound(
             f"{step.label or step.order_index + 1}: workflow input '{data_request.id}' ({data_request.src}) not found"
@@ -327,7 +336,7 @@ def _get_input_or_not_found(
 
 
 def build_workflow_run_configs(
-    trans: "GalaxyWebTransaction", workflow: "Workflow", payload: dict[str, Any]
+    trans: "ProvidesHistoryContext", workflow: "Workflow", payload: dict[str, Any]
 ) -> list[WorkflowRunConfig]:
     app = trans.app
     allow_tool_state_corrections = payload.get("allow_tool_state_corrections", False)
@@ -345,17 +354,31 @@ def build_workflow_run_configs(
         )
     if "inputs" in payload and "ds_map" in payload:
         raise exceptions.RequestParameterInvalidException("Cannot specify both legacy ds_map and input attributes.")
-    for object_store_id_key in (
-        "preferred_object_store_id",
-        "preferred_outputs_object_store_id",
-        "preferred_intermediate_object_store_id",
+
+    if payload.get("effective_outputs"):
+        raise exceptions.RequestParameterInvalidException(
+            "Cannot declare effective outputs on invocation in this fashion."
+        )
+
+    preferred_object_store_id = payload.get("preferred_object_store_id")
+    preferred_outputs_object_store_id = payload.get("preferred_outputs_object_store_id")
+    preferred_intermediate_object_store_id = payload.get("preferred_intermediate_object_store_id")
+    split_object_store_config = bool(
+        preferred_outputs_object_store_id is not None or preferred_intermediate_object_store_id is not None
+    )
+    if split_object_store_config and preferred_object_store_id:
+        raise exceptions.RequestParameterInvalidException(
+            "May specify either 'preferred_object_store_id' or one/both of 'preferred_outputs_object_store_id' and 'preferred_intermediate_object_store_id' but not both"
+        )
+    for object_store_id in (
+        preferred_object_store_id,
+        preferred_outputs_object_store_id,
+        preferred_intermediate_object_store_id,
     ):
-        if object_store_id := payload.get(object_store_id_key):
-            validation_error = app.object_store.validate_selected_object_store_id(trans.user, object_store_id)
+        if object_store_id:
+            validation_error = validate_preferred_object_store_id(trans.user, trans.app.object_store, object_store_id)
             if validation_error:
-                raise exceptions.RequestParameterInvalidException(
-                    f"Invalid '{object_store_id_key}': {validation_error}"
-                )
+                raise exceptions.RequestParameterInvalidException(validation_error)
 
     add_to_history = "no_add_to_history" not in payload
     legacy = payload.get("legacy", False)
@@ -425,6 +448,9 @@ def build_workflow_run_configs(
                 input_param = step.module.get_runtime_inputs(step.module)["input"]
                 try:
                     input_param.validate(input_dict, trans=trans)
+                    if isinstance(input_param, TextToolParameter) and input_param.multiple:
+                        # Store the validated values, not the submitted ones.
+                        normalized_inputs[key] = input_param.to_python(input_dict, trans.app)
                 except ParameterValueError as e:
                     raise exceptions.RequestParameterInvalidException(
                         f"{step.label or step.order_index + 1}: {e.message_suffix}"
@@ -438,6 +464,7 @@ def build_workflow_run_configs(
                     raise validation_error_to_message_exception(e)
                 if data_request.src == "ldda":
                     ldda = _get_input_or_not_found(trans, LibraryDatasetDatasetAssociation, data_request, step)
+                    assert ldda.dataset
                     assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
                         trans.get_current_user_roles(), ldda.dataset
                     )
@@ -445,6 +472,7 @@ def build_workflow_run_configs(
                 elif data_request.src == "hda":
                     # Get dataset handle, add to dict and history if necessary
                     content = _get_input_or_not_found(trans, HistoryDatasetAssociation, data_request, step)
+                    assert content.dataset
                     assert trans.user_is_admin or trans.app.security_agent.can_access_dataset(
                         trans.get_current_user_roles(), content.dataset
                     )
@@ -529,20 +557,6 @@ def build_workflow_run_configs(
                                 f"Invalid value for parameter '{name}' found."
                             )
         history.add_pending_items()
-        preferred_object_store_id = payload.get("preferred_object_store_id")
-        preferred_outputs_object_store_id = payload.get("preferred_outputs_object_store_id")
-        preferred_intermediate_object_store_id = payload.get("preferred_intermediate_object_store_id")
-        if payload.get("effective_outputs"):
-            raise exceptions.RequestParameterInvalidException(
-                "Cannot declare effective outputs on invocation in this fashion."
-            )
-        split_object_store_config = bool(
-            preferred_outputs_object_store_id is not None or preferred_intermediate_object_store_id is not None
-        )
-        if split_object_store_config and preferred_object_store_id:
-            raise exceptions.RequestParameterInvalidException(
-                "May specified either 'preferred_object_store_id' or one/both of 'preferred_outputs_object_store_id' and 'preferred_intermediate_object_store_id' but not both"
-            )
         run_configs.append(
             WorkflowRunConfig(
                 target_history=history,
@@ -564,7 +578,7 @@ def build_workflow_run_configs(
 
 
 def workflow_run_config_to_request(
-    trans: "GalaxyWebTransaction", run_config: WorkflowRunConfig, workflow: "Workflow"
+    trans: "ProvidesHistoryContext", run_config: WorkflowRunConfig, workflow: "Workflow"
 ) -> WorkflowInvocation:
     param_types = WorkflowRequestInputParameter.types
 
@@ -599,7 +613,7 @@ def workflow_run_config_to_request(
         if step.type == "subworkflow":
             subworkflow = step.subworkflow
             assert subworkflow
-            effective_outputs: Optional[list[EffectiveOutput]] = None
+            effective_outputs: list[EffectiveOutput] | None = None
             if run_config.preferred_intermediate_object_store_id or run_config.preferred_outputs_object_store_id:
                 step_outputs = step.workflow_outputs
                 effective_outputs = []
@@ -684,7 +698,7 @@ def workflow_request_to_run_config(
     history = workflow_invocation.history
     replacement_dict = {}
     inputs: dict[
-        int, Union[HistoryDatasetAssociation, HistoryDatasetCollectionAssociation, str, int, float, bool, None]
+        int, HistoryDatasetAssociation | HistoryDatasetCollectionAssociation | str | int | float | bool | None
     ] = {}
     param_map = {}
     resource_params = {}

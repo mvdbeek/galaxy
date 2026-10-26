@@ -1,17 +1,6 @@
 <script setup lang="ts">
 import axios from "axios";
-import {
-    BAlert,
-    BCard,
-    BCardBody,
-    BCardFooter,
-    BCardHeader,
-    BForm,
-    BFormCheckbox,
-    BFormGroup,
-    BFormInput,
-    BFormText,
-} from "bootstrap-vue";
+import { BCard, BCardBody, BCardFooter, BCardHeader, BForm, BFormGroup, BFormInput, BFormText } from "bootstrap-vue";
 import { computed, type Ref, ref } from "vue";
 
 import { SKIP_PENDING_REQUESTS_HEADER } from "@/api/pendingRequests";
@@ -23,8 +12,10 @@ import { withPrefix } from "@/utils/redirect";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import GButton from "../BaseComponents/GButton.vue";
+import GCheckbox from "../BaseComponents/GCheckbox.vue";
 import GLink from "../BaseComponents/GLink.vue";
 import VerticalSeparator from "../Common/VerticalSeparator.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GCollapse from "@/components/BaseComponents/GCollapse.vue";
 import ExternalLogin from "@/components/User/ExternalIdentities/ExternalLogin.vue";
 import ExternalRegistration from "@/components/User/ExternalIdentities/ExternalRegistration.vue";
@@ -49,7 +40,7 @@ const email = ref(null);
 const confirm = ref(null);
 const password = ref(null);
 const username = ref(null);
-const subscribe = ref(null);
+const subscribe = ref(false);
 const messageText: Ref<string | null> = ref(null);
 const disableCreate = ref(false);
 const labelPassword = ref(localize("Password"));
@@ -109,14 +100,14 @@ async function submit() {
     <div class="register-form">
         <div class="d-flex justify-content-md-center">
             <div>
-                <BAlert :show="!!registrationWarningMessage" variant="info">
+                <GAlert :show="!!registrationWarningMessage" variant="info">
                     <!-- eslint-disable-next-line vue/no-restricted-syntax -- every caller passes registration_warning_message from the operator's galaxy.yml -->
                     <span v-no-sanitize-html="registrationWarningMessage" />
-                </BAlert>
+                </GAlert>
 
-                <BAlert :show="!!messageText" variant="danger">
+                <GAlert :show="!!messageText" variant="danger">
                     {{ messageText }}
-                </BAlert>
+                </GAlert>
 
                 <BForm id="registration" @submit.prevent="submit()">
                     <BCard no-body>
@@ -190,13 +181,9 @@ async function submit() {
                                     </BFormGroup>
 
                                     <BFormGroup v-if="mailingJoinAddr && serverMailConfigured">
-                                        <BFormCheckbox
-                                            id="register-form-subscribe"
-                                            v-model="subscribe"
-                                            name="subscribe"
-                                            type="checkbox">
+                                        <GCheckbox id="register-form-subscribe" v-model="subscribe" name="subscribe">
                                             {{ labelSubscribe }}
-                                        </BFormCheckbox>
+                                        </GCheckbox>
                                         <BFormText v-localize>
                                             This list is used for important Galaxy updates and newsletter access. We
                                             keep it streamlined, you should expect only 2-3 emails per month.

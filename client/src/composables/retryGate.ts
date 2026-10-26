@@ -1,4 +1,4 @@
-import { del, ref, set } from "vue";
+import { ref } from "vue";
 
 import { ApiError, isRetryableApiError, MAX_RETRIES, RETRY_BACKOFF_CAP_MS, retryBackoffMs } from "@/utils/simple-error";
 
@@ -54,20 +54,20 @@ export function useRetryGate(isRetryable: (error: Error) => boolean = isRetryabl
     function clearRetry(id: string) {
         clearTimeout(retryTimers[id]);
         delete retryTimers[id];
-        del(retryPending.value, id);
+        delete retryPending.value[id];
     }
 
     function recordFailure(id: string, error: Error) {
         const attempt = (retryCounts.value[id] ?? 0) + 1;
-        set(retryCounts.value, id, attempt);
+        retryCounts.value[id] = attempt;
         if (isRetrying(id, error)) {
             clearTimeout(retryTimers[id]);
-            set(retryPending.value, id, true);
+            retryPending.value[id] = true;
             const retryAfterMs = retryAfterMsOf(error);
             retryTimers[id] = setTimeout(
                 () => {
                     delete retryTimers[id];
-                    del(retryPending.value, id);
+                    delete retryPending.value[id];
                 },
                 retryBackoffMs(attempt, retryAfterMs),
             );
@@ -77,7 +77,7 @@ export function useRetryGate(isRetryable: (error: Error) => boolean = isRetryabl
     }
 
     function recordSuccess(id: string) {
-        del(retryCounts.value, id);
+        delete retryCounts.value[id];
         clearRetry(id);
     }
 

@@ -2,7 +2,7 @@
 import { faReadme } from "@fortawesome/free-brands-svg-icons";
 import { faArrowRight, faCog, faSitemap } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BFormInput } from "bootstrap-vue";
+import { BFormInput } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, onBeforeMount, ref, watch } from "vue";
 
@@ -35,6 +35,7 @@ import ExportOnCompleteWizard from "./ExportOnCompleteWizard.vue";
 import WorkflowHelpDisplay from "./WorkflowHelpDisplay.vue";
 import WorkflowRunGraph from "./WorkflowRunGraph.vue";
 import WorkflowStorageConfiguration from "./WorkflowStorageConfiguration.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
 import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
@@ -78,7 +79,7 @@ const { currentHistoryId, changingCurrentHistory } = storeToRefs(useHistoryStore
 const { stateStore } = provideScopedWorkflowStores(props.model.workflowId);
 const { activeNodeId } = storeToRefs(stateStore);
 
-const { config, isConfigLoaded } = useConfig(true);
+const { config, isConfigLoaded } = useConfig();
 const { showPanels } = usePanels();
 
 const formData = ref<Record<string, any>>({});
@@ -397,7 +398,7 @@ function onSearchChange({ name, src, query, limit }: { name: string; src: string
     fetchStepOptions(name, src, { offset: 0, limit: limit || DEFAULT_OPTIONS_PAGE_SIZE, search: query });
 }
 
-function onStorageUpdate(objectStoreId: string, intermediate: boolean) {
+function onStorageUpdate(objectStoreId: string | null, intermediate: boolean) {
     if (intermediate) {
         preferredIntermediateObjectStoreId.value = objectStoreId;
     } else {
@@ -560,12 +561,12 @@ onBeforeMount(() => {
         data-galaxy-file-drop-target>
         <div v-if="!showRightPanel" class="ui-form-header-underlay sticky-top" />
         <div v-if="isConfigLoaded" :class="{ 'sticky-top': !showRightPanel }">
-            <BAlert v-if="!canRunOnHistory" variant="warning" show>
+            <GAlert v-if="!canRunOnHistory" variant="warning" show>
                 <span v-localize>
                     The workflow cannot run because the current history is immutable. Please select a different history
                     or send the results to a new one using the run settings ⚙️
                 </span>
-            </BAlert>
+            </GAlert>
             <div class="mb-2">
                 <WorkflowNavigationTitle
                     :workflow-id="model.runData.workflow_id"
@@ -616,7 +617,7 @@ onBeforeMount(() => {
                 <div v-if="showRuntimeSettingsPanel" class="workflow-runtime-settings-panel p-3 rounded-bottom">
                     <!-- Send to new history -->
                     <div class="settings-row">
-                        <GCheckbox id="send-to-new-history" v-model="sendToNewHistory" toggle>
+                        <GCheckbox id="send-to-new-history" v-model="sendToNewHistory" switch>
                             Send results to a new history
                             <HelpText uri="galaxy.workflows.runtimeSettings.sendToNewHistory" info-icon />
                         </GCheckbox>
@@ -631,7 +632,7 @@ onBeforeMount(() => {
 
                     <!-- Use cached jobs -->
                     <div class="settings-row">
-                        <GCheckbox v-model="useCachedJobs" toggle>
+                        <GCheckbox v-model="useCachedJobs" switch>
                             Re-use jobs with identical parameters
                             <HelpText uri="galaxy.workflows.runtimeSettings.useCachedJobs" info-icon />
                         </GCheckbox>
@@ -641,7 +642,7 @@ onBeforeMount(() => {
                     <div v-if="isConfigLoaded && config.enable_notification_system" class="settings-row">
                         <GCheckbox
                             v-model="sendNotificationOnComplete"
-                            toggle
+                            switch
                             data-test-id="send-notification-checkbox">
                             Notify me when complete
                             <HelpText uri="galaxy.workflows.runtimeSettings.sendNotification" info-icon />
@@ -650,7 +651,7 @@ onBeforeMount(() => {
 
                     <!-- Export on completion -->
                     <div v-if="hasWritableFileSources" class="settings-row">
-                        <GCheckbox :key="exportCheckboxKey" v-model="exportEnabled" toggle>
+                        <GCheckbox :key="exportCheckboxKey" v-model="exportEnabled" switch>
                             Export results when complete
                             <HelpText uri="galaxy.workflows.runtimeSettings.exportOnComplete" info-icon />
                         </GCheckbox>
@@ -675,7 +676,7 @@ onBeforeMount(() => {
                     <!-- Storage options -->
                     <template v-if="isConfigLoaded && config.object_store_allows_id_selection">
                         <div class="settings-row">
-                            <GCheckbox v-model="splitObjectStore" toggle>
+                            <GCheckbox v-model="splitObjectStore" switch>
                                 Send outputs and intermediate to different storage
                                 <HelpText uri="galaxy.workflows.runtimeSettings.splitObjectStore" info-icon />
                             </GCheckbox>
@@ -683,8 +684,8 @@ onBeforeMount(() => {
                         <div class="settings-row">
                             <WorkflowStorageConfiguration
                                 :split-object-store="splitObjectStore"
-                                :invocation-preferred-object-store-id="preferredObjectStoreId ?? undefined"
-                                :invocation-intermediate-preferred-object-store-id="preferredIntermediateObjectStoreId"
+                                :invocation-preferred-object-store-id="preferredObjectStoreId"
+                                :invocation-preferred-intermediate-object-store-id="preferredIntermediateObjectStoreId"
                                 @updated="onStorageUpdate" />
                         </div>
                     </template>
@@ -758,7 +759,7 @@ onBeforeMount(() => {
         </div>
 
         <GModal
-            :show.sync="showExportWizard"
+            v-model:show="showExportWizard"
             title="Configure Export on Completion"
             size="medium"
             @close="onExportWizardCancel">

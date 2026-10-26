@@ -1,7 +1,6 @@
 from typing import (
     Any,
     cast,
-    Optional,
 )
 from urllib.parse import quote
 
@@ -37,7 +36,7 @@ TRS_SERVICE_NAME = "Tool Shed TRS API"
 TRS_SERVICE_DESCRIPTION = "Serves tool shed repository tools according to the GA4GH TRS specification"
 
 
-def service_info(app: ToolShedApp, request_url: URL):
+def service_info(app: ToolShedApp, request_url: URL) -> Service:
     components = request_url.components
     hostname = components.hostname
     assert hostname
@@ -74,23 +73,16 @@ def tool_classes() -> list[ToolClass]:
     return [ToolClass(id="galaxy_tool", name="Galaxy Tool", description="Galaxy XML Tools")]
 
 
-def trs_tool_id_to_guid(trans: ProvidesRepositoriesContext, trs_tool_id: str) -> str:
-    guid = decode_identifier(trans.repositories_hostname, trs_tool_id)
-    guid = remove_protocol_and_user_from_clone_url(guid)
-    return guid
-
-
-def trs_tool_id_to_repository(trans: ProvidesRepositoriesContext, trs_tool_id: str) -> Repository:
-    return guid_to_repository(trans.app, trs_tool_id_to_guid(trans, trs_tool_id))
-
-
 def get_repository_metadata_by_tool_version(
     app: ToolShedApp, repository: Repository, tool_id: str
 ) -> dict[str, RepositoryMetadata]:
     versions = {}
     for _, changeset in repository.installable_revisions(app):
         metadata = get_current_repository_metadata_for_changeset_revision(app, repository, changeset)
-        tools: Optional[list[dict[str, Any]]] = metadata.metadata.get("tools")
+        if metadata is None:
+            continue
+        raw_metadata = metadata.metadata or {}
+        tools: list[dict[str, Any]] | None = raw_metadata.get("tools")
         if not tools:
             continue
         for tool_metadata in tools:
@@ -98,12 +90,6 @@ def get_repository_metadata_by_tool_version(
                 continue
             versions[tool_metadata["version"]] = metadata
     return versions
-
-
-def get_tools_for(repository_metadata: RepositoryMetadata) -> list[dict[str, Any]]:
-    tools: Optional[list[dict[str, Any]]] = repository_metadata.metadata.get("tools")
-    assert tools
-    return tools
 
 
 def trs_tool_id_to_repository_metadata(
@@ -129,6 +115,7 @@ def get_tool(trans: ProvidesRepositoriesContext, trs_tool_id: str) -> Tool:
     repo_metadata = trs_tool_id_to_repository_metadata(trans, trs_tool_id)
     repository, metadata_by_version = repo_metadata
 
+    assert repository.user is not None
     repo_owner = repository.user.username
     aliases: list[str] = [guid]
     hostname = remove_protocol_and_user_from_clone_url(trans.repositories_hostname)

@@ -3,8 +3,8 @@ import re
 from enum import Enum
 from pathlib import PurePosixPath
 from typing import (
-    List,
-    Optional,
+    Annotated,
+    Literal,
     Union,
 )
 
@@ -17,8 +17,6 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 from typing_extensions import (
-    Annotated,
-    Literal,
     NotRequired,
     TypedDict,
 )
@@ -58,7 +56,7 @@ class ContainerRequirement(ToolSourceBaseModel):
 class PackageRequirement(Requirement):
     type: Literal["package"]
     name: str
-    version: Optional[str] = None
+    version: str | None = None
 
 
 class SetEnvironmentRequirement(Requirement):
@@ -76,7 +74,7 @@ ram_max_description = "Maximum reserved RAM in mebibytes (2**20)."
 ram_description = """May be a fractional value. If so, the actual RAM request is rounded up to the next whole number. The reported amount of RAM reserved for the process is a non-zero integer."""
 
 
-ResourceRequirementValue = Union[int, float, str, None]
+ResourceRequirementValue = int | float | str | None
 
 
 class ResourceRequirement(ToolSourceBaseModel):
@@ -142,8 +140,8 @@ class JavascriptRequirement(ToolSourceBaseModel):
     model_config = ConfigDict(extra="forbid")
 
     type: Literal["javascript"]
-    expression_lib: Optional[
-        List[
+    expression_lib: None | (
+        list[
             Annotated[
                 str,
                 Field(
@@ -162,9 +160,10 @@ class JavascriptRequirement(ToolSourceBaseModel):
                 ),
             ]
         ]
-    ]
+    )
 
 
+@with_config(ConfigDict(field_title_generator=lambda field_name, field_info: field_name.lower()))
 class XrefDict(TypedDict):
     value: str
     type: str
@@ -172,20 +171,20 @@ class XrefDict(TypedDict):
 
 class TemplateConfigFile(ToolSourceBaseModel):
     content: str
-    name: Optional[str] = None
-    filename: Optional[str] = None
+    name: str | None = None
+    filename: str | None = None
 
 
 class InputConfigFileContent(ToolSourceBaseModel):
     format: Literal["json"] = "json"
-    handle_files: Optional[Literal["paths", "staging_path_and_source_path"]] = None
+    handle_files: Literal["paths", "staging_path_and_source_path"] | None = None
     type: Literal["inputs"] = "inputs"
 
 
 class InputConfigFile(ToolSourceBaseModel):
-    name: Optional[str] = None
+    name: str | None = None
     content: InputConfigFileContent
-    filename: Optional[str] = None
+    filename: str | None = None
 
 
 class FileSourceConfigFileContent(ToolSourceBaseModel):
@@ -193,8 +192,8 @@ class FileSourceConfigFileContent(ToolSourceBaseModel):
 
 
 class FileSourceConfigFile(ToolSourceBaseModel):
-    name: Optional[str]
-    filename: Optional[str] = None
+    name: str | None
+    filename: str | None = None
     content: FileSourceConfigFileContent
 
 
@@ -209,7 +208,7 @@ class YamlTemplateConfigFile(TemplateConfigFile):
 
     @field_validator("filename", mode="after")
     @classmethod
-    def _check_relative_filename(cls, filename: Optional[str]) -> Optional[str]:
+    def _check_relative_filename(cls, filename: str | None) -> str | None:
         # The file is linked below the job working directory, so the name must be a
         # relative path that names a file and cannot climb out of that directory.
         if filename is not None and not is_relative_subpath(filename):
@@ -290,27 +289,27 @@ class MarkdownHelpContent(HelpContent):
     format: Literal["markdown"]
 
 
-StdioExitCodeRangeValue = Union[int, float, Literal["-inf", "inf"]]
+StdioExitCodeRangeValue = int | float | Literal["-inf", "inf"]
 
 
 class StdioExitCode(ToolSourceBaseModel):
     range_start: StdioExitCodeRangeValue
     range_end: StdioExitCodeRangeValue
-    error_level: Union[int, float]
-    desc: Optional[str] = None
+    error_level: int | float
+    desc: str | None = None
 
 
 class StdioRegex(ToolSourceBaseModel):
     match: str
     stdout_match: bool
     stderr_match: bool
-    error_level: Union[int, float]
-    desc: Optional[str] = None
+    error_level: int | float
+    desc: str | None = None
 
 
 class Stdio(ToolSourceBaseModel):
-    exit_codes: List[StdioExitCode] = Field(default_factory=list)
-    regexes: List[StdioRegex] = Field(default_factory=list)
+    exit_codes: list[StdioExitCode] = Field(default_factory=list)
+    regexes: list[StdioRegex] = Field(default_factory=list)
 
 
 class OutputCompareType(str, Enum):
@@ -323,37 +322,37 @@ class OutputCompareType(str, Enum):
 
 
 class DrillDownOptionsDict(TypedDict):
-    name: Optional[str]
+    name: str | None
     value: str
-    options: List["DrillDownOptionsDict"]
+    options: list["DrillDownOptionsDict"]
     selected: bool
 
 
 # For fields... just implementing a subset of CWL for Galaxy flavors of these objects
 # so far.
 CwlType = Literal["File", "null", "boolean", "int", "float", "string"]
-FieldType = Union[CwlType, List[CwlType]]
+FieldType = CwlType | list[CwlType]
 
 
-# type ignore because mypy can't handle closed TypedDicts yet
 @with_config(ConfigDict(extra="forbid"))
-class FieldDict(TypedDict, closed=True):  # type: ignore[call-arg]
+class FieldDict(TypedDict, closed=True):
     name: str
     type: FieldType
-    format: NotRequired[Optional[str]]
+    format: NotRequired[str | None]
 
 
 JsonTestDatasetDefDict = TypedDict(
     "JsonTestDatasetDefDict",
     {
-        "class": Literal["File"],
-        "path": NotRequired[Optional[str]],
-        "location": NotRequired[Optional[str]],
-        "name": NotRequired[Optional[str]],
-        "dbkey": NotRequired[Optional[str]],
-        "filetype": NotRequired[Optional[str]],
-        "composite_data": NotRequired[Optional[List[str]]],
-        "tags": NotRequired[Optional[List[str]]],
+        # "Directory" stages a folder as a directory dataset.
+        "class": Literal["File", "Directory"],
+        "path": NotRequired[str | None],
+        "location": NotRequired[str | None],
+        "name": NotRequired[str | None],
+        "dbkey": NotRequired[str | None],
+        "filetype": NotRequired[str | None],
+        "composite_data": NotRequired[list[str] | None],
+        "tags": NotRequired[list[str] | None],
     },
 )
 
@@ -365,14 +364,14 @@ JsonTestCollectionDefDatasetElementDict = TypedDict(
     "JsonTestCollectionDefDatasetElementDict",
     {
         "identifier": str,
-        "class": Literal["File"],
-        "path": NotRequired[Optional[str]],
-        "location": NotRequired[Optional[str]],
-        "name": NotRequired[Optional[str]],
-        "dbkey": NotRequired[Optional[str]],
-        "filetype": NotRequired[Optional[str]],
-        "composite_data": NotRequired[Optional[List[str]]],
-        "tags": NotRequired[Optional[List[str]]],
+        "class": Literal["File", "Directory"],
+        "path": NotRequired[str | None],
+        "location": NotRequired[str | None],
+        "name": NotRequired[str | None],
+        "dbkey": NotRequired[str | None],
+        "filetype": NotRequired[str | None],
+        "composite_data": NotRequired[list[str] | None],
+        "tags": NotRequired[list[str] | None],
     },
 )
 
@@ -380,8 +379,8 @@ BaseJsonTestCollectionDefCollectionElementDict = TypedDict(
     "BaseJsonTestCollectionDefCollectionElementDict",
     {
         "class": Literal["Collection"],
-        "collection_type": Optional[str],
-        "elements": NotRequired[Optional[List[JsonTestCollectionDefElementDict]]],
+        "collection_type": str | None,
+        "elements": NotRequired[list[JsonTestCollectionDefElementDict] | None],
     },
 )
 
@@ -390,8 +389,8 @@ JsonTestCollectionDefCollectionElementDict = TypedDict(
     {
         "identifier": str,
         "class": Literal["Collection"],
-        "collection_type": Optional[str],
-        "elements": NotRequired[Optional[List[JsonTestCollectionDefElementDict]]],
+        "collection_type": str | None,
+        "elements": NotRequired[list[JsonTestCollectionDefElementDict] | None],
     },
 )
 
@@ -399,9 +398,9 @@ JsonTestCollectionDefDict = TypedDict(
     "JsonTestCollectionDefDict",
     {
         "class": Literal["Collection"],
-        "collection_type": Optional[str],
-        "elements": NotRequired[Optional[List[JsonTestCollectionDefElementDict]]],
-        "name": NotRequired[Optional[str]],
-        "fields": NotRequired[Optional[List[FieldDict]]],
+        "collection_type": str | None,
+        "elements": NotRequired[list[JsonTestCollectionDefElementDict] | None],
+        "name": NotRequired[str | None],
+        "fields": NotRequired[list[FieldDict] | None],
     },
 )

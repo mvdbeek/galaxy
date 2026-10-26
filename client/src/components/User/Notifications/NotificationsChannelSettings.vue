@@ -6,6 +6,8 @@ import { ref, watch } from "vue";
 import type { NotificationCategory, NotificationChannel, UserNotificationPreferences } from "@/api/notifications";
 import { snakeCaseToTitleCase } from "@/utils/strings";
 
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
+
 interface NotificationsChannelSettingsProps {
     preferences: UserNotificationPreferences;
     category: NotificationCategory;
@@ -31,9 +33,9 @@ watch(
 
 <template>
     <div class="category-channel">
-        <BFormCheckbox v-model="value" v-localize :disabled="!isCategoryEnabled">
-            {{ snakeCaseToTitleCase(channel) }}
-        </BFormCheckbox>
+        <GCheckbox v-model="value" :disabled="!isCategoryEnabled">
+            <span v-localize>{{ snakeCaseToTitleCase(channel) }}</span>
+        </GCheckbox>
 
         <FontAwesomeIcon
             v-if="channel === 'push'"

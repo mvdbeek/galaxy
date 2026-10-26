@@ -1,13 +1,11 @@
 import datetime
 import json
-import shutil
 from collections.abc import Callable
 from concurrent.futures import TimeoutError
 from functools import lru_cache
 from pathlib import Path
 from typing import (
     Any,
-    Optional,
 )
 from urllib.parse import urlparse
 
@@ -25,8 +23,6 @@ from sqlalchemy import (
 )
 
 from galaxy import model
-from galaxy.agents import iwc
-from galaxy.agents.gtn import GTNSearchDB
 from galaxy.celery import (
     celery_app,
     galaxy_task,
@@ -35,6 +31,8 @@ from galaxy.config import GalaxyAppConfiguration
 from galaxy.datatypes import sniff
 from galaxy.datatypes.registry import Registry as DatatypesRegistry
 from galaxy.exceptions import ObjectNotFound
+from galaxy.gtn import GTNSearchDB
+from galaxy.job_execution.setup import JobWorkingDirectory
 from galaxy.jobs import MinimalJobWrapper
 from galaxy.managers.collections import DatasetCollectionManager
 from galaxy.managers.dataset_storage_operations import DatasetStorageOperationManager
@@ -95,6 +93,10 @@ from galaxy.util import (
     now,
 )
 from galaxy.util.custom_logging import get_logger
+from galaxy.workflow import (
+    curated,
+    iwc,
+)
 from galaxy.workflow.completion_hooks import WorkflowCompletionHookRegistry
 
 log = get_logger(__name__)
@@ -105,8 +107,8 @@ def cached_create_tool_from_representation(
     app: MinimalManagerApp,
     raw_tool_source: str,
     tool_source_class: TOOL_SOURCE_CLASS,
-    tool_dir: Optional[str] = None,
-    tool_id: Optional[str] = None,
+    tool_dir: str | None = None,
+    tool_id: str | None = None,
 ):
     return create_tool_from_representation(
         app=app,
@@ -119,7 +121,7 @@ def cached_create_tool_from_representation(
 
 @galaxy_task(action="recalculate a user's disk usage")
 def recalculate_user_disk_usage(
-    session: galaxy_scoped_session, object_store: BaseObjectStore, task_user_id: Optional[int] = None
+    session: galaxy_scoped_session, object_store: BaseObjectStore, task_user_id: int | None = None
 ):
     if task_user_id:
         user = session.get(User, task_user_id)
@@ -133,7 +135,7 @@ def recalculate_user_disk_usage(
 
 @galaxy_task(ignore_result=True, action="purge a history dataset")
 def purge_hda(
-    hda_manager: HDAManager, hda_id: int, task_user_id: Optional[int] = None, preserve_owner_update_time: bool = False
+    hda_manager: HDAManager, hda_id: int, task_user_id: int | None = None, preserve_owner_update_time: bool = False
 ):
     hda = hda_manager.by_id(hda_id)
     hda_manager._purge(hda, preserve_owner_update_time=preserve_owner_update_time)
@@ -141,9 +143,15 @@ def purge_hda(
 
 @galaxy_task(ignore_result=True, action="completely removes a set of datasets from the object_store")
 def purge_datasets(
-    dataset_manager: DatasetManager, request: PurgeDatasetsTaskRequest, task_user_id: Optional[int] = None
+    sa_session: galaxy_scoped_session,
+    dataset_manager: DatasetManager,
+    request: PurgeDatasetsTaskRequest,
+    task_user_id: int | None = None,
 ):
-    dataset_manager.purge_datasets(request)
+    user = None
+    if task_user_id:
+        user = sa_session.get(User, task_user_id)
+    dataset_manager.purge_datasets(request, user)
 
 
 @galaxy_task(action="purge all datasets in a history")
@@ -152,7 +160,7 @@ def purge_history_datasets(
     dataset_manager: DatasetManager,
     object_store: BaseObjectStore,
     request: PurgeHistoryDatasetsTaskRequest,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     """Batch purge all HDAs in a history in a single task.
 
@@ -202,8 +210,7 @@ def purge_history_datasets(
     )
     sa_session.commit()
     # Recalculate user disk usage from scratch
-    user = history.user
-    if user:
+    if user := history.user:
         user.calculate_and_set_disk_usage(object_store)
         if not request.preserve_owner_update_time:
             user.update_time = now()
@@ -217,7 +224,7 @@ def materialize(
     hda_manager: HDAManager,
     request: MaterializeDatasetInstanceTaskRequest,
     sa_session: galaxy_scoped_session,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     """Materialize datasets using HDAManager."""
     hda_manager.materialize(request, sa_session())
@@ -229,7 +236,7 @@ def set_job_metadata(
     extended_metadata_collection: bool,
     job_id: int,
     sa_session: galaxy_scoped_session,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ) -> None:
     return abort_when_job_stops(
         set_metadata_portable,
@@ -249,7 +256,7 @@ def change_datatype(
     dataset_id: int,
     datatype: str,
     model_class: str = "HistoryDatasetAssociation",
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     manager = _get_dataset_manager(hda_manager, ldda_manager, model_class)
     dataset_instance = manager.by_id(dataset_id)
@@ -270,7 +277,7 @@ def touch(
     sa_session: galaxy_scoped_session,
     item_id: int,
     model_class: str = "HistoryDatasetCollectionAssociation",
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     if model_class != "HistoryDatasetCollectionAssociation":
         raise NotImplementedError(f"touch method not implemented for '{model_class}'")
@@ -289,7 +296,7 @@ def set_metadata(
     model_class: str = "HistoryDatasetAssociation",
     overwrite: bool = True,
     ensure_can_set_metadata: bool = True,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     """
     ensure_can_set_metadata can be bypassed for new outputs.
@@ -322,7 +329,7 @@ def bulk_move_storage(
     app: MinimalManagerApp,
     run_db_id: int,
     task_user_id: int,
-    notify_on_completion: Optional[bool] = None,
+    notify_on_completion: bool | None = None,
 ):
     run = sa_session.get(DatasetStorageOperationRun, run_db_id)
     if run is None:
@@ -410,7 +417,7 @@ def setup_fetch_data(
     tool_source_class: TOOL_SOURCE_CLASS,
     app: MinimalManagerApp,
     sa_session: galaxy_scoped_session,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     tool = cached_create_tool_from_representation(
         app=app, raw_tool_source=raw_tool_source, tool_source_class=tool_source_class
@@ -451,7 +458,7 @@ def finish_job(
     tool_source_class: TOOL_SOURCE_CLASS,
     app: MinimalManagerApp,
     sa_session: galaxy_scoped_session,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     tool = cached_create_tool_from_representation(
         app=app, raw_tool_source=raw_tool_source, tool_source_class=tool_source_class
@@ -517,8 +524,8 @@ def fetch_data(
     job_id: int,
     app: MinimalManagerApp,
     sa_session: galaxy_scoped_session,
-    task_user_id: Optional[int] = None,
-) -> Optional[str]:
+    task_user_id: int | None = None,
+) -> str | None:
     if setup_return is None:
         return None
     job = sa_session.get(Job, job_id)
@@ -550,19 +557,23 @@ def queue_jobs(request: QueueJobs, app: MinimalManagerApp, job_submitter: JobSub
 def export_history(
     model_store_manager: ModelStoreManager,
     request: SetupHistoryExportJob,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.setup_history_export_job(request)
 
 
 @galaxy_task(action="preparing compressed file for collection download")
 def prepare_dataset_collection_download(
+    sa_session: galaxy_scoped_session,
     request: PrepareDatasetCollectionDownload,
     collection_manager: DatasetCollectionManager,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     """Create a short term storage file tracked and available for download of target collection."""
-    collection_manager.write_dataset_collection(request)
+    user = None
+    if task_user_id:
+        user = sa_session.get(User, task_user_id)
+    collection_manager.write_dataset_collection(request, user=user)
 
 
 @galaxy_task(action="preparing Galaxy Markdown PDF for download")
@@ -570,7 +581,7 @@ def prepare_pdf_download(
     request: GeneratePdfDownload,
     config: GalaxyAppConfiguration,
     short_term_storage_monitor: ShortTermStorageMonitor,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     """Create a short term storage file tracked and available for download of target PDF for Galaxy Markdown."""
     generate_branded_pdf(request, config, short_term_storage_monitor)
@@ -580,7 +591,7 @@ def prepare_pdf_download(
 def prepare_history_download(
     model_store_manager: ModelStoreManager,
     request: GenerateHistoryDownload,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.prepare_history_download(request)
 
@@ -589,7 +600,7 @@ def prepare_history_download(
 def prepare_history_content_download(
     model_store_manager: ModelStoreManager,
     request: GenerateHistoryContentDownload,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.prepare_history_content_download(request)
 
@@ -598,7 +609,7 @@ def prepare_history_content_download(
 def prepare_invocation_download(
     model_store_manager: ModelStoreManager,
     request: GenerateInvocationDownload,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.prepare_invocation_download(request)
 
@@ -607,7 +618,7 @@ def prepare_invocation_download(
 def write_invocation_to(
     model_store_manager: ModelStoreManager,
     request: WriteInvocationTo,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.write_invocation_to(request)
 
@@ -616,7 +627,7 @@ def write_invocation_to(
 def write_history_to(
     model_store_manager: ModelStoreManager,
     request: WriteHistoryTo,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.write_history_to(request)
 
@@ -625,7 +636,7 @@ def write_history_to(
 def write_history_content_to(
     model_store_manager: ModelStoreManager,
     request: WriteHistoryContentTo,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.write_history_content_to(request)
 
@@ -634,7 +645,7 @@ def write_history_content_to(
 def import_model_store(
     model_store_manager: ModelStoreManager,
     request: ImportModelStoreTaskRequest,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     model_store_manager.import_model_store(request)
 
@@ -643,7 +654,7 @@ def import_model_store(
 def compute_dataset_hash(
     dataset_manager: DatasetManager,
     request: ComputeDatasetHashTaskRequest,
-    task_user_id: Optional[int] = None,
+    task_user_id: int | None = None,
 ):
     dataset_manager.compute_hash(request)
 
@@ -656,10 +667,10 @@ def import_data_bundle(
     tool_data_import_manager: ToolDataImportManager,
     config: GalaxyAppConfiguration,
     src: str,
-    uri: Optional[str] = None,
-    id: Optional[int] = None,
-    tool_data_file_path: Optional[str] = None,
-    task_user_id: Optional[int] = None,
+    uri: str | None = None,
+    id: int | None = None,
+    tool_data_file_path: str | None = None,
+    task_user_id: int | None = None,
 ):
     if src == "uri":
         assert uri
@@ -802,13 +813,11 @@ def _cleanup_jwds(
 
     def _delete_jwd(job: model.Job) -> bool:
         try:
-            path = object_store.get_filename(job, base_dir="job_work", dir_only=True, obj_dir=True)
-            shutil.rmtree(path)
-            return True
+            return JobWorkingDirectory(job, object_store).delete()
         except ObjectNotFound:
             return False
         except OSError as e:
-            log.error(f"Error deleting job working directory: {path} : {e.strerror}")
+            log.error(f"Error deleting job working directory for job {job.id}: {e.strerror}")
             return False
 
     deleted_count = 0
@@ -839,20 +848,41 @@ def renew_vault_token(vault: Vault):
 
 @galaxy_task(action="refreshing IWC workflow manifest cache")
 def refresh_iwc_manifest(config: GalaxyAppConfiguration):
-    """Pre-warm the in-process IWC manifest cache.
+    """Refresh the curated workflow projection and pre-warm the agent-ops cache.
 
-    The agent-ops layer caches the manifest at module scope with an hour
-    TTL; without this task the first user-driven IWC call after a worker
-    restart pays the full network fetch. Failures are logged and swallowed
-    so an iwc.galaxyproject.org outage doesn't kill the periodic queue --
-    on-demand callers still get the prior cached copy until the TTL lapses.
+    Two independent consumers, each fetched only when something actually reads it.
+
+    The projection at ``curated_workflows_path`` is what crosses the process
+    boundary: the in-process manifest cache is a module global, and celery runs
+    as a separate service from the web workers, so only the file reaches them.
+    That refresh is conditional -- an unchanged manifest costs a HEAD.
+
+    Failures are logged and swallowed so an iwc.galaxyproject.org outage doesn't
+    kill the periodic queue; readers keep serving the previous copy either way.
     """
-    try:
-        manifest = iwc.refresh_manifest()
-    except Exception as e:  # noqa: BLE001 -- best-effort warm; resilience over precision
-        log.warning("refresh_iwc_manifest: fetch failed, keeping existing cache: %s", e)
-        return
-    log.info("refresh_iwc_manifest: cached %s top-level manifest entries", len(manifest))
+    path = config.curated_workflows_path
+    if config.curated_workflows_source == "iwc" and path:
+        try:
+            written = curated.refresh_projection(path)
+        except curated.RefreshInProgress:
+            log.info("refresh_iwc_manifest: another process is already refreshing %s, skipping", path)
+        except Exception as e:  # noqa: BLE001 -- best-effort refresh; resilience over precision
+            log.warning("refresh_iwc_manifest: could not refresh %s: %s", path, e)
+        else:
+            if written is None:
+                log.info("refresh_iwc_manifest: curated catalog at %s is already current", path)
+            else:
+                log.info("refresh_iwc_manifest: wrote %s curated workflows to %s", written, path)
+
+    # Only the agent-ops layer reads the module-level manifest cache, so warming
+    # it is worth a second fetch only when that layer is actually configured.
+    if config.inference_services:
+        try:
+            manifest = iwc.refresh_manifest()
+        except Exception as e:  # noqa: BLE001 -- best-effort warm; resilience over precision
+            log.warning("refresh_iwc_manifest: fetch failed, keeping existing cache: %s", e)
+            return
+        log.info("refresh_iwc_manifest: cached %s top-level manifest entries", len(manifest))
 
 
 @galaxy_task(action="refreshing GTN training database")

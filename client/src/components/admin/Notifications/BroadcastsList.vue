@@ -3,11 +3,13 @@ import { faCheck, faClock, faHourglassHalf, faRedo } from "@fortawesome/free-sol
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { BCol, BRow } from "bootstrap-vue";
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import { fetchAllBroadcasts, updateBroadcast } from "@/api/notifications.broadcast";
+import type { components } from "@/api/schema";
 import { Toast } from "@/composables/toast";
 import type { BroadcastNotification } from "@/stores/broadcastsStore";
+import { withPrefix } from "@/utils/redirect";
 
 import BroadcastCard from "./BroadcastCard.vue";
 import GAlert from "@/components/BaseComponents/GAlert.vue";
@@ -16,6 +18,8 @@ import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
 import GOverlay from "@/components/BaseComponents/GOverlay.vue";
 import Heading from "@/components/Common/Heading.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
+
+type ActionLink = components["schemas"]["ActionLink"];
 
 const router = useRouter();
 
@@ -57,8 +61,10 @@ async function onForceExpire(item: BroadcastNotification) {
     Toast.info("Broadcast marked as expired. It will be removed from the database in the next cleanup cycle.");
 }
 
-function onGoToLink(link: string) {
-    if (link.startsWith("/")) {
+function onGoToLink({ link, target }: ActionLink) {
+    if (target === "_blank") {
+        window.open(withPrefix(link), "_blank", "noopener,noreferrer");
+    } else if (link.startsWith("/")) {
         router.push(link);
     } else {
         window.open(link, "_blank");
@@ -106,8 +112,8 @@ loadBroadcastsList();
                         <GButtonGroup>
                             <GButton
                                 id="show-active-filter-button"
+                                v-model:pressed="showActive"
                                 size="small"
-                                :pressed.sync="showActive"
                                 title="Show active broadcasts"
                                 outline
                                 color="blue">
@@ -116,8 +122,8 @@ loadBroadcastsList();
                             </GButton>
                             <GButton
                                 id="show-scheduled-filter-button"
+                                v-model:pressed="showScheduled"
                                 size="small"
-                                :pressed.sync="showScheduled"
                                 title="Show scheduled broadcasts"
                                 outline
                                 color="blue">
@@ -126,8 +132,8 @@ loadBroadcastsList();
                             </GButton>
                             <GButton
                                 id="show-expired-filter-button"
+                                v-model:pressed="showExpired"
                                 size="small"
-                                :pressed.sync="showExpired"
                                 title="Show expired broadcasts"
                                 outline
                                 color="blue">

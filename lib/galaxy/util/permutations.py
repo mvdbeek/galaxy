@@ -10,11 +10,9 @@ with itertools product and permutations. These are open questions.
 import copy
 from typing import (
     Any,
-    Optional,
-    Tuple,
 )
 
-from galaxy.exceptions import MessageException
+from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.util.bunch import Bunch
 
 input_classification = Bunch(
@@ -24,9 +22,21 @@ input_classification = Bunch(
 )
 
 
-class InputMatchedException(MessageException):
+class InputMatchedException(RequestParameterInvalidException):
     """Indicates problem matching inputs while building up inputs
     permutations."""
+
+
+def assert_matched_lengths(lengths: dict[str, int]) -> None:
+    """Raise InputMatchedException unless all matched inputs have the same length."""
+    if not lengths:
+        return
+    first_key, first_length = next(iter(lengths.items()))
+    for key, length in lengths.items():
+        if length != first_length:
+            raise InputMatchedException(
+                f"Received {length} inputs for '{key}' and {first_length} inputs for '{first_key}', these should be of equal length"
+            )
 
 
 def build_combos(single_inputs, matched_multi_inputs, multiplied_multi_inputs, nested):
@@ -50,6 +60,7 @@ def __extend_with_matched_combos(single_inputs, multi_inputs, nested):
     if len(multi_inputs) == 0:
         return [single_inputs]
 
+    assert_matched_lengths({key: len(values) for key, values in multi_inputs.items()})
     matched_multi_inputs = []
 
     first_multi_input_key = next(iter(multi_inputs.keys()))
@@ -62,11 +73,6 @@ def __extend_with_matched_combos(single_inputs, multi_inputs, nested):
     for multi_input_key, multi_input_values in multi_inputs.items():
         if multi_input_key == first_multi_input_key:
             continue
-        if len(multi_input_values) != len(first_multi_value):
-            raise InputMatchedException(
-                f"Received {len(multi_input_values)} inputs for '{multi_input_key}' and {len(first_multi_value)} inputs for '{first_multi_input_key}', these should be of equal length"
-            )
-
         for index, value in enumerate(multi_input_values):
             state_set_value(matched_multi_inputs[index], multi_input_key, value, nested)
 
@@ -158,7 +164,7 @@ def state_get_value(state_dict, key, nested):
             return state_get_value(state_dict[first], rest, nested)
 
 
-def is_in_state(state_dict: Optional[dict], key: str, nested: bool) -> bool:
+def is_in_state(state_dict: dict | None, key: str, nested: bool) -> bool:
     if not state_dict:
         return False
     if "|" not in key or not nested:
@@ -174,7 +180,7 @@ def looks_like_flattened_repeat_key(key: str) -> bool:
     return len(parts) == 2 and parts[1].isdigit()
 
 
-def split_flattened_repeat_key(key: str) -> Tuple[str, int]:
+def split_flattened_repeat_key(key: str) -> tuple[str, int]:
     input_name, _index = key.rsplit("_", 1)
     index = int(_index)
     return input_name, index

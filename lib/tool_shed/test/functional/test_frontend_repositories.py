@@ -55,8 +55,8 @@ class TestFrontendRepositories(PlaywrightTestCase):
         page = self._page
 
         page.locator("[role=tab]").filter(has_text="Revisions").click()
-        # RevisionsTab uses q-list with expansion items showing changeset hashes
-        expect(page.locator(".q-list")).to_be_visible()
+        # RevisionsTab renders a list of collapsible revisions showing changeset hashes
+        expect(page.locator(".revision-list")).to_be_visible()
 
     def test_metadata_inspector_reset_tab(self):
         """Verify Reset Metadata tab with admin login."""
@@ -94,7 +94,7 @@ class TestFrontendRepositories(PlaywrightTestCase):
         self.screenshot("metadata_inspector_tool_history")
 
         # Tool History with 1.3.0 details expanded
-        page.locator(".q-expansion-item").first.click()
+        page.locator(".tool-details-toggle").first.click()
         page.wait_for_timeout(500)  # Wait for expansion animation
         self.screenshot("metadata_inspector_tool_history_expanded")
 
@@ -129,6 +129,30 @@ class TestFrontendRepositories(PlaywrightTestCase):
 
         # Verify dry run indicator is gone and status shows success
         expect(page.locator("text=(dry run)")).not_to_be_visible()
-        expect(page.locator(".q-chip").filter(has_text="ok")).to_be_visible()
+        expect(page.locator(".reset-status-chip").filter(has_text="ok")).to_be_visible()
 
         self.screenshot("metadata_inspector_reset_complete")
+
+    def test_old_revision_readme_renders_with_its_images(self):
+        """Verify an old revision shows its README and that revision's image, even when the README is unchanged."""
+        repository = self.populator.setup_test_data_repo("column_maker_with_rst_readme")
+        revisions = list(self.populator.get_metadata(repository).root.values())
+        assert len(revisions) == 3
+        # The second revision only bumps the tool version, so README.rst and images/logo.png are unchanged in it.
+        middle_changeset = revisions[1].changeset_revision
+        self.visit_url(f"/view/{repository.owner}/{repository.name}/{middle_changeset}")
+        page = self._page
+
+        readme = page.locator(".repository-readme")
+        expect(readme).to_contain_text("Old README for column maker.")
+        expect(readme).not_to_contain_text("New README")
+        # decode() rejects for a broken image; the old logo is 16px wide, the latest one 24px.
+        assert readme.locator("img").evaluate("img => img.decode().then(() => img.naturalWidth)") == 16
+        readme.scroll_into_view_if_needed()
+        self.screenshot("repository_old_revision_readme")
+
+        self.visit_url(f"/view/{repository.owner}/{repository.name}")
+        expect(readme).to_contain_text("New README for column maker.")
+        assert readme.locator("img").evaluate("img => img.decode().then(() => img.naturalWidth)") == 24
+        readme.scroll_into_view_if_needed()
+        self.screenshot("repository_latest_revision_readme")

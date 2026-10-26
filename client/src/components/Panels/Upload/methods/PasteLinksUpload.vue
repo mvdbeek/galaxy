@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { faLink, faPlus, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BFormInput } from "bootstrap-vue";
 import { computed, nextTick, ref, watch } from "vue";
 
 import type { TableField } from "@/components/Common/GTable.types";
@@ -14,6 +13,7 @@ import { useUploadDefaults } from "@/composables/upload/uploadDefaults";
 import { useUploadItemValidation } from "@/composables/upload/uploadItemValidation";
 import { useUploadOptionBindings } from "@/composables/upload/uploadOptionBindings";
 import { useUploadReadyState } from "@/composables/upload/uploadReadyState";
+import { useUploadTableSorting } from "@/composables/upload/uploadTableSorting";
 import { useUploadStaging } from "@/composables/upload/useUploadStaging";
 import { buildPreparedUpload } from "@/utils/upload";
 import { mapToPasteUrlUpload } from "@/utils/upload/itemMappers";
@@ -30,6 +30,7 @@ import UploadTableExtensionCell from "../shared/UploadTableExtensionCell.vue";
 import UploadTableNameCell from "../shared/UploadTableNameCell.vue";
 import UploadTableOptionsCell from "../shared/UploadTableOptionsCell.vue";
 import UploadTableOptionsHeader from "../shared/UploadTableOptionsHeader.vue";
+import GFormInput from "@/components/BaseComponents/Form/GFormInput.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import GTable from "@/components/Common/GTable.vue";
 
@@ -96,6 +97,8 @@ const { clear: clearStaging } = useUploadStaging<PasteUrlItem>(props.method.id, 
 });
 
 const placeholder = "https://example.org/data1.txt\nhttps://example.org/data2.txt";
+
+const { tableSortProps, tableSortEvents } = useUploadTableSorting(urlItems);
 
 const hasItems = computed(() => urlItems.value.length > 0);
 const isSingleMode = computed(() => props.multiple === false);
@@ -276,10 +279,22 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                 <div class="d-flex justify-content-between align-items-center">
                     <span class="font-weight-bold">{{ urlItems.length }} URL(s) added</span>
                 </div>
+                <div v-if="hasInvalidUrls" class="text-danger small mt-1" data-test-id="invalid-urls-warning">
+                    One or more URLs are invalid. Fix or remove them to start the upload.
+                </div>
             </div>
 
             <div ref="tableContainerRef" class="url-table-container">
-                <GTable hover striped fixed compact :items="urlItems" :fields="tableFields" class="url-table">
+                <GTable
+                    v-bind="tableSortProps"
+                    hover
+                    striped
+                    fixed
+                    compact
+                    :items="urlItems"
+                    :fields="tableFields"
+                    class="url-table"
+                    v-on="tableSortEvents">
                     <!-- Name column -->
                     <template v-slot:cell(name)="{ item, index }">
                         <UploadTableNameCell
@@ -291,12 +306,13 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                     </template>
 
                     <!-- URL column -->
-                    <template v-slot:cell(url)="{ item }">
+                    <template v-slot:cell(url)="{ item, index }">
                         <div class="d-flex align-items-center">
-                            <BFormInput
+                            <GFormInput
                                 v-model="item.url"
                                 v-g-tooltip.hover
-                                size="sm"
+                                size="small"
+                                :data-test-id="`upload-row-${index + 1}-url`"
                                 :state="isValidUrl(item.url)"
                                 :title="getUrlValidationMessage(item.url)"
                                 class="url-input" />
@@ -438,6 +454,13 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
 
     :deep(.url-table thead) {
         @include upload-table-header;
+    }
+
+    // Highlight rows with an invalid URL so the problem is visible at a
+    // glance, even on narrow screens where the URL column itself is
+    // scrolled out of view.
+    :deep(.url-table tbody tr:has(.url-input[aria-invalid="true"])) {
+        background-color: rgba($brand-danger, 0.08);
     }
 
     :deep(.url-name-cell) {

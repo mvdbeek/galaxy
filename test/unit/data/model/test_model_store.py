@@ -5,6 +5,7 @@ import os
 import pathlib
 import shutil
 import sys
+import tarfile
 from tempfile import (
     mkdtemp,
     NamedTemporaryFile,
@@ -12,7 +13,6 @@ from tempfile import (
 from typing import (
     Any,
     NamedTuple,
-    Optional,
 )
 
 import pytest
@@ -28,6 +28,12 @@ from galaxy.model import store
 from galaxy.model.metadata import MetadataTempFile
 from galaxy.model.scoped_session import galaxy_scoped_session as scoped_session
 from galaxy.model.store import SessionlessContext
+from galaxy.model.store.datasets_mapping import (
+    CollectionMembership,
+    DATASETS_MAPPING_FILENAME,
+    mapping_row,
+    MappingEntry,
+)
 from galaxy.model.unittest_utils import GalaxyDataTestApp
 from galaxy.model.unittest_utils.store_fixtures import (
     deferred_hda_model_store_dict,
@@ -49,6 +55,12 @@ TEST_PATH_1 = TESTCASE_DIRECTORY / "1.txt"
 TEST_PATH_2 = TESTCASE_DIRECTORY / "2.bed"
 TEST_PATH_2_CONVERTED = TESTCASE_DIRECTORY / "2.txt"
 DEFAULT_OBJECT_STORE_BY = "id"
+
+
+def test_dataset_attribute_import_model_coerces_deleted_state():
+    attributes = store.DatasetAttributeImportModel(state="deleted")
+
+    assert attributes.state == model.Dataset.states.DISCARDED
 
 
 def test_get_export_dataset_filename_truncates_long_name():
@@ -333,6 +345,47 @@ def test_import_library_from_dict():
     assert len(all_libraries) == 1, len(all_libraries)
     all_lddas = sa_session.scalars(select(model.LibraryDatasetDatasetAssociation)).all()
     assert len(all_lddas) == 1, len(all_lddas)
+
+
+@pytest.mark.parametrize(
+    "extension, expected_extension",
+    [
+        ("notadatatype", "data"),
+        ("bed", "bed"),
+        ("auto", "auto"),
+    ],
+)
+def test_import_from_dict_unregistered_extension(extension, expected_extension):
+    fixture_context = setup_fixture_context_with_history()
+    import_dict = one_hda_model_store_dict()
+    import_dict["datasets"][0]["extension"] = extension
+    perform_import_from_store_dict(fixture_context, import_dict)
+    assert fixture_context.history.datasets[0].extension == expected_extension
+
+
+def test_import_library_from_dict_unregistered_extension():
+    fixture_context = setup_fixture_context_with_history()
+    import_dict = one_ld_library_model_store_dict()
+    import_dict["datasets"][0]["extension"] = "not_a_registered_datatype"
+    import_options = store.ImportOptions()
+    import_options.allow_library_creation = True
+    perform_import_from_store_dict(fixture_context, import_dict, import_options=import_options)
+    ldda = fixture_context.sa_session.scalars(select(model.LibraryDatasetDatasetAssociation)).one()
+    assert ldda.extension == "data"
+
+
+def test_import_edit_dataset_unregistered_extension():
+    app, h, temp_directory, import_history = _setup_simple_export({"for_edit": True})
+    datasets_metadata_path = os.path.join(temp_directory, store.ATTRS_FILENAME_DATASETS)
+    with open(datasets_metadata_path) as f:
+        datasets_metadata = json.load(f)
+    datasets_metadata[0]["extension"] = "not_a_registered_datatype"
+    with open(datasets_metadata_path, "w") as f:
+        json.dump(datasets_metadata, f)
+
+    _perform_import_from_directory(temp_directory, app, h.user, import_history, store.ImportOptions(allow_edit=True))
+
+    assert h.datasets[0].extension == "data"
 
 
 def test_import_allow_discarded():
@@ -751,6 +804,286 @@ def test_export_invocation_to_ro_crate_archive(tmp_path):
         assert compressed_file.file_type == "zip"
         compressed_file.extract(crate_directory)
     validate_invocation_crate_directory(crate_directory)
+
+
+def _read_datasets_mapping(directory):
+    """Read the mapping strictly as IANA TSV: one record per line, no quoting."""
+    mapping_path = os.path.join(directory, DATASETS_MAPPING_FILENAME)
+    with open(mapping_path, encoding="utf-8", newline="") as mapping_file:
+        header, *lines = mapping_file.read().splitlines()
+    fieldnames = header.split("\t")
+    rows = [dict(zip(fieldnames, line.split("\t"), strict=True)) for line in lines]
+    return fieldnames, rows
+
+
+def test_history_export_writes_datasets_mapping(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+    d1.name = 'my "cool" dataset, with comma'
+    app.commit()
+
+    with store.DirectoryModelExportStore(
+        tmp_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.export_history(history)
+
+    fieldnames, rows = _read_datasets_mapping(tmp_path)
+    assert fieldnames == [
+        "hid",
+        "name",
+        "exported_file",
+        "extension",
+        "state",
+        "collection_name",
+        "element_identifier",
+        "tags",
+        "annotation",
+        "file_size",
+        "create_time",
+        "update_time",
+    ]
+    assert len(rows) == 2
+    rows_by_hid = {row["hid"]: row for row in rows}
+    assert rows_by_hid[str(d1.hid)]["name"] == 'my "cool" dataset, with comma'
+    assert rows_by_hid[str(d2.hid)]["name"] == d2.name
+    for row in rows:
+        assert row["exported_file"]
+        assert os.path.exists(os.path.join(tmp_path, row["exported_file"]))
+
+
+def test_history_export_tar_includes_datasets_mapping(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+
+    tar_path = str(tmp_path / "history.tgz")
+    with store.TarModelExportStore(
+        tar_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.export_history(history)
+
+    with tarfile.open(tar_path) as tar:
+        assert DATASETS_MAPPING_FILENAME in tar.getnames()
+
+
+def test_history_ro_crate_registers_datasets_mapping(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+
+    with store.ROCrateModelExportStore(tmp_path, app=app, include_datasets_mapping=True) as export_store:
+        export_store.export_history(history)
+
+    assert os.path.exists(os.path.join(tmp_path, DATASETS_MAPPING_FILENAME))
+    crate = ROCrate(str(tmp_path))
+    assert DATASETS_MAPPING_FILENAME in [entity.id for entity in crate.get_entities()]
+
+
+def test_invocation_ro_crate_registers_datasets_mapping(tmp_path):
+    app = _mock_app()
+    workflow_invocation = _setup_invocation(app)
+
+    with store.ROCrateModelExportStore(tmp_path, app=app, include_datasets_mapping=True) as export_store:
+        export_store.export_workflow_invocation(workflow_invocation)
+
+    assert os.path.exists(os.path.join(tmp_path, DATASETS_MAPPING_FILENAME))
+    crate = ROCrate(str(tmp_path))
+    assert DATASETS_MAPPING_FILENAME in [entity.id for entity in crate.get_entities()]
+
+
+def test_invocation_ro_crate_archive_includes_datasets_mapping(tmp_path):
+    app = _mock_app()
+    workflow_invocation = _setup_invocation(app)
+
+    crate_zip = tmp_path / "crate.zip"
+    crate_directory = tmp_path / "crate"
+    with store.ROCrateArchiveModelExportStore(
+        crate_zip, app=app, export_files="symlink", include_datasets_mapping=True
+    ) as export_store:
+        export_store.export_workflow_invocation(workflow_invocation)
+    with CompressedFile(crate_zip) as compressed_file:
+        assert compressed_file.file_type == "zip"
+        compressed_file.extract(crate_directory)
+    assert os.path.exists(crate_directory / DATASETS_MAPPING_FILENAME)
+    crate = ROCrate(str(crate_directory))
+    assert DATASETS_MAPPING_FILENAME in [entity.id for entity in crate.get_entities()]
+
+
+def test_datasets_mapping_includes_provenance_only_datasets(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+
+    with store.DirectoryModelExportStore(
+        tmp_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.add_dataset(d1, include_files=False)
+
+    _, rows = _read_datasets_mapping(tmp_path)
+    assert len(rows) == 1
+    assert rows[0]["hid"] == str(d1.hid)
+    assert rows[0]["name"] == d1.name
+    assert rows[0]["exported_file"] == ""
+
+
+def test_history_export_survives_mapping_failure(tmp_path, monkeypatch):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+
+    def fail(*args, **kwargs):
+        raise RuntimeError("mapping boom")
+
+    monkeypatch.setattr(store, "write_datasets_mapping", fail)
+    with store.DirectoryModelExportStore(
+        tmp_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.export_history(history)
+
+    assert os.path.exists(os.path.join(tmp_path, store.ATTRS_FILENAME_HISTORY))
+    assert not os.path.exists(os.path.join(tmp_path, DATASETS_MAPPING_FILENAME))
+
+
+def test_datasets_mapping_is_opt_in(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+
+    with store.DirectoryModelExportStore(tmp_path, app=app, export_files="copy") as export_store:
+        export_store.export_history(history)
+
+    assert os.path.exists(os.path.join(tmp_path, store.ATTRS_FILENAME_HISTORY))
+    assert not os.path.exists(os.path.join(tmp_path, DATASETS_MAPPING_FILENAME))
+
+
+def test_export_store_factory_writes_datasets_mapping(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+
+    tar_path = str(tmp_path / "history.tgz")
+    with store.get_export_store_factory(app, "tgz", export_files="copy")(tar_path) as export_store:
+        export_store.export_history(history)
+
+    with tarfile.open(tar_path) as tar:
+        assert DATASETS_MAPPING_FILENAME in tar.getnames()
+
+
+def test_datasets_mapping_is_plain_tsv(tmp_path):
+    app = _mock_app()
+    u, history, d1, d2, j = _setup_simple_cat_job(app)
+    d1.name = '5" UTR\tregion'
+    d1.annotation = "first line\nsecond line"
+    app.commit()
+
+    with store.DirectoryModelExportStore(
+        tmp_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.add_dataset(d1)
+
+    _, rows = _read_datasets_mapping(tmp_path)
+    assert len(rows) == 1
+    assert rows[0]["name"] == '5" UTR region'
+    assert rows[0]["annotation"] == "first line second line"
+
+
+def test_history_export_maps_collection_elements(tmp_path):
+    app = _mock_app()
+    u, history, c1, c2, c3, hc1, hc2, hc3, j = _setup_simple_collection_job(app)
+    d1, d2 = (element.hda for element in c1.elements)
+    d3 = c2.elements[1].hda
+
+    with store.DirectoryModelExportStore(
+        tmp_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.export_history(history)
+
+    _, rows = _read_datasets_mapping(tmp_path)
+    rows_by_hid = {row["hid"]: row for row in rows}
+    assert rows_by_hid[str(d1.hid)]["collection_name"] == "HistoryCollectionTest1; HistoryCollectionTest2"
+    assert rows_by_hid[str(d1.hid)]["element_identifier"] == "forward; forward"
+    assert rows_by_hid[str(d2.hid)]["collection_name"] == "HistoryCollectionTest1"
+    assert rows_by_hid[str(d2.hid)]["element_identifier"] == "reverse"
+    assert rows_by_hid[str(d3.hid)]["collection_name"] == "HistoryCollectionTest2"
+    assert rows_by_hid[str(d3.hid)]["element_identifier"] == "reverse"
+
+
+def test_datasets_mapping_uses_nested_element_identifier_paths(tmp_path):
+    app = _mock_app()
+    sa_session = app.model.context
+    u = model.User(email="nested@example.com", password="password")
+    h = model.History(name="Nested", user=u)
+    forward, reverse = _create_datasets(sa_session, h, 2)
+    pair = model.DatasetCollection(collection_type="paired")
+    model.DatasetCollectionElement(collection=pair, element=forward, element_identifier="forward", element_index=0)
+    model.DatasetCollectionElement(collection=pair, element=reverse, element_identifier="reverse", element_index=1)
+    samples = model.DatasetCollection(collection_type="list:paired")
+    model.DatasetCollectionElement(collection=samples, element=pair, element_identifier="sample1", element_index=0)
+    hdca = model.HistoryDatasetCollectionAssociation(history=h, hid=3, collection=samples, name="Samples")
+    app.add_and_commit(hdca)
+
+    with store.DirectoryModelExportStore(
+        tmp_path, app=app, export_files="copy", include_datasets_mapping=True
+    ) as export_store:
+        export_store.export_history(h)
+
+    _, rows = _read_datasets_mapping(tmp_path)
+    identifiers = {row["hid"]: row["element_identifier"] for row in rows}
+    assert identifiers == {str(forward.hid): "sample1/forward", str(reverse.hid): "sample1/reverse"}
+
+
+def _serialized_hda_dict():
+    return {
+        "hid": 4,
+        "name": "my dataset",
+        "file_name": "datasets/my_dataset_abc123.txt",
+        "extension": "txt",
+        "state": "ok",
+        "tags": ["tag1", "tag2:value"],
+        "annotation": "some annotation",
+        "create_time": "2026-09-29 11:42:47.123456",
+        "update_time": "2026-09-29 12:00:00.000000",
+        "encoded_id": "abc123",
+    }
+
+
+def test_mapping_row_projects_serialized_dict():
+    row = mapping_row(
+        MappingEntry(
+            serialized=_serialized_hda_dict(),
+            file_size="42",
+            collections=[CollectionMembership("my collection", "sample1/forward")],
+        )
+    )
+    assert row == {
+        "hid": "4",
+        "name": "my dataset",
+        "exported_file": "datasets/my_dataset_abc123.txt",
+        "extension": "txt",
+        "state": "ok",
+        "collection_name": "my collection",
+        "element_identifier": "sample1/forward",
+        "tags": "tag1,tag2:value",
+        "annotation": "some annotation",
+        "file_size": "42",
+        "create_time": "2026-09-29 11:42:47.123456",
+        "update_time": "2026-09-29 12:00:00.000000",
+    }
+
+
+def test_mapping_row_tolerates_missing_keys():
+    row = mapping_row(
+        MappingEntry(serialized={"name": "library file", "extension": "txt"}, file_size="", collections=[])
+    )
+    assert row["name"] == "library file"
+    assert row["hid"] == ""
+    assert row["exported_file"] == ""
+    assert row["state"] == ""
+    assert row["tags"] == ""
+    assert row["annotation"] == ""
+    assert row["collection_name"] == ""
+    assert row["element_identifier"] == ""
+
+
+def test_mapping_row_replaces_tabs_and_line_breaks():
+    serialized = {**_serialized_hda_dict(), "name": 'a\tb "c"', "annotation": "line one\r\nline two"}
+    row = mapping_row(MappingEntry(serialized=serialized, file_size="", collections=[]))
+    assert row["name"] == 'a b "c"'
+    assert row["annotation"] == "line one line two"
 
 
 def test_finalize_job_state():
@@ -1546,7 +1879,7 @@ def setup_fixture_context_with_history(
 def perform_import_from_store_dict(
     fixture_context: StoreFixtureContextWithHistory,
     import_dict: dict[str, Any],
-    import_options: Optional[store.ImportOptions] = None,
+    import_options: store.ImportOptions | None = None,
 ) -> None:
     import_options = import_options or store.ImportOptions()
     import_model_store = store.get_import_model_store_for_dict(

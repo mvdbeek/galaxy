@@ -10,10 +10,7 @@ from abc import (
 )
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Union,
+    Protocol,
 )
 
 from .. import formatting
@@ -23,13 +20,29 @@ from ..safety import (
 )
 
 INSTRUMENT_FILE_PREFIX = "__instrument"
-InstrumentableT = Optional[Union[str, List[str]]]
+InstrumentableT = str | list[str] | None
+
+
+class ProvidesJobMetricsContext(Protocol):
+    """The slice of a Galaxy job that plugins may read when metrics are collected.
+
+    Declared structurally instead of importing ``galaxy.model``: this package ships to
+    Pulsar compute nodes (see ``packages/packages_for_pulsar_by_dep_dag.txt``) and so
+    depends on ``galaxy-util`` alone. The app passes something Job-shaped in; nothing
+    here needs to know it is a Job.
+    """
+
+    @property
+    def id(self) -> int: ...
+
+    @property
+    def resubmission_count(self) -> int: ...
 
 
 class InstrumentPlugin(metaclass=ABCMeta):
     """Describes how to instrument job scripts and retrieve collected metrics."""
 
-    formatter: Optional[formatting.JobMetricFormatter] = formatting.JobMetricFormatter()
+    formatter: formatting.JobMetricFormatter | None = formatting.JobMetricFormatter()
     default_safety = DEFAULT_SAFETY
 
     @property
@@ -52,26 +65,38 @@ class InstrumentPlugin(metaclass=ABCMeta):
         return None
 
     @abstractmethod
-    def job_properties(self, job_id, job_directory: str) -> Dict[str, Any]:
+    def job_properties(self, job_id, job_directory: str) -> dict[str, Any]:
         """Collect properties for this plugin from specified job directory.
         This method will run on the Galaxy server and can assume files created
         in job_directory with pre_execute_instrument and
         post_execute_instrument are available.
         """
 
-    def safety(self, metric_name: str) -> Safety:
-        """Return safety level of metric."""
-        # None of the plugins override this to dispatch on metric_name but on next
-        # iteration it would make sense to allow admins to expose particular env vars
-        # or to have cgroup keys we know are about runtime or memeory to be exposed
-        # at a safer level.
-        return self.default_safety
+    def collect(self, job: ProvidesJobMetricsContext, job_directory: str) -> dict[str, Any]:
+        """Collect properties for this plugin, given the job they belong to.
 
-    def _instrument_file_name(self, name: str) -> str:
+        The framework calls this rather than job_properties directly. Override it to read
+        the job itself; the default keeps plugins that only need the directory working
+        unchanged.
+        """
+        return self.job_properties(job.id, job_directory)
+
+    @classmethod
+    def safety(cls, metric_name: str) -> Safety:
+        """Return safety level of metric.
+
+        A classmethod so metrics recorded by a plugin that isn't configured globally (e.g. only
+        for some destinations) keep their level.
+        """
+        return cls.default_safety
+
+    @classmethod
+    def _instrument_file_name(cls, name: str) -> str:
         """Provide a common pattern for naming files used by instrumentation
         plugins - to ease their staging out of remote job directories.
         """
-        return f"{INSTRUMENT_FILE_PREFIX}_{self.plugin_type}_{name}"
+        return f"{INSTRUMENT_FILE_PREFIX}_{cls.plugin_type}_{name}"
 
-    def _instrument_file_path(self, job_directory: str, name: str) -> str:
-        return os.path.join(job_directory, self._instrument_file_name(name))
+    @classmethod
+    def _instrument_file_path(cls, job_directory: str, name: str) -> str:
+        return os.path.join(job_directory, cls._instrument_file_name(name))

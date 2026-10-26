@@ -1,23 +1,23 @@
 import logging
 import re
 import urllib.request
-from typing import Union
-from urllib.parse import (
-    quote,
-    urlsplit,
-)
+from contextlib import ExitStack
+from urllib.parse import urlparse
 
 from galaxy.files.models import (
     BaseFileSourceConfiguration,
     BaseFileSourceTemplateConfiguration,
     FilesSourceRuntimeContext,
 )
-from galaxy.files.uris import validate_non_local
+from galaxy.files.uris import (
+    get_reusable_http_session,
+    validate_non_local,
+)
 from galaxy.util import (
     DEFAULT_SOCKET_TIMEOUT,
     get_charset_from_http_headers,
+    requests,
     stream_to_path,
-    URL_SAFE_CHARACTERS,
 )
 from galaxy.util.config_parsers import IpAllowedListEntryT
 from galaxy.util.config_templates import TemplateExpansion
@@ -33,18 +33,11 @@ log = logging.getLogger(__name__)
 _DISALLOWED_URL_CHARACTERS = re.compile(r"[\x00-\x20\x7f]")
 
 
-def _requote_http_url(url: str) -> str:
-    # Percent-encode characters such as <, > and " after the host, leaving scheme and host untouched.
-    parts = urlsplit(url)
-    authority_end = len(parts.scheme) + len("://") + len(parts.netloc)
-    return url[:authority_end] + quote(url[authority_end:], safe=URL_SAFE_CHARACTERS)
-
-
 class HTTPFileSourceTemplateConfiguration(BaseFileSourceTemplateConfiguration):
     # `url_regex` is not templated because it needs to be set at initialization with no RuntimeContext available.
     url_regex: str = r"^https?://|^ftp://"
-    http_headers: Union[dict[str, str], TemplateExpansion] = {}
-    fetch_url_allowlist: Union[list[IpAllowedListEntryT], TemplateExpansion] = []
+    http_headers: dict[str, str] | TemplateExpansion = {}
+    fetch_url_allowlist: list[IpAllowedListEntryT] | TemplateExpansion = []
 
 
 class HTTPFileSourceConfiguration(BaseFileSourceConfiguration):
@@ -80,21 +73,40 @@ class HTTPFilesSource(BaseFilesSource[HTTPFileSourceTemplateConfiguration, HTTPF
         self, source_path: str, native_path: str, context: FilesSourceRuntimeContext[HTTPFileSourceConfiguration]
     ):
         config = context.config
-        request_url = source_path
-        if urlsplit(source_path).scheme.lower() in ("http", "https"):
-            # The fragment is not sent to the server, so it may contain spaces.
-            if _DISALLOWED_URL_CHARACTERS.search(source_path.split("#", 1)[0]):
-                raise ValueError(
-                    f"URL contains unencoded characters (e.g. spaces): {source_path}. "
-                    "The URL source should properly percent-encode the path."
+        scheme = urlparse(source_path).scheme.lower()
+        if scheme in ("http", "https") and _DISALLOWED_URL_CHARACTERS.search(source_path):
+            raise ValueError(
+                f"URL contains unencoded characters (e.g. spaces): {source_path}. "
+                "The URL source should properly percent-encode the path."
+            )
+
+        with ExitStack() as stack:
+            if scheme == "ftp":
+                req = urllib.request.Request(source_path, headers=config.http_headers)
+                page = stack.enter_context(urllib.request.urlopen(req, timeout=DEFAULT_SOCKET_TIMEOUT))
+            else:
+                session = get_reusable_http_session() or stack.enter_context(requests.Session())
+                page = stack.enter_context(
+                    session.get(
+                        source_path,
+                        headers=config.http_headers,
+                        stream=True,
+                        timeout=DEFAULT_SOCKET_TIMEOUT,
+                    )
                 )
-            request_url = _requote_http_url(source_path)
-        req = urllib.request.Request(request_url, headers=config.http_headers)
-        page = urllib.request.urlopen(req, timeout=DEFAULT_SOCKET_TIMEOUT)
-        with page:
+                if not page.ok:
+                    # Read the (small) error body, so a reused connection goes back to the pool instead of closing.
+                    _ = page.content
+                page.raise_for_status()
+                page.raw.decode_content = True
             # Verify url post-redirects is still allowlisted
-            validate_non_local(page.geturl(), self._allowlist or config.fetch_url_allowlist)
-            return stream_to_path(page, native_path, source_encoding=get_charset_from_http_headers(page.headers))
+            final_url = page.geturl() if scheme == "ftp" else page.url
+            validate_non_local(final_url, self._allowlist or config.fetch_url_allowlist)
+            return stream_to_path(
+                page if scheme == "ftp" else page.raw,
+                native_path,
+                source_encoding=get_charset_from_http_headers(page.headers),
+            )
 
     def _write_from(
         self, target_path: str, native_path: str, context: FilesSourceRuntimeContext[HTTPFileSourceConfiguration]

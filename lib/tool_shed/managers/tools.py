@@ -1,10 +1,7 @@
 import os
 import tempfile
-from collections import namedtuple
 from contextlib import nullcontext
-from typing import (
-    Optional,
-)
+from typing import Any
 
 from galaxy import exceptions
 from galaxy.exceptions import (
@@ -34,13 +31,16 @@ from tool_shed.context import (
 )
 from tool_shed.util.common_util import generate_clone_url_for
 from tool_shed.webapp.model import RepositoryMetadata
-from tool_shed.webapp.search.tool_search import ToolSearch
+from tool_shed.webapp.search.tool_search import (
+    ToolBoosts,
+    ToolSearch,
+)
 from tool_shed_client.schema import ShedParsedTool
 from .repositories import get_repository_revision_metadata_model
 from .trs import trs_tool_id_to_repository_metadata
 
 
-def search(trans: SessionRequestContext, q: str, page: int = 1, page_size: int = 10) -> dict:
+def search(trans: SessionRequestContext, q: str, page: int = 1, page_size: int = 10) -> dict[str, Any]:
     """
     Perform the search over TS tools index.
     Note that search works over the Whoosh index which you have
@@ -64,10 +64,7 @@ def search(trans: SessionRequestContext, q: str, page: int = 1, page_size: int =
 
     tool_search = ToolSearch()
 
-    Boosts = namedtuple(
-        "Boosts", ["tool_name_boost", "tool_description_boost", "tool_help_boost", "tool_repo_owner_username_boost"]
-    )
-    boosts = Boosts(
+    boosts = ToolBoosts(
         float(conf.get("tool_name_boost", 1.2)),
         float(conf.get("tool_description_boost", 0.6)),
         float(conf.get("tool_help_boost", 0.4)),
@@ -89,8 +86,8 @@ def get_repository_metadata_tool_dict(
     repository, metadata_by_version = trs_tool_id_to_repository_metadata(trans, trs_tool_id)
     if tool_version not in metadata_by_version:
         raise ObjectNotFound()
-    tool_version_repository_metadata: RepositoryMetadata = metadata_by_version[tool_version]
-    raw_metadata = tool_version_repository_metadata.metadata
+    tool_version_repository_metadata = metadata_by_version[tool_version]
+    raw_metadata = tool_version_repository_metadata.metadata or {}
     tool_dicts: list[RepositoryMetadataToolDict] = raw_metadata.get("tools", [])
     for tool_dict in tool_dicts:
         if tool_dict["id"] != tool_id or tool_dict["version"] != tool_version:
@@ -100,7 +97,7 @@ def get_repository_metadata_tool_dict(
 
 
 def parsed_tool_model_cached_for(
-    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
+    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: str | None = None
 ) -> ShedParsedTool:
     model_cache = trans.app.model_cache
     parsed_tool = model_cache.get_cache_entry_for(ShedParsedTool, trs_tool_id, tool_version)
@@ -112,7 +109,7 @@ def parsed_tool_model_cached_for(
 
 
 def parsed_tool_model_for(
-    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
+    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: str | None = None
 ) -> ShedParsedTool:
     tool_source, repository_metadata = tool_source_for(
         trans, trs_tool_id, tool_version, repository_clone_url=repository_clone_url
@@ -129,8 +126,8 @@ def parsed_tool_model_for(
 
 
 def tool_source_for(
-    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
-) -> tuple[ToolSource, Optional[RepositoryMetadata]]:
+    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: str | None = None
+) -> tuple[ToolSource, RepositoryMetadata | None]:
     if "~" in trs_tool_id:
         return _shed_tool_source_for(trans, trs_tool_id, tool_version, repository_clone_url)
     else:
@@ -141,13 +138,14 @@ def tool_source_for(
 
 
 def _shed_tool_source_for(
-    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: Optional[str] = None
+    trans: ProvidesRepositoriesContext, trs_tool_id: str, tool_version: str, repository_clone_url: str | None = None
 ) -> tuple[ToolSource, RepositoryMetadata]:
     rval = get_repository_metadata_tool_dict(trans, trs_tool_id, tool_version)
     repository_metadata, tool_version_metadata = rval
     tool_config = tool_version_metadata["tool_config"]
 
     repo = repository_metadata.repository.hg_repo
+    assert repository_metadata.changeset_revision is not None
     ctx = get_changectx_for_changeset(repo, repository_metadata.changeset_revision)
     work_dir = tempfile.mkdtemp(prefix="tmp-toolshed-tool_source")
     if repository_clone_url is None:
@@ -173,14 +171,12 @@ def _shed_tool_source_for(
         remove_dir(work_dir)
 
 
-def _stock_tool_source_for(tool_id: str, tool_version: str) -> Optional[ToolSource]:
+def _stock_tool_source_for(tool_id: str, tool_version: str) -> ToolSource | None:
     tool_version_sources = stock_tool_sources_by_id().get(tool_id)
     if tool_version_sources is None:
         return None
-    tool_source = tool_version_sources.get(tool_version)
-    if tool_source is not None:
+    if (tool_source := tool_version_sources.get(tool_version)) is not None:
         return tool_source
-    safe_version = is_workflow_safe_version(tool_id, tool_version)
-    if safe_version is not None:
+    if (safe_version := is_workflow_safe_version(tool_id, tool_version)) is not None:
         return tool_version_sources.get(safe_version)
     return None

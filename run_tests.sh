@@ -154,7 +154,7 @@ Selenium can also be setup a remote service - to target a service set
 GALAXY_TEST_SELENIUM_REMOTE to 1. The target service may be configured
 with GALAXY_TEST_SELENIUM_REMOTE_PORT and
 GALAXY_TEST_SELENIUM_REMOTE_HOST. By default Galaxy will assume the
-remote service being targetted is CHROME - but this can be overridden
+remote service being targeted is CHROME - but this can be overridden
 with GALAXY_TEST_SELENIUM_BROWSER.
 
 In this remote mode, please ensure that GALAXY_TEST_HOST is set to a
@@ -251,10 +251,15 @@ GALAXY_TEST_VERBOSE_ERRORS      Enable more verbose errors during API tests.
 GALAXY_TEST_UPLOAD_ASYNC        Upload tool test inputs asynchronously (may
                                 overwhelm sqlite database).
 GALAXY_TEST_RAW_DIFF            Don't slice up tool test diffs to keep output
-                                managable - print all output. (default off)
+                                manageable - print all output. (default off)
 GALAXY_TEST_DEFAULT_WAIT        Max time allowed for a tool test before Galaxy
                                 gives up (default 86400) - tools may define a
                                 maxseconds attribute to extend this.
+GALAXY_TEST_POLLING_DELTA       Interval in seconds between checks on whether
+                                a tool test's job has finished (default 0.25).
+GALAXY_TEST_POLLING_BACKOFF     Amount added to the polling interval after each
+                                check, so longer jobs are polled less often
+                                (default 0, a fixed interval).
 GALAXY_TEST_TOOL_DEPENDENCY_DIR tool dependency dir to use for Galaxy during
                                 functional tests.
 GALAXY_TEST_FILE_DIR            Test data sources (default to
@@ -297,10 +302,10 @@ GALAXY_TEST_DISABLE_ACCESS_LOG  Do not log access messages.
 GALAXY_TEST_LOG_LEVEL           Set Galaxy server log level for tests
                                 (default: DEBUG). E.g. WARNING to reduce output.
 GALAXY_TEST_AXE_SCRIPT_URL      URL of aXe script to use for accessibility testing.
-GALAXY_TEST_SKIP_AXE            Set this to '1' to skip aXe accessibilty testing when
+GALAXY_TEST_SKIP_AXE            Set this to '1' to skip aXe accessibility testing when
                                 running selenium tests.
 
-We're tyring annotate API and Selenium tests with the resources they require
+We're trying annotate API and Selenium tests with the resources they require
 and create to make them more appropriate to run on established Galaxy instances.
 The following variables can be used to disable certain classes of properly tests.
 
@@ -518,21 +523,6 @@ do
           export GALAXY_TEST_VERBOSE_ERRORS
           shift
           ;;
-      --ci_test_metrics)
-          GALAXY_CONFIG_OVERRIDE_STATSD_PREFIX="galaxy"
-          export GALAXY_CONFIG_OVERRIDE_STATSD_PREFIX
-          GALAXY_CONFIG_OVERRIDE_STATSD_HOST="localhost"
-          export GALAXY_CONFIG_OVERRIDE_STATSD_HOST
-          GALAXY_CONFIG_OVERRIDE_STATSD_INFLUXDB="true"
-          export GALAXY_CONFIG_OVERRIDE_STATSD_INFLUXDB
-          GALAXY_CONFIG_OVERRIDE_DATABASE_LOG_QUERY_COUNTS="true"
-          export GALAXY_CONFIG_OVERRIDE_DATABASE_LOG_QUERY_COUNTS
-          GALAXY_CONFIG_OVERRIDE_ENABLE_PER_REQUEST_SQL_DEBUGGING="true"
-          export GALAXY_CONFIG_OVERRIDE_ENABLE_PER_REQUEST_SQL_DEBUGGING
-          GALAXY_CONFIG_OVERRIDE_STATSD_MOCK_CALLS="true"
-          export GALAXY_CONFIG_OVERRIDE_STATSD_MOCK_CALLS
-          shift
-          ;;
       -c|--coverage)
           # Must have coverage installed (try `which coverage`) - only works with pytest
           # for now. Would be great to get this to work with functional tests though.
@@ -549,6 +539,7 @@ do
             --ignore lib/galaxy/datatypes/converters/
             --ignore lib/galaxy/jobs/runners/chronos.py
             --ignore lib/galaxy/model/migrations/alembic
+            --ignore lib/galaxy/tool_util/unittest_utils/functional_tools/
             --ignore lib/galaxy/tools/bundled
             --ignore lib/galaxy/web/proxy/js/node_modules/
             --ignore lib/galaxy_test
@@ -639,6 +630,11 @@ fi
 . ./scripts/common_startup_functions.sh
 
 setup_python
+
+if [ "$GALAXY_TEST_DRIVER_BACKEND" = "playwright" ] && [ ${#install_playwright_browers[@]} -eq 0 ]; then
+    # backend selected by environment rather than by the -playwright flag
+    install_playwright_browers=(chromium)
+fi
 
 if [ -n "$install_playwright_browers" ]; then
     playwright install "${install_playwright_browers[@]}"

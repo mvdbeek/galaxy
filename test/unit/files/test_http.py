@@ -1,3 +1,4 @@
+import gzip
 import io
 import os
 import urllib
@@ -5,6 +6,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+import responses
 
 from galaxy import exceptions
 from ._util import (
@@ -20,71 +22,97 @@ FILE_SOURCES_CONF_WITHOUT_STOCK = os.path.join(SCRIPT_DIRECTORY, "http_without_s
 
 
 @pytest.mark.usefixtures("fake_public_dns")
+@responses.activate
 def test_file_source_http_specific():
     test_url = "https://www.usegalaxy.org/myfile.txt"
 
-    def check_specific_header(request, **kwargs):
+    def check_specific_header(request):
         assert request.headers["Authorization"] == "Bearer IBearTokens"
-        response: Any = io.StringIO("hello specific world")
-        response.headers = {}
-        response.geturl = lambda: test_url
-        return response
+        return 200, {}, "hello specific world"
 
-    with mock.patch.object(urllib.request, "urlopen", new=check_specific_header):
-        user_context = user_context_fixture()
-        file_sources = configured_file_sources(FILE_SOURCES_CONF)
-        file_source_pair = file_sources.get_file_source_path(test_url)
+    responses.add_callback(responses.GET, test_url, callback=check_specific_header)
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+    file_source_pair = file_sources.get_file_source_path(test_url)
 
-        assert file_source_pair.path == test_url
-        assert file_source_pair.file_source.id == "test1"
+    assert file_source_pair.path == test_url
+    assert file_source_pair.file_source.id == "test1"
 
-        assert_realizes_as(file_sources, test_url, "hello specific world", user_context=user_context)
+    assert_realizes_as(file_sources, test_url, "hello specific world", user_context=user_context)
+
+
+def test_plugins_to_dict_serializes_only_best_matching_http_source():
+    test_url = "https://www.usegalaxy.org/myfile.txt"
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+    plugins = file_sources.plugins_to_dict(
+        for_serialization=True,
+        user_context=user_context,
+        referenced_uris={test_url},
+    )
+    assert [plugin["id"] for plugin in plugins] == ["test1"]
 
 
 @pytest.mark.usefixtures("fake_public_dns")
+@responses.activate
 def test_file_source_another_http_specific():
     test_url = "http://www.galaxyproject.org/anotherfile.txt"
 
-    def check_another_header(request, **kwargs):
+    def check_another_header(request):
         assert request.headers["Another_header"] == "found"
-        response: Any = io.StringIO("hello another world")
-        response.geturl = lambda: test_url
-        response.headers = {}
-        return response
+        return 200, {}, "hello another world"
 
-    with mock.patch.object(urllib.request, "urlopen", new=check_another_header):
-        user_context = user_context_fixture()
-        file_sources = configured_file_sources(FILE_SOURCES_CONF)
-        file_source_pair = file_sources.get_file_source_path(test_url)
+    responses.add_callback(responses.GET, test_url, callback=check_another_header)
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+    file_source_pair = file_sources.get_file_source_path(test_url)
 
-        assert file_source_pair.path == test_url
-        assert file_source_pair.file_source.id == "test2"
+    assert file_source_pair.path == test_url
+    assert file_source_pair.file_source.id == "test2"
 
-        assert_realizes_as(file_sources, test_url, "hello another world", user_context=user_context)
+    assert_realizes_as(file_sources, test_url, "hello another world", user_context=user_context)
 
 
 @pytest.mark.usefixtures("fake_public_dns")
+@responses.activate
 def test_file_source_http_generic():
     test_url = "https://www.elsewhere.org/myfile.txt"
 
-    def check_generic_headers(request, **kwargs):
-        assert not request.headers
-        response: Any = io.StringIO("hello generic world")
-        response.headers = {}
-        response.geturl = lambda: test_url
-        return response
+    def check_generic_headers(request):
+        assert "Authorization" not in request.headers
+        assert "Another_header" not in request.headers
+        return 200, {}, "hello generic world"
 
-    with mock.patch.object(urllib.request, "urlopen", new=check_generic_headers):
-        user_context = user_context_fixture()
-        file_sources = configured_file_sources(FILE_SOURCES_CONF)
-        file_source_pair = file_sources.get_file_source_path(test_url)
+    responses.add_callback(responses.GET, test_url, callback=check_generic_headers)
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+    file_source_pair = file_sources.get_file_source_path(test_url)
 
-        assert file_source_pair.path == test_url
-        assert file_source_pair.file_source.id == "test3"
+    assert file_source_pair.path == test_url
+    assert file_source_pair.file_source.id == "test3"
 
-        assert_realizes_as(file_sources, test_url, "hello generic world", user_context=user_context)
+    assert_realizes_as(file_sources, test_url, "hello generic world", user_context=user_context)
 
 
+@pytest.mark.usefixtures("fake_public_dns")
+@responses.activate
+def test_file_source_http_decodes_content_encoding():
+    test_url = "https://www.elsewhere.org/compressed.txt"
+    content = b"content compressed for transfer"
+    responses.add(
+        responses.GET,
+        test_url,
+        body=gzip.compress(content, mtime=0),
+        headers={"Content-Encoding": "gzip"},
+    )
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+
+    assert_realizes_as(file_sources, test_url, content.decode(), user_context=user_context)
+
+
+@pytest.mark.usefixtures("fake_public_dns")
+@responses.activate
 def test_file_source_http_leaves_reused_fd_open(tmp_path):
     test_url = "https://www.elsewhere.org/myfile.txt"
     target = tmp_path / "realized"
@@ -97,18 +125,10 @@ def test_file_source_http_leaves_reused_fd_open(tmp_path):
         # Another thread opening a file now receives the freed descriptor number.
         sentinel_fds.append(os.open(sentinel_path, os.O_WRONLY | os.O_CREAT))
 
-    def generic_response(request, **kwargs):
-        response: Any = io.StringIO("hello generic world")
-        response.headers = {}
-        response.geturl = lambda: test_url
-        return response
-
+    responses.add(responses.GET, test_url, body="hello generic world")
     file_sources = configured_file_sources(FILE_SOURCES_CONF)
     file_source_pair = file_sources.get_file_source_path(test_url)
-    with (
-        mock.patch.object(urllib.request, "urlopen", new=generic_response),
-        mock.patch.object(os, "close", new=close_and_reuse_fd),
-    ):
+    with mock.patch.object(os, "close", new=close_and_reuse_fd):
         file_source_pair.file_source.realize_to(file_source_pair.path, str(target), user_context=user_context_fixture())
 
     try:
@@ -157,25 +177,23 @@ def test_file_source_http_without_stock_generic():
 
 
 @pytest.mark.usefixtures("fake_public_dns")
+@responses.activate
 def test_file_source_http_without_stock_specific():
     test_url = "https://www.usegalaxy.org/myfile2.txt"
 
-    def check_specific_header(request, **kwargs):
+    def check_specific_header(request):
         assert request.headers["Authorization"] == "Bearer IBearTokens"
-        response: Any = io.StringIO("hello specific world 2")
-        response.headers = {}
-        response.geturl = lambda: test_url
-        return response
+        return 200, {}, "hello specific world 2"
 
-    with mock.patch.object(urllib.request, "urlopen", new=check_specific_header):
-        user_context = user_context_fixture()
-        file_sources = configured_file_sources(FILE_SOURCES_CONF_WITHOUT_STOCK)
-        file_source_pair = file_sources.get_file_source_path(test_url)
+    responses.add_callback(responses.GET, test_url, callback=check_specific_header)
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF_WITHOUT_STOCK)
+    file_source_pair = file_sources.get_file_source_path(test_url)
 
-        assert file_source_pair.path == test_url
-        assert file_source_pair.file_source.id == "test1"
+    assert file_source_pair.path == test_url
+    assert file_source_pair.file_source.id == "test1"
 
-        assert_realizes_as(file_sources, test_url, "hello specific world 2", user_context=user_context)
+    assert_realizes_as(file_sources, test_url, "hello specific world 2", user_context=user_context)
 
 
 def test_file_source_http_with_spaces_in_url_error():
@@ -189,19 +207,43 @@ def test_file_source_http_with_spaces_in_url_error():
         file_source_pair.file_source.realize_to(file_source_pair.path, "/tmp/test", user_context=user_context)
 
 
+@responses.activate
+def test_file_source_http_validates_redirect_target():
+    test_url = "https://example.com/start"
+    private_url = "http://127.0.0.1/private"
+    responses.add(responses.GET, test_url, status=302, headers={"Location": private_url})
+    responses.add(responses.GET, private_url, body="private data")
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+
+    with pytest.raises(exceptions.ConfigDoesNotAllowException):
+        file_source_pair = file_sources.get_file_source_path(test_url)
+        file_source_pair.file_source.realize_to(file_source_pair.path, "/tmp/test", user_context=user_context)
+
+
+@pytest.mark.parametrize("character", ("\n", "\t", "\x7f"))
+def test_file_source_http_with_control_character_error(character):
+    test_url = f"https://example.com/file{character}name.txt"
+    user_context = user_context_fixture()
+    file_sources = configured_file_sources(FILE_SOURCES_CONF)
+
+    with pytest.raises(ValueError, match="URL contains unencoded characters"):
+        file_source_pair = file_sources.get_file_source_path(test_url)
+        file_source_pair.file_source.realize_to(file_source_pair.path, "/tmp/test", user_context=user_context)
+
+
 def _realize_capturing_request_url(test_url: str, tmp_path) -> str:
     requested = []
 
-    def capture_url(request, **kwargs):
-        requested.append(request.full_url)
-        response: Any = io.StringIO("ok")
-        response.headers = {}
-        response.geturl = lambda: request.full_url
-        return response
+    def capture_url(request):
+        requested.append(request.url)
+        return 200, {}, "ok"
 
     file_sources = configured_file_sources(FILE_SOURCES_CONF)
     file_source_pair = file_sources.get_file_source_path(test_url)
-    with mock.patch.object(urllib.request, "urlopen", new=capture_url):
+    url_without_query = urllib.parse.urlsplit(test_url)._replace(query="").geturl()
+    with responses.RequestsMock() as mocked:
+        mocked.add_callback(responses.GET, url_without_query, callback=capture_url)
         file_source_pair.file_source.realize_to(
             file_source_pair.path, str(tmp_path / "realized"), user_context=user_context_fixture()
         )
@@ -220,44 +262,9 @@ def test_file_source_http_percent_encodes_unsafe_query_characters(tmp_path):
         "https://erddap.example.org/erddap/tabledap/data.geoJson?pres,time"
         "&pres%3E=0&pres%3C=10&time%3E=2025-01-01T00%3A00%3A00Z&pres_qc=%221%22"
     )
-    assert urllib.parse.urlsplit(requested_url).netloc == urllib.parse.urlsplit(test_url).netloc
 
 
 @pytest.mark.usefixtures("fake_public_dns")
 def test_file_source_http_keeps_encoded_url_unchanged(tmp_path):
     test_url = "https://www.elsewhere.org/a%20b%2Fc.txt?q=%22x%22&t=00%3A00"
     assert _realize_capturing_request_url(test_url, tmp_path) == test_url
-
-
-@pytest.mark.usefixtures("fake_public_dns")
-def test_file_source_http_keeps_non_ascii_host_unchanged(tmp_path):
-    test_url = "https://bücher.example/x<y"
-    requested_url = _realize_capturing_request_url(test_url, tmp_path)
-    assert requested_url == "https://bücher.example/x%3Cy"
-
-
-@pytest.mark.usefixtures("fake_public_dns")
-def test_file_source_http_keeps_url_with_invalid_escape_unchanged(tmp_path):
-    test_url = "https://www.elsewhere.org/a%20b?x=%zz&d=50%off"
-    assert _realize_capturing_request_url(test_url, tmp_path) == test_url
-
-
-@pytest.mark.usefixtures("fake_public_dns")
-def test_file_source_http_encodes_unsafe_characters_next_to_invalid_escape(tmp_path):
-    test_url = "https://www.elsewhere.org/a%20b?x<=1&d=50%off"
-    requested_url = _realize_capturing_request_url(test_url, tmp_path)
-    assert requested_url == "https://www.elsewhere.org/a%20b?x%3C=1&d=50%off"
-
-
-@pytest.mark.usefixtures("fake_public_dns")
-def test_file_source_http_keeps_escaped_unreserved_characters(tmp_path):
-    test_url = "https://www.elsewhere.org/a%7Eb%41.txt?sig=x%2Dy<z"
-    requested_url = _realize_capturing_request_url(test_url, tmp_path)
-    assert requested_url == "https://www.elsewhere.org/a%7Eb%41.txt?sig=x%2Dy%3Cz"
-
-
-@pytest.mark.usefixtures("fake_public_dns")
-def test_file_source_http_allows_spaces_in_fragment(tmp_path):
-    test_url = "https://www.elsewhere.org/file.txt#human label"
-    requested_url = _realize_capturing_request_url(test_url, tmp_path)
-    assert urllib.parse.urlsplit(requested_url).path == "/file.txt"

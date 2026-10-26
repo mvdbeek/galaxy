@@ -8,14 +8,19 @@ import type { AnyStorageDescription } from "./types";
 import ConfigurationMarkdown from "./ConfigurationMarkdown.vue";
 import ObjectStoreBadges from "./ObjectStoreBadges.vue";
 import ObjectStoreRestrictionSpan from "./ObjectStoreRestrictionSpan.vue";
+import LoadingSpan from "@/components/LoadingSpan.vue";
 import QuotaUsageBar from "@/components/User/DiskUsage/Quota/QuotaUsageBar.vue";
 
 interface Props {
     storageInfo: AnyStorageDescription;
     what: string;
+    /** Off when shown inside another hover popover */
+    interactive?: boolean;
 }
 
-const props = defineProps<Props>();
+const props = withDefaults(defineProps<Props>(), {
+    interactive: true,
+});
 
 const quotaSourceLabel = computed(() => props.storageInfo.quota?.source);
 const isPrivate = computed(() => props.storageInfo.private);
@@ -66,9 +71,9 @@ export default {
                 the default configured Galaxy <ObjectStoreRestrictionSpan :is-private="isPrivate" /> storage </span
             >.
         </div>
-        <ObjectStoreBadges :badges="badges"> </ObjectStoreBadges>
+        <ObjectStoreBadges :badges="badges" :interactive="props.interactive"> </ObjectStoreBadges>
         <div v-if="storageInfo.quota && storageInfo.quota.enabled">
-            <b-spinner v-if="isLoadingUsage" />
+            <LoadingSpan v-if="isLoadingUsage" spinner-only />
             <QuotaUsageBar v-else-if="quotaUsage" :quota-usage="quotaUsage" :embedded="true" />
         </div>
         <div v-else>Galaxy has no quota configured for this storage.</div>

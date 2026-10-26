@@ -46,13 +46,23 @@
             color: darken($brand-secondary, 40%);
         }
 
+        // vue-multiselect's own selected+highlight rule has the same specificity as the plain
+        // selected rule above, so restate the colors here instead of relying on bundle order.
         &.multiselect__option--highlight {
-            background: darken($brand-secondary, 40%);
+            background: darken($brand-secondary, 10%);
+            color: $brand-primary;
 
             &::after {
                 background: unset;
+                color: darken($brand-secondary, 40%);
             }
         }
+    }
+
+    .multiselect__placeholder,
+    .multiselect__input::placeholder {
+        color: $text-color;
+        opacity: 1;
     }
 
     .multiselect__placeholder {
@@ -61,7 +71,8 @@
     }
 
     .multiselect__tag {
-        min-height: unset;
+        min-height: 24px;
+        padding-right: 28px;
         white-space: normal;
         word-break: break-all;
         background: $brand-primary;
@@ -69,6 +80,12 @@
         margin-bottom: 0.1rem;
 
         .multiselect__tag-icon {
+            min-width: 24px;
+            min-height: 24px;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            font: inherit;
             color: $white;
 
             &:hover,

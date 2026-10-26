@@ -1,9 +1,9 @@
 <template>
     <div aria-labelledby="jobs-title">
         <h1 id="jobs-title" class="h-lg">Jobs</h1>
-        <b-alert v-if="message" :variant="status" show>
+        <GAlert v-if="message" :variant="status" show>
             {{ message }}
-        </b-alert>
+        </GAlert>
         <Heading h2 size="md" separator>Job Lock</Heading>
         <JobLock />
         <Heading h2 size="md" separator>Job Overview</Heading>
@@ -20,34 +20,34 @@
             <strong>&lt;YOUR MESSAGE&gt;</strong>
             For more information or help, report this error".
         </p>
-        <b-row>
-            <b-col class="col-sm-4">
-                <b-form-group>
-                    <b-form-checkbox id="show-all-running" v-model="showAllRunning" switch size="lg" @change="update">
+        <BRow>
+            <BCol class="col-sm-4">
+                <BFormGroup>
+                    <GCheckbox id="show-all-running" v-model="showAllRunning" switch size="large" @change="update">
                         {{ showAllRunning ? "Showing all unfinished jobs" : "Time cutoff applied to query" }}
-                    </b-form-checkbox>
-                </b-form-group>
-                <b-form name="jobs" @submit.prevent="onRefresh">
-                    <b-form-group
+                    </GCheckbox>
+                </BFormGroup>
+                <BForm name="jobs" @submit.prevent="onRefresh">
+                    <BFormGroup
                         v-show="!showAllRunning"
                         id="cutoff"
                         label="Cutoff in minutes"
                         description="Display jobs that had their state updated in the given time period.">
-                        <b-input-group>
-                            <b-form-input id="cutoff" v-model="cutoffMin" type="number"> </b-form-input>
-                        </b-input-group>
-                    </b-form-group>
-                </b-form>
-                <b-form-group>
+                        <BInputGroup>
+                            <BFormInput id="cutoff" v-model="cutoffMin" type="number"> </BFormInput>
+                        </BInputGroup>
+                    </BFormGroup>
+                </BForm>
+                <BFormGroup>
                     <FilterMenu
                         id="job-search"
+                        v-model:filter-text="filter"
+                        v-model:show-advanced="showAdvanced"
                         name="jobs"
                         placeholder="search jobs"
                         :filter-class="filterClass"
-                        :filter-text.sync="filter"
                         has-help
-                        :loading="busy"
-                        :show-advanced.sync="showAdvanced">
+                        :loading="busy">
                         <template v-slot:menu-help-text>
                             <div>
                                 <p>This textbox box can be used to filter the jobs displayed.</p>
@@ -98,27 +98,27 @@
                             </div>
                         </template>
                     </FilterMenu>
-                </b-form-group>
-            </b-col>
-        </b-row>
+                </BFormGroup>
+            </BCol>
+        </BRow>
         <transition name="fade">
-            <b-form v-if="unfinishedJobs.length && selectedStopJobIds.length" @submit.prevent="onStopJobs">
-                <b-form-group label="Stop Selected Jobs" description="Stop message will be displayed to the user">
-                    <b-input-group>
-                        <b-form-input id="stop-message" v-model="stopMessage" placeholder="Stop message" required>
-                        </b-form-input>
-                        <b-input-group-append>
-                            <b-btn type="submit">Submit</b-btn>
-                        </b-input-group-append>
-                    </b-input-group>
-                </b-form-group>
-                <b-form-group
+            <BForm v-if="unfinishedJobs.length && selectedStopJobIds.length" @submit.prevent="onStopJobs">
+                <BFormGroup label="Stop Selected Jobs" description="Stop message will be displayed to the user">
+                    <BInputGroup>
+                        <BFormInput id="stop-message" v-model="stopMessage" placeholder="Stop message" required>
+                        </BFormInput>
+                        <BInputGroupAppend>
+                            <BButton type="submit">Submit</BButton>
+                        </BInputGroupAppend>
+                    </BInputGroup>
+                </BFormGroup>
+                <BFormGroup
                     description="Only one notification will be sent for each user containing the reason and the list of affected jobs.">
-                    <b-form-checkbox id="send-notification" v-model="sendNotification" switch>
+                    <GCheckbox id="send-notification" v-model="sendNotification" switch>
                         Send a warning notification to users
-                    </b-form-checkbox>
-                </b-form-group>
-            </b-form>
+                    </GCheckbox>
+                </BFormGroup>
+            </BForm>
         </transition>
         <h3 class="mb-0 h-sm">Unfinished Jobs</h3>
         <JobsTable
@@ -133,17 +133,19 @@
             @handler-clicked="(handler) => appendTagFilter('handler', handler)"
             @user-clicked="(user) => appendTagFilter('user', user)">
             <template v-slot:head(selected)>
-                <b-form-checkbox
-                    v-model="allSelected"
+                <GCheckbox
+                    :model-value="allSelected"
+                    aria-label="Select all jobs"
+                    :disabled="!unfinishedJobs.length"
                     :indeterminate="indeterminate"
-                    @change="toggleAll"></b-form-checkbox>
+                    @update:model-value="toggleAll" />
             </template>
             <template v-slot:cell(selected)="data">
-                <b-form-checkbox
-                    :key="data.index"
-                    v-model="selectedStopJobIds"
-                    :checked="allSelected"
-                    :value="data.item['id']"></b-form-checkbox>
+                <GCheckbox
+                    :aria-label="`Select job ${data.item.id}`"
+                    :model-value="selectedStopJobIds.includes(data.item.id)"
+                    @click.stop
+                    @update:model-value="(checked) => setJobSelected(data.item.id, checked)" />
             </template>
         </JobsTable>
 
@@ -166,6 +168,7 @@
 </template>
 
 <script>
+import { BButton, BCol, BForm, BFormGroup, BFormInput, BInputGroup, BInputGroupAppend, BRow } from "bootstrap-vue";
 import { ref } from "vue";
 
 import { GalaxyApi } from "@/api";
@@ -179,11 +182,28 @@ import { commonJobFields } from "./JobFields";
 
 import JobLock from "./JobLock.vue";
 import JobsTable from "@/components/admin/JobsTable.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import FilterMenu from "@/components/Common/FilterMenu.vue";
 import Heading from "@/components/Common/Heading.vue";
 
 export default {
-    components: { FilterMenu, JobLock, JobsTable, Heading },
+    components: {
+        BButton,
+        BCol,
+        BForm,
+        BFormGroup,
+        BFormInput,
+        BInputGroup,
+        BInputGroupAppend,
+        BRow,
+        GAlert,
+        GCheckbox,
+        FilterMenu,
+        JobLock,
+        JobsTable,
+        Heading,
+    },
     setup() {
         const filter = ref("");
         const showAdvanced = ref(false);
@@ -194,9 +214,13 @@ export default {
                 handler: { placeholder: "handler", type: String, handler: contains("handler"), menuItem: true },
                 runner: { placeholder: "job runner", type: String, handler: contains("runner"), menuItem: true },
                 tool: { placeholder: "tool id", type: String, handler: contains("tool"), menuItem: true },
+                /** Unspecified text (e.g. the user just typing "grep1" with no `key:value` filter), which is
+                 * sent to the backend `search` param as is, alongside `user:`/`tool:`/etc. */
+                unspecified_text: { handler: contains("unspecified_text"), menuItem: false },
             },
             undefined,
             false,
+            "unspecified_text",
         );
 
         function appendTagFilter(filterName, filterVal) {
@@ -223,8 +247,6 @@ export default {
             ],
             selectedStopJobIds: [],
             selectedJobId: null,
-            allSelected: false,
-            indeterminate: false,
             stopMessage: "",
             message: "",
             status: "info",
@@ -237,6 +259,12 @@ export default {
         };
     },
     computed: {
+        allSelected() {
+            return this.unfinishedJobs.length > 0 && this.selectedStopJobIds.length === this.unfinishedJobs.length;
+        },
+        indeterminate() {
+            return this.selectedStopJobIds.length > 0 && !this.allSelected;
+        },
         finishedTableCaption() {
             return `These jobs have completed in the previous ${this.cutoffMin} minutes.`;
         },
@@ -266,18 +294,6 @@ export default {
         },
         cutoffMin(newVal) {
             this.update();
-        },
-        selectedStopJobIds(newVal) {
-            if (newVal.length === 0) {
-                this.indeterminate = false;
-                this.allSelected = false;
-            } else if (newVal.length === this.unfinishedJobs.length) {
-                this.indeterminate = false;
-                this.allSelected = true;
-            } else {
-                this.indeterminate = true;
-                this.allSelected = false;
-            }
         },
         jobs(newVal) {
             const unfinishedJobs = [];
@@ -397,6 +413,11 @@ export default {
             this.update();
             this.selectedStopJobIds = [];
             this.stopMessage = "";
+        },
+        setJobSelected(jobId, checked) {
+            this.selectedStopJobIds = checked
+                ? [...this.selectedStopJobIds, jobId]
+                : this.selectedStopJobIds.filter((id) => id !== jobId);
         },
         toggleAll(checked) {
             this.selectedStopJobIds = checked ? this.unfinishedJobs.map((job) => job.id) : [];

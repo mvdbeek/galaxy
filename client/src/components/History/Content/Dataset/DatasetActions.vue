@@ -1,28 +1,31 @@
 <script setup lang="ts">
 import { faBug, faChartBar, faInfoCircle, faLink, faRedo, faSitemap } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BButton } from "bootstrap-vue";
+import { storeToRefs } from "pinia";
 import { computed } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
-import type { HDADetailed } from "@/api";
+import { type HDADetailed, userOwnsHistory } from "@/api";
+import { useHistoryStore } from "@/stores/historyStore";
+import { useUserStore } from "@/stores/userStore";
 import { copy as sendToClipboard } from "@/utils/clipboard";
 import localize from "@/utils/localization";
 import { absPath, prependPath } from "@/utils/redirect";
 
 import type { ItemUrls } from ".";
 
+import GButton from "@/components/BaseComponents/GButton.vue";
 import DatasetDownload from "@/components/History/Content/Dataset/DatasetDownload.vue";
+import ExportToAnotherGalaxy from "@/components/History/Content/ExportToAnotherGalaxy.vue";
 
 interface Props {
     item: HDADetailed;
     writable: boolean;
-    showHighlight: boolean;
+    showHighlight?: boolean;
     itemUrls: ItemUrls;
 }
 
 const props = withDefaults(defineProps<Props>(), {
-    writable: true,
     showHighlight: false,
 });
 
@@ -33,6 +36,24 @@ const router = useRouter();
 const showDownloads = computed(() => {
     return !props.item.purged && ["ok", "failed_metadata", "error"].includes(props.item.state);
 });
+const { currentUser } = storeToRefs(useUserStore());
+const historyStore = useHistoryStore();
+// Checked here rather than trusting `writable`, which defaults to true where a caller does not pass it.
+// A history that is not loaded yet is fetched, and the button shows once it arrives.
+const ownsActiveHistory = computed(() => {
+    const history = historyStore.getHistoryById(props.item.history_id);
+    return Boolean(history && !history.deleted && !history.archived && userOwnsHistory(currentUser.value, history));
+});
+// A hidden or deleted dataset would be imported out of sight on the other Galaxy, and one in error has no
+// data to move.
+const showExport = computed(
+    () =>
+        props.writable &&
+        props.item.visible &&
+        !props.item.deleted &&
+        props.item.state === "ok" &&
+        ownsActiveHistory.value,
+);
 const showError = computed(() => {
     return props.item.state === "error" || props.item.state === "failed_metadata";
 });
@@ -58,7 +79,7 @@ const rerunUrl = computed(() => {
     return prependPath(props.itemUrls.rerun!);
 });
 const downloadUrl = computed(() => {
-    return prependPath(`api/datasets/${props.item.id}/display?to_ext=${props.item.extension}`);
+    return prependPath(`api/datasets/${props.item.id}/download?to_ext=${props.item.extension}`);
 });
 
 function onCopyLink() {
@@ -95,77 +116,83 @@ function onRerun() {
     <div class="dataset-actions mb-1">
         <div class="clearfix">
             <div class="btn-group float-left">
-                <BButton
+                <GButton
                     v-if="showError"
                     v-g-tooltip.hover
                     class="px-1"
                     title="Error"
-                    size="sm"
-                    variant="link"
+                    size="small"
+                    transparent
                     :href="reportErrorUrl"
                     @click.prevent.stop="onError">
                     <FontAwesomeIcon :icon="faBug" />
-                </BButton>
+                </GButton>
 
                 <DatasetDownload v-if="showDownloads" :item="item" @on-download="onDownload" />
 
-                <BButton
+                <ExportToAnotherGalaxy
+                    v-if="showDownloads && showExport"
+                    :history-id="item.history_id"
+                    :content-id="item.id"
+                    :content-name="item.name || ''" />
+
+                <GButton
                     v-if="showDownloads"
                     v-g-tooltip.hover
                     class="px-1"
                     title="Copy Link"
-                    size="sm"
-                    variant="link"
+                    size="small"
+                    transparent
                     @click.stop="onCopyLink">
                     <FontAwesomeIcon :icon="faLink" />
-                </BButton>
+                </GButton>
 
-                <BButton
+                <GButton
                     v-if="showInfo"
                     v-g-tooltip.hover
                     class="info-btn px-1"
                     title="Dataset Details"
-                    size="sm"
-                    variant="link"
+                    size="small"
+                    transparent
                     :href="showDetailsUrl"
                     @click.prevent.stop="onInfo">
                     <FontAwesomeIcon :icon="faInfoCircle" />
-                </BButton>
+                </GButton>
 
-                <BButton
+                <GButton
                     v-if="showVisualizations"
                     v-g-tooltip.hover
                     class="visualize-btn px-1"
                     title="Visualize"
-                    size="sm"
-                    variant="link"
+                    size="small"
+                    transparent
                     :href="visualizeUrl"
                     @click.prevent.stop="onVisualize">
                     <FontAwesomeIcon :icon="faChartBar" />
-                </BButton>
+                </GButton>
 
-                <BButton
+                <GButton
                     v-if="showHighlight"
                     v-g-tooltip.hover
                     class="highlight-btn px-1"
                     title="Show Related Items"
-                    size="sm"
-                    variant="link"
+                    size="small"
+                    transparent
                     @click.stop="onHighlight">
                     <FontAwesomeIcon :icon="faSitemap" />
-                </BButton>
+                </GButton>
 
-                <BButton
+                <GButton
                     v-if="writable && showRerun"
                     v-g-tooltip.hover
                     class="rerun-btn px-1"
                     title="Run Job Again"
-                    size="sm"
-                    variant="link"
+                    size="small"
+                    transparent
                     :href="rerunUrl"
                     @click.prevent.stop="onRerun">
                     <FontAwesomeIcon :icon="faRedo" />
-                </BButton>
+                </GButton>
             </div>
         </div>
     </div>

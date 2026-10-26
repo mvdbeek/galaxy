@@ -5,6 +5,7 @@ import os
 from sqlalchemy import select
 
 from galaxy import model
+from galaxy.job_execution.setup import JobWorkingDirectory
 from galaxy_test.base.populators import DatasetPopulator
 from galaxy_test.driver import integration_util
 
@@ -28,7 +29,20 @@ class TestEmbeddedPulsarIntegrationInstance(integration_util.IntegrationTestCase
         config["job_config_file"] = EMBEDDED_PULSAR_JOB_CONFIG_FILE
         config["enable_celery_tasks"] = False
         config["metadata_strategy"] = "directory"
+        config["retry_metadata_internally"] = False
         config["cleanup_job"] = "never"
+        config["job_metrics"] = [{"type": "pulsar"}]
+
+    def test_runtime_environment_warning(self):
+        with self.dataset_populator.test_history() as history_id:
+            result = self.dataset_populator.run_tool("runtime_environment", {}, history_id)
+            job_id = result["jobs"][0]["id"]
+            self.dataset_populator.wait_for_job(job_id, assert_ok=True)
+            job = self.dataset_populator.get_job_details(job_id, full=True).json()
+            warnings = [m for m in job["job_messages"] if m["type"] == "runtime_environment_warning"]
+            assert len(warnings) == 1
+            assert warnings[0]["variable_names"] == ["EMPTY_VAR", "MISSING_VAR"]
+            assert job["state"] == "ok"
 
     def test_tool_eval_failure(self):
         with self.dataset_populator.test_history() as history_id:
@@ -66,10 +80,8 @@ class TestEmbeddedPulsarIntegrationInstance(integration_util.IntegrationTestCase
             sa_session = self._app.model.session
             job = sa_session.scalars(select(model.Job).filter_by(id=job_id_decoded)).one()
 
-            # Get the job working directory using the object store
-            job_working_directory = self._app.object_store.get_filename(
-                job, base_dir="job_work", dir_only=True, obj_dir=True
-            )
+            # Get the job working directory
+            job_working_directory = JobWorkingDirectory(job, self._app.object_store).resolve()
             assert job_working_directory is not None, "Could not determine job working directory"
 
             # Verify that do_not_collect_me.txt does NOT exist in the Galaxy job working directory
@@ -80,6 +92,30 @@ class TestEmbeddedPulsarIntegrationInstance(integration_util.IntegrationTestCase
                 f"File {do_not_collect_path} should not have been collected from Pulsar, "
                 "but it exists in Galaxy's job working directory"
             )
+
+    def test_handler_metadata_runs_after_output_staging(self):
+        """Exercise Pulsar output staging followed by handler-side metadata."""
+        self._run_tool_test("metadata_columns")
+
+    def test_records_pulsar_version_metrics(self):
+        with self.dataset_populator.test_history() as history_id:
+            dataset = self.dataset_populator.new_dataset(history_id=history_id, content="ABC")
+            run_response = self.dataset_populator.run_tool(
+                "cat1", inputs={"input1": {"src": "hda", "id": dataset["id"]}}, history_id=history_id
+            )
+            job_id = run_response["jobs"][0]["id"]
+            self.dataset_populator.wait_for_job(job_id, assert_ok=True)
+            metrics = {
+                m["name"]: m["raw_value"]
+                for m in self.dataset_populator._get(f"/api/jobs/{job_id}/metrics", admin=True).json()
+                if m["plugin"] == "pulsar"
+            }
+        assert metrics["client_version"]
+        # pulsar-galaxy-lib 0.15.15 doesn't say where the target version came from.
+        assert metrics["target_version_source"] == "unreported"
+        # The embedded Pulsar is this client library, and it reports its version when the job finishes.
+        assert metrics["server_version"] == metrics["target_version"] == metrics["client_version"]
+        assert metrics["server_version_source"] == "status"
 
 
 instance = integration_util.integration_module_instance(TestEmbeddedPulsarIntegrationInstance)
@@ -105,8 +141,10 @@ test_tools = integration_util.integration_tool_runner(
         "composite_output_tests",
         "detect_errors",
         "tool_directory_copy",
-        "metadata_columns",
         "create_directory_index",
+        # Directory datasets read through $input.path, without naming extra_files_path.
+        "dataset_path",
+        "directory_or_file_user_defined",
         "collection_split_on_column",
     ]
 )

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { BFormGroup, BLink } from "bootstrap-vue";
+import { BFormGroup } from "bootstrap-vue";
 import { ref, watch } from "vue";
 
+import GLink from "@/components/BaseComponents/GLink.vue";
 import FilesInput from "@/components/FilesDialog/FilesInput.vue";
 
 interface Props {
@@ -26,10 +27,15 @@ watch(remoteUri, (newValue: string) => {
             label-for="directory"
             :description="`Select a 'remote files' directory to import from.`"
             class="mt-3">
-            <FilesInput id="directory" v-model="remoteUri" mode="directory" :require-writable="false" />
+            <FilesInput
+                id="directory"
+                :value="remoteUri"
+                mode="directory"
+                :require-writable="false"
+                @input="(v: string) => (remoteUri = v)" />
         </BFormGroup>
         <div v-if="ftpUploadSite">
-            Alternatively, <BLink @click="emit('onFtp')">click here to load your Galaxy FTP directory contents</BLink>.
+            Alternatively, <GLink @click="emit('onFtp')">click here to load your Galaxy FTP directory contents</GLink>.
         </div>
     </div>
 </template>

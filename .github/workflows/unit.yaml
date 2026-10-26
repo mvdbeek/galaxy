@@ -1,38 +1,66 @@
 name: Unit tests
 on:
   push:
-    paths-ignore:
-      - 'client/**'
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+    paths:
+      - '**'
+      - '!client/**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/unit.yaml'
+      - '.github/workflows/_report_scheduled_result.yaml'
   pull_request:
-    paths-ignore:
-      - 'client/**'
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+    paths:
+      - '**'
+      - '!client/**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/unit.yaml'
+      - '.github/workflows/_report_scheduled_result.yaml'
+  schedule:
+    # Run every supported Python version at 00:17 UTC daily
+    - cron: '17 0 * * *'
+  workflow_dispatch:
+env:
+  UV_HTTP_RETRIES: '6'
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # Keep pushes to dev from cancelling the scheduled run.
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   test:
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
     name: Test
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        python-version: ['3.10', '3.14']
+        # Pull requests and pushes to dev run only the newest Python; ruff and mypy catch most code too new for the oldest.
+        # Release branches get no nightly run, so they keep the oldest and newest.
+        python-version: >-
+          ${{ fromJSON(
+          (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') && '["3.10", "3.11", "3.12", "3.13", "3.14"]'
+          || startsWith(github.base_ref || github.ref_name, 'release_') && '["3.10", "3.14"]'
+          || '["3.14"]'
+          ) }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy root'
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: galaxy root/.tool-versions
+          python-version: ${{ matrix.python-version }}
       - name: Install ffmpeg and bubblewrap
         # bubblewrap: exercises the expression-evaluation isolation sandbox tests.
         # Ubuntu >=24.04 restricts unprivileged user namespaces (which bwrap needs);
@@ -46,11 +74,11 @@ jobs:
         run: tox -e "$TOX_ENV"
         env:
           PYTEST_ADDOPTS: -n 4
-          # Coverage slows the tests down; collect it for pushes and scheduled runs only.
-          TOX_ENV: ${{ github.event_name == 'pull_request' && 'unit' || 'unit-coverage' }}
+          # Coverage slows the tests down; collect it for pushes only, so nightly runs don't skew dev coverage.
+          TOX_ENV: ${{ github.event_name == 'push' && 'unit-coverage' || 'unit' }}
         working-directory: 'galaxy root'
-      - uses: codecov/codecov-action@v6
-        if: github.event_name != 'pull_request'
+      - uses: codecov/codecov-action@v7.1.1
+        if: github.event_name == 'push'
         with:
           flags: py-unit
           working-directory: 'galaxy root'
@@ -59,3 +87,18 @@ jobs:
         with:
           name: Unit test results (${{ matrix.python-version }})
           path: 'galaxy root/run_unit_tests.html'
+  report:
+    needs: [test]
+    if: ${{ !cancelled() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch') }}
+    permissions:
+      actions: read
+      issues: write
+    uses: $/.github/workflows/_report_scheduled_result.yaml
+    with:
+      title: Scheduled unit tests are failing
+      labels: area/testing, kind/bug
+      description: |-
+        The nightly run of the Python unit tests across every supported Python version failed.
+
+        Pull requests to dev run the unit tests on the newest Python only; nightly runs cover every supported version. Release branches retain the oldest and newest versions.
+      needs: ${{ toJSON(needs) }}

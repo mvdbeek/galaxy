@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 import ViteYaml from "@modyfi/vite-plugin-yaml";
 import inject from "@rollup/plugin-inject";
-import vue from "@vitejs/plugin-vue2";
+import vue from "@vitejs/plugin-vue";
 import { defineConfig } from "vite";
 
 import { buildMetadataPlugin } from "./vite-plugin-build-metadata.js";
@@ -52,16 +52,26 @@ export default defineConfig(({ command }) => ({
     base: "./",
     resolve: {
         tsconfigPaths: true,
-        // In dev, resolve @galaxyproject/* workspace packages directly to
-        // source so edits trigger HMR without a rebuild. Production builds
-        // use the packages' published dist/ via their package.json exports.
-        ...(command === "serve"
-            ? {
-                  alias: {
-                      "@galaxyproject/galaxy-api-client": resolve(__dirname, "packages/api-client/src/index.ts"),
-                  },
-              }
-            : {}),
+        // galaxy-ui declares vue-router as a "^3 || ^4" peer, and pnpm satisfies that
+        // with its own vue-router 3 copy. Without deduping, galaxy-ui's RouterLink is
+        // the vue-router 3 component, which renders nothing under Vue 3.
+        dedupe: ["vue-router"],
+        alias: {
+            // Use @vue/compat for Vue 2 compatibility mode
+            vue: "@vue/compat",
+            // Also alias the direct Vue 2 dist path that some libraries use
+            "vue/dist/vue.esm.js": "@vue/compat",
+            // galaxy-ui is internal-only (no library build) and always
+            // resolved from source -- the main client consumes the .vue
+            // files directly.
+            "@galaxyproject/galaxy-ui": resolve(__dirname, "packages/ui/src/index.ts"),
+            // galaxy-api-client has a real tsup dist/ build and production
+            // uses that via package.json exports. During `vite serve` we
+            // resolve to source so edits trigger HMR without a rebuild.
+            ...(command === "serve"
+                ? { "@galaxyproject/galaxy-api-client": resolve(__dirname, "packages/api-client/src/index.ts") }
+                : {}),
+        },
     },
     define: {
         // Make jQuery available globally for plugins and legacy code
@@ -81,6 +91,14 @@ export default defineConfig(({ command }) => ({
                 compilerOptions: {
                     // Preserve whitespace to match Webpack's vue-loader default behavior
                     whitespace: "preserve",
+                    // Vue 2 dropped template comments; Vue 3 keeps them outside production
+                    // builds, where a leading comment turns a single-root component into a
+                    // Fragment and breaks attribute fallthrough.
+                    comments: false,
+                    // Enable Vue 3 compat mode
+                    compatConfig: {
+                        MODE: 2,
+                    },
                 },
             },
         }),
@@ -156,8 +174,12 @@ export default defineConfig(({ command }) => ({
         port: process.env.VITE_PORT || 5173,
         host: "0.0.0.0",
         proxy: {
-            // Proxy everything except Vite's own routes to Galaxy backend
-            "^/(?!(@|src/|node_modules/|__vite))": {
+            // Proxy everything except Vite's own routes to Galaxy backend.
+            // `packages/` is served by Vite as well: the workspace packages are
+            // aliased to their sources (see `resolve.alias`), so proxying them
+            // to Galaxy would leave `@galaxyproject/galaxy-ui` unresolved and
+            // the client would never boot on the dev server.
+            "^/(?!(@|src/|packages/|node_modules/|__vite))": {
                 target: process.env.GALAXY_URL || "http://127.0.0.1:8080",
                 changeOrigin: true,
                 secure: false,

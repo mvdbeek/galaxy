@@ -2,8 +2,9 @@ import { createTestingPinia } from "@pinia/testing";
 import { getLocalVue } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
+import { http as mswHttp } from "msw";
 import { setActivePinia } from "pinia";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { HDADetailed } from "@/api";
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
@@ -20,6 +21,7 @@ vi.mock("@/components/Dataset/Tabular/TabularChunkedView.vue", () => ({
 }));
 
 const DATASET_ID = "dataset_id";
+const PREVIEW_BLOB_URL = "blob:http://localhost/test-preview";
 
 const localVue = getLocalVue();
 const { server, http } = useServerMock();
@@ -37,8 +39,8 @@ const okDataset = {
 
 function usePreviewHeaders(headers: Record<string, string> = {}) {
     server.use(
-        http.untyped.head("/datasets/:dataset_id/display/", () => {
-            return new HttpResponse(null, { headers });
+        mswHttp.get("http://localhost/datasets/:dataset_id/display/", () => {
+            return HttpResponse.text("preview data", { headers: { "content-type": "text/plain", ...headers } });
         }),
     );
 }
@@ -62,11 +64,17 @@ async function mountDatasetDisplay(dataset: HDADetailed = okDataset) {
 }
 
 describe("DatasetDisplay", () => {
+    beforeEach(() => {
+        global.URL.createObjectURL = vi.fn(() => PREVIEW_BLOB_URL);
+        global.URL.revokeObjectURL = vi.fn();
+        server.use(http.get("/api/datatypes/{datatype}", ({ response }) => response(200).json({} as never)));
+    });
+
     it("shows the dataset preview in a frame", async () => {
         usePreviewHeaders();
         const wrapper = await mountDatasetDisplay();
         expect(wrapper.find(".dataset-display").exists()).toBe(true);
-        expect(wrapper.find("iframe").attributes("src")).toBe(`/datasets/${DATASET_ID}/display/?preview=True`);
+        expect(wrapper.find("iframe").attributes("src")).toBe(PREVIEW_BLOB_URL);
         expect(wrapper.find(".tabular-chunked-view").exists()).toBe(false);
     });
 

@@ -1,10 +1,10 @@
 import { getLocalVue } from "@tests/vitest/helpers";
-import { shallowMount } from "@vue/test-utils";
+import { mount, shallowMount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { RegisteredUser } from "@/api";
+import type { HistorySummaryExtended, RegisteredUser } from "@/api";
 import { useServerMock } from "@/api/client/__mocks__";
 import { setSseConnected, setSseHasEverConnected, sseMockFactory } from "@/stores/_testing/sseStoreSupport";
 import { useConfigStore } from "@/stores/configurationStore";
@@ -66,19 +66,32 @@ function setEnableSse(enabled: boolean): void {
     // trip so the component reads it on mount.
     useConfigStore().setConfiguration({ enable_sse_updates: enabled } as never);
     // The refresh button is gated on ``currentUser``; without a logged-in
-    // user the BButtonGroup that contains it is never rendered.
+    // user the GButtonGroup that contains it is never rendered.
     useUserStore().currentUser = { id: "user-1", email: "u@example.com" } as RegisteredUser;
 }
 
-function mountCounter(props: Partial<{ lastChecked: Date; isWatching: boolean }> = {}) {
-    return shallowMount(HistoryCounter as unknown as object, {
+// `getLocalVue()` bakes its own pinia into `localVue.plugins` at module-load
+// time, which is a different instance than the one `beforeEach` below makes
+// active. Mounting with just `localVue` would install that stale pinia, so
+// the component would never see store state set up via `setEnableSse()` /
+// `useUserStore()` in the tests. Pass the per-test pinia explicitly -- the
+// adapter lets an explicit `pinia` option win over `localVue`'s default.
+let pinia: ReturnType<typeof createPinia>;
+
+function mountCounter(props: Partial<{ lastChecked: Date; isWatching: boolean }> = {}, deep = false) {
+    const options = {
         propsData: {
             history: baseHistory,
             lastChecked: props.lastChecked ?? new Date(),
             isWatching: props.isWatching ?? true,
         },
         localVue,
-    });
+        pinia,
+    };
+    // Stub for prop assertions; real mount so clicks reach GButton's handler.
+    return deep
+        ? mount(HistoryCounter as unknown as object, options)
+        : shallowMount(HistoryCounter as unknown as object, options);
 }
 
 function refreshButton(wrapper: ReturnType<typeof shallowMount>) {
@@ -87,7 +100,8 @@ function refreshButton(wrapper: ReturnType<typeof shallowMount>) {
 
 describe("HistoryCounter — refresh button", () => {
     beforeEach(() => {
-        setActivePinia(createPinia());
+        pinia = createPinia();
+        setActivePinia(pinia);
         sseState.connect.mockClear();
         sseState.disconnect.mockClear();
         // sseMockFactory lazily creates these refs on first call; reset to a
@@ -119,7 +133,10 @@ describe("HistoryCounter — refresh button", () => {
 
             const button = refreshButton(wrapper);
             expect(button.attributes("title")).toBe("Refresh history");
-            expect(button.attributes("variant")).toBe("link");
+            // ``link`` variant maps to ``transparent`` + ``color=blue`` via variantToColor()
+            // to preserve Bootstrap's link-blue text color on the GButton render.
+            expect(button.attributes("transparent")).toBe("true");
+            expect(button.attributes("color")).toBe("blue");
         });
 
         it("does not flag the initial-connect window as a connection loss", async () => {
@@ -132,7 +149,8 @@ describe("HistoryCounter — refresh button", () => {
 
             const button = refreshButton(wrapper);
             expect(button.attributes("title")).toBe("Refresh history");
-            expect(button.attributes("variant")).toBe("link");
+            expect(button.attributes("transparent")).toBe("true");
+            expect(button.attributes("color")).toBe("blue");
         });
 
         it("turns red when the SSE connection is lost after a successful open", async () => {
@@ -149,7 +167,8 @@ describe("HistoryCounter — refresh button", () => {
 
             const button = refreshButton(wrapper);
             expect(button.attributes("title")).toBe("Live updates disconnected. Click to refresh.");
-            expect(button.attributes("variant")).toBe("danger");
+            // ``danger`` variant maps to color=red via variantToColor().
+            expect(button.attributes("color")).toBe("red");
         });
     });
 
@@ -164,7 +183,8 @@ describe("HistoryCounter — refresh button", () => {
 
             const button = refreshButton(wrapper);
             expect(button.attributes("title")).toMatch(/^Last refreshed .+ ago$/);
-            expect(button.attributes("variant")).toBe("link");
+            expect(button.attributes("transparent")).toBe("true");
+            expect(button.attributes("color")).toBe("blue");
         });
 
         it("turns red after 2 minutes of staleness", async () => {
@@ -175,7 +195,7 @@ describe("HistoryCounter — refresh button", () => {
 
             const button = refreshButton(wrapper);
             expect(button.attributes("title")).toMatch(/Consider reloading the page\.$/);
-            expect(button.attributes("variant")).toBe("danger");
+            expect(button.attributes("color")).toBe("red");
         });
 
         it("turns red when the resource watcher reports it is no longer watching", async () => {
@@ -183,8 +203,38 @@ describe("HistoryCounter — refresh button", () => {
             await flushPromises();
 
             const button = refreshButton(wrapper);
-            expect(button.attributes("variant")).toBe("danger");
+            expect(button.attributes("color")).toBe("red");
         });
+    });
+
+    it("names count controls with their actions and current counts", async () => {
+        setEnableSse(false);
+        const history: HistorySummaryExtended = {
+            ...baseHistory,
+            annotation: "",
+            count: 6,
+            model_class: "History",
+            tags: [],
+            url: "/api/histories/hist-1",
+            contents_active: { active: 3, deleted: 2, hidden: 1 },
+        };
+        const wrapper = mount(HistoryCounter, {
+            props: { history, lastChecked: new Date() },
+            global: { ...localVue, plugins: [pinia] },
+        });
+        await flushPromises();
+        for (const [description, label] of [
+            ["show active items button", "Show active (3)"],
+            ["include deleted items button", "Include deleted (2)"],
+            ["include hidden items button", "Include hidden (1)"],
+            ["storage dashboard button", "History Size (0 B)"],
+        ]) {
+            expect(wrapper.get(`button[data-description="${description}"]`).attributes("aria-label")).toBe(label);
+        }
+        await wrapper.setProps({ history: { ...history, contents_active: { active: 4, deleted: 5, hidden: 2 } } });
+        expect(wrapper.get('button[data-description="include deleted items button"]').attributes("aria-label")).toBe(
+            "Include deleted (5)",
+        );
     });
 
     it("emits reloadContents when the refresh button is clicked", async () => {
@@ -192,8 +242,9 @@ describe("HistoryCounter — refresh button", () => {
         setSseConnected(sseState, true);
         setSseHasEverConnected(sseState, true);
 
-        const wrapper = mountCounter();
+        const wrapper = mountCounter({}, true);
         await flushPromises();
+
         await refreshButton(wrapper).trigger("click");
 
         expect(wrapper.emitted("reloadContents")).toBeTruthy();

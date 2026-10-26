@@ -24,8 +24,11 @@ from typing import (
 
 import galaxy.model
 from galaxy import util
+from galaxy.datatypes import sniff
+from galaxy.datatypes.data import Directory
 from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.model import (
+    _get_datatypes_registry,
     Dataset,
     JobOutputNameTooLongError,
     LibraryFolder,
@@ -103,6 +106,18 @@ def safe_path_from_directory(path: StrPath, directory: StrPath) -> str:
     return joined
 
 
+def resolve_discovered_extension(ext: str, path: str | None) -> str:
+    """Resolve the ``_sniff_`` and ``_infer_from_file_name_`` extensions of a discovered file."""
+    if path is None:
+        return ext
+    if ext == "_sniff_":
+        # Discovered files are stored as is, so compressed files must get a compressed datatype.
+        return sniff.guess_ext(path, _get_datatypes_registry().sniff_order, auto_decompress=False)
+    if ext == "_infer_from_file_name_":
+        return _get_datatypes_registry().get_datatype_from_filename(os.path.basename(path)).file_ext
+    return ext
+
+
 class ModelPersistenceContext(metaclass=abc.ABCMeta):
     """Class for creating datasets while finding files.
 
@@ -116,7 +131,7 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
 
     allows_external_output_paths: bool = False
 
-    def get_job(self) -> Optional[galaxy.model.Job]:
+    def get_job(self) -> galaxy.model.Job | None:
         return getattr(self, "job", None)
 
     def create_dataset(
@@ -296,6 +311,13 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
             ensure_path_in_directory(filename, self.job_working_directory)
         if extra_files:
             extra_files = safe_path_from_directory(extra_files, self.job_working_directory)
+            if dataset_attributes and dataset_attributes.get("ext"):
+                # Set later as well, but the layout depends on it and must be settled first.
+                primary_data.extension = dataset_attributes["ext"]
+            datatype = primary_data.datatype
+            if isinstance(datatype, Directory):
+                # Settle the layout while the files are still in the job's directory.
+                datatype.groom_directory_content(extra_files)
         # Move data from temp location to dataset location
         if not link_data:
             dataset = primary_data.dataset
@@ -434,7 +456,7 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
             designation = fields_match.designation
             visible = fields_match.visible
             ext = ext_override or fields_match.ext
-            ext = ext.lower()
+            ext = resolve_discovered_extension(ext.lower(), filename)
             dbkey = fields_match.dbkey
             extra_files = fields_match.extra_files
             # galaxy.tools.parser.output_collection_def.INPUT_DBKEY_TOKEN
@@ -531,9 +553,9 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
     def update_object_store_with_datasets(
         self,
         datasets: list["DatasetInstance"],
-        paths: list[Optional[str]],
+        paths: list[str | None],
         link_data: list[bool],
-        extra_files: list[Optional[str]],
+        extra_files: list[str | None],
         output_name: str,
     ) -> None:
         assert self.object_store
@@ -576,7 +598,7 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def sa_session(self) -> Optional[Union["scoped_session", "SessionlessContext"]]:
+    def sa_session(self) -> Union["scoped_session", "SessionlessContext"] | None:
         """If bound to a database, return the SQL Alchemy session.
 
         Return None otherwise.
@@ -590,16 +612,16 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
         Return None otherwise.
         """
 
-    def get_implicit_collection_jobs_association_id(self) -> Optional[str]:
+    def get_implicit_collection_jobs_association_id(self) -> str | None:
         """No-op, no job context."""
         return None
 
     @property
     @abc.abstractmethod
-    def job(self) -> Optional[galaxy.model.Job]:
+    def job(self) -> galaxy.model.Job | None:
         """Return associated job object if bound to a job finish context connected to a database."""
 
-    def override_object_store_id(self, output_name: Optional[str] = None) -> Optional[str]:
+    def override_object_store_id(self, output_name: str | None = None) -> str | None:
         """Object store ID to assign to a dataset before populating its contents."""
         job = self.job
         if not job:
@@ -617,12 +639,12 @@ class ModelPersistenceContext(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def object_store(self) -> Union[ObjectStore, None]:
+    def object_store(self) -> ObjectStore | None:
         """Return object store to use for populating discovered dataset contents."""
 
     @property
     @abc.abstractmethod
-    def flush_per_n_datasets(self) -> Optional[int]:
+    def flush_per_n_datasets(self) -> int | None:
         pass
 
     @property
@@ -720,7 +742,7 @@ class SessionlessModelPersistenceContext(ModelPersistenceContext):
 
     def __init__(
         self,
-        object_store: Optional[ObjectStore],
+        object_store: ObjectStore | None,
         export_store: Optional["ModelExportStore"],
         working_directory: str,
         allows_external_output_paths: bool = False,
@@ -760,11 +782,11 @@ class SessionlessModelPersistenceContext(ModelPersistenceContext):
         return self._metadata_source_provider
 
     @property
-    def object_store(self) -> Union[ObjectStore, None]:
+    def object_store(self) -> ObjectStore | None:
         return self._object_store
 
     @property
-    def flush_per_n_datasets(self) -> Optional[int]:
+    def flush_per_n_datasets(self) -> int | None:
         return self._flush_per_n_datasets
 
     def add_tags_to_datasets(self, datasets, tag_lists):
@@ -1084,7 +1106,7 @@ def replace_request_syntax_sugar(obj):
 
 class DiscoveredFile(NamedTuple):
     path: str
-    collector: Optional[CollectorT]
+    collector: CollectorT | None
     match: "JsonCollectedDatasetMatch"
 
     def discovered_state(self, element: dict[str, Any], final_job_state="ok") -> "DiscoveredResultState":
@@ -1093,12 +1115,12 @@ class DiscoveredFile(NamedTuple):
 
 
 class DiscoveredResultState(NamedTuple):
-    info: Optional[str]
+    info: str | None
     state: str
 
 
 class DiscoveredDeferredFile(NamedTuple):
-    collector: Optional[CollectorT]
+    collector: CollectorT | None
     match: "JsonCollectedDatasetMatch"
 
     def discovered_state(self, element: dict[str, Any], final_job_state="ok") -> DiscoveredResultState:
@@ -1162,7 +1184,7 @@ def discover_target_directory(dir_name, job_working_directory):
 
 
 class JsonCollectedDatasetMatch:
-    def __init__(self, as_dict, collector: Optional[CollectorT], filename, path=None, parent_identifiers=None):
+    def __init__(self, as_dict, collector: CollectorT | None, filename, path=None, parent_identifiers=None):
         parent_identifiers = parent_identifiers or []
         self.as_dict = as_dict
         self.collector = collector
@@ -1261,15 +1283,15 @@ class JsonCollectedDatasetMatch:
 
 
 class RegexCollectedDatasetMatch(JsonCollectedDatasetMatch):
-    def __init__(self, re_match, collector: Optional[CollectorT], filename, path=None):
+    def __init__(self, re_match, collector: CollectorT | None, filename, path=None):
         super().__init__(re_match.groupdict(), collector, filename, path=path)
 
 
 class DiscoveredFileError(NamedTuple):
     error_message: str
-    collector: Optional[CollectorT]
+    collector: CollectorT | None
     match: JsonCollectedDatasetMatch
-    path: Optional[str] = None
+    path: str | None = None
 
     def discovered_state(self, element: dict[str, Any], final_job_state="ok") -> DiscoveredResultState:
         info = self.error_message

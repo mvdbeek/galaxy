@@ -3,11 +3,16 @@ on:
   pull_request:
     paths:
       - '.ci/check_test_class_names.sh'
+      - .github/workflows/check_test_class_names.yaml
       - 'lib/galaxy_test/**'
+      - 'packages/test_*/**'
       - 'test/**'
+env:
+  UV_HTTP_RETRIES: '6'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   test:
     name: Test
@@ -16,15 +21,20 @@ jobs:
       matrix:
         python-version: ['3.10']
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: .tool-versions
+          python-version: ${{ matrix.python-version }}
       - name: Install Python dependencies
-        run: uv pip install --system -r requirements.txt -r lib/galaxy/dependencies/pinned-test-requirements.txt
+        run: |
+          uv venv .venv
+          . .venv/bin/activate
+          uv pip install -r requirements.txt -r lib/galaxy/dependencies/pinned-test-requirements.txt
       - name: Run tests
-        run: .ci/check_test_class_names.sh
+        run: |
+          . .venv/bin/activate
+          .ci/check_test_class_names.sh

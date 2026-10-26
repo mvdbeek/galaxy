@@ -29,6 +29,7 @@ lib/galaxy/web/framework/meta.json
 
 # Galaxy runtime files
 *.lock
+!uv.lock
 *.log
 *.pid
 
@@ -159,7 +160,6 @@ doc/schema.md
 doc/source/admin/config_logging_default_yaml.rst
 doc/source/dev/schema.md
 doc/source/dev/user_defined_tools_authoring.md
-doc/source/dev/plantuml.jar
 client/docs/dist
 
 # Webpack stats
@@ -186,7 +186,7 @@ config/plugins/visualizations/tiffviewer/static/
 
 # CWL conformance tests
 lib/galaxy_test/api/cwl/test_cwl_conformance_v1_?.py
-test/functional/tools/cwl_tools/v1.?/
+test/functional/tools/cwl_tools/
 
 # Involucro tool
 involucro
@@ -195,7 +195,7 @@ involucro
 .claude/settings.local.json
 
 # GTN search database (downloaded on first use)
-lib/galaxy/agents/gtn/data/gtn_search.db
+lib/galaxy/gtn/data/gtn_search.db
 
 # Misc
 *.orig

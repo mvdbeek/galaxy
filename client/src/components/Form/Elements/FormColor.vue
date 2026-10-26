@@ -1,5 +1,8 @@
 <script setup lang="ts">
+import { BCol, BRow } from "bootstrap-vue";
 import { computed } from "vue";
+
+import GFormInput from "@/components/BaseComponents/Form/GFormInput.vue";
 
 export interface FormColorProps {
     value?: string;
@@ -25,14 +28,14 @@ const currentValue = computed({
 </script>
 
 <template>
-    <b-row>
-        <b-col class="form-color-input">
-            <b-form-input :id="id" v-model="currentValue" class="cursor-pointer" type="color" size="sm" />
-        </b-col>
-        <b-col class="pl-0">
+    <BRow>
+        <BCol class="form-color-input">
+            <GFormInput :id="id" v-model="currentValue" class="cursor-pointer" type="color" size="small" />
+        </BCol>
+        <BCol class="pl-0">
             <label class="pt-1 cursor-pointer" :for="id">Select a color</label>
-        </b-col>
-    </b-row>
+        </BCol>
+    </BRow>
 </template>
 
 <style scoped>

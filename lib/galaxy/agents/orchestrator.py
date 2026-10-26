@@ -5,12 +5,13 @@ Workflow orchestration agent for coordinating multiple agents on complex tasks.
 import asyncio
 import logging
 import re
+from functools import partial
 from pathlib import Path
 from typing import (
     Any,
-    Optional,
 )
 
+import anyio
 from pydantic import BaseModel
 from pydantic_ai import Agent
 
@@ -102,7 +103,7 @@ class WorkflowOrchestratorAgent(BaseGalaxyAgent):
 
         return normalized
 
-    async def process(self, query: str, context: Optional[dict[str, Any]] = None) -> AgentResponse:
+    async def process(self, query: str, context: dict[str, Any] | None = None) -> AgentResponse:
         validation_error = self._validate_query(query)
         if validation_error:
             return self._validation_error_response(validation_error)
@@ -192,7 +193,7 @@ class WorkflowOrchestratorAgent(BaseGalaxyAgent):
         return self._get_agent_config("agent_timeout", 120.0)
 
     async def _execute_sequential(
-        self, agents: list[str], query: str, context: Optional[dict[str, Any]] = None
+        self, agents: list[str], query: str, context: dict[str, Any] | None = None
     ) -> dict[str, AgentResponse]:
         """Execute agents sequentially with timeout protection."""
         responses: dict[str, AgentResponse] = {}
@@ -204,7 +205,7 @@ class WorkflowOrchestratorAgent(BaseGalaxyAgent):
         for agent_name in agents:
             try:
                 log.info(f"Orchestrator: Starting agent '{agent_name}' with query length {len(query)}")
-                agent = self.deps.get_agent(agent_name, self.deps)
+                agent = await anyio.to_thread.run_sync(partial(self.deps.get_agent, agent_name, self.deps))
                 response = await asyncio.wait_for(agent.process(query, ctx), timeout=timeout)
                 responses[agent_name] = response
                 run_state.record(agent_name, response)
@@ -226,7 +227,7 @@ class WorkflowOrchestratorAgent(BaseGalaxyAgent):
         return responses
 
     async def _execute_parallel(
-        self, agents: list[str], query: str, context: Optional[dict[str, Any]] = None
+        self, agents: list[str], query: str, context: dict[str, Any] | None = None
     ) -> dict[str, AgentResponse]:
         """Execute agents in parallel with timeout protection."""
         log.info(f"Orchestrator: Running agents in PARALLEL mode: {agents}")
@@ -234,7 +235,7 @@ class WorkflowOrchestratorAgent(BaseGalaxyAgent):
 
         async def call_agent(agent_name: str):
             try:
-                agent = self.deps.get_agent(agent_name, self.deps)
+                agent = await anyio.to_thread.run_sync(partial(self.deps.get_agent, agent_name, self.deps))
                 response = await asyncio.wait_for(agent.process(query, context or {}), timeout=timeout)
                 return agent_name, response
             except asyncio.TimeoutError:

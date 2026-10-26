@@ -47,7 +47,7 @@ describe("RevisionsTab", () => {
                 props: { metadata: fixtureMetadata },
             })
 
-            expect(wrapper.find(".q-list").exists()).toBe(true)
+            expect(wrapper.find(".revision-list").exists()).toBe(true)
         })
 
         it("shows revision identifiers in format [num:hash]", () => {
@@ -111,28 +111,38 @@ describe("RevisionsTab", () => {
             })
 
             expect(wrapper.text()).toMatch(/\d+ invalid/)
+            expect(wrapper.find(".invalid-tools-badge").text()).toMatch(/^\d+ invalid$/)
+        })
+
+        it("shows no badge for revisions without invalid tools", () => {
+            const wrapper = mount(RevisionsTab, {
+                props: { metadata: fixtureMetadata },
+            })
+
+            expect(wrapper.find(".invalid-tools-badge").exists()).toBe(false)
         })
 
         it("shows invalid tool paths when revision is expanded", async () => {
-            const keyWithInvalid = Object.entries(bismarkMetadata).find(
-                ([, rev]) => rev.invalid_tools && rev.invalid_tools.length > 0
-            )?.[0]
+            const entryWithInvalid = Object.entries(bismarkMetadata).find(
+                ([, rev]) => rev.invalid_tools && rev.invalid_tools.length > 0,
+            )
+            expect(entryWithInvalid).toBeDefined()
 
-            if (keyWithInvalid) {
-                const wrapper = mount(RevisionsTab, {
-                    props: {
-                        metadata: bismarkMetadata,
-                        expandRevision: keyWithInvalid,
-                    },
-                })
+            const [keyWithInvalid, revision] = entryWithInvalid ?? []
+            const invalidTools = revision?.invalid_tools ?? []
+            expect(invalidTools.length).toBeGreaterThan(0)
 
-                await nextTick()
+            const wrapper = mount(RevisionsTab, {
+                props: {
+                    metadata: bismarkMetadata,
+                    expandRevision: keyWithInvalid,
+                },
+            })
 
-                const invalidTools = bismarkMetadata[keyWithInvalid].invalid_tools
-                if (invalidTools && invalidTools.length > 0) {
-                    expect(wrapper.text()).toContain(invalidTools[0])
-                }
-            }
+            await nextTick()
+
+            expect(wrapper.text()).toContain(invalidTools[0].tool_config)
+            expect(wrapper.text()).toContain(invalidTools[0].error_message)
         })
     })
 
@@ -162,17 +172,17 @@ describe("RevisionsTab", () => {
                 },
             })
 
-            // Initially no expansion items have model-value true
-            const expansionItems = wrapper.findAllComponents({ name: "QExpansionItem" })
-            const initiallyExpanded = expansionItems.filter((item) => item.props("modelValue") === true)
-            expect(initiallyExpanded.length).toBe(0)
+            // Initially no revision toggle is expanded
+            const expandedToggles = () => wrapper.findAll(".revision-toggle[aria-expanded=true]")
+            expect(expandedToggles().length).toBe(0)
+            expect(wrapper.find(".mock-json-viewer").exists()).toBe(false)
 
             await wrapper.setProps({ expandRevision: keys[0] })
             await nextTick()
 
             // After setting prop, one should be expanded
-            const afterExpanded = expansionItems.filter((item) => item.props("modelValue") === true)
-            expect(afterExpanded.length).toBe(1)
+            expect(expandedToggles().length).toBe(1)
+            expect(wrapper.findAll(".mock-json-viewer").length).toBe(1)
         })
     })
 
@@ -182,8 +192,32 @@ describe("RevisionsTab", () => {
                 props: { metadata: fixtureMetadata },
             })
 
-            const expansionItems = wrapper.findAll(".q-expansion-item")
-            expect(expansionItems.length).toBe(Object.keys(fixtureMetadata).length)
+            const toggles = wrapper.findAll(".revision-toggle")
+            expect(toggles.length).toBe(Object.keys(fixtureMetadata).length)
+        })
+
+        it("toggles a revision's details from its button", async () => {
+            const wrapper = mount(RevisionsTab, {
+                props: { metadata: fixtureMetadata },
+            })
+
+            const toggle = wrapper.find(".revision-toggle")
+            expect(toggle.element.tagName).toBe("BUTTON")
+            expect(toggle.attributes("aria-expanded")).toBe("false")
+            expect(toggle.attributes("aria-label")).toMatch(/^Details for revision \d+$/)
+
+            const details = wrapper.find(`#${toggle.attributes("aria-controls")}`)
+            expect(details.exists()).toBe(true)
+            expect(details.find(".mock-json-viewer").exists()).toBe(false)
+
+            await toggle.trigger("click")
+
+            expect(toggle.attributes("aria-expanded")).toBe("true")
+            expect(details.find(".mock-json-viewer").exists()).toBe(true)
+
+            await toggle.trigger("click")
+
+            expect(toggle.attributes("aria-expanded")).toBe("false")
         })
     })
 
@@ -209,6 +243,7 @@ describe("RevisionsTab", () => {
             })
 
             expect(wrapper.text()).toContain("5 invalid")
+            expect(wrapper.find(".invalid-tools-badge").text()).toBe("5 invalid")
         })
     })
 })

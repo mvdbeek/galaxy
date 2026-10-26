@@ -1,11 +1,12 @@
+import { emittedArg } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
-import { BAlert } from "bootstrap-vue";
 import { describe, expect, it, vi } from "vitest";
 
 import { useServerMock } from "@/api/client/__mocks__";
 
 import CellAdd from "./CellAdd.vue";
 import CellOption from "./CellOption.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import DelayedInput from "@/components/Common/DelayedInput.vue";
 import Popper from "@/components/Popper/Popper.vue";
@@ -33,7 +34,7 @@ const mountTarget = () => {
     return mount(CellAdd, {
         attachTo: createContainer(),
         global: {
-            components: { BAlert, GButton, CellOption, DelayedInput, Popper },
+            components: { GAlert, GButton, CellOption, DelayedInput, Popper },
         },
     });
 };
@@ -68,8 +69,8 @@ describe("CellAdd.vue", () => {
         await wrapper.vm.$nextTick();
         wrapper.findComponent(DelayedInput).vm.$emit("change", "nonexistent");
         await wrapper.vm.$nextTick();
-        expect(wrapper.findComponent(BAlert).exists()).toBe(true);
-        expect(wrapper.findComponent(BAlert).text()).toContain('No results found for "nonexistent".');
+        expect(wrapper.findComponent(GAlert).exists()).toBe(true);
+        expect(wrapper.findComponent(GAlert).text()).toContain('No results found for "nonexistent".');
     });
 
     it("emits a 'click' event when a cell option is selected", async () => {
@@ -79,10 +80,23 @@ describe("CellAdd.vue", () => {
         const option = wrapper.findComponent(CellOption);
         await option.trigger("click");
         expect(wrapper.emitted("click")).toBeTruthy();
-        expect(wrapper.emitted("click")?.[0][0]).toMatchObject({
+        expect(emittedArg(wrapper, "click")).toMatchObject({
             configure: false,
             toggle: true,
             id: expect.any(Number),
         });
+    });
+
+    it("returns focus to the add button when Escape closes the menu from the search box", async () => {
+        const wrapper = mountTarget();
+        const button = wrapper.findComponent(GButton);
+        await button.trigger("click");
+        const search = wrapper.findComponent(DelayedInput).get("input");
+        search.element.focus();
+        expect(document.activeElement).toBe(search.element);
+        await search.trigger("keydown", { key: "Escape" });
+        expect(wrapper.get(".popper-element").isVisible()).toBe(false);
+        expect(document.activeElement).toBe(button.element);
+        wrapper.unmount();
     });
 });

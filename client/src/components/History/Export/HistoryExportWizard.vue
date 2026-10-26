@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BAlert, BCard, BCardGroup, BFormGroup, BFormInput } from "bootstrap-vue";
+import { BCard, BCardGroup, BFormGroup, BFormInput } from "bootstrap-vue";
 import { computed, reactive, ref, watch } from "vue";
 
 import type { ModelStoreFormat } from "@/api";
@@ -12,6 +12,7 @@ import { DEFAULT_EXPORT_PARAMS } from "@/composables/shortTermStorage";
 
 import type { HistoryExportData, HistoryExportDestination } from "./types";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import ExportFormatSelector from "@/components/Common/ExportFormatSelector.vue";
 import ExportIncludeOptions from "@/components/Common/ExportIncludeOptions.vue";
 import ExportRemoteSourceSelector from "@/components/Common/ExportRemoteSourceSelector.vue";
@@ -260,9 +261,9 @@ function resetWizard() {
 
 <template>
     <div>
-        <BAlert v-if="errorMessage" show dismissible fade variant="danger" @dismissed="errorMessage = undefined">
+        <GAlert v-if="errorMessage" show dismissible fade variant="danger" @dismissed="errorMessage = undefined">
             {{ errorMessage }}
-        </BAlert>
+        </GAlert>
         <GenericWizard
             class="history-export-wizard"
             :use="wizard"
@@ -288,7 +289,9 @@ function resetWizard() {
                         :header="target.label"
                         class="wizard-selection-card"
                         @click="exportData.destination = target.destination">
-                        <div v-sanitize-html:links="renderMarkdown(target.markdownDescription)" />
+                        <div
+                            v-sanitize-html:links="renderMarkdown(target.markdownDescription)"
+                            class="destination-description" />
                     </BCard>
                 </BCardGroup>
             </div>
@@ -330,6 +333,7 @@ function resetWizard() {
             <div v-if="wizard.isCurrent('export-summary')">
                 <BFormGroup
                     v-if="needsFileName"
+                    label="File name"
                     label-for="exported-file-name"
                     :description="`Give the exported file a name.`"
                     class="mt-3">
@@ -371,6 +375,10 @@ function resetWizard() {
 </template>
 
 <style scoped lang="scss">
+.destination-description :deep(a) {
+    text-decoration: underline;
+}
+
 .zenodo-info {
     display: flex;
     align-items: flex-start;

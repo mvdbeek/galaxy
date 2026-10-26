@@ -21,9 +21,7 @@ from collections.abc import (
 from json import dumps
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 import defusedxml.ElementTree as ET
@@ -89,6 +87,7 @@ from galaxy.datatypes.sniff import (
 )
 from galaxy.datatypes.text import Html
 from galaxy.exceptions import RequestParameterInvalidException
+from galaxy.objectstore import ObjectStoreAuth
 from galaxy.util import (
     compression_utils,
     nice_size,
@@ -113,7 +112,9 @@ except ModuleNotFoundError:
     pass
 
 if TYPE_CHECKING:
+    from galaxy.managers.context import ProvidesUserContext
     from galaxy.util.compression_utils import FileObjType
+    from galaxy.webapps.base.webapp import GalaxyWebTransaction
 
 log = logging.getLogger(__name__)
 # pysam 0.16.0.1 emits logs containing the word 'Error', this can confuse the stdout/stderr checkers.
@@ -416,6 +417,40 @@ class Bz2DynamicCompressedArchive(DynamicCompressedArchive):
     compressed_format = "bz2"
 
 
+WARC_VERSION_PREFIXES = (b"WARC/1.0", b"WARC/1.1")
+WARC_REQUIRED_FIELDS = (b"WARC-Type:", b"WARC-Record-ID:", b"Content-Length:")
+WARC_HEADER_LIMIT = 8192
+
+
+@build_sniff_from_prefix
+class Warc(CompressedArchive):
+    """Web ARChive, gzip-compressed and kept compressed."""
+
+    file_ext = "warc.gz"
+    compressed_format = "gzip"
+    is_binary = "maybe"
+    display_behavior = "download"
+    allow_datatype_change = False
+    allow_compressed_html_content = True
+
+    def sniff_prefix(self, file_prefix: FilePrefix) -> bool:
+        """
+        The version line must be at byte 0 and every required field must start
+        a line of the first header block (up to the first blank line, max 8K,
+        so payload bytes past the blank line never match). Truncated headers
+        and indented fields do not match.
+        """
+        header = file_prefix.contents_header_bytes[:WARC_HEADER_LIMIT]
+        if not header.startswith(WARC_VERSION_PREFIXES):
+            return False
+        header_block = header.split(b"\r\n\r\n", 1)[0].split(b"\n\n", 1)[0]
+        lines = header_block.splitlines()[1:]
+        return all(any(line.startswith(field) for line in lines) for field in WARC_REQUIRED_FIELDS)
+
+    def get_mime(self) -> str:
+        return "application/gzip"
+
+
 class CompressedZipArchive(CompressedArchive):
     """
     Class describing an compressed binary file
@@ -515,7 +550,7 @@ class CompressedZarrZipArchive(CompressedZipArchive):
             meta_file = self._find_zarr_metadata_file(zf)
         return meta_file is not None
 
-    def _find_zarr_metadata_file(self, zip_file: zipfile.ZipFile) -> Optional[str]:
+    def _find_zarr_metadata_file(self, zip_file: zipfile.ZipFile) -> str | None:
         """Returns the path to the metadata file in the Zarr store if found."""
         # Depending on the Zarr version, the metadata file can be in different locations
         # In v1 the metadata is in a file named "meta" https://zarr-specs.readthedocs.io/en/latest/v1/v1.0.html
@@ -546,7 +581,7 @@ class CompressedOMEZarrZipArchive(CompressedZarrZipArchive):
             meta_file = self._find_ome_zarr_metadata_file(zf)
         return meta_file is not None
 
-    def _find_ome_zarr_metadata_file(self, zip_file: zipfile.ZipFile) -> Optional[str]:
+    def _find_ome_zarr_metadata_file(self, zip_file: zipfile.ZipFile) -> str | None:
         expected_meta_file_name = "OME/METADATA.ome.xml"
         for file in zip_file.namelist():
             if file.endswith(expected_meta_file_name):
@@ -584,8 +619,8 @@ class _BamOrSam:
                     ]
                 else:
                     dataset.metadata.metadata_incomplete = True
-                dataset.metadata.sort_order = bam_file.header.get("HD", {}).get("SO", None)  # type: ignore [attr-defined]
-                dataset.metadata.bam_version = bam_file.header.get("HD", {}).get("VN", None)  # type: ignore [attr-defined]
+                dataset.metadata.sort_order = bam_file.header.get("HD", {}).get("SO", None)  # type: ignore[attr-defined]
+                dataset.metadata.bam_version = bam_file.header.get("HD", {}).get("VN", None)  # type: ignore[attr-defined]
         except Exception:
             # Per Dan, don't log here because doing so will cause datasets that
             # fail metadata to end in the error state
@@ -598,7 +633,7 @@ class BamNative(CompressedArchive, _BamOrSam):
     edam_format = "format_2572"
     edam_data = "data_0863"
     file_ext = "unsorted.bam"
-    sort_flag: Optional[str] = None
+    sort_flag: str | None = None
 
     MetadataElement(name="columns", default=12, desc="Number of columns", readonly=True, visible=False, no_value=0)
     MetadataElement(
@@ -702,7 +737,7 @@ class BamNative(CompressedArchive, _BamOrSam):
         """
         pysam.merge("-O", "BAM", output_file, *split_files)
 
-    def init_meta(self, dataset: HasMetadata, copy_from: Optional[HasMetadata] = None) -> None:
+    def init_meta(self, dataset: HasMetadata, copy_from: HasMetadata | None = None) -> None:
         Binary.init_meta(self, dataset, copy_from=copy_from)
 
     def sniff(self, filename: str) -> bool:
@@ -713,7 +748,8 @@ class BamNative(CompressedArchive, _BamOrSam):
         # BAM is compressed in the BGZF format, and must not be uncompressed in Galaxy.
         # The first 4 bytes of any bam file is 'BAM\1', and the file is binary.
         try:
-            header = gzip.open(filename).read(4)
+            with gzip.open(filename) as compressed_file:
+                header = compressed_file.read(4)
             if header == b"BAM\1":
                 return True
             return False
@@ -734,15 +770,16 @@ class BamNative(CompressedArchive, _BamOrSam):
         except Exception:
             return f"Binary bam alignments file ({nice_size(dataset.get_size())})"
 
-    def to_archive(self, dataset: DatasetProtocol, name: str = "") -> Iterable:
+    def to_archive(self, dataset: DatasetProtocol, name: str = "", auth: ObjectStoreAuth | None = None) -> Iterable:
+        file_name = dataset.get_file_name(auth=auth)
         rel_paths = []
         file_paths = []
-        rel_paths.append(f"{name or dataset.get_file_name()}.{dataset.extension}")
-        file_paths.append(dataset.get_file_name())
+        rel_paths.append(f"{name or file_name}.{dataset.extension}")
+        file_paths.append(file_name)
         # We may or may not have a bam index file (BamNative doesn't have it, but also index generation may have failed)
         if dataset.metadata.bam_index:
-            rel_paths.append(f"{name or dataset.get_file_name()}.{dataset.extension}.bai")
-            file_paths.append(dataset.metadata.bam_index.get_file_name())
+            rel_paths.append(f"{name or file_name}.{dataset.extension}.bai")
+            file_paths.append(dataset.metadata.bam_index.get_file_name(auth=auth))
         return zip(file_paths, rel_paths)
 
     def groom_dataset_content(self, file_name: str) -> None:
@@ -777,10 +814,16 @@ class BamNative(CompressedArchive, _BamOrSam):
         # Remove temp file and empty temporary directory
         os.rmdir(tmp_dir)
 
-    def get_chunk(self, trans, dataset: HasFileName, offset: int = 0, ck_size: Optional[int] = None) -> str:
+    def get_chunk(
+        self, trans: "ProvidesUserContext | None", dataset: HasFileName, offset: int = 0, ck_size: int | None = None
+    ) -> str:
         if not offset == -1:
             try:
-                with pysam.AlignmentFile(dataset.get_file_name(), "rb", check_sq=False) as bamfile:
+                with pysam.AlignmentFile(
+                    dataset.get_file_name(auth=ObjectStoreAuth(user=trans.user) if trans else None),
+                    "rb",
+                    check_sq=False,
+                ) as bamfile:
                     if ck_size is None:
                         ck_size = 300  # 300 lines
                     if offset < bamfile.tell():
@@ -826,13 +869,13 @@ class BamNative(CompressedArchive, _BamOrSam):
 
     def display_data(
         self,
-        trans,
+        trans: "GalaxyWebTransaction",
         dataset: DatasetHasHidProtocol,
         preview: bool = False,
-        filename: Optional[str] = None,
-        to_ext: Optional[str] = None,
-        offset: Optional[int] = None,
-        ck_size: Optional[int] = None,
+        filename: str | None = None,
+        to_ext: str | None = None,
+        offset: int | None = None,
+        ck_size: int | None = None,
         **kwd,
     ):
         headers = kwd.get("headers", {})
@@ -935,7 +978,7 @@ class Bam(BamNative):
         return needs_sorting
 
     def set_meta(
-        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: Optional[str] = None, **kwd
+        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: str | None = None, **kwd
     ) -> None:
         # These metadata values are not accessible by users, always overwrite
         super().set_meta(dataset=dataset, overwrite=overwrite, **kwd)
@@ -1122,7 +1165,7 @@ class CRAM(Binary):
     )
 
     def set_meta(
-        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: Optional[str] = None, **kwd
+        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: str | None = None, **kwd
     ) -> None:
         major_version, minor_version = self.get_cram_version(dataset.get_file_name())
         if major_version != -1:
@@ -1197,7 +1240,8 @@ class Bcf(BaseBcf):
     def sniff(self, filename: str) -> bool:
         # BCF is compressed in the BGZF format, and must not be uncompressed in Galaxy.
         try:
-            header = gzip.open(filename).read(3)
+            with gzip.open(filename) as compressed_file:
+                header = compressed_file.read(3)
             # The first 3 bytes of any BCF file are 'BCF', and the file is binary.
             if header == b"BCF":
                 return True
@@ -1206,7 +1250,7 @@ class Bcf(BaseBcf):
             return False
 
     def set_meta(
-        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: Optional[str] = None, **kwd
+        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: str | None = None, **kwd
     ) -> None:
         """Creates the index for the BCF file."""
         # These metadata values are not accessible by users, always overwrite
@@ -1265,7 +1309,7 @@ MAX_STRUCTURED_CONTENT_CHILDREN = MAX_STRUCTURED_CONTENT_BYTES // 128  # ~128 by
 VLEN_ELEMENT_ASSUMED_BYTES = 1024
 
 
-def _h5_normalize_selection(shape: tuple[int, ...], selection: Optional[str]) -> tuple[list[slice], tuple[int, ...]]:
+def _h5_normalize_selection(shape: tuple[int, ...], selection: str | None) -> tuple[list[slice], tuple[int, ...]]:
     """Normalize an h5grove ``selection`` string against a dataset ``shape``.
 
     Returns a per-axis list of read slices and the result shape. Integer indices
@@ -1326,7 +1370,7 @@ def _h5_normalize_selection(shape: tuple[int, ...], selection: Optional[str]) ->
     return read_slices, tuple(result_shape)
 
 
-def _h5_check_dataset_size(ds: h5py.Dataset, selection: Optional[str]) -> None:
+def _h5_check_dataset_size(ds: h5py.Dataset, selection: str | None) -> None:
     if ds.shape is None:  # null dataspace (h5py.Empty): holds no data
         return
     _, result_shape = _h5_normalize_selection(ds.shape, selection)
@@ -1339,8 +1383,7 @@ def _h5_check_dataset_size(ds: h5py.Dataset, selection: Optional[str]) -> None:
                 "narrow the request with 'selection'."
             )
         return
-    nbytes = count * ds.dtype.itemsize
-    if nbytes > MAX_STRUCTURED_CONTENT_BYTES:
+    if (nbytes := count * ds.dtype.itemsize) > MAX_STRUCTURED_CONTENT_BYTES:
         raise RequestParameterInvalidException(
             f"The selected data holds {nbytes} bytes, exceeding the limit of {MAX_STRUCTURED_CONTENT_BYTES} bytes; "
             "narrow the request with 'selection'."
@@ -1360,8 +1403,7 @@ def _h5_check_attributes_size(entity: h5py.HLObject) -> None:
 
 
 def _h5_check_group_size(group: h5py.Group) -> None:
-    children = len(group)
-    if children > MAX_STRUCTURED_CONTENT_CHILDREN:
+    if (children := len(group)) > MAX_STRUCTURED_CONTENT_CHILDREN:
         raise RequestParameterInvalidException(
             f"The group has {children} children, exceeding the limit of {MAX_STRUCTURED_CONTENT_CHILDREN}; "
             "browse subgroups individually."
@@ -1445,7 +1487,7 @@ def _h5_prepare_streaming_data(
     dtype: str,
     format: str,
     flatten: bool,
-    selection: Optional[str],
+    selection: str | None,
 ) -> tuple[Iterator[bytes], dict[str, str]]:
     read_slices, result_shape = _h5_normalize_selection(ds.shape, selection)
     try:
@@ -1486,11 +1528,11 @@ def _h5_prepare_streaming_data(
     return generator, headers
 
 
-def _h5_incremental_stats(ds: h5py.Dataset, read_slices: list[slice]) -> dict[str, Optional[float]]:
+def _h5_incremental_stats(ds: h5py.Dataset, read_slices: list[slice]) -> dict[str, float | None]:
     is_float = np.issubdtype(ds.dtype, np.floating)
     cast = float if is_float else int
     count = 0
-    empty_stats: dict[str, Optional[float]] = {
+    empty_stats: dict[str, float | None] = {
         "strict_positive_min": None,
         "positive_min": None,
         "min": None,
@@ -1593,14 +1635,14 @@ class H5(Binary):
     def get_structured_content(
         self,
         dataset: DatasetProtocol,
-        content_type: Optional[str] = None,
+        content_type: str | None = None,
         path: str = "/",
         dtype: str = "origin",
         format: str = "json",
-        flatten: Union[bool, str] = False,
-        selection: Optional[str] = None,
+        flatten: bool | str = False,
+        selection: str | None = None,
         **kwargs,
-    ) -> tuple[Union[bytes, str, Iterator[bytes]], dict[str, str]]:
+    ) -> tuple[bytes | str | Iterator[bytes], dict[str, str]]:
         """
         Implements h5grove protocol (https://silx-kit.github.io/h5grove/).
         This allows the h5web visualization tool (https://github.com/silx-kit/h5web)
@@ -1645,6 +1687,46 @@ class H5(Binary):
 
     def _create_error(self, status_code: int, message: str) -> Exception:
         return Exception(status_code, message)
+
+
+class NetCDF4(H5):
+    """
+    Class describing a netCDF4 file (HDF5-based).
+
+    >>> from galaxy.datatypes.sniff import get_test_fname
+    >>> fname = get_test_fname('test_tas.netcdf4')
+    >>> NetCDF4().sniff(fname)
+    True
+    >>> fname = get_test_fname('test.mz5')
+    >>> NetCDF4().sniff(fname)
+    False
+    """
+
+    file_ext = "netcdf4"
+    edam_format = "format_3650"
+
+    def sniff(self, filename):
+        if not super().sniff(filename):
+            return False
+        try:
+            with h5py.File(filename, "r", locking=False) as f:
+                return "_NCProperties" in f.attrs
+        except Exception:
+            return False
+
+    def set_peek(self, dataset, is_multi_byte=False):
+        if not dataset.dataset.purged:
+            dataset.peek = "Binary netCDF4 file"
+            dataset.blurb = nice_size(dataset.get_size())
+        else:
+            dataset.peek = "file does not exist"
+            dataset.blurb = "file purged from disk"
+
+    def display_peek(self, dataset):
+        try:
+            return dataset.peek
+        except Exception:
+            return f"Binary netCDF4 file ({nice_size(dataset.get_size())})"
 
 
 class Loom(H5):
@@ -1902,10 +1984,24 @@ class Anndata(H5):
     def set_meta(self, dataset: DatasetProtocol, overwrite: bool = True, **kwd) -> None:
         super().set_meta(dataset, overwrite=overwrite, **kwd)
         with h5py.File(dataset.get_file_name(), "r", locking=False) as anndata_file:
+            root_encoding_type = anndata_file.attrs.get("encoding-type")
+            if isinstance(root_encoding_type, np.ndarray):
+                root_encoding_type = root_encoding_type[0] if root_encoding_type.size else None
+            if isinstance(root_encoding_type, bytes):
+                root_encoding_type = root_encoding_type.decode()
+            root_encoding_version = anndata_file.attrs.get("encoding-version")
+            if isinstance(root_encoding_version, np.ndarray):
+                root_encoding_version = root_encoding_version[0] if root_encoding_version.size else None
+            if isinstance(root_encoding_version, bytes):
+                root_encoding_version = root_encoding_version.decode()
+
             dataset.metadata.title = anndata_file.attrs.get("title")
             dataset.metadata.description = anndata_file.attrs.get("description")
             dataset.metadata.url = anndata_file.attrs.get("url")
             dataset.metadata.doi = anndata_file.attrs.get("doi")
+            dataset.metadata.anndata_spec_version = (
+                root_encoding_version if root_encoding_type == "anndata" and root_encoding_version else ""
+            )
             dataset.metadata.creation_date = anndata_file.attrs.get("creation_date")
             dataset.metadata.shape = anndata_file.attrs.get("shape", dataset.metadata.shape)
             # none of the above appear to work in any dataset tested, but could be useful for
@@ -1913,7 +2009,7 @@ class Anndata(H5):
             dataset.metadata.layers_count = len(anndata_file)
             dataset.metadata.layers_names = list(anndata_file.keys())
 
-            def get_index_value(tmp: Union[h5py.Dataset, h5py.Datatype, h5py.Group]):
+            def get_index_value(tmp: h5py.Dataset | h5py.Datatype | h5py.Group):
                 if isinstance(tmp, (h5py.Dataset, h5py.Datatype)):
                     if "index" in tmp.dtype.names:
                         return tmp["index"]
@@ -1995,7 +2091,6 @@ class Anndata(H5):
 
             # Resolving the problematic shape parameter
             if "X" in dataset.metadata.layers_names:
-
                 # Check if X is a null/empty matrix (common in fragment-only files of snapatac data for example)
                 if (
                     anndata_file["X"].attrs.get("encoding-type") == "null"
@@ -2007,7 +2102,7 @@ class Anndata(H5):
                     # if X matrix has actual data
                     shape = anndata_file["X"].attrs.get("shape")
                     if shape is not None:
-                        dataset.metadata.shape = tuple(shape)
+                        dataset.metadata.shape = tuple(int(dim) for dim in shape)
                     elif hasattr(anndata_file["X"], "shape") and anndata_file["X"].shape is not None:
                         dataset.metadata.shape = tuple(anndata_file["X"].shape)
 
@@ -2123,7 +2218,7 @@ class GmxBinary(Binary):
     Base class for GROMACS binary files - xtc, trr, cpt
     """
 
-    magic_number: Optional[int] = None  # variables to be overwritten in the child class
+    magic_number: int | None = None  # variables to be overwritten in the child class
     file_ext = ""
 
     def sniff_prefix(self, file_prefix: FilePrefix) -> bool:
@@ -2454,7 +2549,7 @@ class H5MLM(H5):
     )
 
     def set_meta(
-        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: Optional[str] = None, **kwd
+        self, dataset: DatasetProtocol, overwrite: bool = True, metadata_tmp_files_dir: str | None = None, **kwd
     ) -> None:
         try:
             spec_key = "hyper_params"
@@ -2534,11 +2629,11 @@ class H5MLM(H5):
 
     def display_data(
         self,
-        trans,
+        trans: "GalaxyWebTransaction",
         dataset: DatasetHasHidProtocol,
         preview: bool = False,
-        filename: Optional[str] = None,
-        to_ext: Optional[str] = None,
+        filename: str | None = None,
+        to_ext: str | None = None,
         **kwd,
     ):
         headers = kwd.pop("headers", {})
@@ -2546,11 +2641,12 @@ class H5MLM(H5):
 
         if to_ext or not preview:
             to_ext = to_ext or dataset.extension
-            return self._serve_raw(dataset, to_ext, headers, **kwd)
+            return self._serve_raw(dataset, to_ext, headers, auth=ObjectStoreAuth(user=trans.user), **kwd)
 
         out_dict: dict = {}
+        fname = dataset.get_file_name(auth=ObjectStoreAuth(user=trans.user))
         try:
-            with h5py.File(dataset.get_file_name(), "r", locking=False) as handle:
+            with h5py.File(fname, "r", locking=False) as handle:
                 out_dict["Attributes"] = {}
                 attributes = handle.attrs
                 for k in set(attributes.keys()) - {self.HTTP_REPR, self.REPR, self.URL}:
@@ -2558,13 +2654,13 @@ class H5MLM(H5):
         except Exception as e:
             log.warning(e)
 
-        config = self.get_config_string(dataset.get_file_name())
+        config = self.get_config_string(fname)
         out_dict["Config"] = json.loads(config) if config else ""
         out = json.dumps(out_dict, sort_keys=True, indent=2)
         out = out[: self.max_preview_size]
 
-        repr = self.get_repr(dataset.get_file_name())
-        html_repr = self.get_html_repr(dataset.get_file_name())
+        repr = self.get_repr(fname)
+        html_repr = self.get_html_repr(fname)
 
         return f"<div>{html_repr}</div><div><pre>{repr}</pre></div><div><pre>{out}</pre></div>", headers
 
@@ -2794,6 +2890,60 @@ class TwoBit(Binary):
         magic = file_prefix.magic_header(">L")
         return magic == TWOBIT_MAGIC_NUMBER or magic == TWOBIT_MAGIC_NUMBER_SWAP
 
+    def validate(self, dataset: DatasetProtocol, **kwd) -> DatatypeValidation:
+        """Check the header, the sequence index, and that the last sequence record is complete.
+
+        A 2bit truncated or written empty by a failed job still sniffs (or is simply 0 bytes);
+        reading the records the index points at is what tells a whole file from a partial one.
+        """
+        path = dataset.get_file_name()
+        size = os.path.getsize(path)
+        if size < 16:
+            return DatatypeValidation.invalid(f"TwoBit file is {size} bytes; the header alone is 16.")
+        with open(path, "rb") as fh:
+            magic = struct.unpack(">L", fh.read(4))[0]
+            if magic == TWOBIT_MAGIC_NUMBER:
+                order = ">"
+            elif magic == TWOBIT_MAGIC_NUMBER_SWAP:
+                order = "<"
+            else:
+                return DatatypeValidation.invalid("TwoBit magic number not found.")
+            version, count, _ = struct.unpack(f"{order}LLL", fh.read(12))
+            if version not in (0, 1):
+                return DatatypeValidation.invalid(f"Unsupported TwoBit version {version}.")
+            if count == 0:
+                return DatatypeValidation.invalid("TwoBit file holds no sequences.")
+            offset_format = f"{order}Q" if version == 1 else f"{order}L"
+            offset_size = struct.calcsize(offset_format)
+            offsets = []
+            for _ in range(count):
+                name_size = fh.read(1)
+                if not name_size:
+                    return DatatypeValidation.invalid("TwoBit sequence index is truncated.")
+                fh.seek(name_size[0], os.SEEK_CUR)
+                raw = fh.read(offset_size)
+                if len(raw) != offset_size:
+                    return DatatypeValidation.invalid("TwoBit sequence index is truncated.")
+                offsets.append(struct.unpack(offset_format, raw)[0])
+            if any(o >= size for o in offsets):
+                return DatatypeValidation.invalid("TwoBit sequence index points past the end of the file.")
+            fh.seek(max(offsets))
+            header = fh.read(8)
+            if len(header) != 8:
+                return DatatypeValidation.invalid("TwoBit sequence record is truncated.")
+            dna_size, n_blocks = struct.unpack(f"{order}LL", header)
+            fh.seek(8 * n_blocks, os.SEEK_CUR)
+            raw = fh.read(4)
+            if len(raw) != 4:
+                return DatatypeValidation.invalid("TwoBit sequence record is truncated.")
+            (mask_blocks,) = struct.unpack(f"{order}L", raw)
+            end = fh.tell() + 8 * mask_blocks + 4 + (dna_size + 3) // 4
+        if end > size:
+            return DatatypeValidation.invalid(
+                f"TwoBit file is truncated: {size} bytes, the last sequence ends at {end}."
+            )
+        return DatatypeValidation.validated()
+
     def set_peek(self, dataset: DatasetProtocol, **kwd) -> None:
         if not dataset.dataset.purged:
             dataset.peek = "Binary TwoBit format nucleotide file"
@@ -2836,7 +2986,7 @@ class SQlite(Binary):
     file_ext = "sqlite"
     edam_format = "format_3621"
 
-    def init_meta(self, dataset: HasMetadata, copy_from: Optional[HasMetadata] = None) -> None:
+    def init_meta(self, dataset: HasMetadata, copy_from: HasMetadata | None = None) -> None:
         Binary.init_meta(self, dataset, copy_from=copy_from)
 
     def set_meta(self, dataset: DatasetProtocol, overwrite: bool = True, **kwd) -> None:
@@ -3700,7 +3850,7 @@ class RData(CompressedArchive):
     True
     >>> from galaxy.util.bunch import Bunch
     >>> dataset = Bunch()
-    >>> dataset.metadata = Bunch
+    >>> dataset.metadata = Bunch()
     >>> dataset.get_file_name = lambda : fname
     >>> dataset.has_data = lambda: True
     >>> RData().set_meta(dataset)
@@ -3763,7 +3913,7 @@ class RDS(CompressedArchive):
     True
     >>> from galaxy.util.bunch import Bunch
     >>> dataset = Bunch()
-    >>> dataset.metadata = Bunch
+    >>> dataset.metadata = Bunch()
     >>> dataset.get_file_name = lambda : get_test_fname('int-r4.rds')
     >>> dataset.has_data = lambda: True
     >>> RDS().set_meta(dataset)
@@ -4141,7 +4291,7 @@ class MongoDBArchive(CompressedArchive):
     def set_peek(self, dataset: DatasetProtocol, **kwd) -> None:
         if not dataset.dataset.purged:
             dataset.peek = f"MongoDB Archive ({nice_size(dataset.get_size())})"
-            dataset.blurb = f'MongoDB version {dataset.metadata.version or "unknown"}'
+            dataset.blurb = f"MongoDB version {dataset.metadata.version or 'unknown'}"
         else:
             dataset.peek = "file does not exist"
             dataset.blurb = "file purged from disk"
@@ -4625,6 +4775,240 @@ class ICM(Binary):
         return False
 
 
+# Thrift compact protocol type ids
+_THRIFT_STOP = 0
+_THRIFT_BOOLEAN_TRUE = 1
+_THRIFT_BOOLEAN_FALSE = 2
+_THRIFT_BYTE = 3
+_THRIFT_I16 = 4
+_THRIFT_I32 = 5
+_THRIFT_I64 = 6
+_THRIFT_DOUBLE = 7
+_THRIFT_BINARY = 8
+_THRIFT_LIST = 9
+_THRIFT_SET = 10
+_THRIFT_MAP = 11
+_THRIFT_STRUCT = 12
+_THRIFT_UUID = 13
+_THRIFT_FIXED_WIDTH = {
+    _THRIFT_BOOLEAN_TRUE: 1,
+    _THRIFT_BOOLEAN_FALSE: 1,
+    _THRIFT_BYTE: 1,
+    _THRIFT_DOUBLE: 8,
+    _THRIFT_UUID: 16,
+}
+_THRIFT_VARINT_BYTES = {_THRIFT_I16: 3, _THRIFT_I32: 5, _THRIFT_I64: 10}
+
+# Parquet writers emit the schema and row count before the row groups, so a
+# bounded prefix of a large footer is enough to read them.
+_PARQUET_MAX_METADATA_BYTES = 16 * 1024 * 1024
+_PARQUET_MAX_DECODED_VALUES = 2_000_000
+_PARQUET_MAX_NESTING_DEPTH = 64
+
+
+def _check_thrift_element_type(element_type: int) -> None:
+    if element_type == _THRIFT_STOP or element_type > _THRIFT_UUID:
+        raise ValueError(f"Invalid Parquet metadata element type {element_type}")
+
+
+class _ParquetFooterDecoder:
+    """Decode the row count and schema of a Parquet ``FileMetaData`` footer.
+
+    Reads the Thrift compact protocol directly. Lengths and element counts are
+    checked against the remaining bytes before use, and the number of decoded
+    values and the nesting depth are capped, so malformed footers fail quickly.
+    """
+
+    def __init__(self, payload: bytes):
+        self._data = payload
+        self._pos = 0
+        self._budget = _PARQUET_MAX_DECODED_VALUES
+
+    def _count_value(self) -> None:
+        self._budget -= 1
+        if self._budget < 0:
+            raise ValueError("Parquet metadata contains too many values")
+
+    def _remaining(self) -> int:
+        return len(self._data) - self._pos
+
+    def _advance(self, size: int) -> int:
+        if size > self._remaining():
+            raise ValueError("Parquet metadata is truncated")
+        start = self._pos
+        self._pos += size
+        return start
+
+    def _byte(self) -> int:
+        return self._data[self._advance(1)]
+
+    def _varint(self, max_bytes: int) -> int:
+        result = 0
+        for shift in range(0, 7 * max_bytes, 7):
+            byte = self._byte()
+            result |= (byte & 0x7F) << shift
+            if not byte & 0x80:
+                return result
+        raise ValueError("Parquet metadata contains an oversized integer")
+
+    def _zigzag(self, max_bytes: int) -> int:
+        value = self._varint(max_bytes)
+        return (value >> 1) ^ -(value & 1)
+
+    def _binary(self) -> bytes:
+        start = self._advance(self._varint(5))
+        return self._data[start : self._pos]
+
+    def _field_header(self, last_field_id: int) -> tuple[int, int] | None:
+        header = self._byte()
+        field_type = header & 0x0F
+        if field_type == _THRIFT_STOP:
+            return None
+        self._count_value()
+        delta = header >> 4
+        field_id = last_field_id + delta if delta else self._zigzag(3)
+        return field_id, field_type
+
+    def _list_header(self) -> tuple[int, int]:
+        header = self._byte()
+        element_type = header & 0x0F
+        size = header >> 4
+        if size == 15:
+            size = self._varint(5)
+        if size:
+            _check_thrift_element_type(element_type)
+        # Every element occupies at least one byte.
+        if size > self._remaining():
+            raise ValueError("Parquet metadata is truncated")
+        return element_type, size
+
+    def _skip(self, value_type: int, depth: int, in_container: bool = False) -> None:
+        if depth > _PARQUET_MAX_NESTING_DEPTH:
+            raise ValueError("Parquet metadata is nested too deeply")
+        self._count_value()
+        if value_type in (_THRIFT_BOOLEAN_TRUE, _THRIFT_BOOLEAN_FALSE):
+            # Struct fields carry booleans in the field header, container elements in one byte.
+            if in_container:
+                self._advance(1)
+        elif value_type in _THRIFT_FIXED_WIDTH:
+            self._advance(_THRIFT_FIXED_WIDTH[value_type])
+        elif value_type in _THRIFT_VARINT_BYTES:
+            self._varint(_THRIFT_VARINT_BYTES[value_type])
+        elif value_type == _THRIFT_BINARY:
+            self._advance(self._varint(5))
+        elif value_type == _THRIFT_STRUCT:
+            field_id = 0
+            while (header := self._field_header(field_id)) is not None:
+                field_id, field_type = header
+                self._skip(field_type, depth + 1)
+        elif value_type in (_THRIFT_LIST, _THRIFT_SET):
+            element_type, size = self._list_header()
+            if element_type in _THRIFT_FIXED_WIDTH:
+                self._advance(size * _THRIFT_FIXED_WIDTH[element_type])
+            else:
+                for _ in range(size):
+                    self._skip(element_type, depth + 1, in_container=True)
+        elif value_type == _THRIFT_MAP:
+            size = self._varint(5)
+            if size:
+                key_value_types = self._byte()
+                key_type, item_type = key_value_types >> 4, key_value_types & 0x0F
+                _check_thrift_element_type(key_type)
+                _check_thrift_element_type(item_type)
+                if 2 * size > self._remaining():
+                    raise ValueError("Parquet metadata is truncated")
+                for _ in range(size):
+                    self._skip(key_type, depth + 1, in_container=True)
+                    self._skip(item_type, depth + 1, in_container=True)
+        else:
+            raise ValueError(f"Invalid Parquet metadata type {value_type}")
+
+    def _schema_element(self) -> tuple[str, int]:
+        name = None
+        num_children = 0
+        field_id = 0
+        while (header := self._field_header(field_id)) is not None:
+            field_id, field_type = header
+            if field_id == 4 and field_type == _THRIFT_BINARY:
+                name = self._binary().decode("utf-8", errors="replace")
+            elif field_id == 5 and field_type == _THRIFT_I32:
+                num_children = self._zigzag(5)
+            else:
+                self._skip(field_type, 2)
+        if name is None:
+            raise ValueError("Parquet schema element has no name")
+        return name, num_children
+
+    def file_metadata(self) -> tuple[int, list[tuple[str, int]]]:
+        """Return the row count and the flattened schema as ``(name, num_children)`` pairs."""
+        num_rows = None
+        schema = None
+        field_id = 0
+        while num_rows is None or schema is None:
+            header = self._field_header(field_id)
+            if header is None:
+                raise ValueError("Parquet metadata has no schema or row count")
+            field_id, field_type = header
+            if field_id == 2 and field_type == _THRIFT_LIST:
+                element_type, size = self._list_header()
+                if size and element_type != _THRIFT_STRUCT:
+                    raise ValueError("Parquet schema is not a list of structs")
+                schema = []
+                for _ in range(size):
+                    self._count_value()
+                    schema.append(self._schema_element())
+            elif field_id == 3 and field_type == _THRIFT_I64:
+                num_rows = self._zigzag(10)
+                if num_rows < 0:
+                    raise ValueError("Parquet metadata has a negative row count")
+            else:
+                self._skip(field_type, 1)
+        return num_rows, schema
+
+
+def _read_parquet_file_metadata(payload: bytes) -> tuple[int, list[str]]:
+    """Extract row count and top-level column names from Parquet metadata."""
+    num_rows, schema = _ParquetFooterDecoder(payload).file_metadata()
+    if not schema:
+        return num_rows, []
+    column_names = []
+    stack = [schema[0]]
+    for name, num_children in schema[1:]:
+        while stack and stack[-1][1] <= 0:
+            stack.pop()
+        current_depth = len(stack)
+        if stack:
+            parent_name, remaining = stack[-1]
+            stack[-1] = (parent_name, remaining - 1)
+        if current_depth == 1:
+            column_names.append(name)
+        if num_children > 0:
+            stack.append((name, num_children))
+    return num_rows, column_names
+
+
+def _read_parquet_footer_metadata(filename: str) -> bytes:
+    with open(filename, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        file_size = f.tell()
+        if file_size < 8:
+            raise ValueError("File too small to contain a parquet footer")
+
+        f.seek(-8, os.SEEK_END)
+        footer = f.read(8)
+        metadata_len = struct.unpack("<I", footer[:4])[0]
+        metadata_start = file_size - 8 - metadata_len
+        if metadata_start < 0:
+            raise ValueError("Invalid parquet metadata length in footer")
+
+        f.seek(metadata_start, os.SEEK_SET)
+        read_len = min(metadata_len, _PARQUET_MAX_METADATA_BYTES)
+        metadata = f.read(read_len)
+        if len(metadata) != read_len:
+            raise ValueError("Could not read complete parquet metadata payload")
+        return metadata
+
+
 @build_sniff_from_prefix
 class Parquet(Binary):
     """
@@ -4639,6 +5023,34 @@ class Parquet(Binary):
     False
     """
 
+    MetadataElement(
+        name="columns",
+        default=0,
+        desc="Number of columns",
+        readonly=True,
+        visible=False,
+        optional=True,
+        no_value=0,
+    )
+    MetadataElement(
+        name="column_names",
+        default=[],
+        desc="Column names",
+        readonly=True,
+        visible=False,
+        optional=True,
+        no_value=[],
+    )
+    MetadataElement(
+        name="data_lines",
+        default=0,
+        desc="Number of data lines",
+        readonly=True,
+        visible=False,
+        optional=True,
+        no_value=0,
+    )
+
     file_ext = "parquet"
 
     def __init__(self, **kwd):
@@ -4647,6 +5059,33 @@ class Parquet(Binary):
 
     def sniff_prefix(self, file_prefix: FilePrefix) -> bool:
         return file_prefix.startswith_bytes(self._magic)
+
+    def set_meta(self, dataset: DatasetProtocol, overwrite: bool = True, **kwd) -> None:
+        if not os.path.isfile(dataset.get_file_name()):
+            return
+        try:
+            footer_metadata = _read_parquet_footer_metadata(dataset.get_file_name())
+            line_count, column_names = _read_parquet_file_metadata(footer_metadata)
+            dataset.metadata.column_names = column_names
+            dataset.metadata.columns = len(column_names)
+            dataset.metadata.data_lines = line_count
+        except Exception:
+            pass
+
+    def set_peek(self, dataset: DatasetProtocol, overwrite: bool = True, **kwd) -> None:
+        if not dataset.dataset.purged:
+            dataset.peek = "Parquet data"
+            column_count = dataset.metadata.columns
+            line_count = dataset.metadata.data_lines
+            if column_count > 0 or line_count > 0:
+                col_label = "column" if column_count <= 1 else "columns"
+                line_label = "line" if line_count <= 1 else "lines"
+                dataset.blurb = f"{util.commaify(str(column_count))} {col_label}, {util.commaify(str(line_count))} {line_label}, {nice_size(dataset.get_size())}"
+            else:
+                dataset.blurb = nice_size(dataset.get_size())
+        else:
+            dataset.peek = "file does not exist"
+            dataset.blurb = "file purged from disk"
 
 
 class BafTar(CompressedArchive):

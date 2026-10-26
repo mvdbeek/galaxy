@@ -19,7 +19,7 @@ from http.cookies import (
 from importlib import import_module
 from typing import (
     NoReturn,
-    Optional,
+    TYPE_CHECKING,
 )
 from urllib.parse import urljoin
 
@@ -34,6 +34,10 @@ from paste.response import HeaderDict
 
 from galaxy.util import smart_str
 from galaxy.util.resources import resource_string
+
+if TYPE_CHECKING:
+    from galaxy.util.custom_logging.fluent_log import FluentTraceLogger
+    from galaxy.webapps.base.webapp import GalaxyWebTransaction
 
 log = logging.getLogger(__name__)
 
@@ -92,6 +96,9 @@ class WebApplication:
     with routes.
     """
 
+    # Non-API GET/HEAD paths with no server handler resolve to this instead of 404ing, if set
+    client_match: dict[str, str] | None = None
+
     def __init__(self):
         """
         Create a new web application object. To actually connect some
@@ -102,13 +109,12 @@ class WebApplication:
         self.controllers = {}
         self.api_controllers = {}
         self.mapper = routes.Mapper()
-        self.clientside_routes = routes.Mapper(controller_scan=None, register=False)
         # FIXME: The following two options are deprecated and should be
         # removed.  Consult the Routes documentation.
         self.mapper.minimization = True
         self.transaction_factory = DefaultWebTransaction
         # Set if trace logging is enabled
-        self.trace_logger = None
+        self.trace_logger: FluentTraceLogger | None = None
         self.session_factories = []
 
     def add_ui_controller(self, controller_name, controller):
@@ -136,9 +142,6 @@ class WebApplication:
         """
         self.mapper.connect(route, **kwargs)
 
-    def add_client_route(self, route, controller="root"):
-        self.clientside_routes.connect(route, controller=controller, action="client")
-
     def set_transaction_factory(self, transaction_factory):
         """
         Use the callable `transaction_factory` to create the transaction
@@ -153,7 +156,6 @@ class WebApplication:
         """
         # Create/compile the regular expressions for route mapping
         self.mapper.create_regs(list(self.controllers.keys()))
-        self.clientside_routes.create_regs()
 
     def trace(self, **fields):
         if self.trace_logger:
@@ -186,7 +188,7 @@ class WebApplication:
             if self.trace_logger:
                 self.trace_logger.context_remove("request_id")
 
-    def _resolve_map_match(self, map_match, path_info, controllers, use_default=True):
+    def _resolve_map_match(self, map_match, path_info, controllers):
         # Get the controller class
         controller_name = map_match.pop("controller", None)
         controller = controllers.get(controller_name, None)
@@ -197,10 +199,6 @@ class WebApplication:
         # url_for invocations.  Specifically, grids.
         action = map_match.pop("action", "index")
         method = getattr(controller, action, None)
-        if method is None and not use_default:
-            # Skip default, we do this, for example, when we want to fail
-            # through to another mapper.
-            raise webob.exc.HTTPNotFound(f"No action for {path_info}")
         if method is None:
             # no matching method, we try for a default
             method = getattr(controller, "default", None)
@@ -214,18 +212,28 @@ class WebApplication:
             raise webob.exc.HTTPNotFound(f"Action not callable for {path_info}")
         return (controller_name, controller, action, method)
 
+    def _client_fallback_match(self, environ):
+        # Only page loads get the client; other methods to unhandled paths should still 404
+        if self.client_match is None or environ["is_api_request"]:
+            return None
+        if environ.get("REQUEST_METHOD", "GET") not in ("GET", "HEAD"):
+            return None
+        # A fresh copy, since resolving the match pops controller and action from it
+        return dict(self.client_match)
+
     def handle_request(self, request_id, path_info, environ, start_response, body_renderer=None):
         # Map url using routes
-        client_match = self.clientside_routes.match(path_info, environ)
-        map_match = self.mapper.match(path_info, environ) or client_match
+        map_match = self.mapper.match(path_info, environ)
         if path_info.startswith("/api"):
             environ["is_api_request"] = True
             controllers = self.api_controllers
         else:
             environ["is_api_request"] = False
             controllers = self.controllers
-        if not map_match:
-            raise webob.exc.HTTPNotFound(f"No route for {path_info}")
+        if map_match is None:
+            map_match = self._client_fallback_match(environ)
+            if map_match is None:
+                raise webob.exc.HTTPNotFound(f"No route for {path_info}")
         self.trace(path_info=path_info, map_match=map_match)
         # Setup routes
         rc = routes.request_config()
@@ -250,19 +258,13 @@ class WebApplication:
         rc.redirect = trans.response.send_redirect
         # Resolve mapping to controller/method
         try:
-            # We don't use default methods if there's a clientside match for this route.
-            use_default = client_match is None
-            controller_name, controller, action, method = self._resolve_map_match(
-                map_match, path_info, controllers, use_default=use_default
-            )
+            controller_name, controller, action, method = self._resolve_map_match(map_match, path_info, controllers)
         except webob.exc.HTTPNotFound:
-            # Failed, let's check client routes
-            if not environ["is_api_request"] and client_match is not None:
-                controller_name, controller, action, method = self._resolve_map_match(
-                    client_match, path_info, controllers
-                )
-            else:
+            client_match = self._client_fallback_match(environ)
+            if client_match is None:
                 raise
+            map_match = rc.mapper_dict = client_match
+            controller_name, controller, action, method = self._resolve_map_match(map_match, path_info, controllers)
         trans.controller = controller_name
         trans.action = action
 
@@ -291,7 +293,7 @@ class WebApplication:
         body_renderer = body_renderer or self._render_body
         return body_renderer(trans, body, environ, start_response)
 
-    def _render_body(self, trans, body, environ, start_response):
+    def _render_body(self, trans: "GalaxyWebTransaction", body, environ, start_response):
         # Now figure out what we got back and try to get it to the browser in
         # a smart way
         if callable(body):
@@ -309,7 +311,7 @@ class WebApplication:
             start_response(trans.response.wsgi_status(), trans.response.wsgi_headeritems())
             return self.make_body_iterable(trans, body)
 
-    def make_body_iterable(self, trans, body):
+    def make_body_iterable(self, trans: "DefaultWebTransaction", body):
         if isinstance(body, (types.GeneratorType, list, tuple)):
             # Recursively stream the iterable
             return flatten(body)
@@ -320,7 +322,7 @@ class WebApplication:
             # Worst case scenario
             return [smart_str(body)]
 
-    def handle_controller_exception(self, e, trans, method, kwargs):
+    def handle_controller_exception(self, e, trans: "GalaxyWebTransaction", method, kwargs):
         """
         Allow handling of exceptions raised in controller methods.
         """
@@ -376,6 +378,10 @@ class DefaultWebTransaction:
         self.environ = environ
         self.request = Request(environ)
         self.response = Response()
+        # Set by WebApplication.handle_request() once the route is resolved.
+        self.request_id: str | None = None
+        self.controller: str | None = None
+        self.action: str | None = None
 
     @lazy_property
     def session(self):
@@ -415,8 +421,8 @@ def _read_lines(self):
         self.read_lines_to_eof()
 
 
-webob.compat.cgi_FieldStorage.make_file = _make_file
-webob.compat.cgi_FieldStorage.read_lines = _read_lines
+webob.compat.cgi_FieldStorage.make_file = _make_file  # type: ignore[method-assign]
+webob.compat.cgi_FieldStorage.read_lines = _read_lines  # type: ignore[attr-defined]
 
 
 class Request(webob.Request):
@@ -563,7 +569,7 @@ class RangeNotSatisfiable(Exception):
     """The ``Range`` header's byte range is malformed or lies outside the file."""
 
 
-def parse_byte_range(range_header: str, file_size: int) -> Optional[tuple[int, int]]:
+def parse_byte_range(range_header: str, file_size: int) -> tuple[int, int] | None:
     """Resolve a ``Range: bytes=...`` header against a file of ``file_size`` bytes (RFC 9110 §14).
 
     Returns the inclusive ``(start, end)`` byte positions to serve. ``bytes=-N`` is a
@@ -596,7 +602,7 @@ def parse_byte_range(range_header: str, file_size: int) -> Optional[tuple[int, i
     return max(file_size - last_pos, 0), file_size - 1
 
 
-def send_file(start_response, trans, body):
+def send_file(start_response, trans: "GalaxyWebTransaction", body):
     # If configured use X-Accel-Redirect header for nginx
     base = trans.app.config.nginx_x_accel_redirect_base
     apache_xsendfile = trans.app.config.apache_xsendfile

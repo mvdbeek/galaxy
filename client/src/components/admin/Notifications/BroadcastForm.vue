@@ -1,16 +1,18 @@
 <script setup lang="ts">
 import { faPlus, faSave, faTimes } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BCol, BFormGroup, BFormInput, BRow } from "bootstrap-vue";
-import Vue, { computed, ref } from "vue";
-import { useRouter } from "vue-router/composables";
+import { BCol, BFormGroup, BFormInput, BRow } from "bootstrap-vue";
+import { computed, ref } from "vue";
+import { useRouter } from "vue-router";
 
 import { type components, GalaxyApi } from "@/api";
 import { createBroadcast, updateBroadcast } from "@/api/notifications.broadcast";
 import { Toast } from "@/composables/toast";
 import { errorMessageAsString } from "@/utils/simple-error";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import AsyncButton from "@/components/Common/AsyncButton.vue";
 import Heading from "@/components/Common/Heading.vue";
 import FormElement from "@/components/Form/FormElement.vue";
@@ -82,12 +84,13 @@ function convertUTCtoLocal(utcTimeString: string) {
 
 function addActionLink() {
     if (!broadcastData.value.content.action_links) {
-        Vue.set(broadcastData.value.content, "action_links", []);
+        broadcastData.value.content.action_links = [];
     }
 
     broadcastData.value.content.action_links?.push({
         action_name: "",
         link: "",
+        target: "_self",
     });
 }
 
@@ -149,15 +152,15 @@ if (props.id) {
     <div>
         <Heading h1 separator inline class="flex-grow-1"> {{ title }} </Heading>
 
-        <BAlert v-if="loading" show>
+        <GAlert v-if="loading" show>
             <LoadingSpan message="Loading broadcast" />
-        </BAlert>
+        </GAlert>
 
         <div v-else>
-            <BAlert v-if="props.id && broadcastPublished" id="broadcast-published-warning" variant="warning" show>
+            <GAlert v-if="props.id && broadcastPublished" id="broadcast-published-warning" variant="warning" show>
                 This broadcast has already been published. Some users may have already seen it and changing it now will
                 not affect them.
-            </BAlert>
+            </GAlert>
 
             <FormElement
                 id="broadcast-subject"
@@ -211,6 +214,16 @@ if (props.id) {
                             placeholder="Enter action link"
                             required />
                     </BCol>
+                    <div class="col-auto d-flex align-items-center">
+                        <GCheckbox
+                            :id="`broadcast-action-link-new-tab-${index}`"
+                            :model-value="actionLink.target === '_blank'"
+                            @update:model-value="
+                                (checked: boolean) => (actionLink.target = checked ? '_blank' : '_self')
+                            ">
+                            Open in new tab
+                        </GCheckbox>
+                    </div>
                     <BCol cols="auto">
                         <GButton
                             :id="`delete-action-link-${index}}`"
@@ -247,7 +260,10 @@ if (props.id) {
                         label="Publication Time (local time)"
                         label-for="broadcast-publication-time"
                         description="The broadcast will be displayed from this time onwards. Default is the time of creation.">
-                        <GDateTime id="broadcast-publication-time" v-model="publicationDate" />
+                        <GDateTime
+                            id="broadcast-publication-time"
+                            :value="publicationDate"
+                            @input="(v: Date) => (publicationDate = v)" />
                     </BFormGroup>
                 </BCol>
                 <BCol>
@@ -256,7 +272,10 @@ if (props.id) {
                         label="Expiration Time (local time)"
                         label-for="broadcast-expiration-time"
                         description="The broadcast will not be displayed and will be deleted from the database after this time. Default is 6 months from the creation time.">
-                        <GDateTime id="broadcast-expiration-time" v-model="expirationDate" />
+                        <GDateTime
+                            id="broadcast-expiration-time"
+                            :value="expirationDate"
+                            @input="(v: Date) => (expirationDate = v)" />
                     </BFormGroup>
                 </BCol>
             </BRow>

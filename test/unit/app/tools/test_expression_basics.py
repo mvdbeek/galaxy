@@ -17,16 +17,16 @@ from galaxy.tools.expressions import (
     do_eval,
     evaluate,
     ExpressionTemplateError,
-    js_engine,
     validate_expression_template,
 )
-from galaxy.tools.expressions.js_engine import (
+from galaxy.util.wait import wait_on
+from galaxy_ext.expressions import js_engine
+from galaxy_ext.expressions.js_engine import (
     _bubblewrap_command,
     evaluate_program,
     resolve_isolation_command,
     SandboxedJSEngine,
 )
-from galaxy.util.wait import wait_on
 from galaxy_ext.expressions.sandbox_worker import MAX_MESSAGE_BYTES
 
 # A benign stand-in for a real jail command (e.g. bwrap): `/usr/bin/env` just execs

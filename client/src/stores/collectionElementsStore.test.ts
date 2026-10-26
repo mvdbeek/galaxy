@@ -5,10 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DCESummary, HDCASummary } from "@/api";
 import { useServerMock } from "@/api/client/__mocks__";
 import { type DCEEntry, useCollectionElementsStore } from "@/stores/collectionElementsStore";
-import { MAX_RETRIES } from "@/utils/simple-error";
 
-const RETRY_BACKOFF_BASE_MS = 2000;
-const RETRY_BACKOFF_CAP_MS = 30_000;
+// The "should save collections" test moved to `datasetCollectionStore.test.ts`
+// when detail / summary caching was split out.
 
 const { server, http } = useServerMock();
 
@@ -20,8 +19,8 @@ describe("useCollectionElementsStore", () => {
         server.use(
             http.get("/api/dataset_collections/{hdca_id}/contents/{parent_id}", ({ response, params, query }) => {
                 const elements: DCESummary[] = [];
-                const startIndex = Number(query.get("offset")) ?? 0;
-                const endIndex = startIndex + (Number(query.get("limit")) ?? 10);
+                const startIndex = Number(query.get("offset"));
+                const endIndex = startIndex + Number(query.get("limit"));
                 for (let i = startIndex; i < endIndex; i++) {
                     elements.push(mockElement(params.hdca_id, i));
                 }
@@ -34,21 +33,6 @@ describe("useCollectionElementsStore", () => {
     afterEach(() => {
         vi.restoreAllMocks();
         vi.useRealTimers();
-    });
-
-    it("should save collections", async () => {
-        const collection1: HDCASummary = mockCollection("1");
-        const collection2: HDCASummary = mockCollection("2");
-        const collections: HDCASummary[] = [collection1, collection2];
-        const store = useCollectionElementsStore();
-        expect(store.storedCollections).toEqual({});
-
-        store.saveCollections(collections);
-
-        expect(store.storedCollections).toEqual({
-            "1": collection1,
-            "2": collection2,
-        });
     });
 
     it("should fetch collection elements if they are not yet in the store", async () => {
@@ -131,87 +115,14 @@ describe("useCollectionElementsStore", () => {
     });
 });
 
-describe("useCollectionElementsStore collection loading", () => {
+describe("useCollectionElementsStore element loading errors", () => {
     beforeEach(() => {
         setActivePinia(createPinia());
-        vi.useFakeTimers();
-        // Lowest jitter: the first backoff is RETRY_BACKOFF_BASE_MS / 2.
-        vi.spyOn(Math, "random").mockReturnValue(0);
     });
 
     afterEach(() => {
         vi.restoreAllMocks();
         vi.useRealTimers();
-    });
-
-    it("waits out a backoff before refetching a collection after a retryable error", async () => {
-        let requests = 0;
-        server.use(
-            http.get("/api/dataset_collections/{hdca_id}", ({ response }) => {
-                requests += 1;
-                return response("5XX").json({ err_msg: "Service Unavailable", err_code: 0 }, { status: 503 });
-            }),
-        );
-        const store = useCollectionElementsStore();
-
-        store.getCollectionById("hdca-1");
-        await flushPromises();
-        expect(requests).toBe(1);
-
-        store.getCollectionById("hdca-1");
-        store.getDetailedCollectionById("hdca-1");
-        await flushPromises();
-        expect(requests).toBe(1);
-
-        await vi.advanceTimersByTimeAsync(RETRY_BACKOFF_BASE_MS / 2);
-        store.getCollectionById("hdca-1");
-        await flushPromises();
-        expect(requests).toBe(2);
-    });
-
-    it("waits out Retry-After before refetching a collection", async () => {
-        let requests = 0;
-        server.use(
-            http.get("/api/dataset_collections/{hdca_id}", ({ response }) => {
-                requests += 1;
-                return response("5XX").json(
-                    { err_msg: "Service Unavailable", err_code: 0 },
-                    { status: 503, headers: { "Retry-After": "10" } },
-                );
-            }),
-        );
-        const store = useCollectionElementsStore();
-
-        store.getCollectionById("hdca-1");
-        await flushPromises();
-        await vi.advanceTimersByTimeAsync(9_999);
-        store.getCollectionById("hdca-1");
-        await flushPromises();
-        expect(requests).toBe(1);
-
-        await vi.advanceTimersByTimeAsync(1);
-        store.getCollectionById("hdca-1");
-        await flushPromises();
-        expect(requests).toBe(2);
-    });
-
-    it("keeps a failed collection fetch out of the elements state of a collection with the same key", async () => {
-        server.use(
-            http.get("/api/dataset_collections/{hdca_id}", ({ response }) =>
-                response("5XX").json({ err_msg: "Service Unavailable", err_code: 0 }, { status: 503 }),
-            ),
-        );
-        const store = useCollectionElementsStore();
-        // Encoded HDCA and dataset collection ids share one id space, so they can coincide.
-        const otherCollection = { ...mockCollection("other"), collection_id: "shared-id" };
-
-        for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-            store.getCollectionById("shared-id");
-            await flushPromises();
-            expect(store.isLoadingCollectionElements(otherCollection)).toBe(false);
-            await vi.advanceTimersByTimeAsync(RETRY_BACKOFF_CAP_MS);
-        }
-        expect(store.getLoadingCollectionElementsError(otherCollection)).toBe(false);
     });
 
     it("reports a 5xx error fetching collection elements immediately", async () => {

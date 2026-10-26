@@ -1,5 +1,5 @@
 import { createTestingPinia } from "@pinia/testing";
-import { getLocalVue } from "@tests/vitest/helpers";
+import { getLocalVue, nth } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { setActivePinia } from "pinia";
@@ -29,6 +29,14 @@ const mockTools: Partial<Tool>[] = [
     { id: "vscode", version: "1.0", name: "VS Code", model_class: "InteractiveTool", description: "Code editor" },
 ];
 
+// `getInteractiveTools` is a Pinia getter (a `computed` that itself returns a
+// function), and Vue's reactive proxy only unwraps refs through its `get`
+// trap -- not through the property descriptor `vi.spyOn` reads -- so it can't
+// be spied on directly. Seed the state it derives from instead.
+function seedToolsById(toolStore: ReturnType<typeof useToolStore>, toolsList: Partial<Tool>[]) {
+    toolStore.toolsById = Object.fromEntries(toolsList.map((tool) => [tool.id as string, tool as Tool]));
+}
+
 describe("InteractiveToolsPanel component", () => {
     beforeEach(() => {
         // Reset mocks
@@ -36,7 +44,7 @@ describe("InteractiveToolsPanel component", () => {
         (filterLatestToolVersions as ReturnType<typeof vi.fn>).mockImplementation((tools) => tools);
     });
 
-    const mountComponent = async (toolsList: Partial<Tool>[] = mockTools) => {
+    const mountComponent = async (toolsList: Partial<Tool>[] = mockTools, fetchTools = vi.fn()) => {
         const pinia = createTestingPinia({
             createSpy: vi.fn,
             stubActions: false,
@@ -45,8 +53,8 @@ describe("InteractiveToolsPanel component", () => {
 
         // Mock the stores before mounting
         const toolStore = useToolStore();
-        vi.spyOn(toolStore, "fetchTools").mockImplementation(vi.fn());
-        vi.spyOn(toolStore, "getInteractiveTools").mockReturnValue(toolsList as Tool[]);
+        vi.spyOn(toolStore, "fetchTools").mockImplementation(fetchTools);
+        seedToolsById(toolStore, toolsList);
 
         const interactiveToolsStore = useInteractiveToolsStore();
         vi.spyOn(interactiveToolsStore, "getActiveTools").mockImplementation(vi.fn());
@@ -55,7 +63,7 @@ describe("InteractiveToolsPanel component", () => {
         entryPointStore.$patch({ entryPoints: [] });
 
         const wrapper = mount(InteractiveToolsPanel as any, {
-            localVue,
+            global: localVue,
             pinia,
             stubs: {
                 ActivityPanel: true,
@@ -74,6 +82,17 @@ describe("InteractiveToolsPanel component", () => {
 
         return wrapper;
     };
+
+    it("announces the loading state as a status", async () => {
+        const wrapper = await mountComponent(
+            mockTools,
+            vi.fn(() => new Promise<void>(() => {})),
+        );
+
+        const status = wrapper.find("[role='status']");
+        expect(status.exists()).toBe(true);
+        expect(status.text()).toContain("Loading interactive tools...");
+    });
 
     it("should call filterLatestToolVersions with interactive tools", async () => {
         await mountComponent();
@@ -166,13 +185,13 @@ describe("InteractiveToolsPanel component", () => {
         // Mock the stores
         const toolStore = useToolStore();
         vi.spyOn(toolStore, "fetchTools").mockImplementation(vi.fn());
-        vi.spyOn(toolStore, "getInteractiveTools").mockReturnValue(mockTools as Tool[]);
+        seedToolsById(toolStore, mockTools);
 
         const interactiveToolsStore = useInteractiveToolsStore();
         vi.spyOn(interactiveToolsStore, "getActiveTools").mockImplementation(vi.fn());
 
         const wrapper = mount(InteractiveToolsPanel as any, {
-            localVue,
+            global: localVue,
             pinia,
             stubs: {
                 ActivityPanel: {
@@ -199,15 +218,15 @@ describe("InteractiveToolsPanel component", () => {
         expect(activeToolItems).toHaveLength(2);
 
         // Check that the first active tool has the correct name
-        expect(activeToolItems.at(0).text()).toContain("Active RStudio");
-        expect(activeToolItems.at(0).text()).toContain("Running");
+        expect(nth(activeToolItems, 0).text()).toContain("Active RStudio");
+        expect(nth(activeToolItems, 0).text()).toContain("Running");
 
         // Check that the second active tool (starting) has the correct name
-        expect(activeToolItems.at(1).text()).toContain("Starting Jupyter");
-        expect(activeToolItems.at(1).text()).toContain("Starting...");
+        expect(nth(activeToolItems, 1).text()).toContain("Starting Jupyter");
+        expect(nth(activeToolItems, 1).text()).toContain("Starting...");
 
         // Check that stop buttons are present
-        expect(activeToolItems.at(0).find(".btn-link.text-danger").exists()).toBe(true);
-        expect(activeToolItems.at(1).find(".btn-link.text-danger").exists()).toBe(true);
+        expect(nth(activeToolItems, 0).find(".btn-link.text-danger").exists()).toBe(true);
+        expect(nth(activeToolItems, 1).find(".btn-link.text-danger").exists()).toBe(true);
     });
 });

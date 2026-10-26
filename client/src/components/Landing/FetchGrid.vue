@@ -10,6 +10,7 @@ import { useAgGrid } from "@/composables/useAgGrid";
 import { type DerivedColumn, type FetchTable, fetchTargetToTable, type RowsType, tableToRequest } from "./fetchModels";
 import { enforceColumnUniqueness, useGridHelpers } from "./gridHelpers";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GCard from "@/components/Common/GCard.vue";
 import DataFetchRequestParameter from "@/components/JobParameters/DataFetchRequestParameter.vue";
 
@@ -19,13 +20,7 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const { gridApi, AgGridVue, onGridReady, theme } = useAgGrid(resize);
-
-function resize() {
-    if (gridApi.value) {
-        gridApi.value.sizeColumnsToFit();
-    }
-}
+const { AgGridVue, onGridReady, theme } = useAgGrid();
 
 const style = computed(() => {
     return { width: "100%" };
@@ -64,12 +59,6 @@ const title = computed(() => {
     }
     return title;
 });
-
-function initializeRowData(rowData: AgRowData[], rows: RowsType) {
-    for (const row of rows) {
-        rowData.push({ ...row });
-    }
-}
 
 const BOOLEAN_COLUMNS: ParsedFetchWorkbookColumnType[] = [
     "to_posix_lines",
@@ -117,8 +106,14 @@ function initializeTabularVersionOfTarget() {
     let table;
     try {
         table = fetchTargetToTable(props.target);
-    } catch (error) {
+    } catch {
         richSupportForTarget.value = false;
+        viewMode.value = "raw";
+        gridRowData.value = [];
+        gridColumns.value = [];
+        columnsRef.value = [];
+        collectionTypeRef.value = undefined;
+        autoDecompressRef.value = undefined;
         return;
     }
     const { columns, rows, collectionType } = table;
@@ -126,8 +121,8 @@ function initializeTabularVersionOfTarget() {
     collectionTypeRef.value = collectionType;
     autoDecompressRef.value = table.autoDecompress;
     initializeColumns(columns);
-    gridRowData.value.splice(0, gridRowData.value.length);
-    initializeRowData(gridRowData.value, rows);
+    // ag-grid-vue3 marks the bound array raw, so in-place changes stop reaching the grid
+    gridRowData.value = rows.map((row) => ({ ...row }));
     richSupportForTarget.value = true;
     viewMode.value = "table";
 }
@@ -146,7 +141,7 @@ const defaultColDef = ref<ColDef>({
 });
 
 function asTarget(): AnyFetchTarget {
-    if (modified.value) {
+    if (modified.value && richSupportForTarget.value) {
         const newTable: FetchTable = {
             columns: columnsRef.value,
             rows: gridRowData.value as RowsType,
@@ -164,25 +159,7 @@ defineExpose({
     asTarget,
 });
 
-watch(
-    () => {
-        props.target;
-    },
-    () => {
-        initialize();
-        // is this block needed?
-        if (gridApi.value) {
-            const params = {
-                force: true,
-                suppressFlash: true,
-            };
-            gridApi.value!.refreshCells(params);
-        }
-    },
-    {
-        immediate: true,
-    },
-);
+watch(() => props.target, initialize, { immediate: true });
 
 const viewRequestAction: CardAction = {
     id: "source",
@@ -223,25 +200,25 @@ function handleDataUpdated(event: any) {
     <GCard :title="title" :secondary-actions="secondaryActions">
         <template v-slot:description>
             <div v-if="viewMode === 'raw'">
-                <BAlert v-if="!richSupportForTarget" show dismissible variant="warning">
+                <GAlert v-if="!richSupportForTarget" show dismissible variant="warning">
                     This target is using advanced features that we don't yet support a rich tabular view for, an
                     annotated request is shown here and can still be used to import the target data. If you would like
                     this to see this kind of target supported, please
                     <a href="https://github.com/galaxyproject/galaxy/issues">create an issue on GitHub</a>
                     titled something like "Support Rich View of Data Fetch Request" and include this request as an
                     example.
-                </BAlert>
-                <BAlert v-if="modified" show dismissible variant="warning">
+                </GAlert>
+                <GAlert v-if="modified" show dismissible variant="warning">
                     This shows the initial data import request, you have modified the import data and your modifications
                     will be reflected in the final data import but not in this initial request.
-                </BAlert>
+                </GAlert>
                 <DataFetchRequestParameter :parameter-value="props.target" />
             </div>
-            <div v-else-if="viewMode === 'table'" :class="[theme]">
-                <BAlert v-if="modified" show dismissible variant="info">
+            <div v-else-if="viewMode === 'table'" :class="[theme]" data-description="fetch grid">
+                <GAlert v-if="modified" show dismissible variant="info">
                     You have modified the import data from the initial request, these modifications will be reflected in
                     the final data import.
-                </BAlert>
+                </GAlert>
                 <AgGridVue
                     :row-data="gridRowData"
                     :column-defs="gridColumns"

@@ -13,11 +13,7 @@ from typing import NamedTuple
 import pytest
 
 from galaxy.files.unittest_utils.ftp_server import serve_ftp_directory
-from galaxy.util.unittest_utils.mock_http_server import (
-    MockHTTPRequestHandler,
-    MockHttpServer,
-    start_mock_http_server,
-)
+from galaxy.util.unittest_utils.test_http_server import test_http_server  # noqa: F401
 
 
 class FtpServerFixture(NamedTuple):
@@ -36,15 +32,6 @@ def ftp_server(tmp_path: Path) -> Iterator[FtpServerFixture]:
     root.mkdir()
     with serve_ftp_directory(str(root)) as (host, port):
         yield FtpServerFixture(host=host, port=port, root=root)
-
-
-@pytest.fixture(scope="session")
-def mock_http_server() -> Generator[MockHttpServer, None, None]:
-    server, base_url = start_mock_http_server()
-    try:
-        yield MockHttpServer(base_url=base_url, handler_class=MockHTTPRequestHandler, is_remote=False)
-    finally:
-        server.shutdown()
 
 
 @pytest.fixture

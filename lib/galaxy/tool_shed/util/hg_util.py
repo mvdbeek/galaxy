@@ -2,18 +2,28 @@ import logging
 import os
 import subprocess
 from typing import (
-    Optional,
+    Any,
+    Literal,
+    TYPE_CHECKING,
 )
 
 from galaxy.tool_shed.util import basic_util
-from galaxy.util import unicodify
+from galaxy.util import (
+    smart_str,
+    unicodify,
+)
+
+if TYPE_CHECKING:
+    from mercurial.interfaces.repository import IRepo
 
 log = logging.getLogger(__name__)
 
 INITIAL_CHANGELOG_HASH = "000000000000"
 
 
-def clone_repository(repository_clone_url: str, repository_file_dir: str, ctx_rev=None) -> tuple[bool, Optional[str]]:
+def clone_repository(
+    repository_clone_url: str, repository_file_dir: str, ctx_rev: str | None = None
+) -> tuple[bool, str | None]:
     """
     Clone the repository up to the specified changeset_revision.  No subsequent revisions will be
     present in the cloned repository.
@@ -44,7 +54,7 @@ def copy_file_from_manifest(repo, changeset_revision, filename, dir):
     for changeset in reversed_upper_bounded_changelog(repo, changeset_revision):
         changeset_ctx = repo[changeset]
         fctx = get_file_context_from_ctx(changeset_ctx, filename)
-        if fctx and fctx not in ["DELETED"]:
+        if fctx is not None and fctx != "DELETED":
             file_path = os.path.join(dir, filename)
             fh = open(file_path, "wb")
             fh.write(fctx.data())
@@ -53,16 +63,28 @@ def copy_file_from_manifest(repo, changeset_revision, filename, dir):
     return None
 
 
-def get_changectx_for_changeset(repo, changeset_revision, **kwd):
+def get_changectx_for_changeset(repo: "IRepo", changeset_revision: str) -> Any:
     """Retrieve a specified changectx from a repository."""
-    for changeset in repo.changelog:
-        ctx = repo[changeset]
-        if str(ctx) == changeset_revision:
-            return ctx
-    return None
+    from mercurial import (
+        error,
+        scmutil,
+    )
+    from mercurial.node import nullrev
+
+    try:
+        node = scmutil.resolvehexnodeidprefix(repo, smart_str(changeset_revision))
+    except (error.LookupError, error.WdirUnsupported):
+        return None
+    if node is None:
+        return None
+    ctx = repo[node]
+    # Only the exact short hash of a committed changeset names it, not a prefix or the null revision.
+    if ctx.rev() == nullrev or str(ctx) != changeset_revision:
+        return None
+    return ctx
 
 
-def get_config_from_disk(config_file: str, relative_install_dir: str) -> Optional[str]:
+def get_config_from_disk(config_file: str, relative_install_dir: str) -> str | None:
     for root, _dirs, files in os.walk(relative_install_dir):
         if root.find(".hg") < 0:
             for name in files:
@@ -71,7 +93,7 @@ def get_config_from_disk(config_file: str, relative_install_dir: str) -> Optiona
     return None
 
 
-def get_ctx_file_path_from_manifest(filename, repo, changeset_revision):
+def get_ctx_file_path_from_manifest(filename: str, repo: "IRepo", changeset_revision: str) -> tuple[Any, Any]:
     """
     Get the ctx file path for the latest revision of filename from the repository manifest up
     to the value of changeset_revision.
@@ -86,7 +108,34 @@ def get_ctx_file_path_from_manifest(filename, repo, changeset_revision):
     return None, None
 
 
-def get_file_context_from_ctx(ctx, filename):
+def get_file_data_from_manifest(
+    filename: str, repo: "IRepo", changeset_revision: str, max_size: int | None = None
+) -> bytes | None:
+    """
+    Return the contents of filename in the repository manifest as of changeset_revision, or None
+    if that revision is unknown, has no such file, or the file is larger than max_size bytes.
+    filename is matched as a path within the repository first and then by file name alone.
+    """
+    ctx = get_changectx_for_changeset(repo, changeset_revision)
+    if ctx is None:
+        return None
+    path: bytes | None = smart_str(filename)
+    if path not in ctx:
+        stripped_filename = basic_util.strip_path(filename)
+        matches = (f for f in ctx.manifest() if basic_util.strip_path(unicodify(f)) == stripped_filename)
+        path = next(matches, None)
+    if path is None:
+        return None
+    fctx = ctx[path]
+    # filectx.size() reads a newly added file whole to look for copy metadata, while the revlog
+    # index records the stored size (an upper bound of the file size) without reading the file.
+    if max_size is not None and fctx.filelog()._revlog.rawsize(fctx.filerev()) > max_size:
+        return None
+    data: bytes = fctx.data()
+    return data
+
+
+def get_file_context_from_ctx(ctx: Any, filename: str) -> Any | Literal["DELETED"] | None:
     """Return the mercurial file context for a specified file."""
     # We have to be careful in determining if we found the correct file because multiple files with
     # the same name may be in different directories within ctx if the files were moved within the change
@@ -110,7 +159,7 @@ def get_file_context_from_ctx(ctx, filename):
     return None
 
 
-def pull_repository(repo_path, repository_clone_url, ctx_rev):
+def pull_repository(repo_path: str, repository_clone_url: str, ctx_rev: str) -> None:
     """Pull changes from a remote repository to a local one."""
     try:
         subprocess.check_output(
@@ -124,8 +173,10 @@ def pull_repository(repo_path, repository_clone_url, ctx_rev):
 
 
 def reversed_lower_upper_bounded_changelog(
-    repo, excluded_lower_bounds_changeset_revision, included_upper_bounds_changeset_revision
-):
+    repo: "IRepo",
+    excluded_lower_bounds_changeset_revision: str | None,
+    included_upper_bounds_changeset_revision: str | None,
+) -> list[Any]:
     """
     Return a reversed list of changesets in the repository changelog after the excluded_lower_bounds_changeset_revision,
     but up to and including the included_upper_bounds_changeset_revision.  The value of excluded_lower_bounds_changeset_revision
@@ -134,12 +185,12 @@ def reversed_lower_upper_bounded_changelog(
     # To set excluded_lower_bounds_changeset_revision, calling methods should do the following, where the value
     # of changeset_revision is a downloadable changeset_revision.
     # excluded_lower_bounds_changeset_revision = \
-    #     metadata_util.get_previous_metadata_changeset_revision(app, repository, changeset_revision, downloadable=?)
+    #     metadata_util.get_previous_metadata_changeset_revision(app, repository, changeset_revision)
     if excluded_lower_bounds_changeset_revision == INITIAL_CHANGELOG_HASH:
         appending_started = True
     else:
         appending_started = False
-    reversed_changelog = []
+    reversed_changelog: list[Any] = []
     for changeset in repo.changelog:
         changeset_hash = str(repo[changeset])
         if appending_started:
@@ -151,7 +202,7 @@ def reversed_lower_upper_bounded_changelog(
     return reversed_changelog
 
 
-def reversed_upper_bounded_changelog(repo, included_upper_bounds_changeset_revision):
+def reversed_upper_bounded_changelog(repo: "IRepo", included_upper_bounds_changeset_revision: str | None) -> list[Any]:
     """
     Return a reversed list of changesets in the repository changelog up to and including the
     included_upper_bounds_changeset_revision.
@@ -161,7 +212,7 @@ def reversed_upper_bounded_changelog(repo, included_upper_bounds_changeset_revis
     )
 
 
-def update_repository(repo_path, ctx_rev=None):
+def update_repository(repo_path: str, ctx_rev: str | None = None) -> None:
     """
     Update the cloned repository to changeset_revision.  It is critical that the installed repository is updated to the desired
     changeset_revision before metadata is set because the process for setting metadata uses the repository files on disk.
@@ -195,6 +246,7 @@ __all__ = (
     "get_changectx_for_changeset",
     "get_config_from_disk",
     "get_ctx_file_path_from_manifest",
+    "get_file_data_from_manifest",
     "get_file_context_from_ctx",
     "pull_repository",
     "reversed_lower_upper_bounded_changelog",

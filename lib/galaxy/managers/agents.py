@@ -1,19 +1,21 @@
 """Agent service layer for AI agent management."""
 
 import logging
+from functools import partial
 from typing import (
     Any,
-    Optional,
 )
+
+import anyio
 
 from galaxy.agents import GalaxyAgentDependencies
 from galaxy.agents.registry import AgentRegistry
 from galaxy.agents.router import QueryRouterAgent
 from galaxy.config import GalaxyAppConfiguration
-from galaxy.managers.context import ProvidesUserContext
 from galaxy.managers.jobs import JobManager
 from galaxy.model import User
 from galaxy.schema.agents import AgentResponse
+from galaxy.work.context import SessionRequestContext
 
 log = logging.getLogger(__name__)
 
@@ -31,7 +33,7 @@ class AgentService:
         self.job_manager = job_manager
         self.registry = registry
 
-    def create_dependencies(self, trans: ProvidesUserContext, user: User) -> GalaxyAgentDependencies:
+    def create_dependencies(self, trans: SessionRequestContext, user: User) -> GalaxyAgentDependencies:
         """Create agent dependencies for dependency injection."""
         toolbox = trans.app.toolbox if hasattr(trans, "app") and hasattr(trans.app, "toolbox") else None
         return GalaxyAgentDependencies(
@@ -48,9 +50,9 @@ class AgentService:
         self,
         agent_type: str,
         query: str,
-        trans: ProvidesUserContext,
+        trans: SessionRequestContext,
         user: User,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
     ) -> AgentResponse:
         """Execute a specific agent and return response."""
         deps = self.create_dependencies(trans, user)
@@ -60,7 +62,9 @@ class AgentService:
 
         try:
             log.info(f"Executing {agent_type} agent for query: '{query[:100]}...'")
-            agent = self.registry.get_agent(agent_type, deps)
+            # Agent setup reads prompts/capabilities and initializes provider
+            # clients. Only inference belongs on the event loop.
+            agent = await anyio.to_thread.run_sync(partial(self.registry.get_agent, agent_type, deps))
             response = await agent.process(query, context)
 
             return AgentResponse(
@@ -74,7 +78,7 @@ class AgentService:
         except ValueError as e:
             log.warning(f"Unknown agent type {agent_type}, falling back to router: {e}")
             # Fallback to router for unknown agents - it handles general queries
-            router = QueryRouterAgent(deps)
+            router = await anyio.to_thread.run_sync(partial(QueryRouterAgent, deps))
             response = await router.process(query, context)
             metadata = response.metadata.copy()
             metadata["fallback"] = True
@@ -97,9 +101,9 @@ class AgentService:
     async def route_and_execute(
         self,
         query: str,
-        trans: ProvidesUserContext,
+        trans: SessionRequestContext,
         user: User,
-        context: Optional[dict[str, Any]] = None,
+        context: dict[str, Any] | None = None,
         agent_type: str = "auto",
     ) -> AgentResponse:
         """

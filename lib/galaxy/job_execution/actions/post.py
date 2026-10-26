@@ -4,14 +4,22 @@ immediate_actions listed below.
 """
 
 import datetime
+import re
 
 from markupsafe import escape
 
-from galaxy.model import PostJobActionAssociation
+from galaxy.model import (
+    DatasetInstance,
+    HistoryDatasetAssociation,
+    HistoryDatasetCollectionAssociation,
+    PostJobActionAssociation,
+)
 from galaxy.util import send_mail
 from galaxy.util.custom_logging import get_logger
 
 log = get_logger(__name__)
+
+RENAME_INPUT_REFERENCE_PATTERN = re.compile(r"#\{([^}]*)\}")
 
 
 class DefaultJobAction:
@@ -21,6 +29,10 @@ class DefaultJobAction:
 
     name = "DefaultJobAction"
     verbose_name = "Default Job"
+    # Whether execute_on_mapped_over below is actually implemented. Steps that
+    # apply actions without a job to hang them off of can only run actions that
+    # set this, so ActionBox warns rather than silently dropping the others.
+    supports_mapped_over = False
 
     @classmethod
     def execute(cls, app, sa_session, action, job, replacement_dict=None, final_job_state=None):
@@ -31,6 +43,22 @@ class DefaultJobAction:
         cls, trans, sa_session, action, step_inputs, step_outputs, replacement_dict, final_job_state=None
     ):
         pass
+
+    @staticmethod
+    def mapped_over_dataset_instances(
+        step_output: HistoryDatasetAssociation | HistoryDatasetCollectionAssociation,
+    ) -> list[DatasetInstance]:
+        """Dataset instances an action should act on for a mapped over step output.
+
+        Handles both collection and single dataset outputs, and drops skipped
+        placeholders - mutating those breaks skip detection downstream.
+        """
+        instances: list[DatasetInstance | None]
+        if isinstance(step_output, HistoryDatasetCollectionAssociation):
+            instances = step_output.dataset_instances
+        else:
+            instances = [step_output]
+        return [instance for instance in instances if instance is not None and not instance.is_skipped]
 
     @classmethod
     def get_short_str(cls, pja):
@@ -105,6 +133,7 @@ class ValidateOutputsAction(DefaultJobAction):
 
 class ChangeDatatypeAction(DefaultJobAction):
     name = "ChangeDatatypeAction"
+    supports_mapped_over = True
     verbose_name = "Change Datatype"
 
     @classmethod
@@ -115,12 +144,8 @@ class ChangeDatatypeAction(DefaultJobAction):
             newtype = action.action_arguments["newtype"]
             for name, step_output in step_outputs.items():
                 if action.output_name == "" or name == action.output_name:
-                    if hasattr(step_output, "dataset_instances"):
-                        for element in step_output.dataset_instances:
-                            if element:
-                                trans.app.datatypes_registry.change_datatype(element, newtype)
-                    else:
-                        trans.app.datatypes_registry.change_datatype(step_output, newtype)
+                    for dataset_instance in cls.mapped_over_dataset_instances(step_output):
+                        trans.app.datatypes_registry.change_datatype(dataset_instance, newtype)
 
     @classmethod
     def execute(cls, app, sa_session, action, job, replacement_dict=None, final_job_state=None):
@@ -133,9 +158,11 @@ class ChangeDatatypeAction(DefaultJobAction):
                 return
         for dataset_collection_assoc in job.output_dataset_collection_instances:
             if action.output_name == "" or dataset_collection_assoc.name == action.output_name:
-                for dataset_instance in dataset_collection_assoc.dataset_collection_instance.dataset_instances:
-                    if dataset_instance:
-                        app.datatypes_registry.change_datatype(dataset_instance, action.action_arguments["newtype"])
+                dataset_instances = dataset_collection_assoc.dataset_collection_instance.dataset_instances
+                if dataset_instances:
+                    for dataset_instance in dataset_instances:
+                        if dataset_instance:
+                            app.datatypes_registry.change_datatype(dataset_instance, action.action_arguments["newtype"])
                 else:
                     # dynamic collection, add as PJA
                     pjaa = PostJobActionAssociation(action, job)
@@ -151,6 +178,7 @@ class ChangeDatatypeAction(DefaultJobAction):
 
 class RenameDatasetAction(DefaultJobAction):
     name = "RenameDatasetAction"
+    supports_mapped_over = True
     verbose_name = "Rename Dataset"
 
     @classmethod
@@ -179,9 +207,8 @@ class RenameDatasetAction(DefaultJobAction):
             #  TODO: Unify and simplify replacement options.
             #      Add interface through workflow editor UI
 
-            #  The following if statement will process a request to rename
-            #  using an input file name.
-            #  TODO: Replace all matching code with regex
+            #  Resolve each #{...} reference to an input to rename
+            #  using that input's name.
             #  Proper syntax is #{input_file_variable | option 1 | option n}
             #    where
             #      input_file_variable = is the name of an module input variable
@@ -192,16 +219,10 @@ class RenameDatasetAction(DefaultJobAction):
             #      upper = force the file name to upper case
             #      lower = force the file name to lower case
             #  suggested additions:
-            #      "replace" option so you can replace a portion of the name,
-            #      support multiple #{name} in one rename action...
+            #      "replace" option so you can replace a portion of the name.
 
-            start_pos = 0
-            while new_name.find("#{", start_pos) > -1:
-                to_be_replaced = ""
-                #  This assumes a single instance of #{variable} will exist
-                start_pos = new_name.find("#{", start_pos) + 2
-                end_pos = new_name.find("}", start_pos)
-                to_be_replaced = new_name[start_pos:end_pos]
+            def resolve(match: re.Match[str]) -> str:
+                to_be_replaced = match.group(1)
                 input_file_var = to_be_replaced
                 #  Pull out the piped controls and store them for later
                 #  parsing.
@@ -223,7 +244,7 @@ class RenameDatasetAction(DefaultJobAction):
                     replacement = input_names[input_file_var]
                 else:
                     for input_name, _replacement in input_names.items():
-                        if "|" in input_name and input_name.endswith(input_file_var):
+                        if input_name.endswith(f"|{input_file_var}"):
                             # best effort attempt at matching up unqualified input
                             replacement = _replacement
                             break
@@ -248,7 +269,9 @@ class RenameDatasetAction(DefaultJobAction):
                     elif operation == "lower":
                         replacement = replacement.lower()
 
-                new_name = new_name.replace(f"#{{{to_be_replaced}}}", replacement)
+                return replacement
+
+            new_name = RENAME_INPUT_REFERENCE_PATTERN.sub(resolve, new_name)
 
             if replacement_dict:
                 for k, v in replacement_dict.items():
@@ -294,6 +317,7 @@ class RenameDatasetAction(DefaultJobAction):
 
 class HideDatasetAction(DefaultJobAction):
     name = "HideDatasetAction"
+    supports_mapped_over = True
     verbose_name = "Hide Dataset"
 
     @classmethod
@@ -319,6 +343,7 @@ class HideDatasetAction(DefaultJobAction):
 class DeleteDatasetAction(DefaultJobAction):
     # This is disabled for right now.  Deleting a dataset in the middle of a workflow causes errors (obviously) for the subsequent steps using the data.
     name = "DeleteDatasetAction"
+    supports_mapped_over = True
     verbose_name = "Delete Dataset"
 
     @classmethod
@@ -342,6 +367,7 @@ class DeleteDatasetAction(DefaultJobAction):
 
 class ColumnSetAction(DefaultJobAction):
     name = "ColumnSetAction"
+    supports_mapped_over = True
     verbose_name = "Assign Columns"
 
     @classmethod
@@ -362,7 +388,8 @@ class ColumnSetAction(DefaultJobAction):
         if action.action_arguments:
             for name, step_output in step_outputs.items():
                 if action.output_name == "" or name == action.output_name:
-                    cls._apply_column_set(step_output, action.action_arguments)
+                    for dataset_instance in cls.mapped_over_dataset_instances(step_output):
+                        cls._apply_column_set(dataset_instance, action.action_arguments)
 
     @classmethod
     def execute(cls, app, sa_session, action, job, replacement_dict=None, final_job_state=None):
@@ -473,6 +500,7 @@ class DeleteIntermediatesAction(DefaultJobAction):
 
 class TagDatasetAction(DefaultJobAction):
     name = "TagDatasetAction"
+    supports_mapped_over = True
     verbose_name = "Add tag to dataset"
     action = "Add"
     direction = "to"
@@ -597,10 +625,21 @@ class ActionBox:
     def execute_on_mapped_over(
         cls, trans, sa_session, pja, step_inputs, step_outputs, replacement_dict=None, final_job_state=None
     ):
-        if pja.action_type in cls.actions:
-            cls.actions[pja.action_type].execute_on_mapped_over(
-                trans, sa_session, pja, step_inputs, step_outputs, replacement_dict, final_job_state=final_job_state
+        action = cls.actions.get(pja.action_type)
+        if action is None:
+            return
+        if not action.supports_mapped_over:
+            log.warning(
+                "Ignoring post job action %s on workflow step %s output '%s', it cannot be applied to a step "
+                "output that has no job attached to it.",
+                pja.action_type,
+                pja.workflow_step_id,
+                pja.output_name,
             )
+            return
+        action.execute_on_mapped_over(
+            trans, sa_session, pja, step_inputs, step_outputs, replacement_dict, final_job_state=final_job_state
+        )
 
     @classmethod
     def execute(cls, app, sa_session, pja, job, replacement_dict=None, final_job_state=None):

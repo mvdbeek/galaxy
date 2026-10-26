@@ -1,8 +1,7 @@
 <script setup lang="ts">
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert } from "bootstrap-vue";
-import Vue, { computed, onMounted, ref, watch } from "vue";
+import { computed, onMounted, ref, watch } from "vue";
 
 import {
     browseRemoteFiles,
@@ -11,6 +10,7 @@ import {
     type FilterFileSourcesOptions,
     type RemoteEntry,
 } from "@/api/remoteFiles";
+import type { TableField } from "@/components/Common/GTable.types";
 import { fileSourcePluginToItem, isSamePath, isSubPath } from "@/components/FilesDialog/utilities";
 import {
     type ItemsProvider,
@@ -30,6 +30,7 @@ import { USER_FILE_PREFIX } from "@/utils/url";
 import { Model } from "./model";
 
 import GButton from "../BaseComponents/GButton.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
 
 const filesSources = useFileSources();
@@ -71,7 +72,6 @@ const selectionModel = ref<Model>(new Model({ multiple: props.multiple }));
 
 const query = ref<string>();
 const selectionDialog = ref();
-const allSelected = ref(false);
 const selectedDirectories = ref<SelectionItem[]>([]);
 const errorMessage = ref<string>();
 const filter = ref();
@@ -87,18 +87,17 @@ const isBusy = ref(false);
 const showFTPHelper = ref(false);
 /** Root URIs of RDM sources, only fetched in directory mode to prevent selecting a repository root */
 const rdmUriRoots = ref<string[]>([]);
-const selectAllIcon = ref<SelectionState>(SELECTION_STATES.UNSELECTED);
 const urlTracker = useUrlTracker<SelectionItem & { parentPage?: number }>({ root: undefined });
 const totalItems = ref(0);
 
-const fields = computed(() => {
+const fields = computed<TableField[]>(() => {
     const fields = [];
-    fields.push({ key: "label" });
+    fields.push({ key: "label", label: "Name" });
     if (showDetails.value) {
-        fields.push({ key: "details" });
+        fields.push({ key: "details", label: "Details" });
     }
     if (showTime.value) {
-        fields.push({ key: "time" });
+        fields.push({ key: "time", label: "Time" });
     }
     return fields;
 });
@@ -138,8 +137,12 @@ function clicked(record: SelectionItem) {
         // record is file
         selectSingleRecord(record);
     } else {
-        // you cannot select entire root directory
-        urlTracker.isAtRoot.value ? open(record) : selectDirectoryRecursive(record);
+        // you cannot select entire root directory, nor a folder the file source cannot list recursively
+        if (urlTracker.isAtRoot.value || !filesSources.supportsRecursive(record.url)) {
+            open(record);
+        } else {
+            selectDirectoryRecursive(record);
+        }
     }
     formatRows();
 }
@@ -237,20 +240,21 @@ function formatRows() {
 
     hasValue.value = selectionModel.value.count() > 0 || selectedDirectories.value.length > 0;
     for (const item of items.value) {
-        let _rowVariant = "active";
+        let selectionState: SelectionState = SELECTION_STATES.UNSELECTED;
         if (item.isLeaf || !fileMode.value) {
-            _rowVariant = selectionModel.value.exists(item.id) ? "success" : "default";
+            selectionState = selectionModel.value.exists(item.id)
+                ? SELECTION_STATES.SELECTED
+                : SELECTION_STATES.UNSELECTED;
         }
         // if directory
         else if (!item.isLeaf) {
-            _rowVariant = getIcon(isDirectorySelected(item.id), item.url);
+            selectionState = getIcon(isDirectorySelected(item.id), item.url);
         }
-        Vue.set(item, "_rowVariant", _rowVariant);
+        item.selectionState = selectionState;
     }
-    allSelected.value = checkIfAllSelected();
-    if (urlTracker.current.value?.url) {
-        selectAllIcon.value = getIcon(allSelected.value, urlTracker.current.value.url);
-    }
+    // Called for its side effect: auto-selects the current folder when all
+    // of its children are selected.
+    checkIfAllSelected();
 }
 
 function isDirectorySelected(directoryId: string): boolean {
@@ -441,8 +445,17 @@ function onSelectAll() {
         return;
     }
     const isUnselectAll = selectionModel.value.pathExists(urlTracker.current.value.url);
+    // folders are selected by listing them recursively, which some file sources cannot do
+    const withFolders = filesSources.supportsRecursive(urlTracker.current.value.url);
 
     for (const item of items.value) {
+        if (!item.isLeaf && !withFolders) {
+            // unselect what was picked inside the folder, without listing it
+            if (isUnselectAll) {
+                unselectPath(item.url);
+            }
+            continue;
+        }
         if (isUnselectAll) {
             if (selectionModel.value.exists(item.id) || selectionModel.value.pathExists(item.id)) {
                 item.isLeaf ? selectionModel.value.add(item) : selectDirectoryRecursive(item);
@@ -452,7 +465,7 @@ function onSelectAll() {
         }
     }
 
-    if (!isUnselectAll && items.value.length !== 0) {
+    if (!isUnselectAll && items.value.length !== 0 && withFolders) {
         selectedDirectories.value.push(urlTracker.current.value);
     } else if (isDirectorySelected(urlTracker.current.value.id)) {
         selectDirectoryRecursive(urlTracker.current.value);
@@ -520,8 +533,7 @@ onMounted(() => {
         :modal-show="modalShow"
         :multiple="multiple"
         :options-show="optionsShow"
-        :select-all-variant="selectAllIcon"
-        :show-select-icon="undoShow && multiple"
+        :selectable="undoShow && multiple"
         :undo-show="undoShow"
         :watch-on-page-changes="false"
         @onCancel="() => (modalShow = false)"
@@ -531,7 +543,7 @@ onMounted(() => {
         @onSelectAll="onSelectAll"
         @onUndo="onGoBack">
         <template v-slot:helper>
-            <BAlert v-if="showFTPHelper && isConfigLoaded" id="helper" variant="info" show>
+            <GAlert v-if="showFTPHelper && isConfigLoaded" id="helper" variant="info" show>
                 This Galaxy server allows you to upload files via FTP. To upload some files, log in to the FTP server at
                 <strong>{{ config.ftp_upload_site }}</strong> using your Galaxy credentials. For help visit the
                 <a href="https://galaxyproject.org/ftp-upload/" target="_blank">tutorial</a>.
@@ -540,10 +552,10 @@ onMounted(() => {
                     <strong>do not have a Galaxy password</strong> please use the reset password option in the login
                     form with your email to create a password for your account.</span
                 >
-            </BAlert>
-            <BAlert v-if="isAtRdmRepositoryRoot" id="rdm-root-helper" variant="info" show>
+            </GAlert>
+            <GAlert v-if="isAtRdmRepositoryRoot" id="rdm-root-helper" variant="info" show>
                 This repository has no files at its top level. Open one of the folders below to select it.
-            </BAlert>
+            </GAlert>
         </template>
         <template v-slot:buttons>
             <GButton

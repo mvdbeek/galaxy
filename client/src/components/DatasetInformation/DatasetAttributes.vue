@@ -2,7 +2,6 @@
 import { faBars, faCog, faDatabase, faExchangeAlt, faRedo, faSave, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import type { AxiosError } from "axios";
-import { BAlert } from "bootstrap-vue";
 import { onMounted, ref } from "vue";
 
 import { fetchDatasetAttributes } from "@/api/datasets";
@@ -12,6 +11,7 @@ import localize from "@/utils/localization";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import Heading from "../Common/Heading.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import GTab from "@/components/BaseComponents/GTab.vue";
 import GTabs from "@/components/BaseComponents/GTabs.vue";
@@ -96,13 +96,13 @@ onMounted(async () => {
             {{ localize("Edit Dataset Attributes") }}
         </Heading>
 
-        <BAlert v-if="messageText" class="dataset-attributes-alert" :variant="messageVariant" show>
+        <GAlert v-if="messageText" class="dataset-attributes-alert" :variant="messageVariant" show>
             {{ localize(messageText) }}
-        </BAlert>
+        </GAlert>
 
-        <BAlert v-if="loading" variant="info" show>
+        <GAlert v-if="loading" variant="info" show>
             <LoadingSpan message="Loading dataset attributes..." />
-        </BAlert>
+        </GAlert>
         <div v-else-if="!loadingFailed" class="mt-3">
             <GTabs>
                 <GTab v-if="!datasetAttributes['attribute_disable']">
@@ -208,7 +208,7 @@ onMounted(async () => {
                     </div>
                 </GTab>
 
-                <GTab v-if="!datasetAttributes['permission_disable']">
+                <GTab v-if="!datasetAttributes['permission_disable']" title-link-class="dataset-edit-permissions-tab">
                     <template v-slot:title>
                         <FontAwesomeIcon :icon="faUser" class="mr-1" />
                         {{ localize("Permissions") }}

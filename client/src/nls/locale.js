@@ -32,6 +32,8 @@ export const root = {
     "Saved Histories": false,
     "Saved Datasets": false,
     "Saved Reports": false,
+    Saved: false,
+    Unsaved: false,
 
     //Tooltip
     "Account and saved data": false,
@@ -464,6 +466,7 @@ export const supportedLanguages = {
     ja: true,
     fr: true,
     zh: true,
+    "zh-tw": true,
     es: true,
     de: true,
 };

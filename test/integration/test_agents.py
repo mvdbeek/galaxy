@@ -1,7 +1,8 @@
 """Test Galaxy AI agents API.
 
-Requires a configured LLM — skipped unless GALAXY_TEST_ENABLE_LIVE_LLM=1.
-For deterministic tests without LLM, see test_static_agent_backend.py.
+Includes deterministic tests against a local fake provider and static backend.
+Live LLM tests are skipped unless GALAXY_TEST_ENABLE_LIVE_LLM=1.
+For additional static-backend coverage, see test_static_agent_backend.py.
 
 ## Running:
     export GALAXY_TEST_AI_API_KEY="your-api-key"
@@ -12,10 +13,14 @@ For deterministic tests without LLM, see test_static_agent_backend.py.
 """
 
 import asyncio
+import json
 import logging
 import os
+import urllib.parse
+from typing import cast
 
 import pytest
+import yaml
 from fastmcp import (
     Client,
     FastMCP,
@@ -25,13 +30,18 @@ from fastmcp.exceptions import ToolError
 from galaxy.agents.operations import AgentOperationsManager
 from galaxy.managers.context import ProvidesUserContext
 from galaxy.util.unittest_utils import pytestmark_live_llm
+from galaxy.util.unittest_utils.test_http_server import RecordingHttpServer
 from galaxy.webapps.galaxy.api.mcp import get_mcp_app
+from galaxy.work.context import SessionRequestContext
 from galaxy_test.base.populators import (
     DatasetPopulator,
     TOOL_WITH_SHELL_COMMAND,
     WorkflowPopulator,
 )
-from galaxy_test.driver.integration_util import IntegrationTestCase
+from galaxy_test.driver.integration_util import (
+    IntegrationTestCase,
+    UsesFakeAIProvider,
+)
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +98,12 @@ class TestAgentsApiLiveLLM(AgentIntegrationTestCase):
     These tests require a configured LLM and will be skipped unless
     GALAXY_TEST_ENABLE_LIVE_LLM=1 is set.
     """
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        # Talk to the configured LLM, not the test driver's default static agent backend.
+        config.pop("inference_services", None)
 
     def test_query_agent_auto_routing_live(self):
         response = self._post(
@@ -167,7 +183,11 @@ class TestAgentsApiLiveLLM(AgentIntegrationTestCase):
         )
         self._assert_status_code_is_ok(response)
         data = response.json()
-        assert "response" in data
+        assert data["error_code"] == 0, data
+        assert data["error_message"] == "", data
+        metadata = data["agent_response"]["metadata"]
+        assert not metadata.get("fallback"), data
+        assert not metadata.get("error"), data
         # Should return some content about RNA-seq
         assert len(data["response"]) > 0
 
@@ -177,6 +197,46 @@ class TestAgentsApiLiveLLM(AgentIntegrationTestCase):
         data = response.json()
         # Should return a list (may be empty)
         assert isinstance(data, list)
+
+
+class TestAgentsApiFakeProvider(UsesFakeAIProvider, AgentIntegrationTestCase):
+    """Real agents behind real endpoints, with the LLM replaced by a scripted provider."""
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        cls._configure_fake_ai_provider(config)
+
+    def test_error_analysis_endpoint(self):
+        # pydantic-ai asks for structured output through its ``final_result`` tool.
+        self.fake_ai_provider.respond_tool_call(
+            "final_result",
+            {
+                "error_category": "resource_limits",
+                "error_severity": "high",
+                "likely_cause": "The job ran out of memory and was killed (exit code 137).",
+                "solution_steps": ["Rerun with more memory"],
+                "confidence": "high",
+            },
+        )
+        response = self._post(
+            "ai/agents/error-analysis",
+            data={
+                "query": "My BWA job failed with exit code 137 and stderr shows 'Killed'",
+                "error_details": {"tool_id": "bwa_mem", "exit_code": 137},
+            },
+            json=True,
+        )
+        self._assert_status_code_is_ok(response)
+        data = response.json()
+        assert "**Error Type**: Resource Limits" in data["content"]
+        assert "1. Rerun with more memory" in data["content"]
+        assert data["confidence"] == "high"
+
+        sent = self.fake_ai_provider.last_body()
+        assert sent["model"] == "fake_model"
+        assert self.fake_ai_provider.last_request().headers["Authorization"] == "Bearer fake_api_key"
+        assert any("exit code 137" in str(message.get("content")) for message in sent["messages"])
+        assert [tool["function"]["name"] for tool in sent["tools"]] == ["final_result"]
 
 
 # ============================================================================
@@ -216,7 +276,8 @@ class TestAgentOperationsManagerEncoding(AgentIntegrationTestCase):
             def user_is_admin(self):
                 return False
 
-        trans = MinimalTrans(self._app)
+        # the double only needs security.encode_id for _encode_ids_in_response
+        trans = cast(SessionRequestContext, MinimalTrans(self._app))
         return AgentOperationsManager(app=self._app, trans=trans)
 
     def test_encode_ids_helper_encodes_nested_ids(self):
@@ -227,6 +288,8 @@ class TestAgentOperationsManagerEncoding(AgentIntegrationTestCase):
             "name": "test",
             "nested": {"id": 456, "history_id": 789},
             "list_items": [{"id": 111, "dataset_id": 222}, {"id": 333}],
+            "implicit_collection_jobs_id": 444,
+            "unmapped_job": {"implicit_collection_jobs_id": None},
         }
 
         result = ops._encode_ids_in_response(test_data)
@@ -239,6 +302,8 @@ class TestAgentOperationsManagerEncoding(AgentIntegrationTestCase):
         assert isinstance(result["list_items"][0]["id"], str)
         assert isinstance(result["list_items"][0]["dataset_id"], str)
         assert isinstance(result["list_items"][1]["id"], str)
+        assert isinstance(result["implicit_collection_jobs_id"], str)
+        assert result["unmapped_job"]["implicit_collection_jobs_id"] is None
 
     def test_encode_ids_preserves_non_id_fields(self):
         ops = self._make_ops()
@@ -288,10 +353,39 @@ class TestMCPServerSmoke(IntegrationTestCase):
     the MCP tools are thin wrappers around AgentOperationsManager.
     """
 
+    trs_server: RecordingHttpServer
+
+    @classmethod
+    def setUpClass(cls):
+        # Stands in for Dockstore; it must be up before Galaxy reads its TRS config.
+        cls.trs_server = RecordingHttpServer()
+        cls.trs_server.start()
+        try:
+            super().setUpClass()
+        except BaseException:
+            cls.trs_server.stop()
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        try:
+            super().tearDownClass()
+        finally:
+            cls.trs_server.stop()
+
+    def setUp(self):
+        super().setUp()
+        self.trs_server.clear()
+
     @classmethod
     def handle_galaxy_config_kwds(cls, config):
         config["enable_mcp_server"] = True
         config["enable_beta_tool_formats"] = True
+        trs_config_file = os.path.join(cls.temp_config_dir("trs"), "trs_config.yml")
+        os.makedirs(os.path.dirname(trs_config_file))
+        with open(trs_config_file, "w") as f:
+            yaml.safe_dump([{"id": "dockstore", "api_url": cls.trs_server.url_for("/api"), "label": "Dockstore"}], f)
+        config["trs_servers_config_file"] = trs_config_file
 
     def _get_mcp_server(self):
         http_app = get_mcp_app(self._app)
@@ -349,6 +443,13 @@ class TestMCPServerSmoke(IntegrationTestCase):
             "search_iwc_workflows",
             "get_iwc_workflow_details",
             "import_workflow_from_iwc",
+            "list_pages",
+            "get_page",
+            "create_page",
+            "update_page",
+            "list_page_revisions",
+            "get_page_revision",
+            "revert_page_revision",
         }
         assert expected.issubset(tool_names), f"Missing tools: {expected - tool_names}"
 
@@ -514,11 +615,6 @@ class TestMCPServerSmoke(IntegrationTestCase):
 
     def test_mcp_import_workflow_from_iwc(self):
         """import_workflow_from_iwc() imports a StoredWorkflow via the shared TRS pipeline."""
-        import json
-        from unittest.mock import patch
-
-        from fastmcp import Client
-
         mcp_server = self._get_mcp_server()
         api_key = self._get_api_key()
 
@@ -544,6 +640,8 @@ class TestMCPServerSmoke(IntegrationTestCase):
             "annotation": "",
         }
         trs_id = "#workflow/github.com/iwc-workflows/smoke/main"
+        descriptor_path = f"/api/ga4gh/trs/v2/tools/{urllib.parse.quote_plus(trs_id)}/versions/main/GALAXY/descriptor"
+        self.trs_server.add_json_route(descriptor_path, {"content": json.dumps(definition)})
 
         async def _import():
             async with Client(mcp_server) as client:
@@ -552,14 +650,94 @@ class TestMCPServerSmoke(IntegrationTestCase):
                     {"api_key": api_key, "trs_id": trs_id},
                 )
 
-        # The TRS proxy fetches the workflow descriptor over HTTP; mock that so we
-        # don't actually hit Dockstore from CI.
-        with patch("galaxy.workflow.trs_proxy.requests.get") as mock_get:
-            mock_get.return_value.ok = True
-            mock_get.return_value.json.return_value = {"content": json.dumps(definition)}
-            result = self._run_async(_import())
+        result = self._run_async(_import())
 
         assert not result.is_error, result
         data = result.data
         assert "id" in data
         assert data["trsID"] == trs_id
+        assert [request.path for request in self.trs_server.requests] == [descriptor_path]
+
+    def test_mcp_page_lifecycle(self):
+        """create_page -> get_page -> update_page -> list_page_revisions round-trip."""
+        mcp_server = self._get_mcp_server()
+        api_key = self._get_api_key()
+        populator = DatasetPopulator(self._get_interactor(api_key=api_key))
+        history_id = populator.new_history()
+
+        async def _flow():
+            async with Client(mcp_server) as client:
+                created = await client.call_tool(
+                    "create_page",
+                    {"api_key": api_key, "history_id": history_id, "title": "MCP Notebook", "content": "# Intro\n"},
+                )
+                page_id = created.data["id"]
+                got = await client.call_tool("get_page", {"api_key": api_key, "page_id": page_id})
+                await client.call_tool(
+                    "update_page",
+                    {"api_key": api_key, "page_id": page_id, "content": "# Intro\n\n## Methods\n"},
+                )
+                revisions = await client.call_tool("list_page_revisions", {"api_key": api_key, "page_id": page_id})
+                listed = await client.call_tool("list_pages", {"api_key": api_key, "history_id": history_id})
+                return created, got, revisions, listed
+
+        created, got, revisions, listed = self._run_async(_flow())
+        assert not created.is_error, created
+        assert created.data["history_id"] == history_id
+        # get_page returns the editable content and omits the rendered form by default
+        assert "content_editor" in got.data
+        assert "content" not in got.data
+        # update_page created a second revision tagged with edit_source="agent"
+        assert revisions.data["count"] == 2
+        assert revisions.data["revisions"][-1]["edit_source"] == "agent"
+        # the notebook shows up when listing pages for its history
+        assert created.data["id"] in {p["id"] for p in listed.data["pages"]}
+
+    def test_mcp_page_directive_and_revert(self):
+        """Dataset directives survive in encoded-id space; revert restores prior content."""
+        mcp_server = self._get_mcp_server()
+        api_key = self._get_api_key()
+        populator = DatasetPopulator(self._get_interactor(api_key=api_key))
+        history_id = populator.new_history()
+        hda_id = populator.new_dataset(history_id)["id"]
+        directive = f"# Analysis\n\n```galaxy\nhistory_dataset_display(history_dataset_id={hda_id})\n```\n"
+
+        async def _flow():
+            async with Client(mcp_server) as client:
+                created = await client.call_tool(
+                    "create_page",
+                    {"api_key": api_key, "history_id": history_id, "title": "Directive NB", "content": directive},
+                )
+                page_id = created.data["id"]
+                editor = await client.call_tool("get_page", {"api_key": api_key, "page_id": page_id})
+                rendered = await client.call_tool(
+                    "get_page", {"api_key": api_key, "page_id": page_id, "include_rendered": True}
+                )
+                await client.call_tool(
+                    "update_page", {"api_key": api_key, "page_id": page_id, "content": "# Replaced\n"}
+                )
+                revisions = await client.call_tool("list_page_revisions", {"api_key": api_key, "page_id": page_id})
+                first_rev_id = revisions.data["revisions"][0]["id"]
+                old_rev = await client.call_tool(
+                    "get_page_revision",
+                    {"api_key": api_key, "page_id": page_id, "revision_id": first_rev_id},
+                )
+                reverted = await client.call_tool(
+                    "revert_page_revision",
+                    {"api_key": api_key, "page_id": page_id, "revision_id": first_rev_id},
+                )
+                return editor, rendered, old_rev, reverted
+
+        editor, rendered, old_rev, reverted = self._run_async(_flow())
+        # content_editor keeps the directive with the ENCODED dataset id (encoded-id space)
+        assert hda_id in editor.data["content_editor"]
+        assert "content" not in editor.data
+        # include_rendered exposes the expanded render form
+        assert "content" in rendered.data
+        # get_page_revision mirrors get_page: editable content_editor by default, rendered omitted
+        assert hda_id in old_rev.data["content_editor"]
+        assert "content" not in old_rev.data
+        # revert appends a new "restore" revision carrying the original directive content
+        assert reverted.data["edit_source"] == "restore"
+        assert hda_id in reverted.data["content_editor"]
+        assert "content" not in reverted.data

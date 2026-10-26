@@ -30,6 +30,27 @@ function mountInput(
 }
 
 describe("ChatInput", () => {
+    it("resumes sending the draft when the busy state clears", async () => {
+        const wrapper = mountInput({ value: "Explain this workflow", busy: true });
+        const button = wrapper.get("button");
+        await button.trigger("click");
+        expect(wrapper.emitted("submit")).toBeUndefined();
+
+        await wrapper.setProps({ busy: false });
+        await button.trigger("click");
+        expect(wrapper.emitted("submit")).toHaveLength(1);
+        wrapper.unmount();
+    });
+
+    it.each([{ value: "" }, { value: "hello" }, { value: "hello", busy: true }, { value: "hello", disabled: true }])(
+        "names the send action in state %j",
+        (props) => {
+            const wrapper = mountInput(props);
+            expect(wrapper.get("button").element).toHaveAccessibleName("Send message");
+            wrapper.unmount();
+        },
+    );
+
     describe("rendering", () => {
         it("renders textarea with provided value", () => {
             const wrapper = mountInput({ value: "hello" });
@@ -109,13 +130,13 @@ describe("ChatInput", () => {
 
         it("emits submit on Enter key (without Shift)", async () => {
             const wrapper = mountInput({ value: "hello" });
-            await wrapper.find("textarea").trigger("keydown.enter");
+            await wrapper.find("textarea").trigger("keydown", { key: "Enter" });
             expect(wrapper.emitted("submit")).toBeTruthy();
         });
 
         it("does not emit submit on Shift+Enter", async () => {
             const wrapper = mountInput({ value: "hello" });
-            await wrapper.find("textarea").trigger("keydown.enter", { shiftKey: true });
+            await wrapper.find("textarea").trigger("keydown", { key: "Enter", shiftKey: true });
             expect(wrapper.emitted("submit")).toBeFalsy();
         });
 
@@ -128,7 +149,7 @@ describe("ChatInput", () => {
             el.selectionEnd = value.length;
 
             await textarea.trigger("input");
-            await textarea.trigger("keydown.enter");
+            await textarea.trigger("keydown", { key: "Enter" });
 
             expect(wrapper.emitted("submit")).toBeTruthy();
         });

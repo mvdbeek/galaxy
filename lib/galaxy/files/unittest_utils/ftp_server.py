@@ -25,7 +25,7 @@ def serve_ftp_directory(root: str) -> Iterator[FtpServerAddress]:
     authorizer = DummyAuthorizer()
     authorizer.add_anonymous(root)
 
-    class AnonymousFTPHandler(FTPHandler):
+    class AnonymousFTPHandler(FTPHandler):  # type: ignore[misc]
         pass
 
     AnonymousFTPHandler.authorizer = authorizer
@@ -34,7 +34,7 @@ def serve_ftp_directory(root: str) -> Iterator[FtpServerAddress]:
     host, port = server.address
     stop = threading.Event()
 
-    def serve():
+    def serve() -> None:
         # The IO loop is driven here instead of through serve_forever() so that the
         # server is torn down from the serving thread. close_all() closes the poller
         # a blocking serve_forever() would still be waiting on.
