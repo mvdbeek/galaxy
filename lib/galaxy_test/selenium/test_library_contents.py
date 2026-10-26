@@ -1,19 +1,21 @@
 import os
 
+from selenium.webdriver.common.by import By
+
 from galaxy_test.base.decorators import (
     requires_admin,
     requires_new_library,
 )
 from .framework import (
     retry_during_transitions,
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
     UsesLibraryAssertions,
 )
+from .upload_activity_helpers import UsesUploadActivity
 
 
-class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions):
+class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions, UsesUploadActivity):
     run_as_admin = True
 
     @selenium_test
@@ -38,7 +40,7 @@ class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions):
         self.assert_num_displayed_items_is(1)
 
         # check empty folder
-        new_folder_link = self.wait_for_xpath_visible(f'//a[contains(text(), "{sub_folder_name}")]')
+        new_folder_link = self.wait_for_xpath_visible(f'//a[text()[contains(., "{sub_folder_name}")]]')
         new_folder_link.click()
 
         # assert that 'empty folder message' is present
@@ -63,7 +65,7 @@ class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions):
     @requires_new_library
     def test_import_dataset_from_history(self):
         self.admin_login()
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.navigate_to_new_library()
         self.assert_num_displayed_items_is(0)
@@ -120,10 +122,6 @@ class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions):
 
         self.assert_num_displayed_items_is(0)
 
-    # Fine test locally but the upload doesn't work in Docker compose. I'd think
-    # Galaxy must be running so that test-data/1.txt would work but it just doesn't
-    # for some reason. https://jenkins.galaxyproject.org/job/jmchilton-selenium/79/artifact/79-test-errors/test_import_dataset_from_path2017100413221507137721/
-    @selenium_only("Fails in CI with KeyError: 'Name' - needs investigation")
     @selenium_test
     @requires_admin
     @requires_new_library
@@ -150,14 +148,12 @@ class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions):
         self.assert_num_displayed_items_is(1)
 
         self.click_label("1.txt")
-        self.wait_for_visible(self.navigation.libraries.dataset.selectors.table)
-        elements = self.find_elements(self.navigation.libraries.dataset.selectors.table_rows)
+        self.wait_for_visible(self.navigation.libraries.dataset.selectors.table_rows)
+        rows = self.find_elements(self.navigation.libraries.dataset.selectors.table_rows)
         table_as_dict = {}
-        for element in elements:
-            row_values = element.text.split("\n")
-            key = row_values[0]
-            value = row_values[1]
-            table_as_dict[key] = value
+        for row in rows:
+            label_cell, value_cell = row.find_elements(By.CSS_SELECTOR, "td")
+            table_as_dict[label_cell.text] = value_cell.text
 
         assert table_as_dict["Name"] == "1.txt", table_as_dict
         assert table_as_dict["Genome build"] == "?", table_as_dict
@@ -191,6 +187,6 @@ class TestLibraryContents(SeleniumTestCase, UsesLibraryAssertions):
     def _search_and_select_history(self, row_index=1, label_text="Unnamed history"):
         self.libraries_dataset_import_from_history_search_for(label_text)
         self.sleep_for(self.wait_types.UX_RENDER)
-        self.components.libraries.folder.import_datasets_from_history_modal_select_list_item_by_index(
+        self.components.libraries.folder.import_datasets_from_history_modal_open_history_by_index(
             row_index=row_index
         ).wait_for_and_click()

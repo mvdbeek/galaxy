@@ -77,13 +77,13 @@ find the right documentation for a given test one wishes to write.
       - **Client/ES6**
 
         These tests should be placed in ``client/src`` directly and executed
-        via Vitest. Checkout [Frontend/ES6 Unit Tests](#es6_unit) below for more
+        via Vitest. Check out [Frontend/ES6 Unit Tests](#es6_unit) below for more
         information.
 
       - **Backend/Python**
 
         These tests should be placed in ``test/unit`` or doctests and
-        executed via pytest. Checkout [Backend/Python Unit Tests](#python_unit) below for more
+        executed via pytest. Check out [Backend/Python Unit Tests](#python_unit) below for more
         information.
 
   - **Yes**
@@ -138,7 +138,7 @@ find the right documentation for a given test one wishes to write.
 
           - **Yes**
 
-            Tests that require a custom Galaxy with a very specific 
+            Tests that require a custom Galaxy with a very specific
             configuration are called Galaxy integration tests and are located in
             ``test/integration``.  Checkout [Integration Tests](#integration)
             below for more information.
@@ -211,16 +211,29 @@ tox -e mulled
 pytest -m external_dependency_management test/unit/tool_util/
 ```
 
+Tests that also depend on a specific remote service (quay.io,
+depot.galaxyproject.org, GitHub) should additionally skip when it is down; see
+[Skipping Tests When a Remote Service Is Down](#remote_service_down).
+
 ### Continuous Integration
 
 The Python unit tests are run against each pull request to Galaxy using
-CircleCI. If any of these tests fail, the pull request will be marked
-red. This test suite is moderately prone to having tests fail that are 
-unrelated to the pull request being tested; if this test suite fails on
-a pull request with changes that seem to be unrelated to the pull request -
-ping the Galaxy committers on the pull request and request a re-run. The
-CircleCI test definition for these tests is located in ``.circleci/config.yml``
-below Galaxy's root.
+GitHub Actions, on the newest supported Python only (pull requests to release
+branches also run the oldest). If any of these tests fail, the pull
+request will be marked red. This test suite is moderately prone
+to having tests fail that are unrelated to the pull request being tested; if
+this test suite fails on a pull request with changes that seem to be unrelated
+to the pull request - ping the Galaxy committers on the pull request and
+request a re-run. The GitHub Actions workflow definition for these tests is
+located in ``.github/workflows/unit.yaml`` below Galaxy's root.
+
+The same workflow runs nightly on ``dev`` against every supported Python
+version; it can also be started by hand from the Actions tab. When a nightly
+or manual run on ``dev`` fails, the workflow opens an issue titled "Scheduled
+unit tests are failing" (or comments on the one already open), and closes it
+after the next such run passes. Code too new for the oldest supported Python
+is mostly caught on pull requests by ``ruff`` and by ``mypy`` running on that
+version.
 
 {#es6_unit}
 ## Frontend/ES6 Unit Tests
@@ -242,7 +255,7 @@ GitHub actions workflow definition for these tests is located in
 {#framework}
 ## Tool Framework Tests
 
-A great deal of the complexity and interface exposed to Galaxy plugin 
+A great deal of the complexity and interface exposed to Galaxy plugin
 developers comes in the form of Galaxy tool wrapper definition files.
 Likewise, a lot of the legacy behavior Galaxy needs to maintain is
 maintained for older tool definitions. For this reason, a lot of Galaxy's
@@ -264,11 +277,20 @@ section.
 ### Continuous Integration
 
 The Tool framework tests are run against each pull request to Galaxy using
-GitHub actions. If any of these tests fail, the pull request will be marked
-red. This test suite is fairly stable and typically there are not
-transiently failed tests unrelated to the pull request being tested. The
-GitHub actions workflow definition for these tests is located in
-``.github/workflows/framework_tools.yaml`` below Galaxy's root.
+GitHub Actions; pull requests to ``dev`` test through the tool request API.
+Local runs default to the legacy tool API, so set
+``GALAXY_TEST_USE_LEGACY_TOOL_API=never`` to match pull request CI. If any of
+these tests fail, the pull request will be marked red. This test suite is
+fairly stable and typically there are not transiently failed tests unrelated to
+the pull request being tested. The GitHub Actions workflow definition for these
+tests is located in ``.github/workflows/framework_tools.yaml`` below Galaxy's
+root.
+
+The same workflow runs nightly on ``dev`` through both the tool request API and
+the legacy tool API; it can also be started by hand from the Actions tab. When
+a nightly or manual run on ``dev`` fails, the workflow opens an issue titled
+"Scheduled tool framework tests are failing" (or comments on the one already
+open), and closes it after the next such run passes.
 
 {#workflow_framework}
 ## Workflow Framework Tests
@@ -771,10 +793,10 @@ GitHub actions workflow definition for these tests is located in
 
 These tests are located in ``test/integration``. These tests have access
 to all the same API utilities as API tests described above, but can access
-Galaxy internals and may define hooks for configuring Galaxy in certain ways 
+Galaxy internals and may define hooks for configuring Galaxy in certain ways
 during startup.
 
-Galaxy integration tests in some ways are more powerful than API tests - 
+Galaxy integration tests in some ways are more powerful than API tests -
 they can both control Galaxy's configuration and can access Galaxy's
 internals. However, this power comes at a real cost - each test case must
 spin up its own Galaxy server (a relatively expensive operation) and the
@@ -819,9 +841,9 @@ the ``galaxy_test.driver.integration_util`` module (located in
 The ``require_admin_user`` option above tell the test framework that the
 default user configured for API interactions must be an admin user.
 
-This example overrides Galaxy's configuration using the 
+This example overrides Galaxy's configuration using the
 ``handle_galaxy_config_kwds`` class method. This method is called before
-a Galaxy server is created, and is passed the testing server's default 
+a Galaxy server is created, and is passed the testing server's default
 configuration as the ``config`` argument to that class method. This
 ``config`` object is effectively the Python representation of the Galaxy
 configuration file (``galaxy.yml``) used to start the Python server.
@@ -830,7 +852,7 @@ server to do using the same keys. Examples of various ways integration tests
 have modified this dictionary include setting up custom object stores
 (e.g. ``objectstore/test_mixed_store_by.py``),
 setting up non-local job runners (e.g. ``test_cli_runners.py``), setting
-up custom job destinations (e.g. ``test_job_recovery.py``), and configuring 
+up custom job destinations (e.g. ``test_job_recovery.py``), and configuring
 Galaxy for tool shed operations (e.g. ``test_repository_operations.py``).
 
 There may be cases where an integration test is used not to allow
@@ -1079,6 +1101,29 @@ def test_with_message_queue(self):
 | ``skip_if_github_workflow()`` | Not in GitHub Actions |
 | ``skip_unless_environ(var)`` | Environment variable set |
 
+``skip_unless_docker()`` and ``skip_unless_kubernetes()`` are built on
+``skip_unless_executable(name)``, which skips unless ``name`` is on ``PATH``.
+It and ``skip_unless_environ(var)`` live in ``galaxy.util.unittest_utils``;
+import them from there in any kind of test:
+
+```python
+from galaxy.util.unittest_utils import (
+    skip_unless_environ,
+    skip_unless_executable,
+)
+
+@skip_unless_executable("singularity")
+def test_docker_to_singularity(tmp_path):
+    ...
+
+@skip_unless_environ("GALAXY_TEST_AZURE_CONTAINER_NAME")
+def test_real_azure_blob_store(tmp_path):
+    ...
+```
+
+For tests that depend on a remote service rather than a local tool or
+setting, see [Skipping Tests When a Remote Service Is Down](#remote_service_down).
+
 ### External Services
 
 Some integration tests require external services (databases, message queues,
@@ -1139,14 +1184,14 @@ class TestWithExternalService(integration_util.IntegrationTestCase):
 
 **Containers used in tests:**
 
-| Image | Purpose | Test Files |
-|-------|---------|------------|
-| ``minio/minio:latest`` | S3-compatible storage | ``objectstore/`` tests |
-| ``keycloak/keycloak:26.2`` | OIDC authentication | ``oidc/test_auth_oidc.py`` |
-| ``mvdbeek/galaxy-integration-docker-images:slurm-22.01`` | Slurm scheduler | ``test_cli_runners.py`` |
+| Image                                                      | Purpose | Test Files |
+|------------------------------------------------------------|---------|------------|
+| ``minio/minio:latest``                                     | S3-compatible storage | ``objectstore/`` tests |
+| ``keycloak/keycloak:26.2``                                 | OIDC authentication | ``oidc/test_auth_oidc.py`` |
+| ``mvdbeek/galaxy-integration-docker-images:slurm-22.01``   | Slurm scheduler | ``test_cli_runners.py`` |
 | ``mvdbeek/galaxy-integration-docker-images:openpbs-22.01`` | PBS scheduler | ``test_cli_runners.py`` |
-| ``savannah.ornl.gov/ndip/public-docker/rucio:1.29.8`` | Rucio data management | ``objectstore/`` tests |
-| ``onedata/onezone:21.02.5-dev`` | Onedata storage | ``objectstore/`` tests |
+| ``savannah.ornl.gov/ndip/public-docker/rucio:40.2.0-pg``   | Rucio data management | ``objectstore/`` tests |
+| ``onedata/onezone:21.02.5-dev``                            | Onedata storage | ``objectstore/`` tests |
 
 **Environment variables for external services:**
 
@@ -1192,7 +1237,7 @@ def test_k8s_job(self):
 
 The Integration tests are run against each pull request to Galaxy using
 GitHub actions. If any of these tests fail, the pull request will be marked
-red. This test suite is moderately prone to having tests fail that are 
+red. This test suite is moderately prone to having tests fail that are
 unrelated to the pull request being tested; if this test suite fails on
 a pull request with changes that seem to be unrelated to the pull request -
 ping the Galaxy committers on the pull request and request a re-run. The
@@ -1212,8 +1257,8 @@ see the [Browser Automation README](https://github.com/galaxyproject/galaxy/blob
 ### Jupyter + Selenium
 
 Jupyter can leveraged to develop Selenium test cases interactively,
-checkout out the [``galaxy_test.selenium.jupyter`` documentation](../lib/galaxy_test.selenium.jupyter)
-for more a full discussion of this.
+check out the [``galaxy_test.selenium.jupyter`` documentation](../lib/galaxy_test.selenium.jupyter)
+for a full discussion of this.
 
 ### API Abstractions Available
 
@@ -1243,7 +1288,7 @@ They're faster, more reliable, and won't introduce false failures from unrelated
 
 | Scenario | Use | Method |
 |----------|-----|--------|
-| Testing upload form | UI | ``self.perform_upload()`` |
+| Testing upload form | UI | ``self.upload_context("local-file").stage_local_file(...).start()`` |
 | Need dataset for other test | API | ``self.dataset_populator.new_dataset()`` |
 | Testing workflow editor | UI | ``self.workflow_run_open_workflow()`` |
 | Need workflow for invocation test | API | ``self.workflow_populator.run_workflow()`` |
@@ -1281,14 +1326,15 @@ from .framework import (
     SeleniumTestCase,
     UsesHistoryItemAssertions,
 )
+from galaxy_test.selenium.upload_activity_helpers import UsesUploadActivity
 
-class TestMyFeature(SeleniumTestCase, UsesHistoryItemAssertions):
+class TestMyFeature(SeleniumTestCase, UsesHistoryItemAssertions, UsesUploadActivity):
     ensure_registered = True  # Auto-login before each test
 
     @selenium_test
     @managed_history
     def test_something(self):
-        self.perform_upload(self.get_filename("1.sam"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.sam")).start()
         self.history_panel_wait_for_hid_ok(1)
         self.assert_item_summary_includes(1, "28 lines")
 ```
@@ -1317,7 +1363,7 @@ Gets re-executed on test retries and errors are automatically dumped for debuggi
 ```python
 def setup_with_driver(self):
     super().setup_with_driver()
-    self.perform_upload(self.get_filename("fixture.fasta"))
+    self.upload_context("local-file").stage_local_file(self.get_filename("fixture.fasta")).start()
     self.wait_for_history()
 ```
 
@@ -1367,16 +1413,67 @@ The test framework provides specialized methods for common Galaxy operations:
 
 **File Uploads:**
 
+Uploads use the ``upload_context()`` fluent API from the ``UsesUploadActivity`` mixin.
+Add ``UsesUploadActivity`` to your test class inheritance to enable it.
+
 ```python
-# Single file upload
-self.perform_upload(self.get_filename("1.sam"))
-self.perform_upload(self.get_filename("1.sam"), ext="txt", genome="hg18")
+# Single local file upload
+self.upload_context("local-file").stage_local_file(self.get_filename("1.sam")).start()
 
-# Pasted content or URL
-self.perform_upload_of_pasted_content("test data content")
+# Local file with metadata (name, extension, dbkey)
+self.upload_context("local-file").stage_local_file(
+    self.get_filename("1.sam"),
+    {"name": "my_data", "extension": "txt", "dbkey": "hg18"},
+).start()
 
-# Collection uploads
-self.upload_list([self.get_filename("1.tabular")], name="My List")
+# Pasted content
+self.upload_context("paste-content").stage_paste_content("test data content").start()
+
+# Pasted content with metadata
+self.upload_context("paste-content").stage_paste_content(
+    "test data content",
+    {"name": "my_dataset", "extension": "txt"},
+).start()
+
+# Upload from URL (single link)
+self.upload_context("paste-links").stage_paste_link("https://example.com/data.txt").start()
+
+# Upload from multiple URLs with individual metadata
+self.upload_context("paste-links").stage_paste_links([
+    (url1, {"name": "link1", "extension": "tabular"}),
+    (url2, {"name": "link2", "deferred": True}),
+]).start()
+
+# Remote file source (e.g. Posix, FTP)
+self.upload_context("remote-files").stage_remote_file(
+    source_label="Posix", file_label="myfile.txt",
+).start()
+
+# Composite file upload
+self.upload_context("composite-file")
+    .select_composite("velvet")
+    .stage_composite_file_slot(slot=1, file_path=self.get_filename("1.txt"))
+    .stage_composite_paste_slot(slot=2, content="pasted data")
+    .start()
+
+# Data library upload
+self.upload_context("data-library").stage_data_library_dataset(
+    library_label="My Library", dataset_label="My Dataset",
+).start()
+
+# Upload to a list collection
+self.upload_context("local-file")
+    .stage_local_file(self.get_filename("1.txt"))
+    .stage_local_file(self.get_filename("2.txt"))
+    .to_list(name="My List")
+    .start()
+
+# Upload with advanced mode (object store selection, target history)
+self.upload_context("local-file")
+    .set_advanced_mode(True)
+    .stage_local_file(self.get_filename("1.sam"))
+    .select_target_object_store("my_object_store_id")
+    .start()
 ```
 
 **History Panel:**
@@ -1390,10 +1487,10 @@ self.wait_for_history()                            # Wait for all jobs
 **Workflow Execution (via ``RunsWorkflows`` mixin):**
 
 ```python
-class TestWorkflows(SeleniumTestCase, RunsWorkflows):
+class TestWorkflows(SeleniumTestCase, RunsWorkflows, UsesUploadActivity):
     @managed_history
     def test_workflow(self):
-        self.perform_upload(self.get_filename("input.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("input.fasta")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_YAML)
         self.workflow_run_submit()
@@ -1518,14 +1615,16 @@ GALAXY_TEST_END_TO_END_CONFIG=./galaxy_selenium_context.yml ./run_tests.sh -sele
 
 ### Continuous Integration
 
-The Selenium tests are run against each pull request to Galaxy using
-GitHub actions. If any of these tests fail, the pull request will be marked
-red. This test suite is moderately prone to having tests fail that are 
-unrelated to the pull request being tested; if this test suite fails on
-a pull request with changes that seem to be unrelated to the pull request -
-ping the Galaxy committers on the pull request and request a re-run. The
-GitHub actions workflow definition for these tests is located in
-``.github/workflows/selenium.yaml`` below Galaxy's root.
+Pull requests don't run the Selenium backend. The same test files run against
+each pull request under Playwright (see [Playwright Tests](#playwright) below).
+Tests marked ``@selenium_only`` are skipped there, so run them locally with
+``./run_tests.sh -selenium`` when changing the pages they cover.
+
+A weekly workflow (``.github/workflows/selenium.yaml``) runs the Selenium backend
+on ``dev``; it can also be started by hand from the Actions tab. When a run on
+``dev`` fails, the workflow opens an issue labeled ``area/testing/selenium``
+(or comments on the one already open), and closes it after the next passing run
+on ``dev``.
 
 {#playwright}
 ## Playwright Tests
@@ -1595,7 +1694,7 @@ with various options (``ftp_upload_dir``, ``ftp_upload_site``).
 
 The Selenium integration tests are run against each pull request to Galaxy using
 GitHub actions. If any of these tests fail, the pull request will be marked
-red. This test suite is moderately prone to having tests fail that are 
+red. This test suite is moderately prone to having tests fail that are
 unrelated to the pull request being tested; if this test suite fails on
 a pull request with changes that seem to be unrelated to the pull request -
 ping the Galaxy committers on the pull request and request a re-run. The
@@ -1626,12 +1725,77 @@ These work anywhere a URL is accepted: ``stage_inputs`` jobs, fetch API targets,
 deferred datasets, and workflow inputs. Only use real external URLs when the test
 specifically validates remote-fetch behavior.
 
+{#remote_service_down}
+### Skipping Tests When a Remote Service Is Down
+
+A test that has to talk to a real remote service should skip, not fail, when
+that service is down. ``galaxy.util.unittest_utils`` provides decorators that
+request a site before the test runs and skip it unless the site answers with
+HTTP 200:
+
+| Decorator | Probes |
+|-----------|--------|
+| ``skip_if_github_down`` | ``https://github.com/`` |
+| ``skip_if_quay_down`` | ``https://quay.io/`` |
+| ``skip_if_galaxy_depot_down`` | ``https://depot.galaxyproject.org/`` |
+| ``skip_if_dockstore_down`` | ``https://dockstore.org/`` |
+| ``skip_if_workflowhub_down`` | ``https://workflowhub.eu/`` |
+| ``skip_if_toolshed_down`` | ``https://toolshed.g2.bx.psu.edu`` (the main Tool Shed) |
+| ``skip_if_site_down(url)`` | Any other ``url`` |
+
+The decorators work on unit, API, integration and Selenium tests alike, and
+can be stacked when a test needs several services:
+
+```python
+from galaxy.util.unittest_utils import (
+    skip_if_dockstore_down,
+    skip_if_github_down,
+    skip_if_site_down,
+)
+
+@skip_if_dockstore_down
+@skip_if_github_down
+def test_import_ga_workflow_with_trs_url_subworkflow():
+    ...
+
+@skip_if_site_down("https://bio.tools/")
+def test_api_content():
+    ...
+```
+
+To skip from setup code rather than a single test (e.g. an integration test
+class's ``handle_galaxy_config_kwds``), call ``raise_skip_if_site_down(url)``
+from the same module, as ``UsesShed.configure_shed`` in
+``galaxy_test/driver/uses_shed.py`` does. It raises ``unittest.SkipTest`` with
+the same message as the decorators. ``is_site_up(url)`` returns the probe
+result as a boolean if you need to decide something else.
+
+The probe is a single GET of that URL (for the per-service decorators, the
+site's front page), so it only catches a site that is unreachable or not
+answering 200; a slow or failing API behind a healthy front page still fails
+the test. Two tools cover that gap:
+
+- ``skip_if_site_down(url, unavailable_pattern=...)`` also skips the test if it
+  raises an exception whose message or HTTP response body matches the regular
+  expression. ``skip_if_workflowhub_down`` uses this to recognize the errors
+  Galaxy's TRS proxy reports when WorkflowHub, or Cloudflare in front of it,
+  is down or blocking CI runners.
+- ``skip_on_network_error`` skips the test if it raises a ``requests``
+  ``ConnectionError`` or ``Timeout``, without probing anything up front.
+
+These decorators are for outages of services a test cannot avoid. A test that
+fails intermittently for other reasons should be tracked as a transient failure
+instead (see [Handling Flaky Tests](#transient_failures)).
+
 {#transient_failures}
 ## Handling Flaky Tests
 
 Some tests fail intermittently due to race conditions, timing issues, or external
 dependencies. Galaxy provides infrastructure to track these "flaky" tests via
 GitHub issues and a test decorator.
+
+Failures caused by a remote service being down should be skipped instead; see
+[Skipping Tests When a Remote Service Is Down](#remote_service_down).
 
 ### Marking a Test as Transiently Failing
 

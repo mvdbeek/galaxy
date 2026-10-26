@@ -10,9 +10,7 @@ from datetime import datetime
 from typing import (
     Any,
     Literal,
-    Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 from packaging.version import Version
@@ -100,6 +98,9 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+# Name of the staged output parameter JSON in the job's configs directory.
+OUTPUT_PARAMETER_JSON_NAME = "galaxy_output_parameters.json"
+
 
 class ToolErrorLog:
     def __init__(self):
@@ -118,15 +119,14 @@ global_tool_errors = ToolErrorLog()
 
 
 class ToolTemplatingException(Exception):
-
-    def __init__(self, *args: object, tool_id: Optional[str], tool_version: str, is_latest: bool) -> None:
+    def __init__(self, *args: object, tool_id: str | None, tool_version: str, is_latest: bool) -> None:
         super().__init__(*args)
         self.tool_id = tool_id
         self.tool_version = tool_version
         self.is_latest = is_latest
 
 
-def global_tool_logs(func, config_file: Optional[StrPath], action_str: str, tool: "Tool"):
+def global_tool_logs(func, config_file: StrPath | None, action_str: str, tool: "Tool"):
     try:
         return func()
     except Exception as e:
@@ -138,6 +138,16 @@ def global_tool_logs(func, config_file: Optional[StrPath], action_str: str, tool
             tool_version=tool.version,
             is_latest=tool.is_latest_version,
         ) from e
+
+
+def _check_materialized(materialized_objects: dict[str, DeferrableObjectsT]) -> None:
+    """Fail the job if a deferred input could not be materialized."""
+    for value in materialized_objects.values():
+        for item in value if isinstance(value, list) else [value]:
+            dataset_instances = [item] if isinstance(item, model.DatasetInstance) else item.dataset_instances
+            for dataset_instance in dataset_instances:
+                if dataset_instance.dataset and dataset_instance.dataset.state == model.Dataset.states.ERROR:
+                    raise Exception(dataset_instance.info or "Failed to materialize deferred input dataset")
 
 
 class ToolEvaluator:
@@ -159,13 +169,15 @@ class ToolEvaluator:
         self.param_dict: dict[str, Any] = {}
         self.extra_filenames: list[str] = []
         self.environment_variables: list[dict[str, str]] = []
-        self.version_command_line: Optional[str] = None
-        self.command_line: Optional[str] = None
+        self.version_command_line: str | None = None
+        self.command_line: str | None = None
         self.interactivetools: list[dict[str, Any]] = []
         self.consumes_names = False
         self.use_cached_job = False
+        self.out_data: OutDataDictT = {}
+        self.output_parameter_json_copy: tuple[str, str] | None = None
 
-    def set_compute_environment(self, compute_environment: ComputeEnvironment, get_special: Optional[Callable] = None):
+    def set_compute_environment(self, compute_environment: ComputeEnvironment, get_special: Callable | None = None):
         """
         Setup the compute environment and established the outline of the param_dict
         for evaluating command and config cheetah templates.
@@ -185,6 +197,7 @@ class ToolEvaluator:
 
         # Restore input / output data lists
         inp_data, out_data, out_collections = job.io_dicts()
+        self.out_data = out_data
 
         # collect deferred datasets and collections.
         deferred_objects = self._deferred_objects(inp_data, incoming)
@@ -219,7 +232,7 @@ class ToolEvaluator:
             self.execute_tool_hooks(inp_data=inp_data, out_data=out_data, incoming=incoming)
 
         else:
-            tool_state: Optional[JobInternalToolState] = None
+            tool_state: JobInternalToolState | None = None
             if job.tool_state:
                 tool_state = JobInternalToolState(job.tool_state)
             self.param_dict = self.build_param_dict(
@@ -245,7 +258,7 @@ class ToolEvaluator:
         input_datasets: InpDataDictT,
         output_datasets: OutDataDictT,
         output_collections: OutCollectionsDictT,
-        validated_tool_state: Optional[JobInternalToolState] = None,
+        validated_tool_state: JobInternalToolState | None = None,
     ):
         """
         Build the dictionary of parameters for substituting into the command
@@ -313,6 +326,7 @@ class ToolEvaluator:
             transient_directory=transient_directory,
             file_sources=self.app.file_sources,
             user_context=user_context,
+            datatypes_registry=self.app.datatypes_registry,
         )
         for key, value in deferred_objects.items():
             if isinstance(value, model.DatasetInstance):
@@ -324,9 +338,7 @@ class ToolEvaluator:
                 undeferred_objects[key] = undeferred
             elif isinstance(value, list):
                 undeferred_list: list[
-                    Union[
-                        model.DatasetInstance, model.HistoryDatasetCollectionAssociation, model.DatasetCollectionElement
-                    ]
+                    model.DatasetInstance | model.HistoryDatasetCollectionAssociation | model.DatasetCollectionElement
                 ] = []
                 for potentially_deferred in value:
                     if isinstance(potentially_deferred, model.DatasetInstance):
@@ -350,12 +362,13 @@ class ToolEvaluator:
                 undeferred_collection = materialize_collection_input(value, dataset_materializer)
                 undeferred_objects[key] = undeferred_collection
 
+        _check_materialized(undeferred_objects)
         return undeferred_objects
 
     def _eval_format_source(
         self,
         job: model.Job,
-        inp_data: dict[str, Optional[model.DatasetInstance]],
+        inp_data: dict[str, model.DatasetInstance | None],
         out_data: dict[str, model.DatasetInstance],
     ):
         for output_name, output in out_data.items():
@@ -372,7 +385,7 @@ class ToolEvaluator:
 
     def _replaced_deferred_objects(
         self,
-        inp_data: dict[str, Optional[model.DatasetInstance]],
+        inp_data: dict[str, model.DatasetInstance | None],
         incoming: dict,
         materalized_objects: dict[str, DeferrableObjectsT],
     ):
@@ -751,6 +764,7 @@ class ToolEvaluator:
             self.tool,
         )
         global_tool_logs(self._build_param_file, config_file, "Building Param File", self.tool)
+        global_tool_logs(self._build_output_parameter_json, config_file, "Building Output Parameter JSON", self.tool)
         global_tool_logs(self._build_command_line, config_file, "Building Command Line", self.tool)
         global_tool_logs(self._build_version_command, config_file, "Building Version Command Line", self.tool)
         global_tool_logs(self._build_environment_variables, config_file, "Building Environment Variables", self.tool)
@@ -795,6 +809,9 @@ class ToolEvaluator:
             tool_dir = os.path.abspath(self.tool.tool_dir)
             abs_executable = os.path.join(tool_dir, executable)
             command_line = command_line.replace(executable, f"{interpreter} {shlex.quote(abs_executable)}", 1)
+        if self.output_parameter_json_copy:
+            source, target = self.output_parameter_json_copy
+            command_line = f"cp {shlex.quote(source)} {shlex.quote(target)} || exit $?; {command_line}"
         self.command_line = command_line
 
     def _build_version_command(self):
@@ -845,7 +862,7 @@ class ToolEvaluator:
             environment_variable = environment_variable_def.copy()
             environment_variable_template = environment_variable_def["template"]
             inject = environment_variable_def.get("inject")
-            template_type: Optional[Literal["cheetah"]] = None
+            template_type: Literal["cheetah"] | None = None
             if inject == "api_key":
                 if self._user and isinstance(self.app, BasicSharedApp):
                     from galaxy.managers import api_keys
@@ -935,7 +952,7 @@ class ToolEvaluator:
         else:
             return None
 
-    def _build_config_file_text(self, config_file: Union[TemplateConfigFile, InputConfigFile, FileSourceConfigFile]):
+    def _build_config_file_text(self, config_file: TemplateConfigFile | InputConfigFile | FileSourceConfigFile):
         if isinstance(config_file, (XmlTemplateConfigFile, YamlTemplateConfigFile)):
             return config_file.content, config_file.eval_engine
 
@@ -962,7 +979,7 @@ class ToolEvaluator:
         config_filename,
         content,
         context,
-        template_type: Optional[Literal["cheetah", "ecmascript"]] = None,
+        template_type: Literal["cheetah", "ecmascript"] | None = None,
         strip=False,
     ):
         parent_dir = os.path.dirname(config_filename)
@@ -986,15 +1003,33 @@ class ToolEvaluator:
         # For running jobs as the actual user, ensure the config file is globally readable
         os.chmod(config_filename, RW_R__R__)
 
+    def _build_output_parameter_json(self):
+        output_parameter_json = self.tool.output_parameter_json(self.out_data, self.param_dict)
+        if output_parameter_json is None:
+            return
+        output_path, contents = output_parameter_json
+        # The output path is only guaranteed to exist where the job runs, so the
+        # JSON travels as a config file that the command copies into place.
+        local_path = os.path.join(ensure_configs_directory(self.local_working_directory), OUTPUT_PARAMETER_JSON_NAME)
+        self._write_workdir_file(local_path, contents, self.param_dict)
+        self.output_parameter_json_copy = (self._stage_extra_file(local_path), output_path)
+
     def _register_extra_file(self, name, local_config_path):
         """
         Takes in the local path to a config file and registers the (potentially
         remote) ultimate path of the config file with the parameter dict.
         """
+        self.param_dict[name] = self._stage_extra_file(local_config_path)
+
+    def _stage_extra_file(self, local_config_path) -> str:
+        """
+        Stage a local config file with the job and return its (potentially
+        remote) path.
+        """
         self.extra_filenames.append(local_config_path)
         config_basename = os.path.basename(local_config_path)
-        compute_config_path = self._join_for_compute(self.compute_environment.config_directory(), config_basename)
-        self.param_dict[name] = compute_config_path
+        compute_config_path: str = self._join_for_compute(self.compute_environment.config_directory(), config_basename)
+        return compute_config_path
 
     def _join_for_compute(self, *args):
         """
@@ -1056,7 +1091,6 @@ class PartialToolEvaluator(ToolEvaluator):
 
 
 class UserToolEvaluator(ToolEvaluator):
-
     param_dict_style = "json"
 
     def _build_config_files(self):
@@ -1094,7 +1128,7 @@ class UserToolEvaluator(ToolEvaluator):
         input_datasets: InpDataDictT,
         output_datasets: OutDataDictT,
         output_collections: OutCollectionsDictT,
-        validated_tool_state: Optional[JobInternalToolState] = None,
+        validated_tool_state: JobInternalToolState | None = None,
     ):
         """
         Build the dictionary of parameters for substituting into the command
@@ -1102,6 +1136,8 @@ class UserToolEvaluator(ToolEvaluator):
         """
         compute_environment = self.compute_environment
         job_working_directory = compute_environment.working_directory()
+        # shell_command pastes values in unescaped, unlike base_command arguments, which take precedence.
+        shell_quotable = not self.tool.base_command and bool(self.tool.shell_command)
         hda_references: list[model.HistoryDatasetAssociation]
         if validated_tool_state is not None:
             from galaxy.tool_util.parameters.convert import runtimeify
@@ -1116,7 +1152,7 @@ class UserToolEvaluator(ToolEvaluator):
                 input_dataset_collections[assoc.name] = assoc.dataset_collection_element
 
             hda_references, adapt_datasets, adapt_collections = setup_for_runtimeify(
-                self.app, compute_environment, input_datasets, input_dataset_collections
+                self.app, compute_environment, input_datasets, input_dataset_collections, shell_quotable=shell_quotable
             )
             if self.tool.parameters is None:
                 raise RequestParameterInvalidException(f"Tool {self.tool.id} has no parameters defined")
@@ -1137,7 +1173,12 @@ class UserToolEvaluator(ToolEvaluator):
                 "Building CWL style inputs using deprecated to_cwl function - tool may work differently in the future."
             )
             hda_references = []
-            cwl_style_inputs = to_cwl(incoming, hda_references=hda_references, compute_environment=compute_environment)
+            cwl_style_inputs = to_cwl(
+                incoming,
+                hda_references=hda_references,
+                compute_environment=compute_environment,
+                shell_quotable=shell_quotable,
+            )
         return {"inputs": cwl_style_inputs, "outdir": job_working_directory}
 
     def _build_command_line(self):
@@ -1182,6 +1223,7 @@ class RemoteToolEvaluator(ToolEvaluator):
         config_file = self.tool.config_file
         global_tool_logs(self._build_config_files, config_file, "Building Config Files", self.tool)
         global_tool_logs(self._build_param_file, config_file, "Building Param File", self.tool)
+        global_tool_logs(self._build_output_parameter_json, config_file, "Building Output Parameter JSON", self.tool)
         global_tool_logs(self._build_command_line, config_file, "Building Command Line", self.tool)
         global_tool_logs(self._build_version_command, config_file, "Building Version Command Line", self.tool)
         return (

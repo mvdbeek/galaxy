@@ -3,12 +3,11 @@ from datetime import timedelta
 from typing import (
     Any,
     NamedTuple,
-    Optional,
-    Union,
 )
 from unittest import mock
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from galaxy import model
 from galaxy.exceptions import RequestParameterInvalidException
@@ -16,8 +15,12 @@ from galaxy.managers.workflows import WorkflowContentsManager
 from galaxy.schema.invocation import FailureReason
 from galaxy.tool_util.parser.output_objects import ToolOutput
 from galaxy.tools.parameters import populate_state
+from galaxy.tools.parameters.basic import ParameterValueError
+from galaxy.tools.parameters.meta import to_decoded_json
 from galaxy.tools.parameters.workflow_utils import (
+    ConnectedValue,
     NO_REPLACEMENT,
+    RuntimeValue,
     workflow_building_modes,
 )
 from galaxy.util import (
@@ -254,9 +257,56 @@ def test_split_numeric_bounds(parameter_type, min, max, expected_bounds):
     assert validators == expected_validators
 
 
+@pytest.mark.parametrize(
+    "parameter_type,range_validator",
+    [
+        ("integer", {"type": "in_range", "min": 1, "max": 5, "negate": True}),
+        ("integer", {"type": "in_range", "min": 1, "max": 5, "exclude_min": True}),
+        ("integer", {"type": "in_range", "min": 1, "max": 5, "message": "1-5 only"}),
+        ("integer", {"type": "in_range", "min": 1.5, "max": 5}),
+    ],
+)
+def test_split_numeric_bounds_keeps_ranges_bounds_cannot_express(parameter_type, range_validator):
+    bounds, validators = split_numeric_bounds({"parameter_type": parameter_type, "validators": [range_validator]})
+    assert bounds is None
+    assert validators == [range_validator]
+
+
+def test_split_numeric_bounds_separates_inverted_bounds():
+    bounds, validators = split_numeric_bounds(
+        {"parameter_type": "integer", "validators": [{"type": "in_range", "min": 5, "max": 1, "negate": False}]}
+    )
+    assert bounds == {"min": 5, "max": 1}
+    assert validators == []
+
+
 def test_parameter_input_ordered_bounds_have_no_errors():
     assert __numeric_editor_module("integer", 1, 5).get_errors() is None
     assert __numeric_editor_module("float", 2.5, 2.5).get_errors() is None
+
+
+@pytest.mark.parametrize("form_value,negate", [("true", True), ("false", False)])
+def test_text_input_regex_validator_negate_from_tool_form(form_value, negate):
+    trans = MockTrans()
+    trans.workflow_building_mode = workflow_building_modes.ENABLED
+    module = modules.module_factory.from_dict(trans, {"type": "parameter_input"}, from_tool_form=True)
+    incoming = {
+        "parameter_definition|parameter_type": "text",
+        "parameter_definition|optional|optional": "false",
+        "parameter_definition|validators_0|regex_match": "cow",
+        "parameter_definition|validators_0|regex_doc": "no cows",
+        "parameter_definition|validators_0|regex_negate": form_value,
+    }
+    module_state = {}
+    errors = {}
+    populate_state(trans, module.get_inputs(), incoming, module_state, errors=errors, check=True)
+    assert not errors
+    module.recover_state(module_state, from_tool_form=True)
+    step = model.WorkflowStep()
+    module.save_to_step(step)
+    assert step.tool_inputs["validators"] == [
+        {"type": "regex", "expression": "cow", "negate": negate, "message": "no cows"}
+    ]
 
 
 def test_cannot_create_tool_modules_for_missing_tools():
@@ -389,6 +439,85 @@ def test_subworkflow_new_inputs_collection_type():
     assert inputs[0]["collection_type"] == "list:list"
 
 
+MULTIPLE_PARAMETER_WORKFLOW_YAML = """
+steps:
+  - type: "parameter_input"
+    label: "single"
+    tool_inputs: {"parameter_type": "integer", "optional": false}
+  - type: "parameter_input"
+    label: "multiple"
+    tool_inputs: {"parameter_type": "integer", "optional": false, "multiple": true}
+  - type: "parameter_input"
+    label: "multiple_text"
+    tool_inputs: {"parameter_type": "text", "optional": false, "multiple": true}
+"""
+
+
+def test_subworkflow_new_inputs_parameter_multiple():
+    subworkflow_module = __new_subworkflow_module(MULTIPLE_PARAMETER_WORKFLOW_YAML)
+    inputs = {i["name"]: i for i in subworkflow_module.get_all_inputs()}
+    assert inputs["single"]["multiple"] is False
+    assert inputs["multiple"]["multiple"] is True
+    assert inputs["multiple_text"]["multiple"] is True
+
+
+def test_parameter_input_multiple_integer_list_default_round_trip():
+    module, errors = __populate_parameter_from_tool_form(multiple=True, default=[1, 2])
+    assert not errors, errors
+    step = model.WorkflowStep()
+    module.save_to_step(step)
+    reloaded = modules.module_factory.from_workflow_step(MockTrans(), step)
+    assert reloaded.get_export_state()["default"] == [1, 2]
+    assert reloaded.get_runtime_inputs(mock.MagicMock())["input"].get_initial_value(None, {}) == [1, 2]
+
+
+def test_parameter_input_multiple_text_list_default():
+    module, errors = __populate_parameter_from_tool_form(multiple=True, default=["a,b", "c"], parameter_type="text")
+    assert not errors, errors
+    default_fields = [
+        field
+        for field in __form_fields(module.get_config_form()["inputs"])
+        if field.get("label") == "Default Value" and field["type"] == "text"
+    ]
+    assert all(field["multiple"] for field in default_fields)
+    assert ["a,b", "c"] in [field["value"] for field in default_fields]
+    step = model.WorkflowStep()
+    module.save_to_step(step)
+    reloaded = modules.module_factory.from_workflow_step(MockTrans(), step)
+    assert reloaded.get_runtime_inputs(mock.MagicMock())["input"].get_initial_value(None, {}) == ["a,b", "c"]
+
+
+@pytest.mark.parametrize("default", ["1,2", "1\n2", ["1,2"]])
+def test_parameter_input_multiple_integer_rejects_separated_string(default):
+    _, errors = __populate_parameter_from_tool_form(multiple=True, default=default)
+    assert "an integer is required" in str(errors["parameter_definition|optional|specify_default|default"])
+
+
+def test_parameter_input_multiple_integer_cleared_default():
+    _, errors = __populate_parameter_from_tool_form(multiple=True, default=None)
+    assert "an integer or workflow parameter is required" in str(
+        errors["parameter_definition|optional|specify_default|default"]
+    )
+
+
+def test_parameter_input_list_default_after_disabling_multiple():
+    _, errors = __populate_parameter_from_tool_form(multiple=False, default=[1, 2])
+    assert "an integer or workflow parameter is required" in str(
+        errors["parameter_definition|optional|specify_default|default"]
+    )
+    step = model.WorkflowStep()
+    step.type = "parameter_input"
+    step.tool_inputs = {"parameter_type": "integer", "optional": False, "multiple": False, "default": [1, 2]}
+    module = modules.module_factory.from_workflow_step(MockTrans(), step)
+    with pytest.raises(ParameterValueError, match="the attribute 'value' must be an integer"):
+        module.get_runtime_inputs(mock.MagicMock())
+
+
+def test_parameter_input_text_list_default_after_disabling_multiple():
+    _, errors = __populate_parameter_from_tool_form(multiple=False, default=["a", "b"], parameter_type="text")
+    assert "a single value is required" in str(errors["parameter_definition|optional|specify_default|default"])
+
+
 def test_subworkflow_new_outputs():
     subworkflow_module = __new_subworkflow_module()
     outputs = subworkflow_module.get_data_outputs()
@@ -447,7 +576,7 @@ def test_to_cwl_dataset_collection_element():
     assert result[0]["basename"] == "inner"
 
 
-def _expression_json_hda(path, content: Optional[str], seconds_since_updated: int = 0):
+def _expression_json_hda(path, content: str | None, seconds_since_updated: int = 0):
     hda = model.HistoryDatasetAssociation(extension="expression.json", create_dataset=True, flush=False)
     hda.id = 1
     assert hda.dataset is not None
@@ -546,9 +675,9 @@ def test_replace_expression_json_dataset_leaves_other_replacements_unchanged():
 
 class MapOverTestCase(NamedTuple):
     data_input: str
-    step_input_def: Union[str, list[str]]
+    step_input_def: str | list[str]
     step_output_def: str
-    expected_collection_type: Optional[str]
+    expected_collection_type: str | None
     steps: dict[int, Any]
 
 
@@ -560,7 +689,7 @@ def _construct_steps_for_map_over() -> list[MapOverTestCase]:
     # step_output_definition = ['dataset', 'list', 'list:list']
     # list(itertools.product(data_input, step_input_definition, step_output_definition, [None])),
     # with the last item filled in manually
-    test_case_args: list[tuple[str, Union[str, list[str]], str, Optional[str]]] = [
+    test_case_args: list[tuple[str, str | list[str], str, str | None]] = [
         ("dataset", "dataset", "dataset", None),
         ("dataset", "dataset", "list", "list"),
         ("dataset", "dataset", "list:list", "list:list"),
@@ -700,6 +829,30 @@ def test_subworkflow_map_over_type(test_case):
     )
 
 
+def __populate_parameter_from_tool_form(multiple, default, parameter_type="integer"):
+    trans = MockTrans()
+    trans.workflow_building_mode = workflow_building_modes.ENABLED
+    module = modules.module_factory.from_dict(trans, {"type": "parameter_input"}, from_tool_form=True)
+    errors: dict[str, Any] = {}
+    incoming = {
+        "parameter_definition|parameter_type": parameter_type,
+        "parameter_definition|multiple": multiple,
+        "parameter_definition|optional|optional": "false",
+        "parameter_definition|optional|specify_default|specify_default": True,
+        "parameter_definition|optional|specify_default|default": default,
+    }
+    module.populate_state_from_tool_form(incoming, errors)
+    return module, errors
+
+
+def __form_fields(inputs):
+    for field in inputs:
+        yield field
+        for case in field.get("cases", []):
+            yield from __form_fields(case["inputs"])
+        yield from __form_fields(field.get("inputs", []))
+
+
 def __new_subworkflow_module(workflow=TEST_WORKFLOW_YAML):
     trans = MockTrans()
     mock_tool = __mock_tool(id="cat1", version="1.0")
@@ -828,3 +981,168 @@ def __mock_tool(
 
 def _to_json(*args, **kwargs):
     return "{}"
+
+
+# _mapped_inputs_from_collection_info: reduce a MatchingCollections to
+# source-neutral per-input map-over descriptors. Workflow path is always
+# linked=True.
+
+
+def test_mapped_inputs_from_collection_info_none_or_empty():
+    assert modules._mapped_inputs_from_collection_info(None) == {}
+    assert modules._mapped_inputs_from_collection_info(bunch.Bunch(collections={})) == {}
+
+
+def test_mapped_inputs_from_collection_info_hdca_no_subcollection():
+    collection_info = bunch.Bunch(collections={"a": bunch.Bunch(id=7)}, subcollection_types={})
+
+    mapped = modules._mapped_inputs_from_collection_info(collection_info)
+
+    assert set(mapped) == {"a"}
+    descriptor = mapped["a"]
+    assert descriptor.src == "hdca"
+    assert descriptor.id == 7
+    assert descriptor.map_over_type is None
+    assert descriptor.linked is True
+
+
+def test_mapped_inputs_from_collection_info_subcollection_map_over_type():
+    collection_info = bunch.Bunch(
+        collections={"a": bunch.Bunch(id=7)},
+        subcollection_types={"a": bunch.Bunch(collection_type="paired")},
+    )
+
+    mapped = modules._mapped_inputs_from_collection_info(collection_info)
+
+    assert mapped["a"].map_over_type == "paired"
+
+
+def test_mapped_inputs_from_collection_info_dce_src():
+    dce = mock.MagicMock(spec=model.DatasetCollectionElement)
+    dce.id = 9
+    collection_info = bunch.Bunch(collections={"a": dce}, subcollection_types={})
+
+    mapped = modules._mapped_inputs_from_collection_info(collection_info)
+
+    assert mapped["a"].src == "dce"
+    assert mapped["a"].id == 9
+
+
+# _capture_workflow_tool_request_state outcome taxonomy: the function
+# returns (template, combinations, tool_request). Skipped steps and
+# unexpected capture-code defects return (None, None, None) — no
+# ToolRequest minted. Real meta-model rejections after the converter has
+# produced a structural payload mint a ToolRequest with
+# request_state == "validation_failed". trans/step are unused here;
+# collection_info=None -> no mapped inputs; resolve raises before any
+# downstream is reached.
+
+
+class _CaptureFakeTool:
+    id = "test_tool"
+    profile = "21.09"
+    parameters: list = []
+
+
+def _capture(resolve):
+    # history=None means the mint path is unreachable in these unit cases;
+    # every exercised branch returns before touching it.
+    return modules._capture_workflow_tool_request_state(None, _CaptureFakeTool(), None, None, None, resolve, [])
+
+
+def test_capture_skipped_conditional_step_returns_none():
+    """A falsy `when` raises SkipWorkflowStepEvaluation: nothing to capture."""
+
+    def resolve(iteration_elements):
+        raise modules.SkipWorkflowStepEvaluation
+
+    assert _capture(resolve) == (None, None, None)
+
+
+def test_capture_converter_guard_returns_none_quietly():
+    """Converter raised before request_internal was built: no ToolRequest, quiet."""
+
+    def resolve(iteration_elements):
+        raise modules.RequestInternalToWorkflowStateError("cross-product")
+
+    with mock.patch.object(modules, "log") as log:
+        assert _capture(resolve) == (None, None, None)
+
+    log.debug.assert_called_once()
+    log.warning.assert_not_called()
+
+
+def test_capture_invalid_state_returns_none_quietly():
+    """Meta-model rejection at resolve-time: no payload to record, quiet."""
+
+    def resolve(iteration_elements):
+        raise modules.exceptions.RequestParameterInvalidException("bad state")
+
+    with mock.patch.object(modules, "log") as log:
+        assert _capture(resolve) == (None, None, None)
+
+    log.debug.assert_called_once()
+    log.warning.assert_not_called()
+
+
+def test_capture_unexpected_error_returns_none_loudly():
+    """Capture-code defect: drop the partial payload, surface at warning."""
+
+    def resolve(iteration_elements):
+        raise RuntimeError("capture bug")
+
+    with mock.patch.object(modules, "log") as log:
+        assert _capture(resolve) == (None, None, None)
+
+    log.warning.assert_called_once()
+
+
+class _PersistableFakeTool(_CaptureFakeTool):
+    version = "1.0"
+    dynamic_tool = None
+    tool_source = bunch.Bunch(to_string=lambda: "<tool/>")
+
+
+def test_capture_propagates_failure_flushing_unrelated_pending_objects():
+    trans = MockTrans()
+    history = model.History(name="target")
+    existing = model.History(name="existing")
+    trans.sa_session.add_all([history, existing])
+    trans.sa_session.commit()
+    existing_id = existing.id
+    trans.sa_session.expunge(existing)
+    trans.sa_session.add(model.History(id=existing_id, name="duplicate"))
+
+    def resolve(iteration_elements):
+        return bunch.Bunch(inputs={}), None, None
+
+    with pytest.raises(IntegrityError):
+        modules._capture_workflow_tool_request_state(trans, _PersistableFakeTool(), None, None, history, resolve, [])
+
+
+def test_to_decoded_json_lowers_connected_value_in_repeat():
+    """ConnectedValue inside a repeat lowers to its JSON marker.
+
+    Regression: an unresolved connection inside a `repeat` survived to the
+    tool_request flush as a raw ``ConnectedValue()`` and broke JSON encode
+    with a TypeError. ``to_decoded_json`` recurses and lowers it to a marker.
+    """
+    payload = {
+        "datasets": [
+            {"input": {"src": "hda", "id": 1}},
+            {"input": ConnectedValue()},
+        ],
+    }
+
+    result = to_decoded_json(payload)
+
+    assert result["datasets"][0]["input"] == {"src": "hda", "id": 1}
+    assert result["datasets"][1]["input"] == {"__class__": "ConnectedValue"}
+    json.dumps(result)
+
+
+def test_to_decoded_json_lowers_bare_runtime_value():
+    """Bare RuntimeValue tokens lower to their JSON marker form too."""
+    result = to_decoded_json({"foo": RuntimeValue()})
+    assert result == {"foo": {"__class__": "RuntimeValue"}}
+    json.dumps(result)

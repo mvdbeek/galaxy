@@ -434,6 +434,77 @@
 :Type: str
 
 
+~~~~~~~~~~~~~~~~~~~~~~
+``use_cached_toolbox``
+~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    When true, use the CachedToolBox which loads tools on demand from
+    the tool source store. Otherwise (the default), the traditional
+    eager ToolBox is used and any per-conf ``store="..."`` attributes
+    on tool_conf files are ignored. Opt-in is explicit: a populated
+    tool source store does not flip a default deployment to
+    cached-toolbox mode.
+:Default: ``None``
+:Type: bool
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``cached_toolbox_cache_size``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Maximum number of fully constructed Tool objects the CachedToolBox
+    keeps in its in-memory LRU cache. Larger values reduce repeat
+    parsing cost for popular tools at the expense of memory.
+:Default: ``500``
+:Type: int
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``tool_source_database_connection``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    SQLAlchemy connection string for the tool source store, a
+    rebuildable cache of pre-parsed tool sources kept outside Galaxy's
+    main database. Multi-host deployments should point every Galaxy
+    process at the same URI, such as a SQLite file on a shared
+    filesystem.
+    Sample default ``sqlite:///<data_dir>/tool_sources.sqlite``.
+    Populate the store with: python
+    scripts/tool_source/populate_store.py
+    For details see
+    https://docs.galaxyproject.org/en/master/admin/tool_source_storage.html
+:Default: ``None``
+:Type: str
+
+
+~~~~~~~~~~~~~~~~~~~~~~
+``tool_source_stores``
+~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Optional named tool source stores referenced from individual
+    tool_conf files via a top-level ``store="<name>"`` attribute (XML)
+    or ``store: <name>`` key (YAML). When any tool_conf opts in, the
+    process composes its named store with the default
+    (``tool_source_database_connection``) store at runtime, with reads
+    tried in declared order and writes always landing on the default.
+    Each entry takes either a normal SQLAlchemy ``url`` or an
+    ``external_store_directory`` containing versioned publisher
+    bundles. Galaxy never consults manifests for a normal URL. For an
+    external directory it reads the sidecars and automatically selects
+    the newest cohort compatible with its store/source/index formats
+    and index schema. External stores are always read-only.
+    For SQLite connection-level read-only, use a SQLite URI with
+    ``mode=ro&uri=true``.
+    For details see
+    https://docs.galaxyproject.org/en/master/admin/tool_source_storage.html
+:Default: ``None``
+:Type: map
+
+
 ~~~~~~~~~~~~~~~~~~~~~~~
 ``tool_dependency_dir``
 ~~~~~~~~~~~~~~~~~~~~~~~
@@ -711,7 +782,7 @@
 :Description:
     Location of files available for a short time as downloads (short
     term storage). This directory is exclusively used for serving
-    dynamically generated downloadable content. Galaxy may uses the
+    dynamically generated downloadable content. Galaxy may use the
     new_file_path parameter as a general temporary directory and that
     directory should be monitored by a tool such as tmpwatch in
     production environments. short_term_storage_dir on the other hand
@@ -1022,7 +1093,7 @@
 
 :Description:
     XML config file that contains data table entries for the
-    ToolDataTableManager.  This file is manually # maintained by the
+    ToolDataTableManager.  This file is manually maintained by the
     Galaxy administrator (.sample used if default does not exist).
     The value of this option will be resolved with respect to
     <config_dir>.
@@ -1217,6 +1288,20 @@
 :Type: bool
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~
+``admin_extensions_dir``
+~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Admin extensions directory: where to look for extensions that add
+    sections and links to the Admin panel. Each extension is a
+    subdirectory containing a config.yml. By default none are shipped,
+    so nothing is loaded. To use an absolute path begin the path with
+    '/'. This is a comma-separated list.
+:Default: ``config/plugins/admin``
+:Type: str
+
+
 ~~~~~~~~~~~~~~~~
 ``webhooks_dir``
 ~~~~~~~~~~~~~~~~
@@ -1302,7 +1387,7 @@
     destination level for heterogeneous clusters. conda job resolution
     requires bash or zsh so if this is switched to /bin/sh for
     instance - conda resolution should be disabled. Containerized jobs
-    always use /bin/sh - so more maximum portability tool authors
+    always use /bin/sh - so for maximum portability tool authors
     should assume generated commands run in sh.
 :Default: ``/bin/bash``
 :Type: str
@@ -1355,7 +1440,7 @@
 
 :Description:
     Set this to true to attempt to resolve bio.tools metadata for
-    tools for tool not resovled via biotools_content_directory.
+    tools for tool not resolved via biotools_content_directory.
 :Default: ``false``
 :Type: bool
 
@@ -2024,6 +2109,21 @@
 :Type: bool
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~
+``enable_user_addresses``
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Allow users to store postal addresses on their account, through
+    the deprecated /api/users/{id}/information/inputs endpoint.
+    This feature is deprecated and the user_address table will be
+    removed in a future release. Galaxy's own interface no longer
+    offers these addresses, so this option only affects that endpoint;
+    set it to false to stop accepting them ahead of the removal.
+:Default: ``true``
+:Type: bool
+
+
 ~~~~~~~~~~~~~~~~~~~~
 ``session_duration``
 ~~~~~~~~~~~~~~~~~~~~
@@ -2090,6 +2190,20 @@
     for tracking with Matomo (https://matomo.org/).
 :Default: ``None``
 :Type: str
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+``matomo_disable_cookies``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Run Matomo in "cookieless" mode. When set to true (the default),
+    Galaxy instructs the Matomo tracker to disable all tracking
+    cookies by calling _paq.push(['disableCookies']) before tracking
+    the page view. Set to false to allow Matomo to use cookies. See
+    https://matomo.org/faq/general/faq_157/ for details.
+:Default: ``true``
+:Type: bool
 
 
 ~~~~~~~~~~~~~~~~~~~
@@ -2506,6 +2620,22 @@
 :Type: str
 
 
+~~~~~~~~~~~~~~~~~~~~~~
+``subdomain_switcher``
+~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Sites to display in the masthead's "Switch sites" menu. Each entry
+    requires a non-empty label and an absolute HTTP or HTTPS URL.
+    Entries are displayed in the configured order, excluding the site
+    matching the current URL origin.
+    Example value: ``[{label: Base site, url:
+    https://usegalaxy.example.org}, {label: Single Cell Omics, url:
+    https://singlecell.usegalaxy.example.org}]``
+:Default: ``[]``
+:Type: seq
+
+
 ~~~~~~~~~~~~~~~~
 ``helpsite_url``
 ~~~~~~~~~~~~~~~~
@@ -2564,7 +2694,7 @@
 :Description:
     The BibTeX citation for Galaxy, to be displayed in the History
     Tool Reference List
-:Default: ``@article{Galaxy2024, title="The Galaxy platform for accessible, reproducible, and collaborative data analyses: 2024 update", author="{The Galaxy Community}", journal="Nucleic Acids Research", year="2024", doi="10.1093/nar/gkae410", url="https://doi.org/10.1093/nar/gkae410"}``
+:Default: ``@article{Galaxy2026, title="Galaxy for accessible, reproducible, and collaborative data analyses: 2026 update", author="{The Galaxy Community}", journal="Nucleic Acids Research", year="2026", doi="10.1093/nar/gkag469", url="https://doi.org/10.1093/nar/gkag469"}``
 :Type: str
 
 
@@ -4093,11 +4223,13 @@
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 :Description:
-    By default, users' data will be public, but setting this to true
-    will cause it to be private.  Does not affect existing users and
-    data, only ones created after this option is set.  Users may still
-    change their default back to public.
-:Default: ``false``
+    By default, users' data will be private. Setting this to false
+    makes it public. This only affects users created after the option
+    is set; existing users and data are unchanged. Users can change
+    the default for their new histories in their user preferences. To
+    make existing users' data private as well, run the
+    galaxy-make-data-private script.
+:Default: ``true``
 :Type: bool
 
 
@@ -4352,10 +4484,10 @@
     parent-side JSON decoding also adds overhead. Simple parameter
     references resolve in Python without starting a worker. When empty
     (the default), the worker runs without an OS-level jail.
-    Full JavaScript evaluation requires Python 3.10+ and the quickjs-ng
-    package. Without QuickJS, expressions requiring JavaScript fail with
-    an error; literals and simple parameter references continue to work
-    without it.
+    Full JavaScript evaluation requires Python 3.10+ and the
+    quickjs-ng package. Without QuickJS, expressions requiring
+    JavaScript fail with an error; literals and simple parameter
+    references continue to work without it.
     Set this to ``bubblewrap`` to use a built-in bubblewrap jail. It
     clears the environment, unshares the PID/IPC/UTS namespaces, and
     read-only-binds only what the worker needs to run: the Python
@@ -4589,6 +4721,65 @@
     on startup for large servers.
 :Default: ``false``
 :Type: bool
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``curated_workflows_source``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Where the "Curated workflows" tab on the workflows list page (and
+    the /api/workflows/curated endpoint behind it) gets its workflows.
+    ``iwc`` (the default) lists the public catalog published by the
+    Intergalactic Workflow Commission (https://iwc.galaxyproject.org),
+    which Galaxy refreshes hourly into ``curated_workflows_path``.
+    That refresh is the only outbound request this feature makes: one
+    HTTPS GET of a public static JSON file, carrying no user data.
+    ``local`` lists the published workflows of the accounts named in
+    ``curated_workflow_owners``, and makes no outbound requests.
+    Galaxy refuses to start if ``local`` is set without any owners.
+    ``off`` hides the tab and disables the endpoint. Use it on
+    instances with no outbound network access that have no local
+    curation, or where the tab is not wanted.
+    Any other value is a startup error.
+:Default: ``iwc``
+:Type: str
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``curated_workflow_owners``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Comma-separated list of Galaxy usernames (not email addresses)
+    whose published workflows populate the "Curated workflows" tab
+    when ``curated_workflows_source`` is ``local``. Accepts a single
+    name, a comma-separated string, or a YAML list. Usernames are
+    matched exactly and case-insensitively. Ignored, with a warning at
+    startup, under any other source.
+    Only list accounts you control on this instance: any user who
+    registers a listed username and publishes a workflow will appear
+    on the tab. The tab shows exactly the published workflows owned by
+    those accounts -- including one entry per published release, if
+    the accounts publish that way.
+:Default: ``""``
+:Type: str
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+``curated_workflows_path``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Path to the cached projection of the IWC workflow catalog. Written
+    by the ``refresh_iwc_manifest`` celery task on the
+    ``iwc_manifest_refresh_interval`` schedule, and lazily on first
+    use if the file is missing. Web workers only ever read this file
+    -- they never fetch the catalog on a request thread.
+    The value of this option will be resolved with respect to
+    <data_dir>.
+:Default: ``curated/iwc_workflows.json``
+:Type: str
 
 
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -5131,11 +5322,19 @@
 
 :Description:
     If your network filesystem's caching prevents the Galaxy server
-    from seeing the job's stdout and stderr files when it completes,
-    you can retry reading these files.  The job runner will retry the
-    number of times specified below, waiting 1 second between tries.
-    For NFS, you may want to try the -noac mount option (Linux) or
-    -actimeo=0 (Solaris).
+    from seeing a job's output when it completes, you can retry
+    reading it.  This covers both the job's stdout and stderr files
+    and its output datasets, waiting 1 second between tries.  0 means
+    no retries: stdout and stderr are still read once, but the
+    cache-busting stat of each output dataset is skipped entirely, so
+    raise this if you see datasets marked ok with empty or truncated
+    content. This is most likely on a deployment where a job's output
+    is written by a host other than the one running Galaxy, since
+    nothing guarantees Galaxy's client has a coherent view of the file
+    the moment the job reports done.  For NFS, you may also want to
+    try the -noac mount option (Linux) or -actimeo=0 (Solaris), or a
+    low -actimeo to shrink the staleness window without disabling
+    caching.
 :Default: ``0``
 :Type: int
 
@@ -5553,7 +5752,7 @@
     Define toolbox filters
     (https://galaxyproject.org/user-defined-toolbox-filters/) that
     users may use to restrict the tools to display.
-:Default: ``examples:restrict_upload_to_admins, examples:restrict_encode``
+:Default: ``None``
 :Type: str
 
 
@@ -5565,7 +5764,7 @@
     Define toolbox filters
     (https://galaxyproject.org/user-defined-toolbox-filters/) that
     users may use to restrict the tool sections to display.
-:Default: ``examples:restrict_text``
+:Default: ``None``
 :Type: str
 
 
@@ -5577,7 +5776,7 @@
     Define toolbox filters
     (https://galaxyproject.org/user-defined-toolbox-filters/) that
     users may use to restrict the tool labels to display.
-:Default: ``examples:restrict_upload_to_admins, examples:restrict_encode``
+:Default: ``None``
 :Type: str
 
 
@@ -5607,8 +5806,8 @@
     https://docs.celeryq.dev/projects/kombu/en/stable/userguide/connections.html
     When this option is not specified, Galaxy uses the configured
     database_connection with the SQLAlchemy transport. If
-    database_connection is not explicitly configured, Galaxy creates
-    a separate SQLite database at <data_dir>/control.sqlite.
+    database_connection is not explicitly configured, Galaxy creates a
+    separate SQLite database at <data_dir>/control.sqlite.
 :Default: ``None``
 :Type: str
 
@@ -5640,7 +5839,7 @@
     `/api/tools` endpoint when this is disabled, when Celery is not
     enabled, or when the tool does not provide a typed parameter
     schema.
-:Default: ``false``
+:Default: ``true``
 :Type: bool
 
 
@@ -5780,22 +5979,23 @@
     back to global ai_model/ai_api_key settings. All agents are
     enabled by default. Example: inference_services: { default: {
     model: gpt-4o-mini, temperature: 0.7 }, custom_tool: { enabled:
-    false }, jupyterlite: { model: gpt-4o } } Set static_responses to
-    a YAML file path to replace all LLM calls with deterministic
-    responses for testing: inference_services: { static_responses:
-    test/integration/static_agents.yml } Per-agent or default-block
-    ``structured_output_override: true|false`` beats the model
-    capability table -- see ``agent_model_capabilities_file`` for the
-    table's location and contents. Per-agent or default-block
-    ``retries`` sets the pydantic-ai retry budget (tool calls and
-    output validation); it defaults to 3. Raise it if a model
-    intermittently fails to produce conforming output ("Exceeded
-    maximum output retries"). custom_tool's producer keeps a budget of
-    0 because it runs its own reflection loop; a shared ``default``
-    block does not change that -- set ``custom_tool.retries``
-    explicitly to override it. custom_tool also accepts
-    ``quality_critic_enabled`` (default false) to turn on the LLM
-    clarity/idiomaticity critic, and
+    false }, jupyterlite: { model: gpt-4o } } Plugins also accept
+    top_p and timeout, and use max_tokens as an upper limit. Set
+    static_responses to a YAML file path to replace all LLM calls with
+    deterministic responses for testing: inference_services: {
+    static_responses: test/integration/static_agents.yml } Per-agent
+    or default-block ``structured_output_override: true|false`` beats
+    the model capability table -- see
+    ``agent_model_capabilities_file`` for the table's location and
+    contents. Per-agent or default-block ``retries`` sets the
+    pydantic-ai retry budget (tool calls and output validation); it
+    defaults to 3. Raise it if a model intermittently fails to produce
+    conforming output ("Exceeded maximum output retries").
+    custom_tool's producer keeps a budget of 0 because it runs its own
+    reflection loop; a shared ``default`` block does not change that
+    -- set ``custom_tool.retries`` explicitly to override it.
+    custom_tool also accepts ``quality_critic_enabled`` (default
+    false) to turn on the LLM clarity/idiomaticity critic, and
     ``container_recommendation_enabled`` (default false) to resolve
     the produced tool's container to a verified quay.io biocontainer.
     Container recommendation runs a dedicated container critic that
@@ -5868,8 +6068,8 @@
     next query since GTNSearchDB opens a read-only connection per
     call. Only registered when ``inference_services`` is configured
     (i.e. GalaxyAI is in use). Set to 0 to disable automatic refresh
-    -- admins can still refresh on demand via ``python -m
-    galaxy.agents.gtn --refresh``. Requires celery.
+    -- admins can still refresh on demand via ``python -m galaxy.gtn
+    --refresh``. Requires celery.
 :Default: ``86400``
 :Type: int
 
@@ -5881,13 +6081,17 @@
 :Description:
     Time (in seconds) between celery-beat triggered refreshes of the
     in-process IWC workflow manifest cache used by the agent-ops
-    layer. Default matches the cache's in-process TTL so the cache
-    stays continuously warm rather than expiring between user-driven
-    hits. Failures are logged and the prior cached copy is retained.
-    Only registered when ``inference_services`` is configured (i.e.
-    GalaxyAI is in use). Set to 0 to disable automatic refresh --
-    agent-ops callers will then fall back to lazy on-demand fetching
-    with the same hour TTL. Requires celery.
+    layer. The same task also writes the slim catalog projection read
+    by the "Curated workflows" tab to ``curated_workflows_path``.
+    Default matches the cache's in-process TTL so the cache stays
+    continuously warm rather than expiring between user-driven hits.
+    Failures are logged and the prior cached copy is retained. Only
+    registered when ``inference_services`` is configured (i.e.
+    GalaxyAI is in use) or ``curated_workflows_source`` is ``iwc``.
+    Set to 0 to disable automatic refresh -- agent-ops callers will
+    then fall back to lazy on-demand fetching with the same hour TTL,
+    and the curated workflows tab will refresh its projection lazily
+    on first use. Requires celery.
 :Default: ``3600``
 :Type: int
 
@@ -6178,6 +6382,38 @@
 :Type: bool
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+``enable_command_palette``
+~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Master toggle for the command palette, the searchable overlay that
+    lets users jump to tools, workflows, histories, datasets and other
+    Galaxy resources from anywhere in the interface.
+    When disabled, the search button in the masthead is hidden and the
+    Ctrl/Cmd-K keyboard shortcut that opens the palette is not
+    registered.
+:Default: ``true``
+:Type: bool
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``command_palette_disabled_providers``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    List of command palette providers to disable.
+    Valid provider ids are: ``actions``, ``navigation``, ``tools``,
+    ``workflows``, ``histories``, ``datasets``, ``visualizations``,
+    ``invocations``, ``reports`` and ``interactiveTools``.
+    Disabling a provider removes its search scopes, its category tab
+    and its results from the palette. This only hides palette UI: the
+    API endpoints the provider searches stay available. An unknown id
+    is ignored, with a warning in the browser console.
+:Default: ``None``
+:Type: seq
+
+
 ~~~~~~~~~~~~~~~~~~~~~
 ``enable_mcp_server``
 ~~~~~~~~~~~~~~~~~~~~~
@@ -6189,8 +6425,12 @@
     enabled, Galaxy exposes an MCP endpoint that provides tools for
     searching, executing tools, managing histories, and more.
     The MCP server requires API key authentication and uses the
-    existing Galaxy REST API internally. This feature is experimental
-    and disabled by default.
+    existing Galaxy REST API internally. Clients should send the key
+    in an `x-api-key` header from their MCP server configuration (e.g.
+    `"headers": {"x-api-key": "..."}`), which keeps it out of the
+    model's context. Tools also accept an optional `api_key` argument,
+    which is ignored when the header is set. This feature is
+    experimental and disabled by default.
 :Default: ``false``
 :Type: bool
 
@@ -6232,6 +6472,29 @@
 :Type: int
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``send_notification_rate_limit``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Maximum rate at which a single user may send notifications through
+    the ``POST /api/notifications`` endpoint. Requests are counted per
+    API key or session, so the limit is per user rather than per
+    client address, and it applies to every sender, including
+    administrators. It bounds how many notifications (and, for tool
+    installation requests submitted by users, admin-facing emails) one
+    account can generate.
+    The value follows the notation of the ``limits`` library:
+    ``<count>/<unit>`` or ``<count> per <n> <unit>``, where the unit
+    is one of ``second``, ``minute``, ``hour``, ``day``, ``month`` or
+    ``year``, e.g. ``10/minute`` or ``100 per hour``. The counter is
+    kept in memory by each web worker process, so with several workers
+    the effective limit is a multiple of this value. Leave empty to
+    disable the limit.
+:Default: ``10/minute``
+:Type: str
+
+
 ~~~~~~~~~~~~~~~~~~~~~~
 ``help_forum_api_url``
 ~~~~~~~~~~~~~~~~~~~~~~
@@ -6251,6 +6514,24 @@
 :Description:
     Enable the integration of the Galaxy Help Forum in the tool panel.
     This requires the help_forum_api_url to be set.
+:Default: ``false``
+:Type: bool
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``enable_tool_installation_request_form``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Enable the Tool Installation Request Form in the toolbox, allowing
+    users to request new tools to be installed on this Galaxy
+    instance.
+    When enabled, a "Request Tool Installation" button will appear in
+    the tool panel. Submitted requests are sent as notifications to
+    all admin users via Galaxy's notification system, which must also
+    be enabled.
+    This requires ``enable_notification_system`` to be set to
+    ``true``.
 :Default: ``false``
 :Type: bool
 
@@ -6387,6 +6668,3 @@
     for user defined tools.
 :Default: ``false``
 :Type: bool
-
-
-

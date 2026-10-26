@@ -53,10 +53,7 @@ class TestUserLibraryImport(SeleniumIntegrationTestCase):
         self.assert_num_displayed_items_is(0)
         self.libraries_dataset_import(self.navigation.libraries.folder.labels.from_user_import_dir)
 
-        # importing modal should be hidden
-        self.wait_for_selector_absent_or_hidden(self.modal_body_selector())
-
-        # assert 'user import folder was not created' warning
+        # assert 'user import folder was not created' warning is shown inside the import modal
         self.components.libraries.folder.alert_not_exists_user_import_dir.wait_for_visible()
 
     @selenium_test
@@ -68,6 +65,8 @@ class TestUserLibraryImport(SeleniumIntegrationTestCase):
         self.libraries_open_with_name(self.name)
 
         self.components.libraries.folder.manage_dataset_permissions_btn(name=dataset_filename).wait_for_and_click()
+        # The imported dataset starts out private to the importing user.
+        self.components.libraries.folder.remove_restrictions_btn.wait_for_and_click()
         self.components.libraries.folder.make_private_btn.wait_for_and_click()
         access_dataset_roles = self.components.libraries.folder.access_dataset_roles.wait_for_visible()
 

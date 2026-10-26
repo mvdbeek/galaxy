@@ -4,8 +4,8 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, ref, watch } from "vue";
 
 import type { HDASummary } from "@/api";
-import { COLLECTION_TYPE_TO_LABEL } from "@/components/Collections/common/buildCollectionModal";
-import { useUploadConfigurations } from "@/composables/uploadConfigurations";
+import { COLLECTION_TYPE_SHORT_LABELS } from "@/components/Collections/common/knownCollectionTypes";
+import type { UploadModalConfig } from "@/components/Panels/Upload/uploadModalTypes";
 import localize from "@/utils/localization";
 
 import CollectionCreatorFooterButtons from "./CollectionCreatorFooterButtons.vue";
@@ -16,7 +16,7 @@ import CollectionCreatorSourceOptions from "./CollectionCreatorSourceOptions.vue
 import CollectionNameInput from "./CollectionNameInput.vue";
 import GTab from "@/components/BaseComponents/GTab.vue";
 import GTabs from "@/components/BaseComponents/GTabs.vue";
-import DefaultBox from "@/components/Upload/DefaultBox.vue";
+import UploadMethodViewInline from "@/components/Panels/Upload/UploadMethodViewInline.vue";
 
 const Tabs = {
     create: 0,
@@ -33,10 +33,10 @@ interface Props {
     extensionsToggle?: boolean;
     noItems?: boolean;
     collectionType?: string;
-    showUpload: boolean;
+    showUpload?: boolean;
     showButtons?: boolean;
     collectionName: string;
-    mode: "wizard" | "modal";
+    mode?: "wizard" | "modal";
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -62,13 +62,12 @@ const currentTab = ref(Tabs.create);
 const localHideSourceItems = ref(props.hideSourceItems);
 const name = ref(props.collectionName);
 
-// Upload properties
-const {
-    configOptions,
-    effectiveExtensions,
-    listDbKeys,
-    ready: uploadReady,
-} = useUploadConfigurations(props.extensions);
+const uploadConfig = computed<UploadModalConfig>(() => ({
+    allowCollections: false,
+    formats: props.extensions,
+    hideTips: true,
+    targetHistoryId: props.historyId,
+}));
 
 const validInput = computed(() => {
     return props.collectionName.length > 0;
@@ -79,8 +78,8 @@ const defaultWhatIsBeingCreated = "collection";
 /** Plain language for what is being created */
 const shortWhatIsBeingCreated = computed<string>(() => {
     const collectionType: string | undefined = props.collectionType;
-    if (collectionType && collectionType in COLLECTION_TYPE_TO_LABEL) {
-        return COLLECTION_TYPE_TO_LABEL[collectionType] as string;
+    if (collectionType && collectionType in COLLECTION_TYPE_SHORT_LABELS) {
+        return COLLECTION_TYPE_SHORT_LABELS[collectionType] as string;
     } else {
         return defaultWhatIsBeingCreated;
     }
@@ -90,6 +89,13 @@ function addUploadedFiles(value: HDASummary[]) {
     // TODO: We really need to wait for each of these items to get `state = 'ok'`
     //       before we can add them to the collection.
     emit("add-uploaded-files", value);
+}
+
+function onUploaded(datasets: any[]) {
+    if (datasets.length > 0) {
+        addUploadedFiles(datasets as unknown as HDASummary[]);
+        currentTab.value = Tabs.create;
+    }
 }
 
 function cancelCreate() {
@@ -141,9 +147,10 @@ watch(
 
                         <div class="d-flex align-items-center justify-content-between">
                             <CollectionCreatorSourceOptions
-                                v-model="localHideSourceItems"
+                                :value="localHideSourceItems"
                                 :render-extensions-toggle="renderExtensionsToggle"
                                 :extensions-toggle="extensionsToggle"
+                                @input="(v: boolean) => (localHideSourceItems = v)"
                                 @remove-extensions-toggle="removeExtensionsToggle" />
                             <CollectionNameInput
                                 :value="name"
@@ -184,9 +191,10 @@ watch(
 
                             <div class="d-flex align-items-center justify-content-between">
                                 <CollectionCreatorSourceOptions
-                                    v-model="localHideSourceItems"
+                                    :value="localHideSourceItems"
                                     :render-extensions-toggle="renderExtensionsToggle"
-                                    :extensions-toggle="extensionsToggle" />
+                                    :extensions-toggle="extensionsToggle"
+                                    @input="(v: boolean) => (localHideSourceItems = v)" />
                                 <CollectionNameInput
                                     :value="collectionName"
                                     :short-what-is-being-created="shortWhatIsBeingCreated"
@@ -203,39 +211,23 @@ watch(
                     </div>
                 </div>
             </GTab>
-            <GTab :title-link-attributes="{ 'data-description': 'collection create tab upload' }">
+            <GTab lazy :title-link-attributes="{ 'data-description': 'collection create tab upload' }">
                 <template v-slot:title>
                     <FontAwesomeIcon :icon="faUpload" fixed-width />
                     <span>{{ localize("Upload Files to Add to Collection") }}</span>
                 </template>
-                <DefaultBox
-                    v-if="uploadReady && configOptions"
-                    :effective-extensions="effectiveExtensions"
-                    v-bind="configOptions"
-                    :has-callback="false"
-                    :history-id="historyId"
-                    :list-db-keys="listDbKeys"
-                    disable-footer
-                    emit-uploaded
-                    size="small"
-                    @uploaded="addUploadedFiles"
-                    @dismiss="currentTab = Tabs.create">
-                    <template v-slot:footer>
+                <div class="p-3">
+                    <UploadMethodViewInline :config="uploadConfig" @uploaded="onUploaded" />
+                    <div class="mt-2">
                         <CollectionCreatorShowExtensions :extensions="extensions" upload />
-                    </template>
-                </DefaultBox>
+                    </div>
+                </div>
             </GTab>
         </GTabs>
     </span>
 </template>
 
 <style lang="scss">
-$fa-font-path: "../../../../node_modules/@fortawesome/fontawesome-free/webfonts/";
-@import "@fortawesome/fontawesome-free/scss/_variables";
-@import "@fortawesome/fontawesome-free/scss/solid";
-@import "@fortawesome/fontawesome-free/scss/fontawesome";
-@import "@fortawesome/fontawesome-free/scss/brands";
-
 // Outside the modal - we need to set a max width on the help so ellipses display
 // doesn't cause it to grow without bound. Would greater appreciate a better workaround.
 .collection-creator-bounded-help {
@@ -454,22 +446,6 @@ $fa-font-path: "../../../../node_modules/@fortawesome/fontawesome-free/webfonts/
         // NOT setting the above will give a full-height page
         border: 1px solid lightgrey;
         border-width: 1px 0 1px 0;
-    }
-    .element-drop-placeholder {
-        width: 60px;
-        height: 3px;
-        margin: 2px 0px 0px 14px;
-        background: black;
-        &:before {
-            @extend .fas;
-            float: left;
-            font-size: 120%;
-            margin: -9px 0px 0px -8px;
-            content: fa-content($fa-var-caret-right);
-        }
-        &:last-child {
-            margin-bottom: 8px;
-        }
     }
     // ------------------------------------------------------------------------ footer
     .footer {

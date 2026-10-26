@@ -6,12 +6,11 @@
  * no active search query, keeping all the My Tools-specific reactivity off
  * the default tool panel hot path.
  */
-import { BAlert } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, ref, watch } from "vue";
-import draggable from "vuedraggable";
 
 import { isTool, isToolSection } from "@/api/tools";
+import draggable from "@/components/Common/SortableList";
 import { useToast } from "@/composables/toast";
 import { useToolPanelFavorites } from "@/composables/toolPanelFavorites";
 import type { Tool, ToolPanelItem, ToolSection as ToolSectionType } from "@/stores/toolStore";
@@ -29,6 +28,7 @@ import {
 } from "./panelViews";
 import { buildToolLabel, buildToolSection, getUniqueToolIdsInPanel } from "./utilities";
 
+import GAlert from "../BaseComponents/GAlert.vue";
 import GButton from "../BaseComponents/GButton.vue";
 import ToolItem from "./Common/Tool.vue";
 import ToolPanelLabel from "./Common/ToolPanelLabel.vue";
@@ -453,7 +453,7 @@ function onLabelToggle(labelId: string) {
             @toggle="onLabelToggle" />
         <div v-if="!favoritesCollapsed">
             <div v-if="showEmptyFavorites" class="tool-panel-empty">
-                <BAlert variant="info" show>
+                <GAlert variant="info" show>
                     <template v-if="!isAnonymous">
                         You haven't favorited any tools yet. Search the toolbox or use
                         <GButton
@@ -478,11 +478,12 @@ function onLabelToggle(labelId: string) {
                         </GButton>
                         to favorite tools and have them appear in this section.
                     </template>
-                </BAlert>
+                </GAlert>
             </div>
             <draggable
                 v-else
                 v-model="draggableFavoriteItems"
+                item-key="favoriteKey"
                 data-description="favorites-top-level-list"
                 :disabled="isAnonymous"
                 :force-fallback="true"
@@ -492,27 +493,27 @@ function onLabelToggle(labelId: string) {
                 chosen-class="favorite-top-level-chosen"
                 @start="onFavoriteDragStart"
                 @end="onFavoriteDragEnd">
-                <div
-                    v-for="favoriteItem in draggableFavoriteItems"
-                    :key="favoriteItem.favoriteKey"
-                    class="favorite-top-level-item"
-                    :data-description="`favorite-top-level-item-${favoriteItem.orderEntry.object_type}`"
-                    :data-favorite-type="favoriteItem.orderEntry.object_type"
-                    :data-favorite-id="favoriteItem.orderEntry.object_id">
-                    <ToolSection
-                        v-if="isToolSection(favoriteItem.panelItem)"
-                        :category="favoriteItem.panelItem"
-                        :collapsed-labels="collapsedLabels"
-                        show-drag-handle
-                        @onClick="onToolClick"
-                        @onFilter="onSectionFilter"
-                        @onLabelToggle="onLabelToggle" />
-                    <ToolItem
-                        v-else-if="isTool(favoriteItem.panelItem)"
-                        :tool="favoriteItem.panelItem"
-                        show-drag-handle
-                        @onClick="onToolClick" />
-                </div>
+                <template v-slot:item="{ element: favoriteItem }">
+                    <div
+                        class="favorite-top-level-item"
+                        :data-description="`favorite-top-level-item-${favoriteItem.orderEntry.object_type}`"
+                        :data-favorite-type="favoriteItem.orderEntry.object_type"
+                        :data-favorite-id="favoriteItem.orderEntry.object_id">
+                        <ToolSection
+                            v-if="isToolSection(favoriteItem.panelItem)"
+                            :category="favoriteItem.panelItem"
+                            :collapsed-labels="collapsedLabels"
+                            show-drag-handle
+                            @onClick="onToolClick"
+                            @onFilter="onSectionFilter"
+                            @onLabelToggle="onLabelToggle" />
+                        <ToolItem
+                            v-else-if="isTool(favoriteItem.panelItem)"
+                            :tool="favoriteItem.panelItem"
+                            show-drag-handle
+                            @onClick="onToolClick" />
+                    </div>
+                </template>
             </draggable>
         </div>
     </div>

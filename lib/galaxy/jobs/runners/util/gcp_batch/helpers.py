@@ -1,11 +1,24 @@
 """Helper functions and constants for GCP Batch runner."""
 
 import logging
+import math
 import re
+from typing import (
+    Any,
+    TypedDict,
+)
 
 from humanfriendly import parse_timespan
 
 log = logging.getLogger(__name__)
+
+
+class VolumeDict(TypedDict):
+    server: str  # NFS server hostname/IP
+    remote_path: str  # path on NFS server
+    mount_path: str  # local mount path
+    read_only: bool
+
 
 # Default values for GCP Batch runner configuration
 DEFAULT_NFS_MOUNT_PATH = "/mnt/nfs"
@@ -28,7 +41,7 @@ DEFAULT_CVMFS_DOCKER_VOLUME = (
 )
 
 
-def parse_volume_spec(volume_spec):
+def parse_volume_spec(volume_spec: str | None) -> VolumeDict | None:
     """
     Parse a volume specification string into a volume dictionary.
 
@@ -37,12 +50,6 @@ def parse_volume_spec(volume_spec):
     Examples:
         "10.0.0.1:/galaxy:/mnt/nfs"
         "nfs-server:/exports/data:/data:r"
-
-    Returns a dict with keys:
-        - server: NFS server hostname/IP
-        - remote_path: path on NFS server
-        - mount_path: local mount path
-        - read_only: boolean
 
     Returns None if the specification is invalid.
     """
@@ -80,7 +87,7 @@ def parse_volume_spec(volume_spec):
     }
 
 
-def parse_volumes_param(volumes_param):
+def parse_volumes_param(volumes_param: str | None) -> list[VolumeDict]:
     """
     Parse the gcp_batch_volumes parameter (comma-separated volume specs).
 
@@ -102,7 +109,7 @@ def parse_volumes_param(volumes_param):
     return volumes
 
 
-def parse_docker_volumes_param(docker_volumes_param):
+def parse_docker_volumes_param(docker_volumes_param: str | None) -> str:
     """
     Parse the docker_extra_volumes parameter for additional docker -v mounts.
 
@@ -122,7 +129,7 @@ def parse_docker_volumes_param(docker_volumes_param):
     return " ".join(volume_args)
 
 
-def convert_cpu_to_milli(cpu_str):
+def convert_cpu_to_milli(cpu_str: str | int | float | None) -> int:
     """
     Convert CPU specification to milli-cores.
     Supports formats like: "1", "1.5", "500m", "0.5"
@@ -149,7 +156,7 @@ def convert_cpu_to_milli(cpu_str):
         return DEFAULT_CPU_MILLI
 
 
-def convert_memory_to_mib(memory_str):
+def convert_memory_to_mib(memory_str: str | int | None) -> int:
     """
     Convert memory specification to MiB.
     Supports formats like: "1Gi", "512Mi", "1024M", "1G", "2048"
@@ -193,7 +200,7 @@ def convert_memory_to_mib(memory_str):
 DEFAULT_MAX_RUN_DURATION = "86400s"
 
 
-def convert_duration_to_seconds(duration_str) -> str:
+def convert_duration_to_seconds(duration_str: str | int | float | None) -> str:
     """
     Convert a duration value to GCP Batch duration format (e.g., '3600s').
 
@@ -214,7 +221,9 @@ def convert_duration_to_seconds(duration_str) -> str:
         return DEFAULT_MAX_RUN_DURATION
 
 
-def resolve_max_run_duration(destination_params, runner_params, resource_params):
+def resolve_max_run_duration(
+    destination_params: dict[str, Any], runner_params: dict[str, Any], resource_params: dict[str, Any]
+) -> str:
     """
     Resolve the maximum run duration from multiple configuration sources.
 
@@ -244,7 +253,7 @@ def resolve_max_run_duration(destination_params, runner_params, resource_params)
     return convert_duration_to_seconds(runner_params.get("max_run_duration", DEFAULT_MAX_RUN_DURATION))
 
 
-def compute_machine_type(cpu_milli, memory_mib, machine_type_family="n2"):
+def compute_machine_type(cpu_milli: int, memory_mib: int, machine_type_family: str = "n2") -> str:
     """
     Compute an appropriate GCP machine type based on resource requirements.
 
@@ -335,7 +344,125 @@ def compute_machine_type(cpu_milli, memory_mib, machine_type_family="n2"):
     return machine_type
 
 
-def sanitize_label_value(value, max_length=63):
+# NVIDIA L4 GPUs are only offered on the G2 (accelerator-optimized) machine family.
+# Each g2-standard shape bundles a fixed number of L4 GPUs with a fixed vCPU/memory
+# allocation, so the requested GPU count constrains the machine type. Entries are
+# (vcpu, memory_mib, l4_gpu_count, machine_type).
+L4_GPU_MACHINE_TYPES = [
+    (4, 16 * 1024, 1, "g2-standard-4"),
+    (8, 32 * 1024, 1, "g2-standard-8"),
+    (12, 48 * 1024, 1, "g2-standard-12"),
+    (16, 64 * 1024, 1, "g2-standard-16"),
+    (32, 128 * 1024, 1, "g2-standard-32"),
+    (24, 96 * 1024, 2, "g2-standard-24"),
+    (48, 192 * 1024, 4, "g2-standard-48"),
+    (96, 384 * 1024, 8, "g2-standard-96"),
+]
+
+# L4 GPU counts offered by the G2 machine family (1, 2, 4, 8).
+SUPPORTED_L4_GPU_COUNTS = sorted({entry[2] for entry in L4_GPU_MACHINE_TYPES})
+
+
+def resolve_gpu_count(value: str | int | float | None) -> int:
+    """
+    Normalize a requested GPU quantity to a whole number of physical GPUs.
+
+    ``gpus`` is a TPV scheduling quantity, not a device count: it reaches the runner
+    as a string through destination param interpolation, and real configurations use
+    fractions (``gpus: 0.25``) to mean "a share of a GPU". GCP Batch can only attach
+    whole L4 devices, so any positive request rounds up to the next whole GPU.
+
+    Args:
+        value: the requested quantity (``None``, ``""``, a number, or a numeric string)
+
+    Returns:
+        The number of whole GPUs to attach (0 if nothing was requested)
+
+    Raises:
+        ValueError: if ``value`` is not numeric.
+    """
+    if value is None or value == "":
+        return 0
+    try:
+        gpus = float(value)
+    except (TypeError, ValueError):
+        raise ValueError(f"Invalid GPU request {value!r}: expected a number of GPUs (e.g. 1, 2, or 0.25).")
+    if not math.isfinite(gpus):
+        raise ValueError(f"Invalid GPU request {value!r}: expected a number of GPUs (e.g. 1, 2, or 0.25).")
+    if gpus <= 0:
+        return 0
+    return math.ceil(gpus)
+
+
+def gpu_count_for_machine_type(machine_type: str | None) -> int:
+    """
+    Return the number of NVIDIA L4 GPUs bundled with a G2 machine type.
+
+    G2 shapes carry their GPUs as part of the machine type rather than as a separate
+    accelerator request, so a job placed on one has GPUs whether or not it asked for
+    them. Returns 0 for any non-G2 machine type (or none). A G2 shape missing from
+    ``L4_GPU_MACHINE_TYPES`` is assumed to carry at least one GPU, since every G2
+    shape does.
+    """
+    if not machine_type or not machine_type.startswith("g2-"):
+        return 0
+    for _vcpu, _mem_mib, count, name in L4_GPU_MACHINE_TYPES:
+        if name == machine_type:
+            return count
+    return 1
+
+
+def compute_gpu_machine_type(gpu_count: int, cpu_milli: int, memory_mib: int) -> str:
+    """
+    Select the smallest g2-standard machine type providing the requested number of
+    NVIDIA L4 GPUs and at least the requested vCPU and memory.
+
+    L4 GPUs exist only on the G2 machine family, whose shapes bundle a fixed GPU
+    count with fixed vCPU/memory, so the GPU count determines the candidate shapes
+    and cpu/memory pick among them.
+
+    Args:
+        gpu_count: Number of L4 GPUs requested (must be one of SUPPORTED_L4_GPU_COUNTS)
+        cpu_milli: CPU requirement in milli-cores (1000 = 1 vCPU)
+        memory_mib: Memory requirement in MiB
+
+    Returns:
+        Machine type string (e.g., "g2-standard-32")
+
+    Raises:
+        ValueError: if ``gpu_count`` is not offered by any L4 shape, or if the
+            requested cpu/memory exceeds every shape carrying that GPU count.
+    """
+    cpu_vcpus = max(1, (cpu_milli + 999) // 1000)
+    candidates = sorted(
+        (entry for entry in L4_GPU_MACHINE_TYPES if entry[2] == gpu_count),
+        key=lambda entry: (entry[0], entry[1]),
+    )
+    if not candidates:
+        raise ValueError(
+            f"{gpu_count} L4 GPU(s) is not supported; available L4 GPU counts are "
+            f"{SUPPORTED_L4_GPU_COUNTS} (G2 machine family)."
+        )
+    for vcpu, mem_mib, _count, machine_type in candidates:
+        if vcpu >= cpu_vcpus and mem_mib >= memory_mib:
+            log.debug(
+                "Selected GPU machine type %s for %d L4 GPU(s), %d mCPU, %d MiB",
+                machine_type,
+                gpu_count,
+                cpu_milli,
+                memory_mib,
+            )
+            return machine_type
+    largest_vcpu, largest_mem, _count, largest_machine_type = candidates[-1]
+    raise ValueError(
+        f"No L4 GPU machine type with {gpu_count} GPU(s) satisfies the requested "
+        f"{cpu_vcpus} vCPU / {memory_mib} MiB; the largest available is "
+        f"{largest_machine_type} ({largest_vcpu} vCPU / {largest_mem} MiB). "
+        f"Reduce cores/mem or request a different GPU count."
+    )
+
+
+def sanitize_label_value(value: str | None, max_length: int = 63) -> str:
     """Sanitize a value to be used as a GCP label value."""
     if not value:
         return "unknown"

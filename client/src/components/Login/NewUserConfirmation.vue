@@ -1,21 +1,15 @@
 <script setup lang="ts">
 import axios from "axios";
-import {
-    BAlert,
-    BButton,
-    BCard,
-    BCardBody,
-    BCardFooter,
-    BEmbed,
-    BForm,
-    BFormCheckbox,
-    BFormGroup,
-} from "bootstrap-vue";
+import { BCard, BCardBody, BCardFooter, BEmbed, BForm, BFormGroup } from "bootstrap-vue";
 import { ref } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import { redirectToUrl, withPrefix } from "@/utils/redirect";
 import { errorMessageAsString } from "@/utils/simple-error";
+
+import GAlert from "@/components/BaseComponents/GAlert.vue";
+import GButton from "@/components/BaseComponents/GButton.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 
 interface Props {
     sessionCsrfToken: string;
@@ -75,6 +69,7 @@ async function login() {
 }
 
 async function submit() {
+    // Enter-key form submission bypasses the button's click guard.
     if (!termsRead.value || pending.value) {
         return;
     }
@@ -104,13 +99,13 @@ async function submit() {
     <div class="container">
         <div class="row justify-content-md-center">
             <div class="col col-lg-6">
-                <BAlert :show="!!registrationWarningMessage" variant="info">
+                <GAlert :show="!!registrationWarningMessage" variant="info">
                     {{ registrationWarningMessage }}
-                </BAlert>
+                </GAlert>
 
-                <BAlert :show="!!messageText" :variant="messageVariant">
+                <GAlert :show="!!messageText" :variant="messageVariant">
                     {{ messageText }}
-                </BAlert>
+                </GAlert>
 
                 <BForm id="confirmation" @submit.prevent="submit()">
                     <BCard no-body header="Confirm new account creation">
@@ -140,22 +135,22 @@ async function submit() {
                             </p>
 
                             <BFormGroup>
-                                <BFormCheckbox v-model="termsRead">
+                                <GCheckbox v-model="termsRead">
                                     I have read and accept these terms to create a new Galaxy account.
-                                </BFormCheckbox>
+                                </GCheckbox>
                             </BFormGroup>
 
-                            <BButton
+                            <GButton
                                 name="confirm"
                                 type="submit"
                                 :disabled="!termsRead || pending"
                                 @click.prevent="submit">
                                 Yes, create new account
-                            </BButton>
+                            </GButton>
 
-                            <BButton name="cancel" type="submit" :disabled="pending" @click.prevent="login">
+                            <GButton name="cancel" type="submit" :disabled="pending" @click.prevent="login">
                                 No, go back to login
-                            </BButton>
+                            </GButton>
                         </BCardBody>
 
                         <BCardFooter>

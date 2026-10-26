@@ -8,6 +8,8 @@ This document is a reference for the job configuration file. [Detailed documenta
 
 Configuration of where to run jobs is performed in the `job_conf.yml` file in `$GALAXY_ROOT/config/`.  The path to the config file can be overridden by setting the value of `job_config_file` in `config/galaxy.yml`.  Sample configurations can be found at `config/job_conf.sample.yml`.  The job configuration file is not required - if it does not exist, a default configuration that runs jobs on the local system (with a maximum of 4 concurrent jobs) will be used. Examples of XML job configuration files are also available in [basic](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/config/sample/job_conf.xml.sample_basic) and [advanced](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/config/sample/job_conf.xml.sample_advanced) forms. 
 
+For metadata runtime images, including Pulsar staging, versioning and custom datatype dependencies, see [Containerized metadata collection](containerized_metadata.md).
+
 ## job_conf.xml Syntax
 
 The root element is `<job_conf>`.
@@ -48,6 +50,31 @@ id
 tags
 : A comma-separated set of strings that optional define tags to which this handler belongs.
 
+#### Ready window size
+
+The ready window limits how many pending jobs each handler checks per user on each pass. It defaults to 100 and can be configured in `job_conf.yml`:
+
+```yaml
+handling:
+  ready_window_size: 100
+```
+
+The equivalent XML setting is the `ready_window_size` attribute on `<handlers>`:
+
+```xml
+<handlers ready_window_size="100">
+    <!-- Existing handler definitions go here. -->
+</handlers>
+```
+
+This setting limits the work spent checking pending jobs; concurrency limits separately control how many jobs may run. A smaller window can improve responsiveness for other users when one user has a large backlog. Each anonymous session has its own window, while authenticated sessions share their user's window. This setting does not apply to SQLite or in-memory job queues.
+
+When a dynamic destination rule defers a job, the handler continues checking later jobs for that user over subsequent passes. For example, with a window of two, five deferred jobs followed by a sixth runnable job are checked in three passes: jobs 1–2, then 3–4, then 5–6. The sixth job can run without waiting for the first five to become runnable, provided it meets the usual input and concurrency requirements.
+
+The handler then returns to the beginning to retry deferred jobs. This means an earlier job may wait for the handler to finish checking the existing backlog before it is checked again, even if its resources become available sooner. A smaller window can increase this delay. Jobs arriving during this traversal are considered on the next traversal, so new submissions cannot indefinitely postpone retries.
+
+For administrators writing dynamic destination rules, this behavior is triggered by `JobNotReadyException` when it leaves the job waiting; deferred jobs remain in the `new` state. Ordinary concurrency waits alone do not start a traversal, but an existing traversal continues through them. Progress is local to each handler and resets when the handler restarts.
+
 ### Job Destinations
 
 The `<destinations>` collection defines the parameters that should be used to run a job that is sent to the specified destination. This configuration element should define a ``default``
@@ -84,6 +111,87 @@ exec
 
 raw
 : Disable auto-quoting of values when setting up environment variables.
+
+#### Job and tool environment scopes
+
+`env` is the legacy alias for `job_env`. Both configure the job script environment.
+For local and cluster runners that wrap the tool command in Docker or Singularity,
+these entries are **not automatically injected into the tool container**. This
+legacy behavior is preserved for security reasons, so job-scoped variables are
+not exposed to tool containers by default.
+
+`tool_env` exports variables in the job script and explicitly forwards them into
+wrapped tool containers. It accepts only `name`/`value` entries and the optional
+`raw` flag; `file` and `execute` are rejected because Galaxy cannot know which
+names they define. Names must be valid shell variable names. `tool_env` reaches
+every tool that runs on the destination, including user-defined tools, whose
+commands are written by users. Map user-defined tools to a separate destination
+if a `tool_env` value is meant only for specific installed tools. For example:
+
+```yaml
+execution:
+  default: local_docker
+  environments:
+    local_docker:
+      runner: local
+      docker_enabled: true
+      job_env:
+        - name: HOST_SETTING
+          value: host_value
+      tool_env:
+        - name: _JAVA_OPTIONS
+          value: "-Xmx6G"
+```
+
+XML destinations accept sibling `<env>`, `<job_env>` and `<tool_env>` elements,
+using the same attributes:
+
+```xml
+<destination id="local_docker" runner="local">
+    <param id="docker_enabled">true</param>
+    <job_env id="HOST_SETTING">host_value</job_env>
+    <tool_env id="_JAVA_OPTIONS">-Xmx6G</tool_env>
+</destination>
+```
+
+All entries are exported in configuration order (XML element order, or YAML key
+and list order). If a name appears more than once, the later definition wins.
+On non-containerized destinations, both scopes reach the tool.
+
+Container-native runners, including Kubernetes and Pulsar coexecution, run the
+whole job script inside the tool container. Consequently `env`, `job_env` and
+`tool_env` all reach the tool. Galaxy warns when loading the runner plugins if `job_env` is
+configured for these runners; it cannot provide host/tool separation there.
+
+Installed tools can also declare `<runtime_environment_variable name="X"
+required="false" description="Runtime setting" />` under `<requirements>`.
+Galaxy forwards those names from the job environment regardless of how the value
+was set, including sourced files and executed setup commands. Installed YAML tools
+use a `runtime_environment_variables` list with `name`, `required` and `description`.
+User-defined tools cannot make these declarations. Reserved names and prefixes
+are listed in the tool schema documentation. Secret-looking names trigger a lint
+warning recommending `<credentials>`. Invalid declarations produce a load warning
+and are ignored individually; the tool still loads. The linter continues to
+report them as errors.
+
+Docker receives bare `-e NAME` arguments. With `docker_sudo`, sudo resets the
+environment, so set values are expanded on the host as `-e "NAME=value"` and no
+sudoers change is needed. Singularity/Apptainer receives
+`SINGULARITYENV_NAME` only when `NAME` is set. An empty string is set; an undefined
+variable is omitted. Missing required declared variables produce a warning on
+the job information page and an info-level log entry, without failing the job.
+Only variable names are recorded. The check runs in the tool environment after
+dependency activation, so runtime-specific values and activation exports count
+as set. Optional variables produce no warning, and only names the tool declares
+as required are ever reported.
+
+Prefer `tool_env` for variables consumed by tools. Setting them through
+`<param id="docker_env_VARIABLE">VALUE</param>` or
+`<param id="singularity_env_VARIABLE">VALUE</param>` is a supported anti-pattern:
+it ties the configuration to a specific container runtime, so switching runtimes
+or running without a container can change the tool's environment. These params
+set values only inside the corresponding container runtime and override values
+forwarded from the job environment.
 
 Destinations may also specify other destinations (which may be dynamic destinations) that jobs should be resubmitted to if they fail to complete at the first destination for certain reasons. This is done with the `<resubmit>` tag contained within a `<destination>`.
 
@@ -210,6 +318,30 @@ Galaxy has very sophisticated job configuration options that allow different too
 
 The two most generic and useful dynamic destination types are `python` and `dtd`. The `python` type allows arbitrary Python functions to define destinations for jobs, while the DTD method (introduced in Galaxy 16.07) defines rules for routing in a YAML file.
 
+#### Detecting reference data table usage
+
+Python destination rules can distinguish tools that declare data table parameters
+from jobs that actually select them:
+
+```python
+def reference_destination(tool, job):
+    if tool.is_using_data_table(job):
+        return "cluster_with_references"
+    return "general_cluster"
+```
+
+`tool.has_data_table` reports whether any select parameter uses `options from_data_table`,
+including parameters in inactive conditional branches. `tool.is_using_data_table(job)`
+checks the job's active parameter state, including repeats and sections. A
+history-reference branch, an empty selection, or a history dataset supplied to a
+table-backed select does not count as installed table usage. Job parameters are
+only decoded from JSON, so datasets are not loaded, and parameter state that no
+longer matches the tool is ignored rather than raising.
+
+This detects populated table-backed selections only. It does not verify that the
+value exists in the table, detect legacy `from_file` options, or detect table
+access in tool templates, output actions or code.
+
 #### Dynamic Destination Mapping (DTD method)
 
 DTD is a special dynamic job destination type that builds up rules given a YAML-based DSL - see `config/tool_destinations.yml.sample` (on [Github](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/config/sample/tool_destinations.yml.sample)) for a syntax description, examples, and a description of how to validate and debug this file.
@@ -279,7 +411,7 @@ def ncbi_blastn_wrapper(app, user_email):
 ```
 
 
-The first example above delegates to the PBS job runner and allocates extra walltime for larger input files (based on tool input parameter named `query`). The second example delegates to the DRMAA job runner and assigns users in the in the admin list to a special project (perhaps configured to have a higher priority or extended walltime).
+The first example above delegates to the PBS job runner and allocates extra walltime for larger input files (based on tool input parameter named `query`). The second example delegates to the DRMAA job runner and assigns users in the admin list to a special project (perhaps configured to have a higher priority or extended walltime).
 
 The above examples demonstrate that the dynamic job destination framework will pass in the arguments to your function that are needed based on the argument names. The valid argument names at this time are:
 
@@ -309,6 +441,10 @@ The above examples demonstrate that the dynamic job destination framework will p
 
 ``resource_params``
 : A dictionary of parameters specified by the user using ``job_resource_params_conf.xml`` (if configured).
+  The sample file declares ``processors``, ``memory``, ``gpus``, ``time`` and ``project``. A rule can map these
+  onto destination parameters for any runner. Some runners also read them directly: the GCP Batch runner uses
+  ``processors``, ``mem``, ``walltime`` and ``gpus``, and a ``gpus`` value entered by the user, including 0,
+  takes precedence over the ``gpus`` destination parameter. A blank field falls through to the destination.
 
 ``workflow_invocation_uuid``
 : A randomly generated UUID for the workflow invocation generating this job - this can be

@@ -1,19 +1,29 @@
 <script setup lang="ts">
-import { faArrowCircleLeft, faArrowCircleRight, faArrowDown, faEye, faTimes } from "@fortawesome/free-solid-svg-icons";
+import {
+    faArrowCircleLeft,
+    faArrowCircleRight,
+    faArrowDown,
+    faExpand,
+    faEye,
+    faTimes,
+} from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { until } from "@vueuse/core";
-import { BAlert, BCard, BCardBody, BCardHeader } from "bootstrap-vue";
+import { BCard, BCardBody, BCardHeader } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import type { StepJobSummary, WorkflowInvocationElementView } from "@/api/invocations";
 import type { StoredWorkflowDetailed } from "@/api/workflows";
 import { useDatatypesMapper } from "@/composables/datatypesMapper";
 import { useInvocationGraph } from "@/composables/useInvocationGraph";
+import { useUid } from "@/composables/utils/uid";
 import { useWorkflowStateStore } from "@/stores/workflowEditorStateStore";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import GButtonGroup from "@/components/BaseComponents/GButtonGroup.vue";
+import GModal from "@/components/BaseComponents/GModal.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 import WorkflowGraph from "@/components/Workflow/Editor/WorkflowGraph.vue";
 import WorkflowInvocationStep from "@/components/WorkflowInvocationState/WorkflowInvocationStep.vue";
@@ -26,8 +36,6 @@ interface Props {
     stepsJobsSummary: StepJobSummary[];
     /** The workflow which was run */
     workflow: StoredWorkflowDetailed;
-    /** Whether the invocation is terminal */
-    isTerminal: boolean;
     /** The zoom level for the graph */
     zoom?: number;
     /** Whether to show the minimap */
@@ -38,8 +46,8 @@ interface Props {
     initialX?: number;
     /** The initial y position for the graph */
     initialY?: number;
-    /** Whether the graph is being rendered on the dedicated invocation page/route */
-    isFullPage?: boolean;
+    /** Fit the graph and step details to the page height instead of scrolling */
+    fitToPage?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -49,17 +57,17 @@ const props = withDefaults(defineProps<Props>(), {
     initialX: -40,
     initialY: -40,
     visible: true,
-    isFullPage: false,
+    fitToPage: false,
 });
 
 const loadingGraph = ref(true);
 const initialLoading = ref(true);
 const errored = ref(false);
 const errorMessage = ref("");
-const pollTimeout = ref<any>(null);
 const showSideOverlay = ref(false);
 const stepCard = ref<BCard | null>(null);
-const loadedJobInfo = ref<typeof WorkflowInvocationStep | null>(null);
+const stepExpanded = ref(false);
+const stepModalTargetId = useUid("invocation-step-modal-");
 const detailedViewEnabled = ref(false);
 const workflowGraph = ref<InstanceType<typeof WorkflowGraph> | null>(null);
 
@@ -83,29 +91,44 @@ onMounted(async () => {
     workflowGraph.value?.fitWorkflow(0.25, 1.0, 20.0);
 });
 
-// Equivalent to onMounted; this is where the graph is initialized, and the polling is started
+// Equivalent to onMounted; this is where the graph is initialized. The graph then follows the
+// `invocation` and `stepsJobsSummary` props, polled by the parent.
 watch(
     () => workflowId.value,
     async (wfId) => {
         if (wfId) {
-            await pollInvocationGraph();
+            await loadGraph();
         }
     },
     { immediate: true },
 );
 
+// Retry a failed load when the parent polls new data
+watch(
+    () => [props.invocation, props.stepsJobsSummary],
+    async () => {
+        if (errored.value && workflowId.value) {
+            await loadGraph();
+        }
+    },
+);
+
 const stateStore = useWorkflowStateStore(storeId.value);
 const { activeNodeId } = storeToRefs(stateStore);
+
+// Close the expanded-step modal when the active step changes
+watch(
+    () => activeNodeId.value,
+    () => {
+        stepExpanded.value = false;
+    },
+);
 
 watch(
     () => props.zoom,
     () => (stateStore.scale = props.zoom),
     { immediate: true },
 );
-
-onUnmounted(() => {
-    clearTimeout(pollTimeout.value);
-});
 
 const initialPosition = computed(() => ({
     x: -props.initialX * props.zoom,
@@ -151,19 +174,11 @@ function navigateStep(direction: "previous" | "next") {
     }
 }
 
-/** Poll and load the invocation graph until the invocation is terminal */
-async function pollInvocationGraph() {
-    await loadGraph();
-    if (!props.isTerminal) {
-        pollTimeout.value = setTimeout(pollInvocationGraph, 3000);
-    } else {
-        clearTimeout(pollTimeout.value);
-    }
-}
-
 function scrollStepToView() {
-    const stepCardHeader = stepCard.value?.querySelector(".card-header");
-    stepCardHeader?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (!props.fitToPage) {
+        const stepCardHeader = stepCard.value?.querySelector(".card-header");
+        stepCardHeader?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
 }
 
 /** On a repetition of the step clicked, scroll to the step */
@@ -179,21 +194,21 @@ function toggleDetailedView() {
 </script>
 
 <template>
-    <div>
-        <BAlert v-if="initialLoading" show variant="info">
+    <div :class="{ 'fit-to-page': props.fitToPage }">
+        <GAlert v-if="initialLoading" show variant="info">
             <LoadingSpan message="Loading Invocation Graph" />
-        </BAlert>
+        </GAlert>
         <div v-else-if="errored">
-            <BAlert v-if="errorMessage" show variant="danger">
+            <GAlert v-if="errorMessage" show variant="danger">
                 {{ errorMessage }}
-            </BAlert>
-            <BAlert v-else show variant="danger"> Unknown Error </BAlert>
+            </GAlert>
+            <GAlert v-else show variant="danger"> Unknown Error </GAlert>
         </div>
-        <div v-else-if="steps && datatypesMapper">
-            <div class="d-flex">
+        <div v-else-if="steps && datatypesMapper" class="graph-layout">
+            <div class="d-flex graph-pane" :class="{ 'with-details': activeNodeId !== null && activeStep }">
                 <!-- eslint-disable-next-line vuejs-accessibility/mouse-events-have-key-events, vuejs-accessibility/no-static-element-interactions -->
                 <div
-                    class="position-relative w-100"
+                    class="position-relative w-100 graph-wrapper"
                     @mouseover="showSideOverlay = true"
                     @mouseleave="showSideOverlay = false">
                     <BCard no-body>
@@ -210,7 +225,7 @@ function toggleDetailedView() {
                             :show-minimap="props.showMinimap"
                             :show-zoom-controls="props.showZoomControls"
                             :detailed-view="detailedViewEnabled"
-                            :fixed-height="60"
+                            :fixed-height="props.fitToPage ? undefined : 60"
                             is-invocation
                             readonly
                             @stepClicked="stepClicked" />
@@ -240,21 +255,34 @@ function toggleDetailedView() {
                 </div>
             </div>
             <BCard v-if="activeNodeId !== null && activeStep" ref="stepCard" class="invocation-step-card mt-2" no-body>
-                <BCardHeader
-                    class="invocation-step-header"
-                    :class="activeNodeId !== null ? steps[activeNodeId]?.headerClass : ''">
+                <BCardHeader class="invocation-step-header" :class="steps[activeNodeId]?.headerClass">
                     <WorkflowInvocationStepHeader
-                        class="w-100 pr-2"
+                        class="mr-2"
                         :workflow-step="activeStep"
                         :graph-step="steps[activeNodeId]"
                         :invocation-step="props.invocation.steps[activeNodeId]" />
                     <div class="d-flex flex-gapx-1">
-                        <GButton title="Scroll to Step" size="small" transparent @click="scrollStepToView()">
+                        <GButton
+                            v-if="!props.fitToPage"
+                            title="Scroll to Step"
+                            size="small"
+                            transparent
+                            @click="scrollStepToView()">
                             <FontAwesomeIcon :icon="faArrowDown" />
+                        </GButton>
+                        <GButton
+                            v-if="activeStep.type === 'tool'"
+                            title="Expand Step"
+                            data-description="invocation graph expand step button"
+                            size="small"
+                            transparent
+                            @click="stepExpanded = true">
+                            <FontAwesomeIcon :icon="faExpand" />
                         </GButton>
                         <GButtonGroup>
                             <GButton
                                 title="Previous Step"
+                                data-description="invocation graph previous step button"
                                 :disabled="activeNodeId === 0"
                                 disabled-title="No Previous Step"
                                 transparent
@@ -264,6 +292,7 @@ function toggleDetailedView() {
                             </GButton>
                             <GButton
                                 title="Next Step"
+                                data-description="invocation graph next step button"
                                 :disabled="activeNodeId === Object.keys(props.workflow.steps).length - 1"
                                 disabled-title="No More Steps"
                                 transparent
@@ -272,29 +301,52 @@ function toggleDetailedView() {
                                 Next
                             </GButton>
                         </GButtonGroup>
-                        <GButton title="Hide Step" size="small" transparent @click="activeNodeId = null">
+                        <GButton
+                            title="Hide Step"
+                            data-description="invocation graph hide step button"
+                            size="small"
+                            transparent
+                            @click="activeNodeId = null">
                             <FontAwesomeIcon :icon="faTimes" />
                         </GButton>
                     </div>
                 </BCardHeader>
                 <BCardBody body-class="p-2">
-                    <WorkflowInvocationStep
-                        ref="loadedJobInfo"
-                        :key="activeNodeId"
-                        :invocation="props.invocation"
-                        :workflow-step="activeStep"
-                        in-graph-view
-                        :graph-step="steps[activeNodeId]"
-                        expanded />
+                    <Teleport :to="`#${stepModalTargetId}`" :disabled="!stepExpanded" defer>
+                        <WorkflowInvocationStep
+                            :key="activeNodeId"
+                            :invocation="props.invocation"
+                            :workflow-step="activeStep"
+                            in-graph-view
+                            :graph-step="steps[activeNodeId]"
+                            expanded />
+                    </Teleport>
+                    <GAlert v-if="stepExpanded"> The step details are currently being shown in a modal. </GAlert>
                 </BCardBody>
+                <GModal
+                    :show="stepExpanded"
+                    fixed-height
+                    size="medium"
+                    data-description="invocation graph expanded step modal"
+                    @close="stepExpanded = false">
+                    <template v-slot:header>
+                        <WorkflowInvocationStepHeader
+                            class="mr-2"
+                            :workflow-step="activeStep"
+                            :graph-step="steps[activeNodeId]"
+                            :invocation-step="props.invocation.steps[activeNodeId]" />
+                    </template>
+                    <div :id="stepModalTargetId" />
+                </GModal>
             </BCard>
-            <BAlert v-else class="mt-2" show>Click on a step in the workflow graph above to view its details.</BAlert>
+            <GAlert v-else class="mt-2" show>Click on a step in the workflow graph above to view its details.</GAlert>
         </div>
     </div>
 </template>
 
 <style scoped lang="scss">
 @import "@/style/scss/theme/blue.scss";
+@import "@/style/scss/mixins";
 
 .container-root {
     container-type: inline-size;
@@ -331,6 +383,38 @@ function toggleDetailedView() {
 
 .invocation-step-card {
     min-height: 500px;
+}
+
+// Fit to page: graph fills the space, splits 50/50 with the step card, and only the step body scrolls.
+.fit-to-page {
+    @include fill-column;
+    overflow: hidden;
+
+    .graph-layout,
+    .graph-wrapper,
+    .graph-wrapper > .card {
+        @include fill-column;
+    }
+
+    .graph-pane {
+        flex: 1 1 0;
+        min-height: 0;
+
+        &.with-details {
+            flex: 0 0 50%;
+        }
+    }
+
+    .invocation-step-card {
+        flex: 1 1 0;
+        min-height: 0;
+
+        .card-body {
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+        }
+    }
 }
 
 .detailed-view-button {

@@ -9,20 +9,14 @@ import { Toast } from "@/composables/toast";
 
 import PageForm from "./PageForm.vue";
 
-vi.mock("@/composables/toast", () => {
-    const toastInstance = { success: vi.fn(), error: vi.fn() };
-    return {
-        Toast: toastInstance,
-        useToast: () => toastInstance,
-    };
-});
+vi.mock("@/composables/toast");
 
 const { server, http } = useServerMock();
 const localVue = getLocalVue();
 
 const mockPush = vi.fn();
 
-vi.mock("vue-router/composables", () => ({
+vi.mock("vue-router", () => ({
     useRouter: () => ({
         push: (...args) => mockPush(...args),
     }),
@@ -30,12 +24,10 @@ vi.mock("vue-router/composables", () => ({
 
 function mountTarget(props = {}) {
     return mount(PageForm, {
-        localVue,
-        propsData: props,
+        global: localVue,
+        props: props,
         stubs: {
             FontAwesomeIcon: true,
-            BButton: true,
-            BAlert: true,
         },
         directives: {
             localize: () => {},
@@ -87,7 +79,7 @@ describe("PageForm.vue - Create mode", () => {
         );
         const wrapper = mountTarget({ mode: "create", invocationId: "fail" });
         await flushPromises();
-        const alert = wrapper.findComponent({ name: "BAlert" });
+        const alert = wrapper.find(".alert");
         expect(alert.exists()).toBe(true);
         expect(alert.text()).toContain("Failed to fetch report");
     });
@@ -134,6 +126,11 @@ describe("PageForm.vue - Create mode", () => {
 describe("PageForm.vue - Edit mode", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        server.use(
+            http.get("/api/pages/:id", ({ response }) =>
+                response(200).json({ id: "456", title: "", slug: "", annotation: "", content: "" }),
+            ),
+        );
     });
 
     it("renders loading spinner and fetches page details", async () => {
@@ -160,7 +157,7 @@ describe("PageForm.vue - Edit mode", () => {
         server.use(http.get("/api/pages/:id", ({ response }) => response(500).json({ err_msg: "Page load failed" })));
         const wrapper = mountTarget({ mode: "edit", id: "error-id" });
         await flushPromises();
-        const alert = wrapper.findComponent({ name: "BAlert" });
+        const alert = wrapper.find(".alert");
         expect(alert.exists()).toBe(true);
         expect(alert.text()).toContain("Page load failed");
     });

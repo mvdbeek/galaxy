@@ -5,10 +5,15 @@ Implementer must provide a self.build_url method to target Galaxy.
 
 import collections
 import contextlib
+import json
 import random
 import string
 import time
 from abc import abstractmethod
+from collections.abc import (
+    Callable,
+    Iterator,
+)
 from dataclasses import (
     dataclass,
     field,
@@ -22,18 +27,20 @@ from typing import (
     cast,
     Literal,
     NamedTuple,
-    Optional,
+    Protocol,
     TYPE_CHECKING,
-    Union,
+    TypeVar,
 )
 
 import yaml
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+from typing_extensions import ParamSpec
 
-from .playwright_element import (
-    _SELENIUM_KEY_TO_PLAYWRIGHT,
-    _SELENIUM_MODIFIERS,
+from .keys import Key
+from .selenium_keys import (
+    SELENIUM_KEY_TO_PLAYWRIGHT,
+    SELENIUM_MODIFIERS,
 )
 
 if TYPE_CHECKING:
@@ -44,6 +51,7 @@ if TYPE_CHECKING:
 from galaxy.navigation.components import (
     Component,
     HasText,
+    Target,
 )
 from galaxy.navigation.data import load_root_component
 from galaxy.util import (
@@ -54,6 +62,10 @@ from galaxy.util.wait import (
     TimeoutAssertionError,
     wait_on,
 )
+from .clipboard import (
+    ClipboardCapture,
+    RecordedClipboard,
+)
 from .has_driver import (
     exception_indicates_click_intercepted,
     exception_indicates_not_clickable,
@@ -61,8 +73,15 @@ from .has_driver import (
     SeleniumTimeoutException,
 )
 from .has_driver_proxy import HasDriverProxy
-from .smart_components import SmartComponent
+from .smart_components import (
+    SmartComponent,
+    SmartTarget,
+)
 from .web_element_protocol import WebElementProtocol
+
+P = ParamSpec("P")
+T = TypeVar("T")
+ExceptionCheck = Callable[[Exception], bool]
 
 # Test case data
 DEFAULT_PASSWORD = "123456"
@@ -74,7 +93,7 @@ GALAXY_MAIN_FRAME_ID = "galaxy_main"
 GALAXY_VISUALIZATION_FRAME_ID = "galaxy_visualization"
 
 WaitType = collections.namedtuple("WaitType", ["name", "default_length"])
-EditorNodeReference = Union[int, str]  # can reference nodes by order_index (starting at 0 as int or label)
+EditorNodeReference = int | str  # can reference nodes by order_index (starting at 0 as int or label)
 
 
 class HistoryEntry(NamedTuple):
@@ -108,7 +127,7 @@ class WAIT_TYPES:
 
 def galaxy_timeout_handler(timeout_multiplier: float = 1):
 
-    def callback(wait_type: Optional[WaitType] = None) -> float:
+    def callback(wait_type: WaitType | None = None) -> float:
         if wait_type is None:
             wait_type = DEFAULT_WAIT_TYPE
         return wait_type.default_length * timeout_multiplier
@@ -120,8 +139,18 @@ def galaxy_timeout_handler(timeout_multiplier: float = 1):
 DEFAULT_WAIT_TYPE = WAIT_TYPES.DATABASE_OPERATION
 
 
-class NullTourCallback:
-    def handle_step(self, step, step_index: int):
+class TourCallbackProtocol(Protocol):
+    def handle_step(self, step: dict[str, Any], step_index: int, element: WebElementProtocol | None = None) -> None:
+        """Handle a tour step once it has been reached.
+
+        ``element`` is the step's target, or None for a step that names neither an
+        ``element`` selector nor a ``component``.
+        """
+        ...
+
+
+class NullTourCallback(TourCallbackProtocol):
+    def handle_step(self, step: dict[str, Any], step_index: int, element: WebElementProtocol | None = None) -> None:
         pass
 
 
@@ -134,7 +163,7 @@ def _exception_indicates_playwright_timeout(e):
         return False
 
 
-def exception_seems_to_indicate_transition(e):
+def exception_seems_to_indicate_transition(e: Exception) -> bool:
     """True if exception seems to indicate the page state is transitioning.
 
     Galaxy features many different transition effects that change the page state over time.
@@ -158,12 +187,13 @@ def exception_seems_to_indicate_transition(e):
 
 
 def retry_call_during_transitions(
-    f,
-    attempts=RETRY_DURING_TRANSITIONS_ATTEMPTS_DEFAULT,
-    sleep=RETRY_DURING_TRANSITIONS_SLEEP_DEFAULT,
-    exception_check=exception_seems_to_indicate_transition,
-):
+    f: Callable[[], T],
+    attempts: int = RETRY_DURING_TRANSITIONS_ATTEMPTS_DEFAULT,
+    sleep: float = RETRY_DURING_TRANSITIONS_SLEEP_DEFAULT,
+    exception_check: ExceptionCheck = exception_seems_to_indicate_transition,
+) -> T:
     previous_attempts = 0
+    playwright_timeouts = 0
     while True:
         try:
             return f()
@@ -174,18 +204,24 @@ def retry_call_during_transitions(
             if not exception_check(e):
                 raise
 
+            # A Playwright timeout already spent a whole action timeout retrying; allow one more.
+            if _exception_indicates_playwright_timeout(e):
+                playwright_timeouts += 1
+                if playwright_timeouts > 1:
+                    raise
+
             time.sleep(sleep)
             previous_attempts += 1
 
 
 def retry_during_transitions(
-    f,
-    attempts=RETRY_DURING_TRANSITIONS_ATTEMPTS_DEFAULT,
-    sleep=RETRY_DURING_TRANSITIONS_SLEEP_DEFAULT,
-    exception_check=exception_seems_to_indicate_transition,
-):
+    f: Callable[P, T],
+    attempts: int = RETRY_DURING_TRANSITIONS_ATTEMPTS_DEFAULT,
+    sleep: float = RETRY_DURING_TRANSITIONS_SLEEP_DEFAULT,
+    exception_check: ExceptionCheck = exception_seems_to_indicate_transition,
+) -> Callable[P, T]:
     @wraps(f)
-    def _retry(*args, **kwds):
+    def _retry(*args: P.args, **kwds: P.kwargs) -> T:
         return retry_call_during_transitions(
             partial(f, *args, **kwds), attempts=attempts, sleep=sleep, exception_check=exception_check
         )
@@ -228,7 +264,7 @@ class ConfigTemplateParameter:
 class FileSourceInstance:
     template_id: str
     name: str
-    description: Optional[str]
+    description: str | None
     parameters: list[ConfigTemplateParameter] = field(default_factory=list)
 
 
@@ -236,7 +272,7 @@ class FileSourceInstance:
 class ObjectStoreInstance:
     template_id: str
     name: str
-    description: Optional[str]
+    description: str | None
     parameters: list[ConfigTemplateParameter] = field(default_factory=list)
 
 
@@ -247,7 +283,7 @@ class ColumnDefinition:
     # I wish these were set by value instead of by text in the text box but this is how select_set_value seems to work
     type: Literal["Text", "Integer", "Element Identifier"] = "Text"
     optional: bool = False
-    default_value: Optional[str] = None
+    default_value: str | None = None
 
 
 class NavigatesGalaxy(HasDriverProxy[WaitType]):
@@ -314,7 +350,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def screenshot(self, label: str) -> None:
         """Take a screenshot of the current browser with the specified label."""
 
-    def screenshot_if(self, label: Optional[str]) -> Optional[str]:
+    def screenshot_if(self, label: str | None) -> str | None:
         target = None
         if label:
             target = self.screenshot(label)
@@ -377,12 +413,20 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def wait_for_masthead(self):
         self.components.masthead._.wait_for_visible()
 
-    def go_to_workflow_landing(self, uuid: str, public: Literal["false", "true"], client_secret: Optional[str]):
+    def go_to_workflow_landing(self, uuid: str, public: Literal["false", "true"], client_secret: str | None):
         path = f"workflow_landings/{uuid}?public={public}"
         if client_secret:
             path = f"{path}&client_secret={client_secret}"
         self.navigate_to(self.build_url(path))
         self.components.workflow_run.run_workflow.wait_for_visible()
+
+    def go_to_tool_landing(
+        self, uuid: str, public: Literal["false", "true"] = "true", client_secret: str | None = None
+    ):
+        path = f"tool_landings/{uuid}?public={public}"
+        if client_secret:
+            path = f"{path}&client_secret={client_secret}"
+        self.navigate_to(self.build_url(path))
 
     def go_to_trs_search(self) -> None:
         self.navigate_to(self.build_url("workflows/trs_import"))
@@ -416,6 +460,10 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def go_to_history_sharing(self, history_id: str) -> None:
         self.navigate_to(self.build_url(f"histories/sharing?id={history_id}"))
 
+    def go_to_collection_sheet(self, collection_id: str) -> None:
+        self.navigate_to(self.build_url(f"collection/{collection_id}/sheet"))
+        self.components.collection_sheet._.wait_for_present()
+
     def make_history_private(self):
         self.click_history_option_sharing()
         sharing = self.components.histories.sharing
@@ -430,7 +478,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.switch_to_frame(GALAXY_MAIN_FRAME_ID)
 
     @contextlib.contextmanager
-    def local_storage(self, key: str, value: Union[float, str]):
+    def local_storage(self, key: str, value: float | str):
         """Method decorator to modify localStorage for the scope of the supplied context."""
         self.set_local_storage(key, value)
         try:
@@ -439,7 +487,20 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             self.remove_local_storage(key)
 
     @contextlib.contextmanager
-    def in_frame(self, frame_reference: Union[str, int, Any] = "frame"):
+    def capture_clipboard(self) -> Iterator[ClipboardCapture]:
+        """Record text the page copies to the clipboard for the scope of the context.
+
+        Usage:
+            with self.capture_clipboard() as clipboard:
+                copy_button.wait_for_and_click()
+                assert clipboard.wait_for_text() == expected_text
+        """
+        timeout = self.wait_length(WAIT_TYPES.UX_TRANSITION)
+        with RecordedClipboard(self.execute_script, timeout) as clipboard:
+            yield clipboard
+
+    @contextlib.contextmanager
+    def in_frame(self, frame_reference: str | int | Any = "frame"):
         """Context manager to operate within the context of an iframe."""
         try:
             self.switch_to_frame(frame_reference)
@@ -504,7 +565,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def history_panel_name(self):
         return self.history_panel_name_element().text
 
-    def history_panel_collection_rename(self, hid: int, new_name: str, assert_old_name: Optional[str] = None):
+    def history_panel_collection_rename(self, hid: int, new_name: str, assert_old_name: str | None = None):
         self.history_panel_rename(new_name)
 
     def history_panel_expand_collection(self, collection_hid: int) -> SmartComponent:
@@ -561,7 +622,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         assert return_value, "Attempted to get latest history item on empty history."
         return return_value
 
-    def _latest_history_item(self) -> Optional[dict[str, Any]]:
+    def _latest_history_item(self) -> dict[str, Any] | None:
         history_contents = self.history_contents()
         if len(history_contents) > 0:
             entry_dict = history_contents[-1]
@@ -572,11 +633,13 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def wait_for_history(self, assert_ok=True):
         def history_becomes_terminal(driver=None):
             current_history_id = self.current_history_id()
-            state = self.api_get(f"histories/{current_history_id}")["state"]
-            if state not in ["running", "queued", "new", "ready"]:
-                return state
-            else:
+            history = self.api_get(f"histories/{current_history_id}?keys=state,contents_active")
+            state = history["state"]
+            # On Postgres a new item's hid is committed before its row; in between,
+            # the history reports "ok" with no contents at all.
+            if state in ["running", "queued", "new", "ready"] or not any(history["contents_active"].values()):
                 return None
+            return state
 
         final_state = self._wait_on_custom(
             history_becomes_terminal, "history to become terminal", wait_type=WAIT_TYPES.JOB_COMPLETION
@@ -595,6 +658,17 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             return True if self.current_history()["name"] == name else None
 
         self._wait_on(renamed, f"current history name to become [{name}]", wait_type=WAIT_TYPES.DATABASE_OPERATION)
+
+    def history_panel_switch_to(self, history_id: str):
+        """Make ``history_id`` current via the history panel's Switch to history modal."""
+        self.components.history_panel.switch_history_button.wait_for_and_click()
+        self.components.history_selector_modal.item(history_id=history_id).wait_for_and_click()
+        self.components.history_selector_modal._.wait_for_absent_or_hidden()
+        self._wait_on(
+            lambda driver=None: True if self.current_history_id() == history_id else None,
+            f"history {history_id} to become current",
+            wait_type=WAIT_TYPES.DATABASE_OPERATION,
+        )
 
     def history_panel_create_new(self):
         """Click create new and wait for the new history to become the current one."""
@@ -629,8 +703,8 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def _wait_on(
         self,
         f,
-        on_str: Optional[str] = None,
-        timeout: Optional[float] = None,
+        on_str: str | None = None,
+        timeout: float | None = None,
         wait_type: WaitType = WAIT_TYPES.JOB_COMPLETION,
     ):
         if timeout is None:
@@ -808,7 +882,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
 
         action_element = target_card.find_element(By.CSS_SELECTOR, action_selector)
         # Hover over parent card first to activate hover state in headless mode
-        self.action_chains().move_to_element(target_card).perform()
+        self.hover(target_card)
         self.move_to_and_click(action_element)
 
     def edit_dataset_dbkey(self, dbkey_text):
@@ -819,6 +893,16 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             dbkey_text=dbkey_text
         ).wait_for_and_click()
         self.components.edit_dataset_attributes.save_button.wait_for_and_click()
+
+    def edit_dataset_permission_roles(self) -> dict[str, list[str]]:
+        """On the dataset edit view, open the Permissions tab; return its ``manage`` and ``access`` role names."""
+        edit = self.components.edit_dataset_attributes
+        edit.permissions_tab.wait_for_and_click()
+        edit.permission_field(permission="DATASET_ACCESS").wait_for_visible()
+        fields = {"manage": "DATASET_MANAGE_PERMISSIONS", "access": "DATASET_ACCESS"}
+        return {
+            key: [tag.text for tag in edit.permission_roles(permission=field).all()] for key, field in fields.items()
+        }
 
     def get_history_card(self, card_name):
         card_list = self.components.histories.history_cards.all()
@@ -865,7 +949,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         cards = self.components.histories.history_cards.all()
 
         for card in cards:
-            card_name = card.find_element(By.CSS_SELECTOR, '[id^="g-card-title-link-history-"]').text
+            card_name = card.find_element(By.CSS_SELECTOR, '[id^="g-card-title-text-history-"]').text
             if card_name in item_names:
                 checkbox = card.find_element(By.CSS_SELECTOR, 'input[id^="g-card-select-history-"]')
                 # bootstrap vue checkbox seems to be hidden by label, but the label is not interactable
@@ -883,7 +967,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             search_term,
         )
 
-    def get_logged_in_user(self) -> Optional[dict[str, Any]]:
+    def get_logged_in_user(self) -> dict[str, Any] | None:
         # for user's not logged in - this just returns a {} so lets
         # key this on an id being available?
         if "id" in (user_dict := self.api_get("users/current")):
@@ -891,7 +975,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         else:
             return None
 
-    def get_api_key(self, force=False) -> Optional[str]:
+    def get_api_key(self, force=False) -> str | None:
         user_id = self.get_user_id()
         if user_id is None:
             if force:
@@ -904,7 +988,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         else:
             return self.api_post(f"users/{user_id}/api_key")
 
-    def get_user_id(self) -> Optional[str]:
+    def get_user_id(self) -> str | None:
         if (user := self.get_logged_in_user()) is not None:
             return user["id"]
         else:
@@ -986,7 +1070,8 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         login.submit.wait_for_and_click()
         self.snapshot("login-submitted")
 
-    def register(self, email=None, password=None, username=None, confirm=None, assert_valid=True):
+    def register(self, email=None, password=None, username=None, confirm=None, assert_valid=True, via_masthead=False):
+        """Register a user from the login page's "Register here" form, or the masthead's Register button."""
         if email is None:
             email = self._get_random_email()
         if password is None:
@@ -997,9 +1082,12 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             username = email.split("@")[0]
 
         self.home()
-        self.components.masthead.login_masthead_button.wait_for_and_click()
         registration = self.components.registration
-        registration.toggle.wait_for_and_click()
+        if via_masthead:
+            self.components.masthead.register_masthead_button.wait_for_and_click()
+        else:
+            self.components.masthead.login_masthead_button.wait_for_and_click()
+            registration.toggle.wait_for_and_click()
         form = registration.form.wait_for_visible()
         self.fill(form, dict(email=email, password=password, username=username, confirm=confirm))
         registration.submit.wait_for_and_click()
@@ -1032,120 +1120,6 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def hover_over(self, target):
         self.hover(target)
 
-    def perform_single_upload(self, test_path, **kwd) -> HistoryEntry:
-        before_latest_history_item = self.latest_history_entry()
-        self._perform_upload(test_path=test_path, **kwd)
-        after_latest_history_item = self.latest_history_entry()
-        assert after_latest_history_item
-        if before_latest_history_item is not None:
-            assert before_latest_history_item.id != after_latest_history_item.id
-        return after_latest_history_item
-
-    def perform_upload(self, test_path, **kwd):
-        self._perform_upload(test_path=test_path, **kwd)
-
-    def perform_upload_of_pasted_content(self, paste_data, **kwd):
-        self._perform_upload(paste_data=paste_data, **kwd)
-
-    def _perform_upload(
-        self,
-        test_path=None,
-        paste_data=None,
-        ext=None,
-        genome=None,
-        ext_all=None,
-        genome_all=None,
-        deferred=None,
-        on_current_page=False,
-    ):
-        if not on_current_page:
-            self.home()
-        self.upload_start_click()
-
-        self.upload_set_footer_extension(ext_all)
-        self.upload_set_footer_genome(genome_all)
-
-        if test_path:
-            self.upload_queue_local_file(test_path)
-        else:
-            assert paste_data is not None
-            if isinstance(paste_data, dict):
-                for name, value in paste_data.items():
-                    self.upload_paste_data(value)
-                    name_input = self.wait_for_selector("div#regular .upload-row:last-of-type .upload-title")
-                    name_input.clear()
-                    name_input.send_keys(name)
-            else:
-                self.upload_paste_data(paste_data)
-
-        if ext is not None:
-            self.wait_for_selector_visible(".upload-extension")
-            self.select_set_value(".upload-extension", ext)
-
-        if genome is not None:
-            self.wait_for_selector_visible(".upload-genome")
-            self.select_set_value(".upload-genome", genome)
-
-        if deferred is not None:
-            upload = self.components.upload
-            upload.settings_button(n=0).wait_for_and_click()
-            upload.settings.wait_for_visible()
-            setting = upload.setting_deferred.wait_for_visible()
-            classes = setting.get_attribute("class").split(" ")
-            if deferred is True and "fa-check-square-o" not in classes:
-                setting.click()
-            elif deferred is False and "fa-check-square-o" in classes:
-                setting.click()
-
-        self.upload_start()
-        self.upload_wait_for_submission()
-        self.components.upload.close_button.wait_for_and_click()
-
-    def perform_upload_of_composite_dataset_pasted_data(self, ext, paste_content):
-        self.home()
-        self.upload_start_click()
-        self.components.upload.tab(tab="composite").wait_for_and_click()
-        self.upload_set_footer_extension(ext, tab_id="composite")
-
-        for i in range(len(paste_content)):
-            self.components.upload.source_button(n=i).wait_for_and_click()
-            self.components.upload.paste_option(n=i).wait_for_and_click()
-            textarea = self.components.upload.paste_content(n=i).wait_for_visible()
-            textarea.send_keys(paste_content[i])
-
-        self.upload_start(tab_id="composite")
-        self.components.upload.composite_close_button.wait_for_and_click()
-
-    def upload_list(self, test_paths, name="test", ext=None, genome=None, hide_source_items=True):
-        self._collection_upload_start(test_paths, ext, genome, "List")
-        if not hide_source_items:
-            self.collection_builder_hide_originals()
-
-        self.collection_builder_set_name(name)
-        self.collection_builder_create()
-
-    def upload_pair(self, test_paths, name="test", ext=None, genome=None, hide_source_items=True):
-        self._collection_upload_start(test_paths, ext, genome, "Pair")
-        if not hide_source_items:
-            self.collection_builder_hide_originals()
-
-        self.collection_builder_set_name(name)
-        self.collection_builder_create()
-
-    def upload_paired_list(self, test_paths, name="test", ext=None, genome=None, hide_source_items=True):
-        self._collection_upload_start(test_paths, ext, genome, "List of Pairs")
-        if not hide_source_items:
-            self.collection_builder_hide_originals()
-
-        assert len(test_paths) == 2
-        self.collection_builder_pair_rows(0, 1)
-
-        row0 = self.components.collection_builders.list_wizard.row._(index=0)
-        row0.link_button.assert_absent()
-
-        self.collection_builder_set_name(name)
-        self.collection_builder_create()
-
     def collection_builder_pair_rows(self, row_forward: int, row_reverse: int):
         row0 = self.components.collection_builders.list_wizard.row._(index=row_forward)
         row1 = self.components.collection_builders.list_wizard.row._(index=row_reverse)
@@ -1155,146 +1129,6 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
 
         row0.link_button.wait_for_and_click()
         row1.link_button.wait_for_and_click()
-
-    def _collection_upload_start(self, test_paths, ext, genome, collection_type):
-        # Perform upload of files and open the collection builder for specified
-        # type.
-        self.home()
-        self.upload_start_click()
-        self.upload_tab_click("collection")
-
-        self.upload_set_footer_extension(ext, tab_id="collection")
-        self.upload_set_footer_genome(genome, tab_id="collection")
-        self.upload_set_collection_type(collection_type)
-
-        for test_path in test_paths:
-            self.upload_queue_local_file(test_path, tab_id="collection")
-
-        self.upload_start(tab_id="collection")
-        self.upload_build()
-
-    def upload_tab_click(self, tab):
-        self.components.upload.tab(tab=tab).wait_for_and_click()
-
-    def upload_start_click(self):
-        self.components.upload.start.wait_for_and_click()
-
-    @retry_during_transitions
-    def upload_set_footer_extension(self, ext, tab_id="regular"):
-        if ext is not None:
-            selector = f"div#{tab_id} .upload-footer-extension"
-            self.wait_for_selector_visible(selector)
-            self.select_set_value(selector, ext)
-
-    @retry_during_transitions
-    def upload_set_footer_genome(self, genome, tab_id="regular"):
-        if genome is not None:
-            selector = f"div#{tab_id} .upload-footer-genome"
-            self.wait_for_selector_visible(selector)
-            self.select_set_value(selector, genome)
-
-    @retry_during_transitions
-    def upload_set_collection_type(self, collection_type):
-        self.wait_for_selector_visible(".upload-footer-collection-type")
-        self.select_set_value(".upload-footer-collection-type", collection_type)
-
-    def upload_start(self, tab_id="regular"):
-        self.wait_for_and_click_selector(f"div#{tab_id} button#btn-start")
-
-    def upload_wait_for_submission(self, tab_id="regular"):
-        """Wait until every started upload row has been sent to the server.
-
-        The client submits rows one request at a time and only sends the next row once
-        the previous request has returned. Rows are ``upload-init`` until the Start click
-        handler runs and ``upload-queued`` until their request completes, so leaving the
-        page while either is present drops the unsent rows.
-        """
-        self.wait_for_selector_absent(
-            f"div#{tab_id} .upload-row.upload-init, div#{tab_id} .upload-row.upload-queued",
-            wait_type=WAIT_TYPES.JOB_COMPLETION,
-        )
-
-    @retry_during_transitions
-    def upload_build(self, tab="collection"):
-        build_selector = f"div#{tab} button#btn-build"
-        # Pause a bit to let the callback on the build button be registered.
-        time.sleep(0.5)
-        # Click the Build button and make sure it disappears.
-        self.wait_for_and_click_selector(build_selector)
-        try:
-            self.wait_for_selector_absent_or_hidden(build_selector)
-        except SeleniumTimeoutException:
-            # Sometimes the callback in the JS hasn't be registered by the
-            # time that the build button is clicked. By the time the timeout
-            # has been registered - it should have been.
-            self.wait_for_and_click_selector(build_selector)
-            self.wait_for_selector_absent_or_hidden(build_selector)
-
-    def upload_queue_local_file(self, test_path, tab_id="regular"):
-        if self.backend_type == "playwright":
-            with self.page.expect_file_chooser() as fc_info:
-                self.wait_for_and_click_selector(f"div#{tab_id} button#btn-local")
-            file_chooser = fc_info.value
-            file_chooser.set_files(test_path)
-        else:
-            self.wait_for_and_click_selector(f"div#{tab_id} button#btn-local")
-            file_upload = self.wait_for_selector(f'div#{tab_id} input[type="file"]')
-            file_upload.send_keys(test_path)
-
-    def upload_paste_data(self, pasted_content, tab_id="regular"):
-        tab_locator = f"div#{tab_id}"
-        # The button is disabled (g-disabled, not the disabled attribute) while earlier uploads run,
-        # and a click on it then adds no row.
-        self.wait_for_selector_clickable(
-            f"{tab_locator} button#btn-new:not(.g-disabled)", wait_type=WAIT_TYPES.JOB_COMPLETION
-        ).click()
-
-        # Until the new row renders, the last row may be an uploaded one whose textarea is disabled.
-        textarea = self.wait_for_selector_clickable(
-            f"{tab_locator} .upload-row.upload-init:last-of-type .upload-text-content"
-        )
-        textarea.send_keys(pasted_content)
-
-    def upload_uri(self, uri, wait=False):
-        upload = self.components.upload
-        upload.start.wait_for_and_click()
-        upload.file_dialog.wait_for_and_click()
-        scheme, uri_rest = uri.split("://", 1)
-        parts = uri_rest.split("/")
-
-        root = f"{scheme}://{parts[0]}"
-        upload.file_source_selector(path=root).wait_for_and_click()
-        rest_parts = parts[1:]
-        path = root
-        for part in rest_parts:
-            path = f"{path}/{part}"
-            upload.file_source_selector(path=path).wait_for_and_click()
-        upload.file_dialog_ok.wait_for_and_click()
-        self.upload_start()
-        if wait:
-            self.sleep_for(self.wait_types.UX_RENDER)
-            self.wait_for_history()
-
-    def upload_rule_start(self):
-        self.upload_start_click()
-        self.upload_tab_click("rule-based")
-
-    def upload_rule_build(self):
-        self.upload_build(tab="rule-based")
-
-    def upload_rule_dataset_dialog(self):
-        upload = self.components.upload
-        upload.rule_dataset_dialog.wait_for_and_click()
-
-    def upload_rule_set_data_type(self, type_description):
-        upload = self.components.upload
-        data_type_element = upload.rule_select_data_type.wait_for_visible()
-        self.select_set_value(data_type_element, type_description)
-
-    def upload_rule_set_dataset(self, row=1):
-        upload = self.components.upload
-        upload.rule_dataset_selector.wait_for_visible()
-        upload.rule_dataset_selector_row(rowindex=row).wait_for_and_click()
 
     def rule_builder_set_collection_name(self, name):
         rule_builder = self.components.rule_builder
@@ -1455,6 +1289,34 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         rule_builder.main_button_ok.wait_for_and_click()
         rule_builder.view_source.wait_for_visible()
 
+    def rule_builder_show_and_get_source(self, screenshot_name: str | None = None) -> str:
+        rule_builder = self.components.rule_builder
+        rule_builder.view_source.wait_for_and_click()
+        source_element = rule_builder.source.wait_for_visible()
+        source = source_element.get_attribute("value")
+        self.screenshot_if(screenshot_name)
+        rule_builder.main_button_ok.wait_for_and_click()
+        rule_builder.view_source.wait_for_visible()
+        return source
+
+    def rule_builder_show_and_get_source_as_json(self) -> dict:
+        return json.loads(self.rule_builder_show_and_get_source())
+
+    def rule_builder_column_values(self, column_index: int) -> list[str]:
+        """Text of each rendered cell in a rule builder column, in row order.
+
+        The grid only renders cells in view, so this moves keyboard focus to the
+        column to scroll it in. Rows are not scrolled, so this suits small tables.
+        """
+        rule_builder = self.components.rule_builder
+        rendered_cell = rule_builder.table_row_cell(row_index=0).wait_for_visible()
+        self.press(Key.HOME, *[Key.ARROW_RIGHT] * column_index, element=rendered_cell)
+        row_count = len(rule_builder.table_row.all())
+        return [
+            rule_builder.table_cell(row_index=row_index, column_number=column_index + 1).wait_for_visible().text
+            for row_index in range(row_count)
+        ]
+
     def rule_builder_enter_source_text(self, json):
         rule_builder = self.components.rule_builder
         text_area_elem = rule_builder.source.wait_for_visible()
@@ -1573,26 +1435,69 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         editor.license_selector.wait_for_visible()
         return editor.license_current_value.wait_for_text()
 
+    def workflow_editor_set_collection_type(self, collection_type: str | None, custom: bool = False) -> None:
+        """Set the open collection input's type - ``None`` for any type, ``custom`` to type it in."""
+        editor = self.components.workflow_editor
+        if custom:
+            search = "Custom collection type"
+        elif collection_type is None:
+            search = "Any collection type"
+        else:
+            # options are labelled "<label> (<type>)" - a bare type such as paired would first match list:paired
+            search = f"({collection_type})"
+        self.select_set_value(editor.collection_type_select, search)
+        # the options fade out over the custom type input
+        editor.collection_type_select_options.wait_for_absent_or_hidden()
+        if custom:
+            assert collection_type
+            editor.collection_type_custom_input.wait_for_and_clear_and_send_keys(collection_type)
+        self.workflow_editor_wait_for_collection_type_selected(collection_type, custom=custom)
+
+    def workflow_editor_wait_for_collection_type_selected(
+        self, collection_type: str | None, custom: bool = False
+    ) -> None:
+        """Wait for the collection type select to show ``collection_type`` (see ``workflow_editor_set_collection_type``)."""
+        editor = self.components.workflow_editor
+        if custom:
+            expected = "Custom collection type..."
+        elif collection_type is None:
+            expected = "Any collection type"
+        else:
+            # match the whole "(type)" suffix - sample_sheet:paired is a prefix of sample_sheet:paired_or_unpaired
+            expected = f"({collection_type})"
+        selected = editor.collection_type_selected
+        selected.wait_for_visible()
+        try:
+            self._wait_on(
+                lambda: selected.wait_for_text().endswith(expected),
+                f"collection type select to show [{expected}]",
+                wait_type=WAIT_TYPES.UX_TRANSITION,
+            )
+        except TimeoutAssertionError as e:
+            raise AssertionError(
+                f"Collection type select shows [{selected.wait_for_text()}], expected [{expected}]"
+            ) from e
+
     def workflow_editor_add_tool_step(self, tool_id: str):
         self.tool_open(tool_id)
 
-    def workflow_editor_set_tool_vesrion(self, version: str, node: Optional[EditorNodeReference] = None) -> None:
+    def workflow_editor_set_tool_vesrion(self, version: str, node: EditorNodeReference | None = None) -> None:
         editor = self.components.workflow_editor
         self.workflow_editor_ensure_tool_form_open(node)
         editor.tool_version_button.wait_for_and_click()
         assert self.select_dropdown_item(f"Switch to {version}"), "Switch to tool version dropdown item not found"
 
-    def workflow_editor_set_node_label(self, label: str, node: Optional[EditorNodeReference] = None):
+    def workflow_editor_set_node_label(self, label: str, node: EditorNodeReference | None = None):
         self.workflow_editor_ensure_tool_form_open(node)
         editor = self.components.workflow_editor
         editor.label_input.wait_for_and_clear_and_send_keys(label)
 
-    def workflow_editor_set_node_annotation(self, annotation: str, node: Optional[EditorNodeReference] = None):
+    def workflow_editor_set_node_annotation(self, annotation: str, node: EditorNodeReference | None = None):
         self.workflow_editor_ensure_tool_form_open(node)
         editor = self.components.workflow_editor
         editor.annotation_input.wait_for_and_clear_and_send_keys(annotation)
 
-    def workflow_editor_ensure_tool_form_open(self, node: Optional[EditorNodeReference] = None):
+    def workflow_editor_ensure_tool_form_open(self, node: EditorNodeReference | None = None):
         # if node is_empty just assume current tool step is open
         editor = self.components.workflow_editor
         if node is not None:
@@ -1612,10 +1517,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         found_option = False
         for option_element in option_elements:
             if option_label in option_element.text:
-                action_chains = self.action_chains()
-                action_chains.move_to_element(option_element)
-                action_chains.click()
-                action_chains.perform()
+                self.move_to_and_click(option_element)
                 found_option = True
                 break
 
@@ -1636,30 +1538,54 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.sleep_for(self.wait_types.DATABASE_OPERATION)
 
     def workflow_editor_search_for_workflow(self, name: str):
-        self.wait_for_and_click(self.components.workflow_editor.workflow_activity)
-        self.sleep_for(self.wait_types.UX_RENDER)
-        self.clear_tooltips(".workflow-scroll-list")
+        editor = self.components.workflow_editor
+        # The activity button toggles: clicking it with the panel open (a second insert) closes it.
+        if editor.workflow_activity_panel.is_absent:
+            self.wait_for_and_click(editor.workflow_activity)
+        search = editor.workflow_activity_search.wait_for_visible()
+        # Rest the pointer on the search input: hovering the list can land on a card badge's tooltip.
+        self.clear_tooltips(editor.workflow_activity_search.selector)
 
-        input = self.wait_for_selector(".activity-panel input")
-        input.send_keys(name)
+        search.clear()
+        search.send_keys(name)
 
-        self.sleep_for(self.wait_types.UX_RENDER)
-
-    def workflow_editor_add_steps(self, name: str):
+    def _workflow_editor_panel_card_action(self, name: str, action: Target):
+        """Search the Workflows panel for ``name`` and click ``action`` in its card."""
         self.workflow_editor_search_for_workflow(name)
 
-        self.components.workflows.workflow_copy_steps.wait_for_and_click()
+        def click_action():
+            card = self._wait_on(
+                lambda: self._workflow_editor_panel_card_titled(name),
+                f"Workflows panel with a workflow titled [{name}]",
+                wait_type=self.wait_types.DATABASE_OPERATION,
+            )
+            card.find_element(*action.element_locator).click()
 
+        # Cards can re-render under the lookup or the click while the debounced search reloads them.
+        retry_call_during_transitions(click_action)
+
+    def _workflow_editor_panel_card_titled(self, name: str):
+        """Panel card titled exactly ``name``, which is right whether or not the debounced search has applied."""
+        cards = self.find_elements(
+            self.navigation.workflow_editor.workflow_activity_list.descendant(self.navigation.workflows.workflow_card)
+        )
+        title_locator = self.navigation.workflows.workflow_card_title.element_locator
+        titles = [card.find_element(*title_locator).text for card in cards]
+        return cards[titles.index(name)] if name in titles else None
+
+    def workflow_editor_add_steps(self, name: str):
+        self._workflow_editor_panel_card_action(name, self.navigation.workflows.workflow_copy_steps)
+
+        # Copied steps keep their own labels, so there is no single node to wait on.
         self.sleep_for(self.wait_types.UX_RENDER)
 
     def workflow_editor_add_subworkflow(self, name: str):
-        self.workflow_editor_search_for_workflow(name)
+        self._workflow_editor_panel_card_action(name, self.navigation.workflows.workflow_insert_sub_workflow)
 
-        self.components.workflows.workflow_insert_sub_workflow.wait_for_and_click()
-
-        self.components.workflow_editor.node._(label=name).wait_for_present()
-
-        self.sleep_for(self.wait_types.UX_RENDER)
+        node = self.components.workflow_editor.node._(label=name)
+        node.wait_for_visible()
+        # The node renders before its module request fills in inputs and outputs.
+        node.loading.wait_for_absent(wait_type=self.wait_types.DATABASE_OPERATION)
 
     def workflow_editor_enter_column_definitions(self, column_definitions: list[ColumnDefinition]):
         for index, column_definition in enumerate(column_definitions):
@@ -1674,12 +1600,12 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         )
         self.sleep_for(self.wait_types.UX_RENDER)
         # seems like a Galaxy bug that these enter's are needed? - they are not when manually inputting things a human speeds
+        # only send them to <input> fields - the description is a <textarea> where ENTER inserts a literal newline
         self.send_enter(elem)
-        elem = editor.column_definition_description_by_index(index=index).wait_for_and_clear_and_send_keys(
+        editor.column_definition_description_by_index(index=index).wait_for_and_clear_and_send_keys(
             column_definition.description
         )
         self.sleep_for(self.wait_types.UX_RENDER)
-        self.send_enter(elem)
         component = editor.column_definition_type_by_index(index=index)
         self.select_set_value(component, column_definition.type)
         self.sleep_for(self.wait_types.UX_RENDER)
@@ -1715,6 +1641,19 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.home()
         self.components.masthead.user.wait_for_and_click()
         self.components.masthead.preferences.wait_for_and_click()
+
+    def user_preferences_new_datasets_private(self) -> bool:
+        """Open Preferences > Set Dataset Permissions for New Histories; return its Make new datasets private switch."""
+        self.navigate_to_user_preferences()
+        preferences = self.components.preferences
+        preferences.dataset_permissions.wait_for_and_click()
+        return preferences.new_datasets_private_input.wait_for_present().is_selected()
+
+    def user_preferences_set_new_datasets_private(self, private: bool):
+        """Set Preferences > Set Dataset Permissions for New Histories' Make new datasets private switch."""
+        if self.user_preferences_new_datasets_private() != private:
+            self.components.preferences.new_datasets_private_label.wait_for_and_click()
+            self.components.toast.message_with_text(text="Permissions have been saved").wait_for_visible()
 
     def navigate_to_invocations_grid(self):
         self.home()
@@ -1778,6 +1717,11 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.components.workflows.activity.wait_for_and_click()
         self.components.workflows.published_tab.wait_for_and_click()
 
+    def navigate_to_curated_workflows(self):
+        self.home()
+        self.components.workflows.activity.wait_for_and_click()
+        self.components.workflows.curated_tab.wait_for_and_click()
+
     def navigate_to_published_histories(self):
         self.home()
         self.components.histories.activity.wait_for_and_click()
@@ -1792,11 +1736,11 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
 
     def create_quota(
         self,
-        name: Optional[str] = None,
-        description: Optional[str] = None,
-        amount: Optional[str] = None,
-        quota_source_label: Optional[str] = None,
-        user: Optional[str] = None,
+        name: str | None = None,
+        description: str | None = None,
+        amount: str | None = None,
+        quota_source_label: str | None = None,
+        user: str | None = None,
     ):
         admin_component = self.components.admin
 
@@ -1887,6 +1831,10 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         name_input_field.send_keys(name)
         input_field.send_keys(self._get_random_name(prefix="description"))
         self.components.libraries.save_new_library_btn.wait_for_and_click()
+        # Clicking create again before the POST resolves would toggle the still-open form closed.
+        self.components.libraries.save_new_library_btn.wait_for_absent_or_hidden(
+            wait_type=WAIT_TYPES.DATABASE_OPERATION
+        )
 
     def libraries_index_click_search(self):
         self.sleep_for(WAIT_TYPES.UX_RENDER)
@@ -1927,7 +1875,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         )
 
     def libraries_dataset_import_from_history_select(self, to_select_items):
-        self.wait_for_visible(
+        self.wait_for_absent(
             self.navigation.libraries.folder.selectors.import_datasets_from_history_modal_list_is_ready
         )
         for to_select_item in to_select_items:
@@ -1968,17 +1916,10 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def wait_for_overlays_cleared(self):
         """Wait for modals and Toast notifications to disappear."""
         self.wait_for_selector_absent_or_hidden(".ui-modal", wait_type=WAIT_TYPES.UX_POPUP)
-        self.wait_for_selector_absent_or_hidden(".toast", wait_type=WAIT_TYPES.UX_POPUP)
+        self.components.toast.message.wait_for_absent_or_hidden(wait_type=WAIT_TYPES.UX_POPUP)
 
     def clear_tooltips(self, selector_to_move="#center"):
-        if self.backend_type == "selenium":
-            action_chains = self.action_chains()
-            center_element = self.find_element_by_selector(selector_to_move)
-            action_chains.move_to_element(center_element).perform()
-        else:
-            page = self.page
-            center_element = page.locator(selector_to_move)
-            center_element.hover(force=True)
+        self.hover(self.find_element_by_selector(selector_to_move))
         self.wait_for_selector_absent_or_hidden(".g-tooltip-d", wait_type=WAIT_TYPES.UX_POPUP)
 
     def pages_index_table_elements(self):
@@ -1994,9 +1935,45 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.get("workflows/import")
 
     def workflow_index_open_with_name(self, name: str):
+        """Open the workflow titled ``name`` (else the only one whose title contains it) in the editor."""
+        self._workflow_card_action(name, self.navigation.workflows.edit_button)
+
+    def _workflow_card_action(self, name: str, action: Target):
+        """Search the workflow list for ``name``, click ``action`` in its card and return the card."""
         self.workflow_index_open()
         self.workflow_index_search_for(name)
-        self.components.workflows.edit_button.wait_for_and_click()
+
+        def click_action():
+            card = self._wait_on(
+                lambda: self._workflow_card_named(name),
+                f"search results with a workflow titled or uniquely containing [{name}]",
+                wait_type=self.wait_types.DATABASE_OPERATION,
+            )
+            card.find_element(*action.element_locator).click()
+            return card
+
+        # Cards stay mounted under a loading overlay while the search reloads them.
+        return retry_call_during_transitions(click_action)
+
+    def _workflow_card_named(self, name: str):
+        """Card titled exactly ``name``, else the only card, once every listed title contains ``name``.
+
+        Until then the list still shows unfiltered workflows (search input is debounced). Like the
+        server's search, containment ignores case.
+        """
+        cards = self.components.workflows.workflow_card.all()
+        title_locator = self.navigation.workflows.workflow_card_title.element_locator
+        try:
+            titles = [card.find_element(*title_locator).text for card in cards]
+        except Exception as e:
+            if not exception_indicates_stale_element(e):
+                raise
+            return None
+        if not titles or any(name.lower() not in title.lower() for title in titles):
+            return None
+        if name in titles:
+            return cards[titles.index(name)]
+        return cards[0] if len(cards) == 1 else None
 
     def workflow_shared_with_me_open(self):
         self.workflow_index_open()
@@ -2005,6 +1982,10 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def workflow_card_elements(self):
         self.components.workflows.workflow_cards.wait_for_visible()
         return self.components.workflows.workflow_card.all()
+
+    def curated_workflow_card_titles(self) -> list[str]:
+        self.components.workflows.curated_workflow_card.wait_for_visible()
+        return [title.text for title in self.components.workflows.curated_workflow_card_title.all()]
 
     def workflow_card_element(self, workflow_index=0):
 
@@ -2041,21 +2022,25 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
 
     def workflow_rename(self, new_name, workflow_index=0):
         workflow = self.workflow_card_element(workflow_index=workflow_index)
-        action_chains = self.action_chains()
-        action_chains.move_to_element(workflow).perform()
+        self.hover(workflow)
         workflow.find_element(By.CSS_SELECTOR, ".g-card-rename").click()
         self.rename_modal_rename("workflow", new_name)
 
-    def workflow_delete_by_name(self, name):
-        self.workflow_index_search_for(name)
-        self.components.workflows.workflow_drop_down.wait_for_and_click()
-        self.components.workflows.delete_button.wait_for_and_click()
-        self.sleep_for(self.wait_types.UX_RENDER)
+    def workflow_delete_by_name(self, name: str):
+        """Delete the workflow titled ``name`` (else the only one whose title contains it)."""
+        workflows = self.navigation.workflows
+        card = self._workflow_card_action(name, workflows.workflow_drop_down)
+        # Every card renders its own (hidden) menu, so the item must come from this card.
+        delete_item = card.find_element(*workflows.delete_button.element_locator)
+        self._wait_on(
+            delete_item.is_displayed, f"delete item of workflow [{name}]", wait_type=self.wait_types.UX_RENDER
+        )
+        delete_item.click()
         self.components.confirm_dialog.ok_button.wait_for_and_click()
 
-    def workflow_bookmark_by_name(self, name):
-        self.workflow_index_search_for(name)
-        self.components.workflows.bookmark_link(action="add").wait_for_and_click()
+    def workflow_bookmark_by_name(self, name: str):
+        """Bookmark the workflow titled ``name`` (else the only one whose title contains it)."""
+        self._workflow_card_action(name, self.navigation.workflows.bookmark_link(action="add"))
 
     @retry_during_transitions
     def workflow_index_name(self, workflow_index=0):
@@ -2148,9 +2133,9 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.sleep_for(self.wait_types.UX_RENDER)
 
     def workflow_run_with_name(self, name: str):
-        self.workflow_index_open()
-        self.workflow_index_search_for(name)
-        self.components.workflows.run_button.wait_for_and_click()
+        """Open the run form of the workflow titled ``name`` (else the only one whose title contains it)."""
+        self._workflow_card_action(name, self.navigation.workflows.run_button)
+        # Callers expect the run form rendered; they don't all wait on the same element.
         self.sleep_for(self.wait_types.UX_RENDER)
 
     def workflow_run_specify_inputs(self, inputs: dict[str, Any]):
@@ -2171,18 +2156,13 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         if workflow_run.expanded_form.is_absent:
             workflow_run.runtime_setting_button.wait_for_and_click()
             expand_link = workflow_run.expand_form_link.wait_for_clickable()
-            # Use ActionChains for Selenium - regular click doesn't work reliably
-            # on GButton components due to internal tooltip element.
-            # Playwright doesn't have this issue and doesn't support ActionChains.
-            if self.backend_type == "selenium":
-                ac = self.action_chains()
-                ac.move_to_element(expand_link).click().perform()
-            else:
-                expand_link.click()
+            # A plain click doesn't work reliably on GButton components due to
+            # an internal tooltip element - move to the element first.
+            self.move_to_and_click(expand_link)
             workflow_run.expanded_form.wait_for_visible()
 
     def workflow_create_new(
-        self, annotation: Optional[str] = None, clear_placeholder: bool = False, save_workflow: bool = True
+        self, annotation: str | None = None, clear_placeholder: bool = False, save_workflow: bool = True
     ):
         self.workflow_index_open()
         self.sleep_for(self.wait_types.UX_RENDER)
@@ -2198,7 +2178,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         if save_workflow:
             save_button = self.components.workflow_editor.save_button
             save_button.wait_for_visible()
-            assert not save_button.has_class("disabled")
+            assert not save_button.has_class("g-disabled")
             save_button.wait_for_and_click()
             self.sleep_for(self.wait_types.UX_RENDER)
         return name
@@ -2211,18 +2191,37 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         invocations.invocations_table.wait_for_visible()
         return invocations.invocations_table_rows.all()
 
+    def invocation_open_latest(self):
+        """Open the most recent invocation from the invocations panel, then close the panel."""
+        self.home()
+        invocations = self.components.invocations
+        self._ensure_panel_open(invocations.invocations_panel_list, invocations.activity.wait_for_and_click)
+
+        invocations.state_details.assert_absent()
+        invocations.invocations_panel_list_items.wait_for_and_click()
+        invocations.state_details.wait_for_visible()
+
+        invocations.activity.wait_for_and_click()
+
     def open_toolbox(self) -> None:
         self.sleep_for(self.wait_types.UX_RENDER)
 
-        toolbox_panel = self.components._.toolbox_panel
+        def click_activity() -> None:
+            if self.components.tools.tools_activity_workflow_editor.is_absent:
+                self.components.tools.activity.wait_for_and_click()
+            else:
+                self.components.tools.tools_activity_workflow_editor.wait_for_and_click()
+
+        self._ensure_panel_open(self.components._.toolbox_panel, click_activity)
+
+    def _ensure_panel_open(self, panel: SmartTarget, open_panel: Callable[[], None]) -> None:
+        """Open ``panel`` if hidden, retrying once: a click that lands while the activity bar is
+        still settling can leave the default panel open instead."""
 
         def ensure_open() -> None:
-            if toolbox_panel.is_absent or not toolbox_panel.is_displayed:
-                if self.components.tools.tools_activity_workflow_editor.is_absent:
-                    self.components.tools.activity.wait_for_and_click()
-                else:
-                    self.components.tools.tools_activity_workflow_editor.wait_for_and_click()
-            toolbox_panel.wait_for_visible()
+            if panel.is_absent or not panel.is_displayed:
+                open_panel()
+            panel.wait_for_visible()
 
         retry_call_during_transitions(
             ensure_open,
@@ -2261,7 +2260,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.scroll_into_view(tool_element)
         tool_link.wait_for_and_click()
 
-    def run_environment_test_tool(self, inttest_value="42", select_storage: Optional[str] = None):
+    def run_environment_test_tool(self, inttest_value="42", select_storage: str | None = None):
         self.home()
         self.tool_open("environment_variables")
         if select_storage:
@@ -2334,6 +2333,13 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             # Clear default value
             input_element.clear()
             input_element.send_keys(value)
+
+    def tool_form_select_collection(self, expanded_parameter_id, name):
+        tool_form = self.components.tool_form
+        tool_form.parameter_data_input_collection(parameter=expanded_parameter_id).wait_for_and_click()
+        tool_form.parameter_data_input_collection_pressed(parameter=expanded_parameter_id).wait_for_visible()
+        # multiple=True sends escape so the select's dropdown closes rather than lingering open
+        self.tool_form_select_data(expanded_parameter_id, name, multiple=True)
 
     def tool_form_generate_tour(self):
         self.components.tool_form.options.wait_for_and_click()
@@ -2456,6 +2462,22 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         # Wait for the rename promise to resolve (modal closes in the finally block)
         self.wait_for_selector_absent_or_hidden(f"#{item_type}-name-input")
 
+    def navigate_to_history_page_editor(self, history_id, page_id):
+        """Open an existing history-attached page (notebook) in the editor (history mode)."""
+        self.get(f"histories/{history_id}/pages/{page_id}")
+        self.components.pages.history.toolbar.wait_for_visible()
+
+    def notebook_click_extract_workflow(self):
+        """Click the notebook editor's Extract Workflow toolbar action, wait for the form."""
+        self.components.pages.history.extract_workflow_button.wait_for_and_click()
+        self.sleep_for(self.wait_types.UX_TRANSITION)
+        self.components.workflow_extract._.wait_for_visible()
+
+    def history_page_open_chat(self):
+        """Click chat button in page toolbar, wait for chat panel visible."""
+        self.components.pages.history.chat_button.wait_for_and_click()
+        self.components.pages.history.chat_panel.wait_for_visible()
+
     @retry_during_transitions
     def click_history_options(self):
         component = self.components.history_panel.options_button_icon
@@ -2476,6 +2498,20 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         self.sleep_for(self.wait_types.UX_TRANSITION)
         self.components.workflow_extract._.wait_for_visible()
 
+    def extract_workflow_set_name(self, name: str):
+        """Set the workflow name in the extraction form."""
+        self.components.workflow_extract.workflow_name_input.wait_for_and_clear_and_send_keys(name)
+
+    def extract_workflow_submit(self):
+        """Submit the extraction form."""
+        self.components.workflow_extract.create_button.wait_for_and_click()
+        self.sleep_for(self.wait_types.UX_TRANSITION)
+
+    def extract_workflow_name_and_submit(self, name: str):
+        """Set the workflow name and submit the extraction form."""
+        self.extract_workflow_set_name(name)
+        self.extract_workflow_submit()
+
     def click_history_option(self, option_label_or_component):
         # Open menu
         self.click_history_options()
@@ -2485,6 +2521,100 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         else:
             option_component = option_label_or_component
             option_component.wait_for_and_click()
+
+    # --- Keyboard helpers ---
+
+    def platform_modifier_key(self) -> Key:
+        """Return the modifier the client binds shortcuts to on this browser's platform.
+
+        The browser decides this, not the machine running the tests, so the check
+        is the one behind ``eventStore.isMac``.
+        """
+        is_mac = self.execute_script("return navigator.userAgent.toUpperCase().indexOf('MAC') >= 0;")
+        return Key.META if is_mac else Key.CONTROL
+
+    # --- Command palette helpers ---
+
+    def command_palette_open(self) -> None:
+        """Open the command palette from the masthead search button."""
+        self.components.masthead.search.wait_for_and_click()
+        self.command_palette_wait_for_open()
+
+    def command_palette_toggle_with_shortcut(self) -> None:
+        """Send ctrl/cmd + k, the palette's global shortcut, to whatever has focus.
+
+        The palette component owns the shortcut listener and mounts only once the
+        client has loaded the configuration, which can land after the masthead is
+        up. Its ``<dialog>`` is in the DOM whenever the component is mounted, so
+        waiting for it means the key press has a listener to reach.
+        """
+        self.components.command_palette._.wait_for_present()
+        self.press("k", modifiers=[self.platform_modifier_key()])
+
+    def command_palette_wait_for_open(self) -> None:
+        self.components.command_palette.input.wait_for_visible()
+
+    def command_palette_wait_for_closed(self) -> None:
+        self.components.command_palette._.wait_for_absent_or_hidden()
+
+    def command_palette_type(self, text: str) -> None:
+        """Append to the palette input a character at a time, the way a user types.
+
+        Tokens are parsed as they arrive, so ``h:`` leaves the input empty behind
+        a scope badge and whatever follows is a query inside that scope.
+        """
+        self.components.command_palette.input.wait_for_and_send_keys(text)
+
+    def command_palette_badge_text(self) -> str:
+        """Text of the scope or action badge in front of the input."""
+        return self.components.command_palette.badge.wait_for_text()
+
+    @retry_during_transitions
+    def command_palette_option_titles(self) -> list[str]:
+        """Titles of the rendered result rows, in the order they are shown.
+
+        The rows are replaced on every search, so the read is retried rather
+        than left to raise out of whatever wait is polling it.
+        """
+        return [element.text for element in self.components.command_palette.option_title.all()]
+
+    def command_palette_wait_for_input_value(self, value: str) -> None:
+        """Wait for the palette input to hold exactly this text."""
+        self._wait_on(
+            lambda: self.components.command_palette.input.wait_for_value() == value,
+            f"command palette input to hold [{value}]",
+            wait_type=WAIT_TYPES.UX_TRANSITION,
+        )
+
+    def command_palette_wait_for_option(self, title: str) -> None:
+        """Wait for a result row with this exact title.
+
+        Searches are debounced and most of them reach the API, so this waits
+        longer than a render.
+        """
+        self._wait_on(
+            lambda: title in self.command_palette_option_titles(),
+            f"command palette result titled [{title}]",
+            wait_type=WAIT_TYPES.DATABASE_OPERATION,
+        )
+
+    def command_palette_click_option(self, title: str) -> None:
+        """Run the result row with this title; the click bubbles from the title to the row."""
+        self.command_palette_wait_for_option(title)
+        self._command_palette_click_rendered_option(title)
+
+    @retry_during_transitions
+    def _command_palette_click_rendered_option(self, title: str) -> None:
+        """Click a row already known to be rendered - the wait stays outside the retry."""
+        for element in self.components.command_palette.option_title.all():
+            if element.text == title:
+                element.click()
+                return
+        raise AssertionError(f"No command palette result titled [{title}]")
+
+    def command_palette_click_category(self, category_id: str) -> None:
+        """Narrow the current root query to one category tab of the category row."""
+        self.components.command_palette.category(category=category_id).wait_for_and_click()
 
     # --- Window Manager helpers ---
 
@@ -2692,6 +2822,32 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
 
         _click_action_in_menu()
 
+    def history_panel_delete_selected(self, purge: bool = False):
+        """Delete the selected history items from the Selection menu, permanently with ``purge``, and confirm."""
+        self.use_bootstrap_dropdown(option="purge option" if purge else "delete option", menu="selected content menu")
+        self.components.confirm_dialog.ok_button.wait_for_and_click()
+        self.components.confirm_dialog.ok_button.wait_for_absent_or_hidden()
+
+    def history_panel_item_delete(self, hid):
+        """Delete history item ``hid`` with its trash button."""
+        self.history_panel_item_component(hid=hid).delete_button.wait_for_and_click()
+
+    def history_panel_item_undelete(self, hid):
+        """Undelete history item ``hid`` with its Undelete button; deleted items must be shown."""
+        self.history_panel_item_component(hid=hid).undelete_button.wait_for_and_click()
+
+    def history_panel_include_deleted(self):
+        """Toggle the history panel's Include deleted filter (the deleted-items counter)."""
+        self.components.history_panel.include_deleted_button.wait_for_and_click()
+
+    def history_panel_item_unhide(self, hid):
+        """Unhide history item ``hid`` with its Unhide button; hidden items must be shown."""
+        self.history_panel_item_component(hid=hid).unhide_button.wait_for_and_click()
+
+    def history_panel_include_hidden(self):
+        """Toggle the history panel's Include hidden filter (the hidden-items counter)."""
+        self.components.history_panel.include_hidden_button.wait_for_and_click()
+
     def open_history_multi_view(self):
         self.components.history_panel.histories_operation_menu.wait_for_and_click()
         self.components.history_panel.multi_view_button.wait_for_and_click()
@@ -2741,7 +2897,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         )
         visualize_tab_button.click()
 
-    def show_dataset_visualization(self, hid: int, visualization_id: str, screenshot_name: Optional[str] = None):
+    def show_dataset_visualization(self, hid: int, visualization_id: str, screenshot_name: str | None = None):
         self.show_dataset_visualizations(hid)
         self.components.visualization.matched_plugin(id=visualization_id).wait_for_visible()
         self.screenshot_if(screenshot_name)
@@ -2821,6 +2977,8 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
                 details_component.wait_for_absent_or_hidden()
             else:
                 details_component.wait_for_visible()
+                # details are clipped until the expand transition ends
+                item_component.details_expanded.wait_for_present()
         return item_component
 
     def history_panel_ensure_showing_item_details(self, hid):
@@ -2854,26 +3012,35 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         list_wizard.auto_pairing.wait_for_visible()
         list_wizard.wizard_next_button.wait_for_and_click()
 
-    def history_panel_build_list_of_lists(self):
-        self.history_panel_build_list_advanced_and_select_builder("list:list")
+    def history_panel_build_list_of_lists(self, screenshot_name: str | None = None):
+        self.history_panel_build_list_advanced_and_select_builder("list:list", screenshot_name=screenshot_name)
 
-    def history_panel_build_list_advanced_and_select_builder(self, builder: str):
+    def history_panel_build_list_advanced_and_select_builder(self, builder: str, screenshot_name: str | None = None):
         self.history_panel_build_list_advanced()
         list_wizard = self.components.collection_builders.list_wizard
         list_wizard.which_builder(builder=builder).wait_for_and_click()
+        self.screenshot_if(screenshot_name)
         list_wizard.wizard_next_button.wait_for_and_click()
 
     def history_panel_build_rule_builder_for_selection(self):
         self.history_panel_build_list_advanced()
         list_wizard = self.components.collection_builders.list_wizard
-        list_wizard.which_builder(builder="rules").wait_for_and_click()
+        list_wizard.which_builder_rules.wait_for_and_click()
         list_wizard.wizard_next_button.wait_for_and_click()
 
     def list_wizard_click_cell_and_send_keys(self, column_identifier: str, row_index: int, text: str):
-        list_wizard = self.components.collection_builders.list_wizard
-        list_wizard.cell(row_index=row_index, column_identifier=column_identifier).wait_for_and_double_click()
-        input = list_wizard.cell_input(row_index=row_index, column_identifier=column_identifier)
-        input.wait_for_and_send_keys(text)
+        self.ag_grid_edit_cell(self.components.collection_builders.list_wizard, column_identifier, row_index, text)
+
+    def ag_grid_edit_cell(
+        self, grid: SmartComponent, column_identifier: str, row_index: int, text: str, clear: bool = False
+    ):
+        """Edit a cell of ``grid``, a component with ``cell`` and ``cell_input`` selectors."""
+        grid.cell(row_index=row_index, column_identifier=column_identifier).wait_for_and_double_click()
+        input = grid.cell_input(row_index=row_index, column_identifier=column_identifier)
+        if clear:
+            input.wait_for_and_clear_and_send_keys(text)
+        else:
+            input.wait_for_and_send_keys(text)
         self.send_enter(input.wait_for_present())
 
     def collection_builder_set_name(self, name):
@@ -2928,7 +3095,13 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             not self.is_logged_in()
         ), "Clicked to logged out and UI reflects a logout, but API still thinks a user is logged in."
 
-    def run_tour(self, path, skip_steps=None, sleep_on_steps=None, tour_callback=None):
+    def run_tour(
+        self,
+        path: str,
+        skip_steps: list[str] | None = None,
+        sleep_on_steps: dict[str, int | float] | None = None,
+        tour_callback: TourCallbackProtocol | None = None,
+    ) -> None:
         skip_steps = skip_steps or []
         sleep_on_steps = sleep_on_steps or {}
         if tour_callback is None:
@@ -2960,12 +3133,10 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         return self.wait_for_selector(selector, wait_type=WAIT_TYPES.JOB_COMPLETION)
 
     def _clear_tooltip(self, tooltip_component):
-        last_timeout: Optional[SeleniumTimeoutException] = None
+        last_timeout: SeleniumTimeoutException | None = None
         for _ in range(2):
             if not tooltip_component.is_absent:
-                move_away_chain = self.action_chains()
-                move_away_chain.move_by_offset(100, 100)
-                move_away_chain.perform()
+                self.hover_away()
             try:
                 tooltip_component.wait_for_absent()
                 return
@@ -2979,9 +3150,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def get_tooltip_text(self, element, sleep=0, click_away=True):
         tooltip_balloon = self.components._.tooltip_balloon
         self._clear_tooltip(tooltip_balloon)
-        action_chains = self.action_chains()
-        action_chains.move_to_element(element)
-        action_chains.perform()
+        self.hover(element)
 
         if sleep > 0:
             time.sleep(sleep)
@@ -3005,22 +3174,20 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         return self.assert_selector_absent_or_hidden(selector)
 
     @retry_during_transitions
-    def assert_absent_or_hidden_after_transitions(self, selector):
+    def assert_absent_or_hidden_after_transitions(self, selector_template: Target, **kwds: Any) -> None:
         """Variant of assert_absent_or_hidden that retries during transitions.
 
         See details above for more information about this.
         """
-        return super().assert_absent_or_hidden_after_transitions(selector)
+        super().assert_absent_or_hidden_after_transitions(selector_template, **kwds)
 
-    def assert_tooltip_text(self, element, expected: Union[str, HasText], sleep: int = 0, click_away: bool = True):
+    def assert_tooltip_text(self, element, expected: str | HasText, sleep: int = 0, click_away: bool = True):
         if hasattr(expected, "text"):
             expected = cast(HasText, expected).text
         text = self.get_tooltip_text(element, sleep=sleep, click_away=click_away)
         assert text == expected, f"Tooltip text [{text}] was not expected text [{expected}]."
 
-    def assert_tooltip_text_contains(
-        self, element, expected: Union[str, HasText], sleep: int = 0, click_away: bool = True
-    ):
+    def assert_tooltip_text_contains(self, element, expected: str | HasText, sleep: int = 0, click_away: bool = True):
         if hasattr(expected, "text"):
             expected = cast(HasText, expected).text
         text = self.get_tooltip_text(element, sleep=sleep, click_away=click_away)
@@ -3056,7 +3223,8 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def assert_no_error_message(self):
         self.components._.messages.error.assert_absent_or_hidden()
 
-    def run_tour_step(self, step, step_index: int, tour_callback):
+    def run_tour_step(self, step: dict[str, Any], step_index: int, tour_callback: TourCallbackProtocol) -> None:
+        element: WebElementProtocol | None = None
         element_str = step.get("element", None)
         if element_str is None:
             component = step.get("component", None)
@@ -3077,9 +3245,20 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             assert element is not None
 
         if (textinsert := step.get("textinsert", None)) is not None:
-            element.send_keys(textinsert)
+            assert element is not None, f"Tour step {step_index} has textinsert but no element"
+            if "\t" in textinsert:
+                # send_keys interprets \t as a Tab keypress, which moves focus
+                # out of the element. Use JS to set the value directly instead.
+                self.execute_script(
+                    "arguments[0].value = arguments[1];"
+                    "arguments[0].dispatchEvent(new Event('input', {bubbles: true}));",
+                    element,
+                    textinsert,
+                )
+            else:
+                element.send_keys(textinsert)
 
-        tour_callback.handle_step(step, step_index)
+        tour_callback.handle_step(step, step_index, element)
 
         postclick = step.get("postclick", [])
         if postclick is True:
@@ -3100,12 +3279,12 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         return element
 
     @retry_during_transitions
-    def wait_for_and_click(self, selector_template):
-        return super().wait_for_and_click(selector_template)
+    def wait_for_and_click(self, selector_template: Target, **kwds: Any) -> Any:
+        return super().wait_for_and_click(selector_template, **kwds)
 
     @retry_during_transitions
-    def wait_for_and_double_click(self, selector_template):
-        return super().wait_for_and_double_click(selector_template)
+    def wait_for_and_double_click(self, selector_template: Target, **kwds: Any) -> Any:
+        return super().wait_for_and_double_click(selector_template, **kwds)
 
     def set_history_annotation(self, annotation, clear_text=False):
         toggle = self.history_element("editor toggle")
@@ -3130,10 +3309,15 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             container_elem = self.wait_for_selector(container_selector_or_elem)
         else:
             container_elem = container_selector_or_elem
+        if "multiselect__input" in (container_elem.get_attribute("class") or "").split():
+            container_elem = container_elem.find_element(
+                By.XPATH, "ancestor::*[contains(concat(' ', normalize-space(@class), ' '), ' multiselect ')][1]"
+            )
         trigger_elem = container_elem.find_element(By.CSS_SELECTOR, ".multiselect__select")
+        self.scroll_into_view(trigger_elem)
         trigger_elem.click()
         try:
-            text_input = container_elem.find_element(By.CSS_SELECTOR, "input[class='multiselect__input']")
+            text_input = container_elem.find_element(By.CSS_SELECTOR, "input.multiselect__input")
         except Exception:
             text_input = None
         if text_input:
@@ -3193,6 +3377,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         screenshot_before_submit=None,
         screenshot_after_submit=None,
         assert_valid=False,
+        confirm_permissions_change=False,
     ):
         self.share_ensure_by_user_available(sharing_component)
         multiselect = sharing_component.share_with_multiselect.wait_for_and_click()
@@ -3201,11 +3386,14 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
 
         self.screenshot_if(screenshot_before_submit)
         sharing_component.submit_sharing_with.wait_for_and_click()
+        if confirm_permissions_change:
+            sharing_component.permissions_change_required_how.wait_for_visible()
+            sharing_component.permissions_change_required_ok.wait_for_and_click()
 
         if assert_valid:
             self.assert_no_error_message()
 
-            xpath = f'//span[contains(text(), "{user_email}")]'
+            xpath = f'//span[text()[contains(., "{user_email}")]]'
             self.wait_for_xpath_visible(xpath)
         self.screenshot_if(screenshot_after_submit)
 
@@ -3262,7 +3450,7 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         return object_store_id
 
     def _fill_configuration_template(
-        self, name: str, description: Optional[str], parameters: list[ConfigTemplateParameter]
+        self, name: str, description: str | None, parameters: list[ConfigTemplateParameter]
     ):
         self.components.tool_form.parameter_input(parameter="_meta_name").wait_for_and_send_keys(
             name,
@@ -3295,6 +3483,18 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
         else:
             self.action_chains().move_to_element(element).key_down(Keys.SHIFT).click().key_up(Keys.SHIFT).perform()
 
+    def set_file_input(self, file_input: WebElementProtocol, test_path: str) -> None:
+        """Attach a local file to a file input element, visible or not.
+
+        Playwright types into an element rather than setting its value, so a file
+        input there has to go through set_input_files.
+        """
+        if self._driver_impl.backend_type == "playwright":
+            pw_driver = cast("HasPlaywrightDriver", self._driver_impl)
+            pw_driver._unwrap_element(file_input).set_input_files(test_path)
+        else:
+            file_input.send_keys(test_path)
+
     def send_keys_to_page(self, *value: str) -> None:
         """Send keys to the currently focused element / page.
 
@@ -3305,14 +3505,14 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
             pw_driver = cast("HasPlaywrightDriver", self._driver_impl)
             page = pw_driver.page
             all_chars = "".join(str(v) for v in value)
-            has_special = any(c in _SELENIUM_KEY_TO_PLAYWRIGHT for c in all_chars)
+            has_special = any(c in SELENIUM_KEY_TO_PLAYWRIGHT for c in all_chars)
             if not has_special:
                 page.keyboard.type(all_chars)
             else:
                 modifiers: list[str] = []
                 for char in all_chars:
-                    pw_key = _SELENIUM_KEY_TO_PLAYWRIGHT.get(char)
-                    if pw_key and char in _SELENIUM_MODIFIERS:
+                    pw_key = SELENIUM_KEY_TO_PLAYWRIGHT.get(char)
+                    if pw_key and char in SELENIUM_MODIFIERS:
                         modifiers.append(pw_key)
                     elif pw_key:
                         combo = "+".join(modifiers + [pw_key])
@@ -3331,10 +3531,10 @@ class NavigatesGalaxy(HasDriverProxy[WaitType]):
     def mouse_drag(
         self,
         from_element: WebElementProtocol,
-        to_element: Optional[WebElementProtocol] = None,
+        to_element: WebElementProtocol | None = None,
         from_offset=(0, 0),
         to_offset=(0, 0),
-        via_offsets: Optional[list[tuple[int, int]]] = None,
+        via_offsets: list[tuple[int, int]] | None = None,
     ):
         if self._driver_impl.backend_type == "playwright":
             pw_driver = cast("HasPlaywrightDriver", self._driver_impl)

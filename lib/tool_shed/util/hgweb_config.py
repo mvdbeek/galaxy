@@ -14,13 +14,13 @@ new_hgweb_config_template = """
 
 
 class HgWebConfigManager:
-    def __init__(self):
-        self.hgweb_config_dir = None
-        self.in_memory_config = None
+    def __init__(self) -> None:
+        self.hgweb_config_dir: str
+        self._in_memory_config: configparser.ConfigParser | None = None
         self.lock = threading.Lock()
-        self.hgweb_repo_prefix = None
+        self.hgweb_repo_prefix: str
 
-    def add_entry(self, lhs, rhs):
+    def add_entry(self, lhs: str, rhs: str) -> None:
         """Add an entry in the hgweb.config file for a new repository."""
         self.lock.acquire(True)
         try:
@@ -39,7 +39,7 @@ class HgWebConfigManager:
         finally:
             self.lock.release()
 
-    def change_entry(self, old_lhs, new_lhs, new_rhs):
+    def change_entry(self, old_lhs: str, new_lhs: str, new_rhs: str) -> None:
         """Change an entry in the hgweb.config file for a repository - this only happens when the owner changes the name of the repository."""
         self.lock.acquire(True)
         try:
@@ -56,11 +56,11 @@ class HgWebConfigManager:
         finally:
             self.lock.release()
 
-    def get_entry(self, lhs):
+    def get_entry(self, lhs: str) -> str:
         """Return an entry in the hgweb.config file for a repository"""
         in_memory_config = self.read_config()
         try:
-            entry = in_memory_config.get("paths", lhs)
+            entry: str = in_memory_config.get("paths", lhs)
         except configparser.NoOptionError:
             try:
                 # We have a multi-threaded front-end, so one of the threads may not have the latest version of the hgweb.config file.
@@ -73,7 +73,7 @@ class HgWebConfigManager:
         return entry
 
     @property
-    def hgweb_config(self):
+    def hgweb_config(self) -> str:
         hgweb_config = os.path.join(self.hgweb_config_dir, "hgweb.config")
         if not os.path.exists(hgweb_config):
             # We used to raise an exception here...
@@ -86,7 +86,7 @@ class HgWebConfigManager:
                 hgweb_config_file.write(new_hgweb_config_template)
         return os.path.abspath(hgweb_config)
 
-    def make_backup(self):
+    def make_backup(self) -> None:
         # Make a backup of the hgweb.config file.
         today = date.today()
         backup_date = today.strftime("%Y_%m_%d")
@@ -94,18 +94,18 @@ class HgWebConfigManager:
         hgweb_config_copy = os.path.join(self.hgweb_config_dir, hgweb_config_backup_filename)
         shutil.copy(os.path.abspath(self.hgweb_config), os.path.abspath(hgweb_config_copy))
 
-    def read_config(self, force_read=False):
-        if force_read or self.in_memory_config is None:
+    def read_config(self, force_read: bool = False) -> configparser.ConfigParser:
+        if force_read or self._in_memory_config is None:
             config = configparser.ConfigParser()
             config.read(self.hgweb_config)
-            self.in_memory_config = config
-        return self.in_memory_config
+            self._in_memory_config = config
+        return self._in_memory_config
 
-    def write_config(self, config):
+    def write_config(self, config: configparser.ConfigParser) -> None:
         """Write the configuration to the hgweb.config file on disk and use it as the in-memory configuration."""
         with open(self.hgweb_config, "w") as config_file:
             config.write(config_file)
-        self.in_memory_config = config
+        self._in_memory_config = config
 
 
 hgweb_config_manager = HgWebConfigManager()

@@ -2,7 +2,6 @@
 import { storeToRefs } from "pinia";
 import { computed, toRefs } from "vue";
 
-import type { DatatypesMapperModel } from "@/components/Datatypes/model";
 import { type ConfirmDialogOptions, useConfirmDialog } from "@/composables/confirmDialog";
 import { useWorkflowStores } from "@/composables/workflowStores";
 import type { Steps } from "@/stores/workflowStepStore";
@@ -30,7 +29,6 @@ import LintSection from "@/components/Workflow/Editor/LintSection.vue";
 const props = defineProps<{
     lintData: LintData;
     steps: Steps; // Adjust the type as needed
-    datatypesMapper: DatatypesMapperModel;
     hasChanges: boolean;
     onSave?: () => Promise<boolean>;
 }>();
@@ -39,7 +37,7 @@ const { confirm } = useConfirmDialog();
 
 const stores = useWorkflowStores();
 const { stepStore, stateStore, searchStore } = stores;
-const { hasActiveOutputs, hasInputSteps } = storeToRefs(stepStore);
+const { hasActiveOutputs, hasGatedSteps, hasInputSteps } = storeToRefs(stepStore);
 
 const {
     checkAnnotation,
@@ -54,6 +52,7 @@ const {
     unlabeledOutputs,
     untypedParameterWarnings,
     disconnectedInputs,
+    danglingGates,
     duplicateLabels,
     missingMetadata,
 } = toRefs(props.lintData);
@@ -83,7 +82,7 @@ const emit = defineEmits<{
               ]
             | ReturnType<typeof fixAllIssues>,
     ): void;
-    (e: "onScrollTo", stepId: Number): void;
+    (e: "onScrollTo", stepId: number): void;
 }>();
 
 function onAttributes(highlight: string) {
@@ -233,6 +232,16 @@ async function onRefactor() {
             @onMouseOver="onHighlight"
             @onClick="onFixDisconnectedInput"
             @onSaveRequested="saveChanges(false)" />
+        <LintSection
+            v-if="hasGatedSteps"
+            data-description="linting conditional gates"
+            high-priority
+            success-message="Every conditional step reads inputs that are connected."
+            warning-message="Some conditional steps read an input that nothing is connected to. Such a step is skipped
+                on every run, or its invocation fails. Connect the input or change the condition:"
+            :warning-items="danglingGates"
+            @onMouseOver="onHighlight"
+            @onClick="openAndFocus" />
         <LintSection
             v-if="hasInputSteps"
             data-description="linting input metadata"

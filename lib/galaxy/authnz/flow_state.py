@@ -129,12 +129,13 @@ class FlowState:
             )
             .execution_options(synchronize_session=False)
         )
-        result = cast(CursorResult, self.session.execute(stmt))  # type: ignore[redundant-cast, unused-ignore]
+        result = cast("CursorResult[Any]", self.session.execute(stmt))  # type: ignore[redundant-cast, unused-ignore]
         self.session.commit()
         if result.rowcount != 1:
             raise InvalidFlow()
         # Consume before calling account creation helpers, which commit independently.
-        return envelope["payload"]
+        payload: dict[str, Any] = envelope["payload"]
+        return payload
 
     @staticmethod
     def _validate_identifier(identifier: str) -> None:

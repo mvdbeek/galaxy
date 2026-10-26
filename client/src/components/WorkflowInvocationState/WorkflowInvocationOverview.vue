@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { BAlert } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import type { InvocationMessage, StepJobSummary, WorkflowInvocationElementView } from "@/api/invocations";
 import { useWorkflowInstance } from "@/composables/useWorkflowInstance";
@@ -11,13 +10,15 @@ import { useWorkflowStateStore } from "@/stores/workflowEditorStateStore";
 import InvocationGraph from "../Workflow/Invocation/Graph/InvocationGraph.vue";
 import SubworkflowAlert from "./SubworkflowAlert.vue";
 import WorkflowInvocationError from "./WorkflowInvocationError.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 
 interface Props {
     invocation: WorkflowInvocationElementView;
     stepsJobsSummary?: StepJobSummary[];
-    invocationAndJobTerminal: boolean;
     isFullPage?: boolean;
+    /** Fit the graph and step details to the page height instead of scrolling */
+    fitToPage?: boolean;
     isSubworkflow?: boolean;
     invocationMessages?: InvocationMessage[];
 }
@@ -52,7 +53,7 @@ function showSubworkflowInvocation(invocationId: string, stepId: number) {
 </script>
 
 <template>
-    <div class="mb-3 workflow-invocation-state-component">
+    <div :class="props.fitToPage ? 'fit-to-page' : 'mb-3'">
         <SubworkflowAlert v-if="isSubworkflow" :invocation-id="props.invocation.id" :state="props.invocation.state" />
         <div v-if="props.invocationMessages?.length" class="d-flex align-items-center">
             <WorkflowInvocationError
@@ -66,13 +67,13 @@ function showSubworkflowInvocation(invocationId: string, stepId: number) {
                 @view-subworkflow-invocation="showSubworkflowInvocation" />
         </div>
         <!-- Once the workflow for the invocation and step job summaries are loaded, display the graph -->
-        <BAlert v-if="loading || !props.stepsJobsSummary" variant="info" show>
+        <GAlert v-if="loading || !props.stepsJobsSummary" variant="info" show>
             <LoadingSpan message="Loading workflow..." />
-        </BAlert>
-        <BAlert v-else-if="error" variant="danger" show>
+        </GAlert>
+        <GAlert v-else-if="error" variant="danger" show>
             {{ error }}
-        </BAlert>
-        <div v-else-if="workflow && !isSubworkflow">
+        </GAlert>
+        <div v-else-if="workflow && !isSubworkflow" class="invocation-graph-container">
             <InvocationGraph
                 ref="invocationGraph"
                 class="mt-1"
@@ -80,10 +81,21 @@ function showSubworkflowInvocation(invocationId: string, stepId: number) {
                 :invocation="invocation"
                 :steps-jobs-summary="props.stepsJobsSummary"
                 :workflow="workflow"
-                :is-terminal="invocationAndJobTerminal"
-                :is-full-page="isFullPage"
+                :fit-to-page="props.fitToPage"
                 :show-minimap="isFullPage" />
         </div>
-        <BAlert v-else-if="!workflow" variant="info" show> No workflow found for this invocation. </BAlert>
+        <GAlert v-else-if="!workflow" variant="info" show> No workflow found for this invocation. </GAlert>
     </div>
 </template>
+
+<style scoped lang="scss">
+@import "@/style/scss/mixins";
+
+.fit-to-page {
+    @include fill-column;
+
+    .invocation-graph-container {
+        @include fill-column;
+    }
+}
+</style>

@@ -2,11 +2,10 @@ import logging
 import os
 import re
 import shutil
+from collections.abc import Sequence
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
-    Union,
 )
 from urllib.error import HTTPError
 
@@ -40,7 +39,7 @@ VALID_REPOSITORYNAME_RE = re.compile(r"^[a-z0-9\_]+$")
 def check_for_updates(
     tool_shed_registry: Registry,
     install_model_context: install_model_scoped_session,
-    repository_id: Optional[int] = None,
+    repository_id: int | None = None,
 ) -> tuple[str, str]:
     message = ""
     status = "ok"
@@ -244,12 +243,12 @@ def get_absolute_path_to_file_in_repository(repo_files_dir, file_name):
 
 def get_installed_repository(
     app: "InstallationTarget",
-    tool_shed: Optional[str] = None,
-    name: Optional[str] = None,
-    owner: Optional[str] = None,
-    changeset_revision: Optional[str] = None,
-    installed_changeset_revision: Optional[str] = None,
-    repository_id: Optional[int] = None,
+    tool_shed: str | None = None,
+    name: str | None = None,
+    owner: str | None = None,
+    changeset_revision: str | None = None,
+    installed_changeset_revision: str | None = None,
+    repository_id: int | None = None,
     from_cache: bool = False,
 ) -> ToolShedRepository:
     """
@@ -332,10 +331,10 @@ def get_prior_import_or_install_required_dict(app: "InstallationTarget", tsr_ids
     return prior_import_or_install_required_dict
 
 
-ToolDependenciesDictT = dict[str, Union[dict[str, Any], list[dict[str, Any]]]]
+ToolDependenciesDictT = dict[str, dict[str, Any] | list[dict[str, Any]]]
 OldRepositoryTupleT = tuple[str, str, str, str, str, ToolDependenciesDictT]
-RepositoryTupleT = tuple[str, str, str, str, str, Optional[Any], ToolDependenciesDictT]
-AnyRepositoryTupleT = Union[OldRepositoryTupleT, RepositoryTupleT]
+RepositoryTupleT = tuple[str, str, str, str, str, Any | None, ToolDependenciesDictT]
+AnyRepositoryTupleT = OldRepositoryTupleT | RepositoryTupleT
 
 
 def get_repo_info_tuple_contents(repo_info_tuple: AnyRepositoryTupleT) -> RepositoryTupleT:
@@ -395,7 +394,7 @@ def get_repository_and_repository_dependencies_from_repo_info_dict(app: "Install
     return repository, repository_dependencies
 
 
-def get_repository_dependency_types(repository_dependencies):
+def get_repository_dependency_types(repository_dependencies: list[Sequence[str]]) -> tuple[bool, bool]:
     """
     Inspect the received list of repository_dependencies tuples and return boolean values
     for has_repository_dependencies and has_repository_dependencies_only_if_compiling_contained_td.

@@ -82,6 +82,11 @@ List of behavior changes associated with profile versions:
   `provided_metadata_file` or `provided_metadata_style`, using `format="auto"`, or declaring a
   `discover_datasets` collector with `from_provided_metadata="true"` (represented as
   `discover_via="tool_provided_metadata"` in YAML tool definitions).
+- An `optional` `boolean` parameter with no `checked` attribute defaults to `None` instead of `False`, so an unset
+  value stays distinct from an explicit false. Older profiles keep reporting `False`.
+- Test output assertions that count columns (e.g. `has_n_columns`) and do not declare a `sep` split on the
+  delimiter the datatype recorded for the output dataset - a comma for `csv` - instead of always splitting on
+  tabs. Older profiles keep the tab default.
 
 ### Examples
 
@@ -116,6 +121,7 @@ A ``data_source`` tool contains a few more relevant attributes.
         <xs:element name="edam_operations" type="EdamOperations" minOccurs="0"/>
         <xs:element name="xrefs" type="xrefs" minOccurs="0"/>
         <xs:element name="creator" type="Creator" minOccurs="0"/>
+        <xs:element name="funding" type="Funding" minOccurs="0"/>
         <xs:element name="requirements" type="Requirements" minOccurs="0">
           <!-- Ensure unique credentials names across all credentials elements -->
           <xs:unique name="uniqueCredentialsNames">
@@ -475,6 +481,18 @@ This tag set is contained within the ``<entry_point>`` tag set. It contains the 
         <xs:documentation xml:lang="en">[schema.org/image](https://schema.org/image)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
+    <xs:attribute name="alternateName" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation xml:lang="en">[schema.org/alternateName](https://schema.org/alternateName)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="description" type="xs:string" use="optional">
+      <xs:annotation>
+        <xs:documentation xml:lang="en">[schema.org/description](https://schema.org/description)</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+  </xs:attributeGroup>
+  <xs:attributeGroup name="PersonOrOrganizationContact">
     <xs:attribute name="address" type="xs:string" use="optional">
       <xs:annotation>
         <xs:documentation xml:lang="en">[schema.org/address](https://schema.org/address)</xs:documentation>
@@ -495,11 +513,6 @@ This tag set is contained within the ``<entry_point>`` tag set. It contains the 
         <xs:documentation xml:lang="en">[schema.org/faxNumber](https://schema.org/faxNumber)</xs:documentation>
       </xs:annotation>
     </xs:attribute>
-    <xs:attribute name="alternateName" type="xs:string" use="optional">
-      <xs:annotation>
-        <xs:documentation xml:lang="en">[schema.org/alternateName](https://schema.org/alternateName)</xs:documentation>
-      </xs:annotation>
-    </xs:attribute>
   </xs:attributeGroup>
   <xs:complexType name="Person">
     <xs:annotation>
@@ -508,6 +521,7 @@ Describes a person. Tries to stay close to [schema.org/Person](https://schema.or
 ]]></xs:documentation>
     </xs:annotation>
     <xs:attributeGroup ref="Thing"/>
+    <xs:attributeGroup ref="PersonOrOrganizationContact"/>
     <xs:attribute name="givenName" type="xs:string" use="optional">
       <xs:annotation>
         <xs:documentation xml:lang="en">[schema.org/givenName](https://schema.org/givenName)</xs:documentation>
@@ -541,6 +555,7 @@ Describes an organization. Tries to stay close to [schema.org/Organization](http
 ]]></xs:documentation>
     </xs:annotation>
     <xs:attributeGroup ref="Thing"/>
+    <xs:attributeGroup ref="PersonOrOrganizationContact"/>
   </xs:complexType>
   <xs:group name="PersonOrOrganization">
     <xs:choice>
@@ -554,6 +569,26 @@ Describes an organization. Tries to stay close to [schema.org/Organization](http
     </xs:annotation>
     <xs:sequence>
       <xs:group ref="PersonOrOrganization" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <xs:complexType name="Grant">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">
+        A grant, typically financial or otherwise quantifiable, of resources. See [schema.org/Grant](https://schema.org/Grant).
+      </xs:documentation>
+    </xs:annotation>
+    <xs:attributeGroup ref="Thing"/>
+  </xs:complexType>
+
+  <xs:complexType name="Funding">
+    <xs:annotation>
+      <xs:documentation xml:lang="en">
+        Grants that directly or indirectly provide funding or sponsorship for this item. See [schema.org/funding](https://schema.org/funding).
+      </xs:documentation>
+    </xs:annotation>
+    <xs:sequence>
+      <xs:element name="grant" type="Grant" minOccurs="0" maxOccurs="unbounded"/>
     </xs:sequence>
   </xs:complexType>
   <xs:complexType name="RequiredFiles">
@@ -623,6 +658,35 @@ practice.
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
+  <xs:simpleType name="RuntimeEnvironmentVariableName">
+    <xs:restriction base="xs:string">
+      <xs:pattern value="[A-Za-z_][A-Za-z0-9_]*"/>
+    </xs:restriction>
+  </xs:simpleType>
+  <xs:complexType name="RuntimeEnvironmentVariable">
+    <xs:annotation>
+      <xs:documentation xml:lang="en"><![CDATA[
+Installed tools can consume explicitly named variables from the job environment:
+``<runtime_environment_variable name="_JAVA_OPTIONS" required="false" description="JVM options" />``.
+Place this declaration under ``requirements``, beside ``credentials``. No profile gating
+is needed; older Galaxy releases simply do not forward these names. User-defined tools
+cannot declare runtime environment variables. Use ``credentials`` for secrets.
+
+Galaxy forwards declared names into wrapped Docker and Singularity/Apptainer containers.
+An unset variable is omitted; an empty string is set. Missing required variables produce
+a warning job message, without failing the job, for all runners and execution environments.
+The optional description documents the variable for administrators and tool linting.
+
+Reserved exact names: PATH, HOME, USER, LOGNAME, SHELL, PWD, OLDPWD, HOSTNAME, TMPDIR,
+TMP, TEMP, PYTHONPATH, PYTHONHOME, BASH_ENV, ENV, IFS, PS4.
+Reserved prefixes: LD_, GALAXY_, _GALAXY_, SINGULARITY_, SINGULARITYENV_, APPTAINER_,
+APPTAINERENV_. The loader and linter enforce these exclusions.
+      ]]></xs:documentation>
+    </xs:annotation>
+    <xs:attribute name="name" type="RuntimeEnvironmentVariableName" use="required"/>
+    <xs:attribute name="required" type="xs:boolean" default="false"/>
+    <xs:attribute name="description" type="xs:string"/>
+  </xs:complexType>
   <xs:complexType name="Requirements">
     <xs:annotation>
       <xs:documentation xml:lang="en"><![CDATA[
@@ -639,6 +703,7 @@ serve as complete descriptions of the runtime of a tool.
       <xs:element name="requirement" type="Requirement"/>
       <xs:element name="container" type="Container"/>
       <xs:element name="resource" type="Resource"/>
+      <xs:element name="runtime_environment_variable" type="RuntimeEnvironmentVariable"/>
       <xs:element name="credentials" type="Credentials">
         <!-- Ensure unique credential names across variables and secrets -->
         <xs:unique name="uniqueCredentialNames">
@@ -1805,13 +1870,49 @@ discouraged, to use the value specified as `truevalue` or `falsevalue`.
 Data input parameters can be given as a file name. The file should exist in the
 `test-data` folder. Multiple files can be specified as comma separated list.
 
+Note that it is possible to use compressed (gz, bz2) files in the `test-data` folder
+also for decompressed data types which is useful for large test data files.
+Galaxy will unzip these files on upload.
+
+```xml
+<param value="test.bed.gz" ftype="bed">
+```
+
+Unzipping won't be done for compressed data types, e.g.
+
+```xml
+<param value="test.fastq.gz" ftype="fastq.gz">
+```
+
 #### ``select``
 
 The value of a select parameter should be specified as the value of one of the
 legal options. If more than one option is selected (`multiple="true"`) they
-should be given as comma separated list. For optional selects
-(`optional="true"`) the case that no option is selected can be specified with
-`value=""`.
+should be given as comma separated list.
+
+For optional selects (`optional="true"`), use `value_json="null"` to explicitly
+leave the parameter unset. This works for both single and multiple selects:
+
+```xml
+<param name="outputs" value_json="null" />
+```
+
+For multiple selects (`multiple="true"`), use `value_json="[]"` to explicitly
+supply an empty list of selected options:
+
+```xml
+<param name="outputs" value_json="[]" />
+```
+
+Use these explicit JSON forms instead of `value=""`. `value=""` supplies the
+empty string as an option value, which is not a legal option unless the select
+defines `<option value="">`. On an optional single select it fails test
+validation from profile `24.2`. Tool profiles before `26.1` interpret
+`value=""` on a multiple select as an empty list, but linting flags this legacy
+convention and profile `26.1` and later reject it.
+
+Omit the test's `param` element to use the input parameter's default instead;
+this may select options if the tool declares them with `selected="true"`.
 
 While in general it is preferred to specify the selected cases by their values it
 is also possible to specify them by their name (i.e. the content of the
@@ -1843,7 +1944,9 @@ values that can be assigned to an input parameter.</xs:documentation>
       <xs:annotation>
         <xs:documentation xml:lang="en">This variant of the value parameters can be
 used to load typed parameters. This string will be loaded as JSON and its type will
-attempt to be preserved through API requests to Galaxy.</xs:documentation>
+attempt to be preserved through API requests to Galaxy. For example, use
+``value_json="null"`` for an unset optional select or ``value_json="[]"`` for an
+empty multiple-select list.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="ftype" type="Format">
@@ -2724,9 +2827,11 @@ For instance, ``<has_n_columns n="3"/>``. The assertion tests only the first lin
 Number of columns can optionally also be specified with ``delta``. Alternatively the
 range of expected occurrences can be specified by ``min`` and/or ``max``.
 
-Optionally a column separator (``sep``, default is ``       ``) `and comment character(s)
+Optionally a column separator (``sep``) and comment character(s)
 can be specified (``comment``, default is empty string). The first non-comment
-line is used for determining the number of columns.
+line is used for determining the number of columns. For tools with profile >= 26.2,
+the default separator is the delimiter the datatype recorded for the dataset - a comma
+for csv, a tab for tabular and for datasets that declare no delimiter.
 
 $attribute_list::5]]></xs:documentation>
         </xs:annotation>
@@ -2753,7 +2858,7 @@ $attribute_list::5]]></xs:documentation>
           </xs:attribute>
           <xs:attribute name="sep" type="xs:string" use="optional">
             <xs:annotation>
-              <xs:documentation xml:lang="en"><![CDATA[Separator defining columns, default: tab]]></xs:documentation>
+              <xs:documentation xml:lang="en"><![CDATA[Separator defining columns, default: tab (for tools with profile >= 26.2, the dataset's delimiter metadata, e.g. comma for csv)]]></xs:documentation>
             </xs:annotation>
           </xs:attribute>
           <xs:attribute name="comment" type="xs:string" use="optional">
@@ -4113,10 +4218,10 @@ In output filters sections are represented as dictionary with the same name as t
 In order to reference parameters in sections from tags in the `<outputs>` section, e.g. in the `format_source` attribute of `<data>` tags, the syntax is currently:
 
 ```
-<data name="output" format_source="parameter_name" metadata_source="parameter_name"/>
+<data name="output" format_source="section|parameter_name" metadata_source="section|parameter_name"/>
 ```
 
-Note that references to other parameters in the `<inputs>` section are only possible if the reference is in the same section or its parents (and is defined earlier), therefore only `parameter_name` is used.
+References between parameters within the `<inputs>` section (e.g. `data_ref`) are different: they are only possible if the referenced parameter is in the same section or its parents (and is defined earlier), therefore only `parameter_name` is used.
 
 ```
     <param name="foo" type="data" format="tabular"/>
@@ -4268,6 +4373,83 @@ appropriate command line variable.
 ```xml
 <param name="interval_file" type="data" format="interval" label="near intervals in"/>
 ```
+
+In a command block or configfile, ``$interval_file`` is replaced by Galaxy's
+internal filename. Sometimes a tool instead needs a meaningful name or a
+filename extension. Dataset wrappers expose ``element_identifier`` (the
+collection element identifier, or the dataset name), ``ext`` (Galaxy's
+datatype identifier), ``file_ext`` (the filename extension, honoring any
+export alias), and ``safe_element_identifier``. Use ``ext`` for datatype
+comparisons and ``file_ext`` when constructing a filename. For example, a
+compressed VCF dataset has ``ext`` equal to ``vcf_bgzip`` but ``file_ext``
+equal to ``vcf.gz``.
+
+``safe_element_identifier`` is a deterministic, non-empty, portable filename
+component. It keeps ASCII letters, numbers, ``-``, ``_``, and ``.``; replaces
+other characters with ``_``; removes leading ``.`` and ``-`` characters; and
+protects Windows reserved names. For dataset inputs, it also reserves enough
+of the usual 255-character component limit for ``.file_ext``, so use the two
+together when constructing a filename. Collection wrappers without an element
+name return ``None`` for ``safe_element_identifier``. Shell quoting is still
+required, as in this example:
+
+```bash
+ln -s '$interval_file' '${interval_file.safe_element_identifier}.${interval_file.file_ext}'
+```
+
+The sanitized value is not guaranteed to be unique. For example, the
+identifiers ``a/b`` and ``a:b`` both become ``a_b``. When creating several
+sibling files, include an index or another stable unique value in each name.
+For bulk or nested collection staging, prefer a configfile using
+``data_style="staging_path_and_source_path"``.
+
+Datasets of directory datatypes (``directory`` and its subclasses) keep their
+content in a folder, ``$input.extra_files_path``, rather than in ``$input``
+itself. New datasets have their content at the root of that folder; some
+Zarr datasets created before Galaxy 26.2 keep their store in a subfolder.
+``$input.path`` is where a tool finds a dataset's data on disk: the dataset's
+file for regular datatypes, and the folder holding the content, subfolder
+included, for directory datatypes. A single input can then accept both kinds
+of format through one value, the same way ``$(inputs.input.path)`` works in
+YAML tools. For example, an input taking
+AnnData either as an ``h5ad`` file or as a ``zarr`` store needs no branching.
+``$input.path`` is available since Galaxy 26.2, so tools using it should set
+``profile="26.2"`` or later:
+
+```xml
+<param name="input" type="data" format="h5ad,zarr" label="AnnData"/>
+```
+
+```bash
+python '$__tool_directory__/script.py' --input '$input.path'
+```
+
+For a directory output, write the content directly into ``$output.path``.
+Galaxy does not create this folder, so the tool has to create it first, e.g.
+with ``mkdir -p '$output.path'``.
+
+``$input.path`` is an error, rather than an empty value, for an optional input
+that is not set, so check ``#if $input`` first. With ``allow_uri_if_protocol``,
+a deferred dataset may reach the tool as its source URI instead of being
+downloaded first. ``$input.path`` is an error for it too and ``$input`` renders
+the URI, so check ``$input.is_deferred`` to choose:
+
+```bash
+#if $input.is_deferred
+    --input '$input'
+#else
+    --input '$input.path'
+#end if
+```
+
+Existing Zarr tools use ``$input.extra_files_path/$input.metadata.store_root``.
+That keeps pointing at the store, since ``store_root`` is empty for a store at
+the root and names the subfolder otherwise, but new tools should use
+``$input.path``. For an older dataset whose subfolder name holds a quote,
+``$``, a backtick, a backslash, a line break, ``;``, ``&``, ``|``, ``<`` or
+``>``, ``$input.path`` is an error, since that name could not be passed safely
+on the command line. Other names, e.g. with spaces, are accepted, so always
+quote ``$input.path``.
 
 The following demonstrates a ``param`` which may accept multiple files and
 multiple formats.
@@ -4592,7 +4774,9 @@ checkboxes (``checkboxes``; note this is incompatible with ``multiple="false"``
 and ``optional="false"``) or radio buttons (``radio``; note this is
 incompatible with ``multiple="true"`` and ``optional="true"``). Defaults to a
 drop-down menu select list. Used only when the ``type`` attribute value is
-``select``.</xs:documentation>
+``select``. ``drill_down`` parameters also accept ``checkbox`` and ``radio``,
+but these have no effect: the form shows checkboxes when ``multiple="true"``
+and radio buttons otherwise.</xs:documentation>
           </xs:annotation>
         </xs:attribute>
         <xs:attribute name="multiple" type="PermissiveBoolean">
@@ -4703,6 +4887,13 @@ since release 16.10. Used only when the ``type`` attribute value is ``text``.</x
 allow access to Python code to generate options for a select list. See
 ``code``'s documentation for an example.
 </xs:documentation>
+          </xs:annotation>
+        </xs:attribute>
+        <xs:attribute name="from_file" type="xs:string" gxdocs:deprecated="true">
+          <xs:annotation>
+            <xs:documentation xml:lang="en">*Deprecated*. Loads the ``options``
+of a ``drill_down`` parameter from an XML file in Galaxy's tool data path.
+Define the ``options`` inline instead, sharing them through macros if needed.</xs:documentation>
           </xs:annotation>
         </xs:attribute>
       </xs:extension>
@@ -4816,6 +5007,12 @@ $both
 ]]]]><![CDATA[></command>
 ```
 
+After templating, Galaxy strips each line and joins the lines with spaces, so the
+command runs as a single line. Separate commands with ``&&`` or ``;``. A shell
+comment (``# ...``) would comment out the rest of the command, so use a Cheetah
+comment (``##``) instead, and a heredoc cannot work. To write a file for the
+tool to read, use a ``configfile``.
+
 The following example (taken from [xpath](https://github.com/galaxyproject/tools-iuc/blob/main/tools/xpath/xpath.xml) tool)
 uses an interpreted executable. In this case a Perl script is shipped with the
 tool and the directory of the tool itself is referenced with ``$__tool_directory__``.
@@ -4912,6 +5109,8 @@ Name | Description
 ``\${GALAXY_SLOTS:-4}`` | Number of cores/threads allocated by the job runner or resource manager to the tool for the given job (here 4 is the default number of threads to use if running via custom runner that does not configure GALAXY_SLOTS or in an older Galaxy runtime).
 ``\$GALAXY_MEMORY_MB`` | Total amount of memory in megabytes (1024^2 bytes) allocated by the administrator (via the resource manager) to the tool for the given job. If unset, tools should not attempt to limit memory usage.
 ``\$GALAXY_MEMORY_MB_PER_SLOT`` | Amount of memory per slot in megabytes (1024^2 bytes) allocated by the administrator (via the resource manager) to the tool for the given job. If unset, tools should not attempt to limit memory usage.
+``\$GALAXY_MEMORY_GB`` | Total amount of memory in whole gigabytes (1024^3 bytes) derived from ``\$GALAXY_MEMORY_MB``. If the derived value is less than one, this variable is unset.
+``\$GALAXY_MEMORY_GB_PER_SLOT`` | Amount of memory per slot in whole gigabytes (1024^3 bytes) derived from ``\$GALAXY_MEMORY_MB_PER_SLOT``. If the derived value is less than one, this variable is unset.
 ``\$_GALAXY_JOB_TMP_DIR`` | Path to an empty directory in the job's working directory that can be used as a temporary directory.
 
 See the [Planemo docs](https://planemo.readthedocs.io/en/latest/writing_advanced.html#cluster-usage)
@@ -5076,6 +5275,13 @@ See [drill_down.xml](https://github.com/galaxyproject/galaxy/blob/dev/test/funct
     <xs:attribute name="value" type="xs:string" use="required">
       <xs:annotation>
         <xs:documentation xml:lang="en">Value of the ``drill_down`` option.</xs:documentation>
+      </xs:annotation>
+    </xs:attribute>
+    <xs:attribute name="selected" type="PermissiveBoolean" default="false">
+      <xs:annotation>
+        <xs:documentation xml:lang="en">A boolean parameter indicating
+if the corresponding option is selected by default (the default is ``false``).
+</xs:documentation>
       </xs:annotation>
     </xs:attribute>
   </xs:complexType>
@@ -6283,7 +6489,15 @@ discovered data sets on Galaxy versions prior to 24.0 and should be specified us
     </xs:attribute>
     <xs:attribute name="format_source" type="xs:string">
       <xs:annotation>
-        <xs:documentation xml:lang="en">This sets the data type of the output dataset(s) to be the same format as that of the specified tool input.</xs:documentation>
+        <xs:documentation xml:lang="en"><![CDATA[
+This sets the data type of the output dataset(s) to be the same format as that of the specified tool input.
+References to parameters in sections, conditionals or repeats should be qualified using ``|`` (e.g. ``cond|input1``),
+and repeats need an instance index (e.g. ``queries_0|input1``).
+A single element of a collection input can be selected by index or identifier (e.g. ``input_collection['forward']``);
+without a selector the first dataset of the collection is used.
+For collections (Galaxy 26.1 and later) this is the default format for discovered elements; a ``format`` on
+``<discover_datasets>`` or an extension captured from the filename takes precedence.
+        ]]></xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="label" type="xs:string">
@@ -6327,7 +6541,9 @@ This only applies to collections that are mapped over a non-collection input and
       <xs:annotation>
         <xs:documentation xml:lang="en">This copies the metadata information
 from the tool's input dataset to serve as default for information that cannot be detected from the output.
-One prominent use case is interval data with a non-standard column order that cannot be deduced from a header line, but which is known to be identical in the input and output datasets.</xs:documentation>
+One prominent use case is interval data with a non-standard column order that cannot be deduced from a header line, but which is known to be identical in the input and output datasets.
+References to parameters in sections, conditionals or repeats should be qualified as for ``format_source``
+(e.g. ``cond|input1``, ``queries_0|input1``).</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="from_work_dir" type="xs:string">
@@ -6356,8 +6572,9 @@ dataset in the history view. (Default is ``false``.)</xs:documentation>
 dataset to derive "structure" of the output from (output element count and
 identifiers). For instance, if the referenced input has three ordered items with
 identifiers ``sample1``, ``sample2``,  and ``sample3``. If this references input
-elements in conditionals, this value should be qualified (e.g. ``cond|input`` instead
-of ``input`` if ``input`` is in a conditional with ``name="cond"``).</xs:documentation>
+elements in sections or conditionals, this value should be qualified (e.g. ``cond|input`` instead
+of ``input`` if ``input`` is in a conditional with ``name="cond"``); tools with profile 26.0 or later
+require the qualified name. Inputs inside repeats cannot be referenced.</xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="inherit_format" type="xs:boolean">
@@ -6402,8 +6619,11 @@ same as that of the input dataset selected (and named ``input1``) for the tool.
 
 The following will create datasets in the history panel, setting the output data
 type to be the same as that of an input dataset named by the ``format_source``
-attribute. Note that a conditional name is not included, so 2 separate
-conditional blocks should not contain parameters with the same name.
+attribute. If the parameter is inside sections or conditionals, prefix it with
+their names separated by ``|`` (e.g. ``qual|qfile`` below); a repeat also needs
+an instance index (e.g. ``queries_0|qfile``). If the parameter is a collection, a
+single element can be selected by index or identifier, e.g.
+``input_collection['forward']`` refers to the forward dataset of a paired collection.
 
 ```xml
 <inputs>
@@ -6424,7 +6644,7 @@ conditional blocks should not contain parameters with the same name.
 <outputs>
     <data format_source="fasta" name="trim_fasta"
           label="${tool.name} on ${on_string}: trim.fasta"/>
-    <data format_source="qfile" name="trim_qual"
+    <data format_source="qual|qfile" name="trim_qual"
           label="${tool.name} on ${on_string}: trim.qual">
         <filter>qual['add'] == 'yes'</filter>
     </data>
@@ -6742,12 +6962,20 @@ Therefore a filter for such a variable looks like the following example.
     </xs:attribute>
     <xs:attribute name="format" type="Format" use="optional">
       <xs:annotation>
-        <xs:documentation xml:lang="en">Format (or datatype) of discovered datasets (an alias with ``ext``).</xs:documentation>
+        <xs:documentation xml:lang="en"><![CDATA[Format (or datatype) of discovered datasets (an alias with ``ext``).
+Use ``_sniff_`` to detect the datatype from each file's content, or ``_infer_from_file_name_``
+to pick the datatype matching each file name's extension (``data`` if there is none).
+An ``ext`` captured by ``pattern`` takes precedence over this value. Extensions that are not
+datatypes on the Galaxy server are set to ``data`` when the job finishes.]]></xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="ext" type="Format" use="optional">
       <xs:annotation>
-        <xs:documentation xml:lang="en">Format (or datatype) of discovered datasets (an alias with ``format``).</xs:documentation>
+        <xs:documentation xml:lang="en"><![CDATA[Format (or datatype) of discovered datasets (an alias with ``format``).
+Use ``_sniff_`` to detect the datatype from each file's content, or ``_infer_from_file_name_``
+to pick the datatype matching each file name's extension (``data`` if there is none).
+An ``ext`` captured by ``pattern`` takes precedence over this value. Extensions that are not
+datatypes on the Galaxy server are set to ``data`` when the job finishes.]]></xs:documentation>
       </xs:annotation>
     </xs:attribute>
     <xs:attribute name="sort_by" type="xs:string" use="optional">
@@ -8300,6 +8528,7 @@ and ``bibtex`` are the only supported options.</xs:documentation>
     <xs:restriction base="xs:string">
       <xs:enumeration value="checkboxes"/>
       <xs:enumeration value="radio"/>
+      <xs:enumeration value="checkbox"/>
     </xs:restriction>
   </xs:simpleType>
   <xs:simpleType name="HierarchyType">

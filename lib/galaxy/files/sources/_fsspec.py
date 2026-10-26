@@ -2,12 +2,12 @@ import abc
 import functools
 import logging
 import os
+import posixpath
 from typing import (
     Annotated,
     Any,
     cast,
     ClassVar,
-    Optional,
     TypeVar,
 )
 
@@ -17,6 +17,7 @@ from pydantic import Field
 from galaxy.exceptions import (
     AuthenticationRequired,
     MessageException,
+    ObjectNotFound,
 )
 from galaxy.files.models import (
     AnyRemoteEntry,
@@ -39,7 +40,16 @@ PACKAGE_MESSAGE = "FilesSource plugin is missing required Python fsspec plugin p
 # Maximum number of items to return in a single listing.
 # This is a safeguard to prevent excessive memory usage and performance issues
 # since is a huge number of items is not practical for browsing in most use cases.
-MAX_ITEMS_LIMIT = 1000
+MAX_ITEMS_LIMIT = 500
+
+
+def normalize_rooted_relative_path(path: str, root_label: str) -> str:
+    """Normalize ``path`` relative to a configured root, rejecting any escape above it."""
+    # Normalize a relative path: an absolute normpath would hide leading '..'.
+    relative = posixpath.normpath(path.lstrip("/"))
+    if relative == ".." or relative.startswith("../"):
+        raise MessageException(f"Invalid path: outside configured {root_label} root.")
+    return "" if relative == "." else relative
 
 
 class FsspecCommonCacheOptions(StrictModel):
@@ -56,12 +66,12 @@ class FsspecCommonCacheOptions(StrictModel):
     ] = True
 
     listings_expiry_time: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Time in seconds that a listing is considered valid. If None, listings do not expire."),
     ] = None
 
     max_paths: Annotated[
-        Optional[int],
+        int | None,
         Field(
             description="The number of most recent listings that are considered valid; 'recent' refers to when the entry was set.",
         ),
@@ -90,7 +100,7 @@ FsspecResolvedConfigurationType = TypeVar("FsspecResolvedConfigurationType", bou
 
 
 class FsspecFilesSource(BaseFilesSource[FsspecTemplateConfigType, FsspecResolvedConfigurationType]):
-    required_module: ClassVar[Optional[type[AbstractFileSystem]]]
+    required_module: ClassVar[type[AbstractFileSystem] | None]
     required_package: ClassVar[str]
     supports_pagination = True
     supports_search = True
@@ -129,10 +139,10 @@ class FsspecFilesSource(BaseFilesSource[FsspecTemplateConfigType, FsspecResolved
         path="/",
         recursive=False,
         write_intent: bool = False,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
-        query: Optional[str] = None,
-        sort_by: Optional[str] = None,
+        limit: int | None = None,
+        offset: int | None = None,
+        query: str | None = None,
+        sort_by: str | None = None,
     ) -> tuple[list[AnyRemoteEntry], int]:
         """Return the list of 'Directory's and 'File's under the given path.
 
@@ -159,9 +169,18 @@ class FsspecFilesSource(BaseFilesSource[FsspecTemplateConfigType, FsspecResolved
             # This is not ideal but necessary due to how fsspec handles listings.
             # At least we reduce the traffic to the client produced by a large listing ¯\_(ツ)_/¯
             paginated_entries = self._apply_pagination(entries_list, limit, offset)
+            self._enrich_entries(fs, paginated_entries, context.config)
 
             return paginated_entries, total_count
 
+        except MessageException:
+            # already a Galaxy error with its own status, such as a refused address
+            raise
+        except FileNotFoundError as e:
+            # keep a reason that says more than the path, such as a missing bucket
+            reason = "" if e.filename else str(e)
+            detail = f" Reason: {reason}" if reason and reason.strip("/") != path.strip("/") else ""
+            raise ObjectNotFound(f"{path} was not found in {self.label}.{detail}") from e
         except PermissionError as e:
             raise AuthenticationRequired(
                 f"Permission Denied. Reason: {e}. Please check your credentials in your preferences for {self.label}."
@@ -224,7 +243,7 @@ class FsspecFilesSource(BaseFilesSource[FsspecTemplateConfigType, FsspecResolved
         """
         return info.get("mtime") or info.get("modified") or info.get("LastModified")
 
-    def _get_file_hashes(self, info: dict) -> Optional[list[RemoteFileHash]]:
+    def _get_file_hashes(self, info: dict) -> list[RemoteFileHash] | None:
         """Get optional file hashes provided by the remote filesystem for the RemoteFile entry.
 
         Subclasses can override this to extract hashes from the file info.
@@ -308,15 +327,33 @@ class FsspecFilesSource(BaseFilesSource[FsspecTemplateConfigType, FsspecResolved
                 entries_list.append(self._info_to_entry(entry, config))
         return entries_list
 
+    def _enrich_entries(
+        self,
+        fs: AbstractFileSystem,
+        entries: list[AnyRemoteEntry],
+        config: FsspecResolvedConfigurationType,
+    ) -> None:
+        """Enrich the (already paginated) entries with exact metadata.
+
+        Some fsspec filesystems omit expensive-to-compute metadata (e.g. size) when
+        listing. Subclasses can override this to fetch exact metadata for the visible
+        page of entries only, keeping the cost proportional to the page size.
+        """
+
     def _apply_pagination(
-        self, entries_list: list[AnyRemoteEntry], limit: Optional[int], offset: Optional[int]
+        self, entries_list: list[AnyRemoteEntry], limit: int | None, offset: int | None
     ) -> list[AnyRemoteEntry]:
-        """Apply pagination to the entries list."""
-        if offset is not None and limit is not None:
-            return entries_list[offset : offset + limit]
-        elif limit is not None:
-            return entries_list[:limit]
-        return entries_list
+        """Apply pagination to the entries list.
+
+        ``limit`` and ``offset`` are independent query parameters, so an offset arrives without a
+        limit whenever a caller asks for everything from a position. Returning the list untouched
+        in that case dropped the offset and served the first page for every request, while the
+        total reported alongside it said otherwise.
+        """
+        start = offset or 0
+        if limit is not None:
+            return entries_list[start : start + limit]
+        return entries_list[start:]
 
     def _get_cache_options(self, config: FsspecResolvedConfigurationType) -> dict[str, Any]:
         return config.model_dump(

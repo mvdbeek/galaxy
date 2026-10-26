@@ -1,4 +1,6 @@
 import logging
+import math
+import time
 from contextlib import asynccontextmanager
 from typing import (
     Any,
@@ -9,12 +11,11 @@ from a2wsgi import WSGIMiddleware
 from fastapi import (
     FastAPI,
     Request,
+    Response,
 )
 from fastapi.openapi.constants import REF_TEMPLATE
-from slowapi import (
-    _rate_limit_exceeded_handler,
-    Limiter,
-)
+from limits import parse_many
+from slowapi import Limiter
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
 from starlette.datastructures import MutableHeaders
@@ -22,6 +23,10 @@ from starlette.middleware.cors import CORSMiddleware
 from starlette.routing import Route
 from tuspyserver import create_tus_router
 
+from galaxy.exceptions import (
+    ConfigurationError,
+    TooManyRequestsException,
+)
 from galaxy.managers.sse import SSEConnectionManager
 from galaxy.schema.generics import ref_to_name
 from galaxy.version import VERSION
@@ -32,6 +37,7 @@ from galaxy.webapps.base.api import (
     add_request_id_middleware,
     build_route_name_index,
     GalaxyFileResponse,
+    get_error_response_for_request,
     include_all_package_routers,
 )
 from galaxy.webapps.base.webapp import (
@@ -84,6 +90,7 @@ api_tags_metadata = [
     {"name": "libraries"},
     {"name": "data libraries folders"},
     {"name": "job_lock"},
+    {"name": "admin_extensions", "description": "Operations with Admin panel extensions."},
     {"name": "default"},
     {"name": "users"},
     {"name": "jobs"},
@@ -148,7 +155,8 @@ class XFrameOptionsMiddleware:
             if message["type"] == "http.response.start":
                 if not _is_embed_request(request.url.path, str(request.url.query)):
                     headers = MutableHeaders(scope=message)
-                    headers.append("X-Frame-Options", self.x_frame_options)
+                    # Don't override a header the wrapped app (e.g. the mounted WSGI app) already set
+                    headers.setdefault("X-Frame-Options", self.x_frame_options)
             await send(message)
 
         await self.app(scope, receive, send_with_header)
@@ -252,16 +260,20 @@ def include_tus(app: FastAPI, gx_app):
     # and the request silently falls through to the legacy WSGI upload hooks endpoint,
     # which returns 200 with no TUS Location header. tuspyserver reconstructs the external
     # URL from the request's root_path, so the Location header stays correct either way.
+    upload_files_dir = config.tus_upload_store or config.new_file_path
     upload_tus_router = create_tus_router(
         prefix="api/upload/resumable_upload",
-        files_dir=config.tus_upload_store or config.new_file_path,
+        files_dir=upload_files_dir,
         max_size=config.maximum_upload_file_size,
     )
+    log.debug("Configured upload TUS router with files_dir=%s", upload_files_dir)
+    job_files_dir = config.job_files_tus_upload_dir
     job_files_tus_router = create_tus_router(
         prefix="api/job_files/resumable_upload",
-        files_dir=config.tus_upload_store_job_files or config.tus_upload_store or config.new_file_path,
+        files_dir=job_files_dir,
         max_size=config.maximum_upload_file_size,
     )
+    log.debug("Configured job files TUS router with files_dir=%s", job_files_dir)
     app.include_router(upload_tus_router)
     app.include_router(job_files_tus_router)
 
@@ -301,6 +313,32 @@ def include_mcp(app: FastAPI, gx_app, mcp_app):
         log.error(f"Failed to register MCP server routes: {e}")
 
 
+def rate_limit_exceeded_handler(request: Request, exc: RateLimitExceeded) -> Response:
+    """Report a hit rate limit as a regular Galaxy error response.
+
+    The client only surfaces ``err_msg``, so slowapi's default ``{"error": ...}``
+    body would show as a bare "Request failed". ``Retry-After`` is derived from
+    the limit window the same way slowapi's own header injection does it; that
+    injection is not enabled because it requires every limited route to take a
+    ``Response`` parameter.
+    """
+    error = TooManyRequestsException(f"Rate limit exceeded: {exc.detail}")
+    limit_item, identifiers = request.state.view_rate_limit
+    reset_time, _remaining = request.app.state.limiter.limiter.get_window_stats(limit_item, *identifiers)
+    error.retry_after = max(1, math.ceil(reset_time - time.time()))
+    return get_error_response_for_request(request, error)
+
+
+def validate_rate_limit_options(config) -> None:
+    """Reject a rate limit option slowapi cannot parse at startup rather than on the first request."""
+    value = config.send_notification_rate_limit
+    if value:
+        try:
+            parse_many(value)
+        except ValueError as e:
+            raise ConfigurationError(f"Invalid value for send_notification_rate_limit ({value!r}): {e}") from e
+
+
 def initialize_fast_app(gx_wsgi_webapp, gx_app):
     """Build the FastAPI app that fronts the Galaxy web server."""
     root_path = "" if gx_app.config.galaxy_url_prefix == "/" else gx_app.config.galaxy_url_prefix
@@ -320,8 +358,9 @@ def initialize_fast_app(gx_wsgi_webapp, gx_app):
 
     add_exception_handler(app)
     add_galaxy_middleware(app, gx_app)
+    validate_rate_limit_options(gx_app.config)
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RateLimitExceeded, rate_limit_exceeded_handler)  # type: ignore[arg-type]
     if gx_app.config.use_access_logging_middleware:
         add_raw_context_middlewares(app)
     else:
@@ -351,8 +390,7 @@ def galaxy_rate_limit_key(request: Request) -> str:
     api_key = request.headers.get("x-api-key") or request.query_params.get("key")
     if api_key:
         return f"api_key:{api_key}"
-    session_key = request.cookies.get("galaxysession")
-    if session_key:
+    if session_key := request.cookies.get("galaxysession"):
         return f"session:{session_key}"
     return get_remote_address(request)
 

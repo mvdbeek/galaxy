@@ -2,9 +2,7 @@ import logging
 from typing import (
     Any,
     NamedTuple,
-    Optional,
     TYPE_CHECKING,
-    Union,
 )
 from uuid import UUID
 
@@ -65,30 +63,30 @@ def _validate_tool_templates(representation: UserToolSource) -> None:
         raise exceptions.RequestParameterInvalidException(str(exc)) from exc
 
 
-def tool_payload_to_tool(app, tool_dict: dict[str, Any]) -> Optional[Tool]:
+def tool_payload_to_tool(app, tool_dict: dict[str, Any]) -> Tool | None:
     tool_source = YamlToolSource(tool_dict)
     tool = create_tool_from_source(app, tool_source=tool_source, tool_dir=None)
     return tool
 
 
 class ToolRunReference(NamedTuple):
-    tool_id: Optional[str]
-    tool_uuid: Optional[str]
-    tool_version: Optional[str]
+    tool_id: str | None
+    tool_uuid: str | None
+    tool_version: str | None
 
 
 def get_tool_from_trans(trans: ProvidesUserContext, tool_ref: ToolRunReference) -> Tool:
     return get_tool_from_toolbox(trans.app.toolbox, tool_ref, trans.user)
 
 
-def get_tool_from_toolbox(toolbox: AbstractToolBox, tool_ref: ToolRunReference, user: Optional[User]) -> Tool:
+def get_tool_from_toolbox(toolbox: AbstractToolBox, tool_ref: ToolRunReference, user: User | None) -> Tool:
     tool = toolbox.get_tool(
         tool_id=tool_ref.tool_id, tool_uuid=tool_ref.tool_uuid, tool_version=tool_ref.tool_version, user=user
     )
     if not tool:
         log.debug(f"Not found tool with kwds [{tool_ref}]")
         raise exceptions.ToolMissingException("Tool not found.")
-    return tool
+    return toolbox.materialize_tool(tool, reason="execution")
 
 
 class DynamicToolManager(ModelManager[DynamicTool]):
@@ -106,13 +104,13 @@ class DynamicToolManager(ModelManager[DynamicTool]):
                 "Set 'enable_beta_tool_formats' in Galaxy config to create dynamic tools."
             )
 
-    def get_tool_by_id_or_uuid(self, id_or_uuid: Union[int, str]) -> Union[DynamicTool, None]:
+    def get_tool_by_id_or_uuid(self, id_or_uuid: int | str) -> DynamicTool | None:
         if isinstance(id_or_uuid, int):
             return self.get_tool_by_id(id_or_uuid)
         else:
             return self.get_tool_by_uuid(id_or_uuid)
 
-    def get_tool_by_uuid(self, uuid: Optional[Union[UUID, str]]):
+    def get_tool_by_uuid(self, uuid: UUID | str | None):
         self._validate_uuid(uuid)
         stmt = select(DynamicTool).where(DynamicTool.uuid == uuid, DynamicTool.public == true())
         return self.session().scalars(stmt).one_or_none()
@@ -121,13 +119,13 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         stmt = select(DynamicTool).where(DynamicTool.tool_id == tool_id, DynamicTool.public == true())
         return self.session().scalars(stmt).one_or_none()
 
-    def get_unprivileged_tool_by_uuid(self, user: model.User, uuid: Union[UUID, str]):
+    def get_unprivileged_tool_by_uuid(self, user: model.User, uuid: UUID | str):
         self._validate_uuid(uuid)
         stmt = self.owned_unprivileged_statement(user).where(DynamicTool.uuid == uuid)
         return self.session().scalars(stmt).one_or_none()
 
     @staticmethod
-    def _validate_uuid(uuid: Optional[Union[UUID, str]]):
+    def _validate_uuid(uuid: UUID | str | None):
         if uuid is not None and isinstance(uuid, str):
             try:
                 UUID(uuid)
@@ -146,8 +144,8 @@ class DynamicToolManager(ModelManager[DynamicTool]):
         self.ensure_beta_tool_formats_enabled()
 
         uuid = model.get_uuid()
-        tool_directory: Optional[str] = None
-        tool_path: Optional[str] = None
+        tool_directory: str | None = None
+        tool_path: str | None = None
         if tool_payload.src == "from_path":
             tool_format, representation, _ = artifact_class(None, tool_payload.model_dump())
             tool_directory = tool_payload.tool_directory
@@ -206,8 +204,7 @@ class DynamicToolManager(ModelManager[DynamicTool]):
     ) -> DynamicTool:
         self.ensure_beta_tool_formats_enabled()
         self.ensure_can_use_unprivileged_tool(user)
-        lint_errors = lint_user_tool_source(tool_payload.representation)
-        if lint_errors:
+        if lint_errors := lint_user_tool_source(tool_payload.representation):
             raise exceptions.RequestParameterInvalidException("Tool failed lint checks: " + "; ".join(lint_errors))
         _validate_tool_templates(tool_payload.representation)
         dynamic_tool = self.create(

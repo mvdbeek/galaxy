@@ -25,9 +25,11 @@ import FormNumber from "./Elements/FormNumber.vue";
 import FormOptionalText from "./Elements/FormOptionalText.vue";
 import FormRulesEdit from "./Elements/FormRulesEdit.vue";
 import FormSelection from "./Elements/FormSelection.vue";
+import FormSelectOrText from "./Elements/FormSelectOrText.vue";
 import FormTags from "./Elements/FormTags.vue";
 import FormText from "./Elements/FormText.vue";
 import FormUpload from "./Elements/FormUpload.vue";
+import FormValueList from "./Elements/FormValueList.vue";
 import FormElementHeader from "./FormElementHeader.vue";
 import FormElementHelpMarkdown from "./FormElementHelpMarkdown.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
@@ -98,6 +100,12 @@ const collapsibleValue: ComputedRef<FormParameterValue> = computed(() => attrs.v
 const defaultValue: ComputedRef<FormParameterValue> = computed(() => attrs.value["default_value"]);
 const connectedValue: FormParameterValue = { __class__: "ConnectedValue" };
 
+const valueListType = computed(() =>
+    (props.type === "integer" || props.type === "float" || props.type === "text") && attrs.value.multiple
+        ? props.type
+        : null,
+);
+
 const computedPlaceholder = computed(() => {
     if (!props.workflowRun) {
         return "";
@@ -165,6 +173,7 @@ function onConnect() {
 
 const isHidden = computed(() => attrs.value["hidden"]);
 const elementId = computed(() => `form-element-${props.id}`);
+const titleId = computed(() => `${elementId.value}-title`);
 const hasAlert = computed(() => alerts.value.length > 0);
 const showPreview = computed(() => (collapsed.value && attrs.value["collapsible_preview"]) || props.disabled);
 const showField = computed(() => !collapsed.value && !props.disabled);
@@ -323,11 +332,11 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
                     </GButton>
 
                     <span v-if="props.title" class="ui-form-title-text ml-1">
-                        <label :for="props.id">{{ props.title }}</label>
+                        <label :id="titleId" :for="props.id">{{ props.title }}</label>
                     </span>
                 </span>
                 <span v-else-if="props.title" class="ui-form-title-text">
-                    <label :for="props.id">{{ props.title }}</label>
+                    <label :id="titleId" :for="props.id">{{ props.title }}</label>
                 </span>
 
                 <span
@@ -370,18 +379,31 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
                     <span v-if="Boolean(nonMdHelp)" v-sanitize-html="nonMdHelp" class="text-muted" />
                 </div>
                 <FormBoolean v-else-if="props.type === 'boolean'" :id="props.id" v-model="currentValue" />
-                <FormHidden v-else-if="isHiddenType" :id="props.id" v-model="currentValue" :info="attrs['info']" />
+                <FormHidden v-else-if="isHiddenType" :id="props.id" :value="currentValue" :info="attrs['info']" />
+                <FormValueList
+                    v-else-if="valueListType"
+                    :id="props.id"
+                    :value="currentValue"
+                    :max="attrs.max"
+                    :min="attrs.min"
+                    :placeholder="computedPlaceholder"
+                    :optional="isOptional"
+                    :show-state="props.workflowRun"
+                    :type="valueListType"
+                    :datalist="attrs.datalist"
+                    @input="(v: FormParameterValue) => (currentValue = v)" />
                 <FormNumber
                     v-else-if="props.type === 'integer' || props.type === 'float'"
                     :id="props.id"
-                    v-model="currentValue"
+                    :value="currentValue"
                     :max="attrs.max"
                     :min="attrs.min"
                     :placeholder="computedPlaceholder"
                     :optional="isOptional"
                     :show-state="props.workflowRun"
                     :type="props.type ?? 'float'"
-                    :workflow-building-mode="workflowBuildingMode" />
+                    :workflow-building-mode="workflowBuildingMode"
+                    @input="(v: FormParameterValue) => (currentValue = v)" />
                 <FormOptionalText
                     v-else-if="props.type === 'select' && attrs.is_workflow && attrs.optional"
                     :id="props.id"
@@ -412,6 +434,16 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
                     :cls="attrs.cls"
                     :datalist="attrs.datalist"
                     :type="props.type" />
+                <FormSelectOrText
+                    v-else-if="props.type === 'select_or_text'"
+                    :id="props.id"
+                    v-model="currentValue"
+                    :options="attrs.data"
+                    :other-label="attrs.other_label"
+                    :other-help="attrs.other_help"
+                    :other-placeholder="attrs.other_placeholder"
+                    :validate="attrs.validate"
+                    @alert="onAlert" />
                 <FormSelection
                     v-else-if="
                         (props.type === undefined && attrs.options) ||
@@ -419,6 +451,7 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
                     "
                     :id="props.id"
                     v-model="currentValue"
+                    :aria-labelledby="props.title ? titleId : undefined"
                     :data="attrs.data"
                     :display="attrs.display"
                     :options="attrs.options"
@@ -483,8 +516,14 @@ const extendedCollectionType = computed<ExtendedCollectionType>(() => {
 </template>
 
 <style lang="scss" scoped>
+// _functions first: _form-elements pulls in blue.scss, whose $state-* vars need it
+@import "bootstrap/scss/_functions.scss";
 @import "./_form-elements.scss";
-@import "@/style/scss/base.scss";
+
+// keep Bootstrap's .alert bottom margin over .ui-form-element's
+.ui-form-element.alert {
+    margin-bottom: 1rem;
+}
 
 // Workflow Run Form
 .workflow-run-element {

@@ -4,8 +4,6 @@ from typing import (
     Annotated,
     Any,
     Literal,
-    Optional,
-    Union,
 )
 
 from pydantic import (
@@ -23,7 +21,6 @@ from galaxy.schema.fields import (
 from galaxy.schema.schema import (
     AnnotationField,
     CreatorOrganization,
-    DatasetState,
     HistoryContentType,
     InputDataCollectionStep,
     InputDataStep,
@@ -36,6 +33,7 @@ from galaxy.schema.schema import (
     ToolStep,
     WorkflowInput,
 )
+from galaxy.schema.states import DatasetState
 
 TargetHistoryIdField = Field(
     None,
@@ -84,7 +82,7 @@ ResourceParametersField = Field(
 VALID_INPUTS_BY_ITEMS = ["step_id", "step_index", "step_uuid", "name"]
 
 
-def validateInputsBy(inputsBy: Optional[str]) -> Optional[str]:
+def validateInputsBy(inputsBy: str | None) -> str | None:
     if inputsBy is not None:
         if not isinstance(inputsBy, str):
             raise ValueError(f"Invalid type for inputsBy {inputsBy}")
@@ -100,14 +98,14 @@ InputsByValidator = AfterValidator(validateInputsBy)
 
 class GetTargetHistoryPayload(Model):
     # TODO - Are the descriptions correct?
-    history: Optional[str] = Field(
+    history: str | None = Field(
         None,
         title="History",
         # description="The encoded history id - passed exactly like this 'hist_id=...' -  to import the workflow into. Or the name of the new history to import the workflow into.",
         description="The encoded history id - passed exactly like this 'hist_id=...' -  into which to import. Or the name of the new history into which to import.",
     )
-    history_id: Optional[str] = TargetHistoryIdField
-    new_history_name: Optional[str] = Field(
+    history_id: str | None = TargetHistoryIdField
+    new_history_name: str | None = Field(
         None,
         title="New History Name",
         # description="The name of the new history to import the workflow into.",
@@ -117,49 +115,49 @@ class GetTargetHistoryPayload(Model):
 
 class InvokeWorkflowPayload(GetTargetHistoryPayload):
     # TODO - Are the descriptions correct?
-    version: Optional[int] = Field(
+    version: int | None = Field(
         None,
         title="Version",
         description="The version of the workflow to invoke.",
     )
-    instance: Optional[bool] = Field(
+    instance: bool | None = Field(
         False,
         title="Is instance",
         description="True when fetching by Workflow ID, False when fetching by StoredWorkflow ID",
     )
-    scheduler: Optional[str] = Field(
+    scheduler: str | None = Field(
         None,
         title="Scheduler",
         description="Scheduler to use for workflow invocation.",
     )
-    batch: Optional[bool] = Field(
+    batch: bool | None = Field(
         False,
         title="Batch",
         description="Indicates if the workflow is invoked as a batch.",
     )
-    require_exact_tool_versions: Optional[bool] = Field(
+    require_exact_tool_versions: bool | None = Field(
         True,
         title="Require Exact Tool Versions",
         description="If true, exact tool versions are required for workflow invocation.",
         # description="TODO",
     )
-    allow_tool_state_corrections: Optional[bool] = Field(
+    allow_tool_state_corrections: bool | None = Field(
         False,
         title="Allow tool state corrections",
         description="Indicates if tool state corrections are allowed for workflow invocation.",
     )
-    landing_uuid: Optional[UUID4] = Field(
+    landing_uuid: UUID4 | None = Field(
         None,
         title="Landing UUID",
         description="The UUID of the workflow landing request associated with this invocation.",
     )
-    use_cached_job: Optional[bool] = UseCachedJobField
-    parameters_normalized: Optional[bool] = Field(
+    use_cached_job: bool | None = UseCachedJobField
+    parameters_normalized: bool | None = Field(
         False,
         title=STEP_PARAMETERS_NORMALIZED_TITLE,
         description=STEP_PARAMETERS_NORMALIZED_DESCRIPTION,
     )
-    on_complete: Optional[list[dict[str, Any]]] = Field(
+    on_complete: list[dict[str, Any]] | None = Field(
         None,
         title="On Complete Actions",
         description=(
@@ -187,12 +185,12 @@ class InvokeWorkflowPayload(GetTargetHistoryPayload):
             return json.loads(v)
         return v
 
-    parameters: Optional[dict[str, dict[str, Any]]] = Field(
+    parameters: dict[str, dict[str, Any]] | None = Field(
         {},
         title=STEP_PARAMETERS_TITLE,
         description=STEP_PARAMETERS_DESCRIPTION,
     )
-    inputs: Optional[dict[str, Any]] = Field(
+    inputs: dict[str, Any] | None = Field(
         None,
         title="Inputs",
         description=(
@@ -202,44 +200,44 @@ class InvokeWorkflowPayload(GetTargetHistoryPayload):
             "Input keys are interpreted according to 'inputs_by'."
         ),
     )
-    ds_map: Optional[dict[str, dict[str, Any]]] = Field(
+    ds_map: dict[str, dict[str, Any]] | None = Field(
         {},
         title="Legacy Dataset Map",
         description="An older alternative to specifying inputs using database IDs, do not use this and use inputs instead",
         deprecated=True,
     )
-    resource_params: Optional[dict[str, Any]] = ResourceParametersField
-    replacement_params: Optional[dict[str, Any]] = ReplacementParametersField
-    no_add_to_history: Optional[bool] = Field(
+    resource_params: dict[str, Any] | None = ResourceParametersField
+    replacement_params: dict[str, Any] | None = ReplacementParametersField
+    no_add_to_history: bool | None = Field(
         False,
         title="No Add to History",
         description="Indicates if the workflow invocation should not be added to the history.",
     )
-    legacy: Optional[bool] = Field(
+    legacy: bool | None = Field(
         False,
         title="Legacy",
         description="Indicating if to use legacy workflow invocation.",
     )
-    inputs_by: Annotated[Optional[str], InputsByValidator] = Field(
+    inputs_by: Annotated[str | None, InputsByValidator] = Field(
         None,
         title="Inputs By",
         # lib/galaxy/workflow/run_request.py - see line 60
         description=INPUTS_BY_DESCRIPTION,
     )
-    effective_outputs: Optional[Any] = Field(
+    effective_outputs: Any | None = Field(
         None,
         title="Effective Outputs",
         # lib/galaxy/workflow/run_request.py - see line 455
         description="TODO",
     )
-    preferred_object_store_id: Optional[str] = PreferredObjectStoreIdField
-    preferred_intermediate_object_store_id: Optional[str] = PreferredIntermediateObjectStoreIdField
-    preferred_outputs_object_store_id: Optional[str] = PreferredOutputsObjectStoreIdField
+    preferred_object_store_id: str | None = PreferredObjectStoreIdField
+    preferred_intermediate_object_store_id: str | None = PreferredIntermediateObjectStoreIdField
+    preferred_outputs_object_store_id: str | None = PreferredOutputsObjectStoreIdField
 
 
 class StoredWorkflowDetailed(StoredWorkflowSummary):
-    annotation: Optional[str] = AnnotationField  # Inconsistency? See comment on StoredWorkflowSummary.annotations
-    license: Optional[str] = Field(
+    annotation: str | None = AnnotationField  # Inconsistency? See comment on StoredWorkflowSummary.annotations
+    license: str | None = Field(
         None, title="License", description="SPDX Identifier of the license associated with this workflow."
     )
     version: int = Field(
@@ -248,7 +246,7 @@ class StoredWorkflowDetailed(StoredWorkflowSummary):
     inputs: dict[int, WorkflowInput] = Field(
         {}, title="Inputs", description="A dictionary containing information about all the inputs of the workflow."
     )
-    creator: Optional[list[Union[Person, CreatorOrganization]]] = Field(
+    creator: list[Person | CreatorOrganization] | None = Field(
         None,
         title="Creator",
         description=("Additional information about the creator (or multiple creators) of this workflow."),
@@ -258,20 +256,13 @@ class StoredWorkflowDetailed(StoredWorkflowSummary):
         title="Creator deleted",
         description="Whether the creator of this Workflow has been deleted.",
     )
-    doi: Optional[list[str]] = Field(
+    doi: list[str] | None = Field(
         None, title="DOI", description="A list of Digital Object Identifiers associated with this workflow."
     )
     steps: dict[
         int,
         Annotated[
-            Union[
-                InputDataStep,
-                InputDataCollectionStep,
-                InputParameterStep,
-                PauseStep,
-                ToolStep,
-                SubworkflowStep,
-            ],
+            InputDataStep | InputDataCollectionStep | InputParameterStep | PauseStep | ToolStep | SubworkflowStep,
             Field(discriminator="type"),
         ],
     ] = Field(
@@ -279,32 +270,32 @@ class StoredWorkflowDetailed(StoredWorkflowSummary):
         title="Steps",
         description="A dictionary with information about all the steps of the workflow.",
     )
-    importable: Optional[bool] = Field(
+    importable: bool | None = Field(
         ...,
         title="Importable",
         description="Indicates if the workflow is importable by the current user.",
     )
-    email_hash: Optional[str] = Field(
+    email_hash: str | None = Field(
         ...,
         title="Email Hash",
         description="The hash of the email of the creator of this workflow",
     )
-    readme: Optional[str] = Field(
+    readme: str | None = Field(
         ...,
         title="Readme",
         description="The detailed markdown readme of the workflow.",
     )
-    help: Optional[str] = Field(
+    help: str | None = Field(
         ...,
         title="Help",
         description="The detailed help text for how to use the workflow and debug problems with it.",
     )
-    slug: Optional[str] = Field(
+    slug: str | None = Field(
         ...,
         title="Slug",
         description="The slug of the workflow.",
     )
-    source_metadata: Optional[dict[str, Any]] = Field(
+    source_metadata: dict[str, Any] | None = Field(
         ...,
         title="Source Metadata",
         description="The source metadata of the workflow.",
@@ -342,6 +333,62 @@ class WorkflowExtractionOutput(Model):
         title="History Content Type",
         description="Whether this is a dataset or dataset_collection.",
     )
+    output_name: str | None = Field(
+        None,
+        title="Output Name",
+        description="Workflow/tool output port name for this concrete output, when known.",
+    )
+    suggested_name: str | None = Field(
+        None,
+        title="Suggested Name",
+        description="Suggested workflow output label for this concrete output.",
+    )
+    suggested_name_source: Literal["renamed", "rendered_label", "bare_label", "port_name"] | None = Field(
+        None,
+        title="Suggested Name Source",
+        description="Source used to derive the suggested workflow output label.",
+    )
+    exposed: bool = Field(
+        False,
+        title="Exposed",
+        description="Whether this output should be preselected for exposure as a workflow output.",
+    )
+
+
+class OutputLabelHint(Model):
+    id: DecodedDatabaseIdField = Field(
+        ...,
+        title="ID",
+        description="Decoded ID of the concrete HDA/HDCA output to expose.",
+    )
+    kind: Literal["hda", "hdca"] = Field(
+        ...,
+        title="Kind",
+        description="Whether the output ID identifies an HDA or an HDCA.",
+    )
+    label: str = Field(
+        ...,
+        title="Label",
+        description="Workflow output label to assign to the exposed output.",
+    )
+
+
+class StepLabelHint(Model):
+    kind: Literal["job", "implicit_collection_jobs"] = Field(
+        ...,
+        title="Kind",
+        description="Whether the ID identifies a plain tool job or an ImplicitCollectionJobs (mapped step).",
+    )
+    id: DecodedDatabaseIdField = Field(
+        ...,
+        title="ID",
+        description="Decoded ID of the selected tool job or ImplicitCollectionJobs to label.",
+    )
+    label: str = Field(
+        ...,
+        title="Label",
+        description="Workflow step label to assign to the extracted tool step.",
+    )
 
 
 class InvalidWorkflowExtractionJobReason(str, Enum):
@@ -352,7 +399,7 @@ class InvalidWorkflowExtractionJobReason(str, Enum):
 
 
 class WorkflowExtractionJob(Model):
-    id: Optional[EncodedDatabaseIdField] = Field(
+    id: EncodedDatabaseIdField | None = Field(
         ...,
         title="ID",
         description="Encoded job ID, or null for fake input dataset entries.",
@@ -362,17 +409,17 @@ class WorkflowExtractionJob(Model):
         title="Step Type",
         description="The role this job plays in the extracted workflow.",
     )
-    tool_id: Optional[str] = Field(
+    tool_id: str | None = Field(
         None,
         title="Tool ID",
         description="The tool ID that created this job.",
     )
-    tool_name: Optional[str] = Field(
+    tool_name: str | None = Field(
         None,
         title="Tool Name",
         description="Human-readable name of the tool.",
     )
-    tool_version: Optional[str] = Field(
+    tool_version: str | None = Field(
         None,
         title="Tool Version",
         description="The tool version used by this job.",
@@ -382,22 +429,38 @@ class WorkflowExtractionJob(Model):
         title="Checked",
         description="Whether this job should be preselected for extraction (True if any outputs are not deleted).",
     )
-    tool_version_warning: Optional[str] = Field(
+    seeded: bool = Field(
+        False,
+        title="Seeded",
+        description=(
+            "Whether this job is part of the producing subgraph of the outputs a page/notebook references. "
+            "Always False for the plain history summary; set when the summary is computed for a page."
+        ),
+    )
+    tool_version_warning: str | None = Field(
         None,
         title="Tool Version Warning",
         description="Warning when the current tool version differs from the version used by this job.",
+    )
+    seed_warning: str | None = Field(
+        None,
+        title="Seed Warning",
+        description=(
+            "Warning when this row was seeded directly by a notebook job directive but its tool is not a "
+            "workflow step (e.g. an upload referenced via job_metrics), so it was seeded as an input instead."
+        ),
     )
     outputs: list[WorkflowExtractionOutput] = Field(
         default_factory=list,
         title="Outputs",
         description="The history items produced by this job.",
     )
-    invalid: Optional[InvalidWorkflowExtractionJobReason] = Field(
+    invalid: InvalidWorkflowExtractionJobReason | None = Field(
         None,
         title="Invalid",
         description="Reason this job is invalid for extraction.",
     )
-    implicit_collection_jobs_id: Optional[EncodedDatabaseIdField] = Field(
+    implicit_collection_jobs_id: EncodedDatabaseIdField | None = Field(
         None,
         title="Implicit Collection Jobs ID",
         description=(
@@ -407,7 +470,7 @@ class WorkflowExtractionJob(Model):
             "rather than job_ids in the extract-by-ids payload."
         ),
     )
-    implicit_collection_jobs_size: Optional[int] = Field(
+    implicit_collection_jobs_size: int | None = Field(
         None,
         title="Implicit Collection Jobs Size",
         description="Number of constituent jobs in the ICJ (only set when implicit_collection_jobs_id is non-null).",
@@ -505,6 +568,30 @@ class WorkflowExtractionByIdsPayload(Model):
         title="Dataset Collection Names",
         description="Names for the input dataset collections, parallel to hdca_ids.",
     )
+    output_labels: list[OutputLabelHint] = Field(
+        default_factory=list,
+        title="Output Labels",
+        description="Concrete tool outputs to expose as workflow outputs, with labels.",
+    )
+    step_labels: list[StepLabelHint] = Field(
+        default_factory=list,
+        title="Step Labels",
+        description="Labels to assign to extracted tool steps. Steps not listed are left unlabeled.",
+    )
+    from_page_id: DecodedDatabaseIdField | None = Field(
+        None,
+        title="From Page ID",
+        description=(
+            "Decoded ID of a notebook page to carry into the extracted workflow as its report: the page's "
+            "markdown is rewritten so each dataset/collection/job directive references the workflow's "
+            "inputs/outputs/steps by label."
+        ),
+    )
+    report_title: str | None = Field(
+        None,
+        title="Report Title",
+        description="Title for the workflow report built from from_page_id; defaults to the workflow name.",
+    )
 
     @model_validator(mode="after")
     def _at_least_one_input(self):
@@ -518,4 +605,12 @@ class WorkflowExtractionResult(Model):
         ...,
         title="Workflow ID",
         description="The encoded ID of the newly created workflow.",
+    )
+    report_warnings: list[str] = Field(
+        default_factory=list,
+        title="Report Warnings",
+        description=(
+            "Warnings from building the workflow report when from_page_id was supplied (e.g. a page directive "
+            "that had to be dropped because it has no workflow-relative form)."
+        ),
     )

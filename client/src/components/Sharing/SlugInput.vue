@@ -1,5 +1,8 @@
 <script setup lang="ts">
-import { BFormInput } from "bootstrap-vue";
+import GFormInput from "@/components/BaseComponents/Form/GFormInput.vue";
+
+// Under @vue/compat: let undeclared listeners (@keyup.enter) fall through to the input
+defineOptions({ compatConfig: { INSTANCE_LISTENERS: false } });
 
 const props = defineProps<{
     slug: string;
@@ -9,11 +12,10 @@ const emit = defineEmits<{
     (e: "change", newValue: string): void;
 }>();
 
-// eslint-disable-next-line vue/no-setup-props-destructure
 const initialSlug = props.slug;
 
-function onChange(value: string) {
-    const slugFormatted = value
+function onChange(event: Event) {
+    const slugFormatted = (event.target as HTMLInputElement).value
         .replace(/\s+/g, "-")
         .replace(/[/:?#]/g, "")
         .toLowerCase();
@@ -27,8 +29,8 @@ function onCancel() {
 </script>
 
 <template>
-    <BFormInput
-        :value="props.slug"
+    <GFormInput
+        :model-value="props.slug"
         type="text"
         class="d-inline w-auto h-auto px-1 py-0"
         @change="onChange"

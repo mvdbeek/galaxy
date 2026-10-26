@@ -1,22 +1,44 @@
 name: first startup
 on:
   push:
-    paths-ignore:
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
+    paths:
+      - '**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/first_startup.yaml'
+      - '.github/workflows/_build_client.yaml'
   pull_request:
-    paths-ignore:
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
+    paths:
+      - '**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/first_startup.yaml'
+      - '.github/workflows/_build_client.yaml'
 env:
   YARN_INSTALL_OPTS: --frozen-lockfile
+  UV_HTTP_RETRIES: '6'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   build-client:
-    uses: ./.github/workflows/build_client.yaml
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
+    uses: $/.github/workflows/_build_client.yaml
   test:
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
     name: Startup test
     needs: build-client
     runs-on: ubuntu-latest
@@ -28,18 +50,17 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy root'
           persist-credentials: false
-      - name: Set up Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: galaxy root/.tool-versions
+          python-version: ${{ matrix.python-version }}
       - name: Restore client cache
-        uses: actions/cache@v5
+        uses: actions/cache@v6.1.0
         with:
           fail-on-cache-miss: true
           key: galaxy-static-${{ needs.build-client.outputs.commit-id }}
@@ -56,16 +77,18 @@ jobs:
       run:
         shell: bash -l {0}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy root'
           persist-credentials: false
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v7.0.0
         with:
           python-version: '3.14'
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: galaxy root/.tool-versions
       - name: Install release tooling
         run: uv tool install galaxy-release-util==0.4.2
       - name: Build and install Galaxy packages

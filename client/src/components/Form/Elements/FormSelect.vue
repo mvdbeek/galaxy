@@ -6,14 +6,17 @@ import { computed, type ComputedRef, onMounted, type PropType, ref, watch } from
 import Multiselect from "vue-multiselect";
 
 import { useFilterObjectArray } from "@/composables/filter";
-import { useMultiselect } from "@/composables/useMultiselect";
 import { uid } from "@/utils/utils";
 
 import { type DataOption, isDataOption, itemUniqueKey } from "./FormData/types";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import StatelessTags from "@/components/TagsMultiselect/StatelessTags.vue";
 
-const { ariaExpanded, onOpen, onClose } = useMultiselect();
+// vue-multiselect's types only allow a string here, but at runtime an explicit null
+// (not just omitting the prop) suppresses the label instead of falling back to its
+// default text -- its .d.ts doesn't account for that.
+const noLabel = null as unknown as string;
 
 type SelectValue = Record<string, unknown> | string | number | null;
 type ValueWithTags = SelectValue & { tags: string[] };
@@ -25,7 +28,8 @@ interface SelectOption {
 }
 
 const props = defineProps({
-    id: { type: String, default: `form-select-${uid()}` },
+    // Factory so each instance gets its own id; a literal default is evaluated once per module.
+    id: { type: String, default: () => `form-select-${uid()}` },
     disabled: {
         type: Boolean,
         default: false,
@@ -58,7 +62,10 @@ const emit = defineEmits<{
 }>();
 
 const filter = ref("");
-const filteredOptions = useFilterObjectArray(() => props.options, filter, ["label", ["value", "tags"]]);
+const { filtered: filteredOptions, pending: filterPending } = useFilterObjectArray(() => props.options, filter, [
+    "label",
+    ["value", "tags"],
+]);
 
 // Debounced upward emit so consumers (e.g. ``FormData`` paginating against the
 // backend) can refetch on typing without firing on every keystroke. The local
@@ -267,24 +274,25 @@ function isSelected(item: SelectValue): boolean {
             v-if="hasOptions"
             :id="id"
             v-model="currentValue"
-            :allow-empty="optional"
-            :aria-expanded="ariaExpanded"
+            :name="id"
+            :data-filter-pending="filterPending ? 'true' : undefined"
+            :allow-empty="optional || multiple"
             :close-on-select="!multiple"
             :disabled="disabled"
-            :deselect-label="null"
+            :deselect-label="noLabel"
             label="label"
             :multiple="multiple"
             :options="reorderedOptions"
             :placeholder="placeholder"
             :selected-label="selectedLabel"
-            :select-label="null"
+            :select-label="noLabel"
             :track-by="trackBy"
             :internal-search="false"
-            @search-change="onSearchChange"
-            @open="onOpen"
-            @close="onClose">
+            @search-change="onSearchChange">
             <template v-slot:option="{ option }">
+                <!-- Replace recycled option content when its identity changes. -->
                 <div
+                    :key="`${option.label}:${String(option.value)}`"
                     class="d-flex align-items-center justify-content-between"
                     :data-option-value="optionIdentifier(option)">
                     <div>
@@ -304,7 +312,7 @@ function isSelected(item: SelectValue): boolean {
             </template>
         </Multiselect>
         <slot v-else name="no-options">
-            <b-alert v-localize class="w-100" variant="warning" show> No options available. </b-alert>
+            <GAlert v-localize class="w-100" variant="warning" show> No options available. </GAlert>
         </slot>
     </div>
 </template>

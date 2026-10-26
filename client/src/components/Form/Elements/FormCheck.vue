@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
+import GCheckboxGroup from "@/components/BaseComponents/GCheckboxGroup.vue";
+
 interface CheckOption {
     label: string;
     value: string;
@@ -9,6 +13,8 @@ interface CheckOption {
 export interface FormCheckProps {
     value?: string | string[];
     options: Array<CheckOption>;
+    /** Id of the element that names the option group, e.g. the parameter title */
+    ariaLabelledby?: string;
 }
 
 const props = defineProps<FormCheckProps>();
@@ -47,19 +53,18 @@ function onSelectAll(selected: boolean): void {
 
 <template>
     <div v-if="hasOptions">
-        <b-form-checkbox
-            v-localize
+        <GCheckbox
             class="mb-1"
-            :checked="selectAll"
+            :model-value="selectAll"
             :indeterminate="indeterminate"
-            @change="onSelectAll">
-            Select / Deselect all
-        </b-form-checkbox>
-        <b-form-checkbox-group v-model="currentValue" stacked class="pl-3">
-            <b-form-checkbox v-for="(option, index) in options" :key="index" :value="option.value">
+            @update:model-value="onSelectAll">
+            <span v-localize>Select / Deselect all</span>
+        </GCheckbox>
+        <GCheckboxGroup v-model="currentValue" :aria-labelledby="props.ariaLabelledby" stacked class="pl-3">
+            <GCheckbox v-for="(option, index) in options" :key="index" :value="option.value">
                 {{ option.label }}
-            </b-form-checkbox>
-        </b-form-checkbox-group>
+            </GCheckbox>
+        </GCheckboxGroup>
     </div>
-    <b-alert v-else v-localize variant="warning" show> No options available. </b-alert>
+    <GAlert v-else v-localize variant="warning" show> No options available. </GAlert>
 </template>

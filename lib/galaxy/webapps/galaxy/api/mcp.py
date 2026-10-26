@@ -6,11 +6,14 @@ Uses Streamable HTTP transport with stateless mode for multi-worker compatibilit
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import (
+    Callable,
+    Mapping,
+)
 from contextlib import contextmanager
 from typing import (
+    Annotated,
     Any,
-    Optional,
 )
 from urllib.parse import urlparse
 
@@ -19,6 +22,8 @@ from fastmcp import (
     FastMCP,
     settings as fastmcp_settings,
 )
+from fastmcp.server.dependencies import get_http_headers
+from pydantic import Field
 from starlette.datastructures import URL
 from starlette.routing import Route
 
@@ -30,6 +35,7 @@ from galaxy.tool_util.deps.mulled.recommend import (
     PackageSpec,
     recommend_container,
 )
+from galaxy.webapps.galaxy.api import API_KEY_HEADER_NAME
 from galaxy.work.context import (
     GalaxyAbstractRequest,
     GalaxyAbstractResponse,
@@ -42,6 +48,25 @@ logging.getLogger("fakeredis").setLevel(logging.WARNING)
 logging.getLogger("docket").setLevel(logging.WARNING)
 logging.getLogger("docket.worker").setLevel(logging.WARNING)
 
+ApiKey = Annotated[
+    str | None,
+    Field(
+        description=(
+            "Galaxy API key. Omit it: the MCP client usually sends the key in an "
+            f"{API_KEY_HEADER_NAME} header. Only ask the user for a key if a call fails with 'API key required'."
+        )
+    ),
+]
+
+
+def _resolve_api_key(api_key: str | None, headers: Mapping[str, str]) -> str | None:
+    """Prefer the ``x-api-key`` request header, falling back to an explicit ``api_key`` argument.
+
+    The header comes from the operator's client config and the argument from the model, so the
+    model can't override the operator's choice of user.
+    """
+    return headers.get(API_KEY_HEADER_NAME) or api_key or None
+
 
 def get_mcp_url_builder(fallback_base_url: str):
     """Get a URL builder, using the current HTTP request if available."""
@@ -50,8 +75,7 @@ def get_mcp_url_builder(fallback_base_url: str):
 
     from galaxy.webapps.galaxy.api import UrlBuilder
 
-    request = _current_http_request.get(None)
-    if request is not None:
+    if (request := _current_http_request.get(None)) is not None:
         return UrlBuilder(request)
 
     class MCPUrlBuilder:
@@ -118,7 +142,7 @@ class _StaticRequest(GalaxyAbstractRequest):
     def is_secure(self) -> bool:
         return self._parsed.scheme == "https"
 
-    def get_cookie(self, name: str) -> Optional[str]:
+    def get_cookie(self, name: str) -> str | None:
         return None
 
     @property
@@ -140,13 +164,13 @@ class _StaticResponse(GalaxyAbstractResponse):
         self,
         key: str,
         value: str = "",
-        max_age: Optional[int] = None,
-        expires: Optional[int] = None,
+        max_age: int | None = None,
+        expires: int | None = None,
         path: str = "/",
-        domain: Optional[str] = None,
+        domain: str | None = None,
         secure: bool = False,
         httponly: bool = False,
-        samesite: Optional[str] = "lax",
+        samesite: str | None = "lax",
     ) -> None:
         return None
 
@@ -166,7 +190,7 @@ def _mcp_error_handler(operation: str):
 def _biocontainer_recommendation_payload(
     packages: list[str],
     recommend: Callable[[list[PackageSpec]], ContainerRecommendation] = recommend_container,
-    verify: Callable[[str], Optional[bool]] = biocontainer_tag_built,
+    verify: Callable[[str], bool | None] = biocontainer_tag_built,
 ) -> dict[str, Any]:
     """Resolve a verified biocontainer for ``packages`` and shape the MCP response.
 
@@ -199,11 +223,14 @@ def get_mcp_app(gx_app):
     base_url = gx_app.config.galaxy_infrastructure_url
     user_manager = UserManager(gx_app)
 
-    def get_operations_manager(api_key: str, ctx: MCPContext) -> AgentOperationsManager:
+    def get_operations_manager(api_key: str | None, ctx: MCPContext) -> AgentOperationsManager:
         """Look up user from API key and return an AgentOperationsManager."""
+        api_key = _resolve_api_key(api_key, get_http_headers())
         if not api_key:
             raise ValueError(
-                "API key required. You can create an API key in Galaxy under User -> Preferences -> Manage API Key."
+                f"API key required. Configure your MCP client to send it in an {API_KEY_HEADER_NAME} header, "
+                "or pass it as the api_key argument. "
+                "You can create an API key in Galaxy under User -> Preferences -> Manage API Key."
             )
 
         user = user_manager.by_api_key(api_key=api_key)
@@ -226,11 +253,13 @@ def get_mcp_app(gx_app):
         return AgentOperationsManager(app=gx_app, trans=trans)
 
     @mcp.tool()
-    def connect(api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def connect(ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Verify connection to Galaxy and return server + user information.
 
         Run this once per session to confirm the API key is valid and learn
-        the user's identity, the server URL, and basic capabilities.
+        the user's identity, the server URL, and basic capabilities. Call it
+        without api_key first; the MCP client usually sends the key in an
+        x-api-key header.
 
         Returns:
             Dict with `connected`, `user` (current user info), and `url`.
@@ -245,7 +274,7 @@ def get_mcp_app(gx_app):
             return ops_manager.connect()
 
     @mcp.tool()
-    def search_tools(query: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def search_tools(query: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Search Galaxy tools by substring match against name, ID, or description.
 
         RECOMMENDED WORKFLOW:
@@ -272,7 +301,9 @@ def get_mcp_app(gx_app):
             return ops_manager.search_tools(query)
 
     @mcp.tool()
-    def get_tool_details(tool_id: str, api_key: str, ctx: MCPContext, io_details: bool = False) -> dict[str, Any]:
+    def get_tool_details(
+        tool_id: str, ctx: MCPContext, api_key: ApiKey = None, io_details: bool = False
+    ) -> dict[str, Any]:
         """Get detailed information about a Galaxy tool, including input parameters.
 
         RECOMMENDED WORKFLOW:
@@ -305,7 +336,7 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def list_histories(
-        api_key: str, ctx: MCPContext, limit: int = 50, offset: int = 0, name: str | None = None
+        ctx: MCPContext, api_key: ApiKey = None, limit: int = 50, offset: int = 0, name: str | None = None
     ) -> dict[str, Any]:
         """List the current user's Galaxy histories.
 
@@ -336,7 +367,7 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def run_tool(
-        history_id: str, tool_id: str, inputs: dict[str, Any], api_key: str, ctx: MCPContext
+        history_id: str, tool_id: str, inputs: dict[str, Any], ctx: MCPContext, api_key: ApiKey = None
     ) -> dict[str, Any]:
         """Execute a Galaxy tool against datasets in a history.
 
@@ -381,7 +412,7 @@ def get_mcp_app(gx_app):
             return ops_manager.run_tool(history_id, tool_id, inputs)
 
     @mcp.tool()
-    def get_job_status(job_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_job_status(job_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get the status and details of a Galaxy job.
 
         Use this after run_tool() or invoke_workflow() to check whether the
@@ -402,7 +433,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_job_status(job_id)
 
     @mcp.tool()
-    def create_history(name: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def create_history(name: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Create a new Galaxy history.
 
         Each project or analysis usually deserves its own history. Pick a
@@ -432,7 +463,7 @@ def get_mcp_app(gx_app):
             return ops_manager.create_history(name)
 
     @mcp.tool()
-    def get_history_details(history_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_history_details(history_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get history metadata and summary stats (no full dataset listing).
 
         Lightweight overview -- it does NOT page through datasets. For the
@@ -456,8 +487,8 @@ def get_mcp_app(gx_app):
     @mcp.tool()
     def get_history_contents(
         history_id: str,
-        api_key: str,
         ctx: MCPContext,
+        api_key: ApiKey = None,
         limit: int = 100,
         offset: int = 0,
         order: str = "hid-asc",
@@ -495,7 +526,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_history_contents(history_id, limit, offset, order, deleted, visible)
 
     @mcp.tool()
-    def get_dataset_details(dataset_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_dataset_details(dataset_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get detailed information about a single dataset.
 
         Args:
@@ -516,7 +547,7 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def get_collection_details(
-        collection_id: str, api_key: str, ctx: MCPContext, max_elements: int = 500
+        collection_id: str, ctx: MCPContext, api_key: ApiKey = None, max_elements: int = 500
     ) -> dict[str, Any]:
         """Get a dataset collection's metadata and member elements.
 
@@ -544,8 +575,8 @@ def get_mcp_app(gx_app):
     def upload_file_from_url(
         history_id: str,
         url: str,
-        api_key: str,
         ctx: MCPContext,
+        api_key: ApiKey = None,
         file_type: str = "auto",
         dbkey: str = "?",
         file_name: str | None = None,
@@ -587,8 +618,8 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def list_workflows(
-        api_key: str,
         ctx: MCPContext,
+        api_key: ApiKey = None,
         limit: int = 50,
         offset: int = 0,
         show_published: bool = False,
@@ -618,7 +649,7 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def get_workflow_details(
-        workflow_id: str, api_key: str, ctx: MCPContext, version: int | None = None
+        workflow_id: str, ctx: MCPContext, api_key: ApiKey = None, version: int | None = None
     ) -> dict[str, Any]:
         """Get a workflow's full structure: steps, inputs, outputs, parameters.
 
@@ -643,8 +674,8 @@ def get_mcp_app(gx_app):
     @mcp.tool()
     def invoke_workflow(
         workflow_id: str,
-        api_key: str,
         ctx: MCPContext,
+        api_key: ApiKey = None,
         history_id: str | None = None,
         inputs: dict[str, Any] | None = None,
         parameters: dict[str, Any] | None = None,
@@ -691,8 +722,8 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def get_invocations(
-        api_key: str,
         ctx: MCPContext,
+        api_key: ApiKey = None,
         workflow_id: str | None = None,
         history_id: str | None = None,
         limit: int = 50,
@@ -718,7 +749,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_invocations(workflow_id, history_id, limit, offset)
 
     @mcp.tool()
-    def get_invocation_details(invocation_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_invocation_details(invocation_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get detailed step-level state for a single workflow invocation.
 
         Args:
@@ -736,7 +767,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_invocation_details(invocation_id)
 
     @mcp.tool()
-    def cancel_workflow_invocation(invocation_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def cancel_workflow_invocation(invocation_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Cancel a running workflow invocation.
 
         Already-completed steps remain; not-yet-running steps are skipped.
@@ -754,7 +785,7 @@ def get_mcp_app(gx_app):
     # ==================== Tool Enhancement Tools ====================
 
     @mcp.tool()
-    def get_tool_panel(api_key: str, ctx: MCPContext, view: str | None = None) -> dict[str, Any]:
+    def get_tool_panel(ctx: MCPContext, api_key: ApiKey = None, view: str | None = None) -> dict[str, Any]:
         """Get the toolbox hierarchy of sections and tools.
 
         Mirrors the left-hand tool panel in Galaxy. Useful for browsing or
@@ -777,7 +808,7 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def get_tool_run_examples(
-        tool_id: str, api_key: str, ctx: MCPContext, tool_version: str | None = None
+        tool_id: str, ctx: MCPContext, api_key: ApiKey = None, tool_version: str | None = None
     ) -> dict[str, Any]:
         """Return XML test definitions (inputs, outputs, assertions) for a tool.
 
@@ -799,7 +830,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_tool_run_examples(tool_id, tool_version)
 
     @mcp.tool()
-    def get_tool_citations(tool_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_tool_citations(tool_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get citation information (DOIs, BibTeX) for a Galaxy tool.
 
         Args:
@@ -814,7 +845,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_tool_citations(tool_id)
 
     @mcp.tool()
-    def search_tools_by_keywords(keywords: list[str], api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def search_tools_by_keywords(keywords: list[str], ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Recommend tools by matching multiple keywords across name, description,
         and accepted input formats.
 
@@ -840,7 +871,7 @@ def get_mcp_app(gx_app):
     # ==================== Supplementary Tools ====================
 
     @mcp.tool()
-    def list_history_ids(api_key: str, ctx: MCPContext, limit: int = 100) -> dict[str, Any]:
+    def list_history_ids(ctx: MCPContext, api_key: ApiKey = None, limit: int = 100) -> dict[str, Any]:
         """Get a simplified list of history IDs and names.
 
         Lighter than list_histories() -- returns only id/name pairs. Useful when
@@ -858,7 +889,7 @@ def get_mcp_app(gx_app):
 
     @mcp.tool()
     def get_job_details(
-        dataset_id: str, api_key: str, ctx: MCPContext, history_id: str | None = None
+        dataset_id: str, ctx: MCPContext, api_key: ApiKey = None, history_id: str | None = None
     ) -> dict[str, Any]:
         """Get details about the job that created a specific dataset.
 
@@ -882,7 +913,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_job_details(dataset_id, history_id)
 
     @mcp.tool()
-    def download_dataset(dataset_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def download_dataset(dataset_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get a dataset's download URL plus basic metadata.
 
         Returns a signed/qualified URL the client can fetch. The dataset must be
@@ -904,7 +935,7 @@ def get_mcp_app(gx_app):
             return ops_manager.download_dataset(dataset_id)
 
     @mcp.tool()
-    def get_server_info(api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_server_info(ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get the Galaxy server's version, URL, and selected configuration values.
 
         Returns:
@@ -916,7 +947,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_server_info()
 
     @mcp.tool()
-    def get_user(api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_user(ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get information about the user behind the supplied API key.
 
         Returns:
@@ -929,7 +960,7 @@ def get_mcp_app(gx_app):
     # ==================== User-Defined Tools (UDT) ====================
 
     @mcp.tool()
-    def list_user_tools(api_key: str, ctx: MCPContext, active: bool = True) -> dict[str, Any]:
+    def list_user_tools(ctx: MCPContext, api_key: ApiKey = None, active: bool = True) -> dict[str, Any]:
         """List user-defined tools belonging to the current user.
 
         Args:
@@ -945,7 +976,7 @@ def get_mcp_app(gx_app):
             return ops_manager.list_user_tools(active)
 
     @mcp.tool()
-    def create_user_tool(representation: dict[str, Any], api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def create_user_tool(representation: dict[str, Any], ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Create a user-defined tool in Galaxy from a YAML tool definition.
 
         User-defined tools are lightweight, containerized tools that can be
@@ -1003,7 +1034,7 @@ def get_mcp_app(gx_app):
             return ops_manager.create_user_tool(representation)
 
     @mcp.tool()
-    def recommend_biocontainer(packages: list[str], api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def recommend_biocontainer(packages: list[str], ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Resolve a verified ``quay.io/biocontainers`` image for a set of conda packages.
 
         Use this to pick the ``container`` for ``create_user_tool`` instead of guessing an
@@ -1037,7 +1068,7 @@ def get_mcp_app(gx_app):
             return _biocontainer_recommendation_payload(packages)
 
     @mcp.tool()
-    def delete_user_tool(uuid: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def delete_user_tool(uuid: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Deactivate a user-defined tool. Deactivated tools are not loaded into the toolbox.
 
         Existing job history that referenced the tool is preserved; only
@@ -1058,8 +1089,8 @@ def get_mcp_app(gx_app):
         history_id: str,
         tool_uuid: str,
         inputs: dict[str, Any],
-        api_key: str,
         ctx: MCPContext,
+        api_key: ApiKey = None,
     ) -> dict[str, Any]:
         """Run a user-defined tool by UUID, producing outputs in the given history.
 
@@ -1097,7 +1128,7 @@ def get_mcp_app(gx_app):
     # ==================== File sources (remote data repositories) ====================
 
     @mcp.tool()
-    def list_file_source_templates(api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def list_file_source_templates(ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """List remote-repository plugin templates Galaxy can connect to.
 
         Returns templates like Omero, Dropbox, S3, Zenodo, Invenio, Google
@@ -1110,7 +1141,7 @@ def get_mcp_app(gx_app):
             return ops_manager.list_file_source_templates()
 
     @mcp.tool()
-    def list_user_file_sources(api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def list_user_file_sources(ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """List the current user's configured remote-repository file source instances.
 
         Each instance is an active connection (Omero server, Dropbox account,
@@ -1125,7 +1156,7 @@ def get_mcp_app(gx_app):
     # ==================== IWC ====================
 
     @mcp.tool()
-    def search_iwc_workflows(query: str, api_key: str, ctx: MCPContext, limit: int = 10) -> dict[str, Any]:
+    def search_iwc_workflows(query: str, ctx: MCPContext, api_key: ApiKey = None, limit: int = 10) -> dict[str, Any]:
         """Find IWC (Intergalactic Workflows Commission) workflows matching a query or analysis intent.
 
         IWC hosts curated, best-practice workflows for common bioinformatics
@@ -1174,7 +1205,7 @@ def get_mcp_app(gx_app):
             return ops_manager.search_iwc_workflows(query, limit)
 
     @mcp.tool()
-    def get_iwc_workflow_details(trs_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def get_iwc_workflow_details(trs_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Get comprehensive details about a specific IWC workflow before importing.
 
         Use this to examine a workflow's full documentation, inputs, and
@@ -1213,7 +1244,7 @@ def get_mcp_app(gx_app):
             return ops_manager.get_iwc_workflow_details(trs_id)
 
     @mcp.tool()
-    def import_workflow_from_iwc(trs_id: str, api_key: str, ctx: MCPContext) -> dict[str, Any]:
+    def import_workflow_from_iwc(trs_id: str, ctx: MCPContext, api_key: ApiKey = None) -> dict[str, Any]:
         """Import an IWC workflow into the user's stored workflows.
 
         The workflow is materialized through Galaxy's standard workflow-import
@@ -1248,6 +1279,238 @@ def get_mcp_app(gx_app):
         with _mcp_error_handler("import_workflow_from_iwc"):
             ops_manager = get_operations_manager(api_key, ctx)
             return ops_manager.import_workflow_from_iwc(trs_id)
+
+    # ==================== Pages (notebooks and reports) ====================
+
+    @mcp.tool()
+    def list_pages(
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+        history_id: str | None = None,
+        search: str | None = None,
+        limit: int = 100,
+        offset: int = 0,
+        show_published: bool = False,
+        show_shared: bool = False,
+    ) -> dict[str, Any]:
+        """List Galaxy pages (markdown documents) viewable by the user.
+
+        A page attached to a history is a "Galaxy Notebook"; a standalone page is
+        a "Report". Pass history_id to list only that history's notebooks.
+
+        Args:
+            history_id: Encoded history id. When set, returns only notebooks
+                attached to that history.
+            search: Freetext filter over title/content.
+            limit: Max pages to return (default 100).
+            offset: Pagination offset.
+            show_published: Also include pages published by other users (default False).
+            show_shared: Also include pages shared with the user (default False).
+
+        Returns:
+            Dict with `pages` (summaries incl. encoded id, title, history_id,
+            latest_revision_id), `count`, and `total_matches`.
+
+        NEXT STEPS:
+        - Read one: get_page(page_id)
+        - Create a notebook: create_page(history_id=...)
+        """
+        with _mcp_error_handler("list_pages"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.list_pages(
+                history_id=history_id,
+                search=search,
+                limit=limit,
+                offset=offset,
+                show_published=show_published,
+                show_shared=show_shared,
+            )
+
+    @mcp.tool()
+    def get_page(
+        page_id: str,
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+        include_rendered: bool = False,
+    ) -> dict[str, Any]:
+        """Get a page and the content of its latest revision.
+
+        Returns `content_editor`: the editable Galaxy-flavored markdown, with
+        ENCODED ids in directives (e.g. `history_dataset_id=f2db41e1fa331b3e`).
+        This is the form to edit and pass back to update_page.
+
+        Args:
+            page_id: Encoded id of the page (from list_pages / create_page).
+            include_rendered: When True, also return `content` -- the
+                embed-expanded render form (inlined dataset previews). Can be
+                large; omit unless you need the rendered output.
+
+        Returns:
+            Page details including `content_editor`, metadata, and `edit_source`
+            of the latest revision.
+
+        NEXT STEPS:
+        - Edit it: update_page(page_id, content=...)
+        - See history: list_page_revisions(page_id)
+        """
+        with _mcp_error_handler("get_page"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.get_page(page_id, include_rendered=include_rendered)
+
+    @mcp.tool()
+    def create_page(
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+        history_id: str | None = None,
+        title: str | None = None,
+        content: str | None = None,
+        annotation: str | None = None,
+        slug: str | None = None,
+    ) -> dict[str, Any]:
+        """Create a markdown page (Galaxy Notebook or Report).
+
+        Pass history_id to create a history-attached notebook (title auto-fills
+        from the history if omitted). Omit history_id to create a standalone
+        report -- reports REQUIRE both a title and a unique slug
+        (lowercase/digits/hyphens).
+
+        Content is Galaxy-flavored markdown. To embed a dataset, use a directive
+        with the ENCODED dataset id, e.g.
+        `history_dataset_display(history_dataset_id=f2db41e1fa331b3e)` or
+        `history_dataset_collection_display(history_dataset_collection_id=...)`.
+        Get encoded ids from get_history_contents / get_dataset_details.
+
+        Args:
+            history_id: Encoded history id to attach the page to (notebook).
+            title: Page title.
+            content: Initial markdown content.
+            annotation: Optional annotation attached to the page.
+            slug: URL slug (required for standalone reports).
+
+        Returns:
+            Created page details including encoded id and content_editor.
+
+        NEXT STEPS:
+        - Edit it: update_page(page_id, content=...)
+        """
+        with _mcp_error_handler("create_page"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.create_page(
+                history_id=history_id,
+                title=title,
+                content=content,
+                annotation=annotation,
+                slug=slug,
+            )
+
+    @mcp.tool()
+    def update_page(
+        page_id: str,
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+        content: str | None = None,
+        title: str | None = None,
+    ) -> dict[str, Any]:
+        """Update a page, creating a new revision when content changes.
+
+        Content is Galaxy-flavored markdown using ENCODED ids in directives
+        (e.g. `history_dataset_id=f2db41e1fa331b3e`) -- never raw integer ids or
+        HIDs. Get encoded ids from get_history_contents / get_dataset_details.
+        Edits made through this tool are recorded with edit_source="agent".
+
+        Args:
+            page_id: Encoded id of the page.
+            content: New markdown content. Omit to leave content unchanged.
+            title: New title. Omit to leave unchanged.
+
+        Returns:
+            Updated page details including content_editor.
+
+        NEXT STEPS:
+        - Inspect revisions: list_page_revisions(page_id)
+        - Roll back: revert_page_revision(page_id, revision_id)
+        """
+        with _mcp_error_handler("update_page"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.update_page(page_id, content=content, title=title)
+
+    @mcp.tool()
+    def list_page_revisions(
+        page_id: str,
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+        sort_desc: bool = False,
+    ) -> dict[str, Any]:
+        """List the revision history of a page.
+
+        Each revision carries an `edit_source` ("user", "agent", or "restore")
+        recording who made the edit.
+
+        Args:
+            page_id: Encoded id of the page.
+            sort_desc: Newest-first when True (default oldest-first).
+
+        Returns:
+            Dict with `revisions` (encoded id, page_id, edit_source, timestamps)
+            and `count`.
+
+        NEXT STEPS:
+        - Read a revision: get_page_revision(page_id, revision_id)
+        - Roll back: revert_page_revision(page_id, revision_id)
+        """
+        with _mcp_error_handler("list_page_revisions"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.list_page_revisions(page_id, sort_desc=sort_desc)
+
+    @mcp.tool()
+    def get_page_revision(
+        page_id: str,
+        revision_id: str,
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+        include_rendered: bool = False,
+    ) -> dict[str, Any]:
+        """Get the content of a single page revision.
+
+        Mirrors get_page: returns `content_editor` (the editable Galaxy-flavored
+        markdown with ENCODED ids in directives) -- the form to compare against
+        get_page or pass back to update_page.
+
+        Args:
+            page_id: Encoded id of the page.
+            revision_id: Encoded id of the revision (from list_page_revisions).
+            include_rendered: When True, also return `content` -- the
+                embed-expanded render form. Can be large; omit unless needed.
+
+        Returns:
+            Revision details including `content_editor`, `edit_source`, and timestamps.
+        """
+        with _mcp_error_handler("get_page_revision"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.get_page_revision(page_id, revision_id, include_rendered=include_rendered)
+
+    @mcp.tool()
+    def revert_page_revision(
+        page_id: str,
+        revision_id: str,
+        ctx: MCPContext,
+        api_key: ApiKey = None,
+    ) -> dict[str, Any]:
+        """Roll a page back to an earlier revision.
+
+        Creates a NEW revision from the target revision's content, recorded with
+        edit_source="restore" (the history is append-only -- nothing is deleted).
+
+        Args:
+            page_id: Encoded id of the page.
+            revision_id: Encoded id of the revision to restore.
+
+        Returns:
+            The new restored revision's details.
+        """
+        with _mcp_error_handler("revert_page_revision"):
+            ops_manager = get_operations_manager(api_key, ctx)
+            return ops_manager.revert_page_revision(page_id, revision_id)
 
     mcp_path = gx_app.config.mcp_server_path.rstrip("/") or "/"
     mcp_app = mcp.http_app(path=mcp_path)

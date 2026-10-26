@@ -1,21 +1,19 @@
 from typing import (
+    Annotated,
     Any,
-    List,
-    Optional,
-    Union,
+    Literal,
 )
 
 from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    field_validator,
     model_validator,
     PrivateAttr,
     TypeAdapter,
 )
 from typing_extensions import (
-    Annotated,
-    Literal,
     Protocol,
     Self,
 )
@@ -29,13 +27,13 @@ except ImportError:
 
 
 class ValidationArgument:
-    doc: Optional[str]
+    doc: str | None
     xml_body: bool
     xml_allow_json_load: bool
 
     def __init__(
         self,
-        doc: Optional[str],
+        doc: str | None,
         xml_body: bool = False,
         xml_allow_json_load: bool = False,
     ):
@@ -75,12 +73,11 @@ ValidatorType = Literal[
 
 
 class ValidatorDescription(Protocol):
-
     @property
     def negate(self) -> bool: ...
 
     @property
-    def message(self) -> Optional[str]: ...
+    def message(self) -> str | None: ...
 
 
 class StrictModel(BaseModel):
@@ -90,7 +87,7 @@ class StrictModel(BaseModel):
 class ParameterValidatorModel(StrictModel):
     type: ValidatorType
     message: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Error message shown when validation fails; `%s` is replaced with the rejected value."),
         ValidationArgument(
             """The error message displayed on the tool form if validation fails. A placeholder string ``%s`` will be repaced by the ``value``"""
@@ -141,7 +138,7 @@ class ExpressionParameterValidatorModel(StaticValidatorModel):
         ExpressionParameterValidatorModel.expression_validation(self.expression, value, self)
 
     @staticmethod
-    def ensure_compiled(expression: Union[str, Any]) -> Any:
+    def ensure_compiled(expression: str | Any) -> Any:
         if isinstance(expression, str):
             return compile(expression, "<string>", "eval")
         else:
@@ -149,7 +146,7 @@ class ExpressionParameterValidatorModel(StaticValidatorModel):
 
     @staticmethod
     def expression_validation(
-        expression: str, value: Any, validator: "ValidatorDescription", compiled_expression: Optional[Any] = None
+        expression: str, value: Any, validator: "ValidatorDescription", compiled_expression: Any | None = None
     ):
         if is_loading_untrusted_tools():
             # expressions are Python, which untrusted tools must not run
@@ -209,6 +206,15 @@ class RegexParameterValidatorModel(StaticValidatorModel):
     ]
     _safe: bool = PrivateAttr(True)
 
+    @field_validator("expression")
+    @classmethod
+    def check_expression_compiles(cls, expression: str) -> str:
+        try:
+            regex.compile(expression)
+        except regex.error as e:
+            raise ValueError(f"invalid regular expression: {e}")
+        return expression
+
     @property
     def default_message(self) -> str:
         return f"Value '%s' does {'not ' if not self.negate else ''}match regular expression '{self.expression.replace('%', '%%')}'"
@@ -223,7 +229,7 @@ class RegexParameterValidatorModel(StaticValidatorModel):
         if not isinstance(value, list):
             value = [value]
         for val in value:
-            match = regex.match(expression, val or "")
+            match = regex.match(expression, "" if val is None else str(val))
             raise_error_if_validation_fails(match is not None, validator, value_to_show=val)
 
 
@@ -248,11 +254,11 @@ class InRangeParameterValidatorModel(StaticValidatorModel):
         Field(description="Enforces the numeric boundaries configured by `min` and `max`."),
     ] = "in_range"
     min: Annotated[
-        Optional[Union[float, int]],
+        float | int | None,
         Field(description="Rejects smaller values; omit to leave the range without a lower bound."),
     ] = None
     max: Annotated[
-        Optional[Union[float, int]],
+        float | int | None,
         Field(description="Rejects larger values; omit to leave the range without an upper bound."),
     ] = None
     exclude_min: Annotated[
@@ -268,6 +274,12 @@ class InRangeParameterValidatorModel(StaticValidatorModel):
         Field(description="Reject values inside the configured range instead of values outside it."),
     ] = NEGATE_DEFAULT
     _safe: bool = PrivateAttr(True)
+
+    @model_validator(mode="after")
+    def check_min_le_max(self) -> Self:
+        if self.min is not None and self.max is not None and self.min > self.max:
+            raise ValueError("min must be less than or equal to max")
+        return self
 
     def statically_validate(self, value: Any):
         if isinstance(value, (int, float)):
@@ -316,11 +328,11 @@ class LengthParameterValidatorModel(StaticValidatorModel):
         Field(description="Enforces character-count boundaries on a submitted text value."),
     ] = "length"
     min: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Rejects text with fewer characters; omit to leave the length without a lower bound."),
     ] = None
     max: Annotated[
-        Optional[int],
+        int | None,
         Field(description="Rejects text with more characters; omit to leave the length without an upper bound."),
     ] = None
     negate: Annotated[
@@ -346,8 +358,8 @@ class LengthParameterValidatorModel(StaticValidatorModel):
 
 class MetadataParameterValidatorModel(ParameterValidatorModel):
     type: Literal["metadata"] = "metadata"
-    check: Optional[List[str]] = None
-    skip: Optional[List[str]] = None
+    check: list[str] | None = None
+    skip: list[str] | None = None
     negate: Negate = NEGATE_DEFAULT
 
     @property
@@ -491,7 +503,7 @@ class DatasetMetadataInDataTableParameterValidatorModel(ParameterValidatorModel)
     type: Literal["dataset_metadata_in_data_table"] = "dataset_metadata_in_data_table"
     table_name: str
     metadata_name: str
-    metadata_column: Union[int, str]
+    metadata_column: int | str
     negate: Negate = NEGATE_DEFAULT
 
     @property
@@ -503,7 +515,7 @@ class DatasetMetadataNotInDataTableParameterValidatorModel(ParameterValidatorMod
     type: Literal["dataset_metadata_not_in_data_table"] = "dataset_metadata_not_in_data_table"
     table_name: str
     metadata_name: str
-    metadata_column: Union[int, str]
+    metadata_column: int | str
     negate: Negate = NEGATE_DEFAULT
 
     @property
@@ -514,8 +526,8 @@ class DatasetMetadataNotInDataTableParameterValidatorModel(ParameterValidatorMod
 class DatasetMetadataInRangeParameterValidatorModel(ParameterValidatorModel):
     type: Literal["dataset_metadata_in_range"] = "dataset_metadata_in_range"
     metadata_name: str
-    min: Optional[Union[float, int]] = None
-    max: Optional[Union[float, int]] = None
+    min: float | int | None = None
+    max: float | int | None = None
     exclude_min: bool = False
     exclude_max: bool = False
     negate: Negate = NEGATE_DEFAULT
@@ -535,7 +547,7 @@ class DatasetMetadataInRangeParameterValidatorModel(ParameterValidatorModel):
 class ValueInDataTableParameterValidatorModel(ParameterValidatorModel):
     type: Literal["value_in_data_table"] = "value_in_data_table"
     table_name: str
-    metadata_column: Union[int, str]
+    metadata_column: int | str
     negate: Negate = NEGATE_DEFAULT
 
     @property
@@ -546,7 +558,7 @@ class ValueInDataTableParameterValidatorModel(ParameterValidatorModel):
 class ValueNotInDataTableParameterValidatorModel(ParameterValidatorModel):
     type: Literal["value_not_in_data_table"] = "value_not_in_data_table"
     table_name: str
-    metadata_column: Union[int, str]
+    metadata_column: int | str
     negate: Negate = NEGATE_DEFAULT
 
     @property
@@ -573,8 +585,8 @@ class DatasetMetadataInFileParameterValidatorModel(ParameterValidatorModel):
     type: Literal["dataset_metadata_in_file"] = "dataset_metadata_in_file"
     filename: str
     metadata_name: str
-    metadata_column: Union[int, str]
-    line_startswith: Optional[str] = None
+    metadata_column: int | str
+    line_startswith: str | None = None
     split: str = SPLIT_DEFAULT
     negate: Negate = NEGATE_DEFAULT
     _deprecated: bool = PrivateAttr(True)
@@ -585,44 +597,97 @@ class DatasetMetadataInFileParameterValidatorModel(ParameterValidatorModel):
 
 
 AnyValidatorModel = Annotated[
-    Union[
-        ExpressionParameterValidatorModel,
-        RegexParameterValidatorModel,
-        InRangeParameterValidatorModel,
-        LengthParameterValidatorModel,
-        MetadataParameterValidatorModel,
-        DatasetMetadataEqualParameterValidatorModel,
-        UnspecifiedBuildParameterValidatorModel,
-        NoOptionsParameterValidatorModel,
-        EmptyFieldParameterValidatorModel,
-        EmptyDatasetParameterValidatorModel,
-        EmptyExtraFilesPathParameterValidatorModel,
-        DatasetMetadataInDataTableParameterValidatorModel,
-        DatasetMetadataNotInDataTableParameterValidatorModel,
-        DatasetMetadataInRangeParameterValidatorModel,
-        ValueInDataTableParameterValidatorModel,
-        ValueNotInDataTableParameterValidatorModel,
-        DatasetOkValidatorParameterValidatorModel,
-        DatasetMetadataInFileParameterValidatorModel,
-    ],
+    ExpressionParameterValidatorModel
+    | RegexParameterValidatorModel
+    | InRangeParameterValidatorModel
+    | LengthParameterValidatorModel
+    | MetadataParameterValidatorModel
+    | DatasetMetadataEqualParameterValidatorModel
+    | UnspecifiedBuildParameterValidatorModel
+    | NoOptionsParameterValidatorModel
+    | EmptyFieldParameterValidatorModel
+    | EmptyDatasetParameterValidatorModel
+    | EmptyExtraFilesPathParameterValidatorModel
+    | DatasetMetadataInDataTableParameterValidatorModel
+    | DatasetMetadataNotInDataTableParameterValidatorModel
+    | DatasetMetadataInRangeParameterValidatorModel
+    | ValueInDataTableParameterValidatorModel
+    | ValueNotInDataTableParameterValidatorModel
+    | DatasetOkValidatorParameterValidatorModel
+    | DatasetMetadataInFileParameterValidatorModel,
     Field(discriminator="type"),
 ]
 
 AnySafeValidatorModel = Annotated[
-    Union[
-        RegexParameterValidatorModel,
-        InRangeParameterValidatorModel,
-        LengthParameterValidatorModel,
-    ],
+    RegexParameterValidatorModel | InRangeParameterValidatorModel | LengthParameterValidatorModel,
     Field(discriminator="type"),
 ]
 
-DiscriminatedAnyValidatorModel = TypeAdapter(AnyValidatorModel)  # type: ignore[var-annotated]
-DiscriminatedAnySafeValidatorModel = TypeAdapter(AnySafeValidatorModel)  # type: ignore[var-annotated]
+DiscriminatedAnyValidatorModel = TypeAdapter(AnyValidatorModel)
+DiscriminatedAnySafeValidatorModel = TypeAdapter(AnySafeValidatorModel)
+
+# Validator types that apply to each tool parameter type; types not listed are not checked.
+PARAMETER_VALIDATOR_TYPE_COMPATIBILITY: dict[str, list[ValidatorType]] = {
+    "integer": ["in_range", "expression"],
+    "float": ["in_range", "expression"],
+    "data": [
+        "metadata",
+        "no_options",
+        "unspecified_build",
+        "dataset_ok_validator",
+        "dataset_metadata_equal",
+        "dataset_metadata_in_range",
+        "dataset_metadata_in_file",
+        "dataset_metadata_in_data_table",
+        "dataset_metadata_not_in_data_table",
+        "expression",
+    ],
+    "data_collection": [
+        "metadata",
+        "no_options",
+        "unspecified_build",
+        "dataset_ok_validator",
+        "dataset_metadata_equal",
+        "dataset_metadata_in_range",
+        "dataset_metadata_in_file",
+        "dataset_metadata_in_data_table",
+        "dataset_metadata_not_in_data_table",
+        "expression",
+    ],
+    "text": ["regex", "length", "empty_field", "value_in_data_table", "value_not_in_data_table", "expression"],
+    "select": [
+        "in_range",
+        "no_options",
+        "regex",
+        "length",
+        "empty_field",
+        "value_in_data_table",
+        "value_not_in_data_table",
+        "expression",
+    ],
+    "drill_down": [
+        "no_options",
+        "regex",
+        "length",
+        "empty_field",
+        "value_in_data_table",
+        "value_not_in_data_table",
+        "expression",
+    ],
+    "data_column": [
+        "no_options",
+        "regex",
+        "length",
+        "empty_field",
+        "value_in_data_table",
+        "value_not_in_data_table",
+        "expression",
+    ],
+}
 
 
 def raise_error_if_validation_fails(
-    value: bool, validator: ValidatorDescription, message: Optional[str] = None, value_to_show: Optional[str] = None
+    value: bool, validator: ValidatorDescription, message: str | None = None, value_to_show: str | None = None
 ):
     if not isinstance(value, bool):
         raise AssertionError("Validator logic problem - computed validation value must be boolean")
@@ -643,6 +708,7 @@ def raise_error_if_validation_fails(
 __all__ = (
     "AnyValidatorModel",
     "DiscriminatedAnyValidatorModel",
+    "PARAMETER_VALIDATOR_TYPE_COMPATIBILITY",
     "ValidatorType",
     "ParameterValidatorModel",
     "SPLIT_DEFAULT",

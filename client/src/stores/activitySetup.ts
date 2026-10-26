@@ -2,6 +2,7 @@
  * List of built-in activities
  */
 import {
+    faBezierCurve,
     faChartBar,
     faColumns,
     faComments,
@@ -27,29 +28,16 @@ import type { EventData } from "@/stores/eventStore";
 export const defaultActivities = [
     {
         anonymous: true,
-        description: "Opens a data dialog, allowing uploads from URL, pasted content or disk.",
+        description: "Opens the upload panel for importing data from files, pasted content, or remote sources.",
         icon: faUpload,
         id: "upload",
         mutable: false,
         optional: false,
-        panel: false,
+        panel: true,
         title: "Upload",
         to: null,
-        tooltip: "Download from URL or upload files from disk",
+        tooltip: "Import data",
         visible: true,
-    },
-    {
-        anonymous: true,
-        description: "Opens the new beta upload interface with experimental features.",
-        icon: faUpload,
-        id: "beta-upload",
-        mutable: false,
-        optional: true,
-        panel: true,
-        title: "Beta Upload",
-        to: null,
-        tooltip: "Try the new experimental upload interface",
-        visible: false,
     },
     {
         anonymous: true,
@@ -146,6 +134,19 @@ export const defaultActivities = [
     },
     {
         anonymous: false,
+        description: "Lists histories to open in the History Graph view.",
+        icon: faBezierCurve,
+        id: "historygraph",
+        mutable: false,
+        optional: true,
+        panel: true,
+        title: "History Graphs",
+        tooltip: "Pick a history to view its provenance graph",
+        to: null,
+        visible: true,
+    },
+    {
+        anonymous: false,
         description: "Displays the history selector panel and opens History Multiview in the center panel.",
         icon: faColumns,
         id: "multiview",
@@ -236,6 +237,38 @@ export const defaultActivities = [
         visible: true,
     },
 ] as const;
+
+/** What decides whether a gated activity is offered to the current user. */
+export interface ActivityAvailability {
+    /** Whether unprivileged (user-defined) tools are available */
+    canUseUnprivilegedTools: boolean;
+    /** Relevant subset of the Galaxy configuration */
+    config?: {
+        interactivetools_enable?: boolean;
+        llm_api_configured?: boolean;
+    };
+}
+
+/**
+ * Checks an activity's configuration and tool-permission gates.
+ *
+ * The activity bar and the command palette both list activities, so the gates
+ * live beside the registry rather than in either of them - a gate added on one
+ * side only would let the palette route to an activity the bar hides.
+ * Callers handle anonymous access and their own activity exclusions separately.
+ */
+export function isActivityAvailable(activityId: string, availability: ActivityAvailability): boolean {
+    switch (activityId) {
+        case "user-defined-tools":
+            return availability.canUseUnprivilegedTools;
+        case "interactivetools":
+            return Boolean(availability.config?.interactivetools_enable);
+        case "galaxyai":
+            return Boolean(availability.config?.llm_api_configured);
+        default:
+            return true;
+    }
+}
 
 export function convertDropData(data: EventData): Activity | null {
     if (data.history_content_type === "dataset") {

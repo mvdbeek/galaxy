@@ -55,7 +55,11 @@ TEST_TOOL_IDS = [
     "environment_variables",
     "all_output_types",
     "discover_sort_by",
+    "discover_unknown_ext",
+    "discover_format_tokens",
     "create_directory_index",
+    "zarr_store_in_wrapper_folder",
+    "discover_zarr_store_in_wrapper_folder",
 ]
 
 
@@ -316,6 +320,20 @@ class TestExtendedMetadataIntegration(integration_util.IntegrationTestCase):
                 "reverse",
             }, f"Expected forward/reverse but got {identifiers} for '{element.element_identifier}'"
 
+    def test_remote_tool_eval_failure_surfaced_as_job_error(self):
+        with self.dataset_populator.test_history() as history_id:
+            response = self.dataset_populator.run_tool("cheetah_problem_unbound_var", inputs={}, history_id=history_id)
+            job_id = response["jobs"][0]["id"]
+            self.dataset_populator.wait_for_job(job_id, assert_ok=False)
+            job_details = self.dataset_populator.get_job_details(job_id, full=True).json()
+            assert job_details["state"] == "error"
+            output = self.dataset_populator.get_history_dataset_details(
+                history_id=history_id, content_id=response["outputs"][0]["id"], assert_ok=False
+            )
+            assert "Galaxy failed to prepare this job, so the tool was not run" in output["misc_info"]
+            assert "Error occurred while building command line" in output["misc_info"]
+            assert "NotFound: cannot find 'out_file2'" in output["misc_info"]
+
     def test_purge_while_job_running(self):
         # pass extra_sleep, since templating the command line will fail if the output
         # is deleted before remote_tool_eval runs.
@@ -371,11 +389,15 @@ class TestExtendedMetadataDeferredIntegration(integration_util.IntegrationTestCa
         config["object_store_store_by"] = "uuid"
         config["retry_metadata_internally"] = False
 
-    def test_deferred_upload_with_metadata_files(self):
+    def test_deferred_upload_with_metadata_files(self, test_http_server):
         history_id = self.dataset_populator.new_history()
+        uri = test_http_server.get_url(
+            remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bam",
+            file_path="test-data/1.bam",
+        )
         deferred_dataset = self.dataset_populator.create_deferred_hda(
             history_id=history_id,
-            uri="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bam",
+            uri=uri,
             ext="bam",
         )
         inputs = {"input1": {"src": "hda", "id": deferred_dataset["id"]}}

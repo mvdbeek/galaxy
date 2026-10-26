@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { faFolder, faGlobe, faPlus, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BFormCheckbox, BPagination } from "bootstrap-vue";
+import { BPagination } from "bootstrap-vue";
 import { watch } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import type { FilterFileSourcesOptions, RemoteEntry } from "@/api/remoteFiles";
 import type { TableField } from "@/components/Common/GTable.types";
@@ -12,7 +12,9 @@ import type { RemoteFileBrowserMode } from "@/composables/useRemoteFileBrowser";
 import { useRemoteFileBrowser } from "@/composables/useRemoteFileBrowser";
 import { USER_FILE_PREFIX } from "@/utils/url";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import BreadcrumbNavigation from "@/components/Common/BreadcrumbNavigation.vue";
 import GTable from "@/components/Common/GTable.vue";
 import RemoteEntryMetadata from "@/components/Panels/Upload/shared/RemoteEntryMetadata.vue";
@@ -202,12 +204,12 @@ defineExpose({
         </div>
 
         <!-- Error message -->
-        <BAlert v-if="errorMessage" variant="danger" show dismissible @dismissed="errorMessage = undefined">
+        <GAlert v-if="errorMessage" variant="danger" show dismissible @dismissed="errorMessage = undefined">
             <div class="d-flex justify-content-between align-items-center">
                 <span>{{ errorMessage }}</span>
                 <GButton color="red" class="ml-2" @click="onErrorRetry">Retry</GButton>
             </div>
-        </BAlert>
+        </GAlert>
 
         <!-- Browser table -->
         <div class="browser-table-container">
@@ -225,19 +227,21 @@ defineExpose({
                 @row-click="handleRowClick">
                 <!-- Select-all checkbox in header -->
                 <template v-slot:head(select)>
-                    <BFormCheckbox
+                    <GCheckbox
                         v-if="!urlTracker.isAtRoot.value && selectableItemsOnCurrentPage.length > 0"
-                        :checked="allSelectableSelected"
+                        aria-label="Select all items on this page"
                         :indeterminate="someSelectableSelected"
+                        :model-value="allSelectableSelected"
                         @change="toggleSelectAll"
                         @click.stop />
                 </template>
 
                 <!-- Per-row selection checkbox -->
                 <template v-slot:cell(select)="{ item }">
-                    <BFormCheckbox
+                    <GCheckbox
                         v-if="isItemSelectable(item)"
-                        :checked="isSelected(item)"
+                        :aria-label="`Select ${item.label}`"
+                        :model-value="isSelected(item)"
                         @change="toggleSelection(item)"
                         @click.stop />
                 </template>

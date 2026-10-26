@@ -1,15 +1,20 @@
 import os
-from typing import Union
+from hashlib import sha256
 
 import alembic
 import pytest
 from alembic.config import Config
 from sqlalchemy import (
+    inspect,
     MetaData,
+    select,
     text,
 )
+from sqlalchemy.exc import DBAPIError
+from sqlalchemy.orm import Session
 
 import galaxy.model.migrations.scripts
+from galaxy import model
 from galaxy.model import migrations
 from galaxy.model.database_utils import database_exists
 from galaxy.model.migrations import (
@@ -55,6 +60,80 @@ GXY_REVISION_2 = "e02cef55763c"  # current/head
 TSI_REVISION_0 = "1bceec30363a"  # oldest/base
 TSI_REVISION_1 = "8364ef1cab05"
 TSI_REVISION_2 = "0e28bf2fb7b5"  # current/head
+
+ANNOTATION_MODELS = (
+    model.HistoryAnnotationAssociation,
+    model.HistoryDatasetAssociationAnnotationAssociation,
+    model.StoredWorkflowAnnotationAssociation,
+    model.WorkflowStepAnnotationAssociation,
+    model.PageAnnotationAssociation,
+    model.VisualizationAnnotationAssociation,
+)
+# Longer than a PostgreSQL B-tree entry, which is what the dropped indexes could not hold.
+LONG_ANNOTATION = "".join(sha256(str(i).encode()).hexdigest() for i in range(64))
+
+
+# Migration 0035 auto-named these indexes until 2010; databases created before then
+# (e.g. usegalaxy.org) still carry the auto-generated names.
+LEGACY_ANNOTATION_INDEX_NAMES = {
+    "history_annotation_association": "ix_history_annotation_association_annotation",
+    "history_dataset_association_annotation_association": "ix_history_dataset_association_annotation_association_ann_2",
+    "stored_workflow_annotation_association": "ix_stored_workflow_annotation_association_annotation",
+    "workflow_step_annotation_association": "ix_workflow_step_annotation_association_annotation",
+}
+
+
+def _annotation_index_names(engine, table_name) -> list[str]:
+    indexes = inspect(engine).get_indexes(table_name)
+    return [index["name"] for index in indexes if index["column_names"] == ["annotation"]]
+
+
+def _has_annotation_index(engine, annotation_model) -> bool:
+    return bool(_annotation_index_names(engine, annotation_model.__tablename__))
+
+
+def _rename_to_legacy_annotation_indexes(engine) -> None:
+    with engine.begin() as conn:
+        for table_name, legacy_name in LEGACY_ANNOTATION_INDEX_NAMES.items():
+            for index_name in _annotation_index_names(conn, table_name):
+                conn.execute(text(f"DROP INDEX {index_name}"))
+            conn.execute(text(f"CREATE INDEX {legacy_name} ON {table_name} (annotation)"))
+
+
+@pytest.mark.parametrize("legacy_index_names", [False, True])
+def test_drop_annotation_indexes(url_factory, legacy_index_names):  # noqa: F811
+    """Downgrade to the indexed schema, then verify the upgrade keeps rows and accepts long annotations."""
+    db_url = url_factory()
+    with create_and_drop_database(db_url), disposing_engine(db_url) as engine:
+        model.Base.metadata.create_all(engine)
+        manager = AlembicManager(engine)
+        manager.stamp_model_head(GXY)
+        alembic.command.downgrade(manager.alembic_cfg, "e96dd6fd5863")
+        if legacy_index_names:
+            _rename_to_legacy_annotation_indexes(engine)
+
+        for annotation_model in ANNOTATION_MODELS:
+            assert _has_annotation_index(engine, annotation_model)
+            if engine.dialect.name == "postgresql":
+                # A failed flush poisons the session, so each model needs its own.
+                with Session(engine) as session, pytest.raises(DBAPIError) as error:
+                    session.add(annotation_model(annotation=LONG_ANNOTATION))
+                    session.flush()
+                assert getattr(error.value.orig, "sqlstate", None) == "54000"
+        with Session(engine) as session:
+            session.add_all(annotation_model(annotation="existing") for annotation_model in ANNOTATION_MODELS)
+            session.commit()
+
+        manager.upgrade(GXY)
+
+        with Session(engine) as session:
+            for annotation_model in ANNOTATION_MODELS:
+                assert not _has_annotation_index(engine, annotation_model)
+                assert session.scalars(select(annotation_model.annotation)).one() == "existing"
+                session.add(annotation_model(annotation=LONG_ANNOTATION))
+            session.commit()
+            for annotation_model in ANNOTATION_MODELS:
+                assert LONG_ANNOTATION in session.scalars(select(annotation_model.annotation)).all()
 
 
 class TestAlembicManager:
@@ -1031,7 +1110,7 @@ def _setup_db_state4(db_url, metadata, last_version, model=None):
             load_metadata(metadata, engine)
             load_sqlalchemymigrate_version(db_url, last_version)
 
-            revisions: Union[str, list]
+            revisions: str | list
             if model == GXY:
                 revisions = GXY_REVISION_0
             elif model == TSI:
@@ -1065,7 +1144,7 @@ def _setup_db_state5(db_url, metadata, model=None):
         with disposing_engine(db_url) as engine:
             load_metadata(metadata, engine)
 
-            revisions: Union[str, list]
+            revisions: str | list
             if model == GXY:
                 revisions = GXY_REVISION_1
             elif model == TSI:
@@ -1099,7 +1178,7 @@ def _setup_db_state6(db_url, metadata, model=None):
         with disposing_engine(db_url) as engine:
             load_metadata(metadata, engine)
 
-            revisions: Union[str, list]
+            revisions: str | list
             if model == GXY:
                 revisions = GXY_REVISION_2
             elif model == TSI:

@@ -12,6 +12,24 @@ class TestManageInformation(SeleniumTestCase):
         this means the initial API key will be None, which renders as
         'Not available.'
         """
+        new_api_key = self._create_api_key()
+        api_key_input = self.components.preferences.api_key_input.wait_for_visible()
+        input_value = api_key_input.get_attribute("value")
+        assert new_api_key == input_value
+        # Hover the input to view the key
+        self.hover(api_key_input)
+        hover_value = api_key_input.get_attribute("value")
+        assert new_api_key == hover_value
+
+    @selenium_test
+    def test_copy_api_key(self):
+        new_api_key = self._create_api_key()
+        with self.capture_clipboard() as clipboard:
+            self.components.preferences.api_key_copy_button.wait_for_and_click()
+            assert clipboard.wait_for_text() == new_api_key
+        self.components.toast.message_with_text(text="Key was copied to clipboard").wait_for_visible()
+
+    def _create_api_key(self) -> str:
         self.login()
         # There is no API key defined initially
         assert not self.get_api_key()
@@ -20,14 +38,10 @@ class TestManageInformation(SeleniumTestCase):
         self.sleep_for(self.wait_types.UX_TRANSITION)
         # When there is no API key the create button is visible
         self.components.preferences.get_new_key.wait_for_and_click()
-        api_key_input = self.components.preferences.api_key_input.wait_for_visible()
-        new_api_key = self.get_api_key()
-        input_value = api_key_input.get_attribute("value")
-        assert new_api_key == input_value
-        # Hover the input to view the key
-        self.hover(api_key_input)
-        hover_value = api_key_input.get_attribute("value")
-        assert new_api_key == hover_value
+        self.components.preferences.api_key_input.wait_for_visible()
+        api_key = self.get_api_key()
+        assert api_key
+        return api_key
 
     @selenium_test
     def test_change_email(self):
@@ -122,6 +136,43 @@ class TestManageInformation(SeleniumTestCase):
         for input_field_label in address_fields.keys():
             input_field = self.get_address_input_field(input_field_label)
             assert input_field.get_attribute("value") == address_fields[input_field_label]
+
+    @selenium_test
+    def test_new_datasets_private_switch(self):
+        # A fresh user, so the shared test user's dataset permissions stay as they are.
+        email = self._get_random_email()
+        self.register(email)
+        # new_user_dataset_access_role_default_private defaults to true
+        assert self.user_preferences_new_datasets_private() is True
+        self.user_preferences_set_new_datasets_private(False)
+        assert self.user_preferences_new_datasets_private() is False
+        self.screenshot("user_preferences_new_datasets_private_off")
+        permissions, roles = self._new_history_dataset_permissions()
+        self.screenshot("dataset_edit_permissions_public")
+        assert permissions["access"] == []
+        assert roles == {"manage": [email], "access": []}
+
+        self.user_preferences_set_new_datasets_private(True)
+        assert self.user_preferences_new_datasets_private() is True
+        self.screenshot("user_preferences_new_datasets_private_on")
+        permissions, roles = self._new_history_dataset_permissions()
+        self.screenshot("dataset_edit_permissions_private")
+        # the access role is the user's private role, which also manages the dataset
+        assert len(permissions["manage"]) == 1
+        assert permissions["access"] == permissions["manage"]
+        assert roles == {"manage": [email], "access": [email]}
+
+    def _new_history_dataset_permissions(self) -> tuple[dict[str, list], dict[str, list[str]]]:
+        self.home()
+        self.history_panel_create_new()
+        history_id = self.current_history_id()
+        hda = self.dataset_populator.new_dataset(history_id, content="a\n", wait=True)
+        self.home()
+        self.history_panel_wait_for_hid_ok(1)
+        self.history_panel_item_edit(hid=1)
+        roles = self.edit_dataset_permission_roles()
+        details = self.dataset_populator.get_history_dataset_details(history_id, dataset_id=hda["id"])
+        return details["permissions"], roles
 
     def navigate_to_manage_information(self):
         self.navigate_to_user_preferences()

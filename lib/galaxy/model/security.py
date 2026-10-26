@@ -3,7 +3,9 @@ import socket
 import sqlite3
 from datetime import timedelta
 from typing import (
-    Optional,
+    Literal,
+    overload,
+    TYPE_CHECKING,
 )
 
 from sqlalchemy import (
@@ -60,6 +62,14 @@ from galaxy.util import (
 )
 from galaxy.util.bunch import Bunch
 
+if TYPE_CHECKING:
+    from galaxy.managers.context import (
+        ProvidesAppContext,
+        ProvidesUserContext,
+    )
+    from galaxy.model import History
+    from galaxy.structured_app import BasicSharedApp
+
 log = logging.getLogger(__name__)
 
 
@@ -92,7 +102,7 @@ class GalaxyRBACAgent(RBACAgent):
         intermed.sort()
         return [_[-1] for _ in intermed]
 
-    def get_all_roles(self, trans, cntrller):
+    def get_all_roles(self, trans: "ProvidesUserContext", cntrller):
         admin_controller = cntrller in ["library_admin"]
         roles = set()
         if not trans.user:
@@ -126,7 +136,9 @@ class GalaxyRBACAgent(RBACAgent):
                 roles.append(item_permission.role)
         return roles
 
-    def get_valid_roles(self, trans, item, query=None, page=None, page_limit=None, is_library_access=False):
+    def get_valid_roles(
+        self, trans: "ProvidesUserContext", item, query=None, page=None, page_limit=None, is_library_access=False
+    ):
         """
         This method retrieves the list of possible roles that user can select
         in the item permissions form. Admins can select any role so the
@@ -199,7 +211,7 @@ class GalaxyRBACAgent(RBACAgent):
             total_count = len(return_roles)
         return self.sort_by_attr(list(return_roles), "name"), total_count
 
-    def get_legitimate_roles(self, trans, item, cntrller):
+    def get_legitimate_roles(self, trans: "ProvidesUserContext", item, cntrller):
         """
         Return a sorted list of legitimate roles that can be associated with a permission on
         item where item is a Library or a Dataset.  The cntrller param is the controller from
@@ -293,7 +305,7 @@ class GalaxyRBACAgent(RBACAgent):
                     break
         return ret_val
 
-    def get_actions_for_items(self, trans, action, permission_items):
+    def get_actions_for_items(self, trans: "ProvidesAppContext", action, permission_items):
         # TODO: Rename this; it's a replacement for get_item_actions, but it
         # doesn't represent what it's really doing, which is confusing.
         # TODO: Make this work for other classes besides lib_datasets.
@@ -312,18 +324,18 @@ class GalaxyRBACAgent(RBACAgent):
         #
         # If the dataset id has no corresponding action in its permissions,
         # then the returned permissions will not carry an entry for the dataset.
-        ret_permissions = {}
+        ret_permissions: dict[int, list] = {}
         if len(permission_items) > 0:
             # SM: NB: LibraryDatasets became Datasets for some odd reason.
             if isinstance(permission_items[0], LibraryDataset):
                 ids = [item.library_dataset_id for item in permission_items]
-                stmt = select(LibraryDatasetPermissions).where(
+                library_dataset_stmt = select(LibraryDatasetPermissions).where(
                     and_(
                         LibraryDatasetPermissions.library_dataset_id.in_(ids),
                         LibraryDatasetPermissions.action == action.action,
                     )
                 )
-                permissions = trans.sa_session.scalars(stmt)
+                permissions = trans.sa_session.scalars(library_dataset_stmt)
                 # Massage the return data. We will return a list of permissions
                 # for each library dataset. So we initialize the return list to
                 # have an empty list for each dataset. Then each permission is
@@ -337,10 +349,10 @@ class GalaxyRBACAgent(RBACAgent):
             elif isinstance(permission_items[0], Dataset):
                 ids = [item.id for item in permission_items]
 
-                stmt = select(DatasetPermissions).where(
+                dataset_stmt = select(DatasetPermissions).where(
                     and_(DatasetPermissions.dataset_id.in_(ids), DatasetPermissions.action == action.action)
                 )
-                permissions = trans.sa_session.scalars(stmt)
+                permissions = trans.sa_session.scalars(dataset_stmt)
                 # Massage the return data. We will return a list of permissions
                 # for each library dataset. So we initialize the return list to
                 # have an empty list for each dataset. Then each permission is
@@ -387,7 +399,7 @@ class GalaxyRBACAgent(RBACAgent):
 
         return ret_permissions
 
-    def allow_action_on_libitems(self, trans, user_roles, action, items):
+    def allow_action_on_libitems(self, trans: "ProvidesAppContext", user_roles, action, items):
         """
         This should be the equivalent of allow_action defined on multiple items.
         It is meant to specifically replace allow_action for multiple
@@ -440,7 +452,7 @@ class GalaxyRBACAgent(RBACAgent):
         return ret_allow_action
 
     # DELETEME: SM: DO NOT TOUCH! This actually works.
-    def dataset_access_mapping(self, trans, user_roles, datasets):
+    def dataset_access_mapping(self, trans: "ProvidesAppContext", user_roles, datasets):
         """
         For the given list of datasets, return a mapping of the datasets' ids
         to whether they can be accessed by the user or not. The datasets input
@@ -455,7 +467,7 @@ class GalaxyRBACAgent(RBACAgent):
             can_access[dataset.id] = datasets_public_map[dataset.id] or datasets_allow_action_map[dataset.id]
         return can_access
 
-    def dataset_permission_map_for_access(self, trans, user_roles, libitems):
+    def dataset_permission_map_for_access(self, trans: "ProvidesAppContext", user_roles, libitems):
         """
         For a given list of library items (e.g., Datasets), return a map of the
         datasets' ids to whether they can have permission to use that action
@@ -480,13 +492,13 @@ class GalaxyRBACAgent(RBACAgent):
             can_access[libitem.id] = libitems_public_map[libitem.id] or libitems_allow_action_map[libitem.id]
         return can_access
 
-    def item_permission_map_for_modify(self, trans, user_roles, libitems):
+    def item_permission_map_for_modify(self, trans: "ProvidesAppContext", user_roles, libitems):
         return self.allow_action_on_libitems(trans, user_roles, self.permitted_actions.LIBRARY_MODIFY, libitems)
 
-    def item_permission_map_for_manage(self, trans, user_roles, libitems):
+    def item_permission_map_for_manage(self, trans: "ProvidesAppContext", user_roles, libitems):
         return self.allow_action_on_libitems(trans, user_roles, self.permitted_actions.LIBRARY_MANAGE, libitems)
 
-    def item_permission_map_for_add(self, trans, user_roles, libitems):
+    def item_permission_map_for_add(self, trans: "ProvidesAppContext", user_roles, libitems):
         return self.allow_action_on_libitems(trans, user_roles, self.permitted_actions.LIBRARY_ADD, libitems)
 
     def can_access_dataset(self, user_roles, dataset: Dataset):
@@ -522,26 +534,28 @@ class GalaxyRBACAgent(RBACAgent):
             roles, self.permitted_actions.LIBRARY_ACCESS, library
         )
 
-    def get_accessible_libraries(self, trans, user):
+    def get_accessible_libraries(self, trans: "ProvidesAppContext", user):
         """Return all data libraries that the received user can access"""
         accessible_libraries = []
         current_user_role_ids = [role.id for role in user.all_roles()]
         library_access_action = self.permitted_actions.LIBRARY_ACCESS.action
 
-        stmt = select(LibraryPermissions).where(LibraryPermissions.action == library_access_action).distinct()
-        restricted_library_ids = [lp.library_id for lp in trans.sa_session.scalars(stmt)]
+        restricted_stmt = (
+            select(LibraryPermissions).where(LibraryPermissions.action == library_access_action).distinct()
+        )
+        restricted_library_ids = [lp.library_id for lp in trans.sa_session.scalars(restricted_stmt)]
 
-        stmt = select(LibraryPermissions).where(
+        accessible_stmt = select(LibraryPermissions).where(
             and_(
                 LibraryPermissions.action == library_access_action,
                 LibraryPermissions.role_id.in_(current_user_role_ids),
             )
         )
-        accessible_restricted_library_ids = [lp.library_id for lp in trans.sa_session.scalars(stmt)]
+        accessible_restricted_library_ids = [lp.library_id for lp in trans.sa_session.scalars(accessible_stmt)]
 
         # Filter to get libraries accessible by the current user.  Get both
         # public libraries and restricted libraries accessible by the current user.
-        stmt = (
+        library_stmt = (
             select(Library)
             .where(
                 and_(
@@ -554,11 +568,11 @@ class GalaxyRBACAgent(RBACAgent):
             )
             .order_by(Library.name)
         )
-        for library in trans.sa_session.scalars(stmt):
+        for library in trans.sa_session.scalars(library_stmt):
             accessible_libraries.append(library)
         return accessible_libraries
 
-    def has_accessible_folders(self, trans, folder, user, roles, search_downward=True):
+    def has_accessible_folders(self, trans: "ProvidesAppContext", folder, user, roles, search_downward=True):
         if (
             self.has_accessible_library_datasets(trans, folder, user, roles, search_downward=search_downward)
             or self.can_add_library_item(roles, folder)
@@ -571,7 +585,7 @@ class GalaxyRBACAgent(RBACAgent):
                 return self.has_accessible_folders(trans, active_folder, user, roles, search_downward=search_downward)
         return False
 
-    def has_accessible_library_datasets(self, trans, folder, user, roles, search_downward=True):
+    def has_accessible_library_datasets(self, trans: "ProvidesAppContext", folder, user, roles, search_downward=True):
         stmt = select(LibraryDataset).where(
             and_(LibraryDataset.deleted == false(), LibraryDataset.folder_id == folder.id)
         )
@@ -582,7 +596,7 @@ class GalaxyRBACAgent(RBACAgent):
             return self.__active_folders_have_accessible_library_datasets(trans, folder, user, roles)
         return False
 
-    def __active_folders_have_accessible_library_datasets(self, trans, folder, user, roles):
+    def __active_folders_have_accessible_library_datasets(self, trans: "ProvidesAppContext", folder, user, roles):
         for active_folder in folder.active_folders:
             if self.has_accessible_library_datasets(trans, active_folder, user, roles):
                 return True
@@ -712,7 +726,7 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         self.sa_session.commit()
         return assoc
 
-    def create_user_role(self, user, app):
+    def create_user_role(self, user: User, app: "BasicSharedApp") -> None:
         # Create private user role if necessary
         self.get_private_user_role(user, auto_create=True)
         # Create default user permissions if necessary
@@ -727,11 +741,14 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         user.attempt_create_private_role()
         return self.get_private_user_role(user)
 
-    def get_private_user_role(self, user, auto_create=False):
-        if auto_create and user.id is None:
-            # New user, directly create private role
-            return self.create_private_user_role(user)
-        role = get_private_user_role(user, self.sa_session)
+    @overload
+    def get_private_user_role(self, user: User, auto_create: Literal[True]) -> Role: ...
+
+    @overload
+    def get_private_user_role(self, user: User, auto_create: bool = False) -> Role | None: ...
+
+    def get_private_user_role(self, user: User, auto_create: bool = False) -> Role | None:
+        role = get_private_user_role(user, self.sa_session) if user.id is not None else None
         if not role and auto_create:
             role = self.create_private_user_role(user)
         return role
@@ -775,18 +792,15 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
 
     def user_set_default_permissions(
         self,
-        user,
-        permissions=None,
-        history=False,
-        dataset=False,
-        bypass_manage_permission=False,
-        default_access_private=False,
-    ):
+        user: User,
+        permissions: dict[str, list[Role]] | dict[Action, list[Role]] | None = None,
+        history: bool = False,
+        dataset: bool = False,
+        bypass_manage_permission: bool = False,
+        default_access_private: bool = False,
+    ) -> None:
         # bypass_manage_permission is used to change permissions of datasets in a userless history when logging in
         flush_needed = False
-        permissions = permissions or {}
-        if user is None:
-            return None
         if not permissions:
             # default permissions
             permissions = {
@@ -809,25 +823,33 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         if flush_needed:
             self.sa_session.commit()
         if history:
-            for history in user.active_histories:
+            for active_history in user.active_histories:
                 self.history_set_default_permissions(
-                    history, permissions=permissions, dataset=dataset, bypass_manage_permission=bypass_manage_permission
+                    active_history,
+                    permissions=permissions,
+                    dataset=dataset,
+                    bypass_manage_permission=bypass_manage_permission,
                 )
 
-    def user_get_default_permissions(self, user):
-        permissions = {}
+    def user_get_default_permissions(self, user: User) -> dict[Action, list[Role]]:
+        permissions: dict[Action, list[Role]] = {}
         for dup in user.default_permissions:
+            assert dup.action is not None
             action = self.get_action(dup.action)
-            if action in permissions:
-                permissions[action].append(dup.role)
-            else:
-                permissions[action] = [dup.role]
+            assert action is not None
+            assert dup.role is not None
+            permissions.setdefault(action, []).append(dup.role)
         return permissions
 
-    def history_set_default_permissions(self, history, permissions=None, dataset=False, bypass_manage_permission=False):
+    def history_set_default_permissions(
+        self,
+        history: "History",
+        permissions: dict[str, list[Role]] | dict[Action, list[Role]] | None = None,
+        dataset: bool = False,
+        bypass_manage_permission: bool = False,
+    ) -> None:
         # bypass_manage_permission is used to change permissions of datasets in a user-less history when logging in
         flush_needed = False
-        permissions = permissions or {}
         user = history.user
         if not user:
             # default permissions on a user-less history are None
@@ -850,15 +872,15 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         if dataset:
             # Only deal with datasets that are not purged
             for hda in history.activatable_datasets:
-                dataset = hda.dataset
-                if dataset.library_associations:
+                hda_dataset = hda.dataset
+                if hda_dataset.library_associations:
                     # Don't change permissions on a dataset associated with a library
                     continue
-                if [assoc for assoc in dataset.history_associations if assoc.history not in user.histories]:
+                if [assoc for assoc in hda_dataset.history_associations if assoc.history not in user.histories]:
                     # Don't change permissions on a dataset associated with a history not owned by the user
                     continue
-                if bypass_manage_permission or self.can_manage_dataset(user.all_roles(), dataset):
-                    self.set_all_dataset_permissions(dataset, permissions)
+                if bypass_manage_permission or self.can_manage_dataset(user.all_roles(), hda_dataset):
+                    self.set_all_dataset_permissions(hda_dataset, permissions)
 
     def history_get_default_permissions(self, history):
         permissions = {}
@@ -900,7 +922,10 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
             for dp in dataset.actions:
                 self.sa_session.delete(dp)
                 flush_needed = True
-        # Add the new permissions on the dataset
+            existing = set()
+        else:
+            existing = {(dp.action, dp.role_id) for dp in dataset.actions}
+        # Add the new permissions on the dataset, skipping any the dataset already has
         for action, roles in permissions.items():
             if isinstance(action, Action):
                 action = action.action
@@ -909,6 +934,9 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
                     role_id = role.id
                 else:
                     role_id = role
+                if (action, role_id) in existing:
+                    continue
+                existing.add((action, role_id))
                 dp = DatasetPermissions(action, dataset, role_id=role_id)
                 self.sa_session.add(dp)
                 flush_needed = True
@@ -999,7 +1027,7 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
             self.associate_user_role(user, sharing_role)
         return sharing_role
 
-    def set_all_library_permissions(self, trans, library_item, permissions=None):
+    def set_all_library_permissions(self, trans: "ProvidesAppContext", library_item, permissions=None):
         # Set new permissions on library_item, eliminating all current permissions
         flush_needed = False
         permissions = permissions or {}
@@ -1019,6 +1047,7 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
                         # Permission setting related to DATASET_MANAGE_PERMISSIONS was broken for a period of time,
                         # so it is possible that some Datasets have no roles associated with the DATASET_MANAGE_PERMISSIONS
                         # permission.  In this case, we'll reset this permission to the library_item user's private role.
+                        assert library_item.dataset is not None
                         if not library_item.dataset.has_manage_permissions_roles(self):
                             # Well this looks like a bug, this should be looked at.
                             # Default permissions above is single hash that keeps getting reeditted here
@@ -1123,14 +1152,14 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         """
         return self.permitted_actions.DATASET_ACCESS.action not in [a.action for a in dataset.actions]
 
-    def dataset_is_unrestricted(self, trans, dataset):
+    def dataset_is_unrestricted(self, trans: "ProvidesAppContext", dataset):
         """
         Different implementation of the method above with signature:
         def dataset_is_public( self, dataset )
         """
         return len(dataset.library_dataset_dataset_association.get_access_roles(self)) == 0
 
-    def dataset_is_private_to_user(self, trans, dataset):
+    def dataset_is_private_to_user(self, trans: "ProvidesUserContext", dataset):
         """
         If the Dataset object has exactly one access role and that is
         the current user's private role then we consider the dataset private.
@@ -1159,7 +1188,7 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
             access_role = access_roles[0]
             return access_role.type == Role.types.PRIVATE
 
-    def datasets_are_public(self, trans, datasets):
+    def datasets_are_public(self, trans: "ProvidesAppContext", datasets):
         """
         Given a transaction object and a list of Datasets, return
         a mapping from Dataset ids to whether the Dataset is public
@@ -1200,12 +1229,12 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         if flush_needed:
             self.sa_session.commit()
 
-    def derive_roles_from_access(self, trans, item_id, cntrller, library=False, **kwd):
+    def derive_roles_from_access(self, trans: "ProvidesUserContext", item_id, cntrller, library=False, **kwd):
         # Check the access permission on a dataset.  If library is true, item_id refers to a library.  If library
         # is False, item_id refers to a dataset ( item_id must currently be decoded before being sent ).  The
         # cntrller param is the calling controller, which needs to be passed to get_legitimate_roles().
         msg = ""
-        permissions = {}
+        permissions: dict = {}
         # accessible will be True only if at least 1 user has every role in DATASET_ACCESS_in
         accessible = False
         # legitimate will be True only if all roles in DATASET_ACCESS_in are in the set of roles returned from
@@ -1299,9 +1328,11 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
                 permissions[self.get_action(v.action)] = in_roles
         return permissions, in_roles, error, msg
 
-    def copy_library_permissions(self, trans, source_library_item, target_library_item, user=None):
+    def copy_library_permissions(
+        self, trans: "ProvidesAppContext", source_library_item, target_library_item, user=None
+    ):
         # Copy all relevant permissions from source.
-        permissions = {}
+        permissions: dict = {}
         for role_assoc in source_library_item.actions:
             if role_assoc.action != self.permitted_actions.LIBRARY_ACCESS.action:
                 # LIBRARY_ACCESS is a special permission that is set only at the library level.
@@ -1321,13 +1352,14 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
                 )
             # Make sure user's private role is included
             private_role = self.get_private_user_role(user)
+            assert private_role is not None
             for action in self.permitted_actions.values():
                 if not found_permission_class.filter_by(role_id=private_role.id, action=action.action).first():
                     lp = found_permission_class(action.action, target_library_item, private_role)
                     self.sa_session.add(lp)
                     self.sa_session.commit()
 
-    def get_permitted_libraries(self, trans, user, actions):
+    def get_permitted_libraries(self, trans: "ProvidesAppContext", user, actions):
         """
         This method is historical (it is not currently used), but may be useful again at some
         point.  It returns a dictionary whose keys are library objects and whose values are a
@@ -1412,8 +1444,8 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         self,
         user: User,
         *,
-        group_ids: Optional[list[int]] = None,
-        role_ids: Optional[list[int]] = None,
+        group_ids: list[int] | None = None,
+        role_ids: list[int] | None = None,
     ) -> None:
         """
         Set user groups and user roles, replacing current associations.
@@ -1434,8 +1466,8 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         self,
         group: Group,
         *,
-        user_ids: Optional[list[int]] = None,
-        role_ids: Optional[list[int]] = None,
+        user_ids: list[int] | None = None,
+        role_ids: list[int] | None = None,
     ) -> None:
         """
         Set group users and group roles, replacing current associations.
@@ -1456,8 +1488,8 @@ WHERE history.user_id != :user_id and history_dataset_association.dataset_id = :
         self,
         role: Role,
         *,
-        user_ids: Optional[list[int]] = None,
-        group_ids: Optional[list[int]] = None,
+        user_ids: list[int] | None = None,
+        group_ids: list[int] | None = None,
     ) -> None:
         """
         Set role users and role groups, replacing current associations.
@@ -1750,9 +1782,7 @@ def is_unique_constraint_violation(error):
     if isinstance(error.orig, sqlite3.IntegrityError):
         return error.orig.args[0].startswith("UNIQUE constraint failed")
     else:
-        # If this is a PostgreSQL unique constraint, then error.orig is an instance of psycopg2.errors.UniqueViolation
-        # and should have an attribute `pgcode` = 23505.
-        return int(getattr(error.orig, "pgcode", -1)) == 23505
+        return _postgres_error_code(error) == "23505"
 
 
 def is_foreign_key_violation(error):
@@ -1764,9 +1794,12 @@ def is_foreign_key_violation(error):
     if isinstance(error.orig, sqlite3.IntegrityError):
         return error.orig.args[0] == "FOREIGN KEY constraint failed"
     else:
-        # If this is a PostgreSQL foreign key error, then error.orig is an instance of psycopg2.errors.ForeignKeyViolation
-        # and should have an attribute `pgcode` = 23503.
-        return int(getattr(error.orig, "pgcode", -1)) == 23503
+        return _postgres_error_code(error) == "23503"
+
+
+def _postgres_error_code(error) -> str | None:
+    # PostgreSQL SQLSTATE of the driver error: psycopg exposes it as `sqlstate`, psycopg2 as `pgcode`.
+    return getattr(error.orig, "sqlstate", None) or getattr(error.orig, "pgcode", None)
 
 
 def _get_valid_roles_exposed(session, search_query, is_admin, limit, page, page_limit):

@@ -55,7 +55,7 @@ export function getHistoryListFilters(activeList: "my" | "shared" | "published" 
             },
             undefined,
             false,
-            false,
+            "name",
         );
     } else {
         return new Filtering(
@@ -71,7 +71,7 @@ export function getHistoryListFilters(activeList: "my" | "shared" | "published" 
             },
             undefined,
             false,
-            false,
+            "name",
         );
     }
 }

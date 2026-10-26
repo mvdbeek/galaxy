@@ -11,10 +11,10 @@ __all__ = ("ExportToFileSourceHook",)
 
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
 )
 
+from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.managers.export_tracker import StoreExportTracker
 from galaxy.schema.schema import (
     ExportObjectType,
@@ -56,6 +56,13 @@ class ExportToFileSourceHook(WorkflowCompletionHook):
     """
 
     plugin_type = "export_to_file_source"
+
+    def validate_config(self, config: Any) -> None:
+        if not isinstance(config, dict):
+            raise RequestParameterInvalidException("export_to_file_source configuration must be an object")
+        target_uri = config.get("target_uri")
+        if not isinstance(target_uri, str) or not target_uri.strip():
+            raise RequestParameterInvalidException("export_to_file_source requires a nonempty string target_uri")
 
     def execute(self, completion: "WorkflowInvocationCompletion") -> None:
         """
@@ -153,7 +160,7 @@ class ExportToFileSourceHook(WorkflowCompletionHook):
         export_association.task_uuid = result.id
         self.app.model.context.commit()
 
-    def _get_export_config(self, invocation) -> "Optional[dict[str, Any]]":
+    def _get_export_config(self, invocation) -> "dict[str, Any] | None":
         """
         Extract export configuration from invocation on_complete actions.
 

@@ -1,12 +1,14 @@
 import os
 from abc import abstractmethod
-from typing import Optional
 from urllib.parse import urljoin
 
 import yaml
 
 from .driver_factory import ConfiguredDriver
-from .navigates_galaxy import NavigatesGalaxy
+from .navigates_galaxy import (
+    galaxy_timeout_handler,
+    NavigatesGalaxy,
+)
 
 
 class GalaxySeleniumContext(NavigatesGalaxy):
@@ -47,7 +49,7 @@ class GalaxySeleniumContext(NavigatesGalaxy):
         return target
 
     @abstractmethod
-    def _screenshot_path(self, label: str, extension=".png") -> Optional[str]:
+    def _screenshot_path(self, label: str, extension=".png") -> str | None:
         """Path to store screenshots in."""
 
 
@@ -58,12 +60,14 @@ class GalaxySeleniumContextImpl(GalaxySeleniumContext):
     to then interact with via the Selenium is :class:`galaxy_test.selenium.framework.GalaxySeleniumContextImpl`.
     """
 
-    def __init__(self, from_dict: Optional[dict] = None) -> None:
+    def __init__(self, from_dict: dict | None = None) -> None:
         from_dict = from_dict or {}
-        self.configured_driver = ConfiguredDriver(**from_dict.get("driver", {}))
+        self.timeout_multiplier = from_dict.get("timeout_multiplier", 1)
+        self.configured_driver = ConfiguredDriver.from_dict(
+            galaxy_timeout_handler(self.timeout_multiplier), from_dict.get("driver", {})
+        )
         self.url = from_dict.get("local_galaxy_url", "http://localhost:8080")
         self.target_url_from_selenium = from_dict.get("selenium_galaxy_url", self.url)
-        self.timeout_multiplier = from_dict.get("timeout_multiplier", 1)
 
     def _screenshot_path(self, label, extension=".png"):
         return label + extension

@@ -10,24 +10,30 @@ const localVue = getLocalVue();
 describe("FormNumber", () => {
     const mountFormNumber = async (props) =>
         await mount(FormNumber, {
-            propsData: props,
-            localVue,
+            props: props,
+            global: localVue,
         });
 
     const getInput = async (wrapper) => await wrapper.find("input[type='number']");
     const getInputRange = async (wrapper) => await wrapper.find("input[type='range']");
-    const getAlert = async (wrapper) => await wrapper.find("[role='alert']");
+    const getAlert = async (wrapper) => await wrapper.find(".alert");
+    // The native input event bubbling from the field is recorded under "input" too.
+    const lastEmittedValue = (wrapper) =>
+        wrapper
+            .emitted()
+            .input.filter(([value]) => !(value instanceof Event))
+            .at(-1);
 
     it("renders a number input with appropriate type", async () => {
         const wrapperFloat = await mountFormNumber({ value: 1, type: "float" });
         const inputFloat = await getInput(wrapperFloat);
         expect(inputFloat.exists()).toBe(true);
-        wrapperFloat.destroy();
+        wrapperFloat.unmount();
 
         const wrapperInteger = await mountFormNumber({ value: 1, type: "integer" });
         const inputInteger = await getInput(wrapperInteger);
         expect(inputInteger.exists()).toBe(true);
-        wrapperInteger.destroy();
+        wrapperInteger.unmount();
     });
 
     it("renders a range input only when both min and max are defined and max > min", async () => {
@@ -36,7 +42,7 @@ describe("FormNumber", () => {
 
             const inputRange = await getInputRange(wrapper);
             expect(inputRange.exists()).toBe(shouldExist);
-            wrapper.destroy();
+            wrapper.unmount();
         };
 
         const props = { value: 50, type: "float" };
@@ -64,7 +70,7 @@ describe("FormNumber", () => {
             const alert = await getAlert(wrapper);
             expect(alert.exists()).toBeTruthy();
             expect(alert.text().includes(`${number} is out`)).toBeTruthy();
-            wrapper.destroy();
+            wrapper.unmount();
         };
 
         const numberBiggerThanRange = [110, Number.MAX_VALUE];
@@ -87,9 +93,9 @@ describe("FormNumber", () => {
             await input.trigger("change");
             const alert = await getAlert(wrapper);
             expect(alert.text()).toContain(expectedAlert);
-            expect(wrapper.emitted().input.at(-1)).toEqual([expectedValue]);
+            expect(lastEmittedValue(wrapper)).toEqual([expectedValue]);
             expect((await getInputRange(wrapper)).exists()).toBe(false);
-            wrapper.destroy();
+            wrapper.unmount();
         };
 
         await checkSingleBound({ min: null, max: 5 }, 7, "7 is out of range! (7 > 5)", 5);
@@ -104,8 +110,8 @@ describe("FormNumber", () => {
             await input.setValue("");
             await input.trigger("change");
             expect((await getAlert(wrapper)).exists()).toBe(false);
-            expect(wrapper.emitted().input.at(-1)).toEqual([""]);
-            wrapper.destroy();
+            expect(lastEmittedValue(wrapper)).toEqual([""]);
+            wrapper.unmount();
         }
     });
 
@@ -122,7 +128,7 @@ describe("FormNumber", () => {
 
             const alert = await getAlert(wrapper);
             expect(alert.exists()).toBeTruthy();
-            wrapper.destroy();
+            wrapper.unmount();
         };
 
         const props = { value: 50, type: "integer", min: 10, max: 100 };
@@ -144,7 +150,7 @@ describe("FormNumber", () => {
         });
 
         expect(preventDefaultInteger).toHaveBeenCalled();
-        integerWrapper.destroy();
+        integerWrapper.unmount();
     });
 
     it("allows '.' for float type", async () => {
@@ -158,7 +164,7 @@ describe("FormNumber", () => {
         });
 
         expect(preventDefaultFloat).not.toHaveBeenCalled();
-        floatWrapper.destroy();
+        floatWrapper.unmount();
     });
 
     it("allows typing '-' when negative numbers are permitted", async () => {
@@ -173,7 +179,7 @@ describe("FormNumber", () => {
         });
 
         expect(preventDefault).not.toHaveBeenCalled();
-        wrapper.destroy();
+        wrapper.unmount();
     });
 
     it("blocks typing '-' when min is non-negative", async () => {
@@ -188,7 +194,7 @@ describe("FormNumber", () => {
         });
 
         expect(preventDefault).toHaveBeenCalled();
-        wrapper.destroy();
+        wrapper.unmount();
     });
 
     it("computes the correct step value based on float precision", async () => {

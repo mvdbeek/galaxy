@@ -26,7 +26,7 @@ class FakeStream:
             self.log_.warning(str)
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def get_publisher(error=False):
     docutils_writer = docutils.writers.html4css1.Writer()
     docutils_template_path = os.path.join(os.path.dirname(__file__), "docutils_template.txt")
@@ -67,7 +67,7 @@ _publish_lock = threading.Lock()
 
 
 @functools.lru_cache(maxsize=1024)
-def rst_to_html(s, error=False):
+def rst_to_html(s, error=False) -> str:
     if docutils is None:
         raise Exception("Attempted to use rst_to_html but docutils unavailable.")
 

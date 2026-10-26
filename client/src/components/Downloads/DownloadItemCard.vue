@@ -8,7 +8,6 @@ import {
     faTrash,
 } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert } from "bootstrap-vue";
 import { formatDistanceToNow } from "date-fns";
 import { computed, onUnmounted, watch } from "vue";
 
@@ -22,6 +21,7 @@ import { copy } from "@/utils/clipboard";
 import { absPath } from "@/utils/redirect";
 import { capitalizeFirstLetter } from "@/utils/strings";
 
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GCard from "@/components/Common/GCard.vue";
 
 const { getDownloadObjectUrl } = useShortTermStorage();
@@ -65,6 +65,8 @@ const prettyObjectType = computed(() => {
             return "Workflow Invocation";
         case "collection":
             return "Dataset Collection";
+        case "dataset":
+            return "Dataset";
         default:
             return "Unknown Object Type";
     }
@@ -212,7 +214,12 @@ function onGoToObject() {
         case "invocation":
             emit("onGoTo", `/workflows/invocations/${objectId}`);
             break;
-        // case "collection": TODO use async route for collections
+        case "dataset":
+            emit("onGoTo", `/datasets/${objectId}`);
+            break;
+        case "collection":
+            emit("onGoTo", `/collection/${objectId}/edit`);
+            break;
         default:
             console.warn(`No specific route defined for object type: ${objectType}`);
             break;
@@ -253,6 +260,17 @@ watch(
     { immediate: true },
 );
 
+// The outcome can also be recorded elsewhere on the page (Export to another Galaxy does), after which Recent Exports
+// stops asking this card to check, so show the stored outcome.
+watch(
+    () => props.monitoringData.isFinal,
+    (isFinal) => {
+        if (isFinal) {
+            checkStatus({ enableFetch: false });
+        }
+    },
+);
+
 onUnmounted(() => {
     stopCheckingStatus();
 });
@@ -278,19 +296,19 @@ checkStatus({ enableFetch: false });
             <p v-if="monitoringData.request.description">
                 {{ monitoringData.request.description }}
             </p>
-            <BAlert v-if="isRunning" variant="info" show>
+            <GAlert v-if="isRunning" variant="info" show>
                 <FontAwesomeIcon :icon="faSpinner" spin />
                 <span>Preparing {{ prettyObjectType }} for download...</span>
-            </BAlert>
-            <BAlert v-if="hasFailed" variant="danger" show>
+            </GAlert>
+            <GAlert v-if="hasFailed" variant="danger" show>
                 The download request for {{ prettyObjectType }} has failed. Failure Reason:
                 <strong>{{ failureReason }}</strong>
-            </BAlert>
-            <BAlert v-else-if="hasExpired" variant="warning" show>
+            </GAlert>
+            <GAlert v-else-if="hasExpired" variant="warning" show>
                 The download request has expired and the result is no longer available. You can go to the
                 <strong>{{ prettyObjectType }}</strong> {{ monitoringData.request.action }} page and try again. This
                 download record can now be removed from the list of recent downloads.
-            </BAlert>
+            </GAlert>
         </template>
     </GCard>
 </template>

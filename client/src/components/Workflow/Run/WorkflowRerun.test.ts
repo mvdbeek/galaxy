@@ -1,9 +1,8 @@
 import { getLocalVue } from "@tests/vitest/helpers";
-import { shallowMount, type Wrapper } from "@vue/test-utils";
+import { shallowMount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { createPinia } from "pinia";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type Vue from "vue";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
 import { Toast } from "@/composables/toast";
@@ -17,10 +16,10 @@ const localVue = getLocalVue();
 const { server, http } = useServerMock();
 
 describe("WorkflowRerun", () => {
-    let wrapper: Wrapper<Vue> | undefined;
+    let wrapper: VueWrapper | undefined;
 
     afterEach(() => {
-        wrapper?.destroy();
+        wrapper?.unmount();
         wrapper = undefined;
         vi.useRealTimers();
         vi.restoreAllMocks();
@@ -129,7 +128,7 @@ describe("WorkflowRerun", () => {
             pinia: createPinia(),
         });
         await flushPromises();
-        expect(wrapper.find("loadingspan-stub").attributes("message")).toBe("Loading workflow rerun data");
+        expect(wrapper.find("loading-span-stub").attributes("message")).toBe("Loading workflow rerun data");
         expect(wrapper.findComponent(GAlert).exists()).toBe(false);
         expect(wrapper.findComponent(WorkflowRun).exists()).toBe(false);
     });
@@ -152,7 +151,7 @@ describe("WorkflowRerun", () => {
             pinia: createPinia(),
         });
         await flushPromises();
-        expect(wrapper.find("loadingspan-stub").exists()).toBe(false);
+        expect(wrapper.find("loading-span-stub").exists()).toBe(false);
         expect(wrapper.findComponent(WorkflowRun).exists()).toBe(true);
         expect(toast).toHaveBeenCalledExactlyOnceWith(
             "Unable to switch to the history with the original workflow inputs. unavailable",

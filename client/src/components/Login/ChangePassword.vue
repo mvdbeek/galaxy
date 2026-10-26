@@ -1,11 +1,15 @@
 <script setup lang="ts">
 import axios from "axios";
-import { BAlert, BButton, BCard, BForm, BFormGroup, BFormInput } from "bootstrap-vue";
+import { BCard, BForm, BFormGroup, BFormInput } from "bootstrap-vue";
 import { ref } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import { withPrefix } from "@/utils/redirect";
 import { errorMessageAsString } from "@/utils/simple-error";
+import { uid } from "@/utils/utils";
+
+import GAlert from "@/components/BaseComponents/GAlert.vue";
+import GButton from "@/components/BaseComponents/GButton.vue";
 
 interface Props {
     token?: string;
@@ -17,6 +21,7 @@ interface Props {
 const props = defineProps<Props>();
 
 const router = useRouter();
+const fieldId = `change-password-${uid()}`;
 
 const confirm = ref(null);
 const current = ref(null);
@@ -44,24 +49,28 @@ async function submit() {
 
 <template>
     <BForm @submit.prevent="submit">
-        <BAlert v-if="!!message" :variant="variant" show>
+        <GAlert v-if="!!message" :variant="variant" show>
             {{ message }}
-        </BAlert>
+        </GAlert>
 
         <BCard header="Change your password">
-            <BFormGroup v-if="expiredUser" label="Current Password">
-                <BFormInput v-model="current" type="password" autocomplete="current-password" />
+            <BFormGroup v-if="expiredUser" label="Current Password" :label-for="`${fieldId}-current`">
+                <BFormInput
+                    :id="`${fieldId}-current`"
+                    v-model="current"
+                    type="password"
+                    autocomplete="current-password" />
             </BFormGroup>
 
-            <BFormGroup label="New Password">
-                <BFormInput v-model="password" type="password" autocomplete="new-password" />
+            <BFormGroup label="New Password" :label-for="`${fieldId}-new`">
+                <BFormInput :id="`${fieldId}-new`" v-model="password" type="password" autocomplete="new-password" />
             </BFormGroup>
 
-            <BFormGroup label="Confirm password">
-                <BFormInput v-model="confirm" type="password" autocomplete="new-password" />
+            <BFormGroup label="Confirm password" :label-for="`${fieldId}-confirm`">
+                <BFormInput :id="`${fieldId}-confirm`" v-model="confirm" type="password" autocomplete="new-password" />
             </BFormGroup>
 
-            <BButton type="submit">Save new password</BButton>
+            <GButton type="submit">Save new password</GButton>
         </BCard>
     </BForm>
 </template>

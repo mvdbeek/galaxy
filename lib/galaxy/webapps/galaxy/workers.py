@@ -21,6 +21,7 @@ import asyncio
 import io
 import logging
 import signal
+import socket
 import sys
 import threading
 import time
@@ -28,10 +29,10 @@ import traceback
 from types import FrameType
 from typing import (
     Any,
-    Optional,
 )
 
 from gunicorn.arbiter import Arbiter
+from uvicorn.config import Config
 from uvicorn.server import Server
 
 from galaxy.web_stack import run_drain_start_callbacks
@@ -55,7 +56,7 @@ DRAIN_DEADLINE_LEAD = 1.0
 STACK_FRAME_LIMIT = 30
 
 
-def _interesting_frame(frames):
+def _interesting_frame(frames: traceback.StackSummary) -> str:
     """Innermost frame inside Galaxy, falling back to the innermost frame.
 
     Same heuristic as ``galaxy.util.heartbeat.Heartbeat.get_interesting_stack_frame``.
@@ -69,7 +70,7 @@ def _interesting_frame(frames):
     return "<no frames>"
 
 
-def _task_frames(task):
+def _task_frames(task: "asyncio.Task[Any]") -> traceback.StackSummary:
     """Frames of the coroutine chain a task is suspended in, outermost first.
 
     ``Task.get_stack()`` returns only the outermost coroutine frame for a suspended
@@ -77,8 +78,8 @@ def _task_frames(task):
     awaits underneath it, where the request actually is.
     """
     frames: list[FrameType] = []
-    awaitable = task.get_coro()
-    seen = set()
+    awaitable: Any = task.get_coro()
+    seen: set[int] = set()
     while awaitable is not None and len(frames) < STACK_FRAME_LIMIT and id(awaitable) not in seen:
         seen.add(id(awaitable))
         frame = (
@@ -97,7 +98,7 @@ def _task_frames(task):
     return traceback.StackSummary.extract((frame, frame.f_lineno) for frame in frames)
 
 
-def _describe_connection(protocol, at_drain_start):
+def _describe_connection(protocol: Any, at_drain_start: frozenset[Any]) -> str:
     scope = getattr(protocol, "scope", None) or {}
     method = scope.get("method", "?")
     path = scope.get("path", "?")
@@ -122,11 +123,11 @@ class _Server(Server):
     worth reporting on.
     """
 
-    def __init__(self, config, worker):
+    def __init__(self, config: Config, worker: "Worker") -> None:
         super().__init__(config=config)
         self._worker = worker
 
-    async def shutdown(self, sockets=None):
+    async def shutdown(self, sockets: list[socket.socket] | None = None) -> None:
         reporter = asyncio.ensure_future(self._worker.report_drain(self))
         try:
             # Everything in Server.shutdown() up to its first await -- closing the
@@ -141,10 +142,10 @@ class _Server(Server):
 class Worker(_BaseWorker):
     """Galaxy's gunicorn worker. Referenced by name in gravity and startup scripts."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._uvicorn_server: Optional[Server] = None
-        self._drain_started: Optional[float] = None
+        self._uvicorn_server: Server | None = None
+        self._drain_started: float | None = None
         self._connections_at_drain_start: frozenset[Any] = frozenset()
         if self.config.timeout_graceful_shutdown is None:
             # Without this uvicorn drains forever while no longer notifying the
@@ -165,7 +166,7 @@ class Worker(_BaseWorker):
                 earliest_abort,
             )
 
-    def init_signals(self):
+    def init_signals(self) -> None:
         super().init_signals()
         # uvicorn resets every signal gunicorn handles to SIG_DFL. For SIGABRT --
         # which the arbiter sends when a worker misses its timeout -- the default
@@ -173,7 +174,7 @@ class Worker(_BaseWorker):
         # every atexit handler. Put gunicorn's own handler back.
         signal.signal(signal.SIGABRT, self.handle_abort)
 
-    async def _serve(self):
+    async def _serve(self) -> None:
         # Mirrors uvicorn.workers.UvicornWorker._serve; copied so the Server can be
         # kept, as nothing else exposes its connection and task state.
         self.config.app = self.wsgi
@@ -184,7 +185,7 @@ class Worker(_BaseWorker):
         if not server.started:
             sys.exit(Arbiter.WORKER_BOOT_ERROR)
 
-    async def report_drain(self, server):
+    async def report_drain(self, server: Server) -> None:
         """Log what is holding a graceful shutdown open, while it is still open."""
         try:
             await self._report_drain_loop(server)
@@ -193,7 +194,7 @@ class Worker(_BaseWorker):
         except Exception:
             log.exception("Graceful shutdown reporter failed")
 
-    async def _report_drain_loop(self, server):
+    async def _report_drain_loop(self, server: Server) -> None:
         self._drain_started = time.monotonic()
         self._connections_at_drain_start = frozenset(server.server_state.connections)
         next_report = DRAIN_REPORT_INTERVAL
@@ -217,7 +218,7 @@ class Worker(_BaseWorker):
                 next_report += DRAIN_REPORT_INTERVAL
                 log.warning("Graceful shutdown still waiting\n%s", self.in_flight_summary())
 
-    def in_flight_summary(self):
+    def in_flight_summary(self) -> str:
         """Compact description of what this worker is still serving.
 
         Kept small enough to survive as a Sentry event message. Called from a signal
@@ -247,7 +248,7 @@ class Worker(_BaseWorker):
             out.write(f"\n<failed to summarize in-flight requests: {e!r}>\n")
         return out.getvalue()
 
-    def in_flight_stacks(self):
+    def in_flight_stacks(self) -> str:
         """Full stacks for the request tasks and every thread.
 
         The thread pass is the important one: Galaxy's sync and legacy WSGI endpoints

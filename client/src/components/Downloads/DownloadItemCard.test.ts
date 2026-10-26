@@ -1,4 +1,4 @@
-import { getLocalVue } from "@tests/vitest/helpers";
+import { getLocalVue, nth } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
@@ -90,8 +90,8 @@ describe("DownloadItemCard.vue", () => {
     function mountDownloadItemCard(options: { monitoringData?: MonitoringData } = {}) {
         const monitoringData = options.monitoringData || baseMonitoringData;
         return mount(DownloadItemCard as object, {
-            propsData: { monitoringData },
-            localVue,
+            props: { monitoringData },
+            global: localVue,
         });
     }
 
@@ -197,7 +197,20 @@ describe("DownloadItemCard.vue", () => {
         await goToButton.trigger("click");
 
         expect(wrapper.emitted("onGoTo")).toBeTruthy();
-        expect(wrapper.emitted("onGoTo")?.[0][0]).toContain(baseMonitoringData.request.object.id);
+        expect(nth(wrapper.emitted("onGoTo"), 0)[0]).toContain(baseMonitoringData.request.object.id);
+    });
+
+    it("goes to an exported dataset or collection", async () => {
+        const pages = [
+            ["dataset", "/datasets/item1"],
+            ["collection", "/collection/item1/edit"],
+        ] as const;
+        for (const [type, page] of pages) {
+            const request = { ...baseMonitoringData.request, object: { id: "item1", type, name: "item" } };
+            const wrapper = mountDownloadItemCard({ monitoringData: { ...baseMonitoringData, request } });
+            await getActionButtonById(wrapper, actionsIds.goToObject).trigger("click");
+            expect(wrapper.emitted("onGoTo")?.[0]?.[0]).toBe(page);
+        }
     });
 
     it("emits onDownload when Download is clicked", async () => {
@@ -212,7 +225,7 @@ describe("DownloadItemCard.vue", () => {
         await downloadButton.trigger("click");
 
         expect(wrapper.emitted("onDownload")).toBeTruthy();
-        expect(wrapper.emitted("onDownload")?.[0][0]).toContain(fakeTaskId);
+        expect(nth(wrapper.emitted("onDownload"), 0)[0]).toContain(fakeTaskId);
     });
 
     it("emits onDelete when Remove is clicked", async () => {
@@ -227,7 +240,10 @@ describe("DownloadItemCard.vue", () => {
         await removeButton.trigger("click");
 
         expect(wrapper.emitted("onDelete")).toBeTruthy();
-        expect(wrapper.emitted("onDelete")?.[0][0]).toBe(baseMonitoringData.request);
+        // Vue 3 wraps prop objects in a reactive proxy, so this is no longer the exact
+        // same object reference as `baseMonitoringData.request` even though its
+        // contents are identical.
+        expect(nth(wrapper.emitted("onDelete"), 0)[0]).toEqual(baseMonitoringData.request);
     });
 
     it("copies the download link to the clipboard when Copy Download Link is clicked", async () => {
@@ -252,6 +268,20 @@ describe("DownloadItemCard.vue", () => {
 
         expect(writeText).toHaveBeenCalledTimes(1);
         expect(writeText).toHaveBeenCalledWith(expect.stringContaining(fakeTaskId));
+    });
+
+    it("reloads its status when the export is recorded as finished elsewhere", async () => {
+        const checkStatus = vi.fn();
+        updateProgressMonitor({ checkStatus });
+        const wrapper = mountDownloadItemCard();
+        expect(checkStatus).toHaveBeenCalledTimes(1);
+
+        await wrapper.setProps({
+            monitoringData: { ...baseMonitoringData, taskStatus: "READY", isFinal: true },
+        } as never);
+
+        expect(checkStatus).toHaveBeenCalledTimes(2);
+        expect(checkStatus).toHaveBeenLastCalledWith({ enableFetch: false });
     });
 });
 

@@ -1,3 +1,4 @@
+import { http as rawHttp } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { MessageException } from "@/api";
@@ -162,10 +163,11 @@ describe("Rate Limiter Middleware retry timing", () => {
 
     /** Answers GETs with `responses` in order, then 200; records request times (ms since START). */
     function serve(...responses: Response[]) {
+        // A plain msw handler: the typed one loses the headers of a body-less response on its way to the client.
         server.use(
-            http.get("/api/histories/{history_id}", ({ response }) => {
+            rawHttp.get("/api/histories/:history_id", () => {
                 requestTimes.push(Date.now() - START);
-                return response.untyped(responses.shift() ?? HttpResponse.json({}));
+                return responses.shift() ?? HttpResponse.json({});
             }),
         );
     }

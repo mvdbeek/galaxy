@@ -8,8 +8,6 @@ from json import dumps
 from typing import (
     Any,
     cast,
-    Optional,
-    Union,
 )
 
 from boltons.iterutils import remap
@@ -26,7 +24,7 @@ from .basic import (
     ColumnListParameter,
     DataCollectionToolParameter,
     DataToolParameter,
-    ParameterValueError,
+    DirectoryUriToolParameter,
     SelectToolParameter,
     TextToolParameter,
     ToolParameter,
@@ -59,7 +57,7 @@ REPLACE_ON_TRUTHY = object()
 # Some tools use the code tag and access the code base, expecting certain tool parameters to be available here.
 __all__ = ("DataCollectionToolParameter", "DataToolParameter", "SelectToolParameter")
 
-ToolInputsT = dict[str, Union[Group, ToolParameter]]
+ToolInputsT = dict[str, Group | ToolParameter]
 
 
 def visit_input_values(
@@ -74,6 +72,7 @@ def visit_input_values(
     replace_optional_connections=False,
     allow_case_inference=False,
     unset_value=None,
+    replace_conditional_test_values=True,
 ):
     """
     Given a tools parameter definition (`inputs`) and a specific set of
@@ -82,6 +81,8 @@ def visit_input_values(
     and a display label.
 
     If the callback returns a value, it will be replace the old value.
+    Set ``replace_conditional_test_values=False`` to visit conditional selectors
+    without replacing their values, preserving the selected cases for serialization.
 
     >>> from galaxy.util import XML
     >>> from galaxy.util.bunch import Bunch
@@ -169,7 +170,9 @@ def visit_input_values(
     No value found for 'b 1 > d 1 > j'.
     """
 
-    def callback_helper(input, input_values, name_prefix, label_prefix, parent_prefix, context=None, error=None):
+    def callback_helper(
+        input, input_values, name_prefix, label_prefix, parent_prefix, context=None, error=None, replace_value=True
+    ):
         value = input_values.get(input.name, unset_value)
         args = {
             "input": input,
@@ -184,6 +187,8 @@ def visit_input_values(
         if input.name not in input_values:
             args["error"] = f"No value found for '{args.get('prefixed_label')}'."
         new_value = callback(**args)
+        if not replace_value:
+            return
 
         # is this good enough ? feels very ugh
         if isinstance(new_value, list) and len(new_value) == 1 and isinstance(new_value[0], NoReplacement):
@@ -233,6 +238,7 @@ def visit_input_values(
         "replace_optional_connections": replace_optional_connections,
         "allow_case_inference": allow_case_inference,
         "unset_value": unset_value,
+        "replace_conditional_test_values": replace_conditional_test_values,
     }
     for input in inputs.values():
         if isinstance(input, Repeat) or isinstance(input, UploadDataset):
@@ -266,12 +272,16 @@ def visit_input_values(
                 parent_prefix=name_prefix,
                 context=context,
                 error=case_error,
+                replace_value=replace_conditional_test_values,
             )
             if input.test_param.name not in values:
                 # The callback left a conditional absent from the state without a selector
                 # (e.g. the injected __job_resource group on import). Select the default case
                 # so the state stays serializable: Conditional.value_to_basic needs the selector.
-                values[input.test_param.name] = input.test_param.get_initial_value(None, context)
+                # A selector with dynamic options has no default without a transaction.
+                initial_value = input.test_param.get_initial_value(None, context)
+                if initial_value is not None:
+                    values[input.test_param.name] = initial_value
             values["__current_case__"] = get_current_case(input, values)
             if values["__current_case__"] >= 0:
                 visit_input_values(
@@ -293,6 +303,21 @@ def visit_input_values(
             callback_helper(
                 input, input_values, name_prefix, label_prefix, parent_prefix=parent_prefix, context=context
             )
+
+
+def collect_directory_uris(
+    inputs: ToolInputsT,
+    input_values: ToolStateJobInstancePopulatedT,
+) -> set[str]:
+    """Collect the values of every ``directory_uri`` parameter (file source write destinations)."""
+    uris: set[str] = set()
+
+    def _collect(input, value, **kwargs):
+        if isinstance(input, DirectoryUriToolParameter) and isinstance(value, str) and value:
+            uris.add(value)
+
+    visit_input_values(inputs, input_values, _collect)
+    return uris
 
 
 # A path segment is (name, is_repeat); repeat segments take an index (``name_0``).
@@ -325,7 +350,7 @@ def _input_path_pattern(path: _InputPathT) -> str:
     return r"\|".join(re.escape(name) + (r"_(\d+)" if is_repeat else "") for name, is_repeat in path)
 
 
-def qualify_legacy_data_input_reference(inputs, reference: str) -> Optional[str]:
+def qualify_legacy_data_input_reference(inputs, reference: str) -> str | None:
     """Return the qualified name for a bare legacy reference to a nested data or collection input.
 
     Return ``None`` if ``reference`` is already qualified or names no nested input.
@@ -345,7 +370,7 @@ def qualify_legacy_data_input_reference(inputs, reference: str) -> Optional[str]
 
 def check_param(
     trans, param: ToolParameter, incoming_value, param_values, simple_errors: bool = True
-) -> tuple[Any, Union[str, ValueError, None]]:
+) -> tuple[Any, str | ValueError | None]:
     """
     Check the value of a single parameter `param`. The value in
     `incoming_value` is converted from its HTML encoding and validated.
@@ -354,7 +379,7 @@ def check_param(
     when dealing with grouping scenarios).
     """
     value = incoming_value
-    error: Union[str, ValueError, None] = None
+    error: str | ValueError | None = None
     try:
         if trans.workflow_building_mode:
             if is_runtime_value(value):
@@ -389,7 +414,7 @@ def params_to_strings(
     app,
     nested=False,
     use_security=False,
-) -> Union[ToolStateDumpedToJsonT, ToolStateDumpedToJsonInternalT, ToolStateDumpedToStringsT]:
+) -> ToolStateDumpedToJsonT | ToolStateDumpedToJsonInternalT | ToolStateDumpedToStringsT:
     """
     Convert a dictionary of parameter values to a dictionary of strings
     suitable for persisting. The `value_to_basic` method of each parameter
@@ -409,7 +434,7 @@ def params_to_strings(
     return rval
 
 
-def params_from_strings(params: dict[str, Union[Group, ToolParameter]], param_values, app, ignore_errors=False) -> dict:
+def params_from_strings(params: dict[str, Group | ToolParameter], param_values, app, ignore_errors=False) -> dict:
     """
     Convert a dictionary of strings as produced by `params_to_strings`
     back into parameter values (decode the json representation and then
@@ -429,10 +454,8 @@ def params_from_strings(params: dict[str, Union[Group, ToolParameter]], param_va
             # This would resolve a lot of back and forth in the various to/from methods.
             value = safe_loads(value)
         if param:
-            try:
-                value = param.value_from_basic(value, app, ignore_errors)
-            except ParameterValueError:
-                continue
+            # if ignore_error is true we return the value unmodified
+            value = param.value_from_basic(value, app, ignore_errors)
         rval[key] = value
     return rval
 
@@ -502,7 +525,7 @@ def populate_state(
     inputs: ToolInputsT,
     incoming: ToolStateJobInstanceT,
     state: ToolStateJobInstancePopulatedT,
-    errors: Optional[ParameterValidationErrorsT] = None,
+    errors: ParameterValidationErrorsT | None = None,
     context=None,
     check=True,
     simple_errors=True,

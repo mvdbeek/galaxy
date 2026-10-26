@@ -1,17 +1,24 @@
-from types import SimpleNamespace
+from typing import (
+    cast,
+    TYPE_CHECKING,
+)
 
+from galaxy.model.tool_shed_install import ToolShedRepository
 from galaxy.tool_shed.util.shed_util_common import set_image_paths
+
+if TYPE_CHECKING:
+    from galaxy.structured_app import BasicSharedApp
 
 
 def test_set_image_paths_encodes_special_characters_in_tool_id():
-    tool_shed_repository = SimpleNamespace(
+    tool_shed_repository = ToolShedRepository(
         tool_shed="toolshed.g2.bx.psu.edu",
         owner="devteam",
         name="emboss_5",
     )
     text = ".. image:: static/images/isochore.png"
     result = set_image_paths(
-        app=None,
+        app=cast("BasicSharedApp", None),
         text=text,
         tool_shed_repository=tool_shed_repository,
         tool_id="EMBOSS: isochore47",
@@ -22,14 +29,14 @@ def test_set_image_paths_encodes_special_characters_in_tool_id():
 
 
 def test_set_image_paths_preserves_slashes_in_route():
-    tool_shed_repository = SimpleNamespace(
+    tool_shed_repository = ToolShedRepository(
         tool_shed="toolshed.g2.bx.psu.edu",
         owner="devteam",
         name="emboss_5",
     )
     text = ".. image:: isochore.png"
     result = set_image_paths(
-        app=None,
+        app=cast("BasicSharedApp", None),
         text=text,
         tool_shed_repository=tool_shed_repository,
         tool_id="isochore",
@@ -39,14 +46,14 @@ def test_set_image_paths_preserves_slashes_in_route():
 
 
 def test_set_image_paths_does_not_modify_http_urls():
-    tool_shed_repository = SimpleNamespace(
+    tool_shed_repository = ToolShedRepository(
         tool_shed="toolshed.g2.bx.psu.edu",
         owner="devteam",
         name="emboss_5",
     )
     text = ".. image:: https://example.com/image.png"
     result = set_image_paths(
-        app=None,
+        app=cast("BasicSharedApp", None),
         text=text,
         tool_shed_repository=tool_shed_repository,
         tool_id="mytool",
@@ -54,3 +61,18 @@ def test_set_image_paths_does_not_modify_http_urls():
     )
     assert ".. image:: https://example.com/image.png" in result
     assert "shed_tool_static" not in result
+
+
+def test_set_image_paths_pins_tool_shed_images_to_changeset_revision():
+    text = ".. image:: images/logo.png\n.. image:: images/badge.svg?raw=true\n"
+    result = set_image_paths(
+        app=cast("BasicSharedApp", None),
+        text=text,
+        encoded_repository_id="abc",
+        changeset_revision="0123456789ab",
+    )
+    assert ".. image:: /repository/static/images/abc/images%2Flogo.png?changeset_revision=0123456789ab\n" in result
+    assert (
+        ".. image:: /repository/static/images/abc/images%2Fbadge.svg?raw=true&changeset_revision=0123456789ab\n"
+        in result
+    )

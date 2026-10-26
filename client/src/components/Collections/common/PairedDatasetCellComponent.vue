@@ -1,24 +1,28 @@
 <script lang="ts">
-/* cannot use a setup block and get params injection in Vue 2.7 I think */
-
 import { faLink, faUndo, faUnlink } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import type { ICellRendererParams } from "ag-grid-community";
-import { defineComponent } from "vue";
+import { defineComponent, type PropType } from "vue";
 
 import { usePairingDatasetTargetsStore } from "@/stores/collectionBuilderItemsStore";
 
 import { showHid } from "./useCollectionCreator";
+
+import GButton from "@/components/BaseComponents/GButton.vue";
 
 type StoreType = ReturnType<typeof usePairingDatasetTargetsStore>;
 
 export default defineComponent({
     components: {
         FontAwesomeIcon,
+        GButton,
+    },
+    props: {
+        // ag-grid-vue3 mounts cell renderers with their params as this prop
+        params: { type: Object as PropType<ICellRendererParams>, required: true },
     },
     data() {
         return {
-            params: {} as ICellRendererParams,
             showHid: showHid,
             faLink,
             faUndo,
@@ -97,8 +101,26 @@ export default defineComponent({
 <template>
     <div>
         <div v-if="isPaired" class="paired-datasets-cell">
-            <FontAwesomeIcon size="2x" :icon="faUndo" class="paired-action-icon" @click="onSwap" />
-            <FontAwesomeIcon size="2x" :icon="faUnlink" class="paired-action-icon" @click="onUnpair" />
+            <GButton
+                class="paired-action-button"
+                transparent
+                icon-only
+                inline
+                size="small"
+                title="Swap forward and reverse"
+                @click="onSwap">
+                <FontAwesomeIcon size="2x" :icon="faUndo" class="paired-action-icon" />
+            </GButton>
+            <GButton
+                class="paired-action-button"
+                transparent
+                icon-only
+                inline
+                size="small"
+                title="Unpair"
+                @click="onUnpair">
+                <FontAwesomeIcon size="2x" :icon="faUnlink" class="paired-action-icon" />
+            </GButton>
             <div class="text-container">
                 <span>
                     <span class="direction">FORWARD</span>
@@ -159,6 +181,15 @@ export default defineComponent({
 
 .paired-datasets-cell .paired-action-icon {
     margin-right: 10px;
+}
+
+/* The button's padding and border already add 6px around the icon. */
+.paired-datasets-cell .paired-action-button {
+    margin-right: 4px;
+
+    .paired-action-icon {
+        margin-right: 0;
+    }
 }
 
 .paired-datasets-cell .direction {

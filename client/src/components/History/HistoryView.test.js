@@ -4,9 +4,8 @@ import { setupMockConfig } from "@tests/vitest/mockConfig";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { HttpResponse } from "msw";
-import { createPinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import VueRouter from "vue-router";
+import { createRouter, createWebHistory } from "vue-router";
 
 import { useServerMock } from "@/api/client/__mocks__";
 import { setupSelectableMock } from "@/components/ObjectStore/mockServices";
@@ -19,15 +18,14 @@ import OperationErrorDialog from "./CurrentHistory/HistoryOperations/OperationEr
 import HistoryView from "./HistoryView.vue";
 import FilterMenu from "@/components/Common/FilterMenu.vue";
 
-const localVue = getLocalVue();
-localVue.use(VueRouter);
-
 vi.mock("@/stores/services/history.services", () => ({
     getHistoryByIdFromServer: vi.fn(),
     setCurrentHistoryOnServer: vi.fn(),
 }));
 
 setupSelectableMock();
+
+let localVue;
 
 const { server, http } = useServerMock();
 
@@ -52,7 +50,7 @@ function create_history(historyId, userId, purged = false, archived = false) {
     };
 }
 
-function create_datasets(historyId, count) {
+function create_datasets(historyId, count, overrides = {}) {
     const contents = [];
     for (let index = 1; index <= count; index++) {
         contents.push({
@@ -63,6 +61,7 @@ function create_datasets(historyId, count) {
             history_content_type: "dataset",
             deleted: false,
             visible: true,
+            ...overrides[index],
         });
     }
     return {
@@ -73,11 +72,10 @@ function create_datasets(historyId, count) {
     };
 }
 
-async function createWrapper(localVue, currentUserId, history) {
-    const pinia = createPinia();
+async function createWrapper(localVue, currentUserId, history, itemOverrides = {}) {
     getHistoryByIdFromServer.mockResolvedValue({ data: history, error: undefined });
     setCurrentHistoryOnServer.mockResolvedValue(history);
-    const history_contents_result = create_datasets(history.id, history.count);
+    const history_contents_result = create_datasets(history.id, history.count, itemOverrides);
 
     setupMockConfig({});
     server.use(
@@ -86,19 +84,28 @@ async function createWrapper(localVue, currentUserId, history) {
         }),
     );
 
-    const router = new VueRouter();
-    router.push(`/history/${history.id}`);
+    const router = createRouter({
+        history: createWebHistory(),
+        routes: [{ path: "/history/:id", component: { template: "<div />" } }],
+    });
+    await router.push(`/history/${history.id}`);
+    await router.isReady();
 
     const wrapper = mount(HistoryView, {
-        propsData: { id: history.id },
-        localVue,
-        provide: {
-            store: {
-                dispatch: vi.fn,
-                getters: {},
+        props: { id: history.id },
+        global: {
+            ...localVue,
+            provide: {
+                store: {
+                    dispatch: vi.fn,
+                    getters: {},
+                },
             },
         },
-        pinia,
+        // Passed at the top level (rather than spliced into `global.plugins`
+        // by hand) so the VTU adapter replaces getLocalVue()'s default router
+        // with this one instead of installing both and crashing with
+        // "Cannot redefine property: $route".
         router,
     });
     const userStore = useUserStore();
@@ -109,6 +116,7 @@ async function createWrapper(localVue, currentUserId, history) {
 
 describe("History center panel View", () => {
     beforeEach(() => {
+        localVue = getLocalVue();
         suppressLucideVue2Deprecation();
     });
 
@@ -143,7 +151,9 @@ describe("History center panel View", () => {
         expect(wrapper.findAllComponents(ContentItem).length).toBe(10);
         expect(item.deleted).toBe(false);
         const dialog = wrapper.findComponent(OperationErrorDialog);
-        expect(dialog.props("operationError").errorMessage.message).toBe(errorBody);
+        expect(dialog.props("operationError").errorMessage.message).toBe(
+            "Too many requests, please wait and try again (429)",
+        );
         dialog.vm.$emit("hide");
         await flushPromises();
         expect(wrapper.findComponent(OperationErrorDialog).exists()).toBe(false);
@@ -160,7 +170,74 @@ describe("History center panel View", () => {
         expect(wrapper.findComponent(FilterMenu).props("loading")).toBe(false);
         expect(wrapper.findAllComponents(ContentItem).length).toBe(9);
         expect(wrapper.findComponent(OperationErrorDialog).exists()).toBe(false);
-        wrapper.destroy();
+        wrapper.unmount();
+    });
+
+    it.each([
+        ["undelete", "include deleted", true, 1, { 1: { deleted: true } }],
+        ["delete", "include deleted", true, 3, {}],
+        ["unhide", "include hidden", true, 2, { 2: { visible: false } }],
+        ["delete", "include hidden", false, 3, {}],
+        ["delete", "show active", false, 3, {}],
+    ])("%s with %s filter keeps item shown: %s", async (operation, filter, kept, hid, overrides) => {
+        const history = create_history("history_1", "user_1");
+        const wrapper = await createWrapper(localVue, "user_1", history, overrides);
+        const historyStore = useHistoryStore();
+        vi.spyOn(historyStore, "updateContentStats").mockResolvedValue();
+        const contentRequest = vi.fn(() => HttpResponse.json({}));
+        server.use(
+            http.put("/api/histories/{history_id}/contents/{type}s/{id}", contentRequest),
+            http.delete("/api/histories/{history_id}/contents/{type}s/{id}", contentRequest),
+        );
+        const renderedHids = () => wrapper.findAllComponents(ContentItem).map((item) => item.props("id"));
+
+        await wrapper.find(`[data-description='${filter} items button']`).trigger("click");
+        await flushPromises();
+        const before = renderedHids();
+        expect(before).toContain(hid);
+
+        const target = wrapper.findAllComponents(ContentItem).find((item) => item.props("id") === hid);
+        await target.find(`.${operation}-btn`).trigger("click");
+        await flushPromises();
+
+        expect(contentRequest).toHaveBeenCalledTimes(1);
+        if (kept) {
+            expect(renderedHids()).toEqual(before);
+        } else {
+            expect(renderedHids()).toEqual(before.filter((renderedHid) => renderedHid !== hid));
+        }
+        wrapper.unmount();
+    });
+
+    it.each([
+        ["undelete", "deleted:true", 1, { 1: { deleted: true } }],
+        ["unhide", "visible:false", 2, { 2: { visible: false } }],
+    ])("failed %s with %s filter reshows item and reports error", async (operation, filterText, hid, overrides) => {
+        const history = create_history("history_1", "user_1");
+        const wrapper = await createWrapper(localVue, "user_1", history, overrides);
+        const historyStore = useHistoryStore();
+        const updateStats = vi.spyOn(historyStore, "updateContentStats").mockResolvedValue();
+        const contentRequest = vi.fn(() => HttpResponse.json({ err_msg: "Update failed" }, { status: 400 }));
+        server.use(http.put("/api/histories/{history_id}/contents/{type}s/{id}", contentRequest));
+        const renderedHids = () => wrapper.findAllComponents(ContentItem).map((item) => item.props("id"));
+
+        vi.useFakeTimers();
+        await wrapper.find("[data-description='filter text input']").setValue(filterText);
+        vi.runOnlyPendingTimers();
+        vi.useRealTimers();
+        await flushPromises();
+        expect(renderedHids()).toEqual([hid]);
+
+        await wrapper.findComponent(ContentItem).find(`.${operation}-btn`).trigger("click");
+        await flushPromises();
+
+        expect(contentRequest).toHaveBeenCalledTimes(1);
+        expect(updateStats).not.toHaveBeenCalled();
+        expect(renderedHids()).toEqual([hid]);
+        expect(wrapper.findComponent(OperationErrorDialog).props("operationError").errorMessage.message).toBe(
+            "Update failed",
+        );
+        wrapper.unmount();
     });
 
     function expectCorrectLayout(wrapper) {

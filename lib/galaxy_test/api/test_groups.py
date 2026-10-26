@@ -1,7 +1,3 @@
-from typing import (
-    Optional,
-)
-
 from galaxy_test.base.populators import DatasetPopulator
 from ._framework import ApiTestCase
 
@@ -13,7 +9,7 @@ class TestGroupsApi(ApiTestCase):
         super().setUp()
         self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
 
-    def _create_valid_group(self, group_name: Optional[str] = None):
+    def _create_valid_group(self, group_name: str | None = None):
         payload = self._build_valid_group_payload(group_name)
         response = self._post("groups", payload, admin=True, json=True)
         self._assert_status_code_is(response, 200)
@@ -170,6 +166,20 @@ class TestGroupsApi(ApiTestCase):
         response = self._put(f"groups/{group_id}")
         self._assert_status_code_is(response, 403)
 
+    def test_update_keeping_own_name(self):
+        group = self._create_valid_group()
+        update_payload = {"name": group["name"]}
+        update_response = self._put(f"groups/{group['id']}", data=update_payload, admin=True, json=True)
+        self._assert_status_code_is_ok(update_response)
+
+    def test_update_with_invalid_user_keeps_name(self):
+        group = self._create_valid_group()
+        invalid_user_id = self._get("configuration/encode/999999999", admin=True).json()["encoded_id"]
+        update_payload = {"name": f"{group['name']}-renamed", "user_ids": [invalid_user_id]}
+        update_response = self._put(f"groups/{group['id']}", data=update_payload, admin=True, json=True)
+        self._assert_status_code_is(update_response, 400)
+        assert self._get(f"groups/{group['id']}", admin=True).json()["name"] == group["name"]
+
     def test_update_duplicating_name_raises_409(self):
         group_a = self._create_valid_group()
         group_b = self._create_valid_group()
@@ -249,7 +259,7 @@ class TestGroupsApi(ApiTestCase):
         for role in roles:
             assert role["id"] in role_ids
 
-    def _build_valid_group_payload(self, name: Optional[str] = None):
+    def _build_valid_group_payload(self, name: str | None = None):
         name = name or self.dataset_populator.get_random_name()
         user_id = self.dataset_populator.user_id()
         role_id = self.dataset_populator.user_private_role_id()

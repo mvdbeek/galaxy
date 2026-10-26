@@ -5,19 +5,20 @@ import flushPromises from "flush-promises";
 import { http, HttpResponse } from "msw";
 import { setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { CreateElement } from "vue";
-import { ref } from "vue";
+import { h, nextTick, ref } from "vue";
 
 import type { HistorySummary } from "@/api";
-import { useServerMock } from "@/api/client/__mocks__";
+import { GALAXY_RESPONSE_HEADERS, useServerMock } from "@/api/client/__mocks__";
 import type { PreparedUpload } from "@/components/Panels/Upload/types";
 import { makeUrlItem } from "@/composables/upload/testHelpers/uploadFixtures";
+import { useUploadAdvancedMode } from "@/composables/upload/uploadAdvancedMode";
 import { useHistoryStore } from "@/stores/historyStore";
 import { buildPreparedUpload } from "@/utils/upload";
 
 import { useUploadState } from "./uploadState";
 
 import UploadMethodView from "./UploadMethodView.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 
 vi.mock("@/composables/config", () => ({
     useConfig: () => ({ config: ref({}), isConfigLoaded: ref(true) }),
@@ -34,7 +35,7 @@ vi.mock("./uploadMethodRegistry", async (importOriginal: () => Promise<Record<st
             name: "Paste Links",
             requiresTargetHistory: true,
             component: {
-                render: (h: CreateElement) => h("div"),
+                render: () => h("div"),
                 mounted(this: { $emit: (event: string, ready: boolean) => void }) {
                     this.$emit("ready", true);
                 },
@@ -49,6 +50,8 @@ vi.mock("./uploadMethodRegistry", async (importOriginal: () => Promise<Record<st
 const localVue = getLocalVue();
 const router = injectTestRouter(localVue);
 const { server } = useServerMock();
+
+server.use(http.get("/api/configuration", () => HttpResponse.json({})));
 
 function makeHistory(id: string, name: string): HistorySummary {
     return {
@@ -67,14 +70,19 @@ function makeHistory(id: string, name: string): HistorySummary {
     };
 }
 
+function seedHistories(historyStore: ReturnType<typeof useHistoryStore>) {
+    historyStore.setHistory(makeHistory("hist-a", "History A"));
+    historyStore.setHistory(makeHistory("hist-b", "History B"));
+    historyStore.setCurrentHistoryId("hist-a");
+}
+
 function mountView() {
     const pinia = createTestingPinia({ createSpy: vi.fn, stubActions: false });
     setActivePinia(pinia);
     const historyStore = useHistoryStore();
-    historyStore.setHistory(makeHistory("hist-a", "History A"));
-    historyStore.setCurrentHistoryId("hist-a");
+    seedHistories(historyStore);
 
-    return mount(UploadMethodView as object, {
+    const wrapper = mount(UploadMethodView as object, {
         propsData: { methodId: "paste-links" },
         localVue,
         pinia,
@@ -82,9 +90,87 @@ function mountView() {
         stubs: {
             GTip: true,
             TargetHistorySelector: true,
+            TargetObjectStoreSelector: true,
         },
     });
+
+    return { wrapper, historyStore };
 }
+
+function mismatchAlert(wrapper: ReturnType<typeof mount>) {
+    return wrapper.find('[data-test-id="upload-history-mismatch-alert"]');
+}
+
+describe("UploadMethodView history mismatch alert", () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
+    it("hides the alert when target and current histories match", () => {
+        const { wrapper } = mountView();
+
+        expect(mismatchAlert(wrapper).exists()).toBe(false);
+    });
+
+    it("shows the alert with both history names after the current history changes", async () => {
+        const { wrapper, historyStore } = mountView();
+
+        historyStore.setCurrentHistoryId("hist-b");
+        await nextTick();
+
+        const alert = mismatchAlert(wrapper);
+        expect(alert.exists()).toBe(true);
+        expect(alert.text()).toContain("History A");
+        expect(alert.text()).toContain("History B");
+        expect(alert.findComponent(GAlert).props("dismissible")).toBe(true);
+    });
+
+    it("dismisses the alert and shows it again after another history change", async () => {
+        const { wrapper, historyStore } = mountView();
+
+        historyStore.setHistory(makeHistory("hist-c", "History C"));
+        historyStore.setCurrentHistoryId("hist-b");
+        await nextTick();
+        expect(mismatchAlert(wrapper).exists()).toBe(true);
+
+        await mismatchAlert(wrapper).find("button.close").trigger("click");
+        expect(mismatchAlert(wrapper).exists()).toBe(false);
+
+        historyStore.setCurrentHistoryId("hist-c");
+        await nextTick();
+        expect(mismatchAlert(wrapper).exists()).toBe(true);
+    });
+
+    it("hides the alert when the histories match again", async () => {
+        const { wrapper, historyStore } = mountView();
+
+        historyStore.setCurrentHistoryId("hist-b");
+        await nextTick();
+        expect(mismatchAlert(wrapper).exists()).toBe(true);
+
+        historyStore.setCurrentHistoryId("hist-a");
+        await nextTick();
+        expect(mismatchAlert(wrapper).exists()).toBe(false);
+    });
+});
+
+describe("UploadMethodView advanced mode switch", () => {
+    afterEach(() => {
+        // advancedMode is module-level state persisted to localStorage, so reset it even when a test fails
+        useUploadAdvancedMode().advancedMode.value = false;
+    });
+
+    it("binds the advanced mode to the switch", async () => {
+        // advanced mode loads the selectable object stores
+        server.use(http.get("/api/object_stores", () => HttpResponse.json([])));
+        const { advancedMode } = useUploadAdvancedMode();
+        advancedMode.value = false;
+        const { wrapper } = mountView();
+
+        await wrapper.find('input[data-test-id="upload-advanced-mode-toggle"]').setValue(true);
+        expect(advancedMode.value).toBe(true);
+    });
+});
 
 describe("UploadMethodView start", () => {
     const unhandledRejections: unknown[] = [];
@@ -103,16 +189,17 @@ describe("UploadMethodView start", () => {
 
     it("records a rejected upload request in the upload state without leaving an unhandled rejection", async () => {
         server.use(
+            http.get("/api/object_stores", () => HttpResponse.json([])),
             http.post("/api/tools/fetch", () =>
                 HttpResponse.json(
                     { err_msg: "Action requires account activation.", err_code: 403007 },
-                    { status: 403 },
+                    { status: 403, headers: GALAXY_RESPONSE_HEADERS },
                 ),
             ),
         );
         const item = makeUrlItem({ name: "remote.txt", targetHistoryId: "hist-a" });
         methodComponent.prepared = buildPreparedUpload([item]);
-        const wrapper = mountView();
+        const { wrapper } = mountView();
         await flushPromises();
 
         await wrapper.find('[data-test-id="start-upload"]').trigger("click");

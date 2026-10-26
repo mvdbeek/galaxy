@@ -2,11 +2,14 @@
 
 import json
 import os
+import subprocess
 import unittest
 from typing import Any
 
 from galaxy.tool_util.deps.container_resolvers.mulled import list_docker_cached_mulled_images
+from galaxy.util import galaxy_directory
 from galaxy.util.commands import which
+from galaxy.version import VERSION
 from galaxy_test.base.populators import (
     CredentialsPopulator,
     DatasetPopulator,
@@ -36,6 +39,25 @@ MULLED_EXAMPLE_MULTI_1_HASH = (
 CREDENTIALS_TEST_TOOL = "secret_tool"
 CONTAINER_TEST_VARIABLES = [{"name": "server", "value": "http://test-server:8080"}]
 CONTAINER_TEST_SECRETS = [{"name": "username", "value": "test_user"}, {"name": "password", "value": "test_pass"}]
+
+
+def build_metadata_container():
+    galaxy_root = galaxy_directory()
+    subprocess.check_output(
+        [
+            "docker",
+            "build",
+            "-t",
+            "galaxyproject/galaxy-job-execution:integration",
+            "--build-arg",
+            "RUNTIME_SOURCE=source",
+            "--build-arg",
+            f"GALAXY_VERSION={VERSION}",
+            "-f",
+            os.path.join(galaxy_root, "packages", "job_execution", "Dockerfile"),
+            galaxy_root,
+        ]
+    )
 
 
 class MulledJobTestCases:
@@ -145,6 +167,22 @@ class TestDockerizedJobsIntegration(BaseJobEnvironmentIntegrationTestCase, Mulle
         kwargs.setdefault("variables", CONTAINER_TEST_VARIABLES)
         kwargs.setdefault("secrets", CONTAINER_TEST_SECRETS)
         return self.credentials_populator.setup_credentials_context(**kwargs)
+
+    @skip_without_tool("runtime_environment")
+    def test_runtime_environment_scopes(self) -> None:
+        with self.dataset_populator.test_history() as history_id:
+            result = self.dataset_populator.run_tool("runtime_environment", {}, history_id)
+            self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+            content = self.dataset_populator.get_history_dataset_content(history_id)
+            assert "LEGACY_VAR=unset" in content
+            assert "JOB_VAR=unset" in content
+            assert "TOOL_VAR=tool" in content
+            assert "DECLARED_VAR=declared" in content
+            assert "EMPTY_VAR=\n" in content
+            assert "CONTAINER_VAR=container" in content
+            job = self.dataset_populator.get_job_details(result["jobs"][0]["id"], full=True).json()
+            warnings = [m for m in job["job_messages"] if m["type"] == "runtime_environment_warning"]
+            assert warnings[0]["variable_names"] == ["MISSING_VAR"]
 
     def test_container_job_environment(self) -> None:
         """

@@ -1,6 +1,9 @@
+import faulthandler
 import json
 import os
+import sys
 import tempfile
+import threading
 from collections import defaultdict
 
 import pytest
@@ -8,7 +11,12 @@ from beaker.cache import CacheManager
 from beaker.util import parse_cache_config_options
 from xdist.scheduler import LoadScopeScheduling
 
+from galaxy.celery import (
+    celery_app,
+    CELERY_APP_DEFAULTS,
+)
 from galaxy.tool_util.deps.mulled.util import NAMESPACE_HAS_REPO_NAME_KEY
+from galaxy.util.unittest_utils.test_http_server import test_http_server  # noqa: F401
 from galaxy_test import shard
 from galaxy_test.conftest import pytest_plugins  # noqa: F401
 from galaxy_test.conftest import (
@@ -44,7 +52,7 @@ def shared_resource_scope(nodeid: str) -> str | None:
     return None
 
 
-class SharedResourceScopeScheduling(LoadScopeScheduling):
+class SharedResourceScopeScheduling(LoadScopeScheduling):  # type: ignore[misc]  # pytest-xdist is untyped
     def _split_scope(self, nodeid: str) -> str:
         return shared_resource_scope(nodeid) or super()._split_scope(nodeid)
 
@@ -112,6 +120,29 @@ def pytest_xdist_make_scheduler(config, log):
         return SharedResourceScopeScheduling(config, log)
 
 
+def pytest_sessionfinish(session, exitstatus):
+    # An integration shard boots dozens of embedded Galaxy apps in this one process,
+    # and a stray non-daemon thread from any of them keeps the interpreter from ever
+    # exiting -- the shard then sits at 100% until the CI job limit kills it. Give
+    # shutdown two minutes; after that, name the threads that held it up and leave
+    # with the real test status.
+    def _report_and_exit():
+        print(
+            f"pytest session finished {threading.active_count()} threads still alive; "
+            "dumping stacks of the threads preventing interpreter exit",
+            file=sys.stderr,
+            flush=True,
+        )
+        for thread in threading.enumerate():
+            print(f"  alive: {thread!r} daemon={thread.daemon}", file=sys.stderr, flush=True)
+        faulthandler.dump_traceback(all_threads=True)
+        os._exit(exitstatus)
+
+    watchdog = threading.Timer(120, _report_and_exit)
+    watchdog.daemon = True
+    watchdog.start()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def seed_mulled_resolution_cache():
     """Seed the shared integration-test cache with a Quay namespace index."""
@@ -139,6 +170,36 @@ def seed_mulled_resolution_cache():
 @pytest.fixture(scope="session")
 def celery_includes():
     return ["galaxy.celery.tasks"]
+
+
+# UsesCeleryTasks' autouse fixtures never attach to the module-level tool tests
+# that integration_tool_runner generates, so such a test only worked when a
+# class-based test happened to run earlier in the same session.
+@pytest.fixture(autouse=True, scope="session")
+def request_celery_app(celery_session_app, celery_config):
+    try:
+        yield
+    finally:
+        if os.environ.get("GALAXY_TEST_EXTERNAL") is None:
+            celery_app.fork_pool.stop()
+            celery_app.fork_pool.join(timeout=5)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def request_celery_worker(celery_session_worker):
+    yield
+
+
+@pytest.fixture(scope="session")
+def celery_worker_parameters():
+    return {
+        "queues": ("galaxy.internal", "galaxy.external"),
+    }
+
+
+@pytest.fixture(scope="session")
+def celery_parameters():
+    return CELERY_APP_DEFAULTS
 
 
 @pytest.fixture

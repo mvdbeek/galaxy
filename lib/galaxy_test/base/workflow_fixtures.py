@@ -1,3 +1,21 @@
+import json
+from typing import Any
+
+WORKFLOW_SIMPLE = """
+class: GalaxyWorkflow
+name: Simple Workflow
+inputs:
+  input1: data
+outputs:
+  wf_output_1:
+    outputSource: first_cat/out_file1
+steps:
+  first_cat:
+    tool_id: cat1
+    in:
+      input1: input1
+"""
+
 WORKFLOW_SIMPLE_CAT_AND_RANDOM_LINES = """
 class: GalaxyWorkflow
 doc: |
@@ -222,6 +240,21 @@ test_data:
     samp2\t40.0
 """
 
+
+WORKFLOW_WHEN_NOT_CONNECTED = """
+class: GalaxyWorkflow
+inputs:
+  some_file:
+    type: data
+  should_run:
+    type: boolean
+steps:
+  cat1:
+    tool_id: cat1
+    in:
+      input1: some_file
+    when: $(inputs.when)
+"""
 
 WORKFLOW_SIMPLE_MAPPING = """
 class: GalaxyWorkflow
@@ -1192,6 +1225,9 @@ outputs:
     outputSource: subworkflow/inner_output_2
 """
 
+# The location is templated so tests can serve 1.bed from the local test HTTP server.
+DEFAULT_FILE_DATASET_INPUT_LOCATION = "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed"
+
 WORKFLOW_WITH_DEFAULT_FILE_DATASET_INPUT = """
 class: GalaxyWorkflow
 inputs:
@@ -1200,7 +1236,7 @@ inputs:
       class: File
       basename: a file
       format: txt
-      location: https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed
+      location: {location}
 steps:
   cat1:
     tool_id: cat1
@@ -1219,7 +1255,7 @@ steps:
           class: File
           basename: a file
           format: txt
-          location: https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed
+          location: {location}
 """
 
 WORKFLOW_FLAT_CROSS_PRODUCT = """
@@ -1285,21 +1321,26 @@ WORKFLOW_WITH_DATA_TAG_FILTER = r"""{
 WORKFLOW_KEEP_SUCCESSFUL_DATASETS = """
 class: GalaxyWorkflow
 inputs:
-  input_c: collection
+  input_c:
+    type: collection
+    position: {left: 0, top: 0}
 
 steps:
   mixed_collection:
     tool_id: exit_code_from_file
+    position: {left: 230, top: 0}
     in:
        input: input_c
 
   filtered_collection:
     tool_id: "__KEEP_SUCCESS_DATASETS__"
+    position: {left: 460, top: 0}
     in:
       input: mixed_collection/out_file1
 
   cat:
     tool_id: cat
+    position: {left: 690, top: 0}
     in:
       input1: filtered_collection/output
 """
@@ -1357,3 +1398,25 @@ image_input_1:
   file_type: png
   name: first test image
 """
+
+
+def parameter_input_workflow(label: str, parameter_type: str, validators: list[dict[str, Any]]) -> dict[str, Any]:
+    """Native (.ga) workflow with one parameter input declaring ``validators`` (format2 does not carry them)."""
+    tool_state = {"parameter_type": parameter_type, "optional": False, "validators": validators}
+    return {
+        "a_galaxy_workflow": "true",
+        "format-version": "0.1",
+        "name": "parameter input validators",
+        "annotation": "",
+        "steps": {
+            "0": {
+                "id": 0,
+                "type": "parameter_input",
+                "label": label,
+                "tool_state": json.dumps(tool_state),
+                "input_connections": {},
+                "position": {"left": 0, "top": 0},
+                "workflow_outputs": [],
+            }
+        },
+    }

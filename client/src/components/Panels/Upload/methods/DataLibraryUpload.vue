@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { faDatabase, faFile, faFolder, faLock, faPlus, faShieldAlt, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BFormCheckbox, BPagination } from "bootstrap-vue";
+import { BPagination } from "bootstrap-vue";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
 
 import type {
@@ -19,6 +19,7 @@ import { selectionToArray } from "@/components/FilesDialog/utilities";
 import type { SelectionItem } from "@/components/SelectionDialog/selectionTypes";
 import { useCollectionCreation } from "@/composables/upload/collectionCreation";
 import { useUploadReadyState } from "@/composables/upload/uploadReadyState";
+import { useUploadTableSorting } from "@/composables/upload/uploadTableSorting";
 import { useUploadStaging } from "@/composables/upload/useUploadStaging";
 import { useUrlTracker } from "@/composables/urlTracker";
 import { errorMessageAsString } from "@/utils/simple-error";
@@ -30,7 +31,9 @@ import type { PreparedUpload, UploadMethodComponent, UploadMethodConfig } from "
 import type { LibraryDatasetItem } from "../types/uploadItem";
 
 import CollectionCreationConfig from "../CollectionCreationConfig.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import BreadcrumbNavigation from "@/components/Common/BreadcrumbNavigation.vue";
 import GTable from "@/components/Common/GTable.vue";
 import DataDialogSearch from "@/components/SelectionDialog/DataDialogSearch.vue";
@@ -184,6 +187,8 @@ const hasPagination = computed(() => {
     }
     return totalMatches.value > perPage.value;
 });
+
+const { tableSortProps, tableSortEvents } = useUploadTableSorting(libraryDatasetItems);
 
 const hasItems = computed(() => libraryDatasetItems.value.length > 0);
 const hasSelection = computed(() => selectionCount.value > 0);
@@ -737,12 +742,12 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
             </div>
 
             <!-- Error message -->
-            <BAlert v-if="errorMessage" variant="danger" show dismissible @dismissed="errorMessage = undefined">
+            <GAlert v-if="errorMessage" variant="danger" show dismissible @dismissed="errorMessage = undefined">
                 <div class="d-flex justify-content-between align-items-center">
                     <span>{{ errorMessage }}</span>
                     <GButton color="red" class="ml-2" @click="onErrorRetry"> Retry </GButton>
                 </div>
-            </BAlert>
+            </GAlert>
 
             <!-- Library List View -->
             <div v-if="!currentLibrary" class="browser-table-container">
@@ -793,20 +798,22 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                     @sort-changed="onSortChanged"
                     @row-click="onBrowserRowClick">
                     <template v-slot:head(select)>
-                        <BFormCheckbox
+                        <GCheckbox
                             v-if="props.multiple !== false && datasetsOnCurrentPage.length > 0"
+                            aria-label="Select all datasets on this page"
                             data-test-id="data-library-select-all"
-                            :checked="allDatasetsSelected"
                             :indeterminate="someDatasetsSelected"
+                            :model-value="allDatasetsSelected"
                             @change="toggleSelectAll" />
                     </template>
 
                     <template v-slot:cell(select)="{ item }">
-                        <BFormCheckbox
+                        <GCheckbox
                             v-if="item.isLeaf"
                             data-test-id="data-library-browser-item-checkbox"
+                            :aria-label="`Select ${item.label}`"
                             :data-label="item.label"
-                            :checked="isSelected(item)"
+                            :model-value="isSelected(item)"
                             @change="toggleFileSelection(item)"
                             @click.stop />
                     </template>
@@ -817,7 +824,7 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                             v-g-tooltip.hover
                             class="mr-2 text-muted"
                             :title="getPermissionTitle(getItemFolderEntry(item))">
-                            <FontAwesomeIcon :icon="getPermissionIcon(getItemFolderEntry(item))" />
+                            <FontAwesomeIcon :icon="getPermissionIcon(getItemFolderEntry(item))!" />
                         </span>
                     </template>
 
@@ -894,7 +901,14 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
             </div>
 
             <div ref="tableContainerRef" class="file-table-container">
-                <GTable striped compact :items="libraryDatasetItems" :fields="tableFields" class="file-table">
+                <GTable
+                    v-bind="tableSortProps"
+                    striped
+                    compact
+                    :items="libraryDatasetItems"
+                    :fields="tableFields"
+                    class="file-table"
+                    v-on="tableSortEvents">
                     <template v-slot:cell(name)="{ item }">
                         <span class="font-weight-medium">{{ item.name }}</span>
                     </template>

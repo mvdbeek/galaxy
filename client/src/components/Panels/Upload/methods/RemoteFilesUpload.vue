@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { faFolder, faGlobe, faPlus, faTrash, faUser } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert, BFormCheckbox, BFormInput, BPagination } from "bootstrap-vue";
+import { BPagination } from "bootstrap-vue";
 import { computed, nextTick, onMounted, ref, watch } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import { browseRemoteFiles, fetchFileSources, type RemoteEntry } from "@/api/remoteFiles";
 import type { BreadcrumbItem } from "@/components/Common";
@@ -21,6 +21,7 @@ import { useUploadDefaults } from "@/composables/upload/uploadDefaults";
 import { useUploadItemValidation } from "@/composables/upload/uploadItemValidation";
 import { useUploadOptionBindings } from "@/composables/upload/uploadOptionBindings";
 import { useUploadReadyState } from "@/composables/upload/uploadReadyState";
+import { useUploadTableSorting } from "@/composables/upload/uploadTableSorting";
 import { useUploadStaging } from "@/composables/upload/useUploadStaging";
 import { useUrlTracker } from "@/composables/urlTracker";
 import { errorMessageAsString } from "@/utils/simple-error";
@@ -41,7 +42,10 @@ import UploadTableExtensionCell from "../shared/UploadTableExtensionCell.vue";
 import UploadTableNameCell from "../shared/UploadTableNameCell.vue";
 import UploadTableOptionsCell from "../shared/UploadTableOptionsCell.vue";
 import UploadTableOptionsHeader from "../shared/UploadTableOptionsHeader.vue";
+import GFormInput from "@/components/BaseComponents/Form/GFormInput.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
 import BreadcrumbNavigation from "@/components/Common/BreadcrumbNavigation.vue";
 import GTable from "@/components/Common/GTable.vue";
 import DataDialogSearch from "@/components/SelectionDialog/DataDialogSearch.vue";
@@ -171,6 +175,8 @@ const hasPagination = computed(() => {
     const itemCount = supportsServerPagination.value ? totalMatches.value : allFetchedItems.value.length;
     return itemCount > perPage.value;
 });
+
+const { tableSortProps, tableSortEvents } = useUploadTableSorting(remoteFileItems);
 
 const hasItems = computed(() => remoteFileItems.value.length > 0);
 const hasSelection = computed(() => selectionCount.value > 0);
@@ -643,12 +649,12 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
             </div>
 
             <!-- Error message -->
-            <BAlert v-if="errorMessage" variant="danger" show dismissible @dismissed="errorMessage = undefined">
+            <GAlert v-if="errorMessage" variant="danger" show dismissible @dismissed="errorMessage = undefined">
                 <div class="d-flex justify-content-between align-items-center">
                     <span>{{ errorMessage }}</span>
                     <GButton color="red" class="ml-2" @click="onErrorRetry"> Retry </GButton>
                 </div>
-            </BAlert>
+            </GAlert>
 
             <!-- Browser table -->
             <div class="browser-table-container">
@@ -666,24 +672,26 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                     @row-click="onRowClick">
                     <!-- Select column header (select all) -->
                     <template v-slot:head(select)>
-                        <BFormCheckbox
+                        <GCheckbox
                             v-if="
                                 props.multiple !== false && !urlTracker.isAtRoot.value && filesOnCurrentPage.length > 0
                             "
+                            aria-label="Select all files on this page"
                             data-test-id="remote-files-select-all"
-                            :checked="allFilesSelected"
                             :indeterminate="someFilesSelected"
+                            :model-value="allFilesSelected"
                             @change="toggleSelectAll"
                             @click.stop />
                     </template>
 
                     <!-- Select column (only for files) -->
                     <template v-slot:cell(select)="{ item }">
-                        <BFormCheckbox
+                        <GCheckbox
                             v-if="item.isLeaf"
                             data-test-id="remote-files-browser-item-checkbox"
+                            :aria-label="`Select ${item.label}`"
                             :data-label="item.label"
-                            :checked="isSelected(item)"
+                            :model-value="isSelected(item)"
                             @change="toggleFileSelection(item)"
                             @click.stop />
                     </template>
@@ -784,7 +792,14 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
             </div>
 
             <div ref="tableContainerRef" class="file-table-container">
-                <GTable :items="remoteFileItems" :fields="tableFields" hover striped table-class="table-sm file-table">
+                <GTable
+                    v-bind="tableSortProps"
+                    :items="remoteFileItems"
+                    :fields="tableFields"
+                    hover
+                    striped
+                    table-class="table-sm file-table"
+                    v-on="tableSortEvents">
                     <!-- Name column -->
                     <template v-slot:cell(name)="{ item }">
                         <UploadTableNameCell
@@ -802,7 +817,7 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                     <!-- URL column (read-only) -->
                     <template v-slot:cell(url)="{ item }">
                         <div class="d-flex align-items-center">
-                            <BFormInput :value="item.url" size="sm" readonly class="uri-input" />
+                            <GFormInput :model-value="item.url" size="small" readonly class="uri-input" />
                         </div>
                     </template>
 

@@ -18,6 +18,9 @@ alignmentviewer:
 annotateimage:
     package: "@galaxyproject/annotateimage"
     version: 0.0.0
+atlas:
+    package: "@galaxyproject/atlas"
+    version: 0.0.0
 chiraviz:
     package: "@galaxyproject/chiraviz"
     version: 0.0.2
@@ -45,9 +48,12 @@ hyphyvision:
 igv:
     package: "@galaxyproject/igv"
     version: 0.0.25
+jsonviewer:
+    package: "@galaxyproject/jsonviewer"
+    version: 0.0.0
 jupyterlite:
     package: "@galaxyproject/jupyterlite"
-    version: 0.0.30
+    version: 0.0.32
 kepler:
     package: "@galaxyproject/kepler"
     version: 0.0.3
@@ -108,6 +114,12 @@ rerunio:
 rmsxflipbook:
     package: "@galaxyproject/rmsxflipbook"
     version: 0.0.4
+seqviz:
+    package: "@galaxyproject/seqviz"
+    version: 0.0.2
+smilesdrawer:
+    package: "@galaxyproject/smilesdrawer"
+    version: 0.0.0
 tabulator:
     package: "@galaxyproject/tabulator"
     version: 0.0.11
@@ -120,6 +132,9 @@ ts_visjs:
 unipept:
     package: "@galaxyproject/unipept"
     version: 0.0.2
+varri:
+    package: "@galaxyproject/varri"
+    version: 0.0.0
 venn:
     package: "@galaxyproject/venn"
     version: 0.0.8
@@ -131,7 +146,7 @@ vitessce:
     version: 0.0.5
 vizarr:
     package: "@galaxyproject/vizarr"
-    version: 0.1.8
+    version: 0.1.9
 vtk:
     package: "@galaxyproject/vtk"
     version: 0.0.2

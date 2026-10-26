@@ -1,8 +1,4 @@
 import logging
-from typing import (
-    Optional,
-    Union,
-)
 
 from galaxy import exceptions
 from galaxy.files.models import FilesSourceRuntimeContext
@@ -12,6 +8,7 @@ from galaxy.files.sources._fsspec import (
     FsspecBaseFileSourceTemplateConfiguration,
     FsspecFilesSource,
 )
+from galaxy.files.templates.models import S3FSConfigMixin
 from galaxy.util.config_templates import TemplateExpansion
 from galaxy.util.s3_checksum import (
     s3_checksum_config_kwargs,
@@ -31,20 +28,20 @@ REQUIRED_PACKAGE = FS_PLUGIN_TYPE = "s3fs"
 log = logging.getLogger(__name__)
 
 
-class S3FSFileSourceTemplateConfiguration(FsspecBaseFileSourceTemplateConfiguration):
-    anon: Union[bool, TemplateExpansion] = False
-    endpoint_url: Union[str, TemplateExpansion, None] = None
-    bucket: Union[str, TemplateExpansion, None] = None
-    secret: Union[str, TemplateExpansion, None] = None
-    key: Union[str, TemplateExpansion, None] = None
+class S3FSFileSourceTemplateConfiguration(S3FSConfigMixin, FsspecBaseFileSourceTemplateConfiguration):
+    anon: bool | TemplateExpansion = False
+    endpoint_url: str | TemplateExpansion | None = None
+    bucket: str | TemplateExpansion | None = None
+    secret: str | TemplateExpansion | None = None
+    key: str | TemplateExpansion | None = None
 
 
-class S3FSFileSourceConfiguration(FsspecBaseFileSourceConfiguration):
+class S3FSFileSourceConfiguration(S3FSConfigMixin, FsspecBaseFileSourceConfiguration):
     anon: bool = False
-    endpoint_url: Optional[str] = None
-    bucket: Optional[str] = None
-    secret: Optional[str] = None
-    key: Optional[str] = None
+    endpoint_url: str | None = None
+    bucket: str | None = None
+    secret: str | None = None
+    key: str | None = None
 
 
 class S3FsFilesSource(FsspecFilesSource[S3FSFileSourceTemplateConfiguration, S3FSFileSourceConfiguration]):
@@ -77,7 +74,7 @@ class S3FsFilesSource(FsspecFilesSource[S3FSFileSourceTemplateConfiguration, S3F
         return fs
 
     @staticmethod
-    def _config_kwargs(config: S3FSFileSourceConfiguration) -> Optional[S3ChecksumConfigKwargs]:
+    def _config_kwargs(config: S3FSFileSourceConfiguration) -> S3ChecksumConfigKwargs | None:
         """botocore Config kwargs (forwarded to S3FileSystem) for checksum behavior."""
         return s3_checksum_config_kwargs(config.endpoint_url) or None
 

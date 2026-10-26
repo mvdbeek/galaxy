@@ -7,10 +7,6 @@ All message queues used by Galaxy
 import datetime
 import logging
 import socket
-from typing import (
-    Optional,
-    TYPE_CHECKING,
-)
 
 from kombu import (
     binding,
@@ -22,12 +18,11 @@ from sqlalchemy import (
     or_,
     select,
 )
+from sqlalchemy.orm import Session
 
 from galaxy.model import WorkerProcess
 from galaxy.util import now
-
-if TYPE_CHECKING:
-    from galaxy.web_stack import ApplicationStack
+from galaxy.web_stack import ApplicationStack
 
 log = logging.getLogger(__name__)
 
@@ -45,7 +40,26 @@ WEBAPP_APP_TYPE = "webapp"
 SSE_MONITOR_APP_TYPE = "sse_monitor"
 
 
-def all_control_queues_for_declare(application_stack: "ApplicationStack", webapp_only: bool = False) -> list[Queue]:
+def control_queues_for_session(session: Session, webapp_only: bool = False) -> list[Queue]:
+    """Build the per-process control-queue declare list from a model session.
+
+    Split out of :func:`all_control_queues_for_declare` so callers that have a
+    bare session but no ``ApplicationStack`` — notably the standalone
+    tool-source populator CLI — can build the same routing table.
+    """
+    stmt = select(WorkerProcess).where(
+        WorkerProcess.update_time > now() - datetime.timedelta(seconds=DEFAULT_ACTIVE_PROCESS_WINDOW_SECONDS)
+    )
+    if webapp_only:
+        stmt = stmt.where(WorkerProcess.app_type == WEBAPP_APP_TYPE)
+    else:
+        # ``!=`` alone would drop NULL app_type rows (job handlers); keep them.
+        stmt = stmt.where(or_(WorkerProcess.app_type != SSE_MONITOR_APP_TYPE, WorkerProcess.app_type.is_(None)))
+    processes = session.scalars(stmt).all()
+    return [control_queue(f"control.{p.server_name}@{p.hostname}", app_type=p.app_type) for p in processes]
+
+
+def all_control_queues_for_declare(application_stack: ApplicationStack, webapp_only: bool = False) -> list[Queue]:
     """Declare active consumer bindings for virtual transports' in-memory routing.
 
     Query WorkerProcess directly so Celery producers need no heartbeat thread.
@@ -54,23 +68,14 @@ def all_control_queues_for_declare(application_stack: "ApplicationStack", webapp
     """
     app = application_stack.app
     try:
-        stmt = select(WorkerProcess).where(
-            WorkerProcess.update_time > now() - datetime.timedelta(seconds=DEFAULT_ACTIVE_PROCESS_WINDOW_SECONDS)
-        )
-        if webapp_only:
-            stmt = stmt.where(WorkerProcess.app_type == WEBAPP_APP_TYPE)
-        else:
-            # ``!=`` alone would drop NULL app_type rows (job handlers); keep them.
-            stmt = stmt.where(or_(WorkerProcess.app_type != SSE_MONITOR_APP_TYPE, WorkerProcess.app_type.is_(None)))
         with app.model.new_session() as session:
-            processes = session.scalars(stmt).all()
+            return control_queues_for_session(session, webapp_only=webapp_only)
     except Exception:
         log.debug("Failed to look up active processes for control-queue declare", exc_info=True)
         return []
-    return [control_queue(f"control.{p.server_name}@{p.hostname}", app_type=p.app_type) for p in processes]
 
 
-def control_queue(queue_name: str, app_type: Optional[str] = None) -> Queue:
+def control_queue(queue_name: str, app_type: str | None = None) -> Queue:
     """Bind a process queue to broadcasts and, for webapps, web control tasks."""
     bindings = [binding(galaxy_exchange, routing_key=ALL_CONTROL)]
     if app_type == WEBAPP_APP_TYPE:
@@ -78,7 +83,7 @@ def control_queue(queue_name: str, app_type: Optional[str] = None) -> Queue:
     return Queue(queue_name, bindings=bindings)
 
 
-def control_queues_from_config(config, app_type: Optional[str] = None):
+def control_queues_from_config(config, app_type: str | None = None):
     """
     Returns a Queue instance with the correct name and routing key for this
     galaxy process's config
@@ -90,7 +95,7 @@ def control_queues_from_config(config, app_type: Optional[str] = None):
     return exchange_queue, non_exchange_queue
 
 
-def connection_from_config(config) -> Optional[Connection]:
+def connection_from_config(config) -> Connection | None:
     if config.amqp_internal_connection:
         return Connection(config.amqp_internal_connection)
     else:

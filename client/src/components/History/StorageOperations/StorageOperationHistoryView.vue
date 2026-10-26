@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { BAlert, BFormInput } from "bootstrap-vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 
 import { useStorageHistoryRunsWatcher } from "@/composables/useStorageRunWatcher";
@@ -9,6 +8,8 @@ import localize from "@/utils/localization";
 import { isTerminalRunState } from "@/utils/storageOperations";
 
 import StorageOperationRunsTable from "./StorageOperationRunsTable.vue";
+import GFormInput from "@/components/BaseComponents/Form/GFormInput.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import Heading from "@/components/Common/Heading.vue";
 
 type EnrichedStorageRun = ReturnType<typeof enrichRunWithSummary>;
@@ -82,7 +83,7 @@ const displayRows = computed(() => {
         const aValue = getSortableValue(a);
         const bValue = getSortableValue(b);
 
-        let comparison = 0;
+        let comparison: number;
         if (typeof aValue === "number" && typeof bValue === "number") {
             comparison = aValue - bValue;
         } else {
@@ -173,13 +174,13 @@ function onFinishedPageChange(page: number) {
             {{ localize(", such as moving or copying data across storage locations.") }}
         </p>
 
-        <BAlert v-if="!hasRuns" show variant="secondary">
+        <GAlert v-if="!hasRuns" show variant="secondary">
             {{ localize("No tracked storage operations for this history.") }}
-        </BAlert>
+        </GAlert>
 
         <template v-else>
             <div class="d-flex flex-wrap align-items-center mb-2 gap-2">
-                <BFormInput
+                <GFormInput
                     v-model="filterText"
                     class="storage-run-filter"
                     :placeholder="localize('Filter runs by target store location...')" />

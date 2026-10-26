@@ -1,6 +1,6 @@
 import { createTestingPinia } from "@pinia/testing";
 import { getLocalVue, suppressDebugConsole } from "@tests/vitest/helpers";
-import { mount, type Wrapper } from "@vue/test-utils";
+import { type DOMWrapper, mount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -75,7 +75,7 @@ vi.mock("@/composables/config", () => ({
 const { server, http } = useServerMock();
 
 interface RowElement extends SelectionItem, Element {
-    _rowVariant: SelectionState;
+    selectionState: SelectionState;
 }
 
 function paramsToKey(query: {
@@ -155,7 +155,7 @@ const initComponent = async (
 };
 
 describe("FilesDialog, file mode", () => {
-    let wrapper: Wrapper<any>;
+    let wrapper: VueWrapper<any>;
     let utils: Utils;
 
     beforeEach(async () => {
@@ -190,7 +190,7 @@ describe("FilesDialog, file mode", () => {
         utils.expectNumberOfSelectedItemsToBe(filesInResponse.length);
 
         await utils.applyToEachFile((item) => {
-            expect(item._rowVariant).toBe(SELECTION_STATES.SELECTED);
+            expect(item.selectionState).toBe(SELECTION_STATES.SELECTED);
         });
 
         utils.expectOkButtonEnabled();
@@ -211,7 +211,8 @@ describe("FilesDialog, file mode", () => {
         // go inside directory1
         await utils.openDirectoryById(targetDirectoryId);
 
-        utils.expectSelectAllIconStatusToBe(SELECTION_STATES.SELECTED);
+        utils.expectSelectAllChecked();
+        utils.expectSelectAllNotIndeterminate();
 
         //every item should be selected
         utils.expectAllRenderedItemsSelected();
@@ -224,7 +225,7 @@ describe("FilesDialog, file mode", () => {
 
         // ensure that it has "mixed" status icon
         const directory = utils.findRenderedDirectory(targetDirectoryId);
-        expect(directory._rowVariant).toBe(SELECTION_STATES.MIXED);
+        expect(directory.selectionState).toBe(SELECTION_STATES.MIXED);
     });
 
     it("should be able to unselect a sub-directory keeping the rest selected", async () => {
@@ -237,12 +238,13 @@ describe("FilesDialog, file mode", () => {
         // unselect subfolder
         await utils.clickOn(utils.findRenderedDirectory(subSubDirectoryId));
         // directory should be unselected
-        expect(utils.findRenderedDirectory(subSubDirectoryId)._rowVariant).toBe(SELECTION_STATES.UNSELECTED);
-        // selectAllIcon should be unselected
-        utils.expectSelectAllIconStatusToBe(SELECTION_STATES.UNSELECTED);
+        expect(utils.findRenderedDirectory(subSubDirectoryId).selectionState).toBe(SELECTION_STATES.UNSELECTED);
+        // selectAll checkbox should be unchecked
+        utils.expectSelectAllUnchecked();
+        utils.expectSelectAllNotIndeterminate();
         await utils.navigateBack();
         await utils.navigateBack();
-        expect(utils.findRenderedDirectory(directoryId)._rowVariant).toBe(SELECTION_STATES.MIXED);
+        expect(utils.findRenderedDirectory(directoryId).selectionState).toBe(SELECTION_STATES.MIXED);
     });
 
     it("should select all on 'toggleSelectAll' event", async () => {
@@ -256,7 +258,7 @@ describe("FilesDialog, file mode", () => {
         utils.expectAllRenderedItemsSelected();
         await utils.navigateBack();
         const rootNode = utils.findRenderedDirectory(rootId);
-        expect(rootNode._rowVariant).toBe(SELECTION_STATES.SELECTED);
+        expect(rootNode.selectionState).toBe(SELECTION_STATES.SELECTED);
     });
 
     it("should show ftp helper only in ftp directory", async () => {
@@ -307,7 +309,7 @@ describe("FilesDialog, file mode", () => {
 });
 
 describe("FilesDialog, create new file source button", () => {
-    let wrapper: Wrapper<any>;
+    let wrapper: VueWrapper<any>;
     let utils: Utils;
 
     beforeEach(async () => {
@@ -336,7 +338,7 @@ describe("FilesDialog, create new file source button", () => {
 });
 
 describe("FilesDialog, file mode with templates", () => {
-    let wrapper: Wrapper<any>;
+    let wrapper: VueWrapper<any>;
     beforeEach(async () => {
         wrapper = await initComponent({ multiple: true }, true);
     });
@@ -346,8 +348,35 @@ describe("FilesDialog, file mode with templates", () => {
     });
 });
 
+describe("FilesDialog, file source that cannot list recursively", () => {
+    it("should open folders instead of selecting them and select only files", async () => {
+        const plugins = rootResponse.map((plugin) =>
+            plugin.id === rootId ? { ...plugin, supports: { ...plugin.supports, recursive: false } } : plugin,
+        );
+        const utils = new Utils(await initComponent({ multiple: true }, false, plugins));
+        await utils.openRootDirectory();
+
+        await utils.clickOn(utils.findRenderedDirectory(directoryId));
+        expect(utils.getRenderedRows().map(({ id }) => id)).toEqual(directory1Response.map(({ uri }) => uri));
+
+        const expectOnlyFilesSelected = () =>
+            utils.getRenderedRows().forEach((item) => {
+                expect(item.selectionState).toBe(item.isLeaf ? SELECTION_STATES.SELECTED : SELECTION_STATES.UNSELECTED);
+            });
+        await utils.selectAll();
+        expectOnlyFilesSelected();
+
+        // one level up, select all first unselects the files picked inside the folder, then selects
+        await utils.navigateBack();
+        await utils.selectAll();
+        utils.getRenderedRows().forEach((item) => expect(item.selectionState).toBe(SELECTION_STATES.UNSELECTED));
+        await utils.selectAll();
+        expectOnlyFilesSelected();
+    });
+});
+
 describe("FilesDialog, directory mode", () => {
-    let wrapper: Wrapper<any>;
+    let wrapper: VueWrapper<any>;
     let utils: Utils;
 
     beforeEach(async () => {
@@ -398,7 +427,7 @@ describe("FilesDialog, directory mode", () => {
         await dialogUtils.openDirectoryById(rdmRootId);
 
         dialogUtils.expectOkButtonDisabled();
-        dialog.destroy();
+        dialog.unmount();
     });
 
     it("should show loading error and can return back when there is an error", async () => {
@@ -417,9 +446,9 @@ describe("FilesDialog, directory mode", () => {
 });
 
 class Utils {
-    wrapper: Wrapper<any>;
+    wrapper: VueWrapper<any>;
 
-    constructor(wrapper: Wrapper<any>) {
+    constructor(wrapper: VueWrapper<any>) {
         this.wrapper = wrapper;
     }
 
@@ -510,25 +539,45 @@ class Utils {
 
     expectAllRenderedItemsSelected() {
         this.getRenderedRows().forEach((item) => {
-            expect(item._rowVariant).toBe(SELECTION_STATES.SELECTED);
+            expect(item.selectionState).toBe(SELECTION_STATES.SELECTED);
         });
     }
 
     expectNumberOfSelectedItemsToBe(number: number) {
-        const selectedItems = this.getRenderedRows().filter((item) => item._rowVariant === SELECTION_STATES.SELECTED);
+        const selectedItems = this.getRenderedRows().filter(
+            (item) => item.selectionState === SELECTION_STATES.SELECTED,
+        );
         expect(selectedItems.length).toBe(number);
     }
 
     expectOkButtonDisabled() {
-        expect(this.getOkButton().attributes("disabled")).toBeTruthy();
+        // GButton uses aria-disabled instead of the native disabled attribute
+        expect(this.getOkButton().attributes("aria-disabled")).toBeTruthy();
     }
 
     expectOkButtonEnabled() {
-        expect(this.getOkButton().attributes("disabled")).toBeFalsy();
+        expect(this.getOkButton().attributes("aria-disabled")).toBeFalsy();
     }
 
-    expectSelectAllIconStatusToBe(status: string) {
-        expect(this.getSelectionDialog().props("selectAllVariant")).toBe(status);
+    getSelectAllCheckbox(): DOMWrapper<HTMLInputElement> {
+        const checkbox = this.wrapper.find<HTMLInputElement>("input[id^='g-table-select-all-']");
+        expect(checkbox.exists()).toBe(true);
+        return checkbox;
+    }
+
+    expectSelectAllChecked() {
+        const checkbox = this.getSelectAllCheckbox();
+        expect((checkbox.element as HTMLInputElement).checked).toBe(true);
+    }
+
+    expectSelectAllUnchecked() {
+        const checkbox = this.getSelectAllCheckbox();
+        expect((checkbox.element as HTMLInputElement).checked).toBe(false);
+    }
+
+    expectSelectAllNotIndeterminate() {
+        const checkbox = this.getSelectAllCheckbox();
+        expect((checkbox.element as HTMLInputElement).indeterminate).toBe(false);
     }
 
     expectNoErrorMessage() {

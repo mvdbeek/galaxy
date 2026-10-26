@@ -277,7 +277,7 @@ and download the image to the cache if ``install=True`` (see also
 is done by a call to ``docker pull`` and ``singularity pull``, respectively.
 Note that, by default the URI is returned in any case, i.e. even if the image
 just has been downloaded or if the image is already in the cache. Only if the
-resolvers are initialized with ``auto_install=True`` the ``resolve`` function
+resolvers are initialized with ``auto_install=False`` the ``resolve`` function
 returns a container description pointing to the cached image. Note that this
 makes a difference only for singularity (since for docker the URI is identical
 to the name of the cached image).
@@ -379,7 +379,7 @@ admins might want to control.
 
 .. note::
 
-   For the execution of jobs Galaxy already implement the `support for using
+   For the execution of jobs Galaxy already implements the `support for using
    tarballs of container images
    <https://github.com/galaxyproject/galaxy/blob/c517e805771cc16807dfe675075a13fe6343f01f/lib/galaxy/tool_util/deps/container_classes.py#L319>`_.
    from ``container_image_cache_path`` (set in galaxy.yml) or the destination

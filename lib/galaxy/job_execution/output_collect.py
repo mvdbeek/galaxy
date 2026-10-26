@@ -12,9 +12,9 @@ from typing import (
     Any,
     Optional,
     TYPE_CHECKING,
-    Union,
 )
 
+from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.job_execution.output_format import resolve_format_source
 from galaxy.model import (
     Dataset,
@@ -31,6 +31,7 @@ from galaxy.model.store.discover import (
     discover_target_directory,
     DiscoveredFile,
     ensure_path_in_directory,
+    get_required_item,
     JsonCollectedDatasetMatch,
     MaxDiscoveredFilesExceededError,
     MetadataSourceProvider as AbstractMetadataSourceProvider,
@@ -41,6 +42,7 @@ from galaxy.model.store.discover import (
     persist_elements_to_hdca,
     persist_hdas,
     RegexCollectedDatasetMatch,
+    resolve_discovered_extension,
     safe_path_from_directory,
     SessionlessModelPersistenceContext,
     UNSET,
@@ -74,7 +76,7 @@ if TYPE_CHECKING:
         BaseDirectoryImportModelStore,
         DirectoryModelExportStore,
     )
-    from galaxy.schema.schema import JobState
+    from galaxy.schema.states import JobState
 
 DATASET_ID_TOKEN = "DATASET_ID"
 
@@ -136,10 +138,10 @@ def collect_dynamic_outputs(
     # unmapped outputs do not correspond to explicit outputs of the tool, they were inferred entirely
     # from the tool provided metadata (e.g. galaxy.json).
     for unnamed_output_dict in validate_unnamed_outputs(job_context):
-        assert "destination" in unnamed_output_dict
-        assert "elements" in unnamed_output_dict
-        destination = unnamed_output_dict["destination"]
-        elements = unnamed_output_dict["elements"]
+        destination = get_required_item(
+            unnamed_output_dict, "destination", "Must specify a destination for an unnamed output"
+        )
+        elements = get_required_item(unnamed_output_dict, "elements", "Must specify elements for an unnamed output")
 
         # If rows are specified at the collection level, add them to individual elements
         # This is a defensive check in case rows weren't already distributed in data_fetch.py
@@ -150,9 +152,11 @@ def collect_dynamic_outputs(
                 if element_name and element_name in rows_dict and "row" not in element:
                     element["row"] = rows_dict[element_name]
 
-        assert "type" in destination
-        destination_type = destination["type"]
-        assert destination_type in ["library_folder", "hdca", "hdas"]
+        destination_type = get_required_item(
+            destination, "type", "Must specify a destination type for an unnamed output"
+        )
+        if destination_type not in ["library_folder", "hdca", "hdas"]:
+            raise RequestParameterInvalidException(f"Invalid unnamed output destination type [{destination_type}]")
 
         # three destination types we need to handle here - "library_folder" (place discovered files in a library folder),
         # "hdca" (place discovered files in a history dataset collection), and "hdas" (place discovered files in a history
@@ -164,13 +168,14 @@ def collect_dynamic_outputs(
             job_context.persist_library_folder(library_folder)
         elif destination_type == "hdca":
             # create or populate a dataset collection in the history
-            assert "collection_type" in unnamed_output_dict
+            collection_type = get_required_item(
+                unnamed_output_dict, "collection_type", "Must specify an HDCA collection_type"
+            )
             object_id = destination.get("object_id")
             if object_id:
                 hdca = job_context.get_hdca(object_id)
             else:
                 name = unnamed_output_dict.get("name", "unnamed collection")
-                collection_type = unnamed_output_dict["collection_type"]
                 collection_type_description = COLLECTION_TYPE_DESCRIPTION_FACTORY.for_collection_type(collection_type)
                 structure = UninitializedTree(collection_type_description)
                 hdca = job_context.create_hdca(name, structure)
@@ -267,15 +272,15 @@ def collect_dynamic_outputs(
 
 class BaseJobContext(ModelPersistenceContext):
     final_job_state: "JobState"
-    max_discovered_files: Union[int, float]
+    max_discovered_files: int | float
     tool_provided_metadata: BaseToolProvidedMetadata
     job_working_directory: str
     allows_unnamed_outputs: bool
     allows_external_output_paths: bool
 
     @property
-    def input_datasets(self) -> dict[str, Optional[DatasetInstance]]:
-        inputs: dict[str, Optional[DatasetInstance]] = {}
+    def input_datasets(self) -> dict[str, DatasetInstance | None]:
+        inputs: dict[str, DatasetInstance | None] = {}
         if job := self.job:
             for association in job.input_datasets + job.input_library_datasets:
                 inputs.setdefault(association.name, association.dataset)
@@ -301,7 +306,7 @@ class BaseJobContext(ModelPersistenceContext):
     def change_datatype_actions(self) -> dict[str, Any]: ...
 
     @abc.abstractmethod
-    def create_hdca(self, name: str, structure: UninitializedTree) -> Union[HistoryDatasetCollectionAssociation]: ...
+    def create_hdca(self, name: str, structure: UninitializedTree) -> HistoryDatasetCollectionAssociation: ...
 
     @abc.abstractmethod
     def get_hdca(self, object_id) -> HistoryDatasetCollectionAssociation: ...
@@ -310,10 +315,10 @@ class BaseJobContext(ModelPersistenceContext):
     def get_library_folder(self, destination: dict[str, Any]) -> "LibraryFolder": ...
 
     @abc.abstractmethod
-    def output_collection_def(self, name: str) -> Union[None, ToolOutputCollection]: ...
+    def output_collection_def(self, name: str) -> None | ToolOutputCollection: ...
 
     @abc.abstractmethod
-    def output_def(self, name: str) -> Union[None, ToolOutput]: ...
+    def output_def(self, name: str) -> None | ToolOutput: ...
 
 
 class SessionlessJobContext(SessionlessModelPersistenceContext, BaseJobContext):
@@ -323,12 +328,12 @@ class SessionlessJobContext(SessionlessModelPersistenceContext, BaseJobContext):
         self,
         metadata_params,
         tool_provided_metadata: BaseToolProvidedMetadata,
-        object_store: Optional[ObjectStore],
+        object_store: ObjectStore | None,
         export_store: Optional["DirectoryModelExportStore"],
         import_store: "BaseDirectoryImportModelStore",
         working_directory: str,
         final_job_state: "JobState",
-        max_discovered_files: Optional[int],
+        max_discovered_files: int | None,
         job: Optional["Job"] = None,
     ):
         # Missing capability keys identify params written by Galaxy versions
@@ -456,7 +461,7 @@ def collect_primary_datasets(job_context: BaseJobContext, output: dict[str, Data
             ext = fields_match.ext
             if ext == "input":
                 ext = input_ext
-            ext = ext.lower()
+            ext = resolve_discovered_extension(ext.lower(), filename)
             dbkey = fields_match.dbkey
             if dbkey == INPUT_DBKEY_TOKEN:
                 dbkey = job_context.input_dbkey

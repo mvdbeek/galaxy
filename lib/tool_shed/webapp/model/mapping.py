@@ -6,7 +6,6 @@ are encapsulated here.
 import logging
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -18,7 +17,11 @@ from tool_shed.webapp.model import mapper_registry
 from tool_shed.webapp.security import CommunityRBACAgent
 
 if TYPE_CHECKING:
-    from tool_shed.webapp.model import User as ToolShedUser
+    from tool_shed.webapp.model import (  # https://github.com/PyCQA/pyflakes/issues/648
+        Role as ModelRole,
+        User as ModelUser,
+        UserRoleAssociation as ModelUserRoleAssociation,
+    )
 
 log = logging.getLogger(__name__)
 
@@ -26,15 +29,15 @@ metadata = mapper_registry.metadata
 
 
 class ToolShedModelMapping(SharedModelMapping):
-    User: type["ToolShedUser"]
+    Role: type["ModelRole"]
+    User: type["ModelUser"]
+    UserRoleAssociation: type["ModelUserRoleAssociation"]
     security_agent: CommunityRBACAgent
     shed_counter: shed_statistics.ShedCounter
     create_tables: bool
 
 
-def init(
-    url: str, engine_options: Optional[dict[str, Any]] = None, create_tables: bool = False
-) -> ToolShedModelMapping:
+def init(url: str, engine_options: dict[str, Any] | None = None, create_tables: bool = False) -> ToolShedModelMapping:
     """Connect mappings to the database"""
     engine_options = engine_options or {}
     # Create the database engine

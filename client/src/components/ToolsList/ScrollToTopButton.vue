@@ -1,26 +1,28 @@
 <script setup lang="ts">
 import { faChevronUp } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BButton } from "bootstrap-vue";
+
+import GButton from "@/components/BaseComponents/GButton.vue";
 
 interface Props {
     offset: number;
 }
-const props = withDefaults(defineProps<Props>(), {
-    offset: 0,
-});
+const props = defineProps<Props>();
 </script>
 
 <template>
-    <BButton
+    <GButton
         v-g-tooltip.hover
         class="back-to-top"
         :class="{ show: props.offset > 100 }"
-        :title="props.offset > 100 ? 'Scroll To Top' : ''"
-        variant="info"
+        title="Scroll To Top"
+        aria-label="Scroll to top"
+        :disabled="props.offset <= 100"
+        :tabindex="props.offset <= 100 ? -1 : 0"
+        color="blue"
         @click="$emit('click')">
         <FontAwesomeIcon :icon="faChevronUp" />
-    </BButton>
+    </GButton>
 </template>
 
 <style lang="scss" scoped>

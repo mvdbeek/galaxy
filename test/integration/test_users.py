@@ -1,9 +1,12 @@
-import json
-import os
-import re
 from typing import (
     ClassVar,
 )
+from urllib.parse import (
+    parse_qs,
+    urlparse,
+)
+
+import requests
 
 from galaxy_test.driver import integration_util
 
@@ -96,29 +99,99 @@ class TestUnexposedUsersIntegration(UsersIntegrationCase):
     expected_regular_user_list_count = 1
 
 
-class TestAdminResendActivationEmail(integration_util.IntegrationTestCase):
-    email_directory: ClassVar[str]
-
+class TestAdminResendActivationEmail(integration_util.IntegrationTestCase, integration_util.ConfiguresMockEmails):
     @classmethod
     def handle_galaxy_config_kwds(cls, config):
         super().handle_galaxy_config_kwds(config)
-        cls.email_directory = cls._test_driver.mkdtemp()
+        cls._configure_mock_emails(config)
         config["user_activation_on"] = True
         config["activation_grace_period"] = 3
-        config["email_from"] = "galaxy-noreply@example.com"
-        config["smtp_server"] = f"mock_emails_to_path://{cls.email_directory}/email.json"
+
+    def test_email_change_deactivates_and_mails_the_new_address(self):
+        old_email = "email-change-before@test.gx"
+        new_email = "email-change-after@test.gx"
+        user = self._setup_user(old_email)
+
+        with self._different_user(email=old_email):
+            response = self._put(f"users/{user['id']}", data={"email": new_email}, json=True)
+            self._assert_status_code_is_ok(response)
+            updated = response.json()
+
+        assert updated["email"] == new_email
+
+        # Changing the address has to re-verify it, otherwise activation is a
+        # one-time gate that any later edit walks straight past. `active` is not on
+        # DetailedUserModel, so it is read back from the index.
+        listed = self._get("users", data={"f_email": new_email}, admin=True).json()
+        assert [u for u in listed if u["email"] == new_email][0]["active"] is False
+
+        self._read_activation_link(new_email)
+
+        # The private role is named for the email and is what dataset permissions
+        # are granted against, so it has to follow the address.
+        role_names = [role["name"] for role in self._get("roles", admin=True).json()]
+        assert new_email in role_names
+        assert old_email not in role_names
+
+    def test_email_change_invalidates_the_previous_activation_token(self):
+        user = self._setup_user("token-reuse-a@test.gx")
+        with self._different_user(email="token-reuse-a@test.gx"):
+            first_token = self._change_email_and_read_activation_token(user, "token-reuse-b@test.gx")
+            second_token = self._change_email_and_read_activation_token(user, "token-reuse-c@test.gx")
+        # The column keeps 64 characters and /user/activate compares only those, so a freshly minted
+        # token is mailed longer than the stored one it matches.
+        assert first_token[:64] != second_token[:64]
+
+        response = requests.get(
+            f"{self.url}user/activate", params={"activation_token": first_token, "email": "token-reuse-c@test.gx"}
+        )
+        response.raise_for_status()
+        listed = self._get("users", data={"f_email": "token-reuse-c@test.gx"}, admin=True).json()
+        assert [u for u in listed if u["id"] == user["id"]][0]["active"] is False
+
+    def _change_email_and_read_activation_token(self, user, new_email: str) -> str:
+        response = self._put(f"users/{user['id']}", data={"email": new_email}, json=True)
+        self._assert_status_code_is_ok(response)
+        link = self._read_activation_link(new_email)
+        return parse_qs(urlparse(link).query)["activation_token"][0]
 
     def test_resend_activation_includes_qualified_link(self):
         user = self._setup_user("resend-activation@test.gx")
         response = self._post(f"users/{user['id']}/send_activation_email", admin=True)
         self._assert_status_code_is_ok(response)
 
-        with open(os.path.join(self.email_directory, "email.json")) as f:
-            email = json.loads(f.read())
-        assert email["to"] == "resend-activation@test.gx"
-        assert email["subject"] == "Galaxy Account Activation"
-        match = re.search(r"(https?://[^/\s]+/user/activate\?[^\s]+)", email["body"])
-        assert match, f"No qualified activation link found in email body:\n{email['body']}"
-        link = match.group(1)
+        link = self._read_activation_link("resend-activation@test.gx")
         assert "activation_token=" in link
         assert "email=" in link
+
+
+class TestUnclaimedAdminEmailIntegration(integration_util.IntegrationTestCase):
+    unclaimed_admin_email = "unclaimed-admin@test.gx"
+    assigned_admin_email = "assigned-admin@test.gx"
+
+    @classmethod
+    def handle_galaxy_config_kwds(cls, config):
+        super().handle_galaxy_config_kwds(config)
+        config["admin_users"] = f"{config['admin_users']},{cls.unclaimed_admin_email},{cls.assigned_admin_email}"
+
+    def test_non_admin_cannot_claim_an_admin_email(self):
+        email = "admin-claimer@test.gx"
+        user = self._setup_user(email)
+        with self._different_user(email=email):
+            for claimed in (self.unclaimed_admin_email, self.unclaimed_admin_email.upper()):
+                response = self._put(f"users/{user['id']}", data={"email": claimed}, json=True)
+                self._assert_status_code_is(response, 400)
+                assert "already exists" in response.json()["err_msg"]
+            response = self._put(
+                f"users/{user['id']}/information/inputs", data={"email": self.unclaimed_admin_email}, json=True
+            )
+            self._assert_status_code_is(response, 400)
+            current = self._get("users/current").json()
+        assert current["email"] == email
+        assert current["is_admin"] is False
+
+    def test_admin_can_assign_an_admin_email(self):
+        user = self._setup_user("admin-assignee@test.gx")
+        response = self._put(f"users/{user['id']}", data={"email": self.assigned_admin_email}, json=True, admin=True)
+        self._assert_status_code_is(response, 200)
+        assert response.json()["is_admin"] is True

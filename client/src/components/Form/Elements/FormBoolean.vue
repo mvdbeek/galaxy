@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import { computed } from "vue";
 
+import GCheckbox from "@/components/BaseComponents/GCheckbox.vue";
+
 export interface FormBooleanProps {
-    value: boolean | string;
+    value?: boolean | string | null;
     noLabel?: boolean;
 }
 
@@ -24,7 +26,10 @@ const label = computed(() => (currentValue.value ? "Yes" : "No"));
 </script>
 
 <template>
-    <b-form-checkbox v-model="currentValue" class="no-highlight" switch>
-        <span v-if="!props.noLabel" v-localize>{{ label }}</span>
-    </b-form-checkbox>
+    <GCheckbox v-model="currentValue" class="no-highlight" switch>
+        <!-- No slot at all without a label, so GCheckbox renders no empty label span -->
+        <template v-if="!props.noLabel" v-slot>
+            <span v-localize>{{ label }}</span>
+        </template>
+    </GCheckbox>
 </template>

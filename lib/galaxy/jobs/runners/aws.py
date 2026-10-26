@@ -9,7 +9,6 @@ import re
 from typing import (
     Any,
     TYPE_CHECKING,
-    Union,
 )
 
 from galaxy import model
@@ -89,6 +88,8 @@ class AWSBatchJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
     containers share the same EFS drive as a local device. Sample configurations can be found
     in `config/job_conf.sample.yml`.
     """
+
+    runs_job_script_in_container = True
 
     runner_name = "AWSBatchRunner"
     RUNNER_PARAM_SPEC_KEY = "runner_param_specs"
@@ -419,7 +420,7 @@ class AWSBatchJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             ajs.running = False
             self.monitor_queue.put(ajs)
 
-    def fail_job(self, job_state: JobState, exception: bool = False, message: str = "Job failed", full_status: Union[dict[str, Any], None] = None) -> None:
+    def fail_job(self, job_state: JobState, exception: bool = False, message: str = "Job failed", full_status: dict[str, Any] | None = None) -> None:
         job = job_state.job_wrapper.get_job()
         if job_state.stop_job and job.state != model.Job.states.NEW:
             self.stop_job(job_state.job_wrapper)

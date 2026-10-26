@@ -16,8 +16,10 @@ vi.mock("@/composables/upload/uploadAdvancedMode", () => ({
     useUploadAdvancedMode: () => ({ advancedMode }),
 }));
 
-// Reactive state object for useUserStore mock — storeToRefs expects a reactive object.
-const userStoreState = reactive({ isAnonymous: true });
+// Reactive state object for useUserStore mock. storeToRefs() only picks up a property
+// as a ref if the underlying (pre-reactive-unwrap) value is itself a ref -- which is how
+// Pinia stores their own state -- so a plain boolean property here wouldn't be seen.
+const userStoreState = reactive({ isAnonymous: ref(true) });
 
 vi.mock("@/stores/userStore", () => ({
     useUserStore: () => userStoreState,
@@ -37,6 +39,10 @@ const ALL_METHOD_IDS = Object.keys(uploadMethodRegistry) as Array<keyof typeof u
 const ADVANCED_METHOD_IDS = ALL_METHOD_IDS.filter((id) => uploadMethodRegistry[id].requiresAdvancedMode);
 const STANDARD_METHOD_IDS = ALL_METHOD_IDS.filter((id) => !uploadMethodRegistry[id].requiresAdvancedMode);
 const LOGIN_METHOD_IDS = ALL_METHOD_IDS.filter((id) => uploadMethodRegistry[id].requiresLogin);
+// Every config key a method requires, switched on, so config gating hides nothing under test.
+const ALL_REQUIRED_CONFIG = Object.fromEntries(
+    ALL_METHOD_IDS.flatMap((id) => uploadMethodRegistry[id].requiresConfig ?? []).map((key) => [key, true]),
+);
 
 describe("uploadMethodRegistry", () => {
     describe("getUploadMethod", () => {
@@ -84,6 +90,7 @@ describe("uploadMethodRegistry", () => {
             advancedMode.value = false;
             userStoreState.isAnonymous = true;
             isConfigLoaded.value = true;
+            galaxyConfig.value = ALL_REQUIRED_CONFIG;
         });
 
         it("disables login-required methods when user is anonymous", () => {

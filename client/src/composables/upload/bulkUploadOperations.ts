@@ -92,8 +92,8 @@ function createBooleanBulkOptionState<T extends BulkUploadItem>(items: Ref<T[]>,
  * const bulk = useBulkUploadOperations(items, effectiveExtensions);
  *
  * // Use in template
- * <BFormSelect v-model="bulk.bulkExtension.value" @change="bulk.setAllExtensions">
- * <BFormCheckbox :checked="bulk.allSpaceToTab.value" @change="bulk.toggleAllSpaceToTab">
+ * <GSelect v-model="bulk.bulkExtension.value" @update:model-value="bulk.setAllExtensions">
+ * <GCheckbox :model-value="bulk.allSpaceToTab.value" @change="bulk.toggleAllSpaceToTab">
  * <span v-if="bulk.bulkExtensionWarning">{{ bulk.bulkExtensionWarning }}</span>
  * ```
  *

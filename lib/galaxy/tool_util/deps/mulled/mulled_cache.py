@@ -3,10 +3,6 @@
 import argparse
 import json
 import os
-from typing import (
-    List,
-    Optional,
-)
 
 from galaxy.tool_util.deps.mulled.util import quay_repositories
 
@@ -21,7 +17,7 @@ def write_cache_seed(output: str, namespace: str) -> None:
     os.replace(temporary_output, output)
 
 
-def main(argv: Optional[List[str]] = None) -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="Build a portable seed for Galaxy's mulled resolution cache.")
     parser.add_argument("--namespace", default="biocontainers", help="Quay namespace to index.")
     parser.add_argument("--output", required=True, help="Path to the JSON seed file.")

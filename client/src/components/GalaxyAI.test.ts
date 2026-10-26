@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ref } from "vue";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
+import { Toast } from "@/composables/toast";
 import type { ActiveContext } from "@/composables/useActiveContext";
 import { useChatStore } from "@/stores/chatStore";
 import { usePageEditorStore } from "@/stores/pageEditorStore";
@@ -43,11 +44,9 @@ vi.mock("@/composables/confirmDialog", () => ({
     useConfirmDialog: () => ({ confirm: vi.fn() }),
 }));
 
-const { toastError } = vi.hoisted(() => ({ toastError: vi.fn() }));
+vi.mock("@/composables/toast");
 
-vi.mock("@/composables/toast", () => ({
-    useToast: () => ({ error: toastError, success: vi.fn() }),
-}));
+const toastError = vi.mocked(Toast.error);
 
 vi.mock("@/composables/useEntityMentions", () => ({
     parseMentions: (s: string) => s,
@@ -70,7 +69,7 @@ vi.mock("@/composables/usePageProposals", () => ({
     }),
 }));
 
-vi.mock("vue-router/composables", () => ({
+vi.mock("vue-router", () => ({
     useRoute: () => ({ path: "/", params: {}, query: {} }),
     useRouter: () => ({ push: vi.fn(), replace: vi.fn() }),
 }));
@@ -176,7 +175,7 @@ describe("GalaxyAI fetch operations on mount", () => {
     });
 
     afterEach(() => {
-        lastWrapper?.destroy();
+        lastWrapper?.unmount();
         lastWrapper = null;
         vi.restoreAllMocks();
     });

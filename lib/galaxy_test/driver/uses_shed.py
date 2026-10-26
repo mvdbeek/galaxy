@@ -1,14 +1,17 @@
 import abc
+import logging
 import os
 import shutil
 import string
 import tempfile
 from typing import ClassVar
-from unittest import SkipTest
+
+log = logging.getLogger(__name__)
 
 from galaxy.app import UniverseApplication
+from galaxy.tools.source_store.populator import reconcile_index
 from galaxy.util.tool_shed.tool_shed_registry import DEFAULT_TOOL_SHED_URL
-from galaxy.util.unittest_utils import is_site_up
+from galaxy.util.unittest_utils import raise_skip_if_site_down
 from galaxy_test.base.populators import DEFAULT_TIMEOUT
 from galaxy_test.base.uses_shed_api import UsesShedApi
 from galaxy_test.driver.driver_util import (
@@ -23,7 +26,7 @@ SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
 TOOL_SHEDS_CONF = os.path.join(SCRIPT_DIRECTORY, "tool_sheds_conf.xml")
 
 SHED_TOOL_CONF = string.Template("""<?xml version="1.0"?>
-<toolbox tool_path="$shed_tools_path">
+<toolbox tool_path="$shed_tools_path"$store_attribute>
 </toolbox>""")
 
 SHED_DATA_MANAGER_CONF = """<?xml version="1.0"?>
@@ -41,14 +44,20 @@ class UsesShed(UsesShedApi):
     def _app(self) -> UniverseApplication: ...
 
     shed_tools_dir: ClassVar[str]
+    # Tool source store the shed tool conf routes to (``<toolbox store="...">``).
+    shed_tool_conf_store: ClassVar[str | None] = None
     shed_tool_data_dir: ClassVar[str]
     conda_tmp_prefix: ClassVar[str]
     _test_driver: GalaxyTestDriver
 
     @classmethod
+    def _shed_tool_conf(cls, shed_tools_path: str) -> str:
+        store_attribute = f' store="{cls.shed_tool_conf_store}"' if cls.shed_tool_conf_store else ""
+        return SHED_TOOL_CONF.substitute(shed_tools_path=shed_tools_path, store_attribute=store_attribute)
+
+    @classmethod
     def configure_shed(cls, config):
-        if not is_site_up(DEFAULT_TOOL_SHED_URL):
-            raise SkipTest(f"Test depends on [{DEFAULT_TOOL_SHED_URL}] being up and it appears to be down.")
+        raise_skip_if_site_down(DEFAULT_TOOL_SHED_URL)
         cls.shed_tools_dir = tempfile.mkdtemp()
         cls.shed_tool_data_dir = tempfile.mkdtemp()
         cls._test_driver.temp_directories.extend([cls.shed_tool_data_dir, cls.shed_tools_dir])
@@ -60,7 +69,7 @@ class UsesShed(UsesShedApi):
         config["shed_tool_data_table_config"] = os.path.join(cls.shed_tool_data_dir, "shed_data_table_conf.xml")
         config["shed_tool_data_path"] = cls.shed_tool_data_dir
         with open(shed_tool_config, "w") as tool_conf_file:
-            tool_conf_file.write(SHED_TOOL_CONF.substitute(shed_tools_path=cls.shed_tools_dir))
+            tool_conf_file.write(cls._shed_tool_conf(cls.shed_tools_dir))
         with open(config["shed_data_manager_config_file"], "w") as shed_data_config:
             shed_data_config.write(SHED_DATA_MANAGER_CONF)
         with open(config["shed_tool_data_table_config"], "w") as shed_data_table_config:
@@ -81,7 +90,15 @@ class UsesShed(UsesShedApi):
         os.makedirs(self._app.config.shed_tools_dir)
         self._app.config.shed_tools_dir = self.shed_tools_dir
         with open(self._app.config.shed_tool_config_file, "w") as tool_conf_file:
-            tool_conf_file.write(SHED_TOOL_CONF.substitute(shed_tools_path=self._app.config.shed_tools_dir))
+            tool_conf_file.write(self._shed_tool_conf(self._app.config.shed_tools_dir))
+        # Drop shed-tool index entries that no longer have a backing conf.
+        # The populator is the single writer of the index, so a stale entry
+        # would otherwise survive the ``reload_toolbox`` below: ``CachedToolBox``
+        # only re-runs the populator when discovery turns up a *new* path.
+        try:
+            reconcile_index(self._app.config, app=self._app)
+        except Exception as e:
+            log.warning("reset_shed_tools: reconcile_index raised (continuing): %s", e)
         # deleting the containing folder doesn't trigger a toolbox reload, so signal it now and wait until it's done
         self._app.queue_worker.send_control_task("reload_toolbox", get_response=True)
 

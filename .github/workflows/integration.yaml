@@ -1,30 +1,60 @@
 name: Integration
 on:
   push:
-    paths-ignore:
-      - 'client/**'
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+    paths:
+      - '**'
+      - '!client/**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/integration.yaml'
+      # Test suites and test-only libraries used by other workflows. Code shared
+      # with integration tests belongs in lib/galaxy_test/base.
+      - '!test/unit/**'
+      - '!test/integration_selenium/**'
+      - '!lib/galaxy_test/api/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!lib/galaxy_test/workflow/**'
+      - '!lib/galaxy/selenium/**'
   pull_request:
-    paths-ignore:
-      - 'client/**'
-      - 'doc/**'
-      - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+    paths:
+      - '**'
+      - '!client/**'
+      - '!doc/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!packages/test_selenium/**'
+      - '!.github/workflows/**'
+      - '.github/workflows/integration.yaml'
+      # Test suites and test-only libraries used by other workflows. Code shared
+      # with integration tests belongs in lib/galaxy_test/base.
+      - '!test/unit/**'
+      - '!test/integration_selenium/**'
+      - '!lib/galaxy_test/api/**'
+      - '!lib/galaxy_test/selenium/**'
+      - '!lib/galaxy_test/workflow/**'
+      - '!lib/galaxy/selenium/**'
   schedule:
     # Run at midnight UTC every Tuesday
     - cron: '0 0 * * 2'
+  workflow_dispatch:
 env:
   GALAXY_TEST_RAISE_EXCEPTION_ON_HISTORYLESS_HDA: '1'
   GALAXY_CONFIG_SQLALCHEMY_WARN_20: '1'
   GALAXY_DEPENDENCIES_INSTALL_WEASYPRINT: '1'
   GALAXY_DEPENDENCIES_INSTALL_HTCONDOR: '1'
+  UV_HTTP_RETRIES: '6'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   prepare-mulled-cache:
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
     name: Prepare mulled resolution cache
     runs-on: ubuntu-latest
     steps:
@@ -32,20 +62,21 @@ jobs:
         run: echo "MULLED_CACHE_WEEK=$(date -u +%G-%V)" >> "$GITHUB_ENV"
       - name: Restore Biocontainers repository index
         id: restore-mulled-cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v6.1.0
         with:
           key: biocontainers-repository-index-${{ env.MULLED_CACHE_WEEK }}
           path: '${{ runner.temp }}/mulled-resolution-seed'
       - name: Check out Galaxy for mulled-cache
         if: steps.restore-mulled-cache.outputs.cache-hit != 'true'
-        uses: actions/checkout@v5
+        uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy cache source'
           persist-credentials: false
       - name: Install uv
         if: steps.restore-mulled-cache.outputs.cache-hit != 'true'
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
         with:
+          version-file: galaxy cache source/.tool-versions
           python-version: '3.10'
       - name: Fetch Biocontainers repository index
         id: fetch-mulled-cache
@@ -59,7 +90,7 @@ jobs:
               --output "$SEED_DIRECTORY/biocontainers.json"
       - name: Save Biocontainers repository index
         if: steps.restore-mulled-cache.outputs.cache-hit != 'true' && steps.fetch-mulled-cache.outcome == 'success'
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v6.1.0
         with:
           key: biocontainers-repository-index-${{ env.MULLED_CACHE_WEEK }}
           path: '${{ runner.temp }}/mulled-resolution-seed'
@@ -72,13 +103,18 @@ jobs:
           mkdir -p "$SEED_DIRECTORY"
           echo '{"namespace":"biocontainers","repositories":[]}' > "$SEED_DIRECTORY/biocontainers.json"
       - name: Upload mulled resolution cache seed
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: mulled-resolution-cache-seed
           path: '${{ runner.temp }}/mulled-resolution-seed/biocontainers.json'
           retention-days: 1
 
   test:
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
     name: Test
     needs: prepare-mulled-cache
     runs-on: ubuntu-latest
@@ -152,17 +188,19 @@ jobs:
       - name: Check pods
         if: matrix.lane == 'host-services'
         run: kubectl get pods -A
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy root'
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: galaxy root/.tool-versions
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python
+        run: uv python install
       - name: Download mulled resolution cache seed
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: mulled-resolution-cache-seed
           path: '${{ runner.temp }}/mulled-resolution-seed'
@@ -183,7 +221,7 @@ jobs:
             ./run_tests.sh -integration test/integration -- --num-shards=2 --shard-id=${{ matrix.chunk }} -n 3 --dist loadscope --no-loadscope-reorder
           fi
         working-directory: 'galaxy root'
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7.1.1
         if: github.event_name == 'schedule'
         with:
           flags: integration

@@ -1,11 +1,9 @@
 <script setup lang="ts">
 import { faEdit, faPlay, faRedo, faSitemap, faUpload } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
-import { RouterLink } from "vue-router";
-import { useRouter } from "vue-router/composables";
+import { RouterLink, useRouter } from "vue-router";
 
 import { userOwnsHistory } from "@/api";
 import type { WorkflowInvocationElementView } from "@/api/invocations";
@@ -23,7 +21,9 @@ import GButton from "../BaseComponents/GButton.vue";
 import GButtonGroup from "../BaseComponents/GButtonGroup.vue";
 import AsyncButton from "../Common/AsyncButton.vue";
 import ButtonSpinner from "../Common/ButtonSpinner.vue";
+import NavigationTitle from "../Common/NavigationTitle.vue";
 import LoadingSpan from "../LoadingSpan.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 
 const router = useRouter();
 
@@ -34,6 +34,10 @@ interface Props {
     runWaiting?: boolean;
     success?: boolean;
     validRerun?: boolean;
+    /** Show a collapse/expand toggle in the title bar. */
+    collapsible?: boolean;
+    /** Current collapsed state of the `collapsible` slot. */
+    collapsed?: boolean;
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -42,6 +46,7 @@ const props = withDefaults(defineProps<Props>(), {
 
 const emit = defineEmits<{
     (e: "on-execute"): void;
+    (e: "toggle"): void;
 }>();
 
 const { workflow, loading, error, owned } = useWorkflowInstance(props.workflowId);
@@ -134,28 +139,35 @@ async function rerunWorkflow() {
 
 <template>
     <div>
-        <BAlert v-if="importErrorMessage" variant="danger" dismissible show @dismissed="importErrorMessage = null">
+        <GAlert v-if="importErrorMessage" variant="danger" dismissible show @dismissed="importErrorMessage = null">
             {{ importErrorMessage }}
-        </BAlert>
-        <BAlert v-else-if="importedWorkflow" variant="info" dismissible show @dismissed="importedWorkflow = null">
+        </GAlert>
+        <GAlert v-else-if="importedWorkflow" variant="info" dismissible show @dismissed="importedWorkflow = null">
             <span>
                 Workflow <b>{{ importedWorkflow.name }}</b> imported successfully.
             </span>
             <RouterLink to="/workflows/list">Click here</RouterLink> to view the imported workflow in the workflows
             list.
-        </BAlert>
+        </GAlert>
 
-        <BAlert v-if="error" variant="danger" show>{{ error }}</BAlert>
+        <GAlert v-if="error" variant="danger" show>{{ error }}</GAlert>
 
         <div class="position-relative">
-            <div v-if="workflow" class="bg-secondary px-2 py-1 rounded d-flex flex-gapx-1 justify-content-between">
-                <div class="py-1 align-items-center" data-description="workflow heading">
+            <NavigationTitle
+                v-if="workflow"
+                :icon="faSitemap"
+                heading-description="workflow heading"
+                :collapsible="collapsible"
+                :collapsed="collapsed"
+                @toggle="emit('toggle')">
+                <template v-slot:before-icon>
                     <slot name="before-icon" />
-                    <FontAwesomeIcon class="mr-1" :icon="faSitemap" fixed-width />
+                </template>
+                <template v-slot:title>
                     <b> {{ props.invocation ? "Invoked " : "" }}Workflow: {{ getWorkflowName() }} </b>
                     <span>(Version: {{ workflow.version + 1 }})</span>
-                </div>
-                <div class="d-flex flex-gapx-1 align-self-baseline">
+                </template>
+                <template v-slot:actions>
                     <GButtonGroup data-button-group>
                         <GButton
                             v-if="owned && workflow"
@@ -222,15 +234,18 @@ async function rerunWorkflow() {
                             <span v-localize>Rerun</span>
                         </GButton>
                     </GButtonGroup>
-                </div>
-            </div>
+                </template>
+                <template v-slot:collapsible>
+                    <slot name="collapsible" />
+                </template>
+            </NavigationTitle>
             <div v-if="props.success" class="donemessagelarge">
                 Successfully invoked workflow
                 <b>{{ getWorkflowName() }}</b>
             </div>
-            <BAlert v-else-if="loading" variant="info" show>
+            <GAlert v-else-if="loading" variant="info" show>
                 <LoadingSpan message="Loading workflow details" />
-            </BAlert>
+            </GAlert>
         </div>
     </div>
 </template>

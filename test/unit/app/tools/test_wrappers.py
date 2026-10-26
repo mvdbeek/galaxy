@@ -1,10 +1,16 @@
 import os
 import tempfile
+from types import SimpleNamespace
 from typing import cast
 from unittest.mock import Mock
 
 import pytest
 
+from galaxy.datatypes.data import (
+    Directory,
+    Text,
+    ZarrDirectory,
+)
 from galaxy.datatypes.metadata import MetadataSpecCollection
 from galaxy.job_execution.compute_environment import ComputeEnvironment
 from galaxy.job_execution.datasets import DatasetPath
@@ -19,12 +25,14 @@ from galaxy.tools.parameters.basic import (
     ToolParameter,
 )
 from galaxy.tools.wrappers import (
+    DatasetCollectionWrapper,
     DatasetFilenameWrapper,
     InputValueWrapper,
     RawObjectWrapper,
     SelectToolParameterWrapper,
 )
 from galaxy.util import XML
+from galaxy.util.template import fill_template
 
 
 def with_mock_tool(func):
@@ -210,6 +218,37 @@ def test_dataset_wrapper():
     assert wrapper.ext == MOCK_DATASET_EXT
 
 
+@pytest.mark.parametrize(
+    ("identifier", "expected"),
+    [
+        ("Plain HDA", "Plain_HDA"),
+        ("../sample", "_sample"),
+        (".sample", "sample"),
+        ("---", "_"),
+        ("CON.txt", "_CON.txt"),
+    ],
+)
+def test_dataset_wrapper_safe_element_identifier(identifier, expected):
+    dataset = cast(DatasetInstance, MockDataset())
+    wrapper = DatasetFilenameWrapper(dataset, identifier=identifier)
+    assert wrapper.safe_element_identifier == expected
+
+
+def test_dataset_wrapper_safe_element_identifier_reserves_extension_length():
+    dataset = cast(DatasetInstance, MockDataset())
+    wrapper = DatasetFilenameWrapper(dataset, identifier="a" * 255)
+    filename = f"{wrapper.safe_element_identifier}.{wrapper.file_ext}"
+    assert len(filename) == 255
+
+
+def test_collection_wrapper_safe_element_identifier():
+    wrapper = object.__new__(DatasetCollectionWrapper)
+    wrapper.name = ".sample"
+    assert wrapper.safe_element_identifier == "sample"
+    wrapper.name = None
+    assert wrapper.safe_element_identifier is None
+
+
 def test_dataset_wrapper_false_path():
     dataset = cast(DatasetInstance, MockDataset())
     new_path = "/new/path/dataset_123.dat"
@@ -229,6 +268,12 @@ class MockComputeEnvironment:
         return self.false_path
 
     def input_extra_files_rewrite(self, dataset):
+        return self.false_extra_files_path
+
+    def output_path_rewrite(self, dataset):
+        return self.false_path
+
+    def output_extra_files_rewrite(self, dataset):
         return self.false_extra_files_path
 
     def unstructured_path_rewrite(self, path):
@@ -260,6 +305,125 @@ def test_dataset_false_extra_files_path():
         ),
     )
     assert wrapper.extra_files_path == new_files_path
+
+
+def _dataset_of_type(datatype, has_deferred_data=False):
+    dataset = MockDataset()
+    dataset.datatype = datatype
+    dataset.has_deferred_data = has_deferred_data
+    return cast(DatasetInstance, dataset)
+
+
+REWRITING_COMPUTE_ENVIRONMENT = cast(
+    ComputeEnvironment,
+    MockComputeEnvironment(
+        false_path="/job/inputs/dataset_123.dat", false_extra_files_path="/job/inputs/dataset_123_files"
+    ),
+)
+
+
+def test_dataset_path_of_a_file():
+    wrapper = DatasetFilenameWrapper(_dataset_of_type(Text()), compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    assert wrapper.path == "/job/inputs/dataset_123.dat"
+
+
+def test_dataset_path_of_a_directory_datatype():
+    wrapper = DatasetFilenameWrapper(_dataset_of_type(Directory()), compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    assert wrapper.path == "/job/inputs/dataset_123_files"
+
+
+def test_dataset_path_of_a_zarr_store_in_a_recorded_wrapper_folder():
+    # Zarr datasets created before stores were moved to the root keep them in a subfolder.
+    dataset = _dataset_of_type(ZarrDirectory())
+    dataset.metadata = SimpleNamespace(store_root="wrapped.zarr")
+    wrapper = DatasetFilenameWrapper(dataset, compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    assert wrapper.path == "/job/inputs/dataset_123_files/wrapped.zarr"
+
+
+def test_dataset_path_registers_the_extra_files_for_staging():
+    # Pulsar stages the extra files of every dataset whose extra files path was rewritten, so
+    # $input.path must go through input_extra_files_rewrite rather than build the path itself.
+    compute_environment = Mock(wraps=MockComputeEnvironment(false_path=None, false_extra_files_path="/remote/files"))
+    wrapper = DatasetFilenameWrapper(
+        _dataset_of_type(Directory()), compute_environment=cast(ComputeEnvironment, compute_environment)
+    )
+    assert wrapper.path == "/remote/files"
+    compute_environment.input_extra_files_rewrite.assert_called_once()
+
+
+def test_dataset_path_of_a_directory_output():
+    wrapper = DatasetFilenameWrapper(_dataset_of_type(Directory()), io_type="output")
+    assert wrapper.path == MOCK_DATASET_EXTRA_FILES_PATH
+
+
+def test_dataset_path_of_a_directory_output_ignores_a_copied_store_root():
+    # metadata_source="input" copies store_root from an older input, but new outputs have their content at the root.
+    dataset = _dataset_of_type(ZarrDirectory())
+    dataset.metadata = SimpleNamespace(store_root="wrapped.zarr")
+    compute_environment = MockComputeEnvironment(
+        false_path=None, false_extra_files_path="/job/outputs/dataset_123_files"
+    )
+    wrapper = DatasetFilenameWrapper(
+        dataset, compute_environment=cast(ComputeEnvironment, compute_environment), io_type="output"
+    )
+    assert wrapper.path == "/job/outputs/dataset_123_files"
+
+
+def test_dataset_path_of_a_zarr_store_in_a_folder_named_with_spaces():
+    dataset = _dataset_of_type(ZarrDirectory())
+    dataset.metadata = SimpleNamespace(store_root="my store (1).zarr")
+    wrapper = DatasetFilenameWrapper(dataset, compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    assert wrapper.path == "/job/inputs/dataset_123_files/my store (1).zarr"
+
+
+def test_dataset_path_rejects_a_store_root_with_shell_syntax():
+    dataset = _dataset_of_type(ZarrDirectory())
+    dataset.metadata = SimpleNamespace(store_root="a';touch pwned;'.zarr")
+    wrapper = DatasetFilenameWrapper(dataset, compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    with pytest.raises(ValueError, match="cannot be passed to a tool"):
+        _ = wrapper.path
+
+
+def test_dataset_path_of_a_deferred_dataset_is_an_error():
+    wrapper = DatasetFilenameWrapper(_dataset_of_type(Directory(), has_deferred_data=True))
+    with pytest.raises(ValueError, match="is_deferred"):
+        _ = wrapper.path
+
+
+def test_dataset_path_of_a_missing_optional_input_is_an_error():
+    # An empty value would turn '$input.path'/sub into an absolute path.
+    registry = Mock()
+    registry.get_datatype_by_extension.return_value = Text()
+    wrapper = DatasetFilenameWrapper(None, datatypes_registry=registry)
+    with pytest.raises(ValueError, match="not set"):
+        _ = wrapper.path
+
+
+def test_dataset_path_store_root_error_reaches_the_command_line_template():
+    dataset = _dataset_of_type(ZarrDirectory())
+    dataset.metadata = SimpleNamespace(store_root="a';touch pwned;'.zarr")
+    wrapper = DatasetFilenameWrapper(dataset, compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    with pytest.raises(ValueError, match="cannot be passed to a tool"):
+        fill_template("ls '$input.path'", context={"input": wrapper})
+
+
+def test_dataset_path_rejects_a_store_root_that_runs_a_command_when_unquoted():
+    dataset = _dataset_of_type(ZarrDirectory())
+    dataset.metadata = SimpleNamespace(store_root="a;id;.zarr")
+    wrapper = DatasetFilenameWrapper(dataset, compute_environment=REWRITING_COMPUTE_ENVIRONMENT)
+    with pytest.raises(ValueError, match="cannot be passed to a tool"):
+        fill_template("cp -r $input.path/. out", context={"input": wrapper})
+
+
+def test_dataset_path_error_reaches_the_command_line_template():
+    dataset = _dataset_of_type(Directory(), has_deferred_data=True)
+    cast(MockDataset, dataset).deferred_source_uri = "https://example.org/store.zarr"
+    wrapper = DatasetFilenameWrapper(dataset)
+    with pytest.raises(ValueError, match="is_deferred"):
+        fill_template("cat '$input.path'", context={"input": wrapper})
+    # The documented guard keeps the template working.
+    template = "#if $input.is_deferred\n$input\n#else\n$input.path\n#end if"
+    assert fill_template(template, context={"input": wrapper}).strip() == "https://example.org/store.zarr"
 
 
 def _drilldown_parameter(tool):
@@ -303,10 +467,14 @@ class MockDataset:
         self.metadata = MetadataSpecCollection({})
         self.extra_files_path = MOCK_DATASET_EXTRA_FILES_PATH
         self.ext = MOCK_DATASET_EXT
+        self.extension = MOCK_DATASET_EXT
+        self.datatype = Mock(file_ext_export_alias=MOCK_DATASET_EXT)
         self.tags = []
         self.has_deferred_data = False
+        self.deferred_source_uri: str | None = None
+        self.id = 123
 
-    def get_file_name(self, sync_cache=True):
+    def get_file_name(self, sync_cache=True, auth=None):
         return MOCK_DATASET_PATH
 
 

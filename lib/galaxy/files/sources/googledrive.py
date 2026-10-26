@@ -9,8 +9,6 @@ except ImportError:
 from datetime import datetime
 from typing import (
     Annotated,
-    Optional,
-    Union,
 )
 
 from fsspec import AbstractFileSystem
@@ -31,11 +29,11 @@ from ._fsspec import (
     FsspecFilesSource,
 )
 
-GalaxyGoogleDriveFileSystem: Optional[type[AbstractFileSystem]]
+GalaxyGoogleDriveFileSystem: type[AbstractFileSystem] | None
 
 if GoogleDriveFileSystem is not None:
 
-    class _GalaxyGoogleDriveFileSystem(GoogleDriveFileSystem):
+    class _GalaxyGoogleDriveFileSystem(GoogleDriveFileSystem):  # type: ignore[misc]  # fsspec is untyped
         def __init__(self, access_token: str, **kwargs):
             self._galaxy_credentials = Credentials(token=access_token)
             super().__init__(token="galaxy", **kwargs)
@@ -66,7 +64,7 @@ AccessTokenField = Field(
 
 
 class GoogleDriveFileSourceTemplateConfiguration(FsspecBaseFileSourceTemplateConfiguration):
-    access_token: Annotated[Union[str, TemplateExpansion], AccessTokenField]
+    access_token: Annotated[str | TemplateExpansion, AccessTokenField]
 
 
 class GoogleDriveFilesSourceConfiguration(FsspecBaseFileSourceConfiguration):

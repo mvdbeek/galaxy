@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BAlert, BCardGroup } from "bootstrap-vue";
+import { BCardGroup } from "bootstrap-vue";
 import { computed, ref } from "vue";
 
 import { GalaxyApi } from "@/api";
@@ -36,6 +36,7 @@ import SourceFromPastedData from "./wizard/SourceFromPastedData.vue";
 import SourceFromRemoteFiles from "./wizard/SourceFromRemoteFiles.vue";
 import SourceFromWorkbook from "./wizard/SourceFromWorkbook.vue";
 import UploadFetchWorkbook from "./wizard/UploadFetchWorkbook.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GenericWizard from "@/components/Common/Wizard/GenericWizard.vue";
 import RuleCollectionBuilder from "@/components/RuleCollectionBuilder.vue";
 
@@ -258,29 +259,38 @@ const {
 </script>
 
 <template>
-    <GenericWizard :use="wizard" :submit-button-label="importButtonLabel" :title="title" @submit="submit">
+    <GenericWizard
+        :use="wizard"
+        :submit-button-label="importButtonLabel"
+        :title="title"
+        class="rule-based-import-wizard"
+        @submit="submit">
         <template v-slot:header>
-            <BAlert
+            <GAlert
                 :show="!!uploadErrorMessage"
                 variant="danger"
                 class="my-2"
                 dismissible
                 @dismissed="uploadErrorMessage = ''">
                 {{ uploadErrorMessage }}
-            </BAlert>
+            </GAlert>
             <h2 data-galaxy-file-drop-target>
                 {{ title }}
-                <a v-g-tooltip.hover aria-label="Upload Completed Workbook" :title="dropWorkbookTitle" href="#">
-                    <FontAwesomeIcon
-                        class="workbook-upload-helper mr-1"
-                        :class="dropZoneClasses"
-                        :icon="faUpload"
-                        @click.prevent="browseFiles"
-                        @drop.prevent="handleDrop"
-                        @dragover.prevent="isDragging = true"
-                        @dragleave.prevent="isDragging = false" />
+                <a
+                    v-g-tooltip.hover
+                    aria-label="Upload Completed Workbook"
+                    :title="dropWorkbookTitle"
+                    href="#"
+                    @click.prevent="browseFiles"
+                    @drop.prevent="handleDrop"
+                    @dragover.prevent="isDragging = true"
+                    @dragleave.prevent="isDragging = false">
+                    <FontAwesomeIcon class="workbook-upload-helper mr-1" :class="dropZoneClasses" :icon="faUpload" />
                 </a>
-                <HiddenWorkbookUploadInput ref="uploadRef" @onFileUpload="onFileUpload" />
+                <HiddenWorkbookUploadInput
+                    ref="uploadRef"
+                    data-description="workbook shortcut file input"
+                    @onFileUpload="onFileUpload" />
             </h2>
         </template>
         <div v-if="wizard.isCurrent('select-what')">

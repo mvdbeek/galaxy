@@ -4,8 +4,6 @@ import { describe, expect, it } from "vitest";
 
 import JobsTable from "./JobsTable.vue";
 
-const localVue = getLocalVue();
-
 const fields = [
     { key: "id", label: "Job ID" },
     { key: "update_time", label: "Last Update", sortable: true },
@@ -18,15 +16,15 @@ const items = [
 ];
 
 function mountJobsTable() {
+    const globalConfig = getLocalVue();
     return mount(JobsTable as object, {
-        propsData: { tableCaption: "Unfinished Jobs", fields, items, busy: false },
-        localVue,
-        stubs: { UtcDate: true, JobDetails: true },
+        props: { tableCaption: "Unfinished Jobs", fields, items, busy: false },
+        global: { ...globalConfig, stubs: { ...globalConfig.stubs, UtcDate: true, JobDetails: true } },
     });
 }
 
 function renderedJobIds(wrapper: ReturnType<typeof mountJobsTable>) {
-    return wrapper.findAll("tbody tr[id^='g-table-row-'] td:first-child").wrappers.map((td) => td.text());
+    return wrapper.findAll("tbody tr[id^='g-table-row-'] td:first-child").map((td) => td.text());
 }
 
 describe("JobsTable", () => {
@@ -37,7 +35,7 @@ describe("JobsTable", () => {
 
     it("toggles to oldest first when the Last Update header is clicked", async () => {
         const wrapper = mountJobsTable();
-        await wrapper.findAll("thead th").at(1).trigger("click");
+        await wrapper.findAll("thead th")[1]!.trigger("click");
         expect(renderedJobIds(wrapper)).toEqual(["older", "newer"]);
     });
 });

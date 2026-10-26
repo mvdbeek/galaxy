@@ -8,10 +8,6 @@ from copy import deepcopy
 from pathlib import Path
 from typing import (
     Any,
-    Dict,
-    List,
-    Optional,
-    Tuple,
 )
 
 import pytest
@@ -46,7 +42,7 @@ FENCED_BLOCK = re.compile(r"```(?P<language>\w+)\n(?P<source>.*?)\n```", re.DOTA
 HELP_TERM_LINK = re.compile(r"\[[^\]]+\]\(gxhelp://(?P<term>[^)]+)\)")
 INPUT_REFERENCE = re.compile(r"inputs\.([A-Za-z_][A-Za-z0-9_]*)(\.path)?")
 KNOWN_FENCE_LANGUAGES = {"console", "json", "yaml"}
-BASE_TOOL: Dict[str, Any] = {
+BASE_TOOL: dict[str, Any] = {
     "class": "GalaxyUserTool",
     "id": "documentation-example",
     "name": "Documentation Example",
@@ -56,7 +52,7 @@ BASE_TOOL: Dict[str, Any] = {
     "inputs": [],
     "outputs": [],
 }
-PARAMETER_RUNTIME_INPUTS: Dict[str, Any] = {
+PARAMETER_RUNTIME_INPUTS: dict[str, Any] = {
     "include_header": True,
     "plot_color": "#ff0000",
     "search_options": {"mode": "sensitive", "iterations": 3},
@@ -79,7 +75,7 @@ PARAMETER_RUNTIME_INPUTS: Dict[str, Any] = {
 }
 
 
-def _help_data() -> Dict[str, Any]:
+def _help_data() -> dict[str, Any]:
     help_data = yaml.safe_load(HELP_PATH.read_text())
     quick_start = yaml.safe_dump(UserToolSource.model_json_schema()["examples"][0], sort_keys=False).rstrip()
     for section in help_data["sections"]:
@@ -87,7 +83,7 @@ def _help_data() -> Dict[str, Any]:
     return help_data
 
 
-def _blocks(language: str) -> List[Tuple[str, str]]:
+def _blocks(language: str) -> list[tuple[str, str]]:
     return [
         (section["id"], match.group("source"))
         for section in _help_data()["sections"]
@@ -107,13 +103,13 @@ JSON_BLOCKS = _blocks("json")
 CONSOLE_BLOCKS = _blocks("console")
 
 
-def _add_input(tool_dict: Dict[str, Any], name: str, parameter_type: str) -> None:
+def _add_input(tool_dict: dict[str, Any], name: str, parameter_type: str) -> None:
     inputs = tool_dict.setdefault("inputs", [])
     if not any(parameter["name"] == name for parameter in inputs):
         inputs.append({"name": name, "type": parameter_type})
 
 
-def _supply_fragment_context(tool_dict: Dict[str, Any]) -> None:
+def _supply_fragment_context(tool_dict: dict[str, Any]) -> None:
     templated_text = [tool_dict.get("shell_command", "")]
     templated_text.extend(configfile.get("content", "") for configfile in tool_dict.get("configfiles") or [])
     for text in templated_text:
@@ -143,8 +139,8 @@ def _tool_from_fragment(section_id: str, source: str) -> UserToolSource:
     return UserToolSource.model_validate(tool_dict)
 
 
-def _runtime_inputs(tool: UserToolSource) -> Dict[str, Any]:
-    values: Dict[str, Any] = {}
+def _runtime_inputs(tool: UserToolSource) -> dict[str, Any]:
+    values: dict[str, Any] = {}
     for parameter_wrapper in tool.inputs:
         parameter = parameter_wrapper.root
         if parameter.type == "data":
@@ -160,16 +156,16 @@ def _runtime_inputs(tool: UserToolSource) -> Dict[str, Any]:
     return values
 
 
-def _javascript_requirements(tool: UserToolSource) -> List[JavascriptRequirement]:
+def _javascript_requirements(tool: UserToolSource) -> list[JavascriptRequirement]:
     return [requirement for requirement in tool.requirements or [] if isinstance(requirement, JavascriptRequirement)]
 
 
 def _do_eval(
     expression: str,
     jobinput: CWLObjectType,
-    javascript_requirements: Optional[List[JavascriptRequirement]] = None,
+    javascript_requirements: list[JavascriptRequirement] | None = None,
 ):
-    requirements: List[CWLObjectType] = []
+    requirements: list[CWLObjectType] = []
     for requirement in javascript_requirements or []:
         if expression_lib := requirement.expression_lib:
             requirements.append({"class": "InlineJavascriptRequirement", "expressionLib": expression_lib})  # type: ignore[dict-item]

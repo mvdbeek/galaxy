@@ -20,9 +20,9 @@ from galaxy.files.sources.elabftw import (
     MAX_ITEMS_PER_PAGE,
     remote_entry_sort_key,
 )
-from galaxy.util.unittest_utils.mock_http_server import (
-    MockHTTPRequestHandler,
+from galaxy.util.unittest_utils.test_http_server import (
     Route,
+    TestHTTPRequestHandler,
 )
 
 EXPERIMENTS_PAGE = f"/api/v2/experiments?order=id&sort=asc&limit={MAX_ITEMS_PER_PAGE}&offset=0"
@@ -60,7 +60,7 @@ def _elabftw_file_source(endpoint: str) -> eLabFTWFilesSource:
 
 def _serve_json(monkeypatch: pytest.MonkeyPatch, path: str, content: Any) -> None:
     monkeypatch.setitem(
-        MockHTTPRequestHandler.routes,
+        TestHTTPRequestHandler.routes,
         path,
         Route(body=json.dumps(content).encode(), headers={"Content-Type": "application/json"}),
     )
@@ -70,9 +70,9 @@ def _serve_uploads(monkeypatch: pytest.MonkeyPatch, uploads: list[dict]) -> None
     _serve_json(monkeypatch, "/api/v2/experiments/1", {"uploads": uploads})
 
 
-def test_list_attachments(mock_http_server, monkeypatch, non_utc_local_time):
+def test_list_attachments(test_http_server, monkeypatch, non_utc_local_time):
     _serve_uploads(monkeypatch, [{"id": 2, "real_name": "b.txt", "filesize": 10, "created_at": "2024-01-15 10:00:00"}])
-    entries, count = _elabftw_file_source(mock_http_server.base_url).list("/experiments/1")
+    entries, count = _elabftw_file_source(test_http_server.base_url).list("/experiments/1")
     assert count == 1
     (entry,) = entries
     assert isinstance(entry, RemoteFile)
@@ -84,9 +84,9 @@ def test_list_attachments(mock_http_server, monkeypatch, non_utc_local_time):
     )
 
 
-def test_list_entities(mock_http_server, monkeypatch):
+def test_list_entities(test_http_server, monkeypatch):
     _serve_json(monkeypatch, EXPERIMENTS_PAGE, [{"id": 2, "title": "Second"}, {"id": 1, "title": "First"}])
-    entries, count = _elabftw_file_source(mock_http_server.base_url).list("/experiments")
+    entries, count = _elabftw_file_source(test_http_server.base_url).list("/experiments")
     assert count == 2
     assert all(isinstance(entry, RemoteDirectory) for entry in entries)
     assert [(entry.name, entry.path) for entry in entries] == [
@@ -119,7 +119,7 @@ def test_remote_entry_sort_key(sort_by, expected):
         ("ctime", ["a.txt", "b.txt", "c.txt"]),
     ],
 )
-def test_list_sorts_attachments(mock_http_server, monkeypatch, sort_by, expected_names):
+def test_list_sorts_attachments(test_http_server, monkeypatch, sort_by, expected_names):
     _serve_uploads(
         monkeypatch,
         [
@@ -128,16 +128,16 @@ def test_list_sorts_attachments(mock_http_server, monkeypatch, sort_by, expected
             {"id": 3, "real_name": "b.txt", "filesize": 1, "created_at": "2024-06-15 10:00:00"},
         ],
     )
-    entries, _ = _elabftw_file_source(mock_http_server.base_url).list("/experiments/1", sort_by=sort_by)
+    entries, _ = _elabftw_file_source(test_http_server.base_url).list("/experiments/1", sort_by=sort_by)
     assert [entry.name for entry in entries] == expected_names
 
 
-def test_list_entities_sorted_by_name_pages_by_id(mock_http_server, monkeypatch):
+def test_list_entities_sorted_by_name_pages_by_id(test_http_server, monkeypatch):
     _serve_json(monkeypatch, EXPERIMENTS_PAGE, [{"id": 1, "title": "Zeta"}, {"id": 2, "title": "Alpha"}])
-    entries, _ = _elabftw_file_source(mock_http_server.base_url).list("/experiments", sort_by="name")
+    entries, _ = _elabftw_file_source(test_http_server.base_url).list("/experiments", sort_by="name")
     assert [entry.name for entry in entries] == ["Alpha", "Zeta"]
 
 
-def test_list_rejects_unknown_sort_by(mock_http_server):
+def test_list_rejects_unknown_sort_by(test_http_server):
     with pytest.raises(RequestParameterInvalidException):
-        _elabftw_file_source(mock_http_server.base_url).list("/", sort_by="hashes")
+        _elabftw_file_source(test_http_server.base_url).list("/", sort_by="hashes")

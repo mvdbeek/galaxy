@@ -74,6 +74,16 @@ _HOLD_CODE_PERIODIC = 16
 # TerminatedNormally=False and TermSignal=9.
 _SIGKILL = 9
 
+# The job handler's stop queue moves DELETING/STOPPING jobs to DELETED/STOPPED
+# and calls stop_job() before committing, so the monitor thread can observe the
+# condor_rm (or a completion or hold) while the job is still DELETING/STOPPING.
+_USER_DELETED_STATES = (model.Job.states.DELETED, model.Job.states.DELETING)
+_USER_CANCELLED_STATES = (
+    *_USER_DELETED_STATES,
+    model.Job.states.STOPPED,
+    model.Job.states.STOPPING,
+)
+
 _MEMORY_LIMIT_HOLD_MSG = (
     "This job was held by HTCondor because it exceeded its requested memory. "
     "Consider increasing request_memory or routing to a destination with more memory."
@@ -364,8 +374,7 @@ class _HTCondorSubprocessClient(_HTCondorClient):
 
     def _helper_failure_message_locked(self, message: str) -> str:
         # Stderr is consumed by the drain thread and buffered in _stderr_lines.
-        recent = "\n".join(list(self._stderr_lines)[-10:]).strip()
-        if recent:
+        if recent := "\n".join(list(self._stderr_lines)[-10:]).strip():
             return f"{message}: {recent}"
         return message
 
@@ -642,12 +651,7 @@ class HTCondorJobRunner(AsynchronousJobRunner[HTCondorJobState]):
 
             if summary.log_missing:
                 job_state = cjs.job_wrapper.get_state()
-                if job_state in (
-                    model.Job.states.DELETED,
-                    model.Job.states.DELETING,
-                    model.Job.states.STOPPED,
-                    model.Job.states.STOPPING,
-                ):
+                if job_state in _USER_CANCELLED_STATES:
                     log.debug(f"({galaxy_id_tag}/{job_id}) job {job_state} while log was missing, stopping watch")
                     continue
                 cjs.missing_log_count += 1
@@ -688,26 +692,29 @@ class HTCondorJobRunner(AsynchronousJobRunner[HTCondorJobState]):
 
             job_state = cjs.job_wrapper.get_state()
             if job_complete or job_state == model.Job.states.STOPPED:
-                if job_state != model.Job.states.DELETED:
+                if job_state not in _USER_DELETED_STATES:
                     # A SIGKILL on a non-user-stopped job is most likely an OOM kill.
-                    if term_signal == _SIGKILL and job_state != model.Job.states.STOPPED:
+                    if term_signal == _SIGKILL and job_state not in (
+                        model.Job.states.STOPPED,
+                        model.Job.states.STOPPING,
+                    ):
                         log.info(f"({galaxy_id_tag}/{job_id}) job killed by signal 9, likely OOM")
                         cjs.fail_message = _SIGKILL_MSG
                         cjs.runner_state = runner_states.MEMORY_LIMIT_REACHED
                         cjs.close_event_log()
                         self.work_queue.put((self.fail_job, cjs))
                         continue
-                    external_metadata = not asbool(
-                        cjs.job_wrapper.job_destination.params.get("embed_metadata_in_job", True)
-                    )
-                    if external_metadata:
-                        self._handle_metadata_externally(cjs.job_wrapper, resolve_requirements=True)
                     log.debug(f"({galaxy_id_tag}/{job_id}) job has completed")
                     cjs.close_event_log()
                     self.work_queue.put((self.finish_job, cjs))
                 continue
             if failure_event is not None:
-                if job_state == model.Job.states.DELETED:
+                if job_state in _USER_DELETED_STATES:
+                    continue
+                if job_state == model.Job.states.STOPPING:
+                    # Keep watching: once the stop queue commits STOPPED, the
+                    # next cycle finishes the job like any other stopped job.
+                    new_watched.append(cjs)
                     continue
                 log.debug(f"({galaxy_id_tag}/{job_id}) job failed")
                 cjs.failed = True
@@ -716,16 +723,12 @@ class HTCondorJobRunner(AsynchronousJobRunner[HTCondorJobState]):
                 self.work_queue.put((self.fail_job, cjs))
                 continue
             if job_held:
-                if job_state not in (
-                    model.Job.states.DELETED,
-                    model.Job.states.STOPPED,
-                ):
+                if job_state not in _USER_CANCELLED_STATES:
                     # Classify the hold by HoldReasonCode before applying the
                     # generic held_count escalation logic.
                     if hold_reason_code in _HOLD_CODE_MEMORY:
                         log.info(
-                            f"({galaxy_id_tag}/{job_id}) job held for memory limit "
-                            f"(HoldReasonCode={hold_reason_code})"
+                            f"({galaxy_id_tag}/{job_id}) job held for memory limit (HoldReasonCode={hold_reason_code})"
                         )
                         cjs.fail_message = _MEMORY_LIMIT_HOLD_MSG
                         cjs.runner_state = runner_states.MEMORY_LIMIT_REACHED

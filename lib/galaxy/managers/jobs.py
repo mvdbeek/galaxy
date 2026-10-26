@@ -11,10 +11,8 @@ from pathlib import Path
 from typing import (
     Any,
     cast,
-    Optional,
     TYPE_CHECKING,
     TypeVar,
-    Union,
 )
 
 import sqlalchemy
@@ -47,12 +45,17 @@ from galaxy.exceptions import (
     RequestParameterInvalidException,
     RequestParameterMissingException,
 )
+from galaxy.job_execution.setup import JobWorkingDirectory
 from galaxy.job_metrics import (
     RawMetric,
     Safety,
 )
 from galaxy.managers.collections import DatasetCollectionManager
-from galaxy.managers.context import ProvidesUserContext
+from galaxy.managers.context import (
+    ProvidesAppContext,
+    ProvidesHistoryContext,
+    ProvidesUserContext,
+)
 from galaxy.managers.datasets import DatasetManager
 from galaxy.managers.hdas import (
     dereference_input_to_hda,
@@ -106,6 +109,7 @@ from galaxy.tool_util.parameters import (
     dereference,
     RequestInternalDereferencedToolState,
     RequestInternalToolState,
+    restore_non_finite_floats,
     ToolParameterBundleModel,
 )
 from galaxy.tools import Tool
@@ -137,7 +141,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 JobStateT = str
-JobStatesT = Union[JobStateT, Iterable[JobStateT]]
+JobStatesT = JobStateT | Iterable[JobStateT]
 
 
 STDOUT_LOCATION = "outputs/tool_stdout"
@@ -148,7 +152,7 @@ class JobLock(BaseModel):
     active: bool = Field(title="Job lock status", description="If active, jobs will not dispatch")
 
 
-def get_path_key(path_tuple: tuple):
+def get_path_key(path_tuple: tuple[str | int, ...]) -> str:
     path_key = ""
     tuple_elements = len(path_tuple)
     for i, p in enumerate(path_tuple):
@@ -163,11 +167,11 @@ def get_path_key(path_tuple: tuple):
         if path_key:
             path_key = f"{path_key}{sep}{p}"
         else:
-            path_key = p
+            path_key = str(p)
     return path_key
 
 
-def safe_label_or_none(label: str) -> Optional[str]:
+def safe_label_or_none(label: str) -> str | None:
     if len(label) > 63:
         return None
     return label
@@ -371,7 +375,7 @@ class JobManager:
         trans.sa_session.refresh(job)
         return job
 
-    def _user_can_access_job(self, job: Job, user: Optional[User]) -> bool:
+    def _user_can_access_job(self, job: Job, user: User | None) -> bool:
         has_outputs = bool(job.output_datasets) or bool(job.output_dataset_collection_instances)
         if has_outputs:
             datasets_ok = all(
@@ -387,7 +391,7 @@ class JobManager:
         return job.history is not None and self.history_manager.is_accessible(job.history, user)
 
     def get_job_console_output(
-        self, trans, job, stdout_position=-1, stdout_length=0, stderr_position=-1, stderr_length=0
+        self, trans: ProvidesAppContext, job, stdout_position=-1, stdout_length=0, stderr_position=-1, stderr_length=0
     ):
         if job is None:
             raise ObjectNotFound()
@@ -401,9 +405,7 @@ class JobManager:
         console_output = {}
         console_output["state"] = job.state
         if job.state == job.states.RUNNING:
-            working_directory = trans.app.object_store.get_filename(
-                job, base_dir="job_work", dir_only=True, obj_dir=True
-            )
+            working_directory = JobWorkingDirectory(job, trans.app.object_store).resolve()
             if stdout_length > -1 and stdout_position > -1:
                 try:
                     stdout_path = Path(working_directory) / STDOUT_LOCATION
@@ -479,21 +481,21 @@ class JobSearch:
         self,
         user: User,
         tool_id: str,
-        tool_version: Optional[str],
+        tool_version: str | None,
         param: ToolStateJobInstancePopulatedT,
         param_dump: ToolStateDumpedToJsonInternalT,
-        job_state: Optional[JobStatesT] = (Job.states.OK,),
-        history_id: Union[int, None] = None,
+        job_state: JobStatesT | None = (Job.states.OK,),
+        history_id: int | None = None,
         require_name_match: bool = True,
-    ) -> Union[Job, None]:
+    ) -> Job | None:
         """Search for jobs producing same results using the 'inputs' part of a tool POST."""
-        input_data: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+        input_data: dict[str, list[dict[str, Any]]] = defaultdict(list)
 
-        def populate_input_data_input_id(path: tuple, key, value) -> tuple[Any, Any]:
+        def populate_input_data_input_id(path: tuple[str | int, ...], key, value) -> tuple[Any, Any]:
             """Traverses expanded incoming using remap and collects input_ids and input_data."""
             if key == "id":
                 path_key = get_path_key(path[:-2])
-                current_case = param_dump
+                current_case: Any = param_dump
                 for p in path:
                     current_case = current_case[p]
                 src = current_case.get("src")
@@ -502,13 +504,17 @@ class JobSearch:
                     # TODO: dispatch on tool parameter type instead of values,
                     # maybe with tool state variant
                     return key, value
-                current_case = param
+                current_param: Any = param
                 for i, p in enumerate(path):
                     if p == "values" and i == len(path) - 2:
                         continue
-                    if isinstance(current_case, (list, dict)):
-                        current_case = current_case[p]
-                identifier = getattr(current_case, "element_identifier", None)
+                    if isinstance(current_param, list):
+                        # A list level's path element is always its (int) index.
+                        assert isinstance(p, int)
+                        current_param = current_param[p]
+                    elif isinstance(current_param, dict):
+                        current_param = current_param[p]
+                identifier = getattr(current_param, "element_identifier", None)
                 input_data[path_key].append(
                     {
                         "src": src,
@@ -535,15 +541,15 @@ class JobSearch:
     def __search(
         self,
         tool_id: str,
-        tool_version: Optional[str],
+        tool_version: str | None,
         user: model.User,
-        input_data: dict[Any, list[dict[str, Any]]],
-        job_state: Optional[JobStatesT],
+        input_data: dict[str, list[dict[str, Any]]],
+        job_state: JobStatesT | None,
         param_dump: ToolStateDumpedToJsonInternalT,
         wildcard_param_dump=None,
-        history_id: Union[int, None] = None,
+        history_id: int | None = None,
         require_name_match: bool = True,
-    ) -> Union[Job, None]:
+    ) -> Job | None:
         search_timer = ExecutionTimer()
 
         def replace_dataset_ids(path, key, value):
@@ -679,10 +685,10 @@ class JobSearch:
         stmt: "Select[tuple[int]]",
         tool_id: str,
         user_id: int,
-        tool_version: Optional[str],
-        job_state: Union[JobStatesT, None],
+        tool_version: str | None,
+        job_state: JobStatesT | None,
         wildcard_param_dump,
-        history_id: Union[int, None],
+        history_id: int | None,
     ) -> "Select[tuple[int]]":
         """Build subquery that selects a job with correct job parameters."""
         # Apply job-level filters BEFORE the CTE so they are included in the
@@ -694,7 +700,7 @@ class JobSearch:
                 model.Job.tool_id == tool_id,
                 or_(
                     model.Job.user_id == user_id,
-                    model.History.published == true(),
+                    and_(model.History.published == true(), model.Job.imported.isnot(True)),
                 ),
                 model.Job.copied_from_job_id.is_(None),  # Always pick original job
             )
@@ -812,8 +818,8 @@ class JobSearch:
         stmt: "Select[tuple[int]]",
         data_conditions: list["ColumnElement[bool]"],
         used_ids: list["Label[int] | Label[int | None]"],
-        k,
-        v,
+        k: str,
+        v: int,
         identifier,
         value_index: int,
         require_name_match: bool = True,
@@ -879,8 +885,8 @@ class JobSearch:
         stmt: "Select[tuple[int]]",
         data_conditions: list["ColumnElement[bool]"],
         used_ids: list["Label[int] | Label[int | None]"],
-        k,
-        v,
+        k: str,
+        v: int,
         value_index: int,
     ) -> "Select[tuple[int]]":
         a = aliased(model.JobToInputLibraryDatasetAssociation)
@@ -916,8 +922,8 @@ class JobSearch:
         stmt: "Select[tuple[int]]",
         data_conditions: list["ColumnElement[bool]"],
         used_ids: list["Label[int] | Label[int | None]"],
-        k,
-        v,
+        k: str,
+        v: int,
         user_id: int,
         value_index: int,
     ) -> "Select[tuple[int]]":
@@ -1565,7 +1571,7 @@ class JobSearch:
             return stmt
 
 
-def view_show_job(trans, job: Job, full: bool) -> dict:
+def view_show_job(trans: ProvidesUserContext, job: Job, full: bool) -> dict:
     is_admin = trans.user_is_admin
     job_dict = job.to_dict("element", system_details=is_admin)
     if trans.app.config.expose_dataset_path and "command_line" not in job_dict:
@@ -1650,7 +1656,7 @@ def _get_direct_job_metrics(sa_session: galaxy_scoped_session, invocation_id: in
 def _get_job_metrics_recursive(
     sa_session: galaxy_scoped_session,
     invocation_id: int,
-    parent_step_prefix: Optional[str] = None,
+    parent_step_prefix: str | None = None,
 ):
     """
     Recursively get job metrics including subworkflows.
@@ -1905,7 +1911,7 @@ class JobsSummary(TypedDict):
     id: int
 
 
-def summarize_jobs_to_dict(sa_session, jobs_source) -> Optional[JobsSummary]:
+def summarize_jobs_to_dict(sa_session, jobs_source) -> JobsSummary | None:
     """Produce a summary of jobs for job summary endpoints.
 
     :type   jobs_source: a Job or ImplicitCollectionJobs or None
@@ -1914,7 +1920,7 @@ def summarize_jobs_to_dict(sa_session, jobs_source) -> Optional[JobsSummary]:
     :rtype:     dict
     :returns:   dictionary containing job summary information
     """
-    rval: Optional[JobsSummary] = None
+    rval: JobsSummary | None = None
     if jobs_source is None:
         pass
     elif isinstance(jobs_source, model.Job):
@@ -1948,7 +1954,7 @@ def summarize_jobs_to_dict(sa_session, jobs_source) -> Optional[JobsSummary]:
     return rval
 
 
-def summarize_job_metrics(trans, job):
+def summarize_job_metrics(trans: ProvidesUserContext, job):
     """Produce a dict-ified version of job metrics ready for tabular rendering.
 
     Precondition: the caller has verified the job is accessible to the user
@@ -1975,7 +1981,7 @@ def summarize_metrics(trans: ProvidesUserContext, job_metrics):
     return [d.dict() for d in dictifiable_metrics]
 
 
-def summarize_destination_params(trans, job):
+def summarize_destination_params(trans: ProvidesUserContext, job):
     """Produce a dict-ified version of job destination parameters ready for tabular rendering.
 
     Precondition: the caller has verified the job is accessible to the user
@@ -1992,7 +1998,7 @@ def summarize_destination_params(trans, job):
     return destination_params
 
 
-def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, Any]:
+def summarize_job_parameters(trans: ProvidesHistoryContext, job: Job) -> dict[str, Any]:
     """Produce a dict-ified version of job parameters ready for tabular rendering.
 
     Precondition: the caller has verified the job is accessible to the user
@@ -2069,7 +2075,7 @@ def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, 
                     or input.type == "data_collection"
                     or isinstance(input_value, model.HistoryDatasetAssociation)
                 ):
-                    value: list[Union[dict[str, Any], None]] = []
+                    value: list[dict[str, Any] | None] = []
                     for element in listify(input_value):
                         if isinstance(element, model.HistoryDatasetAssociation):
                             hda = element
@@ -2119,6 +2125,8 @@ def summarize_job_parameters(trans: ProvidesUserContext, job: Job) -> dict[str, 
     if dynamic_tool := job.dynamic_tool:
         tool_uuid = dynamic_tool.uuid
     tool = toolbox.get_tool(job.tool_id, job.tool_version, tool_uuid=tool_uuid, user=trans.user)
+    if tool is not None:
+        tool = toolbox.materialize_tool(tool, reason="serialization")
 
     params_objects = None
     parameters = []
@@ -2189,9 +2197,9 @@ def summarize_job_outputs(job: model.Job, tool, params):
 
 def get_jobs_to_check_at_startup(session: galaxy_scoped_session, track_jobs_in_database: bool, config):
     if track_jobs_in_database:
-        in_list = (Job.states.QUEUED, Job.states.RUNNING, Job.states.STOPPED)
+        in_list = (Job.states.QUEUED, Job.states.RUNNING, Job.states.STOPPED, Job.states.FINISHING)
     else:
-        in_list = (Job.states.NEW, Job.states.QUEUED, Job.states.RUNNING)
+        in_list = (Job.states.NEW, Job.states.QUEUED, Job.states.RUNNING, Job.states.FINISHING)
 
     stmt = (
         select(Job)
@@ -2290,6 +2298,8 @@ class JobSubmitter:
         if tool.parameters is None:
             raise RequestParameterInvalidException(f"Tool {tool.id} has no parameters defined")
         parameter_bundle = ToolParameterBundleModel(parameters=tool.parameters)
+        # The persisted request stores non-finite floats as JSON-safe sentinel strings.
+        tool_state = restore_non_finite_floats(tool_state, parameter_bundle)
         return (
             dereference(tool_state, parameter_bundle, dereference_callback, dereference_collection_callback),
             new_hdas,
@@ -2312,7 +2322,11 @@ class JobSubmitter:
                 # API dataset materialization is immutable and produces new datasets
                 # here we just created the datasets - lets just materialize them in place
                 # and avoid extra and confusing input copies
-                self.hda_manager.materialize(materialize_request, sa_session(), in_place=True)
+                materialized = self.hda_manager.materialize(materialize_request, sa_session(), in_place=True)
+                if not materialized:
+                    raise RequestParameterInvalidException(
+                        f"Failed to fetch dataset from '{to_materialize.request.url}'"
+                    )
             if request.data_manager_mode:
                 tool_request.request["__data_manager_mode"] = request.data_manager_mode
             credentials_context = (

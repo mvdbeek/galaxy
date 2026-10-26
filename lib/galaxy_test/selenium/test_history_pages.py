@@ -1,13 +1,13 @@
 from .framework import (
     managed_history,
     retry_assertion_during_transitions,
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
 )
+from .upload_activity_helpers import UsesUploadActivity
 
 
-class TestHistoryPages(SeleniumTestCase):
+class TestHistoryPages(SeleniumTestCase, UsesUploadActivity):
     ensure_registered = True
 
     @selenium_test
@@ -239,13 +239,13 @@ class TestHistoryPages(SeleniumTestCase):
     def test_page_window_with_embedded_dataset(self):
         """Windowed page renders embedded dataset displays."""
         history_id = self.current_history_id()
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.history_panel_wait_for_hid_ok(1)
 
-        # Get the dataset ID for the directive
+        # The directive takes the HDA ID - "dataset_id" is the underlying Dataset
         datasets = self.dataset_populator.get_history_dataset_details(history_id, hid=1)
-        dataset_id = datasets["dataset_id"]
-        content = f"# Analysis\n\n```galaxy\nhistory_dataset_display(history_dataset_id={dataset_id})\n```\n"
+        hda_id = datasets["id"]
+        content = f"# Analysis\n\n```galaxy\nhistory_dataset_display(history_dataset_id={hda_id})\n```\n"
         self.dataset_populator.new_history_page(history_id, title="Dataset Embed", content=content)
 
         with self.window_manager_active():
@@ -341,14 +341,11 @@ class TestHistoryPages(SeleniumTestCase):
 
     # --- Drag-and-Drop Tests ---
 
-    @selenium_only("seletools drag_and_drop requires Selenium webdriver")
     @selenium_test
     @managed_history
     def test_drag_dataset_to_page_editor(self):
         """Drag a dataset from history panel and drop on page editor."""
-        from seletools.actions import drag_and_drop
-
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.history_panel_wait_for_hid_ok(1)
 
         self.navigate_to_history_pages()
@@ -360,19 +357,18 @@ class TestHistoryPages(SeleniumTestCase):
 
         editor = self.components.pages.history.markdown_editor.wait_for_visible()
 
-        drag_and_drop(self.driver, source=dataset_element, target=editor)
+        self.drag_and_drop(dataset_element, editor)
         self.sleep_for(self.wait_types.UX_RENDER)
 
         value = self.components.pages.history.markdown_editor.wait_for_value()
         assert "history_dataset_display" in value
         self.screenshot("history_page_drag_drop_dataset")
 
-    @selenium_only("seletools drag_and_drop requires Selenium webdriver")
     @selenium_test
     @managed_history
     def test_drag_drop_visual_feedback(self):
         """Verify visual feedback during drag over page editor."""
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.history_panel_wait_for_hid_ok(1)
 
         self.navigate_to_history_pages()
@@ -383,15 +379,12 @@ class TestHistoryPages(SeleniumTestCase):
         dataset_element = dataset_selector.wait_for_visible()
         editor = self.components.pages.history.markdown_editor.wait_for_visible()
 
-        ac = self.action_chains()
-        ac.click_and_hold(dataset_element).move_to_element(editor).perform()
-        self.sleep_for(self.wait_types.UX_RENDER)
+        with self.drag_over(dataset_element, editor):
+            self.sleep_for(self.wait_types.UX_RENDER)
 
-        classes = editor.get_attribute("class")
-        assert "page-dragover-success" in classes
-        self.screenshot("history_page_drag_over_highlight")
-
-        ac.release().perform()
+            classes = editor.get_attribute("class")
+            assert "page-dragover-success" in classes
+            self.screenshot("history_page_drag_over_highlight")
 
     # --- View / Preview / Rename Tests ---
 
@@ -472,12 +465,12 @@ class TestHistoryPages(SeleniumTestCase):
     def test_display_only_shows_expanded_content(self):
         """DisplayOnly mode renders embedded dataset from directive."""
         history_id = self.current_history_id()
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.history_panel_wait_for_hid_ok(1)
 
         datasets = self.dataset_populator.get_history_dataset_details(history_id, hid=1)
-        dataset_id = datasets["dataset_id"]
-        content = f"# Analysis\n\n```galaxy\nhistory_dataset_display(history_dataset_id={dataset_id})\n```\n"
+        hda_id = datasets["id"]
+        content = f"# Analysis\n\n```galaxy\nhistory_dataset_display(history_dataset_id={hda_id})\n```\n"
         self.dataset_populator.new_history_page(history_id, title="Display Embed", content=content)
 
         self.navigate_to_history_pages()
@@ -558,8 +551,8 @@ class TestHistoryPages(SeleniumTestCase):
         # Standalone-only controls absent
         self.components.pages.history.permissions_button.assert_absent_or_hidden()
 
-        # Back button says "This History's Pages" not "Back to Pages"
+        # Back button says "This History's Notebooks" not "Back to Notebooks"
         back_text = self.components.pages.history.back_button.wait_for_text()
         assert "This History's Notebooks" in back_text
-        assert "Back to Reports" not in back_text
+        assert "Back to Notebooks" not in back_text
         self.screenshot("history_toolbar_controls")

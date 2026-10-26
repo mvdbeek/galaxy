@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { faCopy, faSpinner, faUsers } from "@fortawesome/free-solid-svg-icons";
+import { faCopy, faSitemap, faSpinner, faUsers } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert } from "bootstrap-vue";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRouter } from "vue-router";
 
 import { PAGE_LABELS } from "@/components/Page/constants";
 import { useConfirmDialog } from "@/composables/confirmDialog.js";
@@ -20,6 +19,7 @@ import PageDisplayOnly from "./PageDisplayOnly.vue";
 import PageDisplayToolbar from "./PageDisplayToolbar.vue";
 import PageRevisionList from "./PageRevisionList.vue";
 import PageRevisionView from "./PageRevisionView.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import MarkdownEditor from "@/components/Markdown/MarkdownEditor.vue";
 
 const props = defineProps<{
@@ -47,7 +47,7 @@ const labels = computed(() => PAGE_LABELS[editorMode.value]);
 const editorTitle = computed(() => {
     if (props.historyId) {
         const history = historyStore.getHistoryById(props.historyId);
-        return `History: ${history?.name}` || labels.value.entityName;
+        return history?.name ? `History: ${history.name}` : labels.value.entityName;
     }
     return store.currentTitle || labels.value.defaultTitle;
 });
@@ -159,6 +159,25 @@ async function handleEdit() {
     }
 }
 
+async function handleExtractWorkflow() {
+    if (!props.historyId || !store.currentPage) {
+        return;
+    }
+    // The summary scans the last saved revision, so flush any edits first.
+    if (store.isDirty) {
+        try {
+            await store.savePage();
+        } catch {
+            // savePage records the error displayed by this view.
+            return;
+        }
+        if (store.error) {
+            return;
+        }
+    }
+    pushIgnoringNavCancel(router, `/histories/${props.historyId}/extract_workflow?from_page=${props.pageId}`);
+}
+
 function handleContentUpdate(newContent: string) {
     store.updateContent(newContent);
 }
@@ -181,14 +200,14 @@ function handleRevisionRestore(revisionId: string) {
             :on-save="() => store.savePage()"
             :on-discard="() => store.discardChanges()" />
 
-        <BAlert v-if="store.error" variant="danger" show dismissible @dismissed="store.error = null">
+        <GAlert v-if="store.error" variant="danger" show dismissible @dismissed="store.error = null">
             {{ store.error }}
-        </BAlert>
+        </GAlert>
 
-        <BAlert v-if="store.isLoadingPage && !store.hasCurrentPage" variant="info" show>
+        <GAlert v-if="store.isLoadingPage && !store.hasCurrentPage" variant="info" show>
             <FontAwesomeIcon :icon="faSpinner" spin />
             Loading page...
-        </BAlert>
+        </GAlert>
 
         <!-- Display-only mode: rendered view -->
         <PageDisplayOnly
@@ -202,20 +221,30 @@ function handleRevisionRestore(revisionId: string) {
         <!-- Edit mode: toolbar + editor + optional chat/revision panels -->
         <template v-else-if="store.hasCurrentPage">
             <PageDisplayToolbar :labels="labels" mode="editor" @preview="handlePreview" @back="handleBack">
-                <template v-if="isStandalone" v-slot:extra-actions>
-                    <ObjectPermissionsModal
-                        id="object-permissions-modal"
-                        v-model="showPermissions"
-                        :markdown-content="store.currentContent" />
+                <template v-slot:extra-actions>
+                    <template v-if="isStandalone">
+                        <ObjectPermissionsModal
+                            v-model:show="showPermissions"
+                            :markdown-content="store.currentContent" />
+                        <GButton
+                            color="blue"
+                            outline
+                            size="small"
+                            data-description="page permissions button"
+                            @click="showPermissions = true">
+                            <FontAwesomeIcon :icon="faUsers" />
+                            Permissions
+                        </GButton>
+                    </template>
                     <GButton
-                        v-b-modal:object-permissions-modal
+                        v-if="props.historyId"
                         color="blue"
                         outline
                         size="small"
-                        data-description="page permissions button"
-                        @click="showPermissions = true">
-                        <FontAwesomeIcon :icon="faUsers" />
-                        Permissions
+                        data-description="page extract workflow button"
+                        @click="handleExtractWorkflow">
+                        <FontAwesomeIcon :icon="faSitemap" />
+                        Extract Workflow
                     </GButton>
                 </template>
             </PageDisplayToolbar>
@@ -243,9 +272,9 @@ function handleRevisionRestore(revisionId: string) {
                         @update="handleContentUpdate" />
                 </div>
                 <GModal
+                    v-model:show="store.showRevisions"
                     data-description="page revisions modal"
                     fixed-height
-                    :show.sync="store.showRevisions"
                     size="small"
                     :title="`${labels.entityName} Revisions`">
                     <template v-slot:header>

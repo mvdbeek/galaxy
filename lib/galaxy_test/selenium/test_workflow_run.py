@@ -33,12 +33,12 @@ from .framework import (
     managed_history,
     retry_assertion_during_transitions,
     RunsWorkflows,
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
     UsesHistoryItemAssertions,
 )
 from .test_workflow_editor import CHIPSEQ_COLUMNS
+from .upload_activity_helpers import UsesUploadActivity
 
 # Single cat1 step with no workflow-level ``inputs`` — the step's ``input1``
 # stays unconnected so the run form renders it as a dropdown via
@@ -51,10 +51,9 @@ steps:
 """
 
 
-class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows):
+class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows, UsesUploadActivity):
     ensure_registered = True
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_workflow_export_file_rocrate(self):
@@ -80,7 +79,6 @@ class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows
         invocations.export_download_link.wait_for_present()
         self.screenshot("invocation_export_crate_download_ready")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_workflow_export_file_native(self):
@@ -106,11 +104,10 @@ class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows
         invocations.export_download_link.wait_for_present()
         self.screenshot("invocation_export_native_download_ready")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_simple_execution(self):
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
         self.screenshot("workflow_run_simple_ready")
@@ -271,11 +268,10 @@ class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows
 
         assert_more_options_loaded()
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_expanded_execution_of_simple_workflow(self):
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
         self.workflow_run_ensure_expanded()
@@ -295,7 +291,7 @@ class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows
         editor.label_input.wait_for_and_send_keys("input1")
         editor.annotation_input.wait_for_and_send_keys("chipseq example input")
         self.sleep_for(self.wait_types.UX_RENDER)
-        editor.collection_type_input.wait_for_and_clear_and_send_keys("sample_sheet:paired")
+        self.workflow_editor_set_collection_type("sample_sheet:paired")
         self.workflow_editor_enter_column_definitions(CHIPSEQ_COLUMNS)
 
         self.tool_open("__SAMPLE_SHEET_TO_TABULAR__")
@@ -313,89 +309,90 @@ class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows
         sample_sheet = workflow_run.input.sample_sheet
 
         sample_sheet.grid_cell_input(row_index=0, column_name="Condition").assert_absent()
-        sample_sheet.grid_cell(row_index=0, column_name="Condition").wait_for_and_double_click()
+        condition_cell = sample_sheet.grid_cell(row_index=0, column_name="Condition")
+        condition_cell.wait_for_and_double_click()
         sample_sheet.grid_cell_input(row_index=0, column_name="Condition").wait_for_visible()
-        action_chains = self.action_chains()
+        keys: list[str] = []
 
         def tab_if_element_identifier_mutable():
             if element_identifier_mutable:
-                return action_chains.send_keys(Keys.TAB)
+                keys.append(Keys.TAB)
 
         # 0: row for SRR5680995
-        action_chains.send_keys("input")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("input")
+        keys.append(Keys.TAB)
         # no replicate here...
-        action_chains.send_keys(Keys.TAB)
+        keys.append(Keys.TAB)
         # no control here...
-        action_chains.send_keys(Keys.TAB)
+        keys.append(Keys.TAB)
 
         # 1: row for SRR5680996
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("H3K4me3")
-        action_chains.send_keys(Keys.TAB)
-        action_chains.send_keys("1")
-        action_chains.send_keys(Keys.TAB)
-        # action_chains.send_keys("SRR5680995")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("H3K4me3")
+        keys.append(Keys.TAB)
+        keys.append("1")
+        keys.append(Keys.TAB)
+        # keys.append("SRR5680995")
+        keys.append(Keys.TAB)
 
         # 2: row for SRR5680997
         # identifier correct...
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("H3K27me3")
-        action_chains.send_keys(Keys.TAB)
-        action_chains.send_keys("1")
-        action_chains.send_keys(Keys.TAB)
-        # action_chains.send_keys("SRR5680995")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("H3K27me3")
+        keys.append(Keys.TAB)
+        keys.append("1")
+        keys.append(Keys.TAB)
+        # keys.append("SRR5680995")
+        keys.append(Keys.TAB)
 
         # 3: row for SRR5681007
         # identifier correct...
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("H3K27me3")
-        action_chains.send_keys(Keys.TAB)
-        action_chains.send_keys("2")
-        action_chains.send_keys(Keys.TAB)
-        # action_chains.send_keys("SRR5681005")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("H3K27me3")
+        keys.append(Keys.TAB)
+        keys.append("2")
+        keys.append(Keys.TAB)
+        # keys.append("SRR5681005")
+        keys.append(Keys.TAB)
 
         # 4: row for SRR5681006
         # identifier correct...
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("H3K4me3")
-        action_chains.send_keys(Keys.TAB)
-        action_chains.send_keys("2")
-        action_chains.send_keys(Keys.TAB)
-        # action_chains.send_keys("SRR5681005")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("H3K4me3")
+        keys.append(Keys.TAB)
+        keys.append("2")
+        keys.append(Keys.TAB)
+        # keys.append("SRR5681005")
+        keys.append(Keys.TAB)
 
         # 5: row for SRR5680998
         # identifier correct...
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("CTCF")
-        action_chains.send_keys(Keys.TAB)
-        action_chains.send_keys("1")
-        action_chains.send_keys(Keys.TAB)
-        # action_chains.send_keys("SRR5680995")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("CTCF")
+        keys.append(Keys.TAB)
+        keys.append("1")
+        keys.append(Keys.TAB)
+        # keys.append("SRR5680995")
+        keys.append(Keys.TAB)
 
         # 6: row for SRR5681008
         # identifier correct...
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("CTCF")
-        action_chains.send_keys(Keys.TAB)
-        action_chains.send_keys("2")
-        action_chains.send_keys(Keys.TAB)
-        # action_chains.send_keys("SRR5681005")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("CTCF")
+        keys.append(Keys.TAB)
+        keys.append("2")
+        keys.append(Keys.TAB)
+        # keys.append("SRR5681005")
+        keys.append(Keys.TAB)
 
         # 7: row for SRR5681005
         # identifier correct...
         tab_if_element_identifier_mutable()
-        action_chains.send_keys("input")
-        action_chains.send_keys(Keys.TAB)
+        keys.append("input")
+        keys.append(Keys.TAB)
 
-        action_chains.click()
-        action_chains.perform()
+        self.send_keys_to_page("".join(keys))
+        self.move_to_and_click(condition_cell.wait_for_visible())
 
         controls = {
             1: "SRR5680995",
@@ -411,7 +408,6 @@ class TestWorkflowRun(SeleniumTestCase, UsesHistoryItemAssertions, RunsWorkflows
             sample_sheet.select_picker.wait_for_and_click()
             sample_sheet.select_item(item=control).wait_for_and_click()
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_collection_input_sample_sheet_chipseq_example_from_uris(self):
@@ -482,33 +478,32 @@ SRR5681005\tinput\t\t
             contents == expected_contents
         ), f"Expected chipseq sample sheet table:\n{expected_contents}\nGot:\n{contents}"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_collection_input_sample_sheet_chipseq_example_from_list_pairs(self):
         history_id = self.current_history_id()
 
         base_url = self.dataset_populator.base64_url_for_bytes(b"hello world")
-        urls = [
-            f"{base_url}/SRR5680995_R1.fastq.gz",
-            f"{base_url}/SRR5680995_R2.fastq.gz",
-            f"{base_url}/SRR5680996_R1.fastq.gz",
-            f"{base_url}/SRR5680996_R2.fastq.gz",
-            f"{base_url}/SRR5680997_R1.fastq.gz",
-            f"{base_url}/SRR5680997_R2.fastq.gz",
-            f"{base_url}/SRR5681007_R1.fastq.gz",
-            f"{base_url}/SRR5681007_R2.fastq.gz",
-            f"{base_url}/SRR5681006_R1.fastq.gz",
-            f"{base_url}/SRR5681006_R2.fastq.gz",
-            f"{base_url}/SRR5680998_R1.fastq.gz",
-            f"{base_url}/SRR5680998_R2.fastq.gz",
-            f"{base_url}/SRR5681008_R1.fastq.gz",
-            f"{base_url}/SRR5681008_R2.fastq.gz",
-            f"{base_url}/SRR5681005_R1.fastq.gz",
-            f"{base_url}/SRR5681005_R2.fastq.gz",
-        ]
-        pasted_data = "\n".join(urls)
-        self.perform_upload_of_pasted_content(pasted_data)
+        self.upload_context("paste-links").stage_paste_links(
+            [
+                (f"{base_url}/SRR5680995_R1.fastq.gz", None),
+                (f"{base_url}/SRR5680995_R2.fastq.gz", None),
+                (f"{base_url}/SRR5680996_R1.fastq.gz", None),
+                (f"{base_url}/SRR5680996_R2.fastq.gz", None),
+                (f"{base_url}/SRR5680997_R1.fastq.gz", None),
+                (f"{base_url}/SRR5680997_R2.fastq.gz", None),
+                (f"{base_url}/SRR5681007_R1.fastq.gz", None),
+                (f"{base_url}/SRR5681007_R2.fastq.gz", None),
+                (f"{base_url}/SRR5681006_R1.fastq.gz", None),
+                (f"{base_url}/SRR5681006_R2.fastq.gz", None),
+                (f"{base_url}/SRR5680998_R1.fastq.gz", None),
+                (f"{base_url}/SRR5680998_R2.fastq.gz", None),
+                (f"{base_url}/SRR5681008_R1.fastq.gz", None),
+                (f"{base_url}/SRR5681008_R2.fastq.gz", None),
+                (f"{base_url}/SRR5681005_R1.fastq.gz", None),
+                (f"{base_url}/SRR5681005_R2.fastq.gz", None),
+            ]
+        ).start()
         self.history_panel_wait_for_and_select([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16])
         self.history_panel_build_list_of_pairs()
         self.collection_builder_set_name("inputaslist")
@@ -545,11 +540,10 @@ SRR5681005\tinput\t\t
         self.workflow_run_submit()
         self._expect_chipseq_table(history_id, 51)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_runtime_parameters_simple(self):
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_RUNTIME_PARAMETER_SIMPLE)
         self.tool_parameter_div("num_lines")
@@ -560,7 +554,6 @@ SRR5681005\tinput\t\t
 
         self._assert_has_3_lines_after_run(hid=2)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_runtime_parameters_simple_optional(self):
@@ -582,11 +575,10 @@ steps:
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=1)
         assert json.loads(content) == 3
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_subworkflows_expanded(self):
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_NESTED_SIMPLE)
         self.workflow_run_ensure_expanded()
@@ -595,11 +587,10 @@ steps:
         self.components.workflow_run.subworkflow_step_icon.wait_for_and_click()
         self.screenshot("workflow_run_nested_open")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_subworkflow_runtime_parameters(self):
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_NESTED_RUNTIME_PARAMETER)
         self.workflow_run_ensure_expanded()
@@ -612,11 +603,10 @@ steps:
 
         self._assert_has_3_lines_after_run(hid=2)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_replacement_parameters(self):
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_RENAME_ON_REPLACEMENT_PARAM)
         self.workflow_run_ensure_expanded()
@@ -630,11 +620,10 @@ steps:
         details = self.dataset_populator.get_history_dataset_details(history_id, hid=output_hid)
         assert details["name"] == "moocow suffix", details
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_step_parameter_inputs(self):
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow("""
 class: GalaxyWorkflow
@@ -665,11 +654,10 @@ steps:
         assert "12345" in content, content
         assert "chr6_hla_hap2" in content
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_replacement_parameters_on_subworkflows(self):
-        self.perform_upload(self.get_filename("1.txt"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.txt")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_NESTED_REPLACEMENT_PARAMETER)
         self.workflow_run_ensure_expanded()
@@ -683,7 +671,6 @@ steps:
         details = self.dataset_populator.get_history_dataset_details(history_id, hid=output_hid)
         assert details["name"] == "moocow suffix", details
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_execution_with_tool_upgrade(self):
         name = self.workflow_upload_yaml_with_random_name(WORKFLOW_WITH_OLD_TOOL_VERSION, exact_tools=True)
@@ -693,7 +680,6 @@ steps:
         self.assert_message(self.components.workflow_run.warning, contains="tools which have changed")
         self.screenshot("workflow_run_tool_upgrade")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_run_form_safe_upgrade_handling(self):
         workflow_with_rules = yaml.safe_load(WORKFLOW_WITH_RULES_1)
@@ -726,7 +712,81 @@ steps:
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=7)
         assert "10.0\n30.0\n20.0\n40.0\n" == content
 
-    @selenium_only("Not yet migrated to support Playwright backend")
+    @selenium_test
+    @managed_history
+    def test_execution_with_multiple_integer_parameter(self):
+        history_id, inputs = self.workflow_run_setup_inputs("""
+input:
+  value: 2.tabular
+  file_type: tabular
+  type: File
+""")
+        self.workflow_run_open_workflow("""
+class: GalaxyWorkflow
+inputs:
+  input: data
+  columns:
+    type: [integer]
+outputs:
+  output:
+    outputSource: column_param_list/output2
+steps:
+  column_param_list:
+    tool_id: column_param_list
+    in:
+      input1: input
+      col: columns
+      col_names: columns
+""")
+        self.workflow_run_specify_inputs(inputs)
+        workflow_run = self.components.workflow_run
+        workflow_run.simplified_value_list_input(label="columns", index=1).wait_for_and_send_keys("1")
+        workflow_run.simplified_value_list_add(label="columns").wait_for_and_click()
+        workflow_run.simplified_value_list_input(label="columns", index=2).wait_for_and_send_keys("2")
+        self.screenshot("workflow_run_multiple_integer_parameter")
+        self.workflow_run_submit()
+        self.workflow_populator.wait_for_history_workflows(history_id, expected_invocation_count=1)
+        invocation_id = self.workflow_populator.history_invocations(history_id)[0]["id"]
+        invocation = self.workflow_populator.get_invocation(invocation_id)
+        assert invocation["input_step_parameters"]["columns"]["parameter_value"] == [1, 2]
+        content = self.dataset_populator.get_history_dataset_content(
+            history_id, dataset_id=invocation["outputs"]["output"]["id"]
+        )
+        assert "col 1,2" in content, content
+
+    @selenium_test
+    @managed_history
+    def test_execution_with_multiple_text_parameter(self):
+        history_id = self.current_history_id()
+        self.workflow_run_open_workflow("""
+class: GalaxyWorkflow
+inputs:
+  options:
+    type: [string]
+outputs:
+  output:
+    outputSource: multi_select/output
+steps:
+  multi_select:
+    tool_id: multi_select
+    in:
+      select_ex: options
+""")
+        workflow_run = self.components.workflow_run
+        workflow_run.simplified_value_list_input(label="options", index=1).wait_for_and_send_keys("--ex1")
+        workflow_run.simplified_value_list_add(label="options").wait_for_and_click()
+        workflow_run.simplified_value_list_input(label="options", index=2).wait_for_and_send_keys("ex2")
+        self.screenshot("workflow_run_multiple_text_parameter")
+        self.workflow_run_submit()
+        self.workflow_populator.wait_for_history_workflows(history_id, expected_invocation_count=1)
+        invocation_id = self.workflow_populator.history_invocations(history_id)[0]["id"]
+        invocation = self.workflow_populator.get_invocation(invocation_id)
+        assert invocation["input_step_parameters"]["options"]["parameter_value"] == ["--ex1", "ex2"]
+        content = self.dataset_populator.get_history_dataset_content(
+            history_id, dataset_id=invocation["outputs"]["output"]["id"]
+        )
+        assert content.strip() == "--ex1,ex2", content
+
     @selenium_test
     @managed_history
     def test_execution_with_text_default_value_connected_to_restricted_select(self):
@@ -859,62 +919,46 @@ steps: {}
         invocation = self.workflow_populator.get_invocation(invocations[-1]["id"])
         assert invocation["inputs"]["0"]["id"] == dataset["id"]
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_workflow_run_list_paired_or_unpaired_with_paired_list(self):
         history_id = self.current_history_id()
-        self.perform_upload_of_pasted_content(
-            {
-                "foo_1.fasta": "forward content",
-                "foo_2.fasta": "reverse content",
-            }
-        )
-        self.history_panel_wait_for_and_select([1, 2])
-        self.history_panel_build_list_of_pairs()
-        self.collection_builder_set_name("my awesome paired list")
-        self.collection_builder_create()
-        self.history_panel_wait_for_hid_ok(5)
+        upload = self.upload_context("paste-content")
+        upload.stage_paste_content("forward content\n", {"name": "foo_1.fasta"})
+        upload.stage_paste_content("reverse content\n", {"name": "foo_2.fasta"})
+        upload.to_paired_list("my awesome paired list").start()
+        self.history_panel_wait_for_hid_ok(1)
         self._create_and_run_workflow_with_unique_name(WORKFLOW_LIST_PAIRED_OR_UNPAIRED_INPUT)
         self.workflow_run_submit()
-        self.history_panel_wait_for_hid_ok(6)
-        content = self.dataset_populator.get_history_dataset_content(history_id, hid=6)
+        self.history_panel_wait_for_hid_ok(4)
+        content = self.dataset_populator.get_history_dataset_content(history_id, hid=4)
         assert content.strip() == "forward content\nreverse content"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_workflow_run_list_paired_or_unpaired_with_flat_list(self):
         history_id = self.current_history_id()
-        self.perform_upload_of_pasted_content(
-            {
-                "foo_1.fasta": "forward content",
-                "foo_2.fasta": "reverse content",
-            }
-        )
-        self.history_panel_wait_for_and_select([1, 2])
-        self.history_panel_build_list_advanced_and_select_builder("list")
-        self.collection_builder_set_name("my awesome flat list")
-        self.collection_builder_create()
-        self.history_panel_wait_for_hid_ok(5)
+        upload = self.upload_context("paste-content")
+        upload.stage_paste_content("forward content\n", {"name": "foo_1.fasta"})
+        upload.stage_paste_content("reverse content\n", {"name": "foo_2.fasta"})
+        upload.to_list("my awesome flat list").start()
+        self.history_panel_wait_for_hid_ok(1)
         self._create_and_run_workflow_with_unique_name(WORKFLOW_LIST_PAIRED_OR_UNPAIRED_INPUT)
         self.workflow_run_submit()
-        self.history_panel_wait_for_hid_ok(6)
-        content = self.dataset_populator.get_history_dataset_content(history_id, hid=6)
+        self.history_panel_wait_for_hid_ok(4)
+        content = self.dataset_populator.get_history_dataset_content(history_id, hid=4)
+        # The elements are reversed to match the history panel display order (newest HID first)
         assert content.strip() == "reverse content\nforward content"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_workflow_run_list_paired_or_unpaired_with_mixed_list(self):
         history_id = self.current_history_id()
-        self.perform_upload_of_pasted_content(
-            {
-                "foo_1.fasta": "forward content",
-                "foo_2.fasta": "reverse content",
-                "other.fasta": "unpaired content",
-            }
-        )
+        upload = self.upload_context("paste-content")
+        upload.stage_paste_content("forward content\n", {"name": "foo_1.fasta"})
+        upload.stage_paste_content("reverse content\n", {"name": "foo_2.fasta"})
+        upload.stage_paste_content("unpaired content\n", {"name": "other.fasta"})
+        upload.start()
         self.history_panel_wait_for_and_select([1, 2, 3])
         self.history_panel_build_list_of_paired_or_unpaireds()
         self.collection_builder_set_name("my awesome flat list")
@@ -926,7 +970,6 @@ steps: {}
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=8)
         assert content.strip() == "forward content\nreverse content\nunpaired content"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_upload_dataset_from_workflow_simple(self):
@@ -935,36 +978,33 @@ steps: {}
         workflow_run = self.components.workflow_run
         input = workflow_run.input._(label="input1")
         input.upload.wait_for_and_click()
-        self._upload_hello_world_for_input(input)
+        self._upload_hello_world_for_input(label="input1")
         self.workflow_run_submit()
         self.history_panel_wait_for_hid_ok(2)
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=2)
         assert content.strip() == "hello world\nhello world"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
-    def test_modal_upload_updates_form(self):
+    def test_inline_upload_updates_form(self):
         history_id = self.current_history_id()
-        self.perform_upload_of_pasted_content("goodbye land")
+        self.upload_context("paste-content").stage_paste_content("goodbye land").start()
 
         self._create_and_run_workflow_with_unique_name(WORKFLOW_WITH_MAPPED_OUTPUT_COLLECTION)
         workflow_run = self.components.workflow_run
         input = workflow_run.input._(label="input1")
         input.upload.wait_for_and_click()
+        input.collection_tab_upload.wait_for_and_click()
 
-        self.perform_upload_of_pasted_content("hello world", on_current_page=True)
+        self.upload_inline("paste-content", label="input1").stage_paste_content("hello world").start()
 
         self.history_panel_wait_for_hid_ok(2)
 
         builder = workflow_run.input.collection_builder._(label="input1")
-        # it is a div so I don't think it works to click directly but we can go to it and click
-        # on that part of the screen.
-        element = builder.element_by_hid(hid=2).wait_for_present()
-        action_chains = self.action_chains()
-        action_chains.move_to_element(element)
-        action_chains.click()
-        action_chains.perform()
+        # The inline upload auto-selects the dataset into the collection
+        # builder, so we only need to verify it appears — clicking on it
+        # would toggle it off (unselect it).
+        builder.element_by_hid(hid=2).wait_for_present()
 
         input.collection_tab_build_link.wait_for_and_click()
         builder.create.wait_for_and_click()
@@ -974,7 +1014,6 @@ steps: {}
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=6)
         assert content.strip() == "hello world"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_upload_list_from_workflow_simple(self):
@@ -982,14 +1021,13 @@ steps: {}
         workflow_run = self.components.workflow_run
         input = workflow_run.input._(label="input1")
         input.upload.wait_for_and_click()
-        input.collection_tab_upload_link.wait_for_and_click()
+        input.collection_tab_upload.wait_for_and_click()
         builder = workflow_run.input.collection_builder._(label="input1")
-        self._upload_hello_world_for_input(builder, count=2)
+        self._upload_hello_world_for_input(label="input1", count=2)
         builder.create.wait_for_and_click()
         self.workflow_run_submit()
         self.history_panel_wait_for_hid_ok(6)
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_upload_list_paired_from_workflow(self):
@@ -998,27 +1036,26 @@ steps: {}
         workflow_run = self.components.workflow_run
         input = workflow_run.input._(label="input_list")
         input.upload.wait_for_and_click()
-        input.collection_tab_upload_link.wait_for_and_click()
+        input.collection_tab_upload.wait_for_and_click()
         builder = workflow_run.input.collection_builder._(label="input_list")
-        self._upload_hello_world_for_input(builder, count=2)
+        self._upload_hello_world_for_input(label="input_list", count=2)
         builder.create.wait_for_and_click()
         self.workflow_run_submit()
         self.history_panel_wait_for_hid_ok(6)
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=7)
         assert content.strip() == "hello world\nhello world"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     @managed_history
     def test_upload_list_paired_or_unpaired_from_workflow(self):
         history_id = self.current_history_id()
-        self.perform_upload_of_pasted_content(
-            {
-                "foo_1.fasta": "forward content",
-                "foo_2.fasta": "reverse content",
-                "other.fasta": "unpaired content",
-            }
-        )
+
+        upload = self.upload_context("paste-content")
+        upload.stage_paste_content("forward content\n", {"name": "foo_1.fasta"})
+        upload.stage_paste_content("reverse content\n", {"name": "foo_2.fasta"})
+        upload.stage_paste_content("unpaired content\n", {"name": "other.fasta"})
+        upload.start()
+
         self.history_panel_wait_for_hid_ok(3)
         self._create_and_run_workflow_with_unique_name(WORKFLOW_LIST_PAIRED_OR_UNPAIRED_INPUT)
         workflow_run = self.components.workflow_run
@@ -1026,7 +1063,6 @@ steps: {}
         input.upload.wait_for_and_click()
         builder = workflow_run.input.collection_builder._(label="input_list")
         builder.element_by_hid(hid=3).wait_for_present()
-        # self.sleep_for(self.wait_types.UX_TRANSITION)
         builder.select_all.wait_for_and_click()
         input.collection_tab_build_link.wait_for_and_click()
         builder.create.wait_for_and_click()
@@ -1036,17 +1072,11 @@ steps: {}
         content = self.dataset_populator.get_history_dataset_content(history_id, hid=8)
         assert content.strip() == "unpaired content\nreverse content\nforward content"
 
-    def _upload_hello_world_for_input(self, workflow_input, count=1, from_hid=1):
-        # assumes fresh history...
+    def _upload_hello_world_for_input(self, label: str, count=1):
+        upload_inline = self.upload_inline("paste-content", label=label)
         for i in range(count):
-            workflow_input.create_button.wait_for_and_click()
-            url = self.dataset_populator.base64_url_for_string("hello world")
-            workflow_input.paste_content(n=i).wait_for_and_send_keys(url)
-            workflow_input.title(n=i).wait_for_and_clear_and_send_keys(f"hello world.{i + 1}.fastq")
-
-        workflow_input.embedded_start_button.wait_for_and_click()
-        workflow_input.use_button_disabled.wait_for_absent()
-        workflow_input.use_button.wait_for_and_click()
+            upload_inline.stage_paste_content("hello world\n", {"name": f"hello world.{i + 1}.fastq"})
+        upload_inline.start()
 
     def _create_and_run_workflow_with_unique_name(
         self, workflow_contents: str, format: Literal["ga", "gxformat2"] = "gxformat2"
@@ -1097,7 +1127,7 @@ steps: {}
 
     def _setup_simple_invocation_for_export_testing(self):
         # precondition: refresh history
-        self.perform_upload(self.get_filename("1.fasta"))
+        self.upload_context("local-file").stage_local_file(self.get_filename("1.fasta")).start()
         self.wait_for_history()
         self.workflow_run_open_workflow(WORKFLOW_SIMPLE_CAT_TWICE)
         self.workflow_run_submit()

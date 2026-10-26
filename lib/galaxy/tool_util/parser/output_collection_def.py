@@ -3,10 +3,6 @@ dataset collection after jobs are finished.
 """
 
 import abc
-from typing import (
-    List,
-    Optional,
-)
 
 from galaxy.tool_util_models.tool_outputs import (
     DatasetCollectionDescriptionT,
@@ -107,10 +103,10 @@ def dataset_collection_description(**kwargs):
 
 class DatasetCollectionDescription(metaclass=abc.ABCMeta):
     discover_via: DiscoverViaT
-    default_ext: Optional[str]
+    default_ext: str | None
     default_visible: bool
     assign_primary_output: bool
-    directory: Optional[str]
+    directory: str | None
     recurse: bool
     match_relative_path: bool
 
@@ -144,7 +140,7 @@ class DatasetCollectionDescription(metaclass=abc.ABCMeta):
         return self.to_model().model_dump()
 
     @property
-    def discover_patterns(self) -> List[str]:
+    def discover_patterns(self) -> list[str]:
         return []
 
 
@@ -222,7 +218,7 @@ class FilePatternDatasetCollectionDescription(DatasetCollectionDescription):
         )
 
     @property
-    def discover_patterns(self) -> List[str]:
+    def discover_patterns(self) -> list[str]:
         return [self.pattern]
 
 

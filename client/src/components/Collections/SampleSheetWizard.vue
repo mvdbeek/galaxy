@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BAlert, BCardGroup, BLink } from "bootstrap-vue";
+import { BCardGroup, BLink } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, nextTick, ref, watch } from "vue";
 
@@ -12,7 +12,12 @@ import {
 import type { FetchDataPayload, HdcaUploadTarget } from "@/api/tools";
 import { stripExtension } from "@/components/Collections/common/stripExtension";
 import { useWorkbookDropHandling } from "@/components/Collections/common/useWorkbooks";
-import { downloadWorkbook, parseWorkbook, withAutoListIdentifiers } from "@/components/Collections/sheet/workbooks";
+import {
+    downloadWorkbook,
+    parseWorkbook,
+    withAutoListIdentifiers,
+    workbookForCollection,
+} from "@/components/Collections/sheet/workbooks";
 import type {
     AnyParsedSampleSheetWorkbook,
     InitialElements,
@@ -21,6 +26,7 @@ import type {
 import { useWizard } from "@/components/Common/Wizard/useWizard";
 import type { ExtendedCollectionType } from "@/components/Form/Elements/FormData/types";
 import { useFetchJobMonitor } from "@/composables/fetch";
+import { Toast } from "@/composables/toast";
 import { useHistoryStore } from "@/stores/historyStore";
 import { errorMessageAsString } from "@/utils/simple-error";
 
@@ -40,6 +46,7 @@ import SourceFromPastedData from "./wizard/SourceFromPastedData.vue";
 import SourceFromRemoteFiles from "./wizard/SourceFromRemoteFiles.vue";
 import SourceFromWorkbook from "./wizard/SourceFromWorkbook.vue";
 import UploadSampleSheet from "./wizard/UploadSampleSheet.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GenericWizard from "@/components/Common/Wizard/GenericWizard.vue";
 import LoadingSpan from "@/components/LoadingSpan.vue";
 
@@ -79,7 +86,14 @@ async function handleWorkbook(base64Content: string) {
         base64Content,
     );
     if (data) {
-        parsedWorkbook.value = data;
+        try {
+            parsedWorkbook.value =
+                sourceFrom.value === "collection" && targetCollection.value
+                    ? workbookForCollection(data, targetCollection.value)
+                    : data;
+        } catch (error) {
+            Toast.error(errorMessageAsString(error));
+        }
     } else {
         console.log(error);
     }
@@ -444,12 +458,12 @@ async function download() {
                 @workbookContents="handleUploadFromWizard" />
         </div>
         <div v-else-if="wizard.isCurrent('fill-grid') && currentHistoryId" style="width: 100%">
-            <BAlert v-if="collectionCreateError" show dismissible @dismissed="collectionCreateError = undefined">
+            <GAlert v-if="collectionCreateError" show dismissible @dismissed="collectionCreateError = undefined">
                 Failed to create sample sheet collection for supplied input. {{ collectionCreateError }}.
-            </BAlert>
+            </GAlert>
             <div v-if="collectionCreated">
-                <BAlert variant="success" data-description="collection created" show
-                    >Sample sheet collection successfully created!</BAlert
+                <GAlert variant="success" data-description="collection created" show
+                    >Sample sheet collection successfully created!</GAlert
                 >
             </div>
             <div v-else-if="waitingOnFetch">
@@ -467,7 +481,6 @@ async function download() {
                 :initial-elements="initialElements"
                 :extensions="extensions"
                 :busy="wizardIsBusy"
-                height="300px"
                 @workbook-contents="handleWorkbook"
                 @on-fetch-target="onFetchTarget"
                 @on-collection-create-payload="onCollectionCreatePayload" />
@@ -484,7 +497,10 @@ async function download() {
                     <FontAwesomeIcon size="xl" :icon="faUpload" />
                     Already have a completed workbook? Upload it here.
                 </BLink>
-                <HiddenWorkbookUploadInput ref="uploadRef" @onFileUpload="onFileUpload" />
+                <HiddenWorkbookUploadInput
+                    ref="uploadRef"
+                    data-description="sample sheet workbook file input"
+                    @onFileUpload="onFileUpload" />
             </div>
         </div>
     </GenericWizard>

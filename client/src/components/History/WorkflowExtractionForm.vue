@@ -1,25 +1,29 @@
 <script setup lang="ts">
 import { faCheck, faSpinner } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert } from "bootstrap-vue";
 import { computed, ref } from "vue";
-import { useRouter } from "vue-router/composables";
+import { useRoute, useRouter } from "vue-router";
 
 import {
     extractWorkflowByIds,
     extractWorkflowFromHistory,
+    type OutputLabelHint,
+    type StepLabelHint,
     type WorkflowExtractionByIdsPayload,
-    type WorkflowExtractionJob,
+    type WorkflowExtractionSummary,
 } from "@/api/histories";
+import { fetchWorkflowExtractionSummary } from "@/api/pages";
 import { useToast } from "@/composables/toast";
 import { useHistoryStore } from "@/stores/historyStore";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import {
+    type ExtractionRow,
+    type InputStep,
+    isInputStep,
     isMappedTool,
-    isWorkflowExtractionInput,
-    type WorkflowExtractionInput,
-    type WorkflowExtractionRow,
+    toExtractionRow,
+    type ToolStep,
 } from "./WorkflowExtraction/types";
 
 import GFormInput from "../BaseComponents/Form/GFormInput.vue";
@@ -31,12 +35,21 @@ import JobDetails from "../JobInformation/JobDetails.vue";
 import LoadingSpan from "../LoadingSpan.vue";
 import WorkflowExtractionCard from "./WorkflowExtraction/WorkflowExtractionCard.vue";
 import WorkflowExtractionMessages from "./WorkflowExtraction/WorkflowExtractionMessages.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 
 const props = defineProps<{
     historyId: string;
 }>();
 
 const router = useRouter();
+const route = useRoute();
+
+/** When the form is opened from a notebook, the producing subgraph of the page's
+ *  referenced outputs is pre-checked instead of the default non-deleted heuristic. */
+const fromPageId = computed(() => {
+    const value = route.query.from_page;
+    return typeof value === "string" && value ? value : null;
+});
 
 const Toast = useToast();
 
@@ -56,9 +69,11 @@ const breadcrumbItems = computed(() => [
 const loading = ref(true);
 const submitting = ref(false);
 const errorMessage = ref<string | null>(null);
-const jobsList = ref<WorkflowExtractionRow[]>([]);
+const jobsList = ref<ExtractionRow[]>([]);
 const workflowName = ref("");
 const renameIndex = ref<number | null>(null);
+const stepLabelIndex = ref<number | null>(null);
+const outputRenameTarget = ref<{ jobIndex: number; outputIndex: number } | null>(null);
 const warnings = ref<string[]>([]);
 const showJobModal = ref(false);
 const viewedJobId = ref<string | null>(null);
@@ -69,14 +84,45 @@ const toRenameInput = computed(() => {
         return null;
     }
     const job = jobsList.value[renameIndex.value];
-    if (job && isWorkflowExtractionInput(job)) {
+    if (job && isInputStep(job)) {
         return job;
     }
     return null;
 });
 
+/** The tool step to label based on the current `stepLabelIndex`. */
+const toLabelStep = computed<ToolStep | null>(() => {
+    if (stepLabelIndex.value === null || !jobsList.value?.length) {
+        return null;
+    }
+    const job = jobsList.value[stepLabelIndex.value];
+    if (job && job.step_type === "tool") {
+        return job;
+    }
+    return null;
+});
+
+const toRenameOutput = computed(() => {
+    const target = outputRenameTarget.value;
+    if (!target || !jobsList.value?.length) {
+        return null;
+    }
+    const job = jobsList.value[target.jobIndex];
+    if (!job || job.step_type !== "tool") {
+        return null;
+    }
+    return job.outputs[target.outputIndex] || null;
+});
+
 const submissionDisabled = computed(
-    () => submitting.value || hasUnnamedSelectedInputs.value || !workflowName.value.trim() || hasNoSelectedSteps.value,
+    () =>
+        submitting.value ||
+        hasUnnamedSelectedInputs.value ||
+        hasUnnamedSelectedOutputs.value ||
+        hasDuplicateOutputLabels.value ||
+        hasDuplicateStepLabels.value ||
+        !workflowName.value.trim() ||
+        hasNoSelectedSteps.value,
 );
 
 const submissionDisabledMsg = computed(() => {
@@ -85,6 +131,15 @@ const submissionDisabledMsg = computed(() => {
     }
     if (hasUnnamedSelectedInputs.value) {
         return "All selected inputs must have a name";
+    }
+    if (hasUnnamedSelectedOutputs.value) {
+        return "All exposed outputs must have a label";
+    }
+    if (hasDuplicateOutputLabels.value) {
+        return "Exposed output labels must be unique";
+    }
+    if (hasDuplicateStepLabels.value) {
+        return "Step labels must be unique and distinct from input names";
     }
     if (hasNoSelectedSteps.value) {
         return "At least one workflow step must be selected";
@@ -130,56 +185,114 @@ const selectedInputs = computed<
     if (!jobsList.value?.length) {
         return [];
     }
-    const retVal = jobsList.value
-        .filter(
-            (job): job is WorkflowExtractionInput =>
-                job.checked && isWorkflowExtractionInput(job) && (job.outputs?.length ?? 0) > 0,
-        )
+    return jobsList.value
+        .filter((job): job is InputStep => job.checked && isInputStep(job) && job.outputs.length > 0)
         .flatMap((job) =>
-            job.outputs?.map((output) => ({
+            job.outputs.map((output) => ({
                 id: output.id,
                 newName: job.newName,
                 history_content_type: output.history_content_type,
             })),
-        )
-        .filter((item) => item !== undefined);
-    return retVal;
+        );
+});
+
+const selectedOutputLabels = computed<OutputLabelHint[]>(() => {
+    if (!jobsList.value?.length) {
+        return [];
+    }
+    const outputLabels: OutputLabelHint[] = [];
+    for (const job of jobsList.value) {
+        if (!job.checked || job.step_type !== "tool") {
+            continue;
+        }
+        for (const output of job.outputs) {
+            if (!output.exposed || !output.output_name) {
+                continue;
+            }
+            const label = output.label.trim();
+            if (!label) {
+                continue;
+            }
+            outputLabels.push({
+                id: output.id,
+                kind: output.history_content_type === "dataset" ? "hda" : "hdca",
+                label,
+            });
+        }
+    }
+    return outputLabels;
+});
+
+/** Step labels for checked tool steps that carry one. Mapped steps are keyed by
+ *  their ICJ id; plain tool steps by job id. Steps without a label are omitted —
+ *  labeling is off by default. */
+const selectedStepLabels = computed<StepLabelHint[]>(() => {
+    const hints: StepLabelHint[] = [];
+    for (const job of jobsList.value ?? []) {
+        if (!job.checked || job.step_type !== "tool") {
+            continue;
+        }
+        const label = job.stepLabel.trim();
+        if (!label) {
+            continue;
+        }
+        if (isMappedTool(job)) {
+            hints.push({ kind: "implicit_collection_jobs", id: job.implicit_collection_jobs_id, label });
+        } else if (job.id) {
+            hints.push({ kind: "job", id: job.id, label });
+        }
+    }
+    return hints;
 });
 
 /** No workflow steps are selected: the workflow would have no steps */
 const hasNoSelectedSteps = computed(() => !jobsList.value?.some((job) => job.checked));
+
+/** Opened from a notebook whose markdown referenced nothing that maps to an
+ *  extractable step — every row loaded unchecked. Distinct from an empty history
+ *  (`!jobsList.length`), which keeps its own message; here the full history is
+ *  shown and the user can still check steps by hand. */
+const nothingSeeded = computed(
+    () => !!fromPageId.value && jobsList.value.length > 0 && !jobsList.value.some((job) => job.seeded),
+);
 
 /** For any inputs selected for inclusion as workflow steps, check if any are missing a name/label */
 const hasUnnamedSelectedInputs = computed(() => {
     return selectedInputs.value.some((input) => !input.newName);
 });
 
+const hasUnnamedSelectedOutputs = computed(() => {
+    return jobsList.value.some((job) => {
+        if (!job.checked || job.step_type !== "tool") {
+            return false;
+        }
+        return job.outputs.some((output) => output.exposed && Boolean(output.output_name) && !output.label.trim());
+    });
+});
+
+function hasDuplicates(values: string[]): boolean {
+    return new Set(values).size !== values.length;
+}
+
+/** Duplicate exposed-output labels. Normalized the same way the backend's
+ *  `_sanitize_output_label` does (trim + collapse internal whitespace) so the
+ *  disabled-button prediction matches the backend's 400 exactly. */
+const hasDuplicateOutputLabels = computed(() => {
+    const labels = selectedOutputLabels.value.map((output) => output.label.trim().replace(/\s+/g, " ").slice(0, 255));
+    return hasDuplicates(labels);
+});
+
+/** Step labels share one namespace with input names on the backend. Compared
+ *  RAW (no `_sanitize_output_label`-style whitespace collapse) so the prediction
+ *  matches the backend's raw reject-not-sanitize rule for step labels and input
+ *  names exactly. */
+const hasDuplicateStepLabels = computed(() => {
+    const stepLabels = selectedStepLabels.value.map((hint) => hint.label);
+    const inputNames = selectedInputs.value.map((input) => input.newName);
+    return hasDuplicates([...stepLabels, ...inputNames]);
+});
+
 extractWorkflow();
-
-function toWorkflowExtractionRow(job: WorkflowExtractionJob): WorkflowExtractionRow {
-    const checked = job.checked ?? false;
-    if (job.step_type === "tool") {
-        return {
-            ...job,
-            checked,
-            step_type: "tool",
-        };
-    } else {
-        return {
-            ...job,
-            checked,
-            step_type: job.step_type,
-            newName: getInputName(job) || "",
-        };
-    }
-}
-
-function getInputName(job: WorkflowExtractionJob): string | undefined {
-    if (job.outputs?.length && job.outputs[0]) {
-        const output = job.outputs[0];
-        return output.name || `Input ${output.hid}`;
-    }
-}
 
 function getSelectedInputs(type: "dataset" | "dataset_collection"): { ids: string[]; names: string[] } {
     const inputs = selectedInputs.value.filter(
@@ -191,11 +304,40 @@ function getSelectedInputs(type: "dataset" | "dataset_collection"): { ids: strin
     };
 }
 
+/** Append a numeric suffix until `desired` is unique within `taken`, then record it.
+ *  Input step labels share one namespace, so the workflow's input names stay unique
+ *  in the UI exactly as they will be created — the backend rejects duplicates. */
+function uniqueInputLabel(desired: string, taken: Set<string>): string {
+    let label = desired;
+    let suffix = 2;
+    while (taken.has(label)) {
+        label = `${desired} (${suffix})`;
+        suffix++;
+    }
+    taken.add(label);
+    return label;
+}
+
 async function extractWorkflow() {
     try {
-        const result = await extractWorkflowFromHistory(props.historyId);
+        const result: WorkflowExtractionSummary = fromPageId.value
+            ? await fetchWorkflowExtractionSummary(fromPageId.value)
+            : await extractWorkflowFromHistory(props.historyId);
         if (result.jobs) {
-            jobsList.value = result.jobs.map(toWorkflowExtractionRow);
+            const rows = result.jobs.map(toExtractionRow);
+            const taken = new Set<string>();
+            for (const row of rows) {
+                if (isInputStep(row)) {
+                    row.newName = uniqueInputLabel(row.newName, taken);
+                }
+            }
+            jobsList.value = rows;
+            if (fromPageId.value) {
+                // Pre-check the producing subgraph rather than the default non-deleted heuristic.
+                jobsList.value.forEach((job) => {
+                    job.checked = job.seeded;
+                });
+            }
         }
 
         warnings.value = result.warnings || [];
@@ -221,6 +363,44 @@ function onJobSelect(index: number) {
     const job = jobsList.value[index];
     if (job) {
         job.checked = !job.checked;
+        if (!job.checked && job.step_type === "tool") {
+            job.outputs.forEach((output) => {
+                output.exposed = false;
+            });
+        }
+    }
+}
+
+function onOutputToggle(jobIndex: number, outputIndex: number) {
+    const job = jobsList.value[jobIndex];
+    if (!job || job.step_type !== "tool" || !job.checked || job.invalid) {
+        return;
+    }
+    const output = job.outputs[outputIndex];
+    if (!output || output.deleted || !output.output_name) {
+        return;
+    }
+    output.exposed = !output.exposed;
+    if (output.exposed && !output.label.trim()) {
+        output.label = output.suggested_name || output.name || output.output_name || "";
+    }
+}
+
+function onOutputRename(jobIndex: number, outputIndex: number) {
+    outputRenameTarget.value = { jobIndex, outputIndex };
+}
+
+function onStepLabel(index: number) {
+    const job = jobsList.value[index];
+    if (job && job.step_type === "tool" && job.checked && !job.invalid) {
+        stepLabelIndex.value = index;
+    }
+}
+
+function onStepLabelClear(index: number) {
+    const job = jobsList.value[index];
+    if (job && job.step_type === "tool") {
+        job.stepLabel = "";
     }
 }
 
@@ -242,8 +422,42 @@ async function renameInput(newName: string) {
     }
 
     // Instead of using the computed `toRenameInput`, we directly update the `newName` in the `jobsList`
-    // to ensure reactivity and that the change is reflected in the UI immediately.
-    (jobsList.value[renameIndex.value] as WorkflowExtractionInput).newName = newName;
+    // to ensure reactivity and that the change is reflected in the UI immediately. Re-uniquify so
+    // renaming into a collision suffixes the input just renamed rather than silently colliding.
+    const taken = new Set<string>();
+    jobsList.value.forEach((job, index) => {
+        if (isInputStep(job) && index !== renameIndex.value) {
+            taken.add(job.newName);
+        }
+    });
+    (jobsList.value[renameIndex.value] as InputStep).newName = uniqueInputLabel(newName, taken);
+}
+
+async function renameStep(newName: string) {
+    if (stepLabelIndex.value === null) {
+        throw new Error("Invalid step index");
+    }
+    const job = jobsList.value[stepLabelIndex.value];
+    if (!job || job.step_type !== "tool") {
+        throw new Error("Step not found or is not a tool");
+    }
+    job.stepLabel = newName;
+}
+
+async function renameOutput(newName: string) {
+    const target = outputRenameTarget.value;
+    if (!target) {
+        throw new Error("Invalid output rename target");
+    }
+    const job = jobsList.value[target.jobIndex];
+    if (!job || job.step_type !== "tool") {
+        throw new Error("Job not found or is not a tool");
+    }
+    const output = job.outputs[target.outputIndex];
+    if (!output) {
+        throw new Error("Output not found");
+    }
+    output.label = newName;
 }
 
 async function submitWorkflow() {
@@ -267,10 +481,23 @@ async function submitWorkflow() {
             dataset_names: selectedDatasets.names,
             dataset_collection_names: selectedDatasetCollections.names,
         };
+        if (selectedOutputLabels.value.length) {
+            payload.output_labels = selectedOutputLabels.value;
+        }
+        if (selectedStepLabels.value.length) {
+            payload.step_labels = selectedStepLabels.value;
+        }
+        if (fromPageId.value) {
+            // Carry the notebook's markdown into the workflow as its report.
+            payload.from_page_id = fromPageId.value;
+        }
 
         const data = await extractWorkflowByIds(payload);
 
         Toast.success("Workflow created successfully", "Success");
+        if (data.report_warnings?.length) {
+            Toast.warning(data.report_warnings.join("\n"), "Some report directives were dropped");
+        }
 
         router.push(`/published/workflow?id=${data.id}`);
     } catch (error) {
@@ -280,7 +507,7 @@ async function submitWorkflow() {
     }
 }
 
-function stepKind(job: WorkflowExtractionRow): string {
+function stepKind(job: ExtractionRow): string {
     if (isMappedTool(job)) {
         return "mapped-tool";
     }
@@ -293,10 +520,14 @@ function stepKind(job: WorkflowExtractionRow): string {
         <div class="workflow-extraction-header">
             <BreadcrumbHeading :items="breadcrumbItems" />
 
-            <BAlert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</BAlert>
-            <BAlert v-if="loading" variant="info" show>
+            <GAlert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</GAlert>
+            <GAlert v-if="loading" variant="info" show>
                 <LoadingSpan message="Extracting workflow from history" />
-            </BAlert>
+            </GAlert>
+            <GAlert v-if="!loading && nothingSeeded" data-description="no-seed-message" variant="info" show>
+                This notebook doesn't reference any outputs that map to extractable workflow steps yet. Display a
+                dataset or collection in the notebook, or check steps below to build the workflow manually.
+            </GAlert>
             <div v-if="!loading && jobsList.length" class="d-flex flex-column flex-gapy-1">
                 <div class="workflow-extraction-actions">
                     <GFormInput
@@ -320,13 +551,13 @@ function stepKind(job: WorkflowExtractionRow): string {
                 </div>
                 <WorkflowExtractionMessages :warnings="warnings" />
             </div>
-            <BAlert
+            <GAlert
                 v-if="!loading && !errorMessage && !jobsList.length"
                 data-description="no-workflow-message"
                 variant="info"
                 show>
                 No workflow could be extracted from this history.
-            </BAlert>
+            </GAlert>
         </div>
 
         <div v-if="jobsList.length" class="workflow-extraction-list">
@@ -340,6 +571,10 @@ function stepKind(job: WorkflowExtractionRow): string {
                 :data-icj-id="isMappedTool(job) ? job.implicit_collection_jobs_id : undefined"
                 :data-step-kind="stepKind(job)"
                 @rename="onJobRename(index)"
+                @toggle-output="(outputIndex: number) => onOutputToggle(index, outputIndex)"
+                @rename-output="(outputIndex: number) => onOutputRename(index, outputIndex)"
+                @label-step="onStepLabel(index)"
+                @clear-step-label="onStepLabelClear(index)"
                 @select="onJobSelect(index)"
                 @view-job="onViewJob" />
         </div>
@@ -351,7 +586,21 @@ function stepKind(job: WorkflowExtractionRow): string {
             :rename-action="renameInput"
             @close="renameIndex = null" />
 
-        <GModal :show.sync="showJobModal" title="View Job" fixed-height size="medium" @close="viewedJobId = null">
+        <RenameModal
+            v-if="toLabelStep"
+            item-type="step"
+            :name="toLabelStep.stepLabel"
+            :rename-action="renameStep"
+            @close="stepLabelIndex = null" />
+
+        <RenameModal
+            v-if="toRenameOutput"
+            item-type="output"
+            :name="toRenameOutput.label"
+            :rename-action="renameOutput"
+            @close="outputRenameTarget = null" />
+
+        <GModal v-model:show="showJobModal" title="View Job" fixed-height size="medium" @close="viewedJobId = null">
             <JobDetails v-if="viewedJobId" :job-id="viewedJobId" />
         </GModal>
     </div>

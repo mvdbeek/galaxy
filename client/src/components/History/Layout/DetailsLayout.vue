@@ -1,15 +1,17 @@
 <script setup lang="ts">
 import { faPen, faSave, faUndo } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BButton, BFormInput, BFormTextarea } from "bootstrap-vue";
+import { BFormInput, BFormTextarea } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
 import { computed, ref } from "vue";
 
+import { vShort } from "@/components/plugins/short";
 import { useUserStore } from "@/stores/userStore";
 import l from "@/utils/localization";
 
 import type { DetailsLayoutSummarized } from "./types";
 
+import GButton from "@/components/BaseComponents/GButton.vue";
 import ClickToEdit from "@/components/Collections/common/ClickToEdit.vue";
 import Heading from "@/components/Common/Heading.vue";
 import TextSummary from "@/components/Common/TextSummary.vue";
@@ -144,11 +146,12 @@ function selectText() {
             <template v-if="!summarized && !editing">
                 <ClickToEdit
                     v-if="renameable"
-                    v-model="clickToEditName"
+                    :value="clickToEditName"
                     component="h3"
                     data-description="name display"
                     no-save-on-blur
-                    class="name-display my-2 w-100" />
+                    class="name-display my-2 w-100"
+                    @input="(v: string) => (clickToEditName = v)" />
                 <Heading v-else h3 :clamp="2" class="my-2 w-100">
                     {{ props.name || "..." }}
                 </Heading>
@@ -163,17 +166,17 @@ function selectText() {
                     no-expand />
             </div>
 
-            <BButton
+            <GButton
                 :disabled="isAnonymous || !writeable"
                 class="edit-button ml-1 float-right"
                 data-description="editor toggle"
-                size="sm"
-                variant="link"
+                size="small"
+                transparent
                 :title="editButtonTitle"
                 :pressed="editing"
                 @click="onToggle">
                 <FontAwesomeIcon :icon="faPen" fixed-width />
-            </BButton>
+            </GButton>
         </div>
 
         <slot name="description" />
@@ -233,21 +236,21 @@ function selectText() {
 
             <StatelessTags v-if="localProps.tags" v-model="localProps.tags" class="mb-3 tags" />
 
-            <BButton
+            <GButton
                 class="save-button mb-1"
                 data-description="editor save button"
-                size="sm"
-                variant="primary"
+                size="small"
+                color="blue"
                 :disabled="!localProps.name"
                 @click="onSave">
                 <FontAwesomeIcon :icon="faSave" fixed-width />
                 <span v-localize>Save</span>
-            </BButton>
+            </GButton>
 
-            <BButton class="cancel-button mb-1" data-description="editor cancel button" size="sm" @click="onToggle">
+            <GButton class="cancel-button mb-1" data-description="editor cancel button" size="small" @click="onToggle">
                 <FontAwesomeIcon :icon="faUndo" fixed-width />
                 <span v-localize>Cancel</span>
-            </BButton>
+            </GButton>
         </div>
 
         <slot></slot>

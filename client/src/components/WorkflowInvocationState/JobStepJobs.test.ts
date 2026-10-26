@@ -1,11 +1,11 @@
 import { createTestingPinia } from "@pinia/testing";
-import { getLocalVue } from "@tests/vitest/helpers";
+import { getLocalVue, nth } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
-import type { JobDisplayParametersSummary, ShowFullJobResponse } from "@/api/jobs";
+import type { JobBaseModel, JobDisplayParametersSummary, ShowFullJobResponse } from "@/api/jobs";
 import paramResponse from "@/components/JobParameters/parameters-response.json";
 
 import { TEST_JOBS_BY_STATES } from "./test/jobStepUtils";
@@ -13,9 +13,14 @@ import TEST_JOBS_JSON from "./test/json/jobs.json";
 
 import JobStepJobs from "./JobStepJobs.vue";
 
-vi.mock("vue-router/composables", () => ({
-    useRoute: vi.fn(() => ({})),
-}));
+vi.mock("vue-router", async (importOriginal) => {
+    const actual = (await importOriginal()) as Record<string, unknown>;
+    return {
+        ...actual,
+        useRoute: vi.fn(() => ({})),
+        useRouter: vi.fn(() => ({ push: vi.fn() })),
+    };
+});
 
 const localVue = getLocalVue();
 
@@ -57,6 +62,11 @@ describe("JobStepJobs", () => {
             }),
         );
         server.use(
+            http.get("/api/jobs/{job_id}/metrics", ({ response }) => {
+                return response(200).json([]);
+            }),
+        );
+        server.use(
             http.get("/api/datasets/{dataset_id}", ({ response, params }) => {
                 const { dataset_id } = params;
                 return response.untyped(
@@ -71,19 +81,20 @@ describe("JobStepJobs", () => {
 
     it("renders a jobs table which allows opening a job details modal", async () => {
         const wrapper = mount(JobStepJobs as object, {
-            propsData: {
+            props: {
                 jobs: TEST_JOBS_BY_STATES["ok"],
                 invocationId: "test-invocation-id",
                 currentPage: 1,
                 sortDesc: true,
                 perPage: 10,
             },
-            localVue,
-            pinia: createTestingPinia({ createSpy: vi.fn }),
+            global: localVue,
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
             stubs: {
                 ContentItem: true,
                 FontAwesomeIcon: true,
-                JobInformation: true,
+                // Not stubbed: the test opens the modal and inspects JobInformation's
+                // own rendered table (#job-information, #galaxy-tool-id).
                 JobParameters: true,
                 RouterLink: true,
             },
@@ -100,12 +111,37 @@ describe("JobStepJobs", () => {
         expect(wrapper.find(SELECTORS.JOB_CONTENT).text()).toBe("");
 
         // click on a row and expect the modal to be populated
-        await tableRows.at(0).trigger("click");
+        await nth(tableRows, 0).trigger("click");
         await flushPromises();
 
         expect(wrapper.find(SELECTORS.JOB_CONTENT).text()).not.toBe("");
         expect(wrapper.find(SELECTORS.JOB_INFORMATION_TABLE).exists()).toBe(true);
 
         expect(wrapper.find("#galaxy-tool-id").text()).toBe(TEST_JOBS_BY_STATES["ok"]?.[0]?.tool_id);
+    });
+});
+
+describe("JobStepJobs state updates", () => {
+    it("uses the parent jobs without fetching each visible row", async () => {
+        let jobRequests = 0;
+        server.use(
+            http.get("/api/jobs/{job_id}", ({ response }) => {
+                jobRequests++;
+                return response(200).json(TEST_JOBS_JSON[0] as ShowFullJobResponse);
+            }),
+        );
+        const job = { ...TEST_JOBS_JSON[0]!, state: "new" } as JobBaseModel;
+        const wrapper = mount(JobStepJobs, {
+            props: { jobs: [job], invocationId: "test-invocation-id", currentPage: 1, sortDesc: true, perPage: 10 },
+            global: localVue,
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
+        });
+        await flushPromises();
+        expect(wrapper.find(".job-state-badge").text()).toContain("new");
+        await wrapper.setProps({ jobs: [{ ...job, state: "running" }] });
+        await flushPromises();
+        expect(wrapper.find(".job-state-badge").text()).toContain("running");
+        expect(jobRequests).toBe(0);
+        wrapper.unmount();
     });
 });

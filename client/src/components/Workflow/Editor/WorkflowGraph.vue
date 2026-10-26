@@ -4,6 +4,7 @@ import { storeToRefs } from "pinia";
 import { computed, type PropType, provide, reactive, type Ref, ref, watch, watchEffect } from "vue";
 
 import { DatatypesMapperModel } from "@/components/Datatypes/model";
+import { useFocusedNodes } from "@/components/Graph/composables/useFocusedNodes";
 import { useD3Zoom } from "@/composables/d3Zoom";
 import { useViewportBoundingBox } from "@/composables/viewportBoundingBox";
 import { useWorkflowStores } from "@/composables/workflowStores";
@@ -12,7 +13,6 @@ import type { Step } from "@/stores/workflowStepStore";
 import { assertDefined } from "@/utils/assertions";
 import type { Vector } from "@/utils/geometry";
 
-import { useFocusedNodes } from "./composables/useFocusedNodes";
 import { useWorkflowBoundingBox } from "./composables/workflowBoundingBox";
 import type { OutputTerminals } from "./modules/terminals";
 import { maxZoom, minZoom } from "./modules/zoomLevels";
@@ -29,7 +29,19 @@ import WorkflowNode from "@/components/Workflow/Editor/Node.vue";
 import WorkflowEdges from "@/components/Workflow/Editor/WorkflowEdges.vue";
 import WorkflowMinimap from "@/components/Workflow/Editor/WorkflowMinimap.vue";
 
-const emit = defineEmits(["transform", "graph-offset", "onRemove", "scrollTo", "stepClicked"]);
+type StepPosition = NonNullable<Step["position"]>;
+
+const emit = defineEmits([
+    "transform",
+    "graph-offset",
+    "onRemove",
+    "onClone",
+    "onCreate",
+    "onChange",
+    "onUpdateStepPosition",
+    "scrollTo",
+    "stepClicked",
+]);
 const props = defineProps({
     steps: { type: Object as PropType<{ [index: string]: Step }>, required: true },
     datatypesMapper: { type: DatatypesMapperModel, required: true },
@@ -48,7 +60,26 @@ const props = defineProps({
 const { stateStore, stepStore, connectionStore } = useWorkflowStores();
 const { scale, activeNodeId, draggingPosition, draggingTerminal, pendingHighlight } = storeToRefs(stateStore);
 
-const { focusedNodeIds } = useFocusedNodes(activeNodeId, connectionStore);
+const { focusedNodeIds } = useFocusedNodes(activeNodeId, {
+    upstream(id) {
+        const result: number[] = [];
+        for (const conn of connectionStore.getConnectionsForStep(id)) {
+            if (conn.input.stepId === id) {
+                result.push(conn.output.stepId);
+            }
+        }
+        return result;
+    },
+    downstream(id) {
+        const result: number[] = [];
+        for (const conn of connectionStore.getConnectionsForStep(id)) {
+            if (conn.output.stepId === id) {
+                result.push(conn.input.stepId);
+            }
+        }
+        return result;
+    },
+});
 const canvas: Ref<HTMLElement | null> = ref(null);
 
 const elementBounding = useElementBounding(canvas, { windowResize: false, windowScroll: false });
@@ -282,7 +313,13 @@ defineExpose({
                     @onDragConnector="onDragConnector"
                     @onActivate="onActivate"
                     @onDeactivate="onDeactivate"
-                    v-on="$listeners" />
+                    @onRemove="(id: number) => emit('onRemove', id)"
+                    @onClone="(id: number) => emit('onClone', id)"
+                    @onCreate="(contentId: string, name: string) => emit('onCreate', contentId, name)"
+                    @onChange="emit('onChange')"
+                    @onUpdateStepPosition="
+                        (id: number, position: StepPosition) => emit('onUpdateStepPosition', id, position)
+                    " />
                 <WorkflowComment
                     v-for="comment in comments"
                     :id="`workflow-comment-${comment.id}`"

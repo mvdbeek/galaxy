@@ -40,7 +40,7 @@ SIMPLE_LINE_AS_TSV_METADATA = {
 }
 
 
-def one_ld_library_model_store_dict():
+def one_ld_library_model_store_dict(source_uri=TEST_SOURCE_URI):
     dataset_hash = dict(
         model_class="DatasetHash",
         hash_function=TEST_HASH_FUNCTION,
@@ -49,7 +49,7 @@ def one_ld_library_model_store_dict():
     )
     dataset_source: dict[str, Any] = dict(
         model_class="DatasetSource",
-        source_uri=TEST_SOURCE_URI,
+        source_uri=source_uri,
         extra_files_path=None,
         transform=None,
         hashes=[],

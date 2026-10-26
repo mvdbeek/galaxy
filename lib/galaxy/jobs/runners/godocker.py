@@ -4,7 +4,6 @@ import time
 from datetime import datetime
 from typing import (
     TYPE_CHECKING,
-    Union,
 )
 
 from galaxy import model
@@ -127,6 +126,8 @@ class GodockerJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
     Job runner backed by a finite pool of worker threads. FIFO scheduling
     """
 
+    runs_job_script_in_container = True
+
     runner_name = "GodockerJobRunner"
 
     def __init__(self, app, nworkers, **kwargs):
@@ -176,7 +177,7 @@ class GodockerJobRunner(AsynchronousJobRunner[AsynchronousJobState]):
             )
             self.monitor_queue.put(ajs)
 
-    def check_watched_item(self, job_state: AsynchronousJobState) -> Union[AsynchronousJobState, None]:
+    def check_watched_item(self, job_state: AsynchronousJobState) -> AsynchronousJobState | None:
         """Get the job current status from GoDocker
                 using job_id and update the status in galaxy.
         If the job execution is successful, call

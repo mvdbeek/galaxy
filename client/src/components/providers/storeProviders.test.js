@@ -21,16 +21,17 @@ describe("DatatypesProvider", () => {
     });
 
     afterEach(() => {
-        wrapper?.destroy();
+        wrapper?.unmount();
     });
 
     function mountProvider() {
         return mount(DatatypesProvider, {
             localVue,
             propsData: { id: "datatypes" },
-            scopedSlots: {
-                default:
-                    '<div><span class="state">{{ props.loading }}</span><span class="error">{{ props.error }}</span></div>',
+            slots: {
+                default: `<template #default="props">
+                    <div><span class="state">{{ props.loading }}</span><span class="error">{{ props.error }}</span></div>
+                </template>`,
             },
         });
     }

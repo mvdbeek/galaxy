@@ -5,10 +5,21 @@ Galaxy Security
 
 from typing import (
     Literal,
-    Optional,
+    TYPE_CHECKING,
 )
 
 from galaxy.util.bunch import Bunch
+
+if TYPE_CHECKING:
+    from galaxy.managers.context import (
+        ProvidesAppContext,
+        ProvidesUserContext,
+    )
+    from galaxy.model import (
+        History,
+        Role,
+        User,
+    )
 
 ActionModel = Literal["grant", "restrict"]
 
@@ -54,7 +65,7 @@ class RBACAgent:
         ),
     )
 
-    def get_action(self, name: str, default: Optional[Action] = None) -> Optional[Action]:
+    def get_action(self, name: str, default: Action | None = None) -> Action | None:
         """Get a permitted action by its dict key or action name"""
         for k, v in self.permitted_actions.items():
             if k == name or v.action == name:
@@ -99,11 +110,23 @@ class RBACAgent:
     def get_private_user_role(self, user):
         raise Exception("Unimplemented Method")
 
-    def user_set_default_permissions(self, user, permissions=None, history=False, dataset=False):
+    def user_set_default_permissions(
+        self,
+        user: "User",
+        permissions: dict[str, list["Role"]] | dict[Action, list["Role"]] | None = None,
+        history: bool = False,
+        dataset: bool = False,
+    ) -> None:
         permissions = permissions or {}
         raise Exception("Unimplemented Method")
 
-    def history_set_default_permissions(self, history, permissions=None, dataset=False, bypass_manage_permission=False):
+    def history_set_default_permissions(
+        self,
+        history: "History",
+        permissions: dict[str, list["Role"]] | dict[Action, list["Role"]] | None = None,
+        dataset: bool = False,
+        bypass_manage_permission: bool = False,
+    ) -> None:
         raise Exception("Unimplemented Method")
 
     def set_all_dataset_permissions(self, dataset, permissions, new=False):
@@ -112,7 +135,7 @@ class RBACAgent:
     def set_dataset_permission(self, dataset, permission):
         raise Exception("Unimplemented Method")
 
-    def set_all_library_permissions(self, trans, dataset, permissions):
+    def set_all_library_permissions(self, trans: "ProvidesAppContext", dataset, permissions):
         raise Exception("Unimplemented Method")
 
     def set_library_item_permission(self, library_item, permission):
@@ -124,10 +147,10 @@ class RBACAgent:
     def make_library_public(self, library):
         raise Exception("Unimplemented Method")
 
-    def get_accessible_libraries(self, trans, user):
+    def get_accessible_libraries(self, trans: "ProvidesAppContext", user):
         raise Exception("Unimplemented Method")
 
-    def get_permitted_libraries(self, trans, user, actions):
+    def get_permitted_libraries(self, trans: "ProvidesAppContext", user, actions):
         raise Exception("Unimplemented Method")
 
     def folder_is_public(self, library):
@@ -145,13 +168,13 @@ class RBACAgent:
     def get_permissions(self, library_dataset):
         raise Exception("Unimplemented Method")
 
-    def get_all_roles(self, trans, cntrller):
+    def get_all_roles(self, trans: "ProvidesUserContext", cntrller):
         raise Exception("Unimplemented Method")
 
-    def get_legitimate_roles(self, trans, item, cntrller):
+    def get_legitimate_roles(self, trans: "ProvidesUserContext", item, cntrller):
         raise Exception("Unimplemented Method")
 
-    def derive_roles_from_access(self, trans, item_id, cntrller, library=False, **kwd):
+    def derive_roles_from_access(self, trans: "ProvidesUserContext", item_id, cntrller, library=False, **kwd):
         raise Exception("Unimplemented Method")
 
     def get_component_associations(self, **kwd):
@@ -177,5 +200,7 @@ def get_permitted_actions(filter=None):
     if filter is None:
         return RBACAgent.permitted_actions
     tmp_bunch = Bunch()
-    [tmp_bunch.dict().__setitem__(k, v) for k, v in RBACAgent.permitted_actions.items() if k.startswith(filter)]
+    for k, v in RBACAgent.permitted_actions.items():
+        if k.startswith(filter):
+            tmp_bunch[k] = v
     return tmp_bunch

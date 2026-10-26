@@ -1,32 +1,54 @@
+import { createTestingPinia } from "@pinia/testing";
 import { getLocalVue } from "@tests/vitest/helpers";
-import { mount, RouterLinkStub, type Wrapper } from "@vue/test-utils";
+import { mount, RouterLinkStub, shallowMount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
-import { createPinia, setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type Vue from "vue";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
 
 import DatasetPopoverLink from "./DatasetPopoverLink.vue";
+import GPopover from "@/components/BaseComponents/GPopover.vue";
 
 const RETRY_BACKOFF_CAP_MS = 30_000;
 
-const localVue = getLocalVue();
 const { server, http } = useServerMock();
 
 const DATASET_ID = "dataset-id-1";
-const POPOVER_STUB = { name: "BPopoverStub", template: "<div><slot /></div>" };
+const POPOVER_STUB = { name: "GPopoverStub", template: "<div><slot /></div>" };
 const HISTORY_ID = "history-id-1";
 const DATASET = { id: DATASET_ID, history_id: HISTORY_ID, name: "my dataset", peek: "", state: "ok" };
 
+function mountLink(storedDatasets = {}) {
+    const wrapper = shallowMount(DatasetPopoverLink as object, {
+        props: { datasetId: "dataset_id" },
+        global: {
+            plugins: [createTestingPinia({ createSpy: vi.fn, initialState: { datasetStore: { storedDatasets } } })],
+            stubs: { RouterLink: true },
+        },
+    });
+    return wrapper.findComponent(GPopover);
+}
+
 describe("DatasetPopoverLink", () => {
+    it("lets keyboard users reach the links in the dataset details", () => {
+        expect(mountLink().props("interactive")).toBe(true);
+    });
+
+    it("names the details dialog by the dataset rather than its encoded id", () => {
+        expect(mountLink().props("ariaLabel")).toBe("Dataset details");
+        expect(mountLink({ dataset_id: { id: "dataset_id", name: "reads.fastq" } }).props("ariaLabel")).toBe(
+            "reads.fastq",
+        );
+    });
+});
+
+describe("DatasetPopoverLink loading", () => {
     let datasetRequests: number;
     let historyRequests: number;
     let failNext: number;
-    let wrapper: Wrapper<Vue> | undefined;
+    let wrapper: VueWrapper | undefined;
 
     beforeEach(() => {
-        setActivePinia(createPinia());
         datasetRequests = 0;
         historyRequests = 0;
         failNext = 0;
@@ -47,31 +69,31 @@ describe("DatasetPopoverLink", () => {
     });
 
     afterEach(() => {
-        wrapper?.destroy();
+        wrapper?.unmount();
         vi.useRealTimers();
     });
 
-    /** Mounts with a BPopover stub that always renders its content, like the real one does. */
-    function mountLink() {
+    /** Mounts with a GPopover stub that always renders its content. */
+    function mountWithServer() {
+        const localVue = getLocalVue();
         wrapper = mount(DatasetPopoverLink as object, {
-            propsData: { datasetId: DATASET_ID },
-            localVue,
-            stubs: { RouterLink: RouterLinkStub, BPopover: POPOVER_STUB },
+            props: { datasetId: DATASET_ID },
+            global: { ...localVue, stubs: { ...localVue.stubs, RouterLink: RouterLinkStub, GPopover: POPOVER_STUB } },
         });
         return wrapper;
     }
 
     it("does not fetch the dataset before hover", async () => {
-        mountLink();
+        mountWithServer();
         await flushPromises();
         expect(datasetRequests).toBe(0);
         expect(historyRequests).toBe(0);
     });
 
     it("loads and displays dataset details on hover", async () => {
-        const link = mountLink();
+        const link = mountWithServer();
         await link.find(`#storage-run-item-dataset-${DATASET_ID}`).trigger("mouseenter");
-        link.findComponent(POPOVER_STUB).vm.$emit("show");
+        link.findComponent(POPOVER_STUB).vm.$emit("shown");
         await flushPromises();
         expect(datasetRequests).toBe(1);
         expect(link.find("#dataset-details").exists()).toBe(true);
@@ -81,9 +103,9 @@ describe("DatasetPopoverLink", () => {
     it("shows loading during a retry backoff and the dataset once the retry succeeds", async () => {
         vi.useFakeTimers();
         failNext = 1;
-        const link = mountLink();
+        const link = mountWithServer();
         await link.find(`#storage-run-item-dataset-${DATASET_ID}`).trigger("mouseenter");
-        link.findComponent(POPOVER_STUB).vm.$emit("show");
+        link.findComponent(POPOVER_STUB).vm.$emit("shown");
         await flushPromises();
         expect(datasetRequests).toBe(1);
         expect(historyRequests).toBe(0);
@@ -101,10 +123,10 @@ describe("DatasetPopoverLink", () => {
     it("does not retry a failed fetch after the popover is hidden", async () => {
         vi.useFakeTimers();
         failNext = 1;
-        const link = mountLink();
+        const link = mountWithServer();
         await link.find(`#storage-run-item-dataset-${DATASET_ID}`).trigger("mouseenter");
         const popover = link.findComponent(POPOVER_STUB);
-        popover.vm.$emit("show");
+        popover.vm.$emit("shown");
         await flushPromises();
         expect(datasetRequests).toBe(1);
 

@@ -94,6 +94,14 @@ export function useResourceWatcher<T = unknown>(
         }
     }
 
+    function dispose() {
+        stopWatcher();
+        if (isEventSetup) {
+            document.removeEventListener("visibilitychange", updateThrottle);
+            isEventSetup = false;
+        }
+    }
+
     async function tryWatchResource(app?: T) {
         // Capture the current request ID to ensure we only schedule the next poll
         const requestId = currentRequestId;
@@ -147,6 +155,11 @@ export function useResourceWatcher<T = unknown>(
         stopWatchingResource,
         startWatchingResourceIfNeeded,
         stopWatchingResourceIfNeeded,
+        /**
+         * Fully tears down this watcher (stops polling and removes its `visibilitychange`
+         * listener). Call once, when this watcher instance is permanently done being used.
+         */
+        dispose,
         /**
          * Reactive boolean ref indicating whether the resource watcher is currently active.
          */

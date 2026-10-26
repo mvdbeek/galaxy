@@ -5,22 +5,24 @@ on:
       - 'client/**'
       - 'doc/**'
       - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+      - 'packages/test_selenium/**'
   pull_request:
     paths-ignore:
       - 'client/**'
       - 'doc/**'
       - 'lib/galaxy_test/selenium/**'
-      - 'packages/**'
+      - 'packages/test_selenium/**'
 env:
   GALAXY_TEST_DBURI: 'postgresql+psycopg://postgres:postgres@localhost:5432/galaxy?client_encoding=utf8'
+  UV_HTTP_RETRIES: '6'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   test:
     name: Test
-    if: ${{ false }}
+    if: false
     runs-on: ubuntu-latest
     continue-on-error: ${{ startsWith(matrix.marker, 'red') }}
     strategy:
@@ -39,19 +41,21 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           path: 'galaxy root'
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: galaxy root/.tool-versions
+          python-version: ${{ matrix.python-version }}
+      - name: Install Python
+        run: uv python install
       - name: Run tests
         run: ./run_tests.sh --coverage --skip_flakey_fails -cwl lib/galaxy_test/api/cwl -- -m "${{ matrix.marker }} and ${{ matrix.conformance-version }}"
         working-directory: 'galaxy root'
-      - uses: codecov/codecov-action@v6
+      - uses: codecov/codecov-action@v7.1.1
         with:
           flags: cwl-conformance
           working-directory: 'galaxy root'

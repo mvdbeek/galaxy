@@ -5,9 +5,7 @@ from collections.abc import (
 )
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
-    Union,
 )
 
 from galaxy.exceptions import RequestParameterInvalidException
@@ -86,7 +84,7 @@ class WrappedParameters:
         trans,
         tool: "Tool",
         incoming: "ToolStateJobInstancePopulatedT",
-        input_datasets: Optional[LegacyUnprefixedDict] = None,
+        input_datasets: LegacyUnprefixedDict | None = None,
     ):
         self.trans = trans
         self.tool = tool
@@ -218,13 +216,13 @@ def process_key(incoming_key: str, incoming_value: Any, d: dict[str, Any]):
         process_key("|".join(key_parts[1:]), incoming_value=incoming_value, d=subdict)
 
 
-def nested_key_to_path(key: str) -> Sequence[Union[str, int]]:
+def nested_key_to_path(key: str) -> Sequence[str | int]:
     """
     Convert a tool state key that is separated with '|' and '_n' into path iterable.
     E.g. "cond|repeat_0|paramA" -> ["cond", "repeat", 0, "paramA"].
     Return value can be used with `boltons.iterutils.get_path`.
     """
-    path: list[Union[str, int]] = []
+    path: list[str | int] = []
     key_parts = key.split("|")
     if len(key_parts) == 1:
         return key_parts

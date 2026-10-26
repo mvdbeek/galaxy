@@ -4,6 +4,8 @@ on:
     paths:
       - '**.py'
       - '.github/workflows/lint.yaml'
+      - '.ci/**'
+      - 'Makefile'
       - .flake8
       - .isort.cfg
       - lib/galaxy/dependencies/**
@@ -14,17 +16,27 @@ on:
     paths:
       - '**.py'
       - '.github/workflows/lint.yaml'
+      - '.ci/**'
+      - 'Makefile'
       - .flake8
       - .isort.cfg
       - lib/galaxy/dependencies/**
       - mypy.ini
       - pyproject.toml
       - tox.ini
+env:
+  UV_HTTP_RETRIES: '6'
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+permissions: {}
 jobs:
   test:
+    if: >-
+      github.event_name != 'push'
+      || github.repository_owner != 'galaxyproject'
+      || github.ref_name == 'dev'
+      || startsWith(github.ref_name, 'release_')
     name: Test
     runs-on: ubuntu-latest
     strategy:
@@ -32,25 +44,19 @@ jobs:
       matrix:
         python-version: ['3.10', '3.14']
     env:
-      LINT_PATH: 'lib/galaxy/dependencies/pinned-lint-requirements.txt'
-      TYPE_PATH: 'lib/galaxy/dependencies/pinned-typecheck-requirements.txt'
-      CORE_PATH: 'lib/galaxy/dependencies/pinned-requirements.txt'
+      LINT_PATH: 'packages/app/src/galaxy/dependencies/pinned-lint-requirements.txt'
+      TYPE_PATH: 'packages/app/src/galaxy/dependencies/pinned-typecheck-requirements.txt'
+      CORE_PATH: 'packages/app/src/galaxy/dependencies/pinned-requirements.txt'
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.1
         with:
           persist-credentials: false
-      - uses: actions/setup-python@v6
-        with:
-          python-version: ${{ matrix.python-version }}
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@v10.3.0
+        with:
+          version-file: .tool-versions
+          python-version: ${{ matrix.python-version }}
       - name: Install tox
         run: uv tool install tox --with tox-uv
       - name: Run linting
-        run: tox -e lint
-      - name: Run docstring linting
-        run: tox -e lint_docstring_include_list
-      - name: Run mypy checks
-        run: tox -e mypy
-      - name: Run format checks
-        run: tox -e format
+        run: tox -e lint,lint_docstring_include_list,mypy,format

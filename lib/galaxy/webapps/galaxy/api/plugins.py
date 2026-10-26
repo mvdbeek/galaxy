@@ -4,14 +4,14 @@ Plugins resource control over the API.
 
 import json
 import logging
+from functools import partial
 from typing import (
     Any,
     cast,
     Literal,
-    Optional,
-    Union,
 )
 
+import anyio
 from fastapi import (
     Body,
     Path,
@@ -92,8 +92,8 @@ class ChatTextPart(BaseModel):
 
 class ChatMessage(BaseModel):
     role: Literal["assistant", "system", "tool", "user"]
-    content: Optional[Union[str, list[ChatTextPart]]] = None
-    tool_calls: Optional[list[dict[str, Any]]] = None
+    content: str | list[ChatTextPart] | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     model_config = dict(extra="allow")
 
 
@@ -110,13 +110,13 @@ class ChatTool(BaseModel):
 
 class ChatCompletionRequest(BaseModel):
     messages: list[ChatMessage]
-    tools: Optional[list[ChatTool]] = None
-    stream: Optional[bool] = False
-    stream_options: Optional[ChatCompletionStreamOptionsParam] = None
-    max_tokens: Optional[int] = None
-    parallel_tool_calls: Optional[bool] = None
-    reasoning_effort: Optional[ReasoningEffort] = None
-    tool_choice: Optional[ChatCompletionToolChoiceOptionParam] = None
+    tools: list[ChatTool] | None = None
+    stream: bool | None = False
+    stream_options: ChatCompletionStreamOptionsParam | None = None
+    max_tokens: int | None = None
+    parallel_tool_calls: bool | None = None
+    reasoning_effort: ReasoningEffort | None = None
+    tool_choice: ChatCompletionToolChoiceOptionParam | None = None
     model_config = dict(extra="allow")
 
 
@@ -169,13 +169,14 @@ class FastAPIPlugins:
         else:
             return self._create_error("Visualization registry is not available.")
 
-    def _get_plugin_config(self, plugin_name: str, key: str) -> Optional[str]:
+    def _get_plugin_config(self, plugin_name: str, key: str, default: Any = None) -> Any:
         """Get config for a plugin with fallback through inference_services.
 
         Precedence:
         1. Plugin-specific: inference_services.<plugin_name>.<key>
         2. Default inference: inference_services.default.<key>
         3. Global config: ai_model / ai_api_key / ai_api_base_url
+        4. The given default
         """
         inference_config = getattr(self.config, "inference_services", None)
         if isinstance(inference_config, dict):
@@ -192,7 +193,7 @@ class FastAPIPlugins:
             return self.config.ai_api_key
         elif key == "api_base_url":
             return self.config.ai_api_base_url
-        return None
+        return default
 
     async def _open_ai_adapter(
         self,
@@ -212,8 +213,14 @@ class FastAPIPlugins:
         if ai_model is None:
             return self._create_error("AI service not configured: Model is required.")
 
+        # Collect inference settings via the same fallback chain
+        temperature = float(self._get_plugin_config(plugin_name, "temperature", TEMPERATURE))
+        timeout = float(self._get_plugin_config(plugin_name, "timeout", TIMEOUT))
+        tokens_max = int(self._get_plugin_config(plugin_name, "max_tokens", TOKENS_MAX))
+        top_p = float(self._get_plugin_config(plugin_name, "top_p", TOP_P))
+
         # Limit max tokens
-        max_tokens = min(payload.max_tokens or TOKENS_DEFAULT, TOKENS_MAX)
+        max_tokens = min(payload.max_tokens or TOKENS_DEFAULT, tokens_max)
 
         # Validate messages
         messages: list[ChatCompletionMessageParam] = cast(
@@ -256,11 +263,12 @@ class FastAPIPlugins:
 
         # Build openai client with timeout
         try:
-            client = AsyncOpenAI(
-                api_key=ai_api_key,
-                timeout=TIMEOUT,
-                base_url=ai_api_base_url or None,
+            # Client setup and lazy resource imports can read files (including
+            # TLS certificates); keep them off the request's event loop.
+            client = await anyio.to_thread.run_sync(
+                partial(AsyncOpenAI, api_key=ai_api_key, timeout=timeout, base_url=ai_api_base_url or None)
             )
+            completions = await anyio.to_thread.run_sync(lambda: client.chat.completions)
         except Exception as e:
             log.debug("Failed to initialize OpenAI client.", exc_info=e)
             return self._create_error("Failed to initialize OpenAI client.", 500)
@@ -277,7 +285,7 @@ class FastAPIPlugins:
         # Connect to ai provider
         log.info(f"Proxying to {ai_model}, tokens: {max_tokens}.")
         try:
-            response = await client.chat.completions.create(
+            response = await completions.create(
                 max_tokens=max_tokens,
                 messages=messages,
                 model=ai_model,
@@ -285,10 +293,10 @@ class FastAPIPlugins:
                 reasoning_effort=payload.reasoning_effort or omit,
                 stream=stream,
                 stream_options=payload.stream_options if stream and payload.stream_options else omit,
-                temperature=TEMPERATURE,
+                temperature=temperature,
                 tool_choice=payload.tool_choice or omit,
                 tools=tools or omit,
-                top_p=TOP_P,
+                top_p=top_p,
             )
         except APIError as e:
             log.debug("Failed to complete OpenAI request.", exc_info=e)
@@ -331,12 +339,12 @@ class FastAPIPlugins:
     def index(
         self,
         trans: SessionRequestContext = DependsOnTrans,
-        dataset_id: Optional[DecodedDatabaseIdField] = Query(
+        dataset_id: DecodedDatabaseIdField | None = Query(
             default=None,
             title="Dataset ID",
             description="Filter to visualizations compatible with this dataset.",
         ),
-        embeddable: Optional[bool] = Query(
+        embeddable: bool | None = Query(
             default=None,
             title="Embeddable",
             description="Filter to embeddable visualizations only.",
@@ -358,12 +366,12 @@ class FastAPIPlugins:
             title="Plugin ID",
             description="The visualization plugin identifier.",
         ),
-        history_id: Optional[DecodedDatabaseIdField] = Query(
+        history_id: DecodedDatabaseIdField | None = Query(
             default=None,
             title="History ID",
             description="Filter datasets compatible with this plugin from the specified history.",
         ),
-    ) -> Union[PluginDatasetsResponse, VisualizationPluginResponse]:
+    ) -> PluginDatasetsResponse | VisualizationPluginResponse:
         """Get details of a specific visualization plugin."""
         registry = self._get_registry()
         if history_id is not None:

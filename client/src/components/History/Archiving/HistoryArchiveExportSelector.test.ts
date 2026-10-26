@@ -1,6 +1,5 @@
 import { getLocalVue } from "@tests/vitest/helpers";
 import { shallowMount } from "@vue/test-utils";
-import { BFormCheckbox } from "bootstrap-vue";
 import flushPromises from "flush-promises";
 import { describe, expect, it } from "vitest";
 
@@ -27,15 +26,15 @@ const TEST_HISTORY = {
 
 const EXPORT_RECORD_BTN = "#create-export-record-btn";
 const ARCHIVE_HISTORY_BTN = "#archive-history-btn";
-const CONFIRM_DELETE_CHECKBOX = "[type='checkbox']";
+const CONFIRM_DELETE_CHECKBOX = "input#confirm-delete-checkbox";
 
 async function mountComponentWithHistory(history: HistorySummary) {
     const wrapper = shallowMount(HistoryArchiveExportSelector as object, {
-        propsData: { history },
-        localVue,
+        props: { history },
+        global: localVue,
         stubs: {
-            // Stub with the real component to be able to use setChecked
-            BFormCheckbox,
+            // Render the real checkbox so the tests can check its input
+            GCheckbox: false,
         },
     });
     await flushPromises();
@@ -125,7 +124,7 @@ describe("HistoryArchiveExportSelector.vue", () => {
         const wrapper = await mountComponentWithHistory(TEST_HISTORY as HistorySummary);
 
         const confirmDeleteCheckbox = wrapper.find(CONFIRM_DELETE_CHECKBOX);
-        await confirmDeleteCheckbox.setChecked(false);
+        await confirmDeleteCheckbox.setValue(false);
         expect((confirmDeleteCheckbox.element as HTMLInputElement).checked).toBeFalsy();
 
         const archiveButton = wrapper.find(ARCHIVE_HISTORY_BTN);
@@ -138,7 +137,7 @@ describe("HistoryArchiveExportSelector.vue", () => {
         const wrapper = await mountComponentWithHistory(TEST_HISTORY as HistorySummary);
 
         const confirmDeleteCheckbox = wrapper.find(CONFIRM_DELETE_CHECKBOX);
-        await confirmDeleteCheckbox.setChecked(true);
+        await confirmDeleteCheckbox.setValue(true);
         expect((confirmDeleteCheckbox.element as HTMLInputElement).checked).toBeTruthy();
 
         const archiveButton = wrapper.find(ARCHIVE_HISTORY_BTN);

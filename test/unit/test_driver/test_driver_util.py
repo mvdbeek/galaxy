@@ -63,7 +63,7 @@ def _gx_app(new_file_path: str) -> Mock:
             enable_mcp_server=False,
             use_access_logging_middleware=False,
             tus_upload_store=None,
-            tus_upload_store_job_files=None,
+            job_files_tus_upload_dir=new_file_path,
             new_file_path=new_file_path,
             maximum_upload_file_size=1073741824,
         )
@@ -89,9 +89,7 @@ def _bound_upload_dirs(app: FastAPI) -> set[str]:
     """The files_dir each TUS route handler closed over when it was built."""
     dirs = set()
     for entry in _tus_entries(app):
-        # Older FastAPI copies an included router's routes into the app; newer FastAPI keeps it as one entry.
-        routes = entry.original_router.routes if hasattr(entry, "original_router") else [entry]
-        for route in routes:
+        for route in entry.original_router.routes:
             for cell in route.endpoint.__closure__ or ():
                 options = cell.cell_contents
                 if hasattr(options, "files_dir"):

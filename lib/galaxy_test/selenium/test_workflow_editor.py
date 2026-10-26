@@ -1,7 +1,6 @@
 import json
 from typing import (
     cast,
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -14,14 +13,17 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.remote.webelement import WebElement
 
+from galaxy.selenium.keys import Key
 from galaxy.selenium.navigates_galaxy import ColumnDefinition
 from galaxy.selenium.web_element_protocol import WebElementProtocol
 from galaxy_test.base.workflow_fixtures import (
+    parameter_input_workflow,
     WORKFLOW_NESTED_SIMPLE,
     WORKFLOW_OPTIONAL_TRUE_INPUT_COLLECTION,
     WORKFLOW_SELECT_FROM_OPTIONAL_DATASET,
     WORKFLOW_SIMPLE_CAT_TWICE,
     WORKFLOW_SIMPLE_MAPPING,
+    WORKFLOW_WHEN_NOT_CONNECTED,
     WORKFLOW_WITH_INVALID_STATE,
     WORKFLOW_WITH_OLD_TOOL_VERSION,
     WORKFLOW_WITH_OUTPUT_COLLECTION,
@@ -31,7 +33,6 @@ from galaxy_test.base.workflow_fixtures import (
 from .framework import (
     retry_assertion_during_transitions,
     RunsWorkflows,
-    selenium_only,
     selenium_test,
     SeleniumTestCase,
     UsesWorkflowAssertions,
@@ -74,7 +75,7 @@ class TestWorkflowEditor(SeleniumTestCase, RunsWorkflows, UsesWorkflowAssertions
 
         # shouldn't have changes on fresh load
         save_button = self.components.workflow_editor.save_button
-        save_button.assert_disabled()
+        assert save_button.has_class("g-disabled")
 
         self.screenshot("workflow_editor_blank")
 
@@ -125,6 +126,25 @@ class TestWorkflowEditor(SeleniumTestCase, RunsWorkflows, UsesWorkflowAssertions
         assert "MIT" in self.workflow_editor_license_text()
 
     @selenium_test
+    def test_open_and_run_workflow_by_exact_title(self):
+        # The newer sibling also matches a search for ``name`` and is listed first.
+        name = self._get_random_name()
+        workflow_id = self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE, name=name)
+        self.workflow_populator.upload_yaml_workflow(WORKFLOW_SIMPLE_CAT_TWICE, name=f"{name} (copy)")
+
+        self.workflow_index_open_with_name(name)
+        editor = self.components.workflow_editor
+        editor.canvas_body.wait_for_visible()
+        # Loading briefly marks the workflow changed; leaving then would raise the unsaved-changes prompt.
+        editor.canvas_loading.wait_for_absent()
+        assert editor.edit_name.wait_for_visible().get_attribute("value") == name
+        assert self.current_url.endswith(f"id={workflow_id}")
+
+        self.workflow_run_with_name(name)
+        self.components.workflow_run.run_workflow.wait_for_visible()
+        assert self.current_url.endswith(f"id={workflow_id}")
+
+    @selenium_test
     def test_parameter_regex_validation(self):
         editor = self.components.workflow_editor
         workflow_run = self.components.workflow_run
@@ -152,6 +172,29 @@ class TestWorkflowEditor(SeleniumTestCase, RunsWorkflows, UsesWorkflowAssertions
         self.workflow_run_submit()
         element = workflow_run.run_error.wait_for_present()
         assert "input must start with moocow" in element.text
+
+    @selenium_test
+    def test_parameter_editor_save_keeps_validators_the_form_cannot_show(self):
+        hidden = {"type": "length", "min": 2, "negate": False}
+        workflow = parameter_input_workflow("text_param", "text", [hidden])
+        name = workflow["name"] = self._get_random_name()
+        workflow_id = self.workflow_populator.create_workflow(workflow)
+        self.workflow_editor_open_with_name(name)
+
+        self.components.workflow_editor.node._(label="text_param").wait_for_and_click()
+        self.components.tool_form.repeat_insert.wait_for_and_click()
+        self.components.tool_form.parameter_input(
+            parameter="parameter_definition|validators_0|regex_match"
+        ).wait_for_and_send_keys("^good")
+        self.components.tool_form.parameter_input(
+            parameter="parameter_definition|validators_0|regex_doc"
+        ).wait_for_and_send_keys("must start with good")
+        self.screenshot("workflow_editor_parameter_input_validator_added")
+        self.save_after_node_form_changes()
+
+        tool_state = json.loads(self.workflow_populator.download_workflow(workflow_id)["steps"]["0"]["tool_state"])
+        added = {"type": "regex", "expression": "^good", "message": "must start with good", "negate": False}
+        assert tool_state["validators"] == [hidden, added], tool_state["validators"]
 
     @selenium_test
     def test_int_parameter_minimum_validation(self):
@@ -284,7 +327,6 @@ class TestWorkflowEditor(SeleniumTestCase, RunsWorkflows, UsesWorkflowAssertions
         self.sleep_for(self.wait_types.UX_RENDER)
         self.screenshot("workflow_editor_data_collection_input_deleted")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_collection_input_sample_sheet_chipseq_example(self):
         editor = self.components.workflow_editor
@@ -295,7 +337,8 @@ class TestWorkflowEditor(SeleniumTestCase, RunsWorkflows, UsesWorkflowAssertions
         editor.label_input.wait_for_and_send_keys("input1")
         editor.annotation_input.wait_for_and_send_keys("chipseq example input")
         self.sleep_for(self.wait_types.UX_RENDER)
-        editor.collection_type_input.wait_for_and_clear_and_send_keys("sample_sheet:paired")
+        self.workflow_editor_set_collection_type("sample_sheet:paired")
+        self.screenshot("workflow_editor_data_collection_sample_sheet_input_type_selected")
 
         self.workflow_editor_enter_column_definitions(CHIPSEQ_COLUMNS)
 
@@ -323,6 +366,103 @@ class TestWorkflowEditor(SeleniumTestCase, RunsWorkflows, UsesWorkflowAssertions
         assert control["name"] == "Control"
         assert control["type"] == "element_identifier"
         assert control["optional"] is True
+
+    @selenium_test
+    def test_collection_input_custom_and_any_collection_type_round_trip(self):
+        editor = self.components.workflow_editor
+        input_node = editor.node._(label="input1")
+
+        self.workflow_create_new()
+        self.workflow_editor_add_input(item_name="data_collection_input")
+        editor.label_input.wait_for_and_send_keys("input1")
+        input_node.wait_for_visible()
+        self.workflow_editor_set_collection_type("list:list:list", custom=True)
+        self.screenshot("workflow_editor_collection_type_custom")
+        # each change rebuilds the step through an async server call with no UI marker - let it land before saving
+        self.sleep_for(self.wait_types.UX_RENDER)
+        self.assert_workflow_has_changes_and_save()
+        assert self._current_collection_type() == "list:list:list"
+
+        self.refresh()
+        input_node.title.wait_for_and_click()
+        assert editor.collection_type_selected.wait_for_text() == "Custom collection type..."
+        assert editor.collection_type_custom_input.wait_for_value() == "list:list:list"
+
+        self.workflow_editor_set_collection_type(None)
+        editor.collection_type_custom_input.wait_for_absent()
+        # see above - the step rebuild is async with no UI marker
+        self.sleep_for(self.wait_types.UX_RENDER)
+        self.assert_workflow_has_changes_and_save()
+        assert self._current_collection_type() is None
+
+        self.refresh()
+        input_node.title.wait_for_and_click()
+        assert editor.collection_type_selected.wait_for_text() == "Any collection type"
+        editor.collection_type_custom_input.assert_absent()
+
+    @selenium_test
+    def test_collection_input_bare_collection_types(self):
+        # "paired" and "list" also match "list:paired" - each must still save as itself
+        editor = self.components.workflow_editor
+        input_node = editor.node._(label="input1")
+
+        self.workflow_create_new()
+        self.workflow_editor_add_input(item_name="data_collection_input")
+        editor.label_input.wait_for_and_send_keys("input1")
+        input_node.wait_for_visible()
+
+        for collection_type in ["paired", "list"]:
+            self.workflow_editor_set_collection_type(collection_type)
+            # the step rebuild is async with no UI marker - let it land before saving
+            self.sleep_for(self.wait_types.UX_RENDER)
+            self.assert_workflow_has_changes_and_save()
+            assert self._current_collection_type() == collection_type
+
+    @selenium_test
+    def test_collection_input_collection_type_help_modal(self):
+        editor = self.components.workflow_editor
+        input_node = editor.node._(label="input1")
+
+        self.workflow_create_new()
+        self.workflow_editor_add_input(item_name="data_collection_input")
+        editor.label_input.wait_for_and_send_keys("input1")
+        input_node.wait_for_visible()
+
+        editor.collection_type_select_toggle.wait_for_and_click()
+        editor.collection_type_select_options.wait_for_visible()
+        self.screenshot("workflow_editor_collection_type_select_open")
+        editor.collection_type_select_toggle.wait_for_and_click()
+        editor.collection_type_select_options.wait_for_absent_or_hidden()
+
+        # new collection inputs default to list, so pick something else
+        self.workflow_editor_set_collection_type("list:list")
+        assert editor.collection_type_selected.wait_for_text() == "Nested List of Datasets (list:list)"
+        assert editor.collection_type_selected_help.wait_for_text().startswith(
+            "A list where each element is in turn a list of datasets"
+        )
+        self.screenshot("workflow_editor_collection_type_described")
+
+        editor.collection_type_help_link.wait_for_and_click()
+        editor.collection_type_help_modal.wait_for_visible()
+        current_card = editor.collection_type_card(collection_type="list:list")
+        other_card = editor.collection_type_card(collection_type="list:paired")
+        current_card.wait_for_visible()
+        assert current_card.has_class("border-primary")
+        assert not editor.collection_type_card(collection_type="list").has_class("border-primary")
+        assert not other_card.has_class("border-primary")
+        self.screenshot("workflow_editor_collection_type_help_modal")
+        self.scroll_into_view(editor.collection_type_card(collection_type="sample_sheet:record").wait_for_present())
+        self.screenshot("workflow_editor_collection_type_help_modal_sample_sheets")
+
+        other_card.wait_for_and_click()
+        editor.collection_type_help_modal.wait_for_absent()
+        self.workflow_editor_wait_for_collection_type_selected("list:paired")
+        assert editor.collection_type_selected.wait_for_text() == "List of Paired Datasets (list:paired)"
+        self.screenshot("workflow_editor_collection_type_chosen_from_help")
+        # the step rebuild is async with no UI marker - let it land before saving
+        self.sleep_for(self.wait_types.UX_RENDER)
+        self.assert_workflow_has_changes_and_save()
+        assert self._current_collection_type() == "list:paired"
 
     @selenium_test
     def test_data_column_input_editing(self):
@@ -430,6 +570,235 @@ steps:
             "input_int#output", "tool_exec#inttest", screenshot_partial="workflow_editor_parameter_connection_dragging"
         )
         self.assert_connected("input_int#output", "tool_exec#inttest")
+
+    @selenium_test
+    def test_multiple_integer_parameter_connections(self):
+        name = self.open_in_workflow_editor("""
+class: GalaxyWorkflow
+inputs:
+  input: data
+  columns: integer
+steps:
+  multiple_columns:
+    tool_id: column_param_list
+    in:
+      input1: input
+  single_integer:
+    tool_id: simple_constructs
+    in:
+      inttest: columns
+""")
+        editor = self.components.workflow_editor
+        self.assert_connected("columns#output", "single_integer#inttest")
+
+        editor.node._(label="columns").wait_for_and_click()
+        multiple = self.components.tool_form.parameter_checkbox_input(
+            parameter="parameter_definition|multiple"
+        ).wait_for_present()
+        self.execute_script("arguments[0].click();", multiple)
+        self.assert_connection_invalid("columns#output", "single_integer#inttest")
+        self.screenshot("workflow_editor_multiple_integer_parameter_invalid_connection")
+
+        self.workflow_editor_destroy_connection("single_integer#inttest")
+        multiple_columns = editor.node._(label="multiple_columns")
+        multiple_columns.wait_for_and_click()
+        editor.connect_icon(name="col").wait_for_and_click()
+        multiple_columns.input_terminal(name="col").wait_for_present()
+        self.workflow_editor_connect("columns#output", "multiple_columns#col")
+        self.assert_connected("columns#output", "multiple_columns#col")
+        self.screenshot("workflow_editor_multiple_integer_parameter_multiple_column_connection")
+        self.assert_workflow_has_changes_and_save()
+
+        workflow_id = self.workflow_populator.index_ids(search=name)[0]
+        steps = {
+            step["label"]: step for step in self.workflow_populator.download_workflow(workflow_id)["steps"].values()
+        }
+        assert json.loads(steps["columns"]["tool_state"])["multiple"] is True
+        assert steps["multiple_columns"]["input_connections"]["col"]["id"] == steps["columns"]["id"]
+        assert "inttest" not in steps["single_integer"]["input_connections"]
+
+    @selenium_test
+    def test_multiple_integer_parameter_list_default(self):
+        name = self.open_in_workflow_editor("""
+class: GalaxyWorkflow
+inputs:
+  columns: integer
+steps: {}
+""")
+        editor = self.components.workflow_editor
+        tool_form = self.components.tool_form
+        editor.node._(label="columns").wait_for_and_click()
+        for parameter in [
+            "parameter_definition|multiple",
+            "parameter_definition|optional|specify_default|specify_default",
+        ]:
+            checkbox = tool_form.parameter_checkbox_input(parameter=parameter).wait_for_present()
+            self.execute_script("arguments[0].click();", checkbox)
+            self.sleep_for(self.wait_types.UX_RENDER)
+
+        default = "parameter_definition|optional|specify_default|default"
+        tool_form.parameter_value_list_input(parameter=default, index=1).wait_for_and_send_keys("1")
+        tool_form.parameter_value_list_add(parameter=default).wait_for_and_click()
+        tool_form.parameter_value_list_input(parameter=default, index=2).wait_for_and_send_keys("2")
+        self.sleep_for(self.wait_types.UX_RENDER)
+        tool_form.parameter_error(parameter=default).assert_absent_or_hidden()
+        self.screenshot("workflow_editor_multiple_integer_parameter_list_default")
+        self.save_after_node_form_changes()
+
+        workflow_id = self.workflow_populator.index_ids(search=name)[0]
+        steps = {
+            step["label"]: step for step in self.workflow_populator.download_workflow(workflow_id)["steps"].values()
+        }
+        tool_state = json.loads(steps["columns"]["tool_state"])
+        assert tool_state["multiple"] is True
+        assert tool_state["default"] == [1, 2]
+
+        self.workflow_index_open()
+        self.workflow_index_open_with_name(name)
+        editor.node._(label="columns").wait_for_and_click()
+        values = [
+            tool_form.parameter_value_list_input(parameter=default, index=index)
+            .wait_for_visible()
+            .get_attribute("value")
+            for index in (1, 2)
+        ]
+        assert values == ["1", "2"], values
+        tool_form.parameter_error(parameter=default).assert_absent_or_hidden()
+
+    @selenium_test
+    def test_multiple_integer_parameter_with_range(self):
+        self.workflow_editor_check_multiple_numeric_parameter_range("integer", "columns", 1, 5, [1, 2])
+
+    @selenium_test
+    def test_multiple_float_parameter_with_range(self):
+        self.workflow_editor_check_multiple_numeric_parameter_range("float", "values", 0.25, 2.5, [0.5, 1.5])
+
+    def workflow_editor_check_multiple_numeric_parameter_range(self, parameter_type, label, minimum, maximum, defaults):
+        name = self.open_in_workflow_editor(f"""
+class: GalaxyWorkflow
+inputs:
+  {label}: {parameter_type}
+steps: {{}}
+""")
+        editor = self.components.workflow_editor
+        tool_form = self.components.tool_form
+        editor.node._(label=label).wait_for_and_click()
+        for parameter in [
+            "parameter_definition|multiple",
+            "parameter_definition|optional|specify_default|specify_default",
+        ]:
+            checkbox = tool_form.parameter_checkbox_input(parameter=parameter).wait_for_present()
+            self.execute_script("arguments[0].click();", checkbox)
+        tool_form.parameter_input(parameter="parameter_definition|min").wait_for_and_send_keys(str(minimum))
+        tool_form.parameter_input(parameter="parameter_definition|max").wait_for_and_send_keys(str(maximum))
+
+        default = "parameter_definition|optional|specify_default|default"
+        tool_form.parameter_value_list_input(parameter=default, index=1).wait_for_and_send_keys(str(defaults[0]))
+        tool_form.parameter_value_list_add(parameter=default).wait_for_and_click()
+        tool_form.parameter_value_list_input(parameter=default, index=2).wait_for_and_send_keys(str(defaults[1]))
+        tool_form.parameter_error(parameter=default).wait_for_absent_or_hidden()
+        self.screenshot(f"workflow_editor_multiple_{parameter_type}_parameter_range_list_default")
+        self.save_after_node_form_changes()
+
+        workflow_id = self.workflow_populator.index_ids(search=name)[0]
+        steps = {
+            step["label"]: step for step in self.workflow_populator.download_workflow(workflow_id)["steps"].values()
+        }
+        tool_state = json.loads(steps[label]["tool_state"])
+        assert tool_state["multiple"] is True
+        assert tool_state["default"] == defaults
+        in_range = [validator for validator in tool_state["validators"] if validator["type"] == "in_range"]
+        assert [(float(validator["min"]), float(validator["max"])) for validator in in_range] == [(minimum, maximum)]
+
+        self.workflow_index_open()
+        self.workflow_index_open_with_name(name)
+        editor.node._(label=label).wait_for_and_click()
+        values = [
+            tool_form.parameter_value_list_input(parameter=default, index=index)
+            .wait_for_visible()
+            .get_attribute("value")
+            for index in (1, 2)
+        ]
+        assert values == [str(value) for value in defaults], values
+        tool_form.parameter_error(parameter=default).wait_for_absent_or_hidden()
+        self.screenshot(f"workflow_editor_multiple_{parameter_type}_parameter_range_reloaded")
+
+        self.workflow_run_with_name(name)
+        workflow_run = self.components.workflow_run
+        values = [
+            workflow_run.simplified_value_list_input(label=label, index=index).wait_for_visible().get_attribute("value")
+            for index in (1, 2)
+        ]
+        assert values == [str(value) for value in defaults], values
+        self.screenshot(f"workflow_run_multiple_{parameter_type}_parameter_range")
+
+    @selenium_test
+    def test_multiple_text_parameter_connections(self):
+        name = self.open_in_workflow_editor("""
+class: GalaxyWorkflow
+inputs:
+  options: string
+steps:
+  multi_select:
+    tool_id: multi_select
+  single_text:
+    tool_id: param_text_option
+    in:
+      text_param: options
+""")
+        editor = self.components.workflow_editor
+        self.assert_connected("options#output", "single_text#text_param")
+
+        tool_form = self.components.tool_form
+        editor.node._(label="options").wait_for_and_click()
+        for parameter in [
+            "parameter_definition|multiple",
+            "parameter_definition|optional|specify_default|specify_default",
+        ]:
+            checkbox = tool_form.parameter_checkbox_input(parameter=parameter).wait_for_present()
+            self.execute_script("arguments[0].click();", checkbox)
+            self.sleep_for(self.wait_types.UX_RENDER)
+        self.assert_connection_invalid("options#output", "single_text#text_param")
+        self.screenshot("workflow_editor_multiple_text_parameter_invalid_connection")
+
+        default = "parameter_definition|optional|specify_default|default"
+        tool_form.parameter_value_list_input(parameter=default, index=1).wait_for_and_send_keys("--ex1,ex2")
+        tool_form.parameter_value_list_add(parameter=default).wait_for_and_click()
+        tool_form.parameter_value_list_input(parameter=default, index=2).wait_for_and_send_keys("--ex3")
+        self.sleep_for(self.wait_types.UX_RENDER)
+        tool_form.parameter_error(parameter=default).assert_absent_or_hidden()
+        self.screenshot("workflow_editor_multiple_text_parameter_list_default")
+
+        self.workflow_editor_destroy_connection("single_text#text_param")
+        multi_select = editor.node._(label="multi_select")
+        multi_select.wait_for_and_click()
+        editor.connect_icon(name="select_ex").wait_for_and_click()
+        multi_select.input_terminal(name="select_ex").wait_for_present()
+        self.workflow_editor_connect("options#output", "multi_select#select_ex")
+        self.assert_connected("options#output", "multi_select#select_ex")
+        self.screenshot("workflow_editor_multiple_text_parameter_multi_select_connection")
+        self.assert_workflow_has_changes_and_save()
+
+        workflow_id = self.workflow_populator.index_ids(search=name)[0]
+        steps = {
+            step["label"]: step for step in self.workflow_populator.download_workflow(workflow_id)["steps"].values()
+        }
+        tool_state = json.loads(steps["options"]["tool_state"])
+        assert tool_state["multiple"] is True
+        assert tool_state["default"] == ["--ex1,ex2", "--ex3"]
+        assert steps["multi_select"]["input_connections"]["select_ex"]["id"] == steps["options"]["id"]
+        assert "text_param" not in steps["single_text"]["input_connections"]
+
+        self.workflow_index_open()
+        self.workflow_index_open_with_name(name)
+        editor.node._(label="options").wait_for_and_click()
+        values = [
+            tool_form.parameter_value_list_input(parameter=default, index=index)
+            .wait_for_visible()
+            .get_attribute("value")
+            for index in (1, 2)
+        ]
+        assert values == ["--ex1,ex2", "--ex3"], values
 
     @selenium_test
     def test_non_data_map_over_carried_through(self):
@@ -566,7 +935,28 @@ steps:
 
         assert_linting_input_metadata_okay()
 
-    @selenium_only("Not yet migrated to support Playwright backend")
+    @selenium_test
+    def test_best_practices_dangling_conditional_gate(self):
+        editor = self.components.workflow_editor
+        self.open_in_workflow_editor(WORKFLOW_WHEN_NOT_CONNECTED)
+        editor.tool_bar.best_practices.wait_for_and_click()
+        best_practices = editor.best_practices
+        section_element = best_practices.section_conditional_gates.wait_for_present()
+        assert section_element.get_attribute("data-lint-status") == "warning"
+        item_text = best_practices.item_conditional_gate(index=0).wait_for_present().text
+        assert "cat1" in item_text
+        assert "when" in item_text
+
+        self.workflow_editor_connect("should_run#output", "cat1#when")
+        self.assert_connected("should_run#output", "cat1#when")
+
+        @retry_assertion_during_transitions
+        def assert_linting_conditional_gates_okay():
+            section_element = best_practices.section_conditional_gates.wait_for_present()
+            assert section_element.get_attribute("data-lint-status") == "ok"
+
+        assert_linting_conditional_gates_okay()
+
     @selenium_test
     def test_rendering_rules_workflow_1(self):
         self.open_in_workflow_editor(WORKFLOW_WITH_RULES_1)
@@ -893,6 +1283,22 @@ steps:
     def test_editor_embed_workflow(self):
         self.setup_subworkflow()
 
+    @selenium_test
+    def test_editor_embed_two_workflows(self):
+        first_child_name = self.workflow_upload_yaml_with_random_name(WORKFLOW_SIMPLE_CAT_TWICE)
+        second_child_name = self.workflow_upload_yaml_with_random_name(WORKFLOW_OPTIONAL_TRUE_INPUT_COLLECTION)
+        parent_name = self.workflow_upload_yaml_with_random_name(WORKFLOW_SIMPLE_CAT_TWICE)
+        parent_workflow_id = self.workflow_populator.index_ids(search=parent_name)[0]
+        self.workflow_index_open_with_name(parent_name)
+        self.components.workflow_editor.canvas_body.wait_for_visible()
+        self.workflow_editor_add_subworkflow(first_child_name)
+        # The Workflows panel is still open after the first insert.
+        self.workflow_editor_add_subworkflow(second_child_name)
+        self.assert_workflow_has_changes_and_save()
+        workflow = self.workflow_populator.download_workflow(parent_workflow_id)
+        subworkflow_names = [step["name"] for step in workflow["steps"].values() if step["type"] == "subworkflow"]
+        assert sorted(subworkflow_names) == sorted([first_child_name, second_child_name])
+
     def setup_subworkflow(self):
         workflow_populator = self.workflow_populator
         child_workflow_name = self._get_random_name()
@@ -914,7 +1320,6 @@ steps:
         editor = self.components.workflow_editor
         editor.canvas_body.wait_for_visible()
         self.workflow_editor_add_subworkflow(child_workflow_name)
-        self.sleep_for(self.wait_types.UX_RENDER)
         self.assert_workflow_has_changes_and_save()
         workflow = self.workflow_populator.download_workflow(parent_workflow_id)
         subworkflow_step = workflow["steps"]["2"]
@@ -942,6 +1347,10 @@ steps:
         self.assert_workflow_has_changes_and_save()
         workflow = self._download_current_workflow()
         assert len(workflow["steps"]) == 3
+
+    def _current_collection_type(self):
+        workflow = self._download_current_workflow()
+        return json.loads(workflow["steps"]["0"]["tool_state"])["collection_type"]
 
     def _download_current_workflow(self):
         self.sleep_for(self.wait_types.DATABASE_OPERATION)
@@ -1214,6 +1623,38 @@ steps:
         assert "picktag" in pjas["TagDatasetActionoutput"]["action_arguments"]["tags"]
 
     @selenium_test
+    def test_pick_value_hides_actions_needing_a_job(self):
+        self.open_in_workflow_editor("""
+class: GalaxyWorkflow
+inputs:
+  input_data: data
+steps:
+  branch_a:
+    tool_id: cat
+    in:
+      input1: input_data
+  pick:
+    type: pick_value
+    state:
+      mode: first_non_null
+    in:
+      input_0: branch_a/out_file1
+""")
+        editor = self.components.workflow_editor
+        # A pick_value step has no job for these to act on, so they are not offered.
+        # Select it first - the panel a selected node opens covers the nodes to its right.
+        editor.node._(label="pick").wait_for_and_click()
+        # The rest of the section still renders, otherwise the assertions below would
+        # pass on a form that simply had not loaded.
+        editor.configure_output(output="output").wait_for_visible()
+        editor.email_notification.assert_absent()
+        editor.output_cleanup.assert_absent()
+        # A tool step does run a job, so it still gets both.
+        editor.node._(label="branch_a").wait_for_and_click()
+        editor.email_notification.wait_for_visible()
+        editor.output_cleanup.wait_for_visible()
+
+    @selenium_test
     def test_pick_value_compact_on_disconnect(self):
         self.open_in_workflow_editor("""
 class: GalaxyWorkflow
@@ -1323,13 +1764,11 @@ steps:
         self.workflow_editor_destroy_connection("conditional_step#when")
         # Make sure the when input is still shown
         conditional_node.input_terminal(name="when").wait_for_present()
-        # Assert save button is disabled because of disconnected when
-        save_button = self.components.workflow_editor.save_button
-        save_button.wait_for_visible()
-        # TODO: hook up best practice panel, disable save when "when" not connected
-        # assert save_button.has_class("disabled")
+        # Best practices flag the gate that reads nothing
+        editor.tool_bar.best_practices.wait_for_and_click()
+        section_element = editor.best_practices.section_conditional_gates.wait_for_present()
+        assert section_element.get_attribute("data-lint-status") == "warning"
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_conditional_subworkflow_step(self):
         child_workflow_name = self.setup_subworkflow()
@@ -1344,24 +1783,14 @@ steps:
         conditional_node = editor.node._(label=child_workflow_name)
         conditional_node.wait_for_and_click()
         conditional_toggle = editor.step_when.wait_for_present()
-        self.action_chains().move_to_element(conditional_toggle).click().perform()
+        self.move_to_and_click(conditional_toggle)
         conditional_node.input_terminal(name="when").wait_for_present()
         self.workflow_editor_connect("param_input#output", f"{child_workflow_name}#when")
         self.assert_connected("param_input#output", f"{child_workflow_name}#when")
         self.assert_workflow_has_changes_and_save()
 
     def switch_param_type(self, element, param_type):
-        if self.backend_type == "playwright":
-            pw_driver = cast("HasPlaywrightDriver", self._driver_impl)
-            element.click()
-            self.sleep_for(self.wait_types.UX_RENDER)
-            pw_driver.page.keyboard.type(param_type)
-            self.sleep_for(self.wait_types.UX_RENDER)
-            pw_driver.page.keyboard.press("Enter")
-        else:
-            self.action_chains().move_to_element(element).click().pause(1).send_keys(param_type).pause(1).send_keys(
-                Keys.ENTER
-            ).perform()
+        self.select_set_value(element, param_type)
 
     @selenium_test
     def test_editor_invalid_tool_state(self):
@@ -1386,28 +1815,30 @@ steps:
     label: first_cat
     state:
       foo: bar
+    in:
+      input1: input1
+  - tool_id: cat1
+    label: second_cat
+    in:
+      input1: first_cat/out_file1
 """)
         self.workflow_index_open()
         self.components.workflows.edit_button.wait_for_and_click()
         self.assert_modal_has_text("Tool is not installed")
         self.screenshot("workflow_editor_missing_tool")
         self.workflow_editor_dismiss_state_upgrade_modal()
+        self.assert_connection_invalid("input1#output", "first_cat#input1")
+        self.assert_connection_invalid("first_cat#out_file1", "second_cat#input1")
 
-    def tab_to(self, accessible_name, direction="forward"):
+    def tab_to(self, aria_label, direction="forward"):
+        modifiers = [Key.SHIFT] if direction == "backwards" else []
         for _ in range(100):
-            ac = self.action_chains()
-            if direction == "backwards":
-                ac.key_down(Keys.SHIFT)
-            ac.send_keys(Keys.TAB)
-            if direction == "backwards":
-                ac.key_down(Keys.SHIFT)
-            ac.perform()
-            if accessible_name in self.driver.switch_to.active_element.accessible_name:
-                return self.driver.switch_to.active_element
-        else:
-            raise Exception(f"Could not tab to element containing '{accessible_name}' in aria-label")
+            self.press(Key.TAB, modifiers=modifiers)
+            focused = self.active_element()
+            if aria_label in (focused.get_attribute("aria-label") or ""):
+                return focused
+        raise Exception(f"Could not tab to element containing '{aria_label}' in aria-label")
 
-    @selenium_only("Not yet migrated to support Playwright backend")
     @selenium_test
     def test_aria_connections_menu(self):
         self.open_in_workflow_editor(
@@ -1432,21 +1863,21 @@ steps:
         self.screenshot("workflow_editor_connection_simple")
         self.components.workflow_editor.canvas_body.wait_for_and_click()
         output_connector = self.tab_to("Press space to see a list of available inputs")
-        output_connector.send_keys(Keys.SPACE)
-        assert self.driver.switch_to.active_element.text == "Disconnect from input1 in step 2: first_cat"
-        self.driver.switch_to.active_element.send_keys(Keys.ENTER)
+        self.press(Key.SPACE, element=output_connector)
+        assert self.active_element().text == "Disconnect from input1 in step 2: first_cat"
+        self.press(Key.ENTER)
         self.assert_not_connected("input1#output", "first_cat#input1")
-        self.action_chains().move_to_element(self.components.workflow_editor.canvas_body.wait_for_and_click()).perform()
+        self.hover(self.components.workflow_editor.canvas_body.wait_for_and_click())
         output_connector = self.tab_to("Press space to see a list of available inputs")
-        output_connector.send_keys(Keys.SPACE)
-        assert self.driver.switch_to.active_element.text == "Connect to input1 in step 2: first_cat"
-        self.driver.switch_to.active_element.send_keys(Keys.ENTER)
+        self.press(Key.SPACE, element=output_connector)
+        assert self.active_element().text == "Connect to input1 in step 2: first_cat"
+        self.press(Key.ENTER)
         self.assert_connected("input1#output", "first_cat#input1")
-        self.action_chains().move_to_element(self.components.workflow_editor.canvas_body.wait_for_and_click()).perform()
+        self.hover(self.components.workflow_editor.canvas_body.wait_for_and_click())
         output_connector = self.tab_to("Press space to see a list of available inputs")
         output_connector = self.tab_to("Press space to see a list of available inputs")
-        output_connector.send_keys(Keys.SPACE)
-        assert self.driver.switch_to.active_element.text == "No compatible input found in workflow"
+        self.press(Key.SPACE, element=output_connector)
+        assert self.active_element().text == "No compatible input found in workflow"
 
     @selenium_test
     def test_insert_input_handling(self):
@@ -1806,7 +2237,7 @@ steps:
 
         assert editor.tool_bar.selection_count.wait_for_visible().text.find("1 comment") != -1
 
-    def create_and_wait_for_new_workflow_in_editor(self, annotation: Optional[str] = None) -> str:
+    def create_and_wait_for_new_workflow_in_editor(self, annotation: str | None = None) -> str:
         editor = self.components.workflow_editor
         name = self.workflow_create_new(annotation=annotation)
         editor.canvas_body.wait_for_visible()
@@ -1841,7 +2272,7 @@ steps:
         return (int(width_stripped), int(height_stripped))
 
     @retry_assertion_during_transitions
-    def assert_node_output_is(self, label: str, output_type: str, subcollection_type: Optional[str] = None):
+    def assert_node_output_is(self, label: str, output_type: str, subcollection_type: str | None = None):
         editor = self.components.workflow_editor
         node_label, output_name = label.split("#")
         node = editor.node._(label=node_label)
@@ -1899,13 +2330,16 @@ steps:
 
     def open_in_workflow_editor(self, yaml_content, auto_layout=True):
         name = self.workflow_upload_yaml_with_random_name(yaml_content)
-        self.workflow_index_open()
-        self.workflow_index_open_with_name(name)
-        self.workflow_editor_dismiss_state_upgrade_modal()
+        self.workflow_editor_open_with_name(name)
         if auto_layout:
             self.components.workflow_editor.tool_bar.auto_layout.wait_for_and_click()
             self.sleep_for(self.wait_types.UX_RENDER)
         return name
+
+    def workflow_editor_open_with_name(self, name: str):
+        self.workflow_index_open()
+        self.workflow_index_open_with_name(name)
+        self.workflow_editor_dismiss_state_upgrade_modal()
 
     def workflow_editor_dismiss_state_upgrade_modal(self):
         """Dismiss the StateUpgradeModal if it appears when opening a workflow.

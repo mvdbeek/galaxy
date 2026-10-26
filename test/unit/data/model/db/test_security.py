@@ -72,7 +72,6 @@ def test_get_sharing_roles(session, make_user):
 
 
 class TestSetGroupUserAndRoleAssociations:
-
     def test_add_associations_to_existing_group(self, session, make_user_and_role, make_role, make_group):
         """
         State: group exists in database, has no user and role associations.
@@ -913,6 +912,35 @@ class TestSetRoleUserAndGroupAssociations:
         assert have_same_elements(history1.default_permissions, [])
         assert have_same_elements(history2.default_permissions, [])
         assert have_same_elements(history3.default_permissions, [dhp3])
+
+
+def test_set_all_dataset_permissions_new_skips_existing_permissions(session, make_hda, make_user_and_role):
+    security_agent = GalaxyRBACAgent(session)
+    _, private_role = make_user_and_role()
+    dataset = make_hda(create_dataset=True, sa_session=session).dataset
+    permissions = {
+        security_agent.permitted_actions.DATASET_MANAGE_PERMISSIONS: [private_role],
+        security_agent.permitted_actions.DATASET_ACCESS: [private_role],
+    }
+    security_agent.set_all_dataset_permissions(dataset, permissions, new=True)
+    security_agent.set_all_dataset_permissions(dataset, permissions, new=True)
+    assert len(dataset.actions) == 2
+    assert security_agent.dataset_is_private_to_a_user(dataset)
+
+
+def test_dataset_roles_ignore_duplicate_permissions(session, make_hda, make_user_and_role, make_dataset_permissions):
+    security_agent = GalaxyRBACAgent(session)
+    _, private_role = make_user_and_role()
+    dataset = make_hda(create_dataset=True, sa_session=session).dataset
+    for action in (
+        security_agent.permitted_actions.DATASET_ACCESS.action,
+        security_agent.permitted_actions.DATASET_MANAGE_PERMISSIONS.action,
+    ):
+        make_dataset_permissions(action=action, dataset=dataset, role=private_role)
+        make_dataset_permissions(action=action, dataset=dataset, role=private_role)
+    assert dataset.get_access_roles(security_agent) == [private_role]
+    assert dataset.get_manage_permissions_roles(security_agent) == [private_role]
+    assert security_agent.dataset_is_private_to_a_user(dataset)
 
 
 def verify_group_associations(group, expected_users, expected_roles):

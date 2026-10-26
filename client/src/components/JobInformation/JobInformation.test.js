@@ -15,6 +15,10 @@ import JobInformation from "./JobInformation.vue";
 
 vi.mock("app");
 
+vi.mock("vue-router/composables", () => ({
+    useRoute: vi.fn(() => ({})),
+}));
+
 const JOB_ID = "test_id";
 
 const localVue = getLocalVue();
@@ -61,9 +65,11 @@ describe("JobInformation/JobInformation.vue", () => {
             jobId: JOB_ID,
         };
         wrapper = mount(JobInformation, {
-            propsData,
-            localVue,
-            pinia: createTestingPinia({ createSpy: vi.fn }),
+            props: propsData,
+            global: {
+                ...localVue,
+                plugins: [...(localVue.plugins ?? []), createTestingPinia({ createSpy: vi.fn, stubActions: false })],
+            },
         });
         await flushPromises();
         jobInfoTable = wrapper.find("#job-information");
@@ -73,36 +79,70 @@ describe("JobInformation/JobInformation.vue", () => {
         // table should exist
         expect(jobInfoTable).toBeTruthy();
         const rows = jobInfoTable.findAll("tr");
-        // should contain 10 rows
-        expect(rows.length).toBe(10);
+        // should contain 7 rows
+        expect(rows.length).toBe(6);
+        const codeRows = wrapper.findAll(".code-row");
+        // should contain 3 code rows
+        expect(codeRows.length).toBe(3);
     });
 
     it("stdout and stderr should be rendered", async () => {
         ["stdout", "stderr"].forEach((std) => {
-            const label = jobInfoTable.find("#" + std);
+            const label = wrapper.find("#" + std);
             const value = label.find(".code");
             expect(value.text()).toBe(std);
         });
     });
 
-    it("job messages", async () => {
-        const rendered_link = jobInfoTable.findAll(`#job-messages .job-message`);
-        expect(rendered_link.length).toBe(jobResponse.job_messages.length);
-        for (let i = 0; i < rendered_link.length; i++) {
-            const msg = rendered_link.at(i).text();
-            expect(jobResponse.job_messages.includes(msg));
-        }
+    it("numbers each job message and lists its fields", async () => {
+        const messages = jobInfoTable.findAll("#job-messages .job-message");
+        expect(messages.length).toBe(jobResponse.job_messages.length);
+        messages.forEach((message, index) => {
+            expect(message.text()).toMatch(new RegExp(`^Job Message ${index + 1}:`));
+            const expected = jobResponse.job_messages[index];
+            expect(message.findAll("li").map((field) => field.text())).toEqual([
+                `type: ${expected.type}`,
+                `desc: ${expected.desc}`,
+                `error_level: ${expected.error_level}`,
+            ]);
+        });
+    });
+
+    it("explains stream read failures and displays structured diagnostics", async () => {
+        const desc = "Job failed because the tool stdout file could not be read: No such file or directory";
+        server.use(
+            http.get("/api/jobs/{job_id}", ({ response }) => {
+                return response(200).json({
+                    ...jobResponse,
+                    state: "error",
+                    job_messages: [{ type: "stdio_read_error", stream: "stdout", errno: 2, error_level: 3, desc }],
+                });
+            }),
+        );
+        wrapper.unmount();
+        wrapper = mount(JobInformation, {
+            propsData: { jobId: JOB_ID },
+            localVue,
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
+        });
+        await flushPromises();
+
+        const message = wrapper.find("#job-messages .job-message").text();
+        expect(message).toContain(desc);
+        expect(message).toContain("type: stdio_read_error");
+        expect(message).toContain("stream: stdout");
+        expect(message).toContain("errno: 2");
     });
 
     it("job_information API content", async () => {
         const rendered_entries = [
             { id: "galaxy-tool-id", backend_key: "tool_id" },
             { id: "galaxy-tool-version", backend_key: "tool_version" },
-            { id: "encoded-job-id", backend_key: "id" },
             { id: "encoded-copied-from-job-id", backend_key: "copied_from_job_id" },
         ];
         verifyValues(rendered_entries, jobInfoTable, jobResponse);
         expect(wrapper.find('td[data-description="galaxy-job-state"]').exists()).toBe(true);
+        expect(wrapper.find("#encoded-job-id").text()).toContain(JOB_ID);
     });
 });
 
@@ -123,7 +163,7 @@ describe("JobInformation/JobInformation.vue invocation lookup", () => {
         const wrapper = mount(JobInformation, {
             propsData: { jobId: JOB_ID },
             localVue,
-            pinia: createTestingPinia({ createSpy: vi.fn }),
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
         });
         await flushPromises();
 
@@ -131,5 +171,120 @@ describe("JobInformation/JobInformation.vue invocation lookup", () => {
         expect(wrapper.find("#invocation-lookup-error").text()).toContain(
             "Could not determine the workflow invocation",
         );
+    });
+
+    it("ignores a lookup that resolves after the job changed", async () => {
+        let releaseFirstLookup = () => {};
+        server.use(
+            http.get("/api/configuration/decode/{encoded_id}", ({ response }) => {
+                return response(200).json({ decoded_id: 123 });
+            }),
+            http.get("/api/jobs/{job_id}", ({ response, params }) => {
+                return response(200).json({ ...jobResponse, id: params.job_id });
+            }),
+            mswHttp.get("/api/invocations", async ({ request }) => {
+                if (new URL(request.url).searchParams.get("job_id") === "first_job") {
+                    await new Promise((resolve) => (releaseFirstLookup = resolve));
+                    return HttpResponse.json([{ id: "first_job_invocation" }]);
+                }
+                return HttpResponse.json([]);
+            }),
+            http.get("/api/jobs/{job_id}/console_output", ({ response }) => {
+                return response(200).json({ stdout: "stdout", stderr: "stderr" });
+            }),
+        );
+        const wrapper = mount(JobInformation, {
+            propsData: { jobId: "first_job" },
+            localVue,
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
+        });
+        await flushPromises();
+
+        await wrapper.setProps({ jobId: "second_job" });
+        await flushPromises();
+        releaseFirstLookup();
+        await flushPromises();
+
+        expect(wrapper.text()).not.toContain("first_job_invocation");
+        expect(wrapper.find("#invocation-lookup-error").exists()).toBe(false);
+    });
+});
+
+describe("JobInformation/JobInformation.vue invocation lookup when returning to a job", () => {
+    it("ignores the original lookup's late failure after switching away and back", async () => {
+        let firstJobLookups = 0;
+        let failFirstLookup = () => {};
+        server.use(
+            http.get("/api/configuration/decode/{encoded_id}", ({ response }) => {
+                return response(200).json({ decoded_id: 123 });
+            }),
+            http.get("/api/jobs/{job_id}", ({ response, params }) => {
+                return response(200).json({ ...jobResponse, id: params.job_id });
+            }),
+            mswHttp.get("/api/invocations", async ({ request }) => {
+                if (new URL(request.url).searchParams.get("job_id") !== "first_job") {
+                    return HttpResponse.json([]);
+                }
+                firstJobLookups++;
+                if (firstJobLookups === 1) {
+                    await new Promise((resolve) => (failFirstLookup = resolve));
+                    return HttpResponse.error();
+                }
+                return HttpResponse.json([{ id: "first_job_invocation" }]);
+            }),
+            http.get("/api/jobs/{job_id}/console_output", ({ response }) => {
+                return response(200).json({ stdout: "stdout", stderr: "stderr" });
+            }),
+        );
+        const wrapper = mount(JobInformation, {
+            propsData: { jobId: "first_job" },
+            localVue,
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
+        });
+        await flushPromises();
+        await wrapper.setProps({ jobId: "second_job" });
+        await flushPromises();
+        await wrapper.setProps({ jobId: "first_job" });
+        await flushPromises();
+        expect(wrapper.text()).toContain("first_job_invocation");
+
+        failFirstLookup();
+        await flushPromises();
+
+        expect(wrapper.text()).toContain("first_job_invocation");
+        expect(wrapper.find("#invocation-lookup-error").exists()).toBe(false);
+    });
+});
+
+describe("JobInformation/JobInformation.vue rerun indicator", () => {
+    it("fetches the job's tool to decide whether to offer a rerun", async () => {
+        server.use(
+            http.get("/api/configuration/decode/{encoded_id}", ({ response }) => {
+                return response(200).json({ decoded_id: 123 });
+            }),
+            http.get("/api/jobs/{job_id}", ({ response }) => {
+                return response(200).json(jobResponse);
+            }),
+            http.get("/api/invocations", ({ response }) => {
+                return response(200).json([]);
+            }),
+            http.get("/api/jobs/{job_id}/console_output", ({ response }) => {
+                return response(200).json({ stdout: "stdout", stderr: "stderr" });
+            }),
+            mswHttp.get("/api/tools/:tool_id", () =>
+                HttpResponse.json({ id: jobResponse.tool_id, is_workflow_compatible: true }),
+            ),
+        );
+        const wrapper = mount(JobInformation, {
+            propsData: { jobId: JOB_ID, includeRerunIndicator: true },
+            localVue,
+            pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
+        });
+        // The tool store fetches via axios, whose response needs more than a microtask flush
+        await flushPromises();
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await flushPromises();
+
+        expect(wrapper.find("[title='Rerun this job']").exists()).toBe(true);
     });
 });

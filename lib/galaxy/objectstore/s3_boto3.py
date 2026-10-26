@@ -2,15 +2,16 @@
 
 import logging
 import os
+import re
+from collections.abc import Callable
 from typing import (
     Any,
-    Callable,
-    Dict,
+    ClassVar,
+    Literal,
     TYPE_CHECKING,
 )
 
 from typing_extensions import (
-    Literal,
     NotRequired,
     TypedDict,
 )
@@ -29,10 +30,19 @@ except ImportError:
     TransferConfig = None  # type: ignore[assignment,unused-ignore,misc]
     Config = None  # type: ignore[assignment,unused-ignore,misc]
 
-from galaxy.util import asbool
+from galaxy.util import (
+    asbool,
+    chunk_iterable,
+)
 from galaxy.util.s3_checksum import s3_checksum_config_kwargs
-from ._caching_base import CachingConcreteObjectStore
+from ._caching_base import (
+    CachingConcreteObjectStore,
+    RemoteDataStream,
+    STREAM_CHUNK_SIZE,
+)
 from .caching import (
+    CacheShardManager,
+    CacheTarget,
     enable_cache_monitor,
     parse_caching_config_dict_from_xml,
 )
@@ -41,6 +51,9 @@ NO_BOTO_ERROR_MESSAGE = (
     "S3/Swift object store configured, but no boto3 dependency available."
     "Please install and properly configure boto or modify object store configuration."
 )
+
+# XML 1.0 forbids these characters; CR is also unsafe because XML normalizes it to LF.
+_UNSAFE_XML_KEY_CHARACTERS = re.compile(r"[\x00-\x08\x0b-\x1f\ud800-\udfff\ufffe\uffff]")
 
 log = logging.getLogger(__name__)
 # This object store generates a lot of logging by default, fairly sure it is an anti-pattern
@@ -127,6 +140,9 @@ def parse_config_xml(config_xml):
             "cache": cache_dict,
             "extra_dirs": extra_dirs,
             "private": CachingConcreteObjectStore.parse_private_from_config_xml(config_xml),
+            "enable_direct_download": CachingConcreteObjectStore.parse_enable_direct_download_from_config_xml(
+                config_xml
+            ),
         }
         name = config_xml.attrib.get("name", None)
         if name is not None:
@@ -159,6 +175,8 @@ class S3ObjectStore(CachingConcreteObjectStore):
     _client: "S3Client"
     store_type = "boto3"
     cloud = True
+    # Share backend capability across stores without disabling batching for other endpoints.
+    _single_delete_endpoints: ClassVar[set[str]] = set()
 
     def __init__(self, config, config_dict):
         super().__init__(config, config_dict)
@@ -171,7 +189,7 @@ class S3ObjectStore(CachingConcreteObjectStore):
         transfer_dict = config_dict.get("transfer") or {}
         typed_transfer_dict = {}
         for prefix in ["", "upload_", "download_"]:
-            options: Dict[str, Callable[[Any], Any]] = {
+            options: dict[str, Callable[[Any], Any]] = {
                 "multipart_threshold": int,
                 "max_concurrency": int,
                 "multipart_chunksize": int,
@@ -201,9 +219,8 @@ class S3ObjectStore(CachingConcreteObjectStore):
 
         self.region = connection_dict.get("region")
 
-        self.cache_size = cache_dict.get("size") or self.config.object_store_cache_size
-        self.staging_path = cache_dict.get("path") or self.config.object_store_cache_path
         self.cache_updated_data = cache_dict.get("cache_updated_data", True)
+        self._cache_shards = CacheShardManager.from_config(cache_dict, self.config)
 
         extra_dirs = {e["type"]: e["path"] for e in config_dict.get("extra_dirs", [])}
         self.extra_dirs.update(extra_dirs)
@@ -249,8 +266,7 @@ class S3ObjectStore(CachingConcreteObjectStore):
         if self.access_key:
             kwds["aws_access_key_id"] = self.access_key
             kwds["aws_secret_access_key"] = self.secret_key
-        config_kwargs = s3_checksum_config_kwargs(self.endpoint_url)
-        if config_kwargs:
+        if config_kwargs := s3_checksum_config_kwargs(self.endpoint_url):
             kwds["config"] = Config(**config_kwargs)
         return kwds
 
@@ -291,11 +307,7 @@ class S3ObjectStore(CachingConcreteObjectStore):
                 "region": self.region,
             },
             "transfer": self.transfer_dict,
-            "cache": {
-                "size": self.cache_size,
-                "path": self.staging_path,
-                "cache_updated_data": self.cache_updated_data,
-            },
+            "cache": self._cache_config_to_dict(),
         }
 
     def to_dict(self):
@@ -323,12 +335,12 @@ class S3ObjectStore(CachingConcreteObjectStore):
                 return False
             raise
 
-    def _download(self, rel_path: str) -> bool:
-        local_destination = self._get_cache_path(rel_path)
+    def _download(self, rel_path: str, *, cache_path: str, cache_target: CacheTarget) -> bool:
+        local_destination = cache_path
         try:
             log.debug("Pulling key '%s' into cache to %s", rel_path, local_destination)
             remote_size = self._get_remote_size(rel_path)
-            if not self._caching_allowed(rel_path, remote_size):
+            if not self._caching_allowed(rel_path, cache_target=cache_target, remote_size=remote_size):
                 return False
             config = self._transfer_config("download")
             with self._atomic_download(local_destination, remote_size) as tmp:
@@ -337,6 +349,10 @@ class S3ObjectStore(CachingConcreteObjectStore):
         except ClientError:
             log.exception("Failed to download file from S3")
         return False
+
+    def _stream_remote(self, rel_path: str) -> RemoteDataStream | None:
+        body = self._client.get_object(Bucket=self.bucket, Key=rel_path)["Body"]
+        return RemoteDataStream(body.iter_chunks(chunk_size=STREAM_CHUNK_SIZE), body.close)
 
     def _push_string_to_path(self, rel_path: str, from_string: str) -> bool:
         try:
@@ -356,10 +372,54 @@ class S3ObjectStore(CachingConcreteObjectStore):
             return False
 
     def _delete_remote_all(self, rel_path: str) -> bool:
+        endpoint = self._client.meta.endpoint_url.rstrip("/")
         try:
-            for key in self._keys(rel_path):
-                self._client.delete_object(Bucket=self.bucket, Key=key)
-            return True
+            success = True
+            # S3 accepts at most 1,000 keys per delete request.
+            for keys in chunk_iterable(self._keys(rel_path), size=1000):
+                batch_keys = []
+                for key in keys:
+                    if _UNSAFE_XML_KEY_CHARACTERS.search(key):
+                        if not self._delete_existing_remote(key):
+                            success = False
+                    else:
+                        batch_keys.append(key)
+                if not batch_keys:
+                    continue
+                use_batch_delete = endpoint not in self._single_delete_endpoints
+                if use_batch_delete:
+                    try:
+                        response = self._client.delete_objects(
+                            Bucket=self.bucket, Delete={"Objects": [{"Key": key} for key in batch_keys], "Quiet": True}
+                        )
+                    except ClientError as e:
+                        code = e.response["Error"]["Code"]
+                        if code not in ("MissingContentMD5", "NotImplemented"):
+                            raise
+                        # Some S3-compatible backends reject batch deletes or their checksum headers.
+                        log.warning(
+                            "S3 bucket '%s' rejected batch deletion (%s); falling back to individual deletes",
+                            self.bucket,
+                            code,
+                        )
+                        self._single_delete_endpoints.add(endpoint)
+                        use_batch_delete = False
+                if not use_batch_delete:
+                    for key in batch_keys:
+                        if not self._delete_existing_remote(key):
+                            success = False
+                    continue
+                # A successful request can still contain individual object failures.
+                for error in response.get("Errors", []):
+                    log.error(
+                        "Could not delete blob '%s' from S3 bucket '%s': %s: %s",
+                        error["Key"],
+                        self.bucket,
+                        error["Code"],
+                        error.get("Message", ""),
+                    )
+                    success = False
+            return success
         except ClientError:
             log.exception("Could not delete blob '%s' from S3", rel_path)
             return False
@@ -395,16 +455,21 @@ class S3ObjectStore(CachingConcreteObjectStore):
             with self._atomic_download(local_file_path, size) as tmp:
                 self._client.download_file(self.bucket, key, tmp)
 
-    def _get_object_url(self, obj, **kwargs):
+    def _get_object_url(self, obj, content_disposition=None, content_type=None, **kwargs):
         try:
             if self._exists(obj, **kwargs):
                 rel_path = self._construct_path(obj, **kwargs)
+                params = {
+                    "Bucket": self.bucket,
+                    "Key": rel_path,
+                }
+                if content_disposition is not None:
+                    params["ResponseContentDisposition"] = content_disposition
+                if content_type is not None:
+                    params["ResponseContentType"] = content_type
                 url = self._client.generate_presigned_url(
                     ClientMethod="get_object",
-                    Params={
-                        "Bucket": self.bucket,
-                        "Key": rel_path,
-                    },
+                    Params=params,
                     ExpiresIn=3600,
                     HttpMethod="GET",
                 )

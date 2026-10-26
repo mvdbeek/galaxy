@@ -17,9 +17,15 @@ except ImportError:
     boto = None  # type: ignore[assignment]
 
 from galaxy.util import string_as_bool
-from ._caching_base import CachingConcreteObjectStore
+from ._caching_base import (
+    CachingConcreteObjectStore,
+    RemoteDataStream,
+    STREAM_CHUNK_SIZE,
+)
 from ._util import UsesAxel
 from .caching import (
+    CacheShardManager,
+    CacheTarget,
     enable_cache_monitor,
     parse_caching_config_dict_from_xml,
 )
@@ -89,6 +95,9 @@ def parse_config_xml(config_xml):
             "cache": cache_dict,
             "extra_dirs": extra_dirs,
             "private": CachingConcreteObjectStore.parse_private_from_config_xml(config_xml),
+            "enable_direct_download": CachingConcreteObjectStore.parse_enable_direct_download_from_config_xml(
+                config_xml
+            ),
         }
         name = config_xml.attrib.get("name", None)
         if name is not None:
@@ -121,11 +130,7 @@ class CloudConfigMixin:
                 "conn_path": self.conn_path,
                 "region": self.region,
             },
-            "cache": {
-                "size": self.cache_size,
-                "path": self.staging_path,
-                "cache_updated_data": self.cache_updated_data,
-            },
+            "cache": self._cache_config_to_dict(),
         }
 
 
@@ -165,9 +170,8 @@ class S3ObjectStore(CachingConcreteObjectStore, CloudConfigMixin, UsesAxel):
         self.conn_path = connection_dict.get("conn_path", "/")
         self.region = connection_dict.get("region", None)
 
-        self.cache_size = cache_dict.get("size") or self.config.object_store_cache_size
-        self.staging_path = cache_dict.get("path") or self.config.object_store_cache_path
         self.cache_updated_data = cache_dict.get("cache_updated_data", True)
+        self._cache_shards = CacheShardManager.from_config(cache_dict, self.config)
 
         extra_dirs = {e["type"]: e["path"] for e in config_dict.get("extra_dirs", [])}
         self.extra_dirs.update(extra_dirs)
@@ -286,8 +290,8 @@ class S3ObjectStore(CachingConcreteObjectStore, CloudConfigMixin, UsesAxel):
     def _transfer_cb(self, complete, total):
         self.transfer_progress += 10
 
-    def _download(self, rel_path):
-        local_destination = self._get_cache_path(rel_path)
+    def _download(self, rel_path, *, cache_path: str, cache_target: CacheTarget):
+        local_destination = cache_path
         try:
             log.debug("Pulling key '%s' into cache to %s", rel_path, local_destination)
             key = self._bucket.get_key(rel_path)
@@ -296,7 +300,7 @@ class S3ObjectStore(CachingConcreteObjectStore, CloudConfigMixin, UsesAxel):
                 log.critical(message)
                 raise Exception(message)
             remote_size = key.size
-            if not self._caching_allowed(rel_path, remote_size):
+            if not self._caching_allowed(rel_path, cache_target=cache_target, remote_size=remote_size):
                 return False
             if self.use_axel:
                 log.debug("Parallel pulled key '%s' into cache to %s", rel_path, local_destination)
@@ -315,7 +319,15 @@ class S3ObjectStore(CachingConcreteObjectStore, CloudConfigMixin, UsesAxel):
             log.exception("Problem downloading key '%s' from S3 bucket '%s'", rel_path, self._bucket.name)
         return False
 
-    def _push_to_storage(self, rel_path, source_file=None, from_string=None):
+    def _stream_remote(self, rel_path: str) -> RemoteDataStream | None:
+        key = self._bucket.get_key(rel_path)
+        if key is None:
+            return None
+        # fast=True: a client that hung up should not make Galaxy read the rest of the object off
+        # the wire before the connection can be released.
+        return RemoteDataStream(iter(lambda: key.read(STREAM_CHUNK_SIZE), b""), lambda: key.close(fast=True))
+
+    def _push_to_storage(self, rel_path, source_file=None, from_string=None, *, cache_path: str):
         """
         Push the file pointed to by ``rel_path`` to the object store naming the key
         ``rel_path``. If ``source_file`` is provided, push that file instead while
@@ -324,7 +336,7 @@ class S3ObjectStore(CachingConcreteObjectStore, CloudConfigMixin, UsesAxel):
         the string.
         """
         try:
-            source_file = source_file if source_file else self._get_cache_path(rel_path)
+            source_file = source_file if source_file else cache_path
             if os.path.exists(source_file):
                 key = Key(self._bucket, rel_path)
                 if os.path.getsize(source_file) == 0 and key.exists():
@@ -399,12 +411,17 @@ class S3ObjectStore(CachingConcreteObjectStore, CloudConfigMixin, UsesAxel):
             with self._atomic_download(local_file_path, obj.size) as tmp:
                 obj.get_contents_to_filename(tmp)
 
-    def _get_object_url(self, obj, **kwargs):
+    def _get_object_url(self, obj, content_disposition=None, content_type=None, **kwargs):
         if self._exists(obj, **kwargs):
             rel_path = self._construct_path(obj, **kwargs)
             try:
                 key = Key(self._bucket, rel_path)
-                return key.generate_url(expires_in=86400)  # 24hrs
+                response_headers = {}
+                if content_disposition is not None:
+                    response_headers["response-content-disposition"] = content_disposition
+                if content_type is not None:
+                    response_headers["response-content-type"] = content_type
+                return key.generate_url(expires_in=86400, response_headers=response_headers or None)  # 24hrs
             except S3ResponseError:
                 log.exception("Trouble generating URL for dataset '%s'", rel_path)
         return None

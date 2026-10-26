@@ -14,6 +14,7 @@ import { useUploadDefaults } from "@/composables/upload/uploadDefaults";
 import { useUploadItemValidation } from "@/composables/upload/uploadItemValidation";
 import { useUploadOptionBindings } from "@/composables/upload/uploadOptionBindings";
 import { useUploadReadyState } from "@/composables/upload/uploadReadyState";
+import { useUploadTableSorting } from "@/composables/upload/uploadTableSorting";
 import { useUploadStaging } from "@/composables/upload/useUploadStaging";
 import { buildPreparedUpload } from "@/utils/upload";
 import { mapToLocalFileUpload } from "@/utils/upload/itemMappers";
@@ -45,6 +46,8 @@ interface Props {
     multiple?: boolean;
     /** When true, do not persist staging to the shared store (modal use). */
     transient?: boolean;
+    /** Files to pre-stage when the component is opened in modal mode. */
+    initialFiles?: File[];
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -52,6 +55,7 @@ const props = withDefaults(defineProps<Props>(), {
     formats: undefined,
     multiple: true,
     transient: false,
+    initialFiles: undefined,
 });
 
 const emit = defineEmits<{
@@ -68,6 +72,7 @@ const selectedFiles = ref<LocalFileItem[]>([]);
 const { clear: clearStaging } = useUploadStaging<LocalFileItem>(props.method.id, selectedFiles, {
     disableStore: props.transient,
 });
+const { tableSortProps, tableSortEvents } = useUploadTableSorting(selectedFiles);
 const uploadFile = ref<HTMLInputElement | null>(null);
 const dropZoneElement = ref<HTMLElement | null>(null);
 const collectionConfigComponent = ref<InstanceType<typeof CollectionCreationConfig> | null>(null);
@@ -182,14 +187,42 @@ function addFiles(files: FileList | File[] | null) {
     }
 }
 
-function removeFile(index: number) {
-    selectedFiles.value.splice(index, 1);
+watch(
+    () => props.initialFiles,
+    (files) => {
+        if (!files || files.length === 0) {
+            return;
+        }
+
+        const existingSignatures = new Set(
+            selectedFiles.value.map((item) => `${item.file.name}:${item.file.size}:${item.file.lastModified}`),
+        );
+        const filesToAdd = files.filter(
+            (file) => !existingSignatures.has(`${file.name}:${file.size}:${file.lastModified}`),
+        );
+        if (filesToAdd.length > 0) {
+            addFiles(filesToAdd);
+        }
+    },
+    { immediate: true },
+);
+
+function removeFile(item: LocalFileItem) {
+    const index = selectedFiles.value.indexOf(item);
+    if (index !== -1) {
+        selectedFiles.value.splice(index, 1);
+    }
 }
 
 function addFileFromInput(eventTarget: EventTarget | null) {
-    const files = (eventTarget as HTMLInputElement)?.files;
+    const input = eventTarget as HTMLInputElement | null;
+    const files = input?.files;
     if (files) {
         addFiles(files);
+    }
+    // Reset the input so subsequent selections don't accumulate files
+    if (input) {
+        input.value = "";
     }
 }
 
@@ -244,7 +277,16 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                 </div>
 
                 <div class="file-table-container">
-                    <GTable hover striped compact fixed :items="selectedFiles" :fields="tableFields" class="file-table">
+                    <GTable
+                        v-bind="tableSortProps"
+                        hover
+                        striped
+                        compact
+                        fixed
+                        :items="selectedFiles"
+                        :fields="tableFields"
+                        class="file-table"
+                        v-on="tableSortEvents">
                         <template v-slot:cell(name)="{ item, index }">
                             <UploadTableNameCell
                                 :data-test-id="`upload-row-${index + 1}-name`"
@@ -305,7 +347,7 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                             <UploadTableOptionsCell v-bind="getRowOptionProps(item)" v-on="getRowOptionEvents(item)" />
                         </template>
 
-                        <template v-slot:cell(actions)="{ index }">
+                        <template v-slot:cell(actions)="{ item, index }">
                             <GButton
                                 v-g-tooltip.hover
                                 class="remove-btn"
@@ -313,7 +355,7 @@ defineExpose<UploadMethodComponent>({ prepareUpload, reset });
                                 outline
                                 transparent
                                 title="Remove file from list"
-                                @click="removeFile(index)">
+                                @click="removeFile(item)">
                                 <FontAwesomeIcon :icon="faTrash" />
                             </GButton>
                         </template>

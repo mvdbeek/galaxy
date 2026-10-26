@@ -20,16 +20,20 @@ const diffpatcher = create({
 const delta = computed(() => diffpatcher.diff(props.before, props.after))
 
 const formattedHtml = computed(() => {
-    if (!delta.value) return '<div class="text-grey">No changes detected</div>'
+    if (!delta.value) return '<div class="json-diff-no-changes">No changes detected</div>'
     return htmlFormat(delta.value, props.before)
 })
 </script>
 
 <template>
-    <div class="json-diff-viewer" v-html="formattedHtml"></div>
+    <div v-sanitize-html="formattedHtml" class="json-diff-viewer"></div>
 </template>
 
 <style>
+.json-diff-no-changes {
+    color: var(--color-grey-500);
+}
+
 /* jsondiffpatch HTML formatter styles */
 .jsondiffpatch-delta {
     font-family: monospace;

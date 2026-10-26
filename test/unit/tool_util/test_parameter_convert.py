@@ -1,7 +1,6 @@
+import math
 from typing import (
     Any,
-    Dict,
-    Optional,
 )
 
 from galaxy.tool_util.parameters import (
@@ -21,6 +20,7 @@ from galaxy.tool_util.parameters import (
     RequestInternalDereferencedToolState,
     RequestInternalToolState,
     RequestToolState,
+    restore_non_finite_floats,
     strictify,
 )
 from galaxy.tool_util.parser.factory import get_tool_source
@@ -42,7 +42,7 @@ EXAMPLE_ID_1 = 13
 EXAMPLE_ID_2_ENCODED = "123456789abcd2"
 EXAMPLE_ID_2 = 14
 
-ID_MAP: Dict[int, str] = {
+ID_MAP: dict[int, str] = {
     EXAMPLE_ID_1: EXAMPLE_ID_1_ENCODED,
     EXAMPLE_ID_2: EXAMPLE_ID_2_ENCODED,
 }
@@ -190,7 +190,7 @@ def test_dereference():
     request_state = RequestInternalToolState(raw_request_state)
     request_state.validate(bundle)
 
-    exception: Optional[Exception] = None
+    exception: Exception | None = None
     try:
         # quickly verify this request needs to be dereferenced
         bad_state = RequestInternalDereferencedToolState(raw_request_state)
@@ -202,6 +202,36 @@ def test_dereference():
     dereferenced_state = dereference(request_state, bundle, _fake_dereference, _fake_collection_deference)
     assert isinstance(dereferenced_state, RequestInternalDereferencedToolState)
     dereferenced_state.validate(bundle)
+
+
+def test_restore_non_finite_floats():
+    tool_source = tool_source_for("parameters/gx_float")
+    bundle = input_models_for_tool_source(tool_source)
+    # safe_dumps encodes non-finite floats as sentinel strings so API payloads stay valid
+    # JSON - the persisted request state keeps that encoding and must be decoded before use.
+    request_state = RequestInternalToolState({"parameter": "__Infinity__"})
+    restored = restore_non_finite_floats(request_state, bundle)
+    assert restored.input_state["parameter"] == float("inf")
+
+    request_state = RequestInternalToolState({"parameter": "__-Infinity__"})
+    restored = restore_non_finite_floats(request_state, bundle)
+    assert restored.input_state["parameter"] == float("-inf")
+
+    request_state = RequestInternalToolState({"parameter": "__NaN__"})
+    restored = restore_non_finite_floats(request_state, bundle)
+    assert math.isnan(restored.input_state["parameter"])
+
+    request_state = RequestInternalToolState({"parameter": 1.5})
+    restored = restore_non_finite_floats(request_state, bundle)
+    assert restored.input_state["parameter"] == 1.5
+
+
+def test_restore_non_finite_floats_leaves_text_alone():
+    tool_source = tool_source_for("parameters/gx_text")
+    bundle = input_models_for_tool_source(tool_source)
+    request_state = RequestInternalToolState({"parameter": "__Infinity__"})
+    restored = restore_non_finite_floats(request_state, bundle)
+    assert restored.input_state["parameter"] == "__Infinity__"
 
 
 def test_dereference_resolves_url_default():
@@ -311,8 +341,10 @@ def test_fill_defaults():
     with_defaults = fill_state_for({}, "parameters/gx_boolean")
     assert with_defaults["parameter"] is False
     with_defaults = fill_state_for({}, "parameters/gx_boolean_optional")
-    # This is False unfortunately - see comments in gx_boolean_optional XML.
+    # Profiles before 26.2 keep reporting false for an unset optional boolean.
     assert with_defaults["parameter"] is False
+    with_defaults = fill_state_for({}, "parameters/gx_boolean_optional_26_2")
+    assert with_defaults["parameter"] is None
     with_defaults = fill_state_for({}, "parameters/gx_boolean_checked")
     assert with_defaults["parameter"] is True
     with_defaults = fill_state_for({}, "parameters/gx_boolean_optional_checked")
@@ -355,6 +387,13 @@ def test_fill_defaults():
     assert with_defaults["parameter"] == "moo"
 
     with_defaults = fill_state_for({}, "parameters/gx_genomebuild_optional")
+    assert with_defaults["parameter"] is None
+
+    # ``<param type="color" value="" optional="true">`` is the legacy "no default color"
+    # convention (see tools-iuc arriba color1). The empty string default would trip the
+    # color validator on the job-internal model, so ``_fill_default_for`` must emit None
+    # instead. Regression for the async CI ``Invalid color value ''`` failures.
+    with_defaults = fill_state_for({}, "parameters/gx_color_optional_no_default")
     assert with_defaults["parameter"] is None
 
     with_defaults = fill_state_for({}, "parameters/gx_select")
@@ -407,7 +446,7 @@ def test_strictify():
     assert strict_state["parameter"] == ""
 
 
-def strictify_for(tool_state: Dict[str, Any], tool_path: str) -> Dict[str, Any]:
+def strictify_for(tool_state: dict[str, Any], tool_path: str) -> dict[str, Any]:
     tool_source = tool_source_for(tool_path)
     bundle = input_models_for_tool_source(tool_source)
     relaxed_state = RelaxedRequestToolState(tool_state)
@@ -419,7 +458,7 @@ def strictify_for(tool_state: Dict[str, Any], tool_path: str) -> Dict[str, Any]:
 # Keying on the URL (rather than returning a constant) makes the dereference tests assert the
 # *configured* URL actually reached the dereference boundary - an unexpected/empty URL raises
 # KeyError instead of silently passing.
-URL_ID_MAP: Dict[str, int] = {
+URL_ID_MAP: dict[str, int] = {
     "https://example.com/1.bed": EXAMPLE_ID_1,
     "gxfiles://mystorage/1.bed": EXAMPLE_ID_2,
 }
@@ -442,7 +481,7 @@ def _fake_encode(input: int) -> str:
 
 
 def _strict_async_decode_and_dereference(
-    tool_state: Dict[str, Any], bundle: ToolParameterBundleModel
+    tool_state: dict[str, Any], bundle: ToolParameterBundleModel
 ) -> RequestInternalDereferencedToolState:
     request_state = RequestToolState(tool_state)
     request_state.validate(bundle)
@@ -450,7 +489,7 @@ def _strict_async_decode_and_dereference(
     return dereference(request_internal_state, bundle, _fake_dereference, _fake_collection_deference)
 
 
-def fill_state_for(tool_state: Dict[str, Any], tool_path: str, partial: bool = False) -> Dict[str, Any]:
+def fill_state_for(tool_state: dict[str, Any], tool_path: str, partial: bool = False) -> dict[str, Any]:
     tool_source = tool_source_for(tool_path)
     bundle = input_models_for_tool_source(tool_source)
     profile = parse_profile_version(tool_source)

@@ -1,11 +1,12 @@
 import { createTestingPinia } from "@pinia/testing";
 import { getFakeRegisteredUser } from "@tests/test-data";
 import { getLocalVue } from "@tests/vitest/helpers";
-import { mount, type Wrapper } from "@vue/test-utils";
+import { mount, type VueWrapper } from "@vue/test-utils";
 import flushPromises from "flush-promises";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { useServerMock } from "@/api/client/__mocks__/index";
+import { clearRaisedToasts, raisedToasts } from "@/composables/__mocks__/toast";
 import { useUserStore } from "@/stores/userStore";
 
 import WorkflowInvocationShare from "./WorkflowInvocationShare.vue";
@@ -49,22 +50,7 @@ const SELECTORS = {
     SHARE_ICON_BUTTON: "[data-button-share]",
 } as const;
 
-// Mock the toast composable to track the messages
-const MSG = 0;
-const TYPE = 1;
-const toastMock = vi.fn((message, type: "success" | "info") => {
-    return { message, type };
-});
-vi.mock("@/composables/toast", () => ({
-    Toast: {
-        success: vi.fn().mockImplementation((message) => {
-            toastMock(message, "success");
-        }),
-        info: vi.fn().mockImplementation((message) => {
-            toastMock(message, "info");
-        }),
-    },
-}));
+vi.mock("@/composables/toast");
 
 // Mock "@/utils/clipboard"
 const writeText = vi.fn();
@@ -142,7 +128,7 @@ async function mountWorkflowInvocationShare(ownsWorkflow = true, bothShareable =
     );
 
     const wrapper = mount(WorkflowInvocationShare as object, {
-        propsData: {
+        props: {
             invocationId: "invocation-id",
             workflowId: bothShareable ? SHARED_WORKFLOW_ID : TEST_WORKFLOW.id,
             historyId: bothShareable
@@ -153,10 +139,9 @@ async function mountWorkflowInvocationShare(ownsWorkflow = true, bothShareable =
         },
         stubs: {
             FontAwesomeIcon: true,
-            BModal: true,
         },
-        localVue,
-        pinia: createTestingPinia({ createSpy: vi.fn }),
+        global: localVue,
+        pinia: createTestingPinia({ createSpy: vi.fn, stubActions: false }),
     });
 
     const userStore = useUserStore();
@@ -169,13 +154,13 @@ async function mountWorkflowInvocationShare(ownsWorkflow = true, bothShareable =
     return { wrapper };
 }
 
-async function openShareModal(wrapper: Wrapper<Vue>) {
+async function openShareModal(wrapper: VueWrapper) {
     await wrapper.find(SELECTORS.SHARE_ICON_BUTTON).trigger("click");
 }
 
 describe("WorkflowInvocationShare", () => {
     beforeEach(() => {
-        toastMock.mockClear();
+        clearRaisedToasts();
         (navigator.clipboard.writeText as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
     });
 
@@ -200,17 +185,10 @@ describe("WorkflowInvocationShare", () => {
         wrapper.findComponent(GModal).vm.$emit("ok");
         await flushPromises();
 
-        // We have 2 toasts
-        const toasts = toastMock.mock.calls;
-        expect(toasts.length).toBe(2);
-
-        // The first one is the success message for sharing the workflow and history
-        expect(toasts[0]![MSG]).toBe(SHARE_SUCCESS_MSG);
-        expect(toasts[0]![TYPE]).toBe("success");
-
-        // The second one is the copied link message
-        expect(toasts[1]![MSG]).toBe(CLIPBOARD_MSG);
-        expect(toasts[1]![TYPE]).toBe("info");
+        expect(raisedToasts()).toEqual([
+            { variant: "success", message: SHARE_SUCCESS_MSG },
+            { variant: "info", message: CLIPBOARD_MSG },
+        ]);
     });
 
     it("renders nothing when the user does not own the workflow", async () => {
@@ -235,14 +213,11 @@ describe("WorkflowInvocationShare", () => {
         const { wrapper } = await mountWorkflowInvocationShare(true, true);
 
         // Initially, the modal is not visible and this time remains closed when the button is clicked
-        expect(wrapper.findComponent(GModal).props("visible")).toBeFalsy();
+        expect(wrapper.findComponent(GModal).props("show")).toBe(false);
         await openShareModal(wrapper);
-        expect(wrapper.findComponent(GModal).props("visible")).toBeFalsy();
+        expect(wrapper.findComponent(GModal).props("show")).toBe(false);
 
         // Instead we already have a singular toast with the link copied message
-        const toasts = toastMock.mock.calls;
-        expect(toasts.length).toBe(1);
-        expect(toasts[0]![MSG]).toBe(CLIPBOARD_MSG);
-        expect(toasts[0]![TYPE]).toBe("info");
+        expect(raisedToasts()).toEqual([{ variant: "info", message: CLIPBOARD_MSG }]);
     });
 });

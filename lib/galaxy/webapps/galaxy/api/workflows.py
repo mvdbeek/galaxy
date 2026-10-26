@@ -9,8 +9,6 @@ from io import BytesIO
 from typing import (
     Annotated,
     Any,
-    Optional,
-    Union,
 )
 
 from fastapi import (
@@ -73,6 +71,8 @@ from galaxy.schema.schema import (
     AsyncTaskResultSummary,
     ClaimLandingPayload,
     CreateWorkflowLandingRequestPayload,
+    CuratedWorkflowsIndexResponse,
+    CuratedWorkflowsQueryPayload,
     InvocationIndexPayload,
     InvocationSortByEnum,
     InvocationsStateCounts,
@@ -95,7 +95,6 @@ from galaxy.structured_app import StructuredApp
 from galaxy.tool_shed.galaxy_install.install_manager import InstallRepositoryManager
 from galaxy.tools import recommendations
 from galaxy.tools._types import ParameterValidationErrorsT
-from galaxy.tools.parameters import populate_state
 from galaxy.tools.parameters.workflow_utils import workflow_building_modes
 from galaxy.web import (
     expose_api,
@@ -131,6 +130,7 @@ from galaxy.webapps.galaxy.services.invocations import (
     WriteInvocationStoreToPayload,
 )
 from galaxy.webapps.galaxy.services.workflows import WorkflowsService
+from galaxy.work.context import SessionRequestContext
 from galaxy.workflow.extract import extract_workflow
 from galaxy.workflow.modules import module_factory
 
@@ -558,8 +558,7 @@ class WorkflowsAPIController(
         module_state: dict[str, Any] = {}
         errors: ParameterValidationErrorsT = {}
         if from_tool_form:
-            populate_state(trans, module.get_inputs(), inputs, module_state, errors=errors, check=True)
-            module.recover_state(module_state, from_tool_form=True)
+            module_state = module.populate_state_from_tool_form(inputs, errors)
             module.check_and_update_state()
         else:
             module_state = module.get_export_state()
@@ -578,7 +577,7 @@ class WorkflowsAPIController(
         return step_dict
 
     @expose_api_anonymous
-    def get_tool_predictions(self, trans: ProvidesUserContext, payload, **kwd):
+    def get_tool_predictions(self, trans: ProvidesHistoryContext, payload, **kwd):
         """
         POST /api/workflows/get_tool_predictions
         Fetch predicted tools for a workflow
@@ -691,7 +690,7 @@ class WorkflowsAPIController(
         item["url"] = url_for("workflow", id=encoded_id)
         return item
 
-    def _workflow_from_dict(self, trans, data, workflow_create_options, source=None):
+    def _workflow_from_dict(self, trans: ProvidesHistoryContext, data, workflow_create_options, source=None):
         """Creates a workflow from a dict.
 
         Created workflow is stored in the database and returned.
@@ -716,7 +715,7 @@ class WorkflowsAPIController(
         self._import_tools_if_needed(trans, workflow_create_options, raw_workflow_description)
         return created_workflow.stored_workflow, created_workflow.missing_tools
 
-    def _import_tools_if_needed(self, trans, workflow_create_options, raw_workflow_description):
+    def _import_tools_if_needed(self, trans: ProvidesUserContext, workflow_create_options, raw_workflow_description):
         if not workflow_create_options.import_tools:
             return
 
@@ -755,11 +754,11 @@ class WorkflowsAPIController(
             changeset_revision = item["changeset_revision"]
             irm.install(tool_shed_url, name, owner, changeset_revision, install_options)
 
-    def __get_stored_accessible_workflow(self, trans, workflow_id, **kwd):
+    def __get_stored_accessible_workflow(self, trans: ProvidesUserContext, workflow_id, **kwd):
         instance = util.string_as_bool(kwd.get("instance", "false"))
         return self.workflow_manager.get_stored_accessible_workflow(trans, workflow_id, by_stored_id=not instance)
 
-    def __get_stored_workflow(self, trans, workflow_id, **kwd):
+    def __get_stored_workflow(self, trans: ProvidesUserContext, workflow_id, **kwd):
         instance = util.string_as_bool(kwd.get("instance", "false"))
         return self.workflow_manager.get_stored_workflow(trans, workflow_id, by_stored_id=not instance)
 
@@ -784,7 +783,7 @@ WorkflowInvocationStepIDPathParam = Annotated[
 ]
 
 InvocationsInstanceQueryParam = Annotated[
-    Optional[bool],
+    bool | None,
     Query(
         title="Instance",
         description="Is provided workflow id for Workflow instead of StoredWorkflow?",
@@ -792,7 +791,7 @@ InvocationsInstanceQueryParam = Annotated[
 ]
 
 MultiTypeWorkflowIDPathParam = Annotated[
-    Union[UUID4, UUID1, DecodedDatabaseIdField],
+    UUID4 | UUID1 | DecodedDatabaseIdField,
     Path(
         ...,
         title="Workflow ID",
@@ -814,41 +813,41 @@ MissingToolsQueryParam: bool = Query(
     description="Whether to include a list of missing tools per workflow entry",
 )
 
-ShowPublishedQueryParam: Optional[bool] = Query(default=None, title="Include published workflows.", description="")
+ShowPublishedQueryParam: bool | None = Query(default=None, title="Include published workflows.", description="")
 
-ShowSharedQueryParam: Optional[bool] = Query(
+ShowSharedQueryParam: bool | None = Query(
     default=None, title="Include workflows shared with authenticated user.", description=""
 )
 
-SortByQueryParam: Optional[WorkflowSortByEnum] = Query(
+SortByQueryParam: WorkflowSortByEnum | None = Query(
     default=None,
     title="Sort workflow index by this attribute",
     description="In unspecified, default ordering depends on other parameters but generally the user's own workflows appear first based on update time",
 )
 
-SortDescQueryParam: Optional[bool] = Query(
+SortDescQueryParam: bool | None = Query(
     default=None,
     title="Sort Descending",
     description="Sort in descending order?",
 )
 
-LimitQueryParam: Optional[int] = Query(default=None, ge=1, title="Limit number of queries.")
+LimitQueryParam: int | None = Query(default=None, ge=1, title="Limit number of queries.")
 
-OffsetQueryParam: Optional[int] = Query(
+OffsetQueryParam: int | None = Query(
     default=0,
     ge=0,
     title="Number of workflows to skip in sorted query (to enable pagination).",
 )
 
 InstanceQueryParam = Annotated[
-    Optional[bool],
+    bool | None,
     Query(
         title="True when fetching by Workflow ID, False when fetching by StoredWorkflow ID.",
     ),
 ]
 
 LegacyQueryParam = Annotated[
-    Optional[bool],
+    bool | None,
     Query(
         title="Legacy",
         description="Use the legacy workflow format.",
@@ -856,7 +855,7 @@ LegacyQueryParam = Annotated[
 ]
 
 VersionQueryParam = Annotated[
-    Optional[int],
+    int | None,
     Query(
         title="Version",
         description="The version of the workflow to fetch.",
@@ -893,7 +892,7 @@ query_tags = [
     ),
 ]
 
-SearchQueryParam: Optional[str] = search_query_param(
+SearchQueryParam: str | None = search_query_param(
     model_name="Stored Workflow",
     tags=query_tags,
     free_text_fields=["name", "tag", "user"],
@@ -903,6 +902,49 @@ SkipStepCountsQueryParam: bool = Query(
     default=False,
     title="Skip step counts.",
     description="Set this to true to skip joining workflow step counts and optimize the resulting index query. Response objects will not contain step counts.",
+)
+
+# The curated endpoint understands only name, tag, collection and is; the stored-workflow tags
+# above would advertise filters it silently drops into free text.
+curated_query_tags = [
+    IndexQueryTag("name", "The curated workflow's name.", "n"),
+    IndexQueryTag("tag", "A tag on the curated workflow.", "t"),
+    IndexQueryTag("collection", "An IWC collection the curated workflow belongs to.", "c"),
+    IndexQueryTag(
+        "is",
+        "Use 'is:runnable' for workflows whose tools are all available here (IWC catalog only; matches nothing "
+        "for a local feed).",
+    ),
+]
+
+CuratedSearchQueryParam: str | None = search_query_param(
+    model_name="Curated Workflow",
+    tags=curated_query_tags,
+    free_text_fields=["name", "description", "tag", "collection"],
+)
+
+CuratedSortByQueryParam: WorkflowSortByEnum | None = Query(
+    default=None,
+    title="Sort By",
+    description=(
+        "Sort curated workflows by this attribute. Without it, most recently updated first -- and "
+        "in IWC catalog mode, ordered first by how many of their tools this Galaxy is missing, so the "
+        "ones that run here as-is lead and the ones it couldn't check come last."
+    ),
+)
+
+CuratedLimitQueryParam: int = Query(
+    default=24,
+    ge=1,
+    le=100,
+    title="Limit",
+    description="Maximum number of curated workflows to return.",
+)
+
+CuratedOffsetQueryParam: int = Query(
+    default=0,
+    ge=0,
+    title="Number of curated workflows to skip in sorted query (to enable pagination).",
 )
 
 InvokeWorkflowBody = Annotated[
@@ -941,13 +983,13 @@ class FastAPIWorkflows:
         show_deleted: bool = DeletedQueryParam,
         show_hidden: bool = HiddenQueryParam,
         missing_tools: bool = MissingToolsQueryParam,
-        show_published: Optional[bool] = ShowPublishedQueryParam,
-        show_shared: Optional[bool] = ShowSharedQueryParam,
-        sort_by: Optional[WorkflowSortByEnum] = SortByQueryParam,
-        sort_desc: Optional[bool] = SortDescQueryParam,
-        limit: Optional[int] = LimitQueryParam,
-        offset: Optional[int] = OffsetQueryParam,
-        search: Optional[str] = SearchQueryParam,
+        show_published: bool | None = ShowPublishedQueryParam,
+        show_shared: bool | None = ShowSharedQueryParam,
+        sort_by: WorkflowSortByEnum | None = SortByQueryParam,
+        sort_desc: bool | None = SortDescQueryParam,
+        limit: int | None = LimitQueryParam,
+        offset: int | None = OffsetQueryParam,
+        search: str | None = SearchQueryParam,
         skip_step_counts: bool = SkipStepCountsQueryParam,
     ) -> list[dict[str, Any]]:
         """Lists stored workflows viewable by the user."""
@@ -967,6 +1009,29 @@ class FastAPIWorkflows:
         workflows, total_matches = self.service.index(trans, payload, include_total_count=True)
         response.headers["total_matches"] = str(total_matches)
         return workflows
+
+    # Declared before any /api/workflows/{workflow_id} route so FastAPI does not
+    # try to decode the literal "curated" as an encoded StoredWorkflow id.
+    @router.get(
+        "/api/workflows/curated",
+        public=True,
+        summary="Lists curated workflows for discovery.",
+        response_description="Curated workflows plus the source they were drawn from.",
+    )
+    def curated(
+        self,
+        trans: ProvidesUserContext = DependsOnTrans,
+        search: str | None = CuratedSearchQueryParam,
+        sort_by: WorkflowSortByEnum | None = CuratedSortByQueryParam,
+        sort_desc: bool | None = SortDescQueryParam,
+        limit: int = CuratedLimitQueryParam,
+        offset: int = CuratedOffsetQueryParam,
+    ) -> CuratedWorkflowsIndexResponse:
+        """Lists workflows curated for this Galaxy, or the public IWC catalog."""
+        payload = CuratedWorkflowsQueryPayload(
+            search=search, sort_by=sort_by, sort_desc=sort_desc, limit=limit, offset=offset
+        )
+        return self.service.index_curated(trans, payload)
 
     @router.get(
         "/api/workflows/{workflow_id}/sharing",
@@ -1013,7 +1078,7 @@ class FastAPIWorkflows:
         workflow_id: StoredWorkflowIDPathParam,
         payload: RefactorWorkflowBody,
         instance: InstanceQueryParam = False,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: SessionRequestContext = DependsOnTrans,
     ) -> RefactorResponse:
         return self.service.refactor(trans, workflow_id, payload, instance or False)
 
@@ -1125,7 +1190,7 @@ class FastAPIWorkflows:
         payload: InvokeWorkflowBody,
         workflow_id: MultiTypeWorkflowIDPathParam,
         trans: ProvidesHistoryContext = DependsOnTrans,
-    ) -> Union[WorkflowInvocationResponse, list[WorkflowInvocationResponse]]:
+    ) -> WorkflowInvocationResponse | list[WorkflowInvocationResponse]:
         return self.service.invoke_workflow(trans, workflow_id, payload)
 
     @router.get(
@@ -1161,11 +1226,11 @@ class FastAPIWorkflows:
     def get_workflow_menu(
         self,
         trans: ProvidesUserContext = DependsOnTrans,
-        show_deleted: Optional[bool] = DeletedQueryParam,
-        show_hidden: Optional[bool] = HiddenQueryParam,
-        missing_tools: Optional[bool] = MissingToolsQueryParam,
-        show_published: Optional[bool] = ShowPublishedQueryParam,
-        show_shared: Optional[bool] = ShowSharedQueryParam,
+        show_deleted: bool | None = DeletedQueryParam,
+        show_hidden: bool | None = HiddenQueryParam,
+        missing_tools: bool | None = MissingToolsQueryParam,
+        show_published: bool | None = ShowPublishedQueryParam,
+        show_shared: bool | None = ShowSharedQueryParam,
     ):
         payload = WorkflowIndexPayload(
             show_published=show_published,
@@ -1205,9 +1270,9 @@ class FastAPIWorkflows:
     @router.post("/api/workflow_landings/{uuid}/claim")
     def claim_landing(
         self,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: ProvidesHistoryContext = DependsOnTrans,
         uuid: UUID4 = LandingUuidPathParam,
-        payload: Optional[ClaimLandingPayload] = Body(...),
+        payload: ClaimLandingPayload | None = Body(...),
         user: model.User = DependsOnUser,
     ) -> WorkflowLandingRequest:
         return self.landing_manager.claim_workflow_landing_request(trans, uuid, payload)
@@ -1215,7 +1280,7 @@ class FastAPIWorkflows:
     @router.get("/api/workflow_landings/{uuid}")
     def get_landing(
         self,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: ProvidesHistoryContext = DependsOnTrans,
         uuid: UUID4 = LandingUuidPathParam,
         user: model.User = DependsOnUser,
     ) -> WorkflowLandingRequest:
@@ -1243,7 +1308,7 @@ LegacyJobStateQueryParam = Annotated[
 ]
 
 WorkflowIdQueryParam = Annotated[
-    Optional[DecodedDatabaseIdField],
+    DecodedDatabaseIdField | None,
     Query(
         title="Workflow ID",
         description="Return only invocations for this Workflow ID",
@@ -1251,7 +1316,7 @@ WorkflowIdQueryParam = Annotated[
 ]
 
 HistoryIdQueryParam = Annotated[
-    Optional[DecodedDatabaseIdField],
+    DecodedDatabaseIdField | None,
     Query(
         title="History ID",
         description="Return only invocations for this History ID",
@@ -1259,7 +1324,7 @@ HistoryIdQueryParam = Annotated[
 ]
 
 JobIdQueryParam = Annotated[
-    Optional[DecodedDatabaseIdField],
+    DecodedDatabaseIdField | None,
     Query(
         title="Job ID",
         description="Return only invocations for this Job ID",
@@ -1267,7 +1332,7 @@ JobIdQueryParam = Annotated[
 ]
 
 UserIdQueryParam = Annotated[
-    Optional[DecodedDatabaseIdField],
+    DecodedDatabaseIdField | None,
     Query(
         title="User ID",
         description="Return invocations for this User ID.",
@@ -1275,7 +1340,7 @@ UserIdQueryParam = Annotated[
 ]
 
 InvocationsSortByQueryParam = Annotated[
-    Optional[InvocationSortByEnum],
+    InvocationSortByEnum | None,
     Query(
         title="Sort By",
         description="Sort Workflow Invocations by this attribute",
@@ -1291,7 +1356,7 @@ InvocationsSortDescQueryParam = Annotated[
 ]
 
 InvocationsIncludeTerminalQueryParam = Annotated[
-    Optional[bool],
+    bool | None,
     Query(
         title="Include Terminal",
         description="Set to false to only include terminal Invocations.",
@@ -1299,7 +1364,7 @@ InvocationsIncludeTerminalQueryParam = Annotated[
 ]
 
 InvocationsLimitQueryParam = Annotated[
-    Optional[int],
+    int | None,
     Query(
         ge=1,
         le=100,
@@ -1309,7 +1374,7 @@ InvocationsLimitQueryParam = Annotated[
 ]
 
 InvocationsOffsetQueryParam = Annotated[
-    Optional[int],
+    int | None,
     Query(
         ge=0,
         title="Offset",
@@ -1372,7 +1437,7 @@ class FastAPIInvocations:
         view: SerializationViewQueryParam = None,
         step_details: StepDetailQueryParam = False,
         include_nested_invocations: bool = True,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: SessionRequestContext = DependsOnTrans,
     ) -> list[WorkflowInvocationResponse]:
         if not trans.user:
             # Anon users don't have accessible invocations (currently, though published invocations should be a thing)
@@ -1425,7 +1490,7 @@ class FastAPIInvocations:
         instance: InvocationsInstanceQueryParam = False,
         view: SerializationViewQueryParam = None,
         step_details: StepDetailQueryParam = False,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: SessionRequestContext = DependsOnTrans,
     ) -> list[WorkflowInvocationResponse]:
         invocations = self.index_invocations(
             response=response,
@@ -1452,7 +1517,7 @@ class FastAPIInvocations:
     def prepare_store_download(
         self,
         invocation_id: InvocationIDPathParam,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: SessionRequestContext = DependsOnTrans,
         payload: PrepareStoreDownloadPayload = Body(...),
     ) -> AsyncFile:
         return self.invocations_service.prepare_store_download(
@@ -1468,7 +1533,7 @@ class FastAPIInvocations:
     def write_store(
         self,
         invocation_id: InvocationIDPathParam,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: SessionRequestContext = DependsOnTrans,
         payload: WriteInvocationStoreToPayload = Body(...),
     ) -> AsyncTaskResultSummary:
         rval = self.invocations_service.write_store(
@@ -1697,7 +1762,7 @@ class FastAPIInvocations:
         self,
         invocation_id: InvocationIDPathParam,
         step_id: WorkflowInvocationStepIDPathParam,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: ProvidesHistoryContext = DependsOnTrans,
         payload: InvocationUpdatePayload = Body(...),
     ) -> InvocationStep:
         return self.invocations_service.update_invocation_step(trans=trans, step_id=step_id, action=payload.action)
@@ -1716,7 +1781,7 @@ class FastAPIInvocations:
         workflow_id: StoredWorkflowIDPathParam,
         invocation_id: InvocationIDPathParam,
         step_id: WorkflowInvocationStepIDPathParam,
-        trans: ProvidesUserContext = DependsOnTrans,
+        trans: ProvidesHistoryContext = DependsOnTrans,
         payload: InvocationUpdatePayload = Body(...),
     ) -> InvocationStep:
         """An alias for `PUT /api/invocations/{invocation_id}/steps/{step_id}`. `workflow_id` is ignored."""
@@ -1731,11 +1796,9 @@ class FastAPIInvocations:
         invocation_id: InvocationIDPathParam,
         trans: ProvidesUserContext = DependsOnTrans,
     ) -> list[
-        Union[
-            InvocationStepJobsResponseStepModel,
-            InvocationStepJobsResponseJobModel,
-            InvocationStepJobsResponseCollectionJobsModel,
-        ]
+        InvocationStepJobsResponseStepModel
+        | InvocationStepJobsResponseJobModel
+        | InvocationStepJobsResponseCollectionJobsModel
     ]:
         """
         Warning: We allow anyone to fetch job state information about any object they
@@ -1772,11 +1835,9 @@ class FastAPIInvocations:
         invocation_id: InvocationIDPathParam,
         trans: ProvidesUserContext = DependsOnTrans,
     ) -> list[
-        Union[
-            InvocationStepJobsResponseStepModel,
-            InvocationStepJobsResponseJobModel,
-            InvocationStepJobsResponseCollectionJobsModel,
-        ]
+        InvocationStepJobsResponseStepModel
+        | InvocationStepJobsResponseJobModel
+        | InvocationStepJobsResponseCollectionJobsModel
     ]:
         """An alias for `GET /api/invocations/{invocation_id}/step_jobs_summary`. `workflow_id` is ignored."""
         return self.invocation_step_jobs_summary(trans=trans, invocation_id=invocation_id)
@@ -1833,7 +1894,7 @@ class FastAPIInvocations:
         self,
         invocation_id: InvocationIDPathParam,
         trans: ProvidesUserContext = DependsOnTrans,
-    ) -> Optional[WorkflowInvocationCompletionResponse]:
+    ) -> WorkflowInvocationCompletionResponse | None:
         """
         Get completion details for a workflow invocation.
 

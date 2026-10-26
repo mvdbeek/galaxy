@@ -7,12 +7,10 @@ code where actual tool objects aren't created.
 
 import re
 from typing import (
+    Annotated,
     Any,
-    Dict,
     Generic,
-    List,
-    Optional,
-    Union,
+    Literal,
 )
 
 from pydantic import (
@@ -23,16 +21,12 @@ from pydantic import (
 )
 from pydantic_core import PydanticCustomError
 from typing_extensions import (
-    Annotated,
-    Literal,
     TypeVar,
 )
 
 from ._base import ToolSourceBaseModel
 from .tool_source import is_relative_subpath
 
-AnyT = TypeVar("AnyT")
-NotRequired = Optional[AnyT]
 IncomingNotRequiredBoolT = TypeVar("IncomingNotRequiredBoolT")
 IncomingNotRequiredStringT = TypeVar("IncomingNotRequiredStringT")
 
@@ -45,7 +39,7 @@ class GenericToolOutputBaseModel(ToolSourceBaseModel, Generic[IncomingNotRequire
         Field(description="Identifier used to connect this output in workflows and address it in tool tests."),
     ]
     label: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Name shown for the produced dataset or collection in the history."),
     ] = None
     hidden: Annotated[
@@ -77,7 +71,7 @@ class DatasetCollectionDescription(ToolSourceBaseModel):
         ),
     ]
     format: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Galaxy datatype extension assigned to each discovered dataset."),
     ] = None
     visible: Annotated[
@@ -89,7 +83,7 @@ class DatasetCollectionDescription(ToolSourceBaseModel):
         Field(description="Whether the first matching file replaces the primary dataset output."),
     ] = False
     directory: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Directory to search, relative to the job working directory."),
     ] = None
     recurse: Annotated[
@@ -142,7 +136,7 @@ class FilePatternDatasetCollectionDescription(DatasetCollectionDescription):
     ]
 
 
-DatasetCollectionDescriptionT = Union[FilePatternDatasetCollectionDescription, ToolProvidedMetadataDatasetCollection]
+DatasetCollectionDescriptionT = FilePatternDatasetCollectionDescription | ToolProvidedMetadataDatasetCollection
 
 
 class GenericToolOutputDataset(
@@ -163,7 +157,7 @@ class GenericToolOutputDataset(
         ),
     ]
     format_source: Annotated[
-        Optional[str],
+        str | None,
         Field(
             description=(
                 "Data or collection input whose datatype extension this output inherits. Use this when the command "
@@ -172,7 +166,7 @@ class GenericToolOutputDataset(
         ),
     ] = None
     metadata_source: Annotated[
-        Optional[str],
+        str | None,
         Field(
             description=(
                 "Data input whose datatype-specific metadata this output copies as defaults. Use this when the command "
@@ -181,11 +175,11 @@ class GenericToolOutputDataset(
         ),
     ] = None
     discover_datasets: Annotated[
-        Optional[List[DatasetCollectionDescriptionT]],
+        list[DatasetCollectionDescriptionT] | None,
         Field(description="Rules for discovering additional datasets produced by the command."),
     ] = None
     from_work_dir: Annotated[
-        Optional[str],
+        str | None,
         Field(
             title="from_work_dir",
             description=(
@@ -195,7 +189,7 @@ class GenericToolOutputDataset(
         ),
     ] = None
     precreate_directory: Annotated[
-        Optional[bool],
+        bool | None,
         Field(
             description=(
                 "Set true when `from_work_dir` names a produced directory for a composite datatype. Galaxy copies "
@@ -208,12 +202,7 @@ class GenericToolOutputDataset(
 class ToolOutputDataset(GenericToolOutputDataset[bool, str]): ...
 
 
-class IncomingToolOutputDataset(
-    GenericToolOutputDataset[
-        NotRequired[bool],
-        NotRequired[str],
-    ]
-):
+class IncomingToolOutputDataset(GenericToolOutputDataset[bool | None, str | None]):
     """A dataset collected from a file produced in the job working directory."""
 
     model_config = ConfigDict(
@@ -230,17 +219,17 @@ class IncomingToolOutputDataset(
         }
     )
     name: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Identifier used to connect this output in workflows and address it in tool tests."),
     ] = None
     hidden: Annotated[
-        Optional[bool],
+        bool | None,
         Field(
             description="Hide the output in the history. The dataset is still created and usable by other tools and workflows."
         ),
     ] = None
     format: Annotated[
-        Optional[str],
+        str | None,
         Field(
             description=(
                 "Galaxy datatype extension assigned when the command always produces a fixed representation. "
@@ -250,7 +239,7 @@ class IncomingToolOutputDataset(
     ] = None
 
 
-def lift_legacy_collection_structure(output_dict: Dict[str, Any]) -> Dict[str, Any]:
+def lift_legacy_collection_structure(output_dict: dict[str, Any]) -> dict[str, Any]:
     # Older DynamicTool.value rows nest collection fields under ``structure:``;
     # the current model expects them flat on the output. Inline them so the
     # parser and pydantic model both see the same flat form. Top-level keys
@@ -281,17 +270,17 @@ class GenericToolOutputCollection(
         Field(description="Creates one history dataset collection populated from files produced by the command."),
     ]
     format_source: Annotated[
-        Optional[str], Field(description="Input whose datatype supplies the default format for collection elements.")
+        str | None, Field(description="Input whose datatype supplies the default format for collection elements.")
     ] = None
     metadata_source: Annotated[
-        Optional[str], Field(description="Dataset input whose metadata supplies defaults for collection elements.")
+        str | None, Field(description="Dataset input whose metadata supplies defaults for collection elements.")
     ] = None
     format: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Default datatype extension assigned to collection elements."),
     ] = None
     collection_type: Annotated[
-        Optional[str],
+        str | None,
         Field(
             description=(
                 "Fixed structure Galaxy creates for this output, such as `list`, `paired`, or a nested type such "
@@ -300,7 +289,7 @@ class GenericToolOutputCollection(
         ),
     ] = None
     collection_type_source: Annotated[
-        Optional[str],
+        str | None,
         Field(
             description=(
                 "Declared data-collection input whose runtime structure determines this output's collection type."
@@ -308,7 +297,7 @@ class GenericToolOutputCollection(
         ),
     ] = None
     structured_like: Annotated[
-        Optional[str],
+        str | None,
         Field(
             description=(
                 "Declared input whose element count, identifiers, and nesting this output mirrors. Use this when "
@@ -317,7 +306,7 @@ class GenericToolOutputCollection(
         ),
     ] = None
     discover_datasets: Annotated[
-        Optional[List[DatasetCollectionDescriptionT]],
+        list[DatasetCollectionDescriptionT] | None,
         Field(description="Rules used to discover and populate collection elements from produced files."),
     ] = None
 
@@ -332,10 +321,10 @@ class GenericToolOutputCollection(
 class ToolOutputCollection(GenericToolOutputCollection[bool, str]):
     # XML/rules-based tools can derive the collection type from a rules input.
     # Incoming YAML user tools deliberately do not expose this parser-only field.
-    collection_type_from_rules: Optional[str] = None
+    collection_type_from_rules: str | None = None
 
 
-class IncomingToolOutputCollection(GenericToolOutputCollection[NotRequired[bool], NotRequired[str]]):
+class IncomingToolOutputCollection(GenericToolOutputCollection[bool | None, str | None]):
     """A dataset collection populated by discovering files produced by the command."""
 
     model_config = ConfigDict(
@@ -353,11 +342,11 @@ class IncomingToolOutputCollection(GenericToolOutputCollection[NotRequired[bool]
         },
     )
     name: Annotated[
-        Optional[str],
+        str | None,
         Field(description="Identifier used to connect this output in workflows and address it in tool tests."),
     ] = None
     hidden: Annotated[
-        Optional[bool],
+        bool | None,
         Field(
             description="Hide the output in the history. The dataset is still created and usable by other tools and workflows."
         ),
@@ -369,7 +358,7 @@ MAX_USER_TOOL_LABEL_LENGTH = 250
 USER_TOOL_LABEL_REFERENCE_RE = re.compile(r"\$\((?:inputs\.(?P<input>\w+)(?P<keys>(?:\.\w+)*)|runtime\.on_string)\)")
 
 UserToolOutputLabel = Annotated[
-    Optional[str],
+    str | None,
     Field(
         description=(
             "Name shown for the produced dataset or collection in the history. `$(inputs.<name>)` and "
@@ -548,13 +537,13 @@ class IncomingUserToolOutputDataset(IncomingToolOutputDataset):
     label: UserToolOutputLabel = None
     # Pydantic intentionally narrows this authoring model's accepted schema.
     discover_datasets: Annotated[
-        Optional[List[FilePatternDatasetCollectionDescription]],
+        list[FilePatternDatasetCollectionDescription] | None,
         Field(description="Filename pattern used to discover additional datasets produced by the command."),
     ] = None  # type: ignore[assignment]
 
     @field_validator("from_work_dir", mode="after")
     @classmethod
-    def _check_from_work_dir(cls, value: Optional[str]) -> Optional[str]:
+    def _check_from_work_dir(cls, value: str | None) -> str | None:
         # The path is joined to the job working directory, so it must be a relative
         # path that cannot climb out of that directory.
         if value is not None and not is_relative_subpath(value):
@@ -687,7 +676,7 @@ class IncomingUserToolOutputCollection(IncomingToolOutputCollection):
     label: UserToolOutputLabel = None
     # Pydantic intentionally narrows this authoring model's accepted schema.
     discover_datasets: Annotated[
-        Optional[List[FilePatternDatasetCollectionDescription]],
+        list[FilePatternDatasetCollectionDescription] | None,
         Field(description="Filename pattern used to discover and populate collection elements."),
     ] = None  # type: ignore[assignment]
 
@@ -725,8 +714,8 @@ class ToolOutputBoolean(GenericToolOutputSimple[bool, str]):
 # be referenced. Previously these reused the strict types above, whose unbound type
 # vars also forced ``hidden`` to be required -- a bug that made the published schema
 # demand a ``hidden`` flag on every simple output.
-class IncomingToolOutputSimple(GenericToolOutputSimple[NotRequired[bool], str]):
-    hidden: Annotated[Optional[bool], Field(description="If true, the output will not be shown in the history.")] = None
+class IncomingToolOutputSimple(GenericToolOutputSimple[bool | None, str]):
+    hidden: Annotated[bool | None, Field(description="If true, the output will not be shown in the history.")] = None
 
 
 class IncomingToolOutputText(IncomingToolOutputSimple):
@@ -757,18 +746,18 @@ class IncomingToolOutputBoolean(IncomingToolOutputSimple):
     type: Literal["boolean"]
 
 
-IncomingToolOutputT = Union[
-    IncomingToolOutputDataset,
-    IncomingToolOutputCollection,
-    IncomingToolOutputText,
-    IncomingToolOutputInteger,
-    IncomingToolOutputFloat,
-    IncomingToolOutputBoolean,
-]
+IncomingToolOutputT = (
+    IncomingToolOutputDataset
+    | IncomingToolOutputCollection
+    | IncomingToolOutputText
+    | IncomingToolOutputInteger
+    | IncomingToolOutputFloat
+    | IncomingToolOutputBoolean
+)
 IncomingToolOutput = Annotated[IncomingToolOutputT, Field(discriminator="type")]
-IncomingUserToolOutputT = Union[IncomingUserToolOutputDataset, IncomingUserToolOutputCollection]
+IncomingUserToolOutputT = IncomingUserToolOutputDataset | IncomingUserToolOutputCollection
 IncomingUserToolOutput = Annotated[IncomingUserToolOutputT, Field(discriminator="type")]
-ToolOutputT = Union[
-    ToolOutputDataset, ToolOutputCollection, ToolOutputText, ToolOutputInteger, ToolOutputFloat, ToolOutputBoolean
-]
+ToolOutputT = (
+    ToolOutputDataset | ToolOutputCollection | ToolOutputText | ToolOutputInteger | ToolOutputFloat | ToolOutputBoolean
+)
 ToolOutput = Annotated[ToolOutputT, Field(discriminator="type")]

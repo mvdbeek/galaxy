@@ -2,7 +2,7 @@ import logging
 import time
 from pathlib import Path
 from typing import (
-    Optional,
+    cast,
     TYPE_CHECKING,
 )
 from unittest.mock import MagicMock
@@ -159,6 +159,22 @@ class TestToolBox(BaseToolBoxTestCase):
             assert len(test_section["elems"]) == 1
             assert test_section["elems"][0]["id"] == "test_tool"
 
+    def test_panel_entry_matches_to_dict(self):
+        self._init_tool_in_section()
+        mapper = routes.Mapper()
+        mapper.connect("tool_runner", "/test/tool_runner")
+        tool = self.toolbox.get_tool("test_tool")
+        for is_admin in (False, True):
+            trans = mock_trans(is_admin=is_admin)
+            assert tool.to_panel_entry(trans) == tool.to_dict(trans)
+            assert ("config_file" in tool.to_panel_entry(trans)) is is_admin
+
+    def test_panel_entry_link_uses_url_prefix(self):
+        self._init_tool_in_section()
+        self.app.config.galaxy_url_prefix = "/galaxy/"
+        tool = self.toolbox.get_tool("test_tool")
+        assert tool.to_panel_entry(mock_trans())["link"] == "/galaxy/tool_runner?tool_id=test_tool"
+
     def test_to_dict_out_of_panel(self):
         for json_conf in [True, False]:
             self._init_tool_in_section(json=json_conf)
@@ -234,6 +250,37 @@ class TestToolBox(BaseToolBoxTestCase):
         assert favorites_section["name"] == "Favorites"
         assert favorites_section["tools"] == []
 
+    def test_panel_view_referencing_tool_by_old_id_loads_while_toolbox_is_built(self):
+        # Panel views are rendered from within ToolBox.__init__, before any
+        # toolbox is registered on the app.
+        self._init_tool()
+        self._setup_two_versions_in_config()
+        self._setup_two_versions()
+        self.app.config.panel_views = [
+            {
+                "id": "old_id_view",
+                "name": "Old Id View",
+                "type": "generic",
+                "items": [{"type": "tool", "id": "test_tool"}],
+            }
+        ]
+
+        assert "old_id_view" in self.toolbox.panel_view_dicts()
+
+    def test_lineage_for_tool_registered_outside_of_panel_load(self):
+        # `register_tool` is how built-in converters and hidden tools enter the
+        # toolbox, and it registers no lineage. Resolving one must not depend on
+        # the toolbox already being the one registered on the app.
+        self._init_tool()
+        self._add_config("""<toolbox></toolbox>""")
+        toolbox = self.toolbox
+        hidden_tool = toolbox.load_hidden_tool(self._tool_path())
+        self.app._toolbox = None
+
+        lineage = toolbox._lineage_map.get("test_tool")
+        assert lineage is not None
+        assert hidden_tool.version in lineage.tool_versions
+
     def test_out_of_panel_filtering(self):
         self._init_tool_in_section()
 
@@ -275,7 +322,7 @@ class TestToolBox(BaseToolBoxTestCase):
         return user
 
     def _persist_dynamic_tool(
-        self, public: bool, active: bool = True, owner: Optional[model.User] = None
+        self, public: bool, active: bool = True, owner: model.User | None = None
     ) -> model.DynamicTool:
         session = self.app.model.context
         dyn = model.DynamicTool(
@@ -648,8 +695,10 @@ class TestToolBox(BaseToolBoxTestCase):
             </registration></datatypes>""")
         registry.load_datatypes(root_dir=self.test_directory, config=datatypes_config)
         registry.load_datatype_converters(old_toolbox)
-        original = registry.datatype_converters["tabular"]["snpsiftdbnsfp"]
+        # The registry only holds materialized converters.
+        original = cast("Tool", registry.datatype_converters["tabular"]["snpsiftdbnsfp"])
         if replacement_version is not None:
+            assert original.config_file and original.id
             tool_path = Path(original.config_file)
             contents = tool_path.read_text().replace('name="Test Tool"', 'name="Updated converter"')
             contents = contents.replace('version="1.0"', f'version="{replacement_version}"')
@@ -659,7 +708,7 @@ class TestToolBox(BaseToolBoxTestCase):
         # Match the reload order, including the converter load after construction.
         new_toolbox = ToolBox(self.config_files, self.test_directory, self.app)
         registry.load_datatype_converters(new_toolbox, use_cached=True)
-        converter: Tool = registry.datatype_converters["tabular"]["snpsiftdbnsfp"]
+        converter = cast("Tool", registry.datatype_converters["tabular"]["snpsiftdbnsfp"])
         assert self.app.toolbox is old_toolbox
         assert converter.name == ("Updated converter" if replacement_version else "Test Tool")
         assert converter.version == (replacement_version or "1.0")

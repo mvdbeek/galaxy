@@ -75,7 +75,9 @@ def _login_redirect_for(path: str, query_string: str = "", script_name: str = ""
     trans = _trans_for(path, query_string, script_name)
     with pytest.raises(webob.exc.HTTPFound) as caught:
         trans._ensure_logged_in_user("galaxysession")
-    return caught.value.location
+    location = caught.value.location
+    assert location is not None
+    return location
 
 
 def _redirect_param(location: str) -> str:
@@ -116,7 +118,7 @@ def test_login_redirect_targets_the_login_entry_point():
     assert urlparse(location).path == "/login"
 
 
-@pytest.mark.parametrize("path", ["/login", "/login/start"])
+@pytest.mark.parametrize("path", ["/login", "/login/start", "/login/reset_password"])
 def test_login_routes_are_not_themselves_gated(path):
     """The whole chain lands on one of these, so gating either one is an infinite loop.
 

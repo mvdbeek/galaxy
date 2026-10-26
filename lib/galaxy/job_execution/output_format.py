@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def get_ext_or_implicit_ext(hda: "DatasetInstance") -> Optional[str]:
+def get_ext_or_implicit_ext(hda: "DatasetInstance") -> str | None:
     if hda.implicitly_converted_parent_datasets:
         # Conversion associations record the datatype actually supplied to the tool.
         return hda.implicitly_converted_parent_datasets[0].type
@@ -30,9 +30,9 @@ def resolve_format_source(
     format_source: str,
     input_datasets: Mapping[str, Optional["DatasetInstance"]],
     input_dataset_collections: Mapping[str, "HistoryDatasetCollectionAssociation"],
-    default_format: Optional[str],
+    default_format: str | None,
     execution_cache: Optional["ToolExecutionCache"] = None,
-) -> Optional[str]:
+) -> str | None:
     """Resolve an input datatype, retaining the default when the source is unavailable."""
     ext = default_format
     if format_source in input_datasets:

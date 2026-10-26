@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { faShareAlt } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { BAlert } from "bootstrap-vue";
 import { computed, ref } from "vue";
 
 import { GalaxyApi, userOwnsHistory } from "@/api";
@@ -16,6 +15,7 @@ import localize from "@/utils/localization";
 import { errorMessageAsString } from "@/utils/simple-error";
 
 import LoadingSpan from "../LoadingSpan.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import GModal from "@/components/BaseComponents/GModal.vue";
 
@@ -121,16 +121,16 @@ function shareInvocationButtonClicked() {
         </GButton>
 
         <GModal
-            :show.sync="modalToggle"
+            v-model:show="modalToggle"
             :title="localize('Share Workflow Invocation')"
             confirm
             ok-text="Share"
             size="small"
             data-description="share invocation modal"
             @ok="makeInvocationShareable">
-            <BAlert v-if="error" variant="danger" show>
+            <GAlert v-if="error" variant="danger" show>
                 {{ error }}
-            </BAlert>
+            </GAlert>
 
             <LoadingSpan v-else-if="loading" message="Loading details for invocation" />
 

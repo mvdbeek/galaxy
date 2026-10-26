@@ -3,7 +3,6 @@
 import os
 from typing import (
     Any,
-    List,
 )
 
 from pytest import skip
@@ -79,6 +78,26 @@ COLLECTION_TEST_PAIRED_Y_EXPECTATIONS = [
 ]
 
 
+EXPECT_FAILURE_TEMPLATE = """
+<tool id="expect_failure_template" name="expect_failure_template" version="0.1.0" profile="24.2">
+    <command>echo '$taxid' > '$output'</command>
+    <inputs>
+        <param name="taxid" type="text" value="1">
+            <validator type="regex" message="Enter numeric tax IDs">^\\d+[\\d ]*$</validator>
+        </param>
+    </inputs>
+    <outputs>
+        <data format="txt" name="output"/>
+    </outputs>
+    <tests>
+        <test expect_failure="true">
+            <param name="{name}" value="f5"/>
+        </test>
+    </tests>
+</tool>
+"""
+
+
 class TestTestParsing(TestCase):
     def _parse_tests(self):
         return parse_tool_test_descriptions(self.tool_source)
@@ -86,6 +105,9 @@ class TestTestParsing(TestCase):
     def _init_tool_for_path(self, path):
         tool_source = get_tool_source(path)
         self.tool_source = tool_source
+
+    def _init_tool_for_xml(self, xml: str):
+        self.tool_source = get_tool_source(tool_source_class="XmlToolSource", raw_tool_source=xml)
 
     def test_maxseconds_not_filled_with_default(self):
         self._init_tool_for_path(functional_test_tool_path("simple_constructs.xml"))
@@ -101,6 +123,12 @@ class TestTestParsing(TestCase):
         print(test_dict)
         assert "maxseconds" in test_dict
         assert test_dict["maxseconds"] == 5
+
+    def test_profile_reaches_test_dict(self):
+        # the assertion separator gate reads the profile off the description, not the tool source
+        self._init_tool_for_path(functional_test_tool_path("column_assertion_delimiter.xml"))
+        test_dicts = [td.to_dict() for td in self._parse_tests()]
+        assert [td["profile"] for td in test_dicts] == ["26.2", "26.2"]
 
     def test_simple_state_parsing(self):
         self._init_tool_for_path(functional_test_tool_path("simple_constructs.xml"))
@@ -136,6 +164,20 @@ class TestTestParsing(TestCase):
         test_dicts = self._parse_tests()
         test_0 = test_dicts[0].to_dict()
         assert test_0["error"] is True
+
+    def test_expect_failure_with_invalid_inputs(self):
+        for tool_file in ["expect_failure_invalid_inputs.xml", "expect_failure_invalid_inputs_y.yml"]:
+            self._init_tool_for_path(functional_test_tool_path(tool_file))
+            test_dict = self._parse_tests()[1].to_dict()
+            assert test_dict["error"] is False, test_dict.get("exception")
+            assert test_dict["expect_failure"] is True
+            assert test_dict["request"] == {"taxid": "10386 f5"}
+
+    def test_expect_failure_with_unknown_input_name_is_error(self):
+        self._init_tool_for_xml(EXPECT_FAILURE_TEMPLATE.format(name="taxidd"))
+        test_dict = self._parse_tests()[0].to_dict()
+        assert test_dict["error"] is True
+        assert "Invalid parameter name found taxidd" in test_dict["exception"]
 
     def test_field_collection_inputs(self):
         self._init_tool_for_path(functional_test_tool_path("collection_record_test_two_files.xml"))
@@ -177,7 +219,7 @@ class TestTestParsing(TestCase):
         for td in test_dicts:
             assert not td.get("exception"), f"Test failed to parse: {td.get('exception')}"
 
-    def _verify_each(self, target_dict: dict, expectations: List[Any]):
+    def _verify_each(self, target_dict: dict, expectations: list[Any]):
         exception = target_dict.get("exception")
         assert not exception, f"Test failed to generate with exception {exception}"
         dict_verify_each(target_dict, expectations)

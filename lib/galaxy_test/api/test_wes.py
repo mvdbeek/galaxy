@@ -5,7 +5,6 @@ import io
 import json
 from typing import (
     Any,
-    Optional,
 )
 from urllib.parse import urljoin
 from uuid import uuid4
@@ -16,24 +15,10 @@ import requests
 from galaxy_test.base.api_asserts import assert_status_code_is
 from galaxy_test.base.workflow_fixtures import (
     WORKFLOW_NESTED_OUTPUT,
+    WORKFLOW_SIMPLE,
     WORKFLOW_WITH_MAPPED_OUTPUT_COLLECTION,
 )
 from .test_workflows import BaseWorkflowsApiTestCase
-
-WORKFLOW_SIMPLE = """
-class: GalaxyWorkflow
-name: Simple Workflow
-inputs:
-  input1: data
-outputs:
-  wf_output_1:
-    outputSource: first_cat/out_file1
-steps:
-  first_cat:
-    tool_id: cat1
-    in:
-      input1: input1
-"""
 
 
 def workflow_types_parametrize(func):
@@ -797,8 +782,8 @@ steps:
     def _wes_post(
         self,
         endpoint: str,
-        data: Optional[dict[str, Any]] = None,
-        files: Optional[dict[str, Any]] = None,
+        data: dict[str, Any] | None = None,
+        files: dict[str, Any] | None = None,
         authenticated: bool = True,
     ) -> requests.Response:
         """Make POST request to WES API endpoint.
@@ -815,7 +800,7 @@ steps:
     def _wes_get(
         self,
         endpoint: str,
-        params: Optional[dict[str, Any]] = None,
+        params: dict[str, Any] | None = None,
         authenticated: bool = True,
     ) -> requests.Response:
         """Make GET request to WES API endpoint.
@@ -830,11 +815,11 @@ steps:
 
     def _submit_wes_workflow(
         self,
-        workflow_content: Optional[str] = None,
+        workflow_content: str | None = None,
         workflow_type: str = "gx_workflow_ga",
         workflow_type_version: str = "v1",
-        engine_parameters: Optional[dict[str, Any]] = None,
-        history_id: Optional[str] = None,
+        engine_parameters: dict[str, Any] | None = None,
+        history_id: str | None = None,
         **workflow_inputs: Any,
     ) -> requests.Response:
         """Helper to submit WES workflow with standard setup.
@@ -882,11 +867,11 @@ steps:
 
     def _submit_wes_workflow_and_get_invocation_id(
         self,
-        workflow_content: Optional[str] = None,
+        workflow_content: str | None = None,
         workflow_type: str = "gx_workflow_ga",
         workflow_type_version: str = "v1",
-        engine_parameters: Optional[dict[str, Any]] = None,
-        history_id: Optional[str] = None,
+        engine_parameters: dict[str, Any] | None = None,
+        history_id: str | None = None,
         **workflow_inputs: Any,
     ) -> str:
         response = self._submit_wes_workflow(

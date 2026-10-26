@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { faEye, faEyeSlash, faKey, faTrash } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { BFormInput, BInputGroup, BInputGroupAppend, BInputGroupPrepend, BInputGroupText } from "bootstrap-vue";
 import { ref } from "vue";
 
 import type { APIKeyModel } from "@/api/users";
@@ -10,6 +11,7 @@ import { errorMessageAsString } from "@/utils/simple-error";
 
 import services from "./model/service";
 
+import GButton from "@/components/BaseComponents/GButton.vue";
 import GCard from "@/components/Common/GCard.vue";
 import CopyToClipboard from "@/components/CopyToClipboard.vue";
 import UtcDate from "@/components/UtcDate.vue";
@@ -52,36 +54,42 @@ async function attemptKeyDeletion() {
         <template v-slot:description>
             <div class="d-flex justify-content-between w-100">
                 <div class="w-100">
-                    <b-input-group class="w-100">
-                        <b-input-group-prepend>
-                            <b-input-group-text>
+                    <BInputGroup class="w-100">
+                        <BInputGroupPrepend>
+                            <BInputGroupText>
                                 <FontAwesomeIcon :icon="faKey" />
-                            </b-input-group-text>
-                        </b-input-group-prepend>
+                            </BInputGroupText>
+                        </BInputGroupPrepend>
 
-                        <b-input
+                        <BFormInput
                             :type="hover ? 'text' : 'password'"
                             :value="props.item.key"
                             disabled
                             data-test-id="api-key-input" />
 
-                        <b-input-group-append>
-                            <b-input-group-text>
-                                <CopyToClipboard
-                                    message="Key was copied to clipboard"
-                                    :text="props.item.key"
-                                    title="Copy key" />
-                            </b-input-group-text>
+                        <BInputGroupAppend>
+                            <CopyToClipboard
+                                data-description="copy api key"
+                                message="Key was copied to clipboard"
+                                :text="props.item.key"
+                                size="large"
+                                title="Copy key"
+                                :transparent="false" />
 
-                            <b-button v-g-tooltip.hover title="Show/hide key" @click="hover = !hover">
-                                <FontAwesomeIcon :icon="hover ? faEyeSlash : faEye" />
-                            </b-button>
+                            <GButton
+                                v-g-tooltip.hover
+                                title="Show/hide key"
+                                size="large"
+                                icon-only
+                                @click="hover = !hover">
+                                <FontAwesomeIcon :icon="hover ? faEyeSlash : faEye" fixed-width />
+                            </GButton>
 
-                            <b-button title="Delete api key" @click="attemptKeyDeletion">
-                                <FontAwesomeIcon :icon="faTrash" />
-                            </b-button>
-                        </b-input-group-append>
-                    </b-input-group>
+                            <GButton title="Delete api key" size="large" icon-only @click="attemptKeyDeletion">
+                                <FontAwesomeIcon :icon="faTrash" fixed-width />
+                            </GButton>
+                        </BInputGroupAppend>
+                    </BInputGroup>
                     <span class="small text-black-50">
                         created on
                         <UtcDate class="text-black-50 small" :date="props.item.create_time" mode="pretty" />

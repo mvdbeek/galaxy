@@ -14,7 +14,6 @@ from pathlib import Path
 from typing import (
     Any,
     Literal,
-    Optional,
 )
 
 import yaml
@@ -71,14 +70,14 @@ _SCRIPT_INVOCATION_RE = re.compile(
 )
 
 
-def _find_validation_error(exc: BaseException) -> Optional[ValidationError]:
+def _find_validation_error(exc: BaseException) -> ValidationError | None:
     """Walk the exception cause chain looking for a pydantic ValidationError.
 
     pydantic-ai wraps validation failures inside UnexpectedModelBehavior after
     exhausting retries; the original ValidationError surfaces via __cause__.
     """
     seen: set[int] = set()
-    current: Optional[BaseException] = exc
+    current: BaseException | None = exc
     while current is not None and id(current) not in seen:
         seen.add(id(current))
         if isinstance(current, ValidationError):
@@ -87,7 +86,7 @@ def _find_validation_error(exc: BaseException) -> Optional[ValidationError]:
     return None
 
 
-def _invalid_attempt_yaml(messages: list[Any]) -> Optional[str]:
+def _invalid_attempt_yaml(messages: list[Any]) -> str | None:
     """Best-effort render of the model's last ``final_result`` tool-call arguments
     (the attempt that just failed schema validation) as YAML.
 
@@ -139,7 +138,7 @@ class ToolEdit(BaseModel):
     """
 
     target: Literal["tool", "input", "output"]
-    name: Optional[str] = None
+    name: str | None = None
     attribute: Literal["label", "help", "description", "name", "shell_command"]
     value: str
     reason: str = ""
@@ -184,7 +183,7 @@ class _ProducerFailure:
     """
 
     errors: list[str]
-    prior_yaml: Optional[str] = None
+    prior_yaml: str | None = None
 
 
 class CustomToolAgent(BaseGalaxyAgent):
@@ -207,8 +206,8 @@ class CustomToolAgent(BaseGalaxyAgent):
       re-rolled once with the critique. Cap of one refine; if refinement
       breaks validation, the original tool is kept.
 
-    Container selection is a separate, opt-in concern (default off): the
-    producer prompt says nothing about choosing an image. Instead a dedicated
+    Container resolution is a separate, opt-in concern (default off): the
+    producer prompt only asks for a plausible image. When enabled, a dedicated
     **container critic** infers the conda packages from the tool's
     ``shell_command``/configfiles alone, a verified ``quay.io/biocontainers``
     image is resolved from them, and a deterministic gate applies it.
@@ -230,11 +229,11 @@ class CustomToolAgent(BaseGalaxyAgent):
         self,
         deps: GalaxyAgentDependencies,
         recommender: Callable[[Sequence[PackageSpec]], ContainerRecommendation] = recommend_container,
-        tag_verifier: Callable[[str], Optional[bool]] = biocontainer_tag_built,
+        tag_verifier: Callable[[str], bool | None] = biocontainer_tag_built,
     ):
         super().__init__(deps)
-        self._critic_agent: Optional[Agent[GalaxyAgentDependencies, CritiqueReport]] = None
-        self._container_critic_agent: Optional[Agent[GalaxyAgentDependencies, InferredDependencies]] = None
+        self._critic_agent: Agent[GalaxyAgentDependencies, CritiqueReport] | None = None
+        self._container_critic_agent: Agent[GalaxyAgentDependencies, InferredDependencies] | None = None
         # Injected so tests can supply fakes instead of patching the module globals
         # (and to keep unit tests off the network).
         self._recommender = recommender
@@ -337,7 +336,7 @@ class CustomToolAgent(BaseGalaxyAgent):
         """
         return bool(self._get_agent_config("container_recommendation_enabled", False))
 
-    async def process(self, query: str, context: Optional[dict[str, Any]] = None) -> AgentResponse:
+    async def process(self, query: str, context: dict[str, Any] | None = None) -> AgentResponse:
         validation_error = self._validate_query(query)
         if validation_error:
             return self._validation_error_response(validation_error)
@@ -420,8 +419,8 @@ class CustomToolAgent(BaseGalaxyAgent):
                         log.info("CustomTool: critic edits not applicable; falling back to full refine")
                         tool, tool_yaml, result = await self._full_refine(query, critique, tool, tool_yaml, result)
 
-            # Container selection (opt-in, critic-independent). The producer prompt
-            # says nothing about images; instead a dedicated container critic infers
+            # Container resolution (opt-in, critic-independent). The producer's own
+            # image choice is a best guess; a dedicated container critic infers
             # the conda packages from the final tool's shell_command/configfiles, the
             # recommender resolves a verified quay.io image, and the deterministic
             # gate applies it. Run last so it sees the post-refine command.
@@ -446,10 +445,10 @@ class CustomToolAgent(BaseGalaxyAgent):
     async def _produce_tool(
         self,
         query: str,
-        retry_errors: Optional[list[str]] = None,
-        critique: Optional[CritiqueReport] = None,
-        prior_yaml: Optional[str] = None,
-    ) -> Optional[tuple[UserToolSource, str, Any] | _ProducerFailure]:
+        retry_errors: list[str] | None = None,
+        critique: CritiqueReport | None = None,
+        prior_yaml: str | None = None,
+    ) -> tuple[UserToolSource, str, Any] | _ProducerFailure | None:
         """Run the producer agent. Returns (tool, yaml, raw_result), a
         ``_ProducerFailure``, or None.
 
@@ -496,9 +495,9 @@ class CustomToolAgent(BaseGalaxyAgent):
     @staticmethod
     def _build_producer_prompt(
         query: str,
-        retry_errors: Optional[list[str]] = None,
-        critique: Optional[CritiqueReport] = None,
-        prior_yaml: Optional[str] = None,
+        retry_errors: list[str] | None = None,
+        critique: CritiqueReport | None = None,
+        prior_yaml: str | None = None,
     ) -> str:
         if not retry_errors and not critique:
             return query
@@ -543,7 +542,7 @@ class CustomToolAgent(BaseGalaxyAgent):
         sections.append("Original request (for reference):\n\n" + query)
         return "\n\n".join(sections)
 
-    async def _run_critic(self, tool_yaml: str, query: str) -> Optional[CritiqueReport]:
+    async def _run_critic(self, tool_yaml: str, query: str) -> CritiqueReport | None:
         """Run the quality critic. Returns None if the critic call fails."""
         critic = self._get_critic_agent()
         critic_prompt = (
@@ -584,7 +583,7 @@ class CustomToolAgent(BaseGalaxyAgent):
             )
         return tool, tool_yaml, result
 
-    def _apply_edits(self, tool: UserToolSource, edits: list[ToolEdit]) -> Optional[tuple[UserToolSource, str]]:
+    def _apply_edits(self, tool: UserToolSource, edits: list[ToolEdit]) -> tuple[UserToolSource, str] | None:
         """Apply the critic's field-level ``edits`` deterministically.
 
         Mutates a dict copy of ``tool``, re-validates, and returns the patched
@@ -692,7 +691,7 @@ class CustomToolAgent(BaseGalaxyAgent):
         specs = [PackageSpec(p.name, p.version) for p in packages]
         return await asyncio.to_thread(self._recommender, specs)
 
-    async def _should_override_container(self, current: Optional[str], match_quality: MatchQuality) -> bool:
+    async def _should_override_container(self, current: str | None, match_quality: MatchQuality) -> bool:
         """Decide whether to deterministically replace ``current`` with the recommendation.
 
         An ``EXACT_VERSION`` match always wins. A ``NAME_ONLY`` match wins unless
@@ -711,11 +710,11 @@ class CustomToolAgent(BaseGalaxyAgent):
         return False
 
     @staticmethod
-    def _is_biocontainer_ref(container: Optional[str]) -> bool:
+    def _is_biocontainer_ref(container: str | None) -> bool:
         """True if ``container`` is a ``quay.io/biocontainers`` image reference."""
         return container is not None and container.strip().startswith(f"{QUAY_BIOCONTAINERS_PREFIX}/")
 
-    async def _container_tag_missing(self, container: Optional[str]) -> bool:
+    async def _container_tag_missing(self, container: str | None) -> bool:
         """True only when ``container`` is positively verified absent from biocontainers.
 
         Offloads the synchronous ``requests``-based verifier and collapses its
@@ -728,16 +727,15 @@ class CustomToolAgent(BaseGalaxyAgent):
         return verified is False
 
     @staticmethod
-    def _container_differs(current: Optional[str], recommended: Optional[str]) -> bool:
+    def _container_differs(current: str | None, recommended: str | None) -> bool:
         if not recommended:
             return False
         return (current or "").strip() != recommended.strip()
 
-    def _rewrite_container(self, tool: UserToolSource, image: str) -> Optional[tuple[UserToolSource, str]]:
+    def _rewrite_container(self, tool: UserToolSource, image: str) -> tuple[UserToolSource, str] | None:
         """Return ``(tool, yaml)`` with the container replaced, or None if that breaks validation."""
         updated = tool.model_copy(update={"container": image})
-        lint_errors = lint_user_tool_source(updated)
-        if lint_errors:
+        if lint_errors := lint_user_tool_source(updated):
             log.warning(
                 "CustomTool: recommended container %s failed validation (%d issue(s)); keeping original",
                 image,

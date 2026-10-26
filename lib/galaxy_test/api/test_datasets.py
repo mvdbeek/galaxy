@@ -5,6 +5,7 @@ from typing import Any
 from urllib.parse import quote
 
 import pytest
+import requests
 
 from galaxy.model.unittest_utils.store_fixtures import (
     deferred_hda_model_store_dict,
@@ -318,7 +319,8 @@ class TestDatasetsApi(ApiTestCase):
         hda = self.dataset_populator.new_dataset(history_id, fetch_data=fetch_data, wait=True)
         show_response = self._get(f"datasets/{hda['id']}")
         self._assert_status_code_is(show_response, 200)
-        assert show_response.json()["permissions"] == {"manage": [role_id], "access": []}
+        # New users get private data by default, so the access role is the private role as well.
+        assert show_response.json()["permissions"] == {"manage": [role_id], "access": [role_id]}
 
     @requires_admin
     def test_admin_can_update_permissions(self, history_id):
@@ -337,6 +339,41 @@ class TestDatasetsApi(ApiTestCase):
             show_response = self._get(f"datasets/{hda['id']}")
             self._assert_status_code_is_ok(show_response)
 
+    @requires_admin
+    def test_permissions_changed_while_queued_survive_job_finish(self, history_id, test_http_server):
+        url = test_http_server.get_url(
+            remote_url="https://httpstat.us/200?sleep=5000",
+            body="OK",
+            sleep_ms=5000,
+        )
+        payload = {
+            "history_id": history_id,
+            "targets": [{"destination": {"type": "hdas"}, "items": [{"src": "url", "url": url, "ext": "txt"}]}],
+        }
+        fetch_response = self.dataset_populator.fetch(payload, wait=False)
+        self._assert_status_code_is(fetch_response, 200)
+        response = fetch_response.json()
+        dataset_id = response["outputs"][0]["id"]
+
+        update_response = self._put(
+            f"datasets/{dataset_id}/permissions", {"action": "remove_restrictions"}, admin=True, json=True
+        )
+        self._assert_status_code_is_ok(update_response)
+        assert self.dataset_populator.get_job_details(response["jobs"][0]["id"]).json()["state"] != "ok"
+
+        self.dataset_populator.wait_for_job(response["jobs"][0]["id"], assert_ok=True)
+        with self._different_user():
+            show_response = self._get(f"datasets/{dataset_id}")
+            self._assert_status_code_is_ok(show_response)
+
+    def test_make_private_is_idempotent(self, history_id):
+        hda = self.dataset_populator.new_dataset(history_id, wait=True)
+        for _ in range(2):
+            update_response = self._put(f"datasets/{hda['id']}/permissions", {"action": "make_private"}, json=True)
+            self._assert_status_code_is_ok(update_response)
+        permissions = self._get(f"datasets/{hda['id']}").json()["permissions"]
+        assert len(permissions["access"]) == 1
+
     def __assert_matches_hda(self, input_hda, query_hda):
         self._assert_has_keys(query_hda, "id", "name")
         assert input_hda["name"] == query_hda["name"]
@@ -353,6 +390,96 @@ class TestDatasetsApi(ApiTestCase):
         self._assert_status_code_is(display_response, 200)
         assert display_response.text == contents
 
+    def test_download_always_redirects(self, history_id):
+        content = "download-me\n"
+        hda = self.dataset_populator.new_dataset(history_id, content=content, wait=True)
+        # Authenticate via the x-api-key header (as bioblend does); it carries across the redirect.
+        download_url = self._api_url(f"datasets/{hda['id']}/download", {"to_ext": "txt"})
+        headers = {"x-api-key": self.galaxy_interactor.api_key}
+        # The /download route always returns a 302 so every client follows redirects uniformly; for a
+        # disk object store (no presigned URL) it points back at the streaming /display route.
+        no_follow = requests.get(download_url, headers=headers, allow_redirects=False)
+        assert no_follow.status_code == 302
+        location = no_follow.headers["location"]
+        assert "display" in location
+        # The to_ext query param is carried through to the streaming route by the redirect.
+        assert "to_ext=txt" in location
+        # The client resends the x-api-key header on this same-origin redirect, so /display
+        # authenticates and serves the data. A 200 here (with only the header, no cookie) is the
+        # proof that auth survived the redirect -- /display would return 401 otherwise.
+        followed = requests.get(download_url, headers=headers)
+        assert followed.status_code == 200
+        assert "download-me" in followed.text
+
+    def test_binary_download_filename(self, history_id):
+        content = self.test_data_resolver.get_filecontent("1.bam")
+        hda = self.dataset_populator.new_dataset_from_test_data(
+            history_id, self.test_data_resolver, "1.bam", "bam", name="Annotated alignment"
+        )
+        # The display URL below is requested without an API key.
+        self.dataset_populator.make_dataset_public(history_id, hda["id"])
+        expected_filename = (
+            f'filename="Galaxy{hda["hid"]}-[Annotated_alignment].bam"; '
+            f"filename*=UTF-8''Galaxy{hda['hid']}-%5BAnnotated%20alignment%5D.bam"
+        )
+
+        for download_url in (hda["download_url"], f"datasets/{hda['id']}/download"):
+            for params in ({}, {"to_ext": "data"}, {"to_ext": "bam"}):
+                response = self._get(download_url, params)
+                self._assert_status_code_is(response, 200)
+                assert response.headers["Content-Disposition"] == f"attachment; {expected_filename}"
+                assert response.headers["content-type"] == "application/octet-stream"
+                assert response.content == content
+
+                head_response = self._head(download_url, params)
+                self._assert_status_code_is(head_response, 200)
+                assert head_response.headers["Content-Disposition"] == response.headers["Content-Disposition"]
+
+        response = self.dataset_populator.get_history_dataset_content_raw(history_id, dataset=hda)
+        self._assert_status_code_is(response, 200)
+        assert response.headers["Content-Disposition"] == f"inline; {expected_filename}"
+        assert response.content == content
+
+        for display_url in (f"datasets/{hda['id']}/display", f"{self.url}datasets/{hda['id']}/display"):
+            response = self._get(display_url)
+            self._assert_status_code_is(response, 200)
+            assert response.headers["Content-Disposition"] == f"inline; {expected_filename}"
+            assert response.content == content
+
+    def test_vtkxml_download_filename(self, history_id):
+        hda = self.dataset_populator.new_dataset(
+            history_id,
+            content='<?xml version="1.0"?>\n<VTKFile type="PolyData" version="0.1">\n</VTKFile>\n',
+            file_type="vtkxml",
+            name="mesh",
+            wait=True,
+        )
+        for params in ({}, {"to_ext": "data"}, {"to_ext": "vtkxml"}):
+            response = self._get(f"datasets/{hda['id']}/download", params)
+            self._assert_status_code_is(response, 200)
+            assert response.headers["Content-Disposition"].startswith(
+                f'attachment; filename="Galaxy{hda["hid"]}-[mesh].vtp"'
+            )
+
+    def test_display_images_inline(self, history_id):
+        for extension, content_type in (("png", "image/png"), ("pdf", "application/pdf")):
+            filename = f"454Score.{extension}"
+            content = self.test_data_resolver.get_filecontent(filename)
+            hda = self.dataset_populator.new_dataset_from_test_data(
+                history_id, self.test_data_resolver, filename, extension
+            )
+            download_response = self._get(hda["download_url"])
+            self._assert_status_code_is(download_response, 200)
+            expected_filename = download_response.headers["Content-Disposition"].removeprefix("attachment; ")
+            for preview in (False, True):
+                response = self.dataset_populator.get_history_dataset_content_raw(
+                    history_id, dataset=hda, preview=preview
+                )
+                self._assert_status_code_is(response, 200)
+                assert response.headers["Content-Disposition"] == f"inline; {expected_filename}"
+                assert response.headers["content-type"] == content_type
+                assert response.content == content
+
     def test_display_preview_binary_as_text_uses_text_plain(self, history_id):
         # Regression test for https://github.com/galaxyproject/galaxy/issues/22395
         # When previewing an unknown / binary dataset as text the response must use
@@ -364,6 +491,7 @@ class TestDatasetsApi(ApiTestCase):
         self._assert_status_code_is(display_response, 200)
         content_type = display_response.headers.get("content-type", "")
         assert content_type.startswith("text/plain"), content_type
+        assert display_response.headers["Content-Disposition"].startswith("inline; ")
         assert display_response.text == contents
 
     def test_display_preview_large_fasta_uses_text_plain(self, history_id):
@@ -425,6 +553,54 @@ class TestDatasetsApi(ApiTestCase):
         assert archive.namelist() == ["1.fasta"]
         assert archive.read("1.fasta").decode() == fasta_contents
 
+    def test_zarr_store_root_recorded_after_datatype_change(self, history_id: str):
+        # A plain directory keeps its wrapper folder. Changing it to zarr sets metadata on an
+        # existing dataset, whose files are left in place, so store_root names the wrapper.
+        with open(TestDataResolver().get_filename("wrapped_store.zarr.zip"), "rb") as archive:
+            payload = {
+                "history_id": history_id,
+                "targets": [
+                    {
+                        "destination": {"type": "hdas"},
+                        "items": [
+                            {
+                                "src": "pasted",
+                                "paste_content": "",
+                                "ext": "directory",
+                                "extra_files": {"items_from": "archive", "src": "files", "fuzzy_root": False},
+                            }
+                        ],
+                    }
+                ],
+                "__files": {"files_0|file_data": archive},
+            }
+            fetch_response = self.dataset_populator.fetch(payload)
+        self._assert_status_code_is(fetch_response, 200)
+        dataset_id = fetch_response.json()["outputs"][0]["id"]
+        self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+
+        change_response = self._put(
+            f"histories/{history_id}/contents/{dataset_id}", data={"datatype": "zarr"}, json=True
+        )
+        self._assert_status_code_is(change_response, 200)
+        self.dataset_populator.wait_for_history(history_id, assert_ok=True)
+
+        details = self.dataset_populator.get_history_dataset_details(history_id, dataset_id=dataset_id)
+        assert details["extension"] == "zarr"
+        assert str(details["metadata_zarr_format"]) == "2"
+        assert details["metadata_store_root"] == "wrapped.zarr"
+        extra_files = self.dataset_populator.get_history_dataset_extra_files(history_id, dataset_id=dataset_id)
+        assert "wrapped.zarr/.zgroup" in {extra_file["path"] for extra_file in extra_files}
+        # Viewers such as Vizarr request files relative to the store root.
+        display_response = self._get(
+            f"histories/{history_id}/contents/{dataset_id}/display?filename=wrapped.zarr/.zgroup"
+        )
+        display_response.raise_for_status()
+        assert "zarr_format" in display_response.text
+        preview_response = self._get(f"histories/{history_id}/contents/{dataset_id}/display?preview=true")
+        preview_response.raise_for_status()
+        assert "zarr_format" in preview_response.text
+
     def test_display_error_handling(self, history_id):
         hda1 = self.dataset_populator.create_deferred_hda(
             history_id, "https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bed"
@@ -460,6 +636,7 @@ class TestDatasetsApi(ApiTestCase):
     def test_anon_get_content_as_text(self, history_id):
         contents = "accessible data"
         hda1 = self.dataset_populator.new_dataset(history_id, content=contents, wait=True)
+        self.dataset_populator.make_dataset_public(history_id, hda1["id"])
         with self._different_user(anon=True):
             get_content_as_text_response = self._get(f"datasets/{hda1['id']}/get_content_as_text")
             self._assert_status_code_is(get_content_as_text_response, 200)
@@ -562,6 +739,35 @@ class TestDatasetsApi(ApiTestCase):
         )
         self._assert_status_code_is(response, 400)
         assert_error_message_contains(response, "Conversion")
+
+    def test_raw_data_tabular_numeric_column_stats(self, history_id):
+        # columns: even-count ints, uncastable NA among odd-count castables, all NA, non-finite floats
+        contents = "2\t2\tNA\tnan\n4\tNA\tNA\t3\n6\t4\tNA\tinf\n12\t9\tNA\t6\n"
+        hda = self.dataset_populator.new_dataset(history_id, content=contents, wait=True, file_type="tabular")
+        response = self._get(f"datasets/{hda['id']}", {"data_type": "raw_data", "columns": "[0,1,2,3]"})
+        self._assert_status_code_is(response, 200)
+        even, uncastable, all_na, non_finite = response.json()["meta"]
+
+        assert even["count"] == 4
+        assert even["min"] == 2
+        assert even["max"] == 12
+        assert even["mean"] == 6
+        assert even["median"] == 5
+
+        assert uncastable["count"] == 4
+        assert uncastable["mean"] == 5
+        assert uncastable["median"] == 4
+
+        assert all_na["count"] == 4
+        assert all_na["min"] is None
+        assert "mean" not in all_na
+        assert "median" not in all_na
+
+        assert non_finite["count"] == 4
+        assert non_finite["min"] == 3
+        assert non_finite["max"] == 6
+        assert non_finite["mean"] == 4.5
+        assert non_finite["median"] == 4.5
 
     def test_bam_chunking_through_display_endpoint(self, history_id):
         # This endpoint does not use data providers and instead overrides display_data
@@ -738,6 +944,32 @@ class TestDatasetsApi(ApiTestCase):
             f"histories/{history_id}/contents/{hda_id}", data={"datatype": "invalid"}, json=True
         )
         self._assert_status_code_is(invalidly_updated_hda_response, 400)
+
+    def test_update_metadata(self, history_id):
+        hda_id = self.dataset_populator.new_dataset(history_id, wait=True)["id"]
+        original_hda = self._get(f"histories/{history_id}/contents/{hda_id}").json()
+        assert original_hda["metadata_dbkey"] == "?"
+
+        updated_response = self._put(
+            f"histories/{history_id}/contents/{hda_id}", data={"metadata": {"dbkey": "hg38"}}, json=True
+        )
+        self._assert_status_code_is(updated_response, 200)
+        updated_hda = updated_response.json()
+        assert updated_hda["metadata_dbkey"] == "hg38"
+
+        # readonly metadata keys should be silently ignored
+        readonly_response = self._put(
+            f"histories/{history_id}/contents/{hda_id}", data={"metadata": {"data_lines": 999}}, json=True
+        )
+        self._assert_status_code_is(readonly_response, 200)
+        assert readonly_response.json().get("metadata_data_lines") != 999
+
+        # unknown metadata keys should be silently ignored
+        unknown_response = self._put(
+            f"histories/{history_id}/contents/{hda_id}", data={"metadata": {"nonexistent_key": "value"}}, json=True
+        )
+        self._assert_status_code_is(unknown_response, 200)
+        assert "metadata_nonexistent_key" not in unknown_response.json()
 
     @skip_without_tool("cat_data_and_sleep")
     def test_delete_cancels_job(self, history_id):
@@ -983,8 +1215,8 @@ class TestDatasetsApi(ApiTestCase):
         assert len(sources) == 1
         assert sources[0]["source_uri"] == TEST_SOURCE_URI
 
-    def test_display_application_link(self, history_id, mock_http_server):
-        url = mock_http_server.get_url(
+    def test_display_application_link(self, history_id, test_http_server):
+        url = test_http_server.get_url(
             remote_url="https://raw.githubusercontent.com/galaxyproject/galaxy/dev/test-data/1.bam",
             file_path="test-data/1.bam",
         )

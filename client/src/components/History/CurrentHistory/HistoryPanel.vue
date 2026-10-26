@@ -1,12 +1,11 @@
 <script setup lang="ts">
-import { BAlert } from "bootstrap-vue";
 import { storeToRefs } from "pinia";
-import { computed, onMounted, ref, set as VueSet, unref, watch } from "vue";
+import { computed, onMounted, ref, unref, watch } from "vue";
 
 import { type HistoryItemSummary, type HistorySummaryExtended, userOwnsHistory } from "@/api";
 import { getGalaxyInstance } from "@/app";
 import ExpandedItems from "@/components/History/Content/ExpandedItems";
-import { HistoryFilters } from "@/components/History/HistoryFilters";
+import { getClientFilters, HistoryFilters, itemPassesFilters } from "@/components/History/HistoryFilters";
 import { deleteContent, updateContentFields } from "@/components/History/model/queries";
 import { useSelectedItems } from "@/composables/selectedItems/selectedItems";
 import { useHistoryItemsStore } from "@/stores/historyItemsStore";
@@ -29,6 +28,7 @@ import OperationErrorDialog from "./HistoryOperations/OperationErrorDialog.vue";
 import SelectionChangeWarning from "./HistoryOperations/SelectionChangeWarning.vue";
 import HistorySelectionOperations from "./HistoryOperations/SelectionOperations.vue";
 import HistorySelectionStatus from "./HistoryOperations/SelectionStatus.vue";
+import GAlert from "@/components/BaseComponents/GAlert.vue";
 import FilterMenu from "@/components/Common/FilterMenu.vue";
 import ContentItem from "@/components/History/Content/ContentItem.vue";
 import ListingLayout from "@/components/History/Layout/ListingLayout.vue";
@@ -234,7 +234,7 @@ watch(historyItems, (newHistoryItems) => {
     // Re-hide invisible history items when `historyItems` changes
     for (const newHistoryItem of newHistoryItems) {
         if (invisibleHistoryItems.value[newHistoryItem.hid]) {
-            VueSet(invisibleHistoryItems.value, newHistoryItem.hid, false);
+            invisibleHistoryItems.value[newHistoryItem.hid] = false;
         }
     }
 });
@@ -287,13 +287,13 @@ async function loadHistoryItems() {
 
 async function onDelete(item: HistoryItemSummary, recursive = false) {
     isLoading.value = true;
-    setInvisible(item);
+    hideIfFilteredOut(item, { deleted: true });
 
     try {
         await deleteContent(item, { recursive: recursive });
         updateContentStats();
     } catch (error) {
-        VueSet(invisibleHistoryItems.value, item.hid, false);
+        invisibleHistoryItems.value[item.hid] = false;
         onOperationError({ errorMessage: error });
     } finally {
         isLoading.value = false;
@@ -311,24 +311,23 @@ function onScroll(newOffset: number) {
 }
 
 async function onUndelete(item: HistoryItemSummary) {
-    setInvisible(item);
-    isLoading.value = true;
-
-    try {
-        await updateContentFields(item, { deleted: false });
-        updateContentStats();
-    } finally {
-        isLoading.value = false;
-    }
+    await updateItem(item, { deleted: false });
 }
 
 async function onUnhide(item: HistoryItemSummary) {
-    setInvisible(item);
+    await updateItem(item, { visible: true });
+}
+
+async function updateItem(item: HistoryItemSummary, change: Partial<HistoryItemSummary>) {
+    hideIfFilteredOut(item, change);
     isLoading.value = true;
 
     try {
-        await updateContentFields(item, { visible: true });
+        await updateContentFields(item, change);
         updateContentStats();
+    } catch (error) {
+        invisibleHistoryItems.value[item.hid] = false;
+        onOperationError({ errorMessage: error });
     } finally {
         isLoading.value = false;
     }
@@ -347,7 +346,14 @@ function reloadContents() {
 }
 
 function setInvisible(item: HistoryItemSummary) {
-    VueSet(unref(invisibleHistoryItems), item.hid, true);
+    unref(invisibleHistoryItems)[item.hid] = true;
+}
+
+/** Optimistically hides `item` if `change` takes it out of the current filter. */
+function hideIfFilteredOut(item: HistoryItemSummary, change: Partial<HistoryItemSummary>) {
+    if (!itemPassesFilters(getClientFilters(filterText.value), { ...item, ...change })) {
+        setInvisible(item);
+    }
 }
 
 function onTagChange(item: HistoryItemSummary, newTags: string[]) {
@@ -434,14 +440,14 @@ const {
             <FilterMenu
                 v-if="filterable"
                 :key="props.history.id"
+                v-model:filter-text="filterText"
+                v-model:show-advanced="showAdvanced"
                 class="content-operations-filters mx-3"
                 name="History Items"
                 placeholder="search datasets"
                 :filter-class="filterClass"
-                :filter-text.sync="filterText"
                 :loading="isLoading"
-                :search-error="searchError"
-                :show-advanced.sync="showAdvanced" />
+                :search-error="searchError" />
 
             <section v-if="!showAdvanced">
                 <HistoryDetails :history="history" :writeable="canEditHistory" :summarized="detailsSummarized" />
@@ -449,16 +455,17 @@ const {
                 <HistoryMessages v-if="!isMultiViewItem" :history="history" :current-user="currentUser" />
 
                 <HistoryCounter
+                    v-model:filter-text="filterText"
                     :history="history"
                     :is-watching="isWatching"
                     :last-checked="lastCheckedTime"
                     :show-controls="canEditHistory"
                     :owned-by-current-user="userOwnsHistory(currentUser, history)"
-                    :filter-text.sync="filterText"
                     :hide-reload="isMultiViewItem"
                     @reloadContents="reloadContents" />
 
                 <HistoryOperations
+                    v-model:operation-running="operationRunning"
                     :history="history"
                     :editable="canEditHistory"
                     :is-multi-view-item="isMultiViewItem"
@@ -466,11 +473,11 @@ const {
                     :show-selection="showSelection"
                     :expanded-count="expandedCount"
                     :has-matches="hasMatches(historyItems)"
-                    :operation-running.sync="operationRunning"
                     @update:show-selection="setShowSelection"
                     @collapse-all="collapseAll">
                     <template v-slot:selection-operations>
                         <HistorySelectionOperations
+                            v-model:operation-running="operationRunning"
                             :history="history"
                             :is-multi-view-item="isMultiViewItem"
                             :filter-text="filterText"
@@ -478,7 +485,6 @@ const {
                             :selection-size="selectionSize"
                             :is-query-selection="isQuerySelection"
                             :total-items-in-query="totalMatchesCount"
-                            :operation-running.sync="operationRunning"
                             @update:show-selection="setShowSelection"
                             @operation-error="onOperationError"
                             @hide-selection="onHideSelection"
@@ -504,23 +510,23 @@ const {
                 <HistoryDropZone v-if="showDropZone" />
                 <div class="h-100">
                     <div v-if="isLoading && historyItems && historyItems.length === 0">
-                        <BAlert class="m-2" variant="info" show>
+                        <GAlert class="m-2" variant="info" show>
                             <LoadingSpan message="Loading History" />
-                        </BAlert>
+                        </GAlert>
                     </div>
-                    <BAlert v-else-if="isProcessing" class="m-2" variant="info" show>
+                    <GAlert v-else-if="isProcessing" class="m-2" variant="info" show>
                         <LoadingSpan message="Processing operation" />
-                    </BAlert>
+                    </GAlert>
                     <div v-else-if="historyItems.length === 0">
                         <HistoryEmpty v-if="queryDefault" :writable="canEditHistory" class="m-2" />
 
-                        <BAlert v-else-if="formattedSearchError" class="m-2" variant="danger" show>
+                        <GAlert v-else-if="formattedSearchError" class="m-2" variant="danger" show>
                             Error in filter:
                             <a href="javascript:void(0)" @click="showAdvanced = true">
                                 {{ formattedSearchError.filter }}'{{ formattedSearchError.value }}'
                             </a>
-                        </BAlert>
-                        <BAlert v-else class="m-2" variant="info" show> No data found for selected filter. </BAlert>
+                        </GAlert>
+                        <GAlert v-else class="m-2" variant="info" show> No data found for selected filter. </GAlert>
                     </div>
                     <ListingLayout
                         v-else

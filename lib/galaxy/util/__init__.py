@@ -13,7 +13,6 @@ import json
 import os
 import random
 import re
-import shlex
 import shutil
 import smtplib
 import stat
@@ -26,6 +25,11 @@ import time
 import unicodedata
 import uuid
 import xml.dom.minidom
+from collections.abc import (
+    Iterable,
+    Iterator,
+    Mapping,
+)
 from datetime import (
     datetime,
     timezone,
@@ -38,14 +42,8 @@ from pathlib import Path
 from typing import (
     Any,
     cast,
-    Dict,
-    Iterable,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
+    Literal,
     overload,
-    Tuple,
     TYPE_CHECKING,
     TypeVar,
     Union,
@@ -64,12 +62,11 @@ from boltons.iterutils import (
     remap,
 )
 from typing_extensions import (
-    Literal,
     Self,
 )
 
 
-def now():
+def now() -> datetime:
     """
     Return the current time in UTC without any timezone information.
     """
@@ -97,20 +94,19 @@ try:
         def __iter__(self) -> Iterator[Self]:  # type: ignore[override]
             return cast(Iterator[Self], super().__iter__())
 
-        def find(self, path: str, namespaces: Optional[Mapping[str, str]] = None) -> Union[Self, None]:
-            ret = super().find(path, namespaces)
-            if ret is not None:
+        def find(self, path: str, namespaces: Mapping[str, str] | None = None) -> Self | None:
+            if (ret := super().find(path, namespaces)) is not None:
                 return cast(Self, ret)
             else:
                 return None
 
-        def findall(self, path: str, namespaces: Optional[Mapping[str, str]] = None) -> List[Self]:  # type: ignore[override]
-            return cast(List[Self], super().findall(path, namespaces))
+        def findall(self, path: str, namespaces: Mapping[str, str] | None = None) -> list[Self]:  # type: ignore[override]
+            return cast(list[Self], super().findall(path, namespaces))
 
-        def iterfind(self, path: str, namespaces: Optional[Mapping[str, str]] = None) -> Iterator[Self]:
+        def iterfind(self, path: str, namespaces: Mapping[str, str] | None = None) -> Iterator[Self]:
             return cast(Iterator[Self], super().iterfind(path, namespaces))
 
-    def SubElement(parent: Element, tag: str, attrib: Optional[Dict[str, str]] = None, **extra) -> Element:
+    def SubElement(parent: Element, tag: str, attrib: dict[str, str] | None = None, **extra) -> Element:
         return cast(Element, etree.SubElement(parent, tag, attrib, **extra))
 
     # lxml.etree.ElementTree is a function that returns a new instance of the
@@ -124,7 +120,7 @@ try:
         def getroot(self) -> Element:
             return cast(Element, super().getroot())
 
-    def XML(text: Union[str, bytes]) -> Element:
+    def XML(text: str | bytes) -> Element:
         return cast(Element, etree.XML(text))
 
     class LocalOnlyResolver(etree.Resolver):
@@ -166,14 +162,6 @@ from .path import (  # noqa: F401
 )
 from .rst_to_html import rst_to_html  # noqa: F401
 
-try:
-    shlex_join = shlex.join  # type: ignore[attr-defined, unused-ignore]
-except AttributeError:
-    # Python < 3.8
-    def shlex_join(split_command):
-        return " ".join(map(shlex.quote, split_command))
-
-
 if TYPE_CHECKING:
     from galaxy.util.resources import Traversable
 
@@ -208,18 +196,6 @@ defaultdict = collections.defaultdict
 UNKNOWN = "unknown"
 
 DOI_MAX_LENGTH = 200  # This is a reasonable limit. The DOI spec does not set a limit.
-
-
-def str_removeprefix(s: str, prefix: str):
-    """
-    str.removeprefix() equivalent for Python < 3.9
-    """
-    if sys.version_info >= (3, 9):
-        return s.removeprefix(prefix)
-    elif s.startswith(prefix):
-        return s[len(prefix) :]
-    else:
-        return s
 
 
 @overload
@@ -365,7 +341,7 @@ def file_reader(fp, chunk_size=CHUNK_SIZE):
 ItemType = TypeVar("ItemType")
 
 
-def chunk_iterable(it: Iterable[ItemType], size: int = 1000) -> Iterator[Tuple[ItemType, ...]]:
+def chunk_iterable(it: Iterable[ItemType], size: int = 1000) -> Iterator[tuple[ItemType, ...]]:
     """
     Break an iterable into chunks of ``size`` elements.
 
@@ -396,7 +372,7 @@ def parse_xml(
     fname: Union[StrPath, "Traversable"],
     strip_whitespace: bool = True,
     remove_comments: bool = True,
-    schemafname: Union[StrPath, None] = None,
+    schemafname: StrPath | None = None,
 ) -> ElementTree:
     """Returns a parsed xml tree"""
     parser = None
@@ -454,7 +430,7 @@ def parse_xml_string_to_etree(xml_string: str, strip_whitespace: bool = True) ->
     return ElementTree(parse_xml_string(xml_string=xml_string, strip_whitespace=strip_whitespace))
 
 
-def xml_to_string(elem: Optional[Element], pretty: bool = False) -> str:
+def xml_to_string(elem: Element | None, pretty: bool = False) -> str:
     """
     Returns a string from an xml tree.
     """
@@ -897,7 +873,7 @@ def ready_name_for_url(raw_name: str) -> str:
     return slug_base
 
 
-def which(file: str) -> Optional[str]:
+def which(file: str) -> str | None:
     # http://stackoverflow.com/questions/5226958/which-equivalent-function-in-python
     for path in os.environ["PATH"].split(":"):
         if os.path.exists(path + "/" + file):
@@ -1090,7 +1066,7 @@ truthy = frozenset({"true", "yes", "on", "y", "t", "1"})
 falsy = frozenset({"false", "no", "off", "n", "f", "0"})
 
 
-def asbool(obj):
+def asbool(obj: Any) -> bool:
     if isinstance(obj, str):
         obj = obj.strip().lower()
         if obj in truthy:
@@ -1129,24 +1105,24 @@ def string_as_bool_or_none(string):
 
 
 @overload
-def listify(item: Union[None, Literal[False]], do_strip: bool = False) -> List: ...
+def listify(item: None | Literal[False], do_strip: bool = False) -> list: ...
 
 
 @overload
-def listify(item: str, do_strip: bool = False) -> List[str]: ...
+def listify(item: str, do_strip: bool = False) -> list[str]: ...
 
 
 @overload
-def listify(item: Union[List[ItemType], Tuple[ItemType, ...]], do_strip: bool = False) -> List[ItemType]: ...
+def listify(item: list[ItemType] | tuple[ItemType, ...], do_strip: bool = False) -> list[ItemType]: ...
 
 
 # Unfortunately we cannot use ItemType .. -> List[ItemType] in the next overload
 # because then that would also match Union types.
 @overload
-def listify(item: Any, do_strip: bool = False) -> List: ...
+def listify(item: Any, do_strip: bool = False) -> list: ...
 
 
-def listify(item: Any, do_strip: bool = False) -> List:
+def listify(item: Any, do_strip: bool = False) -> list:
     """
     Make a single item a single item list.
 
@@ -1213,7 +1189,7 @@ def unicodify(
     error: str = "replace",
     strip_null: bool = False,
     log_exception: bool = True,
-) -> Optional[str]:
+) -> str | None:
     """
     Returns a Unicode string or None.
 
@@ -1249,27 +1225,95 @@ def unicodify(
 
 
 def filesystem_safe_string(
-    s, max_len=255, truncation_chars="..", strip_leading_dot=True, invalid_chars=("/",), replacement_char="_"
+    s,
+    max_len=255,
+    truncation_chars="..",
+    strip_leading_dot=True,
+    invalid_chars=("/",),
+    replacement_char="_",
+    valid_chars=None,
+    portable=False,
+    strip_leading_hyphen=False,
+    fallback="",
 ):
     """
     Strip unicode null chars, truncate at 255 characters.
-    Optionally replace additional ``invalid_chars`` with `replacement_char` .
+    Optionally replace additional ``invalid_chars`` with `replacement_char`.
+
+    If ``valid_chars`` is supplied, replace every character outside that
+    collection. ``portable`` additionally excludes Windows path separators,
+    reserved device names, control characters, and trailing dots or spaces.
+    An empty result is replaced with ``fallback``. The result is no longer
+    than ``max_len``.
 
     Defaults are probably only safe on linux / osx.
     Needs further escaping if used in shell commands
     """
     sanitized_string = unicodify(s, strip_null=True)
-    if strip_leading_dot:
-        sanitized_string = sanitized_string.lstrip(".")
     for invalid_char in invalid_chars:
         sanitized_string = sanitized_string.replace(invalid_char, replacement_char)
+    if portable:
+        for invalid_char in '/\\<>:"|?*':
+            sanitized_string = sanitized_string.replace(invalid_char, replacement_char)
+        sanitized_string = "".join(replacement_char if ord(char) < 32 else char for char in sanitized_string)
+    if valid_chars is not None:
+        sanitized_string = "".join(char if char in valid_chars else replacement_char for char in sanitized_string)
+    if strip_leading_dot or strip_leading_hyphen:
+        leading_chars = ("." if strip_leading_dot else "") + ("-" if strip_leading_hyphen else "")
+        sanitized_string = sanitized_string.lstrip(leading_chars)
+    if portable:
+        sanitized_string = sanitized_string.rstrip(". ")
+        basename = sanitized_string.partition(".")[0].upper()
+        if basename in {"CON", "PRN", "AUX", "NUL"} or re.fullmatch(r"(?:COM|LPT)[1-9]", basename):
+            sanitized_string = f"{replacement_char}{sanitized_string}"
+    if not sanitized_string:
+        sanitized_string = fallback
     if len(sanitized_string) > max_len:
-        sanitized_string = sanitized_string[: max_len - len(truncation_chars)]
-        sanitized_string = f"{sanitized_string}{truncation_chars}"
+        truncation_chars = truncation_chars[:max_len]
+        sanitized_string = f"{sanitized_string[: max_len - len(truncation_chars)]}{truncation_chars}"
     return sanitized_string
 
 
-def smart_str(s, encoding=DEFAULT_ENCODING, strings_only=False, errors="strict"):
+def safe_filename_component(s: str, max_len: int = 255) -> str:
+    """Return a deterministic portable path component.
+
+    The result is non-empty and bounded, but is not guaranteed to be unique.
+    It must still be quoted when interpolated into a shell command.
+    """
+    valid_chars = frozenset(string.ascii_letters + string.digits + "-_.")
+    return filesystem_safe_string(
+        s,
+        max_len=max_len,
+        truncation_chars="__",
+        invalid_chars=(),
+        valid_chars=valid_chars,
+        portable=True,
+        strip_leading_hyphen=True,
+        fallback="_",
+    )
+
+
+@overload
+def smart_str(
+    s: bytearray, encoding: str = DEFAULT_ENCODING, strings_only: bool = False, errors: str = "strict"
+) -> bytes | bytearray: ...
+
+
+@overload
+def smart_str(
+    s: Any, encoding: str = DEFAULT_ENCODING, strings_only: Literal[False] = False, errors: str = "strict"
+) -> bytes: ...
+
+
+@overload
+def smart_str(
+    s: Any, encoding: str = DEFAULT_ENCODING, strings_only: bool = False, errors: str = "strict"
+) -> bytes | bytearray | int | None: ...
+
+
+def smart_str(
+    s: Any, encoding: str = DEFAULT_ENCODING, strings_only: bool = False, errors: str = "strict"
+) -> bytes | bytearray | int | None:
     """
     Returns a bytestring version of 's', encoded as specified in 'encoding'.
 
@@ -1413,7 +1457,7 @@ def normalize_https_authority(authority: str) -> str:
 DEFAULT_PORTS = {"http": 80, "https": 443}
 
 
-def _split_unambiguous_url(url: Any) -> Optional[SplitResult]:
+def _split_unambiguous_url(url: Any) -> SplitResult | None:
     """Split an absolute URL whose authority browsers and Python read alike, else ``None``."""
     if not isinstance(url, str) or not url:
         return None
@@ -1432,11 +1476,11 @@ def _split_unambiguous_url(url: Any) -> Optional[SplitResult]:
     return split
 
 
-def _origin(url: SplitResult) -> Tuple[str, Optional[str], Optional[int]]:
+def _origin(url: SplitResult) -> tuple[str, str | None, int | None]:
     return url.scheme, url.hostname, url.port or DEFAULT_PORTS.get(url.scheme)
 
 
-def is_safe_login_redirect(target: Any, allowed_hosts: Iterable[str] = (), base_url: Optional[str] = None) -> bool:
+def is_safe_login_redirect(target: Any, allowed_hosts: Iterable[str] = (), base_url: str | None = None) -> bool:
     """May Galaxy send a browser to ``target`` after login?
 
     Relative URLs that stay on this server are always accepted (see
@@ -1608,7 +1652,7 @@ def docstring_trim(docstring):
     return "\n".join(trimmed)
 
 
-def metric_prefix(number: Union[int, float], base: int) -> Tuple[float, str]:
+def metric_prefix(number: int | float, base: int) -> tuple[float, str]:
     """
     >>> metric_prefix(100, 1000)
     (100.0, '')
@@ -1667,7 +1711,7 @@ def shorten_with_metric_prefix(amount: int) -> str:
         return str(amount)
 
 
-def nice_size(size: Union[float, int, str, Decimal], binary: bool = False) -> str:
+def nice_size(size: float | int | str | Decimal, binary: bool = False) -> str:
     """
     Returns a readably formatted string with the size
 
@@ -1928,11 +1972,33 @@ GALAXY_INCLUDES_ROOT = os.environ.get("GALAXY_INCLUDES_ROOT")
 galaxy_root_path = Path(GALAXY_INCLUDES_ROOT) if GALAXY_INCLUDES_ROOT else Path(__file__).parent.parent.parent.parent
 
 
+GALAXY_ROOT_MARKERS = ("run.sh", "lib/galaxy", "scripts/common_startup.sh")
+
+
+class GalaxyRootNotFound(Exception):
+    """Galaxy source paths were asked for by an install that has no checkout to resolve them against."""
+
+
+def is_galaxy_root(path: StrPath) -> bool:
+    return all(os.path.exists(os.path.join(path, marker)) for marker in GALAXY_ROOT_MARKERS)
+
+
 def galaxy_directory() -> str:
+    """Root of the Galaxy checkout backing this install, if there is one."""
     if in_packages() and not GALAXY_INCLUDES_ROOT:
-        # This will work only when running pytest from <galaxy_root>/packages/<package_name>/
+        # pytest runs from <galaxy_root>/packages/<package_name>/; an installed Galaxy may
+        # also simply be run from a checkout.
         cwd = Path.cwd()
-        path = cwd.parent.parent
+        for candidate in (cwd.parent.parent, cwd):
+            if is_galaxy_root(candidate):
+                path = candidate
+                break
+        else:
+            raise GalaxyRootNotFound(
+                f"No Galaxy checkout at {cwd.parent.parent} or {cwd}. Installed packages ship no "
+                "checkout content; set GALAXY_INCLUDES_ROOT to a Galaxy source directory if this "
+                "code path needs one."
+            )
     else:
         path = galaxy_root_path
     return os.path.abspath(path)
@@ -2220,20 +2286,17 @@ def lowercase_alphanum_to_hex(lowercase_alphanum: str) -> str:
     return np.base_repr(int(lowercase_alphanum, 36), 16).lower()
 
 
-def to_content_disposition(target: str) -> str:
+def to_content_disposition(target: str, disposition: Literal["attachment", "inline"] = "attachment") -> str:
     target = target.strip()
     filename, ext = os.path.splitext(target)
     character_limit = 255 - len(ext)
     sanitized_filename = "".join(c in FILENAME_VALID_CHARS and c or "_" for c in filename)[0:character_limit] + ext
     utf8_encoded_filename = quote(re.sub(r'[\/\\\?%*:|"<>]', "_", filename), safe="")[0:character_limit] + ext
-    return f"attachment; filename=\"{sanitized_filename}\"; filename*=UTF-8''{utf8_encoded_filename}"
+    return f"{disposition}; filename=\"{sanitized_filename}\"; filename*=UTF-8''{utf8_encoded_filename}"
 
 
 def validate_doi(doi: str) -> bool:
     if len(doi) > DOI_MAX_LENGTH:
         return False
-    prefix = "https://doi.org/|doi.org/|doi:"
-    doi_prefix = r"10\.\d+"
-    doi_suffix = r"\S+"
-    doi_re = re.compile(f"^{prefix}{doi_prefix}/{doi_suffix}$")
-    return bool(doi_re.match(doi))
+    doi_re = re.compile(r"10\.\d+/\S+$")
+    return bool(doi_re.search(doi))

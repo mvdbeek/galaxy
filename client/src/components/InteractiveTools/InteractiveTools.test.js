@@ -2,7 +2,7 @@ import { createTestingPinia } from "@pinia/testing";
 import { getLocalVue } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
 import flushPromises from "flush-promises";
-import { PiniaVuePlugin, setActivePinia } from "pinia";
+import { setActivePinia } from "pinia";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
@@ -23,7 +23,6 @@ const { server, http } = useServerMock();
 
 describe("InteractiveTools/InteractiveTools.vue", () => {
     const localVue = getLocalVue();
-    localVue.use(PiniaVuePlugin);
     let wrapper;
     let testPinia;
     let deleteRequests = [];
@@ -54,7 +53,7 @@ describe("InteractiveTools/InteractiveTools.vue", () => {
         setActivePinia(testPinia);
 
         wrapper = mount(InteractiveTools, {
-            localVue,
+            global: localVue,
             pinia: testPinia,
         });
 
@@ -71,6 +70,14 @@ describe("InteractiveTools/InteractiveTools.vue", () => {
         // Each entry has 2 links: one to open inline (rendered as button) and one to open in new tab (rendered as anchor)
         expect(wrapper.findAll("td > button.g-link").length).toBe(2);
         expect(wrapper.findAll("td > a").length).toBe(2);
+    });
+
+    it("filters the table with the search GFormInput", async () => {
+        const firstTool = testInteractiveToolsResponse[0];
+        const search = wrapper.get("#interactivetool-search");
+        expect(search.classes()).toContain("g-form-input");
+        await search.setValue("no tool has this name");
+        expect(wrapper.find(`#link-${firstTool.id}`).exists()).toBeFalsy();
     });
 
     it("displays interactive tool information correctly", async () => {
