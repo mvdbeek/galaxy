@@ -157,13 +157,63 @@ def test_compute_resource_key_rejected_for_another_resource(manager, security, c
 
 @pytest.mark.parametrize(
     "relative",
-    ["metadata/outputs_populated/x", "container_runtime.json", "tool_script.sh", "configs/tool.conf"],
+    [
+        "metadata/outputs_populated/x",
+        "metadata/outputs_populated/__instrument_core_epoch_end",
+        "metadata/galaxy.json",
+        "metadata/__instrument_pulsar_version_target",
+        "metadata/__instrument_pulsar_version_status",
+        "metadata/__instrument_core_container",
+        "container_runtime.json",
+        "tool_script.sh",
+        "configs/tool.conf",
+    ],
 )
 def test_compute_resource_write_confined_to_tool_cwd(manager, security, compute_resource_job, relative):
     scoped = security.encode_id(JOB_ID, kind=job_files_kind_for_job(compute_resource_job))
     path = os.path.join(_working_directory(compute_resource_job), relative)
     with pytest.raises(exceptions.ItemAccessibilityException):
         manager.authorize_write(security.encode_id(JOB_ID), path, scoped)
+
+
+@pytest.mark.parametrize(
+    "name",
+    [
+        "tool_stdout",
+        "tool_stderr",
+        "__instrument_core_epoch_start",
+        "__instrument_core_epoch_end",
+        "__instrument_core_galaxy_slots",
+        "__instrument_core_galaxy_memory_mb",
+        "__instrument_pulsar_transfer_preprocess",
+        "__instrument_pulsar_transfer_postprocess",
+        "__instrument_pulsar_version",
+    ],
+)
+def test_compute_resource_writes_metric_and_stream_files(manager, security, compute_resource_job, name):
+    scoped = security.encode_id(JOB_ID, kind=job_files_kind_for_job(compute_resource_job))
+    working = _working_directory(compute_resource_job)
+    path = os.path.join(working, "metadata", name)
+    assert manager.authorize_write(security.encode_id(JOB_ID), path, scoped) == working
+
+
+def test_compute_resource_metric_name_on_a_directory(manager, security, compute_resource_job):
+    scoped = security.encode_id(JOB_ID, kind=job_files_kind_for_job(compute_resource_job))
+    path = os.path.join(_working_directory(compute_resource_job), "metadata", "tool_stdout")
+    os.makedirs(path)
+    with pytest.raises(exceptions.ItemAccessibilityException):
+        manager.authorize_write(security.encode_id(JOB_ID), path, scoped)
+
+
+def test_compute_resource_metric_file_behind_a_symlinked_metadata_directory(
+    manager, security, compute_resource_job, tmp_path
+):
+    scoped = security.encode_id(JOB_ID, kind=job_files_kind_for_job(compute_resource_job))
+    working = _working_directory(compute_resource_job)
+    os.makedirs(working)
+    os.symlink(tmp_path, os.path.join(working, "metadata"))
+    with pytest.raises(exceptions.ItemAccessibilityException):
+        manager.authorize_write(security.encode_id(JOB_ID), os.path.join(working, "metadata", "tool_stdout"), scoped)
 
 
 def test_non_compute_resource_job_keeps_the_whole_working_directory(manager, security, job):
