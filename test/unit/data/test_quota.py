@@ -13,7 +13,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from galaxy import model
-from galaxy.celery.tasks import (
+from galaxy.model import (
     DISK_USAGE_RUNNING_LOCK,
     DISK_USAGE_WAITING_LOCK,
     recalculate_disk_usage_deduplicated,
@@ -636,7 +636,7 @@ class TestRecalculateDiskUsageDeduplicatedPostgres(BaseModelTestCase):
                 text("SELECT pg_advisory_xact_lock(:lock, :user_id)"),
                 {"lock": DISK_USAGE_RUNNING_LOCK, **self.lock_params},
             )
-            with mock.patch("galaxy.celery.tasks.RECALCULATE_DISK_USAGE_TIME_LIMIT", 1):
+            with mock.patch("galaxy.model.RECALCULATE_DISK_USAGE_TIME_LIMIT", 1):
                 with pytest.raises(OperationalError, match="statement timeout"):
                     recalculate_disk_usage_deduplicated(self.model.session(), self.u, self.object_store)
             self.model.session.rollback()
