@@ -31,6 +31,7 @@ from galaxy.util.config_parsers import IpAllowedListEntryT
 log = logging.getLogger(__name__)
 
 HTTP_SCHEMES = ("http", "https")
+FETCH_SCHEMES = (*HTTP_SCHEMES, "ftp")
 
 
 def stream_url_to_str(

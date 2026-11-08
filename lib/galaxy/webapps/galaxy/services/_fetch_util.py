@@ -6,7 +6,10 @@ from galaxy.actions.library import (
     validate_server_directory_upload,
 )
 from galaxy.exceptions import RequestParameterInvalidException
-from galaxy.files.uris import validate_non_local
+from galaxy.files.uris import (
+    FETCH_SCHEMES,
+    validate_non_local,
+)
 from galaxy.model.store.discover import (
     get_required_item,
     replace_request_syntax_sugar,
@@ -29,7 +32,7 @@ def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
       with the relevant paths resolved and permissions / configuration checked.
     - Check for file:// URLs in items src of "url" and convert them into path
       src items - after verifying path pastes are allowed and user is admin.
-    - Check for valid URLs to be fetched for http and https entries.
+    - Check for valid URLs to be fetched for http, https and ftp entries.
     - Based on Galaxy configuration and upload types set purge_source and in_place
       as needed for each upload.
     """
@@ -165,7 +168,7 @@ def validate_and_normalize_targets(trans, payload, set_internal_fields=True):
             if not looks_like_url:
                 raise RequestParameterInvalidException(f"Invalid URL [{url}] found in src definition.")
 
-            validate_non_local(url, trans.app.config.fetch_url_allowlist_ips)
+            validate_non_local(url, trans.app.config.fetch_url_allowlist_ips, schemes=FETCH_SCHEMES)
             if set_internal_fields:
                 item["in_place"] = run_as_real_user
         elif src == "files":

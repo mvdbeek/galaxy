@@ -18,6 +18,7 @@ from webob.compat import cgi_FieldStorage
 from galaxy import util
 from galaxy.exceptions import RequestParameterInvalidException
 from galaxy.files.uris import (
+    FETCH_SCHEMES,
     stream_to_file,
     validate_non_local,
 )
@@ -68,7 +69,11 @@ def persist_uploads(params, trans):
                 and upload_dataset["url_paste"].strip() != ""
             ):
                 upload_dataset["url_paste"] = stream_to_file(
-                    StringIO(validate_non_local(upload_dataset["url_paste"], trans.app.config.fetch_url_allowlist_ips)),
+                    StringIO(
+                        validate_non_local(
+                            upload_dataset["url_paste"], trans.app.config.fetch_url_allowlist_ips, schemes=FETCH_SCHEMES
+                        )
+                    ),
                     prefix="strio_url_paste_",
                 )
             else:

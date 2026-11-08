@@ -9,6 +9,7 @@ from galaxy.files.models import (
     FilesSourceRuntimeContext,
 )
 from galaxy.files.uris import (
+    FETCH_SCHEMES,
     validate_non_local,
     ValidatingRedirectHandler,
 )
@@ -25,8 +26,6 @@ from . import (
 )
 
 log = logging.getLogger(__name__)
-
-FETCH_SCHEMES = ("http", "https", "ftp")
 
 
 class HTTPFileSourceTemplateConfiguration(BaseFileSourceTemplateConfiguration):
