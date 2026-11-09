@@ -28,6 +28,16 @@ from galaxy.objectstore import BaseObjectStore
 from galaxy.security.idencoding import IdEncodingHelper
 
 APPENDABLE_FILE_NAMES = ("tool_stdout", "tool_stderr")
+COMPUTE_RESOURCE_METADATA_FILE_NAMES = (
+    *APPENDABLE_FILE_NAMES,
+    "__instrument_core_epoch_start",
+    "__instrument_core_epoch_end",
+    "__instrument_core_galaxy_slots",
+    "__instrument_core_galaxy_memory_mb",
+    "__instrument_pulsar_transfer_preprocess",
+    "__instrument_pulsar_transfer_postprocess",
+    "__instrument_pulsar_version",
+)
 
 
 class JobFilesManager:
@@ -82,7 +92,8 @@ class JobFilesManager:
             return os.path.dirname(dataset_path)
         working_directory = JobWorkingDirectory(job, self._object_store).resolve()
         if self._is_compute_resource_job(job):
-            # A user-registered compute resource gets only the tool's CWD.
+            # A user-registered compute resource gets only the tool's CWD and the
+            # job metric and tool stream files it posts back to ``metadata/``.
             # ``metadata/outputs_populated/**`` is the remote-extended-metadata
             # model-import-store and would let a compute-resource node mutate
             # cross-user state; ``container_runtime.json`` is interactive-tool port
@@ -92,6 +103,8 @@ class JobFilesManager:
             tool_cwd = os.path.join(os.path.realpath(working_directory), "working")
             if util.in_directory(os.path.realpath(path), tool_cwd):
                 return working_directory
+            if self._is_writable_metadata_file(working_directory, path):
+                return working_directory
         elif util.in_directory(path, working_directory):
             return working_directory
         raise exceptions.ItemAccessibilityException("Job is not authorized to write to supplied path.")
@@ -99,6 +112,15 @@ class JobFilesManager:
     @staticmethod
     def _is_compute_resource_job(job: Job) -> bool:
         return (job.destination_params or {}).get("compute_resource_id") is not None
+
+    @staticmethod
+    def _is_writable_metadata_file(working_directory: str, path: str) -> bool:
+        real_path = os.path.realpath(path)
+        return (
+            os.path.dirname(real_path) == os.path.join(os.path.realpath(working_directory), "metadata")
+            and os.path.basename(real_path) in COMPUTE_RESOURCE_METADATA_FILE_NAMES
+            and (not os.path.exists(real_path) or os.path.isfile(real_path))
+        )
 
     def _is_job_file(self, job: Job, path: str) -> bool:
         """True if ``path`` is in the job's working directory or is one of its
