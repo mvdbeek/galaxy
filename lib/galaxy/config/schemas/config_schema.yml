@@ -3333,6 +3333,24 @@ mapping:
           are expunged from the SQL alchemy session between workflow invocation scheduling iterations.
           Set to -1 to disable any such maximum.
 
+      enable_beta_workflow_loop:
+        type: bool
+        default: false
+        required: false
+        desc: |
+          Enable loops on workflow subworkflow steps (beta). A loop runs the subworkflow again
+          and again, feeding outputs of one iteration into inputs of the next, until the step's
+          ``when`` expression is false. With this option off, saving or running a workflow that
+          contains a loop is refused.
+
+      workflow_loop_max_iterations:
+        type: int
+        default: 64
+        required: false
+        desc: |
+          The maximum number of iterations of one workflow loop step. An invocation whose loop
+          would need more iterations fails. Only used if ``enable_beta_workflow_loop`` is set.
+
       flush_per_n_datasets:
         type: int
         default: 1000

@@ -1733,6 +1733,26 @@ class FileTracebackException(Exception):
         self.traceback = traceback
 
 
+def _native_workflow_has_loop(path: str) -> bool:
+    try:
+        with open(path) as f:
+            workflow = load(f)
+    except (OSError, ValueError):
+        # Not a .ga Galaxy can read; the .gxwf.yml is imported as before.
+        return False
+
+    def has_loop(workflow_dict: Any) -> bool:
+        steps = workflow_dict.get("steps") if isinstance(workflow_dict, dict) else None
+        if not isinstance(steps, dict):
+            return False
+        return any(
+            isinstance(step, dict) and (step.get("loop") is not None or has_loop(step.get("subworkflow")))
+            for step in steps.values()
+        )
+
+    return has_loop(workflow)
+
+
 def get_import_model_store_for_directory(
     archive_dir: str, **kwd
 ) -> Union["DirectoryImportModelStore1901", "DirectoryImportModelStoreLatest"]:
@@ -1892,7 +1912,12 @@ class BaseDirectoryImportModelStore(ModelImportStore):
                 continue
             assert name.endswith(".gxwf.yml")
             workflow_key = name[0 : -len(".gxwf.yml")]
-            yield workflow_key, os.path.join(workflows_directory, name)
+            # Format2 cannot describe workflow loops yet, the .ga file of a loop workflow can.
+            ga_path = os.path.join(workflows_directory, f"{workflow_key}.ga")
+            if os.path.exists(ga_path) and _native_workflow_has_loop(ga_path):
+                yield workflow_key, ga_path
+            else:
+                yield workflow_key, os.path.join(workflows_directory, name)
 
     def _set_job_attributes(self, imported_job: model.Job, job_attrs: dict[str, Any]) -> None:
         ATTRIBUTES = (

@@ -8,6 +8,8 @@ from typing import (
 )
 
 from boltons.iterutils import get_path
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from typing_extensions import Protocol
 
 from galaxy import model
@@ -24,12 +26,14 @@ from galaxy.schema.invocation import (
     FAILURE_REASONS_EXPECTED,
     FailureReason,
     InvocationCancellationHistoryDeleted,
+    InvocationCancellationUserRequest,
     InvocationFailureCollectionFailed,
     InvocationFailureDatasetFailed,
     InvocationFailureJobFailed,
     InvocationFailureOutputNotFound,
     InvocationUnexpectedFailure,
     InvocationWarningWorkflowOutputNotFound,
+    LoopOutcome,
     WarningReason,
 )
 from galaxy.tools.parameters.basic import raw_to_galaxy
@@ -41,6 +45,17 @@ from galaxy.tools.parameters.workflow_utils import (
 from galaxy.tools.parameters.wrapped import nested_key_to_path
 from galaxy.util import ExecutionTimer
 from galaxy.workflow import modules
+from galaxy.workflow.loop import (
+    check_feedback,
+    copy_invocation_request,
+    fail_unstarted_iteration,
+    iteration_job_states,
+    iteration_outputs,
+    loop_failure,
+    next_iteration_inputs,
+    parse_loop,
+    WorkflowLoop,
+)
 from galaxy.workflow.run_request import (
     workflow_request_to_run_config,
     workflow_run_config_to_request,
@@ -61,6 +76,7 @@ if TYPE_CHECKING:
         WorkflowStep,
         WorkflowStepConnection,
     )
+    from galaxy.model.dataset_collections.matching import MatchingCollections
     from galaxy.work.context import WorkRequestContext
     from galaxy.workflow.scheduling_manager import WorkflowSchedulingManager
 
@@ -402,6 +418,16 @@ class WorkflowInvoker:
 
 
 STEP_OUTPUT_DELAYED = object()
+
+_FAILED_JOB_STATES = (
+    model.Job.states.ERROR,
+    model.Job.states.FAILED,
+    model.Job.states.DELETING,
+    model.Job.states.DELETED,
+    model.Job.states.STOPPING,
+    model.Job.states.STOPPED,
+)
+_SETTLED_JOB_STATES = (model.Job.states.OK, model.Job.states.SKIPPED)
 
 
 class ModuleInjector(Protocol):
@@ -829,8 +855,10 @@ class WorkflowProgress:
         use_cached_job: bool = False,
         subworkflow_collection_info=None,
         when_values=None,
+        subworkflow_invocation: WorkflowInvocation | None = None,
+        input_overrides: dict[int, Any] | None = None,
     ) -> WorkflowInvoker:
-        subworkflow_invocation = self._subworkflow_invocation(step)
+        subworkflow_invocation = subworkflow_invocation or self._subworkflow_invocation(step)
         subworkflow_invocation.handler = self.workflow_invocation.handler
         subworkflow_invocation.scheduler = self.workflow_invocation.scheduler
         workflow_run_config = workflow_request_to_run_config(subworkflow_invocation, use_cached_job)
@@ -840,6 +868,7 @@ class WorkflowProgress:
             workflow_run_config.param_map,
             subworkflow_collection_info=subworkflow_collection_info,
             when_values=when_values,
+            input_overrides=input_overrides,
         )
         subworkflow_invocation = subworkflow_progress.workflow_invocation
         return WorkflowInvoker(
@@ -856,6 +885,7 @@ class WorkflowProgress:
         param_map: dict,
         subworkflow_collection_info=None,
         when_values=None,
+        input_overrides: dict[int, Any] | None = None,
     ) -> "WorkflowProgress":
         subworkflow = subworkflow_invocation.workflow
         if disconnected_input_steps := modules.disconnected_required_subworkflow_inputs(step, subworkflow):
@@ -869,6 +899,9 @@ class WorkflowProgress:
         subworkflow_inputs = {}
         for input_subworkflow_step in subworkflow.input_steps:
             subworkflow_step_id = input_subworkflow_step.id
+            if input_overrides and subworkflow_step_id in input_overrides:
+                subworkflow_inputs[subworkflow_step_id] = input_overrides[subworkflow_step_id]
+                continue
             input_connections = step.input_connections
             for input_connection in input_connections:
                 if input_connection.input_subworkflow_step_id == subworkflow_step_id:
@@ -896,6 +929,185 @@ class WorkflowProgress:
             subworkflow_collection_info=subworkflow_collection_info,
             when_values=when_values,
         )
+
+    def execute_loop(
+        self,
+        trans: "WorkRequestContext",
+        invocation_step: WorkflowInvocationStep,
+        collection_info: "MatchingCollections | None",
+        use_cached_job: bool = False,
+    ) -> None:
+        """Schedule the newest iteration of a loop step, then start the next one or set the step's outputs.
+
+        Settled iterations are not invoked again: the inputs of iteration k are those of the
+        first iteration, with each looped input replaced by the recorded output of iteration k-1.
+        """
+        step = invocation_step.workflow_step
+        loop = parse_loop(step.loop)
+        associations = self.workflow_invocation.iteration_associations(step)
+        association = associations[-1]
+        if collection_info:
+            fail_unstarted_iteration(association)
+            raise loop_failure(step, "Mapping over a loop step is not supported.")
+        first_inputs = self._loop_first_inputs(step)
+        if len(associations) == 1:
+            inputs = first_inputs
+        else:
+            previous_outputs = iteration_outputs(associations[-2].subworkflow_invocation)
+            inputs = next_iteration_inputs(step, loop, first_inputs, previous_outputs)
+        while True:
+            iteration = association.subworkflow_invocation
+            # The test before the first iteration; once it passed, the iteration is no longer new.
+            if (
+                association.iteration == 0
+                and association.loop_outcome is None
+                and iteration.state == WorkflowInvocation.states.NEW
+            ):
+                try:
+                    run_first = self.when_values != [False] and self._evaluate_loop_when(step, inputs)
+                except modules.FailWorkflowEvaluation:
+                    fail_unstarted_iteration(association)
+                    raise
+                if not run_first:
+                    association.loop_outcome = LoopOutcome.SKIPPED
+            if association.loop_outcome == LoopOutcome.SKIPPED:
+                invoker = self.subworkflow_invoker(
+                    trans, step, use_cached_job=use_cached_job, when_values=[False], subworkflow_invocation=iteration
+                )
+                invoker.invoke()
+                self.record_subworkflow_delays(invoker.progress)
+                self.set_step_outputs(invocation_step, modules.subworkflow_step_outputs(step, invoker.progress))
+                return
+            invoker = self.subworkflow_invoker(
+                trans,
+                step,
+                use_cached_job=use_cached_job,
+                subworkflow_invocation=iteration,
+                input_overrides=self._loop_input_overrides(step, loop, inputs),
+            )
+            invoker.invoke()
+            self.record_subworkflow_delays(invoker.progress)
+            try:
+                self._check_loop_iteration_settled(trans, step, association)
+                next_inputs = next_iteration_inputs(step, loop, first_inputs, iteration_outputs(iteration))
+                run_next = self._evaluate_loop_when(step, next_inputs)
+            except modules.FailWorkflowEvaluation:
+                association.loop_outcome = LoopOutcome.FAILED
+                raise
+            if not run_next:
+                association.loop_outcome = LoopOutcome.STOP
+                self.set_step_outputs(invocation_step, modules.subworkflow_step_outputs(step, invoker.progress))
+                return
+            if self._invocation_stopping(trans):
+                raise modules.DelayedWorkflowEvaluation(why="Invocation is stopping, no new loop iteration started.")
+            assert association.iteration is not None
+            maximum = trans.app.config.workflow_loop_max_iterations
+            if association.iteration + 1 >= maximum:
+                association.loop_outcome = LoopOutcome.LIMIT
+                raise loop_failure(step, f"Loop reached the limit of {maximum} iterations set by the server.")
+            try:
+                check_feedback(step, loop, first_inputs, next_inputs)
+            except modules.FailWorkflowEvaluation:
+                association.loop_outcome = LoopOutcome.FAILED
+                raise
+            association.loop_outcome = LoopOutcome.CONTINUE
+            association = self._allocate_loop_iteration(trans, step, associations[0], association.iteration + 1)
+            inputs = next_inputs
+
+    def _loop_first_inputs(self, step: "WorkflowStep") -> dict[str, Any]:
+        inputs = {}
+        for connection in step.input_connections:
+            subworkflow_input = connection.input_subworkflow_step
+            is_data = connection.output_step.type != "parameter_input" and (
+                subworkflow_input is None or subworkflow_input.type != "parameter_input"
+            )
+            inputs[connection.input_name] = self.replacement_for_connection(connection, is_data=is_data)
+        return inputs
+
+    def _loop_input_overrides(self, step: "WorkflowStep", loop: WorkflowLoop, inputs: dict[str, Any]) -> dict[int, Any]:
+        assert step.subworkflow
+        return {
+            input_step.id: inputs[input_step.label]
+            for input_step in step.subworkflow.input_steps
+            if input_step.label in loop.inputs and input_step.label in inputs
+        }
+
+    def _evaluate_loop_when(self, step: "WorkflowStep", inputs: dict[str, Any]) -> bool:
+        return bool(modules.evaluate_value_from_expressions(self, step, execution_state={}, extra_step_state=inputs))
+
+    def _check_loop_iteration_settled(
+        self,
+        trans: "WorkRequestContext",
+        step: "WorkflowStep",
+        association: model.WorkflowInvocationToSubworkflowInvocationAssociation,
+    ) -> None:
+        iteration = association.subworkflow_invocation
+        # Cancelling an iteration deletes its jobs, so look at its state before at failed jobs.
+        if iteration.state in (WorkflowInvocation.states.CANCELLING, WorkflowInvocation.states.CANCELLED):
+            raise modules.CancelWorkflowEvaluation(
+                why=InvocationCancellationUserRequest(reason=CancelReason.user_request)
+            )
+        job_states = iteration_job_states(trans.sa_session, iteration.id)
+        for state in _FAILED_JOB_STATES:
+            if state in job_states:
+                raise modules.FailWorkflowEvaluation(
+                    why=InvocationFailureJobFailed(
+                        reason=FailureReason.job_failed,
+                        job_id=job_states[state],
+                        workflow_step_id=step.id,
+                        dependent_workflow_step_id=step.id,
+                    )
+                )
+        if iteration.state == WorkflowInvocation.states.FAILED:
+            raise loop_failure(step, f"The invocation of loop iteration {association.iteration} failed.")
+        if iteration.state not in (WorkflowInvocation.states.SCHEDULED, WorkflowInvocation.states.COMPLETED):
+            raise modules.DelayedWorkflowEvaluation(
+                why=f"Loop iteration {association.iteration} is being scheduled", inherited=True
+            )
+        unsettled = [job_id for state, job_id in job_states.items() if state not in _SETTLED_JOB_STATES]
+        if unsettled:
+            # Waiting on one job keeps this to one query per pass; the history's update time
+            # also wakes the invocation when other jobs finish.
+            raise modules.DelayedWorkflowEvaluation(
+                why=f"Loop iteration {association.iteration} has unfinished jobs",
+                dependencies=[SchedulingDependency(DependencyType.JOB, min(unsettled))],
+            )
+
+    def _invocation_stopping(self, trans: "WorkRequestContext") -> bool:
+        # Cancelling only sets the state; read it again so a cancel that arrived during
+        # this scheduling pass is seen before another iteration is created.
+        state = trans.sa_session.scalar(
+            select(WorkflowInvocation.state).where(WorkflowInvocation.id == self.workflow_invocation.id)
+        )
+        return state in (
+            WorkflowInvocation.states.CANCELLING,
+            WorkflowInvocation.states.CANCELLED,
+            WorkflowInvocation.states.FAILED,
+        )
+
+    def _allocate_loop_iteration(
+        self,
+        trans: "WorkRequestContext",
+        step: "WorkflowStep",
+        first_iteration: model.WorkflowInvocationToSubworkflowInvocationAssociation,
+        iteration: int,
+    ) -> model.WorkflowInvocationToSubworkflowInvocationAssociation:
+        # begin_nested() flushes pending state first; flush it here so that its errors are not
+        # taken for an existing iteration.
+        trans.sa_session.flush()
+        try:
+            with trans.sa_session.begin_nested():
+                subworkflow_invocation = copy_invocation_request(first_iteration.subworkflow_invocation)
+                subworkflow_invocation.handler = self.workflow_invocation.handler
+                subworkflow_invocation.scheduler = self.workflow_invocation.scheduler
+                association = self.workflow_invocation.attach_subworkflow_invocation_for_step(
+                    step, subworkflow_invocation
+                )
+                association.iteration = iteration
+        except IntegrityError:
+            # Another scheduling pass created this iteration; the next pass picks it up.
+            raise modules.DelayedWorkflowEvaluation(why=f"Loop iteration {iteration} already exists.")
+        return association
 
     def raw_to_galaxy(self, value: dict):
         trans = self.module_injector.trans

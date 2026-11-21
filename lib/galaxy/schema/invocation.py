@@ -92,6 +92,7 @@ class FailureReason(StrEnum):
     unexpected_failure = "unexpected_failure"
     workflow_parameter_invalid = "workflow_parameter_invalid"
     step_input_deleted = "step_input_deleted"
+    loop_failed = "loop_failed"
 
 
 # The reasons below are attached to the invocation and user-actionable.
@@ -108,6 +109,7 @@ FAILURE_REASONS_EXPECTED = (
     FailureReason.when_not_boolean,
     FailureReason.step_input_deleted,
     FailureReason.workflow_parameter_invalid,
+    FailureReason.loop_failed,
 )
 
 
@@ -260,6 +262,11 @@ class GenericInvocationFailureStepInputDeleted(InvocationFailureMessageBase[Data
     details: str = Field(..., description="Details about which input referenced a deleted dataset.")
 
 
+class GenericInvocationFailureLoopFailed(InvocationFailureMessageBase[DatabaseIdT], Generic[DatabaseIdT]):
+    reason: Literal[FailureReason.loop_failed]
+    details: str = Field(..., description="Why the workflow loop of this step failed.")
+
+
 InvocationCancellationReviewFailed = GenericInvocationCancellationReviewFailed[int]
 InvocationCancellationHistoryDeleted = GenericInvocationCancellationHistoryDeleted[int]
 InvocationCancellationUserRequest = GenericInvocationCancellationUserRequest[int]
@@ -273,6 +280,7 @@ InvocationUnexpectedFailure = GenericInvocationUnexpectedFailure[int]
 InvocationWarningWorkflowOutputNotFound = GenericInvocationEvaluationWarningWorkflowOutputNotFound[int]
 InvocationFailureWorkflowParameterInvalid = GenericInvocationFailureWorkflowParameterInvalid[int]
 InvocationFailureStepInputDeleted = GenericInvocationFailureStepInputDeleted[int]
+InvocationFailureLoopFailed = GenericInvocationFailureLoopFailed[int]
 
 InvocationMessageUnion = (
     InvocationCancellationReviewFailed
@@ -288,6 +296,7 @@ InvocationMessageUnion = (
     | InvocationWarningWorkflowOutputNotFound
     | InvocationFailureWorkflowParameterInvalid
     | InvocationFailureStepInputDeleted
+    | InvocationFailureLoopFailed
 )
 
 
@@ -310,6 +319,7 @@ InvocationFailureWorkflowParameterInvalidResponseModel = GenericInvocationFailur
     EncodedDatabaseIdField
 ]
 InvocationFailureStepInputDeletedResponseModel = GenericInvocationFailureStepInputDeleted[EncodedDatabaseIdField]
+InvocationFailureLoopFailedResponseModel = GenericInvocationFailureLoopFailed[EncodedDatabaseIdField]
 
 _InvocationMessageResponseUnion = Annotated[
     InvocationCancellationReviewFailedResponseModel
@@ -324,7 +334,8 @@ _InvocationMessageResponseUnion = Annotated[
     | InvocationUnexpectedFailureResponseModel
     | InvocationWarningWorkflowOutputNotFoundResponseModel
     | InvocationFailureWorkflowParameterInvalidResponseModel
-    | InvocationFailureStepInputDeletedResponseModel,
+    | InvocationFailureStepInputDeletedResponseModel
+    | InvocationFailureLoopFailedResponseModel,
     Field(discriminator="reason"),
 ]
 
@@ -364,6 +375,37 @@ class InvocationStepCollectionOutput(Model):
         ...,
         title="Dataset Collection ID",
         description="Dataset Collection ID of the workflow step output.",
+    )
+
+
+class LoopOutcome(StrEnum):
+    """What a workflow loop decided after one of its iterations."""
+
+    # The iteration finished and the test on the next iteration's inputs was true.
+    CONTINUE = "continue"
+    # The iteration finished and the test was false: its outputs are the step's outputs.
+    STOP = "stop"
+    # The test was false before the first iteration: no body job ran.
+    SKIPPED = "skipped"
+    # A body job failed, or the test or the feedback after the iteration failed.
+    FAILED = "failed"
+    # The test was true, but the server's iteration limit was reached.
+    LIMIT = "limit"
+
+
+class InvocationStepIteration(Model):
+    """One iteration of a workflow loop step"""
+
+    iteration: int = Field(..., title="Iteration", description="The number of the iteration, starting at 0.")
+    subworkflow_invocation_id: EncodedDatabaseIdField = Field(
+        ...,
+        title="Subworkflow invocation ID",
+        description="The encoded ID of the subworkflow invocation that runs this iteration.",
+    )
+    loop_outcome: LoopOutcome | None = Field(
+        default=None,
+        title="Loop outcome",
+        description="What the loop decided after this iteration. Null while the iteration runs.",
     )
 
 
@@ -437,6 +479,11 @@ class InvocationStep(Model, WithModelClass):
         None,
         title="Implicit Collection Jobs ID",
         description="The implicit collection job ID associated with the workflow invocation step.",
+    )
+    iterations: list[InvocationStepIteration] = Field(
+        [],
+        title="Iterations",
+        description="The iterations of a workflow loop step, in order. Empty for other steps.",
     )
 
 

@@ -343,6 +343,8 @@ class GalaxyAppConfigurationAttributes:
     parallelize_workflow_scheduling_within_histories: bool
     maximum_workflow_invocation_duration: int
     maximum_workflow_jobs_per_scheduling_iteration: int
+    enable_beta_workflow_loop: bool
+    workflow_loop_max_iterations: int
     flush_per_n_datasets: int
     max_discovered_files: int
     history_local_serial_workflow_scheduling: bool

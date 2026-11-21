@@ -45,6 +45,10 @@ from galaxy.tools.parameters.basic import (
 )
 from galaxy.tools.parameters.meta import expand_workflow_inputs
 from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
+from galaxy.workflow.loop import (
+    validate_loop_request,
+    validate_workflow_loops,
+)
 from galaxy.workflow.modules import (
     disconnected_required_subworkflow_inputs,
     disconnected_subworkflow_inputs_message,
@@ -369,6 +373,7 @@ def build_workflow_run_configs(
     if workflow.has_cycles:
         raise exceptions.MessageException("Workflow cannot be run because it contains cycles")
     _validate_subworkflow_input_connections(workflow)
+    validate_workflow_loops(workflow, app.config.enable_beta_workflow_loop)
 
     if "step_parameters" in payload and "parameters" in payload:
         raise exceptions.RequestParameterInvalidException(
@@ -552,6 +557,7 @@ def build_workflow_run_configs(
                 normalized_inputs[key] = value["content"]
             else:
                 normalized_inputs[key] = value
+        validate_loop_request(workflow, normalized_inputs)
         resource_params = payload.get("resource_params", {})
         if resource_params:
             # quick attempt to validate parameters, just handle select options now since is what
@@ -669,10 +675,12 @@ def workflow_run_config_to_request(
                 subworkflow_run_config,
                 subworkflow,
             )
-            workflow_invocation.attach_subworkflow_invocation_for_step(
+            association = workflow_invocation.attach_subworkflow_invocation_for_step(
                 step,
                 subworkflow_invocation,
             )
+            if step.loop is not None:
+                association.iteration = 0
 
     replacement_dict = run_config.replacement_dict
     for name, value in replacement_dict.items():

@@ -2482,6 +2482,18 @@ galaxy:
   # disable any such maximum.
   #maximum_workflow_jobs_per_scheduling_iteration: 1000
 
+  # Enable loops on workflow subworkflow steps (beta). A loop runs the
+  # subworkflow again and again, feeding outputs of one iteration into
+  # inputs of the next, until the step's ``when`` expression is false.
+  # With this option off, saving or running a workflow that contains a
+  # loop is refused.
+  #enable_beta_workflow_loop: false
+
+  # The maximum number of iterations of one workflow loop step. An
+  # invocation whose loop would need more iterations fails. Only used if
+  # ``enable_beta_workflow_loop`` is set.
+  #workflow_loop_max_iterations: 64
+
   # Maximum number of datasets to create before flushing created
   # datasets to database. This affects tools that create many output
   # datasets. Higher values will lead to fewer database flushes and

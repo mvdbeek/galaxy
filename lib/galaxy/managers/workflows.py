@@ -130,6 +130,12 @@ from galaxy.util.search import (
 )
 from galaxy.work.context import WorkRequestContext
 from galaxy.workflow.curated import parse_curated_search
+from galaxy.workflow.loop import (
+    check_loops_enabled,
+    parse_loop,
+    validate_workflow_loops,
+    workflow_has_loop,
+)
 from galaxy.workflow.modules import (
     ConnectedInputName,
     module_factory,
@@ -922,14 +928,16 @@ class WorkflowContentsManager(UsesAnnotations):
 
         as_dict = {"src": "from_path", "path": path}
         workflow_class, as_dict, object_id = artifact_class(trans, as_dict, allow_in_directory=allow_in_directory)
-        assert workflow_class == "GalaxyWorkflow"
-        # Format 2 Galaxy workflow.
-        galaxy_interface = None
-        import_options = ImportOptions()
-        import_options.deduplicate_subworkflows = True
-        # leave steps written without a position unplaced, so the editor lays them out
-        import_options.default_positions = False
-        as_dict = python_to_workflow(as_dict, galaxy_interface, workflow_directory=None, import_options=import_options)
+        if workflow_class == "GalaxyWorkflow":
+            # Format 2 Galaxy workflow.
+            galaxy_interface = None
+            import_options = ImportOptions()
+            import_options.deduplicate_subworkflows = True
+            # leave steps written without a position unplaced, so the editor lays them out
+            import_options.default_positions = False
+            as_dict = python_to_workflow(
+                as_dict, galaxy_interface, workflow_directory=None, import_options=import_options
+            )
         raw_description = RawWorkflowDescription(as_dict)
         created_workflow = self.build_workflow_from_raw_description(trans, raw_description, WorkflowCreateOptions())
         return created_workflow.workflow
@@ -1226,6 +1234,8 @@ class WorkflowContentsManager(UsesAnnotations):
 
         workflow.has_cycles = True
         workflow.steps = steps
+        if not is_subworkflow:
+            validate_workflow_loops(workflow, trans.app.config.enable_beta_workflow_loop)
         # Safeguard: workflow was implicitly merged into this Session prior to SQLAlchemy 2.0.
         # when AT LEAST ONE step in steps belonged to a session.
         for step in steps:
@@ -1286,6 +1296,10 @@ class WorkflowContentsManager(UsesAnnotations):
         """
 
         def to_format_2(wf_dict, **kwds):
+            if workflow_has_loop(workflow):
+                raise exceptions.RequestParameterInvalidException(
+                    "Workflows with a loop cannot be exported to format2 yet, export them as .ga instead."
+                )
             return from_galaxy_native(wf_dict, None, **kwds)
 
         if version is None and instance_id:
@@ -1718,6 +1732,7 @@ class WorkflowContentsManager(UsesAnnotations):
                 "post_job_actions": module.get_post_job_actions({}),
                 "uuid": str(step.uuid) if step.uuid else None,
                 "when": step.when_expression,
+                "loop": step.loop,
                 "workflow_outputs": [],
             }
             if tooltip:
@@ -1989,6 +2004,8 @@ class WorkflowContentsManager(UsesAnnotations):
                 "annotation": annotation_str,
                 "when": step.when_expression,
             }
+            if step.loop is not None:
+                step_dict["loop"] = step.loop
             if step.type == "tool":
                 step_dict["tool_id"] = content_id if allow_upgrade else step.effective_tool_id
                 step_dict["tool_uuid"] = str(step.tool_uuid) if step.tool_uuid else None
@@ -2205,6 +2222,7 @@ class WorkflowContentsManager(UsesAnnotations):
                 "tool_inputs": step.tool_inputs,
                 "input_steps": {},
                 "when": step.when_expression,
+                "loop": step.loop,
             }
 
             if step_type == "subworkflow":
@@ -2398,6 +2416,14 @@ class WorkflowContentsManager(UsesAnnotations):
 
         if "when" in step_dict:
             step.when_expression = step_dict["when"]
+        if step_dict.get("loop") is not None:
+            check_loops_enabled(trans.app.config.enable_beta_workflow_loop)
+            for input_name, input_dict in step_dict.get("in", {}).items():
+                if "value_from" in input_dict or "valueFrom" in input_dict:
+                    raise exceptions.RequestParameterInvalidException(
+                        f"A value_from on input '{input_name}' of a loop step is not supported yet."
+                    )
+            step.loop = parse_loop(step_dict["loop"]).model_dump(mode="json")
         if dry_run:
             # expunging doesn't cascade to the step's children, which may have followed it
             # into the session (e.g. a subworkflow step's workflow outputs)

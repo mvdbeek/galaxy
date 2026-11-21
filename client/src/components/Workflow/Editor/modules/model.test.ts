@@ -6,7 +6,7 @@ import { useWorkflowStateStore } from "@/stores/workflowEditorStateStore";
 import { useWorkflowStepStore } from "@/stores/workflowStepStore";
 
 import { createTestStep } from "../test_fixtures";
-import { fromSimple } from "./model";
+import { fromSimple, toSimple } from "./model";
 
 type Workflow = Parameters<typeof fromSimple>[1];
 
@@ -55,5 +55,31 @@ describe("fromSimple without positions", () => {
         await fromSimple("wf-laid", workflow([]));
         expect(useWorkflowStateStore("wf-laid").needsInitialLayout).toBe(false);
         expect(useWorkflowStepStore("wf-laid").steps[1]?.position).toEqual({ left: 200, top: 100 });
+    });
+});
+
+describe("loop settings", () => {
+    beforeEach(() => {
+        setActivePinia(createPinia());
+    });
+
+    it("keeps a step's loop through loading, a step update and saving", async () => {
+        const loop = { inputs: { i1: { output_source: "o1" } }, output_method: "last_iteration" };
+        const loaded = workflow([]);
+        loaded.steps[0] = { ...loaded.steps[0]!, type: "subworkflow", when: "$(inputs.i1 < 10)", loop };
+        await fromSimple("wf-loop", loaded);
+        const stepStore = useWorkflowStepStore("wf-loop");
+        stepStore.updateStep({ ...stepStore.steps[0]!, tool_state: { changed: true } });
+        const saved = toSimple("wf-loop", {
+            name: "loop",
+            annotation: "",
+            license: "",
+            creator: [],
+            steps: stepStore.steps,
+            comments: [],
+            tags: [],
+        });
+        expect(saved.steps[0]?.loop).toEqual(loop);
+        expect(saved.steps[0]?.when).toBe("$(inputs.i1 < 10)");
     });
 });

@@ -1,0 +1,25 @@
+<tool name="expression_add_int" id="expression_add_int" version="0.1.0" tool_type="expression">
+    <description>Add two integers</description>
+    <expression type="ecma5.1">
+        {var sum = $job.a + $job.b; return {'sum': sum, 'below_limit': sum &lt; $job.limit};}
+    </expression>
+    <inputs>
+        <param type="integer" label="Integer" name="a" />
+        <param type="integer" label="Integer to add" name="b" value="1" />
+        <param type="integer" label="Limit" name="limit" value="10" />
+    </inputs>
+    <outputs>
+        <output type="integer" name="sum" from="sum" />
+        <output type="boolean" name="below_limit" from="below_limit" />
+    </outputs>
+    <tests>
+        <test>
+            <param name="a" value_json="9" />
+            <output name="sum" value_json="10" />
+            <output name="below_limit" value_json="false" />
+        </test>
+    </tests>
+    <help><![CDATA[
+Add b to a, and tell whether the sum is below the limit.
+    ]]></help>
+</tool>

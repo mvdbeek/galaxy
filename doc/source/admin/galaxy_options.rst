@@ -4464,6 +4464,32 @@
 :Type: int
 
 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``enable_beta_workflow_loop``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    Enable loops on workflow subworkflow steps (beta). A loop runs the
+    subworkflow again and again, feeding outputs of one iteration into
+    inputs of the next, until the step's ``when`` expression is false.
+    With this option off, saving or running a workflow that contains a
+    loop is refused.
+:Default: ``false``
+:Type: bool
+
+
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``workflow_loop_max_iterations``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:Description:
+    The maximum number of iterations of one workflow loop step. An
+    invocation whose loop would need more iterations fails. Only used
+    if ``enable_beta_workflow_loop`` is set.
+:Default: ``64``
+:Type: int
+
+
 ~~~~~~~~~~~~~~~~~~~~~~~~
 ``flush_per_n_datasets``
 ~~~~~~~~~~~~~~~~~~~~~~~~

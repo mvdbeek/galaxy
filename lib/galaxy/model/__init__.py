@@ -11498,6 +11498,15 @@ class WorkflowInvocationStep(Base, Dictifiable, Serializable):
             rval["outputs"] = outputs
             rval["output_collections"] = output_collections
             rval["jobs"] = jobs
+        if self.workflow_step.loop is not None:
+            rval["iterations"] = [
+                {
+                    "iteration": association.iteration,
+                    "subworkflow_invocation_id": association.subworkflow_invocation_id,
+                    "loop_outcome": association.loop_outcome,
+                }
+                for association in self.workflow_invocation.iteration_associations(self.workflow_step)
+            ]
         return rval
 
 

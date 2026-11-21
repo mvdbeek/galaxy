@@ -1022,6 +1022,10 @@ class GalaxyAppConfiguration(GalaxyAppConfigurationAttributes, BaseAppConfigurat
             )
         if self.hash_function not in HashFunctionNameEnum.__members__:
             raise ConfigurationError(f"Unrecognized value for hash_function option: {self.hash_function}")
+        if self.workflow_loop_max_iterations < 1:
+            raise ConfigurationError(
+                f"workflow_loop_max_iterations must be at least 1, not {self.workflow_loop_max_iterations}"
+            )
         self.hash_function = HashFunctionNameEnum[self.hash_function]
         self.metadata_strategy = kwargs.get("metadata_strategy", "directory")
         self.use_remote_user = bool(self.use_remote_user or self.single_user)

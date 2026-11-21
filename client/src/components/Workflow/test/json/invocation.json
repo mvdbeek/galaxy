@@ -20,6 +20,7 @@
             "order_index": 0,
             "workflow_step_label": "input dataset",
             "jobs": [],
+            "iterations": [],
             "workflow_step_uuid": "161efd0b-9cdb-42eb-bc9a-fc529b1bb638",
             "outputs": {},
             "output_collections": {}

@@ -18044,6 +18044,29 @@ export interface components {
              */
             workflow_step_index_path?: number[] | null;
         };
+        /** InvocationFailureLoopFailedResponse */
+        InvocationFailureLoopFailedResponse: {
+            /**
+             * Details
+             * @description Why the workflow loop of this step failed.
+             */
+            details: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            reason: "loop_failed";
+            /**
+             * Workflow Step Id
+             * @description Workflow step id of step that failed.
+             */
+            workflow_step_id: number;
+            /**
+             * Workflow Step Index Path
+             * @description Path of workflow step IDs from parent workflow through subworkflows (excludes the failing step itself).
+             */
+            workflow_step_index_path?: number[] | null;
+        };
         /** InvocationFailureOutputNotFoundResponse */
         InvocationFailureOutputNotFoundResponse: {
             /**
@@ -18227,7 +18250,8 @@ export interface components {
             | components["schemas"]["InvocationUnexpectedFailureResponse"]
             | components["schemas"]["InvocationEvaluationWarningWorkflowOutputNotFoundResponse"]
             | components["schemas"]["InvocationFailureWorkflowParameterInvalidResponse"]
-            | components["schemas"]["InvocationFailureStepInputDeletedResponse"];
+            | components["schemas"]["InvocationFailureStepInputDeletedResponse"]
+            | components["schemas"]["InvocationFailureLoopFailedResponse"];
         /** InvocationOutput */
         InvocationOutput: {
             /**
@@ -18376,6 +18400,12 @@ export interface components {
              */
             implicit_collection_jobs_id?: string | null;
             /**
+             * Iterations
+             * @description The iterations of a workflow loop step, in order. Empty for other steps.
+             * @default []
+             */
+            iterations: components["schemas"]["InvocationStepIteration"][];
+            /**
              * Job ID
              * @description The encoded ID of the job associated with this workflow invocation step.
              */
@@ -18460,6 +18490,28 @@ export interface components {
              * @constant
              */
             src: "hdca";
+        };
+        /**
+         * InvocationStepIteration
+         * @description One iteration of a workflow loop step
+         */
+        InvocationStepIteration: {
+            /**
+             * Iteration
+             * @description The number of the iteration, starting at 0.
+             */
+            iteration: number;
+            /**
+             * Loop outcome
+             * @description What the loop decided after this iteration. Null while the iteration runs.
+             */
+            loop_outcome?: components["schemas"]["LoopOutcome"] | null;
+            /**
+             * Subworkflow invocation ID
+             * @description The encoded ID of the subworkflow invocation that runs this iteration.
+             * @example 0123456789ABCDEF
+             */
+            subworkflow_invocation_id: string;
         };
         /** InvocationStepJobsResponseCollectionJobsModel */
         InvocationStepJobsResponseCollectionJobsModel: {
@@ -20534,6 +20586,12 @@ export interface components {
              */
             system_logs?: string[] | null;
         };
+        /**
+         * LoopOutcome
+         * @description What a workflow loop decided after one of its iterations.
+         * @enum {string}
+         */
+        LoopOutcome: "continue" | "stop" | "skipped" | "failed" | "limit";
         /**
          * MandatoryNotificationCategory
          * @description These notification categories cannot be opt-out by the user.

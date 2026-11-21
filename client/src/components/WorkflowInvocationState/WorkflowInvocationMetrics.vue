@@ -9,6 +9,8 @@ import { getAppRoot } from "@/onload/loadConfig";
 import { useInvocationStore } from "@/stores/invocationStore";
 import { capitalizeFirstLetter } from "@/utils/strings";
 
+import { oneBasedStepIndex } from "./util";
+
 import LoadingSpan from "../LoadingSpan.vue";
 import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GDropdown from "@/components/BaseComponents/GDropdown.vue";
@@ -59,16 +61,7 @@ function itemToX(item: WorkflowJobMetric) {
     if (groupBy.value === "tool_id") {
         return item.tool_id;
     } else if (groupBy.value === "step_id") {
-        // Handle both int (top-level) and string (subworkflow) step indices
-        // API returns 0-based indices, display as 1-based
-        const stepDisplay =
-            typeof item.step_index === "number"
-                ? item.step_index + 1
-                : item.step_index
-                      .split(".")
-                      .map((part) => String(parseInt(part) + 1))
-                      .join(".");
-        return `${stepDisplay}: ${item.step_label || item.tool_id}`;
+        return `${oneBasedStepIndex(item.step_index)}: ${item.step_label || item.tool_id}`;
     } else {
         throw Error("Cannot happen");
     }

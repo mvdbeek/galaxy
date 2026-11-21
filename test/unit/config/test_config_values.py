@@ -204,3 +204,9 @@ class TestIsFetchWithCeleryEnabled:
         appconfig.enable_celery_tasks = True
         appconfig.celery_conf["task_routes"]["galaxy.fetch_data"] = config.DISABLED_FLAG
         assert not appconfig.is_fetch_with_celery_enabled()
+
+
+@pytest.mark.parametrize("maximum", [0, -1])
+def test_error_if_workflow_loop_max_iterations_below_one(maximum):
+    with pytest.raises(ConfigurationError):
+        config.GalaxyAppConfiguration(override_tempdir=False, workflow_loop_max_iterations=maximum)

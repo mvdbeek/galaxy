@@ -19,6 +19,7 @@ export const INVOCATION_MSG_LEVEL = {
     workflow_output_not_found: "warning",
     workflow_parameter_invalid: "error",
     step_input_deleted: "error",
+    loop_failed: "error",
 } as const satisfies Readonly<Record<string, "cancel" | "error" | "warning">>;
 
 function countStates(jobSummary: InvocationJobsSummary | StepJobSummary | null, queryStates: string[]): number {
@@ -113,4 +114,15 @@ export function getStepTitle(
         default:
             return `Step ${oneBasedStepIndex}: Unknown step type '${workflowStepType}'`;
     }
+}
+
+/**
+ * Show a 0-based job metrics step index, such as `1`, `"1.2"` or `"1[3].0"` (a step of iteration 3 of
+ * loop step 1), with 1-based step numbers. Loop iteration numbers are shown unchanged.
+ */
+export function oneBasedStepIndex(stepIndex: number | string): string {
+    if (typeof stepIndex === "number") {
+        return String(stepIndex + 1);
+    }
+    return stepIndex.replace(/\d+(?![^[]*\])/g, (part) => String(parseInt(part) + 1));
 }

@@ -836,6 +836,29 @@ def workflow_step_name(step: WorkflowStep) -> str:
     return str(name or step.order_index + 1)
 
 
+def subworkflow_step_outputs(step: WorkflowStep, subworkflow_progress: "WorkflowProgress") -> dict[str, Any]:
+    """Return the outputs of a subworkflow step from the progress of its subworkflow invocation."""
+    assert step.subworkflow
+    outputs = {}
+    for workflow_output in step.subworkflow.workflow_outputs:
+        workflow_output_label = (
+            workflow_output.label or f"{workflow_output.workflow_step.order_index}:{workflow_output.output_name}"
+        )
+        try:
+            replacement = subworkflow_progress.get_replacement_workflow_output(workflow_output)
+        except KeyError:
+            raise FailWorkflowEvaluation(
+                why=InvocationFailureOutputNotFound(
+                    reason=FailureReason.output_not_found,
+                    workflow_step_id=workflow_output.workflow_step_id,
+                    output_name=workflow_output.output_name,
+                    dependent_workflow_step_id=step.id,
+                )
+            )
+        outputs[workflow_output_label] = replacement
+    return outputs
+
+
 def disconnected_required_subworkflow_inputs(step: WorkflowStep, subworkflow: Workflow) -> list[WorkflowStep]:
     """Return the required input steps of ``subworkflow`` without a default that ``step`` doesn't connect."""
     connected_input_step_ids = {connection.input_subworkflow_step_id for connection in step.input_connections}
@@ -1025,6 +1048,9 @@ class SubWorkflowModule(WorkflowModule):
         step = invocation_step.workflow_step
         all_inputs = self.get_all_inputs()
         collection_info = self.plan_map_over(progress, step, all_inputs)
+        if step.loop is not None:
+            progress.execute_loop(trans, invocation_step, collection_info, use_cached_job=use_cached_job)
+            return None
 
         if collection_info:
             iteration_elements_iter = collection_info.slice_collections()
@@ -1069,27 +1095,8 @@ class SubWorkflowModule(WorkflowModule):
             when_values=when_values,
         )
         subworkflow_invoker.invoke()
-        subworkflow = subworkflow_invoker.workflow
-        subworkflow_progress = subworkflow_invoker.progress
-        progress.record_subworkflow_delays(subworkflow_progress)
-        outputs = {}
-        for workflow_output in subworkflow.workflow_outputs:
-            workflow_output_label = (
-                workflow_output.label or f"{workflow_output.workflow_step.order_index}:{workflow_output.output_name}"
-            )
-            try:
-                replacement = subworkflow_progress.get_replacement_workflow_output(workflow_output)
-            except KeyError:
-                raise FailWorkflowEvaluation(
-                    why=InvocationFailureOutputNotFound(
-                        reason=FailureReason.output_not_found,
-                        workflow_step_id=workflow_output.workflow_step_id,
-                        output_name=workflow_output.output_name,
-                        dependent_workflow_step_id=step.id,
-                    )
-                )
-            outputs[workflow_output_label] = replacement
-        progress.set_step_outputs(invocation_step, outputs)
+        progress.record_subworkflow_delays(subworkflow_invoker.progress)
+        progress.set_step_outputs(invocation_step, subworkflow_step_outputs(step, subworkflow_invoker.progress))
         return None
 
     def get_runtime_state(self):

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import type { StepJobSummary } from "@/api/invocations";
 
-import { getStepTitle, isTerminal, numTerminal } from "./util";
+import { getStepTitle, isTerminal, numTerminal, oneBasedStepIndex } from "./util";
 
 describe("getStepTitle", () => {
     it("uses label when provided, regardless of type", () => {
@@ -69,5 +69,18 @@ describe("numTerminal / isTerminal", () => {
 
         expect(numTerminal(fullyDoneCollectionStep)).toBe(3);
         expect(isTerminal(fullyDoneCollectionStep)).toBe(true);
+    });
+});
+
+describe("oneBasedStepIndex", () => {
+    it("shows top-level and subworkflow steps 1-based", () => {
+        expect(oneBasedStepIndex(0)).toBe("1");
+        expect(oneBasedStepIndex("1.0")).toBe("2.1");
+        expect(oneBasedStepIndex("1.2.10")).toBe("2.3.11");
+    });
+
+    it("keeps loop iteration numbers", () => {
+        expect(oneBasedStepIndex("1[3].0")).toBe("2[3].1");
+        expect(oneBasedStepIndex("1[0].2[12].3")).toBe("2[0].3[12].4");
     });
 });

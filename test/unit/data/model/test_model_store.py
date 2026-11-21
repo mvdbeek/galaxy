@@ -2224,3 +2224,26 @@ def import_archive(archive_path, app, user, import_options=None):
     shutil.rmtree(dest_parent)
 
     return new_history
+
+
+def test_import_reads_ga_only_for_loop_workflows(tmp_path):
+    workflows = tmp_path / "workflows"
+    workflows.mkdir()
+    loop_step = {"type": "subworkflow", "subworkflow": {"steps": {"0": {"type": "subworkflow", "loop": {}}}}}
+    for key, steps in (("plain", {"0": {"type": "tool", "loop": None}}), ("loop", {"0": loop_step})):
+        (workflows / f"{key}.gxwf.yml").write_text("class: GalaxyWorkflow")
+        (workflows / f"{key}.ga").write_text(json.dumps({"steps": steps}))
+    for key in ("unreadable", "not_a_dict", "directory"):
+        (workflows / f"{key}.gxwf.yml").write_text("class: GalaxyWorkflow")
+    (workflows / "unreadable.ga").write_text("not json")
+    (workflows / "not_a_dict.ga").write_text("[]")
+    (workflows / "directory.ga").mkdir()
+    import_store = store.DirectoryImportModelStoreLatest(str(tmp_path))
+    workflows_directory = os.path.join(import_store.archive_dir, "workflows")
+    assert dict(import_store.workflow_paths()) == {
+        "plain": os.path.join(workflows_directory, "plain.gxwf.yml"),
+        "loop": os.path.join(workflows_directory, "loop.ga"),
+        "unreadable": os.path.join(workflows_directory, "unreadable.gxwf.yml"),
+        "not_a_dict": os.path.join(workflows_directory, "not_a_dict.gxwf.yml"),
+        "directory": os.path.join(workflows_directory, "directory.gxwf.yml"),
+    }

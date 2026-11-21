@@ -218,6 +218,12 @@ const messageInfo = computed(() => {
             suffix: "has been deleted.",
             hasStepPath: true,
         };
+    } else if (reason === "loop_failed") {
+        return {
+            prefix: `${FAIL_FRAGMENT}the loop of`,
+            suffix: `failed: ${invocationMessage.details}`,
+            hasStepPath: true,
+        };
     } else {
         return { text: reason, hasStepPath: false };
     }

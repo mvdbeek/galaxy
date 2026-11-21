@@ -118,6 +118,8 @@ export interface NewStep {
     type: "tool" | "data_input" | "data_collection_input" | "subworkflow" | "parameter_input" | "pause" | "pick_value";
     uuid?: string;
     when?: string | null;
+    /** Loop settings of a subworkflow step, kept as the server sends them. */
+    loop?: Record<string, unknown> | null;
     workflow_id?: string;
     workflow_outputs?: WorkflowOutput[];
 }
