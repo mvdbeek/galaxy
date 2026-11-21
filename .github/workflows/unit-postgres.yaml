@@ -69,6 +69,9 @@ jobs:
       - name: Run job handler ready window tests
         run: ./run_tests.sh -unit test/unit/app/jobs/test_handler.py
         working-directory: 'galaxy root'
+      - name: Run workflow invocation iteration tests
+        run: ./run_tests.sh -unit test/unit/data/model/db/test_workflow_invocation_iterations.py
+        working-directory: 'galaxy root'
       - name: Run concurrent HDA copy_from tests
         run: ./run_tests.sh -unit test/unit/data/test_hda_copy_from.py
         working-directory: 'galaxy root'

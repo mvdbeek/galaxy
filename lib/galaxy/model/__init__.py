@@ -9791,6 +9791,7 @@ class WorkflowStep(Base, RepresentById, UsesCreateAndUpdateTime):
     config: Mapped[bytes | None] = mapped_column(JSONType)
     order_index: Mapped[int]
     when_expression: Mapped[bytes | None] = mapped_column(JSONType)
+    loop: Mapped[dict[str, Any] | None] = mapped_column(JSONType)
     uuid: Mapped[UUID | str | None] = mapped_column(UUIDType)
     label: Mapped[str | None] = mapped_column(Unicode(255))
     temp_input_connections = None
@@ -10040,6 +10041,7 @@ class WorkflowStep(Base, RepresentById, UsesCreateAndUpdateTime):
         copied_step.config = self.config
         copied_step.label = self.label
         copied_step.when_expression = self.when_expression
+        copied_step.loop = self.loop
         copied_step.inputs = copy_list(self.inputs, copied_step)
 
         subworkflow_step_mapping = {}
@@ -10505,13 +10507,19 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         return assoc.subworkflow_invocation
 
     def get_subworkflow_invocation_association_for_step(self, step):
+        """Return the association with the highest iteration, the one ``subworkflow_invocation_id`` points to."""
         assert step.type == "subworkflow"
-        assoc = None
-        for subworkflow_invocation in self.subworkflow_invocations:
-            if subworkflow_invocation.workflow_step == step:
-                assoc = subworkflow_invocation
-                break
-        return assoc
+        return max(
+            self.iteration_associations(step),
+            key=lambda assoc: (-1 if assoc.iteration is None else assoc.iteration, assoc.id or 0),
+            default=None,
+        )
+
+    def iteration_associations(
+        self, step: "WorkflowStep"
+    ) -> list["WorkflowInvocationToSubworkflowInvocationAssociation"]:
+        associations = [assoc for assoc in self.subworkflow_invocations if assoc.workflow_step_id == step.id]
+        return sorted(associations, key=lambda assoc: -1 if assoc.iteration is None else assoc.iteration)
 
     @property
     def active(self):
@@ -10550,13 +10558,9 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
         def collect_jobs(inv: "WorkflowInvocation") -> None:
             for step in inv.steps:
                 if step.workflow_step.type == "subworkflow":
-                    # Recursively collect from subworkflow
-                    subworkflow_assoc = next(
-                        (s for s in inv.subworkflow_invocations if s.workflow_step_id == step.workflow_step_id),
-                        None,
-                    )
-                    if subworkflow_assoc:
-                        collect_jobs(subworkflow_assoc.subworkflow_invocation)
+                    for subworkflow_assoc in inv.subworkflow_invocations:
+                        if subworkflow_assoc.workflow_step_id == step.workflow_step_id:
+                            collect_jobs(subworkflow_assoc.subworkflow_invocation)
                 elif step.implicit_collection_jobs:
                     for state, count in step.implicit_collection_jobs.job_state_counts().items():
                         summary[state] = summary.get(state, 0) + count
@@ -10853,6 +10857,8 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
             subworkflow_invocations.append(
                 {
                     "order_index": subworkflow_invocation_assoc.workflow_step.order_index,
+                    "iteration": subworkflow_invocation_assoc.iteration,
+                    "loop_outcome": subworkflow_invocation_assoc.loop_outcome,
                     "subworkflow_invocation": subworkflow_invocation_assoc.subworkflow_invocation.serialize(
                         id_encoder, serialization_options, for_link=True
                     ),
@@ -11102,15 +11108,20 @@ class WorkflowInvocation(Base, UsesCreateAndUpdateTime, Dictifiable, Serializabl
 
 class WorkflowInvocationToSubworkflowInvocationAssociation(Base, Dictifiable, RepresentById):
     __tablename__ = "workflow_invocation_to_subworkflow_invocation_association"
+    __table_args__ = (
+        Index("ix_wfi_swi_wfi_ws_iteration", "workflow_invocation_id", "workflow_step_id", "iteration", unique=True),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True)
     workflow_invocation_id: Mapped[int | None] = mapped_column(
-        ForeignKey("workflow_invocation.id", name="fk_wfi_swi_wfi"), index=True
+        ForeignKey("workflow_invocation.id", name="fk_wfi_swi_wfi")
     )
     subworkflow_invocation_id: Mapped[int | None] = mapped_column(
         ForeignKey("workflow_invocation.id", name="fk_wfi_swi_swi"), index=True
     )
     workflow_step_id: Mapped[int | None] = mapped_column(ForeignKey("workflow_step.id", name="fk_wfi_swi_ws"))
+    iteration: Mapped[int | None]
+    loop_outcome: Mapped[str | None] = mapped_column(String(64))
 
     subworkflow_invocation = relationship(
         "WorkflowInvocation",
@@ -11275,6 +11286,11 @@ class WorkflowInvocationStep(Base, Dictifiable, Serializable):
                 WorkflowInvocationToSubworkflowInvocationAssociation.workflow_step_id == workflow_step_id,
             )
         )
+        .order_by(
+            WorkflowInvocationToSubworkflowInvocationAssociation.iteration.desc().nulls_last(),
+            WorkflowInvocationToSubworkflowInvocationAssociation.id.desc(),
+        )
+        .limit(1)
         .scalar_subquery(),
     )
 
@@ -11356,24 +11372,18 @@ class WorkflowInvocationStep(Base, Dictifiable, Serializable):
 
     def _is_subworkflow_step_complete(self) -> bool:
         """Check if a subworkflow step is complete."""
-        # Find the subworkflow invocation associated with this step
-        subworkflow_assoc = next(
-            (
-                s
-                for s in self.workflow_invocation.subworkflow_invocations
-                if s.workflow_step_id == self.workflow_step_id
-            ),
-            None,
-        )
+        sub_invocations = [
+            s.subworkflow_invocation
+            for s in self.workflow_invocation.subworkflow_invocations
+            if s.workflow_step_id == self.workflow_step_id
+        ]
 
-        if not subworkflow_assoc:
+        if not sub_invocations:
             # No subworkflow invocation found - step may not have been executed yet
             return False
 
-        sub_invocation = subworkflow_assoc.subworkflow_invocation
-
-        # The child must have its completion recorded before the parent can complete.
-        return sub_invocation.state == InvocationState.COMPLETED.value
+        # Every child must have its completion recorded before the parent can complete.
+        return all(sub_invocation.state == InvocationState.COMPLETED.value for sub_invocation in sub_invocations)
 
     @property
     def preferred_object_stores(self) -> WorkflowInvocationStepObjectStores:

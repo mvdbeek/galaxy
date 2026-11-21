@@ -553,6 +553,49 @@ def test_import_export_invocation():
     import_model_store.perform_import(history=h2)
 
 
+@pytest.mark.parametrize("archive_has_loop_keys", [True, False])
+def test_import_export_invocation_iterations(tmp_path, archive_has_loop_keys):
+    app = _mock_app()
+    sa_session = app.model.context
+    workflow_invocation = _setup_invocation_with_iterations(app)
+    with store.DirectoryModelExportStore(tmp_path, app=app) as export_store:
+        export_store.export_workflow_invocation(workflow_invocation)
+
+    invocations_attrs_path = tmp_path / store.ATTRS_FILENAME_INVOCATIONS
+    invocations_attrs = json.loads(invocations_attrs_path.read_text())
+    (parent_attrs,) = (attrs for attrs in invocations_attrs if attrs["subworkflow_invocations"])
+    assert [(link["iteration"], link["loop_outcome"]) for link in parent_attrs["subworkflow_invocations"]] == [
+        (0, "continue"),
+        (1, "continue"),
+        (2, "stop"),
+    ]
+    if not archive_has_loop_keys:
+        for link in parent_attrs["subworkflow_invocations"]:
+            del link["iteration"]
+            del link["loop_outcome"]
+        invocations_attrs_path.write_text(json.dumps(invocations_attrs))
+
+    h2 = model.History(user=workflow_invocation.history.user)
+    sa_session.add(h2)
+    app.commit()
+    import_model_store = store.get_import_model_store_for_directory(
+        tmp_path, app=app, user=workflow_invocation.history.user, import_options=store.ImportOptions()
+    )
+    import_model_store.perform_import(history=h2)
+    app.commit()
+
+    imported_invocations = sa_session.scalars(
+        select(model.WorkflowInvocation).where(model.WorkflowInvocation.history_id == h2.id)
+    ).all()
+    assert len(imported_invocations) == 4
+    (imported_parent,) = (invocation for invocation in imported_invocations if invocation.subworkflow_invocations)
+    imported_links = sorted((assoc.iteration, assoc.loop_outcome) for assoc in imported_parent.subworkflow_invocations)
+    if archive_has_loop_keys:
+        assert imported_links == [(0, "continue"), (1, "continue"), (2, "stop")]
+    else:
+        assert imported_links == [(None, None)] * 3
+
+
 def validate_crate_metadata(as_dict):
     assert as_dict["@context"] == "https://w3id.org/ro/crate/1.1/context"
 
@@ -1851,6 +1894,40 @@ def _setup_invocation(app):
     # Commit the workflow and invocation
     app.add_and_commit(workflow_invocation)
 
+    return workflow_invocation
+
+
+def _setup_invocation_with_iterations(app):
+    u, h, _, _, _ = _setup_simple_cat_job(app)
+
+    body_workflow = model.Workflow()
+    body_step = model.WorkflowStep()
+    body_step.order_index = 0
+    body_step.type = "tool"
+    body_step.tool_id = "cat1"
+    body_workflow.steps.append(body_step)
+
+    loop_step = model.WorkflowStep()
+    loop_step.order_index = 0
+    loop_step.type = "subworkflow"
+    loop_step.subworkflow = body_workflow
+    workflow = _workflow_from_steps(u, [loop_step])
+
+    workflow_invocation = _invocation_for_workflow(u, workflow)
+    workflow_invocation.history = h
+    loop_invocation_step = model.WorkflowInvocationStep()
+    loop_invocation_step.workflow_step = loop_step
+    workflow_invocation.steps = [loop_invocation_step]
+    for iteration, loop_outcome in enumerate(["continue", "continue", "stop"]):
+        child = model.WorkflowInvocation()
+        child.state = "scheduled"
+        child_step = model.WorkflowInvocationStep()
+        child_step.workflow_step = body_step
+        child.steps = [child_step]
+        assoc = workflow_invocation.attach_subworkflow_invocation_for_step(loop_step, child)
+        assoc.iteration = iteration
+        assoc.loop_outcome = loop_outcome
+    app.add_and_commit(workflow_invocation)
     return workflow_invocation
 
 

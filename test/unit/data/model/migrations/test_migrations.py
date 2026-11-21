@@ -10,7 +10,10 @@ from sqlalchemy import (
     select,
     text,
 )
-from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import (
+    DBAPIError,
+    IntegrityError,
+)
 from sqlalchemy.orm import Session
 
 import galaxy.model.migrations.scripts
@@ -134,6 +137,77 @@ def test_drop_annotation_indexes(url_factory, legacy_index_names):  # noqa: F811
             session.commit()
             for annotation_model in ANNOTATION_MODELS:
                 assert LONG_ANNOTATION in session.scalars(select(annotation_model.annotation)).all()
+
+
+WORKFLOW_LOOP_PARENT_REVISION = "b9467a8c12de"
+SUBWORKFLOW_ASSOCIATION_TABLE = "workflow_invocation_to_subworkflow_invocation_association"
+
+
+def _column_names(engine, table_name) -> set[str]:
+    return {column["name"] for column in inspect(engine).get_columns(table_name)}
+
+
+def _index_definitions(engine, table_name) -> set[tuple[str, tuple[str, ...], bool]]:
+    indexes = inspect(engine).get_indexes(table_name)
+    return {(index["name"], tuple(index["column_names"]), bool(index["unique"])) for index in indexes}
+
+
+def _add_subworkflow_associations(engine, iterations) -> None:
+    with Session(engine) as session:
+        workflow = model.Workflow()
+        step = model.WorkflowStep()
+        step.order_index = 0
+        step.type = "subworkflow"
+        step.subworkflow = model.Workflow()
+        workflow.steps.append(step)
+        invocation = model.WorkflowInvocation()
+        invocation.workflow = workflow
+        for iteration in iterations:
+            child = model.WorkflowInvocation()
+            child.workflow = workflow
+            association = invocation.attach_subworkflow_invocation_for_step(step, child)
+            association.iteration = iteration
+        session.add(invocation)
+        session.commit()
+
+
+def test_workflow_loop_columns(url_factory):  # noqa: F811
+    """Downgrade below the loop revision, upgrade again, and check which iterations the index admits."""
+    db_url = url_factory()
+    with create_and_drop_database(db_url), disposing_engine(db_url) as engine:
+        model.Base.metadata.create_all(engine)
+        manager = AlembicManager(engine)
+        manager.stamp_model_head(GXY)
+        alembic.command.downgrade(manager.alembic_cfg, WORKFLOW_LOOP_PARENT_REVISION)
+
+        assert "loop" not in _column_names(engine, "workflow_step")
+        assert not {"iteration", "loop_outcome"} & _column_names(engine, SUBWORKFLOW_ASSOCIATION_TABLE)
+        indexes_before = _index_definitions(engine, SUBWORKFLOW_ASSOCIATION_TABLE)
+        assert "ix_wfi_swi_wfi_ws_iteration" not in {name for name, _, _ in indexes_before}
+        invocation_index = ("ix_wfi_swi_wfi", ("workflow_invocation_id",), False)
+        assert invocation_index in indexes_before
+
+        manager.upgrade(GXY)
+
+        assert "loop" in _column_names(engine, "workflow_step")
+        assert {"iteration", "loop_outcome"} <= _column_names(engine, SUBWORKFLOW_ASSOCIATION_TABLE)
+        # The iteration index replaces the index on workflow_invocation_id.
+        assert _index_definitions(engine, SUBWORKFLOW_ASSOCIATION_TABLE) == indexes_before - {invocation_index} | {
+            ("ix_wfi_swi_wfi_ws_iteration", ("workflow_invocation_id", "workflow_step_id", "iteration"), True)
+        }
+        _add_subworkflow_associations(engine, [None, None])
+        _add_subworkflow_associations(engine, [0, 1, 2])
+        with pytest.raises(IntegrityError) as error:
+            _add_subworkflow_associations(engine, [0, 0])
+        assert "unique" in str(error.value.orig).lower()
+
+        alembic.command.downgrade(manager.alembic_cfg, WORKFLOW_LOOP_PARENT_REVISION)
+
+        assert "loop" not in _column_names(engine, "workflow_step")
+        assert not {"iteration", "loop_outcome"} & _column_names(engine, SUBWORKFLOW_ASSOCIATION_TABLE)
+        assert _index_definitions(engine, SUBWORKFLOW_ASSOCIATION_TABLE) == indexes_before
+        with engine.connect() as conn:
+            assert conn.scalar(text(f"SELECT COUNT(*) FROM {SUBWORKFLOW_ASSOCIATION_TABLE}")) == 5
 
 
 class TestAlembicManager:

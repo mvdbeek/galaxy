@@ -1,6 +1,7 @@
 import hashlib
 import json
 import logging
+import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import (
@@ -1631,10 +1632,20 @@ def invocation_job_source_iter(sa_session, invocation_id):
             model.WorkflowInvocationStep.job_id,
             model.WorkflowInvocationStep.implicit_collection_jobs_id,
             model.WorkflowInvocationStep.state,
-            model.WorkflowInvocationStep.subworkflow_invocation_id,
+            WorkflowInvocationToSubworkflowInvocationAssociation.subworkflow_invocation_id,
         )
         .select_from(join)
+        .outerjoin(
+            WorkflowInvocationToSubworkflowInvocationAssociation,
+            and_(
+                WorkflowInvocationToSubworkflowInvocationAssociation.workflow_invocation_id
+                == model.WorkflowInvocationStep.workflow_invocation_id,
+                WorkflowInvocationToSubworkflowInvocationAssociation.workflow_step_id
+                == model.WorkflowInvocationStep.workflow_step_id,
+            ),
+        )
         .where(model.WorkflowInvocation.id == invocation_id)
+        .order_by(model.WorkflowInvocationStep.id, WorkflowInvocationToSubworkflowInvocationAssociation.iteration)
     )
     for row in sa_session.execute(statement):
         if row[0]:  # job_id
@@ -1692,7 +1703,7 @@ def _get_job_metrics_recursive(
     Args:
         sa_session: Database session
         invocation_id: Invocation to get metrics for
-        parent_step_prefix: String prefix for hierarchical indexing (e.g., "1" or "1.2") or None
+        parent_step_prefix: String prefix for hierarchical indexing (e.g., "1", "1.2" or "1[3].2") or None
 
     Returns:
         List of tuples: (step_index, job_id, tool_id, step_label, JobMetricNumeric)
@@ -1716,6 +1727,7 @@ def _get_job_metrics_recursive(
             WorkflowStep.order_index,
             WorkflowStep.label,
             WorkflowInvocationToSubworkflowInvocationAssociation.subworkflow_invocation_id,
+            WorkflowInvocationToSubworkflowInvocationAssociation.iteration,
         )
         .select_from(WorkflowInvocationToSubworkflowInvocationAssociation)
         .join(
@@ -1736,7 +1748,7 @@ def _get_job_metrics_recursive(
     )
 
     for row in sa_session.execute(subworkflow_query):
-        step_order_index, _, subworkflow_inv_id = row
+        step_order_index, _, subworkflow_inv_id, iteration = row
         # Build hierarchical prefix
         if parent_step_prefix is not None:
             # Nested subworkflow: e.g., "1.2" + ".0" = "1.2.0"
@@ -1744,6 +1756,9 @@ def _get_job_metrics_recursive(
         else:
             # Top-level subworkflow: e.g., "1"
             step_prefix = str(step_order_index)
+        if iteration is not None:
+            # Loop iteration: e.g., "1" + "[3]" = "1[3]"
+            step_prefix = f"{step_prefix}[{iteration}]"
 
         # Recursive call
         subworkflow_metrics = _get_job_metrics_recursive(
@@ -1759,15 +1774,15 @@ def _get_job_metrics_recursive(
 def get_job_metrics_for_invocation(sa_session: galaxy_scoped_session, invocation_id: int):
     all_metrics = _get_job_metrics_recursive(sa_session, invocation_id)
     # Sort by step_index with custom key to handle both int and str
-    # For strings like "1.0", split and convert to tuple of ints for proper sorting
+    # For strings like "1.0" or "1[3].0", convert to tuple of ints for proper sorting
 
     def sort_key(row):
         step_index = row[0]
         if isinstance(step_index, int):
             return (step_index,)  # Single-element tuple for top-level
         else:
-            # Convert "1.0" -> (1, 0) for proper hierarchical sorting
-            return tuple(int(x) for x in step_index.split("."))
+            # Convert "1.0" -> (1, 0) and "1[3].0" -> (1, 3, 0) for proper hierarchical sorting
+            return tuple(int(x) for x in re.findall(r"\d+", step_index))
 
     return sorted(all_metrics, key=sort_key)
 

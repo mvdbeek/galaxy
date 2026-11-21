@@ -1493,6 +1493,8 @@ class ModelImportStore(metaclass=abc.ABCMeta):
                 assoc.workflow_invocation_id = parent_invocation.id
                 assoc.subworkflow_invocation_id = subworkflow_invocation.id
                 assoc.workflow_step = workflow_step
+                assoc.iteration = subworkflow_invocation_attrs.get("iteration")
+                assoc.loop_outcome = subworkflow_invocation_attrs.get("loop_outcome")
                 self._session_add(assoc)
 
     def _import_jobs(self, object_import_tracker: "ObjectImportTracker", history: model.History | None) -> None:
