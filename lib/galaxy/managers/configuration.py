@@ -173,6 +173,7 @@ class ConfigSerializer(base.ModelSerializer):
             "curated_workflows_source": _use_config,
             "enable_unique_workflow_defaults": _use_config,
             "enable_beta_markdown_export": _use_config,
+            "enable_beta_workflow_loop": _use_config,
             "enable_beacon_integration": _use_config,
             "simplified_workflow_run_ui": _use_config,
             "simplified_workflow_run_ui_target_history": _use_config,

@@ -9,6 +9,7 @@ from ._framework import ApiTestCase
 TEST_KEYS_FOR_ALL_USERS = [
     "curated_workflows_source",
     "enable_unique_workflow_defaults",
+    "enable_beta_workflow_loop",
     "ftp_upload_site",
     "wiki_url",
     "support_url",

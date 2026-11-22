@@ -236,6 +236,11 @@ class BaseWorkflowLoopIntegrationTestCase(integration_util.IntegrationTestCase):
 
 
 class TestWorkflowLoop(BaseWorkflowLoopIntegrationTestCase):
+    def test_configuration_tells_the_editor_loops_are_enabled(self):
+        response = self._get("configuration")
+        self._assert_status_code_is(response, 200)
+        assert response.json()["enable_beta_workflow_loop"] is True
+
     def test_loop_single_variable(self):
         summary = self._run(single_loop_workflow("$(inputs.i1 < 10)"), {"i1": {"value": 1, "type": "raw"}})
         assert self._output_value(summary, "o1") == 10
