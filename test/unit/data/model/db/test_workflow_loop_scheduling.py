@@ -22,10 +22,13 @@ from galaxy.model.unittest_utils.model_testing_utils import (  # noqa: F401  (ur
     create_and_drop_database,
     url,
 )
+from galaxy.schema.invocation import FailureReason
 from galaxy.schema.states import InvocationState
+from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.util.bunch import Bunch
 from galaxy.workflow import modules
 from galaxy.workflow.loop import (
+    all_iterations_outputs,
     iteration_job_states,
     parse_loop,
     record_loop_inputs,
@@ -171,6 +174,97 @@ def test_cancelled_iteration_cancels_the_loop_whatever_its_jobs(session):
         progress._check_loop_iteration_settled(cast(Any, Bunch(sa_session=session)), loop_step, association)
 
 
+def _list(identifiers: list[str]) -> m.HistoryDatasetCollectionAssociation:
+    collection = m.DatasetCollection(collection_type="list")
+    for identifier in identifiers:
+        m.DatasetCollectionElement(collection=collection, element=_dataset(), element_identifier=identifier)
+    return m.HistoryDatasetCollectionAssociation(collection=collection)
+
+
+def _dataset() -> m.HistoryDatasetAssociation:
+    return m.HistoryDatasetAssociation(create_dataset=True, flush=False)
+
+
+def _loop_step_with_outputs(session: Session, labels: list[str]) -> tuple[m.WorkflowStep, m.History]:
+    history = m.History(user=m.User(email=f"{uuid4()}@example.org", password="password"))
+    workflow = m.Workflow()
+    loop_step = m.WorkflowStep()
+    loop_step.order_index = 0
+    loop_step.type = "subworkflow"
+    loop_step.subworkflow = m.Workflow()
+    workflow.steps.append(loop_step)
+    for order_index, label in enumerate(labels):
+        body_step = m.WorkflowStep()
+        body_step.order_index = order_index
+        body_step.type = "tool"
+        m.WorkflowOutput(body_step, output_name="sum", label=label)
+        loop_step.subworkflow.steps.append(body_step)
+    session.add_all([history, workflow])
+    # PostgreSQL takes new hids on a separate connection, which only sees committed rows.
+    session.commit()
+    return loop_step, history
+
+
+def _all_iterations(
+    session: Session, outputs_per_iteration: list[dict[str, Any]], skipped: dict[str, Any] | None = None
+) -> m.HistoryDatasetCollectionAssociation:
+    loop_step, history = _loop_step_with_outputs(session, ["o1"])
+    return all_iterations_outputs(loop_step, history, outputs_per_iteration, skipped or {})["o1"]
+
+
+def test_all_iterations_builds_nothing_when_an_output_fails(session):
+    loop_step, history = _loop_step_with_outputs(session, ["o1", "o2"])
+    outputs_per_iteration: list[dict[str, Any]] = [
+        {"o1": _dataset(), "o2": _dataset()},
+        {"o1": _dataset(), "o2": NO_REPLACEMENT},
+    ]
+    with pytest.raises(modules.FailWorkflowEvaluation):
+        all_iterations_outputs(loop_step, history, outputs_per_iteration, {})
+    assert list(history.dataset_collections) == []
+
+
+def test_all_iterations_of_datasets_is_a_list_by_iteration(session):
+    datasets = [_dataset(), _dataset(), _dataset()]
+    hdca = _all_iterations(session, [{"o1": dataset} for dataset in datasets])
+    session.flush()
+    assert hdca.collection.collection_type == "list"
+    assert [(element.element_identifier, element.hda) for element in hdca.collection.elements] == [
+        ("0", datasets[0]),
+        ("1", datasets[1]),
+        ("2", datasets[2]),
+    ]
+
+
+def test_all_iterations_of_collections_nests_them(session):
+    collections = [_list(["a"]), _list(["a", "b"])]
+    hdca = _all_iterations(session, [{"o1": collection} for collection in collections])
+    session.flush()
+    assert hdca.collection.collection_type == "list:list"
+    assert [element.child_collection for element in hdca.collection.elements] == [
+        collection.collection for collection in collections
+    ]
+
+
+def test_all_iterations_without_iterations_is_empty(session):
+    assert _all_iterations(session, [], {"o1": _dataset()}).collection.collection_type == "list"
+    empty = _all_iterations(session, [], {"o1": _list(["a"])})
+    session.flush()
+    assert empty.collection.collection_type == "list:list"
+    assert empty.collection.elements == []
+
+
+def test_all_iterations_needs_datasets_or_collections_of_one_kind(session):
+    mixed: list[list[dict[str, Any]]] = [
+        [{"o1": _dataset()}, {"o1": _list(["a"])}],
+        [{"o1": _dataset()}, {"o1": NO_REPLACEMENT}],
+    ]
+    for outputs_per_iteration in mixed:
+        with pytest.raises(modules.FailWorkflowEvaluation) as exc_info:
+            _all_iterations(session, outputs_per_iteration)
+        assert exc_info.value.why.reason == FailureReason.loop_failed
+    session.rollback()
+
+
 def test_recorded_loop_inputs_read_back(session):
     history = m.History(user=m.User(email=f"{uuid4()}@example.org", password="password"))
     workflow = m.Workflow()
@@ -209,3 +303,38 @@ def test_recorded_loop_inputs_read_back(session):
         "data": dataset,
         "list": collection,
     }
+
+
+class _ProgressWithoutOutputs:
+    def get_replacement_workflow_output(self, workflow_output):
+        raise KeyError(workflow_output.output_name)
+
+
+def test_last_iteration_without_its_output_records_failed(session):
+    loop_step, history = _loop_step_with_outputs(session, ["o1"])
+    with session.no_autoflush:
+        invocation = m.WorkflowInvocation()
+        invocation.state = InvocationState.READY.value
+        session.add(invocation)
+        invocation.workflow = loop_step.workflow
+        invocation.history = history
+        iteration = m.WorkflowInvocation()
+        iteration.state = InvocationState.SCHEDULED.value
+        association = invocation.attach_subworkflow_invocation_for_step(loop_step, iteration)
+        association.iteration = 0
+        invocation_step = m.WorkflowInvocationStep()
+        invocation_step.workflow_step = loop_step
+        invocation.steps.append(invocation_step)
+    session.commit()
+    progress = WorkflowProgress(invocation, {}, cast(ModuleInjector, None), {})
+    loop = parse_loop({"inputs": {"o1": {"output_source": "o1"}}})
+    with pytest.raises(modules.FailWorkflowEvaluation) as exc_info:
+        progress._finish_loop(
+            cast(Any, Bunch(sa_session=session)),
+            invocation_step,
+            association,
+            loop,
+            cast(Any, _ProgressWithoutOutputs()),
+        )
+    assert exc_info.value.why.reason == FailureReason.output_not_found
+    assert association.loop_outcome == "failed"

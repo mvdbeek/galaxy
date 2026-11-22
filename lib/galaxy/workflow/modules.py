@@ -50,6 +50,7 @@ from galaxy.model import (
     ToolRequest,
     Workflow,
     WorkflowInvocationStep,
+    WorkflowOutput,
     WorkflowStep,
     WorkflowStepConnection,
 )
@@ -858,14 +859,17 @@ def workflow_step_name(step: WorkflowStep) -> str:
     return str(name or step.order_index + 1)
 
 
+def subworkflow_output_label(workflow_output: WorkflowOutput) -> str:
+    """Return the name of a subworkflow output on the subworkflow step that runs it."""
+    return workflow_output.label or f"{workflow_output.workflow_step.order_index}:{workflow_output.output_name}"
+
+
 def subworkflow_step_outputs(step: WorkflowStep, subworkflow_progress: "WorkflowProgress") -> dict[str, Any]:
     """Return the outputs of a subworkflow step from the progress of its subworkflow invocation."""
     assert step.subworkflow
     outputs = {}
     for workflow_output in step.subworkflow.workflow_outputs:
-        workflow_output_label = (
-            workflow_output.label or f"{workflow_output.workflow_step.order_index}:{workflow_output.output_name}"
-        )
+        workflow_output_label = subworkflow_output_label(workflow_output)
         try:
             replacement = subworkflow_progress.get_replacement_workflow_output(workflow_output)
         except KeyError:

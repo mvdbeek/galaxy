@@ -186,6 +186,40 @@ class BaseWorkflowLoopIntegrationTestCase(integration_util.IntegrationTestCase):
             for element in hdca["elements"]
         }
 
+    def _output_list(self, summary: RunJobsSummary, label: str) -> tuple[str, list[Any]]:
+        """The collection type of a collection output and its values, nested lists for nested collections."""
+        invocation = self.workflow_populator.get_invocation(summary.invocation_id)
+        hdca = self.dataset_populator.get_history_collection_details(
+            summary.history_id, content_id=invocation["output_collections"][label]["id"]
+        )
+
+        def values(elements: list[dict[str, Any]]) -> list[Any]:
+            return [
+                (
+                    values(element["object"]["elements"])
+                    if element["element_type"] == "dataset_collection"
+                    else yaml.safe_load(
+                        self.dataset_populator.get_history_dataset_content(
+                            summary.history_id, dataset_id=element["object"]["id"]
+                        )
+                    )
+                )
+                for element in elements
+            ]
+
+        # The iterations are the elements, identified by their number.
+        identifiers = [element["element_identifier"] for element in hdca["elements"]]
+        assert identifiers == [str(iteration) for iteration in range(len(identifiers))]
+        return hdca["collection_type"], values(hdca["elements"])
+
+    def _all_iterations_collections(self, history_id: str) -> list[tuple[str, bool]]:
+        contents = self._get(f"histories/{history_id}/contents").json()
+        return [
+            (item["name"], item["visible"])
+            for item in contents
+            if item["history_content_type"] == "dataset_collection" and item["name"].endswith("(all iterations)")
+        ]
+
     def _iterations(self, invocation_id: str, label: str = "loop") -> list[dict[str, Any]]:
         invocation = self.workflow_populator.get_invocation(invocation_id, step_details=True)
         step = next(step for step in invocation["steps"] if step["workflow_step_label"] == label)
@@ -598,7 +632,7 @@ steps:
         assert self._output_collection_values(summary, "o1") == {f"e{value}": value + 9 for value in range(1, 6)}
         assert len(self._iterations(summary.invocation_id)) == 9
 
-    def test_loop_nested(self):
+    def test_loop_nested_last_iteration(self):
         # The last-iteration variant of loop_nested: the outer loop feeds back a counter from a body
         # step, as Galaxy has no feedback valueFrom yet. The inner loop starts again at i1 in every
         # outer iteration.
@@ -664,6 +698,283 @@ steps:
             len(self._iterations(iteration["subworkflow_invocation_id"], "loop2")) for iteration in outer_iterations
         ]
         assert inner_iteration_counts == [1, 2, 3]
+
+    def test_loop_with_all_output_method(self):
+        workflow = single_loop_workflow("$(inputs.i1 < 10)")
+        _step_by_label(workflow["steps"], "loop")["loop"]["output_method"] = "all_iterations"
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_list(summary, "o1") == ("list", list(range(2, 11)))
+        downloaded = self.workflow_populator.download_workflow(summary.workflow_id, style="ga")
+        assert _step_by_label(downloaded["steps"], "loop")["loop"]["output_method"] == "all_iterations"
+
+    def test_loop_with_all_output_method_no_iteration(self):
+        workflow = single_loop_workflow("$(inputs.i1 < 1)")
+        _step_by_label(workflow["steps"], "loop")["loop"]["output_method"] = "all_iterations"
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_list(summary, "o1") == ("list", [])
+        assert self._outcomes(summary.invocation_id) == ["skipped"]
+
+    def test_loop_defaultvalue_all_iterations(self):
+        # loop_defaultvalue: the skipped first iteration contributes a null, as in CWL before pickValue.
+        body = """
+class: GalaxyWorkflow
+inputs:
+  i1: int
+outputs:
+  o1:
+    outputSource: big_values/sum
+steps:
+  big_values:
+    tool_id: expression_add_int
+    when: $(inputs.a >= 5)
+    state:
+      b: 3
+    in:
+      a: i1
+"""
+        workflow = single_loop_workflow("$(inputs.i1 < 20)", body=body)
+        _step_by_label(workflow["steps"], "loop")["loop"] = {
+            "inputs": {"i1": {"output_source": "o1", "default": 5}},
+            "output_method": "all_iterations",
+        }
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        collection_type, values = self._output_list(summary, "o1")
+        assert collection_type == "list"
+        assert values == [None, 8, 11, 14, 17, 20]
+        assert [value for value in values if value is not None] == [8, 11, 14, 17, 20]
+
+    def _nested_loops(self, outer_method: str, inner_method: str) -> RunJobsSummary:
+        # loop_nested: the outer loop counts i2 up with value_from, the inner loop starts again
+        # from i1 in every outer iteration and counts i1 up to i2.
+        workflow = loop_workflow(
+            """
+class: GalaxyWorkflow
+inputs:
+  i1: int
+  i2: int
+outputs:
+  o1:
+    outputSource: loop1/o1
+steps:
+  loop1:
+    in:
+      i1: i1
+      i2: i2
+    when: $(inputs.i2 < 4)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        i1: int
+        i2: int
+      outputs:
+        o1:
+          outputSource: loop2/o1
+      steps:
+        loop2:
+          in:
+            i1: i1
+            i2: i2
+          when: $(inputs.i1 <= inputs.i2)
+          run:
+            class: GalaxyWorkflow
+            inputs:
+              i1: int
+              i2: int
+            outputs:
+              o1:
+                outputSource: add/sum
+            steps:
+              add:
+                tool_id: expression_add_int
+                in:
+                  a: i1
+""",
+            {
+                "loop1": {"inputs": {"i2": {"value_from": "$(inputs.i2 + 1)"}}, "output_method": outer_method},
+                "loop1/loop2": {"inputs": {"i1": {"output_source": "o1"}}, "output_method": inner_method},
+            },
+        )
+        return self._run(workflow, {"i1": {"value": 1, "type": "raw"}, "i2": {"value": 1, "type": "raw"}})
+
+    def test_loop_nested(self):
+        summary = self._nested_loops("all_iterations", "last_iteration")
+        assert self._output_list(summary, "o1") == ("list", [2, 3, 4])
+
+    def test_loop_nested_all(self):
+        summary = self._nested_loops("all_iterations", "all_iterations")
+        assert self._output_list(summary, "o1") == ("list:list", [[2], [2, 3], [2, 3, 4]])
+
+    def test_loop_nested_all_inside_last_iteration(self):
+        # The outer loop publishes the list the inner loop collected in its last iteration.
+        summary = self._nested_loops("last_iteration", "all_iterations")
+        assert self._output_list(summary, "o1") == ("list", [2, 3, 4])
+
+    def test_scatter_inside_loop_all_iterations(self):
+        workflow = loop_workflow(
+            """
+class: GalaxyWorkflow
+inputs:
+  i1:
+    type: collection
+    collection_type: list
+  i2: int
+outputs:
+  o1:
+    outputSource: loop/o1
+steps:
+  loop:
+    in:
+      i1: i1
+      i2: i2
+    when: $(inputs.i1[0] < 4)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        i1:
+          type: collection
+          collection_type: list
+        i2: int
+      outputs:
+        o1:
+          outputSource: add/sum
+      steps:
+        add:
+          tool_id: expression_add_int
+          in:
+            a: i1
+            b: i2
+""",
+            {"loop": {"inputs": {"i1": {"output_source": "o1"}}, "output_method": "all_iterations"}},
+        )
+        elements = [{"identifier": f"e{value}", "content": str(value), "ext": "expression.json"} for value in (1, 5)]
+        summary = self._run(
+            workflow, {"i1": {"collection_type": "list", "elements": elements}, "i2": {"value": 1, "type": "raw"}}
+        )
+        # Each iteration's list becomes one element of a list:list.
+        assert self._output_list(summary, "o1") == ("list:list", [[2, 6], [3, 7], [4, 8]])
+
+    def _all_iterations_then(self, when: str, next_step: str = "", outputs: str = "") -> dict[str, Any]:
+        workflow = loop_workflow(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  i1: int
+outputs:
+{outputs or "  {}"}
+steps:
+  loop:
+    in:
+      i1: i1
+    when: {when!r}
+    run:
+{indent(ADD_ONE_BODY, " " * 6)}
+{next_step}
+""",
+            {"loop": {**SINGLE_VARIABLE_LOOP["loop"], "output_method": "all_iterations"}},
+        )
+        return workflow
+
+    def test_loop_all_iterations_mapped_over_downstream(self):
+        next_step = """  next:
+    tool_id: expression_add_int
+    state:
+      b: 90
+    in:
+      a: loop/o1
+"""
+        outputs = "  next:\n    outputSource: next/sum"
+        workflow = self._all_iterations_then("$(inputs.i1 < 10)", next_step, outputs)
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_list(summary, "next") == ("list", list(range(92, 101)))
+
+    def test_loop_all_iterations_no_iteration_mapped_over_downstream(self):
+        next_step = """  next:
+    tool_id: expression_add_int
+    in:
+      a: loop/o1
+"""
+        outputs = "  next:\n    outputSource: next/sum"
+        workflow = self._all_iterations_then("$(inputs.i1 < 1)", next_step, outputs)
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_list(summary, "next") == ("list", [])
+        assert self.workflow_populator.get_invocation(summary.invocation_id)["state"] in ("scheduled", "completed")
+
+    def test_loop_all_iterations_visibility(self):
+        # Shown unless the workflow marks outputs and not this one, as the editor hides step outputs.
+        cases = [
+            ("", True),
+            ("  o1:\n    outputSource: loop/o1", True),
+            ("  i1_again:\n    outputSource: i1", False),
+        ]
+        for outputs, visible in cases:
+            summary = self._run(
+                self._all_iterations_then("$(inputs.i1 < 3)", outputs=outputs), {"i1": {"value": 1, "type": "raw"}}
+            )
+            assert self._all_iterations_collections(summary.history_id) == [("o1 (all iterations)", visible)], outputs
+
+    def test_loop_all_iterations_failure_in_third_iteration_builds_nothing(self):
+        when = '${ if (inputs.i1 >= 3) { throw new Error("failed"); } return true; }'
+        invocation = self._run_failing(self._all_iterations_then(when), {"i1": {"value": 1, "type": "raw"}})
+        assert self._outcomes(invocation["id"]) == ["continue", "failed"]
+        assert self._all_iterations_collections(invocation["history_id"]) == []
+
+    def test_loop_last_iteration_feeding_back_all_iterations_list(self):
+        # The inner list is identified 0, 1, 2; the outer loop's first collection a, b: rule 15 refuses it.
+        workflow = loop_workflow(
+            """
+class: GalaxyWorkflow
+inputs:
+  c:
+    type: collection
+    collection_type: list
+  i1: int
+steps:
+  outer:
+    in:
+      c: c
+      i1: i1
+    when: $(true)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        c:
+          type: collection
+          collection_type: list
+        i1: int
+      outputs:
+        numbers:
+          outputSource: inner/o1
+      steps:
+        inner:
+          in:
+            i1: i1
+          when: $(inputs.i1 < 4)
+          run:
+            class: GalaxyWorkflow
+            inputs:
+              i1: int
+            outputs:
+              o1:
+                outputSource: add/sum
+            steps:
+              add:
+                tool_id: expression_add_int
+                in:
+                  a: i1
+""",
+            {
+                "outer": {"inputs": {"c": {"output_source": "numbers"}}},
+                "outer/inner": {"inputs": {"i1": {"output_source": "o1"}}, "output_method": "all_iterations"},
+            },
+        )
+        elements = [{"identifier": identifier, "content": "1", "ext": "expression.json"} for identifier in ("a", "b")]
+        invocation = self._run_failing(
+            workflow, {"c": {"collection_type": "list", "elements": elements}, "i1": {"value": 1, "type": "raw"}}
+        )
+        assert invocation["messages"][0]["details"] == (
+            "Loop input 'c' must keep its collection type, element identifiers and their order."
+        )
+        assert self._outcomes(invocation["id"], "outer") == ["failed"]
 
     def test_loop_fail_loop_when_exception(self):
         invocation = self._run_failing(
@@ -794,12 +1105,28 @@ steps:
         self._assert_status_code_is(response, 400)
         assert "a loop is only allowed on a subworkflow step" in response.json()["err_msg"]
 
-    def test_validate_loop_fail_all_iterations(self):
-        workflow = single_loop_workflow("$(inputs.i1 < 10)")
-        _step_by_label(workflow["steps"], "loop")["loop"]["output_method"] = "all_iterations"
+    def test_validate_loop_fail_all_iterations_of_parameter(self):
+        # The body's o2 passes the parameter i2 through; a list of parameters is not supported yet.
+        workflow = loop_workflow(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  i1: int
+  i2: int
+steps:
+  loop:
+    in:
+      i1: i1
+      i2: i2
+    when: $(inputs.i1 < 10)
+    run:
+{indent(ADD_TWO_BODY, " " * 6)}
+""",
+            {"loop": {"inputs": {"i1": {"output_source": "o1"}}, "output_method": "all_iterations"}},
+        )
         response = self.workflow_populator.create_workflow_response(workflow)
         self._assert_status_code_is(response, 400)
-        assert "'all_iterations' is not supported yet" in response.json()["err_msg"]
+        assert "output 'o2' is a parameter" in response.json()["err_msg"]
 
     def test_validate_loop(self):
         workflow = single_loop_workflow("$(inputs.i1 < 10)")
@@ -986,7 +1313,7 @@ steps:
             self._assert_status_code_is(response, 400)
             assert "of a loop step is not supported yet" in response.json()["err_msg"]
 
-    def _run_sleeping_loop(self) -> RunJobsSummary:
+    def _run_sleeping_loop(self, output_method: str = "last_iteration") -> RunJobsSummary:
         body = """
 class: GalaxyWorkflow
 inputs:
@@ -1022,7 +1349,7 @@ steps:
     run:
 {indent(body, " " * 6)}
 """,
-            SINGLE_VARIABLE_LOOP,
+            {"loop": {**SINGLE_VARIABLE_LOOP["loop"], "output_method": output_method}},
         )
         summary = self._run(
             workflow,
@@ -1058,6 +1385,14 @@ steps:
         self.dataset_populator.wait_for_history_jobs(summary.history_id)
         assert self.workflow_populator.get_invocation(summary.invocation_id)["state"] == "cancelled"
         self._assert_newest_iteration_cancelled(summary, iterations_at_cancel)
+
+    def test_cancel_all_iterations_loop_builds_nothing(self):
+        summary = self._run_sleeping_loop("all_iterations")
+        self.workflow_populator.cancel_invocation(summary.invocation_id)
+        self.workflow_populator.wait_for_invocation(None, summary.invocation_id, assert_ok=False)
+        self.dataset_populator.wait_for_history_jobs(summary.history_id)
+        assert self.workflow_populator.get_invocation(summary.invocation_id)["state"] == "cancelled"
+        assert self._all_iterations_collections(summary.history_id) == []
 
     def test_cancel_loop_iteration(self):
         # Cancelling the subworkflow invocation of the running iteration cancels the loop.
@@ -1099,6 +1434,24 @@ class TestWorkflowLoopExport(BaseWorkflowLoopIntegrationTestCase, UsesCeleryTask
         assert {iteration["subworkflow_invocation_id"] for iteration in imported_iterations}.isdisjoint(
             iteration["subworkflow_invocation_id"] for iteration in original_iterations
         )
+
+    def test_export_import_keeps_all_iterations_output(self):
+        workflow = single_loop_workflow("$(inputs.i1 < 4)")
+        _step_by_label(workflow["steps"], "loop")["loop"]["output_method"] = "all_iterations"
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        store_path = self.workflow_populator.download_invocation_to_store(summary.invocation_id, extension="tgz")
+        history_id = self.dataset_populator.new_history()
+        imported = self.workflow_populator.create_invocation_from_store(history_id, store_path=store_path)
+        imported_root = next(
+            invocation
+            for invocation in imported
+            if self.workflow_populator.get_invocation(invocation["id"])["output_collections"]
+        )
+        output = self.workflow_populator.get_invocation(imported_root["id"])["output_collections"]["o1"]
+        # The archive holds no files, so the imported datasets are not ok; read the collection as it is.
+        hdca = self._get(f"histories/{history_id}/contents/dataset_collections/{output['id']}").json()
+        assert hdca["collection_type"] == "list"
+        assert [element["element_identifier"] for element in hdca["elements"]] == ["0", "1", "2"]
 
 
 class TestWorkflowLoopEmbeddedPulsar(BaseWorkflowLoopIntegrationTestCase):

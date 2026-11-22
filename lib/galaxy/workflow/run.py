@@ -47,12 +47,14 @@ from galaxy.tools.parameters.wrapped import nested_key_to_path
 from galaxy.util import ExecutionTimer
 from galaxy.workflow import modules
 from galaxy.workflow.loop import (
+    all_iterations_outputs,
     check_feedback,
     copy_invocation_request,
     fail_unstarted_iteration,
     iteration_job_states,
     iteration_outputs,
     loop_failure,
+    LoopOutputMethod,
     next_iteration_inputs,
     parse_loop,
     record_loop_inputs,
@@ -978,7 +980,12 @@ class WorkflowProgress:
                 )
                 invoker.invoke()
                 self.record_subworkflow_delays(invoker.progress)
-                self.set_step_outputs(invocation_step, modules.subworkflow_step_outputs(step, invoker.progress))
+                outputs = modules.subworkflow_step_outputs(step, invoker.progress)
+                if loop.output_method == LoopOutputMethod.all_iterations:
+                    outputs = all_iterations_outputs(step, self.workflow_invocation.history, [], outputs)
+                    # Steps after the loop may map over the new lists in this same pass.
+                    trans.sa_session.flush()
+                self.set_step_outputs(invocation_step, outputs)
                 return
             invoker = self.subworkflow_invoker(
                 trans,
@@ -999,8 +1006,7 @@ class WorkflowProgress:
                 association.loop_outcome = LoopOutcome.FAILED
                 raise
             if not run_next:
-                association.loop_outcome = LoopOutcome.STOP
-                self.set_step_outputs(invocation_step, modules.subworkflow_step_outputs(step, invoker.progress))
+                self._finish_loop(trans, invocation_step, association, loop, invoker.progress)
                 return
             if self._invocation_stopping(trans):
                 raise modules.DelayedWorkflowEvaluation(why="Invocation is stopping, no new loop iteration started.")
@@ -1019,6 +1025,33 @@ class WorkflowProgress:
                 trans, step, associations[0], association.iteration + 1, loop, next_inputs
             )
             inputs = next_inputs
+
+    def _finish_loop(
+        self,
+        trans: "WorkRequestContext",
+        invocation_step: WorkflowInvocationStep,
+        association: model.WorkflowInvocationToSubworkflowInvocationAssociation,
+        loop: WorkflowLoop,
+        last_iteration_progress: "WorkflowProgress",
+    ) -> None:
+        """Set the loop step's outputs after its last iteration, and record the outcome stop, or failed."""
+        step = invocation_step.workflow_step
+        try:
+            if loop.output_method == LoopOutputMethod.all_iterations:
+                outputs_per_iteration = [
+                    iteration_outputs(each.subworkflow_invocation)
+                    for each in self.workflow_invocation.iteration_associations(step)
+                ]
+                outputs = all_iterations_outputs(step, self.workflow_invocation.history, outputs_per_iteration, {})
+                # Steps after the loop may map over the new lists in this same pass.
+                trans.sa_session.flush()
+            else:
+                outputs = modules.subworkflow_step_outputs(step, last_iteration_progress)
+        except modules.FailWorkflowEvaluation:
+            association.loop_outcome = LoopOutcome.FAILED
+            raise
+        association.loop_outcome = LoopOutcome.STOP
+        self.set_step_outputs(invocation_step, outputs)
 
     def _loop_first_inputs(self, step: "WorkflowStep") -> dict[str, Any]:
         inputs = {}

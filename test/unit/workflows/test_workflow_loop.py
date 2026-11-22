@@ -130,9 +130,59 @@ def test_loop_output_source_must_be_a_subworkflow_output():
     assert_refused(workflow, "loop output_source 'missing' is not an output of the subworkflow")
 
 
-def test_loop_all_iterations_not_supported_yet():
-    loop = {"inputs": {"i1": {"output_source": "o1"}}, "output_method": "all_iterations"}
-    assert_refused(yaml_to_model(loop_step_yaml(loop=loop)), "'all_iterations' is not supported yet")
+ALL_ITERATIONS_LOOP = {"inputs": {"i1": {"output_source": "o1"}}, "output_method": "all_iterations"}
+
+
+def test_loop_all_iterations():
+    validate_workflow_loops(yaml_to_model(loop_step_yaml(loop=ALL_ITERATIONS_LOOP)), True)
+
+
+def _body_with_o2(o2_step: str) -> str:
+    """ADD_ONE_BODY plus a step whose output is labelled o2."""
+    return ADD_ONE_BODY + o2_step
+
+
+PARAMETER_PASSTHROUGH = """
+  - type: parameter_input
+    label: i3
+    tool_inputs: {parameter_type: integer, optional: false}
+    workflow_outputs:
+      - {output_name: output, label: o2}
+"""
+
+NESTED_PARAMETER = """
+  - type: subworkflow
+    subworkflow:
+      steps:
+        - type: parameter_input
+          label: x
+          tool_inputs: {parameter_type: integer, optional: false}
+          workflow_outputs:
+            - {output_name: output, label: x}
+    inputs:
+      x:
+        connections:
+          - {"@output_step": 0, output_name: output, "@input_subworkflow_step": 0}
+    workflow_outputs:
+      - {output_name: x, label: o2}
+"""
+
+PICKED_PARAMETER = """
+  - type: pick_value
+    tool_inputs: {mode: first_non_null}
+    inputs:
+      input_0:
+        connections:
+          - {"@output_step": 0, output_name: output}
+    workflow_outputs:
+      - {output_name: output, label: o2}
+"""
+
+
+@pytest.mark.parametrize("o2_step", [PARAMETER_PASSTHROUGH, NESTED_PARAMETER, PICKED_PARAMETER])
+def test_loop_all_iterations_of_parameter_output_refused(o2_step):
+    workflow = yaml_to_model(loop_step_yaml(loop=ALL_ITERATIONS_LOOP, body=_body_with_o2(o2_step)))
+    assert_refused(workflow, "output 'o2' is a parameter; collecting parameters of all iterations is not supported yet")
 
 
 def test_loop_needs_feedback():

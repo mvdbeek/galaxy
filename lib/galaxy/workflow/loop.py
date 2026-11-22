@@ -51,6 +51,7 @@ from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.workflow.modules import (
     FailWorkflowEvaluation,
     replace_expression_json_dataset,
+    subworkflow_output_label,
     workflow_step_name,
 )
 
@@ -167,10 +168,13 @@ def _validate_loop_step(step: "WorkflowStep") -> None:
         raise RequestParameterInvalidException(
             f"Step {name}: the 'when' expression uses input '{unconnected}', which is not connected."
         )
-    if loop.output_method != LoopOutputMethod.last_iteration:
-        raise RequestParameterInvalidException(
-            f"Step {name}: loop output_method '{loop.output_method}' is not supported yet."
-        )
+    if loop.output_method == LoopOutputMethod.all_iterations:
+        for workflow_output in step.subworkflow.workflow_outputs:
+            if _is_parameter_output(workflow_output.workflow_step, workflow_output.output_name):
+                raise RequestParameterInvalidException(
+                    f"Step {name}: output '{subworkflow_output_label(workflow_output)}' is a parameter; "
+                    "collecting parameters of all iterations is not supported yet."
+                )
     input_labels = {input_step.label for input_step in step.subworkflow.input_steps}
     output_labels = set(step.subworkflow.workflow_output_labels)
     subworkflow_inputs = {input_step.label: input_step for input_step in step.subworkflow.input_steps}
@@ -197,6 +201,28 @@ def _validate_loop_step(step: "WorkflowStep") -> None:
                 )
     if _statically_mapped_over(step):
         raise RequestParameterInvalidException(_mapping_message(step))
+
+
+def _is_parameter_output(step: "WorkflowStep", output_name: str | None) -> bool:
+    """Whether a step output is known, before running, to be a parameter value rather than a dataset or collection.
+
+    Follows subworkflow outputs into their subworkflow and a pick_value step to what it picks
+    from; an output whose kind is not known here is checked when the loop runs.
+    """
+    if step.type == "parameter_input":
+        return True
+    if step.type == "subworkflow" and step.subworkflow is not None:
+        return any(
+            subworkflow_output_label(inner_output) == output_name
+            and _is_parameter_output(inner_output.workflow_step, inner_output.output_name)
+            for inner_output in step.subworkflow.workflow_outputs
+        )
+    if step.type == "pick_value" and (step.tool_inputs or {}).get("mode") != "all_non_null":
+        return any(
+            _is_parameter_output(connection.output_step, connection.output_name)
+            for connection in step.input_connections
+        )
+    return False
 
 
 def _unconnected_reference(expression: str, connected_inputs: set[str]) -> str | None:
@@ -310,15 +336,86 @@ def iteration_outputs(iteration: model.WorkflowInvocation) -> dict[str, Any]:
     """Return the recorded outputs of an iteration's subworkflow invocation, by output label."""
     outputs: dict[str, Any] = {}
     for output_dataset in iteration.output_datasets:
-        outputs[output_dataset.workflow_output.label] = output_dataset.dataset
+        outputs[subworkflow_output_label(output_dataset.workflow_output)] = output_dataset.dataset
     for output_collection in iteration.output_dataset_collections:
-        outputs[output_collection.workflow_output.label] = output_collection.dataset_collection
+        outputs[subworkflow_output_label(output_collection.workflow_output)] = output_collection.dataset_collection
     for output_value in iteration.output_values:
         value = output_value.value
         if isinstance(value, dict) and value.get("__class__") == "NoReplacement":
             value = NO_REPLACEMENT
-        outputs[output_value.workflow_output.label] = value
+        outputs[subworkflow_output_label(output_value.workflow_output)] = value
     return outputs
+
+
+def all_iterations_outputs(
+    step: "WorkflowStep",
+    history: model.History,
+    outputs_per_iteration: list[dict[str, Any]],
+    skipped_outputs: dict[str, Any],
+) -> dict[str, model.HistoryDatasetCollectionAssociation]:
+    """Collect each output of all iterations into a new list, in iteration order.
+
+    Element identifiers are the iteration numbers. A dataset output gives a ``list``, a
+    collection output of type T a ``list:T`` of the iterations' collections. The elements are
+    the iterations' own datasets and collections, not copies: deleting or purging one of them
+    affects the element. A skipped output is an element too, an expression.json dataset holding
+    null, which a downstream step mapping over the list receives. Without iterations the lists
+    are empty, ``list:T`` if the skipped first iteration's output is a collection of type T and
+    a plain ``list`` otherwise.
+
+    Every output is checked before any list is built, so a failure leaves nothing behind.
+    """
+    assert step.subworkflow
+    element_types: dict[str, str | None] = {}
+    values_by_label: dict[str, list[Any]] = {}
+    for workflow_output in step.subworkflow.workflow_outputs:
+        label = subworkflow_output_label(workflow_output)
+        values = [outputs.get(label, NO_REPLACEMENT) for outputs in outputs_per_iteration]
+        types: set[str | None] = set()
+        for index, value in enumerate(values):
+            if isinstance(value, model.HistoryDatasetAssociation):
+                types.add(None)
+            elif isinstance(value, model.HistoryDatasetCollectionAssociation):
+                types.add(value.collection.collection_type)
+            else:
+                raise loop_failure(step, f"Loop iteration {index} has no dataset or collection for output '{label}'.")
+        if len(types) > 1:
+            raise loop_failure(
+                step, f"Output '{label}' is a different kind of dataset or collection between iterations."
+            )
+        if values:
+            element_types[label] = types.pop()
+        elif isinstance(skipped := skipped_outputs.get(label), model.HistoryDatasetCollectionAssociation):
+            element_types[label] = skipped.collection.collection_type
+        else:
+            element_types[label] = None
+        values_by_label[label] = values
+    collected = {}
+    for label, values in values_by_label.items():
+        element_type = element_types[label]
+        collection = model.DatasetCollection(
+            collection_type="list" if element_type is None else f"list:{element_type}", element_count=len(values)
+        )
+        for index, value in enumerate(values):
+            element = value if isinstance(value, model.HistoryDatasetAssociation) else value.collection
+            model.DatasetCollectionElement(
+                collection=collection, element=element, element_index=index, element_identifier=str(index)
+            )
+        collected[label] = history.add_dataset_collection(
+            model.HistoryDatasetCollectionAssociation(
+                collection=collection, name=f"{label} (all iterations)", visible=_output_shown(step, label)
+            )
+        )
+    return collected
+
+
+def _output_shown(step: "WorkflowStep", output_name: str) -> bool:
+    """Whether a step output is shown: unless its workflow marks outputs and not this one, as the editor hides them."""
+    workflow_outputs = list(step.workflow.workflow_outputs) if step.workflow else []
+    return not workflow_outputs or any(
+        workflow_output.workflow_step is step and workflow_output.output_name == output_name
+        for workflow_output in workflow_outputs
+    )
 
 
 def next_iteration_inputs(
