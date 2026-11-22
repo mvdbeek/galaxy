@@ -542,12 +542,21 @@ class WorkflowProgress:
             # workflow submitted with step parameters populates state directly
             # via populate_module_and_state
             replacement = state_input
-        elif (step_input := step.inputs_by_name.get(prefixed_name)) and step_input.default_value_set:
-            replacement = step_input.default_value
-            if is_data:
-                assert trans.history is not None
-                replacement = raw_to_galaxy(trans.app, trans.history, step_input.default_value)
+        else:
+            replacement = self.replacement_for_step_input_default(trans, step, prefixed_name, is_data=is_data)
         return replacement
+
+    def replacement_for_step_input_default(
+        self, trans: "ProvidesHistoryContext", step: "WorkflowStep", input_name: str | None, is_data: bool
+    ) -> modules.StepInputReplacement:
+        """Return the default set on ``step``'s input ``input_name``, or ``NO_REPLACEMENT``."""
+        step_input = step.inputs_by_name.get(input_name)
+        if not step_input or not step_input.default_value_set:
+            return NO_REPLACEMENT
+        if is_data:
+            assert trans.history is not None
+            return raw_to_galaxy(trans.app, trans.history, step_input.default_value)
+        return step_input.default_value
 
     def replacement_for_connection(
         self,

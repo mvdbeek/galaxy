@@ -1049,8 +1049,12 @@ class SubWorkflowModule(WorkflowModule):
                     step_input_name = step_input.name
                     if iteration_elements and step_input_name in iteration_elements:  # noqa: B023
                         value = iteration_elements[step_input_name]  # noqa: B023
-                    else:
+                    elif step_input.connections:
                         value = progress.replacement_for_connection(step_input.connections[0], is_data=True)
+                    else:
+                        # Read raw, so this doesn't materialize a data default. Map-over planning above
+                        # already does, as a new dataset on every pass; that is being fixed separately.
+                        value = progress.replacement_for_step_input_default(trans, step, step_input_name, is_data=False)
                     extra_step_state[step_input_name] = value
 
                 when_values.append(

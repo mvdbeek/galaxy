@@ -6413,6 +6413,74 @@ test_data:
                 assert_ok=True,
             )
 
+    def _echo_job_state(self, workflow: str, history_id: str) -> str:
+        summary = self._run_workflow(workflow, history_id=history_id, wait=True, assert_ok=True)
+        invocation = self.workflow_populator.get_invocation(summary.invocation_id)
+        echoed = self.dataset_populator.get_history_dataset_details(
+            history_id, content_id=invocation["outputs"]["echoed"]["id"], assert_ok=False
+        )
+        return self.dataset_populator.get_job_details(echoed["creating_job"]).json()["state"]
+
+    @skip_without_tool("gx_int")
+    @pytest.mark.parametrize("run_it", [True, False])
+    def test_run_subworkflow_step_when_on_when_only_default(self, history_id, run_it):
+        workflow = f"""
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      run_it:
+        default: {json.dumps(run_it)}
+    when: $(inputs.run_it)
+    run:
+      class: GalaxyWorkflow
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+"""
+        assert self._echo_job_state(workflow, history_id) == ("ok" if run_it else "skipped")
+
+    def _run_and_read_echoed_output(self, workflow: str, history_id: str, **kwds) -> str:
+        summary = self._run_workflow(workflow, history_id=history_id, wait=True, assert_ok=True, **kwds)
+        invocation = self.workflow_populator.get_invocation(summary.invocation_id)
+        return self.dataset_populator.get_history_dataset_content(
+            history_id, content_id=invocation["outputs"]["echoed"]["id"]
+        ).strip()
+
+    @skip_without_tool("gx_int")
+    def test_run_subworkflow_step_when_on_step_input_default(self, history_id):
+        workflow = """
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_int:
+        default: 5
+    when: $(inputs.inner_int == 5)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_int:
+          type: int
+          optional: true
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+"""
+        assert self._run_and_read_echoed_output(workflow, history_id) == "1"
+
     def test_subworkflow_validation_error_step_path(self):
         """Test that validation errors from subworkflows include the full step path."""
         with self.dataset_populator.test_history() as history_id:
