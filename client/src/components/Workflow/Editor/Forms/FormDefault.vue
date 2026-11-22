@@ -38,9 +38,16 @@
                 help="Add an annotation or notes to this step. Annotations are available when a workflow is viewed."
                 @update:model-value="onAnnotation" />
             <FormConditional
-                v-if="isSubworkflow"
+                v-if="isSubworkflow && !(loopsEnabled && step.loop)"
                 :step="step"
                 @onUpdateStep="(id: number, step: Partial<Step>) => emit('onUpdateStep', id, step)" />
+            <FormLoop
+                v-if="isSubworkflow && loopsEnabled"
+                :step="step"
+                @onUpdateStep="(id: number, step: Partial<Step>) => emit('onUpdateStep', id, step)"
+                @onSetLoopSetting="
+                    (id: number, key: 'when' | 'loop', value: unknown) => emit('onSetLoopSetting', id, key, value)
+                " />
             <FormPickValue
                 v-if="type == 'pick_value'"
                 :step="step"
@@ -81,6 +88,7 @@ import { computed, ref, toRef, watch } from "vue";
 
 import type { DatatypesMapperModel } from "@/components/Datatypes/model";
 import WorkflowIcons from "@/components/Workflow/icons";
+import { useConfig } from "@/composables/config";
 import { useWorkflowStores } from "@/composables/workflowStores";
 import { useRefreshFromStore } from "@/stores/refreshFromStore";
 import type { Step } from "@/stores/workflowStepStore";
@@ -89,6 +97,7 @@ import { useStepProps } from "../composables/useStepProps";
 import { useUniqueLabelError } from "../composables/useUniqueLabelError";
 
 import FormConditional from "./FormConditional.vue";
+import FormLoop from "./FormLoop.vue";
 import GButton from "@/components/BaseComponents/GButton.vue";
 import FormCard from "@/components/Form/FormCard.vue";
 import FormDisplay from "@/components/Form/FormDisplay.vue";
@@ -108,6 +117,7 @@ const emit = defineEmits([
     "onEditSubworkflow",
     "onSetData",
     "onUpdateStep",
+    "onSetLoopSetting",
     "onChangePostJobActions",
 ]);
 const stepRef = toRef(props, "step");
@@ -125,6 +135,8 @@ const stepTitle = computed(() => {
 const nodeIcon = computed(() => WorkflowIcons[type.value]);
 const formDisplayId = computed(() => stepId.value.toString());
 const isSubworkflow = computed(() => type.value === "subworkflow");
+const { config } = useConfig();
+const loopsEnabled = computed(() => Boolean(config.value?.enable_beta_workflow_loop));
 
 function onAnnotation(newAnnotation: string) {
     emit("onAnnotation", stepId.value, newAnnotation);

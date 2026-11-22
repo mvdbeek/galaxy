@@ -106,6 +106,18 @@ describe("Node", () => {
         expect(workflowTitle.text()).toBe("step label");
     });
 
+    it("marks a loop step with a loop icon in place of the conditional icon", async () => {
+        const subworkflowStep = { ...TOOL_STEP, type: "subworkflow", when: "$(inputs.i1 < 10)" };
+        const { wrapper } = mountNode(shallowMount, { step: subworkflowStep });
+        await flushPromises();
+        expect(wrapper.find(".node-loop").exists()).toBe(false);
+        expect(wrapper.find("[title='This step is conditionally executed.']").exists()).toBe(true);
+
+        await wrapper.setProps({ step: { ...subworkflowStep, loop: { inputs: { i1: { output_source: "o1" } } } } });
+        expect(wrapper.find(".node-loop").attributes("title")).toBe("This step runs in a loop.");
+        expect(wrapper.find("[title='This step is conditionally executed.']").exists()).toBe(false);
+    });
+
     describe("step with errors", () => {
         it("renders terminals for connections of a missing tool", async () => {
             const { wrapper } = mountNode(mount, { step: MISSING_TOOL_STEP }, MISSING_TOOL_CONNECTIONS);

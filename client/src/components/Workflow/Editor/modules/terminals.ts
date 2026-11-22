@@ -553,15 +553,18 @@ export class InputTerminal extends BaseInputTerminal {
 
 interface InputParameterTerminalArgs extends InputTerminalArgs {
     type: ParameterStepInput["type"];
+    acceptedTypes?: string[];
 }
 
 export class InputParameterTerminal extends BaseInputTerminal {
     type: ParameterStepInput["type"];
+    acceptedTypes?: string[];
     acceptsMultipleValues: boolean;
 
     constructor(attr: InputParameterTerminalArgs) {
         super(attr);
         this.type = attr.type;
+        this.acceptedTypes = attr.acceptedTypes;
         // Multiple values arrive through a single parameter connection, so unlike multiple data
         // inputs a connected collection is mapped over rather than consumed as a list.
         this.acceptsMultipleValues = attr.input.multiple;
@@ -590,7 +593,9 @@ export class InputParameterTerminal extends BaseInputTerminal {
         if (!this.optional && other.optional) {
             return new ConnectionAcceptable(false, `Cannot attach an optional output to a required parameter`);
         }
-        const canAccept = effectiveThisType === effectiveOtherType;
+        const canAccept = this.acceptedTypes
+            ? this.acceptedTypes.includes(effectiveOtherType)
+            : effectiveThisType === effectiveOtherType;
         if (!this.acceptsMultipleValues && other.multiple) {
             return new ConnectionAcceptable(
                 false,
@@ -1048,6 +1053,7 @@ export function terminalFactory<T extends TerminalSourceAndInvalid>(
                 return new InputParameterTerminal({
                     ...terminalArgs,
                     type: terminalSource.type,
+                    acceptedTypes: terminalSource.acceptedTypes,
                     input: {
                         ...inputArgs,
                     },

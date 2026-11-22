@@ -668,6 +668,19 @@ export function useStepActions(
         });
     }
 
+    /** Typing in the loop condition or a loop rule's text fields merges into one named undo entry. */
+    function setLoopSetting<K extends "when" | "loop">(step: Step, key: K, value: Step[K]) {
+        const what = key === "when" ? "loop condition" : "loop";
+        changeValueOrCreateAction({
+            step,
+            key,
+            value,
+            name: `edit ${what} of step "${step.id + 1}: ${step.label ?? step.name}"`,
+            keepActionAlive: true,
+            timeout: 2000,
+        });
+    }
+
     const { refresh } = useRefreshFromStore();
 
     function setData(from: Step, to: Step) {
@@ -716,6 +729,7 @@ export function useStepActions(
         setPosition,
         setAnnotation,
         setLabel,
+        setLoopSetting,
         setData,
         setOutputLabel,
         removeStep,

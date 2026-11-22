@@ -85,7 +85,10 @@
                 </div>
             </GPopover>
             <i :class="iconClass" />
-            <span v-if="step.when" v-g-tooltip.hover title="This step is conditionally executed.">
+            <span v-if="step.loop" v-g-tooltip.hover title="This step runs in a loop." class="node-loop">
+                <FontAwesomeIcon :icon="faRetweet" />
+            </span>
+            <span v-else-if="step.when" v-g-tooltip.hover title="This step is conditionally executed.">
                 <FontAwesomeIcon :icon="faCodeBranch" />
             </span>
             <span
@@ -165,7 +168,7 @@
 </template>
 
 <script setup lang="ts">
-import { faCodeBranch, faKey } from "@fortawesome/free-solid-svg-icons";
+import { faCodeBranch, faKey, faRetweet } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import type { UseElementBoundingReturn, UseScrollReturn, VueInstance } from "@vueuse/core";
 import type { PropType, Ref } from "vue";

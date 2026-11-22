@@ -85,6 +85,8 @@ export interface DataCollectionStepInput extends BaseStepInput {
 export interface ParameterStepInput extends Omit<BaseStepInput, "input_type"> {
     input_type: "parameter";
     type: typeof ParameterTypes | "select" | "data_column";
+    /** Parameter types the port accepts, when it accepts more than `type`. */
+    acceptedTypes?: string[];
 }
 
 export type InputTerminalSource = DataStepInput | DataCollectionStepInput | ParameterStepInput;
@@ -482,7 +484,7 @@ function stepToConnections(step: Step): Connection[] {
 
 function findStepExtraInputs(step: Step) {
     const extraInputs: InputTerminalSource[] = [];
-    if (step.when === undefined) {
+    if (step.when === undefined && !step.loop) {
         return extraInputs;
     }
     const connectionNames = Object.keys(step.input_connections);
@@ -490,15 +492,22 @@ function findStepExtraInputs(step: Step) {
         if (step.inputs.find((input) => input.name === inputName)) {
             return;
         }
+        // A loop step keeps the port of a connection its condition no longer reads, so the connection
+        // stays visible and can be removed, instead of being kept hidden.
+        const keptForLoop = Boolean(step.loop) && hasLink(step.input_connections[inputName]);
         const inputPath = resolveConnectionNameToInputPath(inputName, step.tool_state);
-        if (!inputPath || !expressionReferencesInput(step.when, inputPath)) {
+        if (!keptForLoop && (!inputPath || !expressionReferencesInput(step.when, inputPath))) {
             return;
         }
-        extraInputs.push(gatePort(inputName));
+        extraInputs.push(gatePort(inputName, Boolean(step.loop)));
     });
     // A gate input nothing is connected to still needs a port to connect it to.
-    unconnectedGateNames(step, connectionNames).forEach((name) => extraInputs.push(gatePort(name)));
+    unconnectedGateNames(step, connectionNames).forEach((name) => extraInputs.push(gatePort(name, Boolean(step.loop))));
     return extraInputs;
+}
+
+function hasLink(links: StepInputConnection[string]): boolean {
+    return Array.isArray(links) ? links.length > 0 : Boolean(links);
 }
 
 /** Top-level names the `when` reads that aren't a tool input, a connection or step state. */
@@ -521,7 +530,10 @@ function unconnectedGateNames(step: Step, connectionNames: string[]): string[] {
     return [...names];
 }
 
-function gatePort(name: string): InputTerminalSource {
+/** The values a loop condition compares, e.g. `inputs.i1 < inputs.limit`, are not only booleans. */
+const LOOP_GATE_TYPES = ["boolean", "integer", "float", "text"];
+
+function gatePort(name: string, loop: boolean): InputTerminalSource {
     return {
         name,
         optional: false,
@@ -530,5 +542,6 @@ function gatePort(name: string): InputTerminalSource {
         multiple: false,
         label: name,
         extensions: [],
+        ...(loop ? { acceptedTypes: LOOP_GATE_TYPES } : {}),
     };
 }

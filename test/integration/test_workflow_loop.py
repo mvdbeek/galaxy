@@ -241,6 +241,32 @@ class TestWorkflowLoop(BaseWorkflowLoopIntegrationTestCase):
         self._assert_status_code_is(response, 200)
         assert response.json()["enable_beta_workflow_loop"] is True
 
+    def test_loop_condition_compares_with_a_connected_input_the_body_does_not_take(self):
+        # `limit` is connected to the loop step but is no input of the subworkflow, as the editor's condition port.
+        workflow = loop_workflow(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  i1: int
+  limit: int
+outputs:
+  o1:
+    outputSource: loop/o1
+steps:
+  loop:
+    in:
+      i1: i1
+      limit: limit
+    when: $(inputs.i1 < inputs.limit)
+    run:
+{indent(ADD_ONE_BODY, " " * 6)}
+""",
+            SINGLE_VARIABLE_LOOP,
+        )
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}, "limit": {"value": 5, "type": "raw"}})
+        assert self._output_value(summary, "o1") == 5
+        assert self._outcomes(summary.invocation_id) == ["continue"] * 3 + ["stop"]
+
     def test_loop_single_variable(self):
         summary = self._run(single_loop_workflow("$(inputs.i1 < 10)"), {"i1": {"value": 1, "type": "raw"}})
         assert self._output_value(summary, "o1") == 10

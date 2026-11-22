@@ -31,6 +31,7 @@ const emit = defineEmits<{
     (e: "labelChanged", id: string, label: string): void;
     (e: "dataChanged", id: number, data: object): void;
     (e: "stepUpdated", id: number, step: Step): void;
+    (e: "loopSettingChanged", id: number, key: "when" | "loop", value: unknown): void;
     (e: "editSubworkflow", id: string): void;
     (e: "attemptRefactor", ...args: any[]): void;
     (e: "close"): void;
@@ -140,6 +141,9 @@ function updateStored(v: boolean) {
                     :datatypes="datatypes"
                     @onSetData="(id: number, d: object) => emit('dataChanged', id, d)"
                     @onUpdateStep="(id: number, s: Step) => emit('stepUpdated', id, s)"
+                    @onSetLoopSetting="
+                        (id: number, key: 'when' | 'loop', value: unknown) => emit('loopSettingChanged', id, key, value)
+                    "
                     @onChangePostJobActions="(id: number, a: PostJobActions) => emit('postJobActionsChanged', id, a)"
                     @onAnnotation="(id: string, a: string) => emit('annotationChanged', id, a)"
                     @onLabel="(id: string, l: string) => emit('labelChanged', id, l)"

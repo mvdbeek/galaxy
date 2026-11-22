@@ -654,6 +654,32 @@ describe("canAccept", () => {
         selectInputParam.connect(collectionOut);
         expect(selectInputParam.mapOver).toEqual({ collectionType: "list", isCollection: true, rank: 1 });
     });
+    it("accepts any single parameter on the port of a name in a loop condition, booleans only elsewhere", () => {
+        const stepId = terminals["multi data"]!["advanced|advanced_threshold"]!.stepId;
+        const gate = {
+            name: "limit",
+            label: "limit",
+            input_type: "parameter" as const,
+            type: "boolean" as const,
+            multiple: false,
+            optional: false,
+            extensions: [],
+        };
+        const loopGate = terminalFactory(
+            stepId,
+            { ...gate, acceptedTypes: ["boolean", "integer", "float", "text"] },
+            testDatatypesMapper,
+            useStores(),
+        ) as InputParameterTerminal;
+        const conditionGate = terminalFactory(stepId, gate, testDatatypesMapper, useStores()) as InputParameterTerminal;
+        const integerOut = terminals["integer parameter input"]!["output"] as OutputParameterTerminal;
+        const textOut = terminals["text parameter input"]!["output"] as OutputParameterTerminal;
+        const dataOut = terminals["data input"]!["output"] as OutputTerminal;
+        expect(loopGate.canAccept(integerOut).canAccept).toBe(true);
+        expect(loopGate.canAccept(textOut).canAccept).toBe(true);
+        expect(loopGate.canAccept(dataOut).canAccept).toBe(false);
+        expect(conditionGate.canAccept(integerOut).reason).toBe("Cannot attach a integer parameter to a boolean input");
+    });
     it("rejects data to parameter connection", () => {
         const dataOut = terminals["data input"]!["output"] as OutputTerminal;
         const integerInputParam = terminals["multi data"]!["advanced|advanced_threshold"] as InputParameterTerminal;

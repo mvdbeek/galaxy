@@ -965,6 +965,13 @@ function onSetData(stepId: number, newData: object) {
         });
 }
 
+function onLoopSetting(stepId: number, key: "when" | "loop", value: unknown) {
+    const step = stepStore.getStep(stepId);
+    if (step) {
+        stepActions.setLoopSetting(step, key, value as Step[typeof key]);
+    }
+}
+
 function onLabel(nodeId: string, newLabel: string) {
     const step = steps.value[nodeId];
     if (step) {
@@ -1620,6 +1627,7 @@ initializeWorkflowEditor();
                         @labelChanged="onLabel"
                         @dataChanged="onSetData"
                         @stepUpdated="updateStep"
+                        @loopSettingChanged="onLoopSetting"
                         @editSubworkflow="onEditSubWorkflow"
                         @attemptRefactor="onAttemptRefactor"
                         @close="activeNodeId = null" />

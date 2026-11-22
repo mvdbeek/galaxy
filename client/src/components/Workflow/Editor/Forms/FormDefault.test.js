@@ -1,16 +1,20 @@
 import { createTestingPinia } from "@pinia/testing";
 import { getLocalVue } from "@tests/vitest/helpers";
 import { mount } from "@vue/test-utils";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { h } from "vue";
 
+import { resetMockConfig, setMockConfig } from "@/composables/__mocks__/config";
 import { useRefreshFromStore } from "@/stores/refreshFromStore";
 
 import FormCollectionType from "./FormCollectionType.vue";
+import FormConditional from "./FormConditional.vue";
 import FormDefault from "./FormDefault.vue";
 import FormInputCollection from "./FormInputCollection.vue";
+import FormLoop from "./FormLoop.vue";
 
 vi.mock("./FormDatatype.vue", () => ({ default: { render: () => h("div") } }));
+vi.mock("@/composables/config");
 
 const localVue = getLocalVue();
 
@@ -90,5 +94,60 @@ describe("FormDefault", () => {
         expect(outputLabelCount).toBe(1);
         const otherLabelCount = wrapper.findAll("#__label__other-name").length;
         expect(otherLabelCount).toBe(1);
+    });
+
+    describe("loop section", () => {
+        const loop = { inputs: { i1: { output_source: "o1" } }, output_method: "last_iteration" };
+
+        function mountStep(step) {
+            return mount(FormDefault, {
+                props: {
+                    datatypes: [],
+                    step: {
+                        id: 0,
+                        name: "name",
+                        type: "subworkflow",
+                        config_form: { inputs: [] },
+                        inputs: [],
+                        outputs,
+                        input_connections: {},
+                        ...step,
+                    },
+                },
+                global: { ...localVue, provide: { workflowId: "mock-workflow" } },
+                pinia: createTestingPinia({ createSpy: vi.fn }),
+            });
+        }
+
+        afterEach(() => {
+            resetMockConfig();
+        });
+
+        it("is hidden while workflow loops are disabled, and the conditional switch is kept", () => {
+            const loopWrapper = mountStep({ when: "$(inputs.i1 < 10)", loop });
+            expect(loopWrapper.findComponent(FormLoop).exists()).toBe(false);
+            expect(loopWrapper.findComponent(FormConditional).exists()).toBe(true);
+        });
+
+        it("is shown on a subworkflow step when workflow loops are enabled", () => {
+            setMockConfig({ enable_beta_workflow_loop: true });
+            const loopWrapper = mountStep({});
+            expect(loopWrapper.findComponent(FormLoop).exists()).toBe(true);
+            expect(loopWrapper.findComponent(FormConditional).exists()).toBe(true);
+        });
+
+        it("replaces the conditional switch on a loop step", () => {
+            setMockConfig({ enable_beta_workflow_loop: true });
+            const loopWrapper = mountStep({ when: "$(inputs.i1 < 10)", loop });
+            expect(loopWrapper.findComponent(FormLoop).exists()).toBe(true);
+            expect(loopWrapper.findComponent(FormConditional).exists()).toBe(false);
+            expect(loopWrapper.emitted("onUpdateStep")).toBeUndefined();
+        });
+
+        it("is hidden on a step that is not a subworkflow", () => {
+            setMockConfig({ enable_beta_workflow_loop: true });
+            const loopWrapper = mountStep({ type: "tool", content_id: "cat1" });
+            expect(loopWrapper.findComponent(FormLoop).exists()).toBe(false);
+        });
     });
 });
