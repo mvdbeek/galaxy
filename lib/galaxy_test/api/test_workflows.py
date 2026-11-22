@@ -6745,6 +6745,503 @@ steps:
 """
         assert self._echo_job_state(workflow, history_id) == "ok"
 
+    def _upload_with_value_from(self, workflow: str, value_froms: dict[str, dict[str, str]]) -> str:
+        # gxformat2 drops valueFrom, so set value_from in the native format.
+        native = self.workflow_populator.download_workflow(self._upload_yaml_workflow(workflow))
+        for step in native["steps"].values():
+            for input_name, value_from in value_froms.get(step["label"], {}).items():
+                step.setdefault("in", {}).setdefault(input_name, {})["value_from"] = value_from
+        workflow_id = self.workflow_populator.create_workflow(native)
+        exported = self.workflow_populator.download_workflow(workflow_id)
+        for step in exported["steps"].values():
+            for input_name, value_from in value_froms.get(step["label"], {}).items():
+                assert step["in"][input_name]["value_from"] == value_from
+        return workflow_id
+
+    def _invoke_by_name(self, workflow_id: str, history_id: str, inputs=None, assert_ok: bool = True) -> dict:
+        response = self.workflow_populator.invoke_workflow(
+            workflow_id, history_id=history_id, inputs=inputs, inputs_by="name"
+        )
+        self._assert_status_code_is(response, 200)
+        invocation_id = response.json()["id"]
+        if assert_ok:
+            self.workflow_populator.wait_for_workflow(workflow_id, invocation_id, history_id)
+        else:
+            # A failed invocation leaves its subworkflow invocations unscheduled, so only wait for it.
+            self.workflow_populator.wait_for_invocation(workflow_id, invocation_id, assert_ok=False)
+        return self.workflow_populator.get_invocation(invocation_id, step_details=True)
+
+    def _output_content(self, history_id: str, invocation: dict, label: str) -> str:
+        return self.dataset_populator.get_history_dataset_content(
+            history_id, content_id=invocation["outputs"][label]["id"]
+        ).strip()
+
+    @skip_without_tool("gx_int")
+    def test_run_tool_step_value_from_on_connection(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+inputs:
+  n:
+    type: int
+outputs:
+  echoed:
+    outputSource: echo/output
+steps:
+  echo:
+    tool_id: gx_int
+    in:
+      parameter: n
+    when: $(inputs.parameter == 5)
+""",
+            {"echo": {"parameter": "$(self + 1)"}},
+        )
+        invocation = self._invoke_by_name(workflow_id, history_id, inputs={"n": 4})
+        assert self._output_content(history_id, invocation, "echoed") == "5"
+
+    @skip_without_tool("gx_int")
+    def test_run_tool_step_value_from_on_default(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: echo/output
+steps:
+  echo:
+    tool_id: gx_int
+    in:
+      parameter:
+        default: 4
+""",
+            {"echo": {"parameter": "$(self * 2)"}},
+        )
+        invocation = self._invoke_by_name(workflow_id, history_id)
+        assert self._output_content(history_id, invocation, "echoed") == "8"
+
+    @skip_without_tool("gx_int")
+    @pytest.mark.parametrize("source", ["connection", "default"])
+    def test_run_subworkflow_step_value_from(self, history_id, source):
+        step_in = "inner_int: n" if source == "connection" else "inner_int:\n        default: 4"
+        workflow_id = self._upload_with_value_from(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  n:
+    type: int
+    optional: true
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      {step_in}
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_int:
+          type: int
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+""",
+            {"subworkflow": {"inner_int": "$(self + 1)"}},
+        )
+        invocation = self._invoke_by_name(workflow_id, history_id, inputs={"n": 4} if source == "connection" else None)
+        assert self._output_content(history_id, invocation, "echoed") == "5"
+
+    @skip_without_tool("gx_int")
+    def test_run_subworkflow_step_value_froms_do_not_see_each_other(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+outputs:
+  echoed_a:
+    outputSource: subworkflow/inner_a
+  echoed_b:
+    outputSource: subworkflow/inner_b
+steps:
+  subworkflow:
+    in:
+      a:
+        default: 1
+      b:
+        default: 2
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        a:
+          type: int
+        b:
+          type: int
+      outputs:
+        inner_a:
+          outputSource: echo_a/output
+        inner_b:
+          outputSource: echo_b/output
+      steps:
+        echo_a:
+          tool_id: gx_int
+          in:
+            parameter: a
+        echo_b:
+          tool_id: gx_int
+          in:
+            parameter: b
+""",
+            {"subworkflow": {"a": "$(self + inputs.b)", "b": "$(inputs.a * 10)"}},
+        )
+        invocation = self._invoke_by_name(workflow_id, history_id)
+        assert self._output_content(history_id, invocation, "echoed_a") == "3"
+        assert self._output_content(history_id, invocation, "echoed_b") == "10"
+
+    @skip_without_tool("cat_data_and_sleep")
+    def test_run_mapped_tool_step_value_from_per_element(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+inputs:
+  input_list:
+    type: collection
+    collection_type: list
+steps:
+  cat:
+    tool_id: cat_data_and_sleep
+    in:
+      input1: input_list
+      sleep_time:
+        default: 0
+""",
+            {"cat": {"sleep_time": '$(inputs.input1.element_identifier == "el2" ? self + 1 : self)'}},
+        )
+        hdca = self.dataset_collection_populator.create_list_of_named_datasets(history_id, [("el1", "a"), ("el2", "b")])
+        invocation = self._invoke_by_name(
+            workflow_id, history_id, inputs={"input_list": {"src": "hdca", "id": hdca["id"]}}
+        )
+        cat_step = next(step for step in invocation["steps"] if step["workflow_step_label"] == "cat")
+        sleep_times = sorted(
+            json.loads(self.dataset_populator.get_job_details(job["id"], full=True).json()["params"]["sleep_time"])
+            for job in cat_step["jobs"]
+        )
+        assert sleep_times == ["0", "1"]
+
+    @skip_without_tool("gx_int")
+    def test_run_mapped_subworkflow_step_value_from(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+inputs:
+  input_list:
+    type: collection
+    collection_type: list
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_data: input_list
+      inner_int:
+        default: 4
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_data:
+          type: data
+        inner_int:
+          type: int
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        cat:
+          tool_id: cat1
+          in:
+            input1: inner_data
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+""",
+            {"subworkflow": {"inner_int": "$(self + 1)"}},
+        )
+        hdca = self.dataset_collection_populator.create_list_of_named_datasets(history_id, [("el1", "a"), ("el2", "b")])
+        invocation = self._invoke_by_name(
+            workflow_id, history_id, inputs={"input_list": {"src": "hdca", "id": hdca["id"]}}
+        )
+        echoed = self.dataset_populator.get_history_collection_details(
+            history_id, content_id=invocation["output_collections"]["echoed"]["id"]
+        )
+        for element in echoed["elements"]:
+            content = self.dataset_populator.get_history_dataset_content(history_id, content_id=element["object"]["id"])
+            assert content.strip() == "5"
+
+    @skip_without_tool("gx_int")
+    def test_run_tool_step_throwing_value_from_fails_invocation(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+steps:
+  echo:
+    tool_id: gx_int
+    in:
+      parameter:
+        default: 4
+""",
+            {"echo": {"parameter": "$(self.missing.attribute)"}},
+        )
+        invocation = self._invoke_by_name(workflow_id, history_id, assert_ok=False)
+        assert invocation["state"] == "failed"
+        assert invocation["messages"][0]["reason"] == "expression_evaluation_failed"
+        assert invocation["messages"][0]["details"] == "value_from of step input 'parameter' failed"
+
+    def test_value_from_on_data_input_refused(self):
+        workflow_id = self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+inputs:
+  input1: data
+steps:
+  cat:
+    tool_id: cat1
+    in:
+      input1: input1
+""")
+        native = self.workflow_populator.download_workflow(workflow_id)
+        cat_step = next(step for step in native["steps"].values() if step["label"] == "cat")
+        cat_step["in"] = {"input1": {"value_from": "$(self)"}}
+        response = self.workflow_populator.create_workflow_response(native)
+        self._assert_status_code_is(response, 400)
+        assert_error_message_contains(
+            response,
+            "Step cat, input 'input1': value_from is supported on parameter inputs only, not on data or collection inputs.",
+        )
+
+    def _echo_parameter_workflow(self, value_from: str) -> str:
+        return self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: echo/output
+steps:
+  echo:
+    tool_id: gx_int
+    in:
+      parameter:
+        default: 4
+""",
+            {"echo": {"parameter": value_from}},
+        )
+
+    @skip_without_tool("gx_int")
+    @pytest.mark.parametrize(
+        "value_from",
+        ["$({'a': 1})", "$([1, 2])", "$({'class': 'File', 'location': 'https://example.org/1.bed'})"],
+    )
+    def test_run_tool_step_value_from_unusable_result_fails_invocation(self, history_id, value_from):
+        invocation = self._invoke_by_name(self._echo_parameter_workflow(value_from), history_id, assert_ok=False)
+        assert invocation["state"] == "failed"
+        assert invocation["messages"][0]["reason"] == "expression_evaluation_failed"
+        assert (
+            invocation["messages"][0]["details"]
+            == "value_from of step input 'parameter' gave an object or a list, not a parameter value"
+        )
+        assert self.dataset_populator.get_history_contents(history_id) == []
+
+    @skip_without_tool("gx_int")
+    @pytest.mark.parametrize("value_from", ["$(null)", "$('abc')"])
+    def test_run_tool_step_value_from_null_or_wrong_type_reaches_the_job(self, history_id, value_from):
+        # Like a connected expression value: no parameter validation before the job.
+        invocation = self._invoke_by_name(self._echo_parameter_workflow(value_from), history_id, assert_ok=False)
+        assert invocation["state"] == "scheduled"
+        echoed = self.dataset_populator.get_history_dataset_details(
+            history_id, content_id=invocation["outputs"]["echoed"]["id"], assert_ok=False
+        )
+        assert echoed["state"] == "error"
+
+    @skip_without_tool("gx_int")
+    def test_run_mapped_subworkflow_step_value_from_differing_between_elements_fails(self, history_id):
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+inputs:
+  input_list:
+    type: collection
+    collection_type: list
+steps:
+  subworkflow:
+    in:
+      inner_data: input_list
+      inner_text:
+        default: ""
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_data:
+          type: data
+        inner_text:
+          type: text
+      steps:
+        cat:
+          tool_id: cat1
+          in:
+            input1: inner_data
+""",
+            {"subworkflow": {"inner_text": "$(inputs.inner_data.element_identifier)"}},
+        )
+        hdca = self.dataset_collection_populator.create_list_of_named_datasets(history_id, [("el1", "a"), ("el2", "b")])
+        invocation = self._invoke_by_name(
+            workflow_id, history_id, inputs={"input_list": {"src": "hdca", "id": hdca["id"]}}, assert_ok=False
+        )
+        assert invocation["state"] == "failed"
+        assert invocation["messages"][0]["reason"] == "expression_evaluation_failed"
+        assert (
+            invocation["messages"][0]["details"]
+            == "value_from of step input 'inner_text' differs between the elements this subworkflow step maps over"
+        )
+
+    @skip_without_tool("gx_int")
+    @skip_without_tool("split")
+    def test_run_subworkflow_step_value_from_evaluated_once(self, history_id):
+        # echo_later waits for split's collection, so the subworkflow step runs over several
+        # scheduling passes; both echo steps must see the value of the first evaluation.
+        workflow_id = self._upload_with_value_from(
+            """
+class: GalaxyWorkflow
+inputs:
+  input_data: data
+outputs:
+  first:
+    outputSource: subworkflow/first
+  later:
+    outputSource: subworkflow/later
+steps:
+  subworkflow:
+    in:
+      inner_data: input_data
+      inner_int:
+        default: 0
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_data:
+          type: data
+        inner_int:
+          type: int
+      outputs:
+        first:
+          outputSource: echo/output
+        later:
+          outputSource: echo_later/output
+      steps:
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+        split:
+          tool_id: split
+          in:
+            input1: inner_data
+        echo_later:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+            gate: split/output
+          when: $(inputs.gate !== null)
+""",
+            {"subworkflow": {"inner_int": "$(Math.floor(Math.random() * 1000000000))"}},
+        )
+        hda = self.dataset_populator.new_dataset(history_id, content="a\nb\n", wait=True)
+        invocation = self._invoke_by_name(
+            workflow_id, history_id, inputs={"input_data": {"src": "hda", "id": hda["id"]}}
+        )
+        first = self._output_content(history_id, invocation, "first")
+        later = self.dataset_populator.get_history_collection_details(
+            history_id, content_id=invocation["output_collections"]["later"]["id"]
+        )
+        assert later["elements"]
+        for element in later["elements"]:
+            content = self.dataset_populator.get_history_dataset_content(history_id, content_id=element["object"]["id"])
+            assert content.strip() == first
+
+    @skip_without_tool("gx_int")
+    def test_run_nested_subworkflow_step_value_from(self, history_id):
+        native = self.workflow_populator.download_workflow(self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: outer/outer_echoed
+steps:
+  outer:
+    run:
+      class: GalaxyWorkflow
+      outputs:
+        outer_echoed:
+          outputSource: inner/inner_echoed
+      steps:
+        inner:
+          in:
+            inner_int:
+              default: 3
+          run:
+            class: GalaxyWorkflow
+            inputs:
+              inner_int:
+                type: int
+            outputs:
+              inner_echoed:
+                outputSource: echo/output
+            steps:
+              echo:
+                tool_id: gx_int
+                in:
+                  parameter: inner_int
+"""))
+        outer = next(step for step in native["steps"].values() if step["label"] == "outer")
+        inner = next(step for step in outer["subworkflow"]["steps"].values() if step["label"] == "inner")
+        inner["in"]["inner_int"]["value_from"] = "$(self * 3)"
+        workflow_id = self.workflow_populator.create_workflow(native)
+        invocation = self._invoke_by_name(workflow_id, history_id)
+        assert self._output_content(history_id, invocation, "echoed") == "9"
+
+    @pytest.mark.parametrize(
+        "step_label,input_name,message",
+        [
+            (
+                "random",
+                "seed_source|seed",
+                "Step random, input 'seed_source|seed': value_from is not supported on a parameter inside a conditional, repeat or section.",
+            ),
+            ("n", "input", "Step n, input 'input': value_from is supported on tool and subworkflow steps only."),
+        ],
+    )
+    def test_value_from_refused_on_nested_parameter_and_input_step(self, step_label, input_name, message):
+        workflow_id = self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+inputs:
+  n:
+    type: int
+  input1: data
+steps:
+  random:
+    tool_id: random_lines1
+    in:
+      input: input1
+      num_lines: n
+""")
+        native = self.workflow_populator.download_workflow(workflow_id)
+        step = next(step for step in native["steps"].values() if step["label"] == step_label)
+        step["in"] = {input_name: {"value_from": "$(self)"}}
+        response = self.workflow_populator.create_workflow_response(native)
+        self._assert_status_code_is(response, 400)
+        assert_error_message_contains(response, message)
+
     def test_subworkflow_validation_error_step_path(self):
         """Test that validation errors from subworkflows include the full step path."""
         with self.dataset_populator.test_history() as history_id:

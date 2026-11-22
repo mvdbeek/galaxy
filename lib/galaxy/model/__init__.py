@@ -10155,6 +10155,8 @@ class WorkflowStepInput(Base, RepresentById):
         copied_step_input.default_value_set = self.default_value_set
         copied_step_input.merge_type = self.merge_type
         copied_step_input.scatter_type = self.scatter_type
+        copied_step_input.value_from = self.value_from
+        copied_step_input.value_from_type = self.value_from_type
 
         copied_step_input.connections = copy_list(self.connections)
         return copied_step_input

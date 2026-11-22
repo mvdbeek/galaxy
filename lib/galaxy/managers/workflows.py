@@ -136,6 +136,7 @@ from galaxy.workflow.modules import (
     PickValueModule,
     SubWorkflowModule,
     ToolModule,
+    workflow_step_name,
     WorkflowModule,
     WorkflowModuleInjector,
 )
@@ -871,6 +872,24 @@ class WorkflowSerializer(sharable.SharableModelSerializer):
     def add_serializers(self):
         super().add_serializers()
         self.serializers.update({})
+
+
+def _check_step_input_value_from(module: WorkflowModule, step: model.WorkflowStep, input_name: str) -> None:
+    """Refuse a step input ``value_from`` that the scheduler would not apply."""
+    where = f"Step {workflow_step_name(step)}, input '{input_name}'"
+    if not isinstance(module, (ToolModule, SubWorkflowModule)):
+        raise exceptions.RequestParameterInvalidException(
+            f"{where}: value_from is supported on tool and subworkflow steps only."
+        )
+    if "|" in input_name:
+        raise exceptions.RequestParameterInvalidException(
+            f"{where}: value_from is not supported on a parameter inside a conditional, repeat or section."
+        )
+    input_types = {input_dict["name"]: input_dict["input_type"] for input_dict in module.get_all_inputs()}
+    if input_types.get(input_name) in ("dataset", "dataset_collection"):
+        raise exceptions.RequestParameterInvalidException(
+            f"{where}: value_from is supported on parameter inputs only, not on data or collection inputs."
+        )
 
 
 def _step_pja_dict(step):
@@ -2082,10 +2101,12 @@ class WorkflowContentsManager(UsesAnnotations):
                 for output in module.get_data_outputs():
                     step_dict["outputs"].append({"name": output["name"], "type": output["extensions"][0]})
 
-            step_in = {}
+            step_in: dict[str | None, dict[str, Any]] = {}
             for step_input in step.inputs:
                 if step_input.default_value_set:
-                    step_in[step_input.name] = {"default": step_input.default_value}
+                    step_in.setdefault(step_input.name, {})["default"] = step_input.default_value
+                if step_input.value_from is not None:
+                    step_in.setdefault(step_input.name, {})["value_from"] = step_input.value_from
 
             if step_in:
                 step_dict["in"] = step_in
@@ -2395,6 +2416,9 @@ class WorkflowContentsManager(UsesAnnotations):
                 if default is not NO_DEFAULT_DEFINED:
                     step_input.default_value = default
                     step_input.default_value_set = True
+                if (value_from := input_dict.get("value_from")) is not None:
+                    _check_step_input_value_from(module, step, input_name)
+                    step_input.value_from = value_from
 
         if "when" in step_dict:
             step.when_expression = step_dict["when"]

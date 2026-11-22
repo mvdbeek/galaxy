@@ -378,6 +378,13 @@ class TestWorkflowProgress(TestCase):
         inner_step = subworkflow_step.subworkflow.step_by_index(0)
         assert subworkflow_progress.inputs_by_step_id == {inner_step.id: "value_from result"}
 
+    def test_step_input_copy_keeps_value_from(self):
+        step = model.WorkflowStep()
+        step_input = step.get_or_add_input("a")
+        step_input.value_from = "$(self + 1)"
+        copied_step = model.WorkflowStep()
+        assert step_input.copy(copied_step).value_from == "$(self + 1)"
+
     def _recovered_workflow_progress(self):
         progress = self._new_workflow_progress()
         progress.remaining_steps()
