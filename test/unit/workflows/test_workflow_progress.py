@@ -362,6 +362,22 @@ class TestWorkflowProgress(TestCase):
         )
         assert subworkflow_progress.inputs_by_step_id == {subworkflow.step_by_index(0).id: "step default"}
 
+    def test_subworkflow_progress_passes_value_from_result(self):
+        self._setup_workflow(TEST_SUBWORKFLOW_PARAMETER_STEP_DEFAULT_YAML)
+        self._set_previous_progress([(100, UNSCHEDULED_STEP)])
+        subworkflow_step = self.invocation.workflow.step_by_index(0)
+        subworkflow_invocation = self.invocation.create_subworkflow_invocation_for_step(subworkflow_step)
+        session = self.app.model.session
+        session.add(self.invocation)
+        session.add(subworkflow_invocation)
+        session.commit()
+
+        subworkflow_progress = self._recovered_workflow_progress().subworkflow_progress(
+            subworkflow_invocation, subworkflow_step, {}, value_from_values={"inner_text": "value_from result"}
+        )
+        inner_step = subworkflow_step.subworkflow.step_by_index(0)
+        assert subworkflow_progress.inputs_by_step_id == {inner_step.id: "value_from result"}
+
     def _recovered_workflow_progress(self):
         progress = self._new_workflow_progress()
         progress.remaining_steps()

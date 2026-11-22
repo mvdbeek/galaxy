@@ -1204,3 +1204,78 @@ def test_to_decoded_json_lowers_bare_runtime_value():
     result = to_decoded_json({"foo": RuntimeValue()})
     assert result == {"foo": {"__class__": "RuntimeValue"}}
     json.dumps(result)
+
+
+def _step_with_value_froms(value_froms: dict[str, str], when_expression: str | None = None) -> model.WorkflowStep:
+    step = model.WorkflowStep()
+    step.id = 1
+    step.when_expression = when_expression
+    for name, value_from in value_froms.items():
+        step_input = step.get_or_add_input(name)
+        step_input.value_from = value_from
+    return step
+
+
+def _expression_progress():
+    config = bunch.Bunch(expression_evaluation_isolation_command="")
+    return bunch.Bunch(module_injector=bunch.Bunch(trans=bunch.Bunch(app=bunch.Bunch(config=config))))
+
+
+def test_value_from_sees_self_and_inputs_before_any_value_from():
+    step = _step_with_value_froms({"a": "$(self + inputs.b)", "b": "$(inputs.a * 10)"})
+    replacements, when_value = modules.evaluate_step_expressions(_expression_progress(), step, {"a": 1, "b": 2})
+    assert replacements == {"a": 3, "b": 10}
+    assert when_value is None
+
+
+def test_value_from_constant_string():
+    step = _step_with_value_froms({"a": "constant"})
+    assert modules.evaluate_step_expressions(_expression_progress(), step, {"a": None}) == ({"a": "constant"}, None)
+
+
+@pytest.mark.parametrize("a,expected_when", [(4, True), (5, False)])
+def test_when_sees_value_from_results(a, expected_when):
+    step = _step_with_value_froms({"a": "$(self + 1)"}, when_expression="$(inputs.a == 5)")
+    replacements, when_value = modules.evaluate_step_expressions(_expression_progress(), step, {"a": a})
+    assert replacements == {"a": a + 1}
+    assert when_value is expected_when
+
+
+def test_throwing_value_from_fails_the_step():
+    step = _step_with_value_froms({"a": "$(self.missing.attribute)"})
+    with pytest.raises(modules.FailWorkflowEvaluation) as exc:
+        modules.evaluate_step_expressions(_expression_progress(), step, {"a": None})
+    assert exc.value.why.model_dump(exclude_none=True) == {
+        "reason": FailureReason.expression_evaluation_failed,
+        "workflow_step_id": 1,
+        "details": "value_from of step input 'a' failed",
+    }
+
+
+def test_step_without_expressions_evaluates_nothing():
+    step = _step_with_value_froms({})
+    assert modules.evaluate_step_expressions(_expression_progress(), step, {"a": 1}) == ({}, None)
+
+
+@pytest.mark.parametrize(
+    "value_from", ["$({'a': 1})", "$([1, 2])", "$({'class': 'File', 'location': 'https://example.org/1.bed'})"]
+)
+def test_value_from_object_or_list_result_fails_the_step(value_from):
+    step = _step_with_value_froms({"a": value_from})
+    with pytest.raises(modules.FailWorkflowEvaluation) as exc:
+        modules.evaluate_step_expressions(_expression_progress(), step, {"a": None})
+    assert exc.value.why.model_dump(exclude_none=True) == {
+        "reason": FailureReason.expression_evaluation_failed,
+        "workflow_step_id": 1,
+        "details": "value_from of step input 'a' gave an object or a list, not a parameter value",
+    }
+
+
+def test_known_value_from_result_is_not_evaluated_again():
+    # The expression would fail if it were evaluated.
+    step = _step_with_value_froms({"a": "$(self.missing.attribute)"}, when_expression="$(inputs.a == 7)")
+    replacements, when_value = modules.evaluate_step_expressions(
+        _expression_progress(), step, {"a": None}, known_value_from_values={"a": 7}
+    )
+    assert replacements == {"a": 7}
+    assert when_value is True

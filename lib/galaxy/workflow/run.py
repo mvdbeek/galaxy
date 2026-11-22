@@ -838,6 +838,7 @@ class WorkflowProgress:
         use_cached_job: bool = False,
         subworkflow_collection_info=None,
         when_values=None,
+        value_from_values: dict[str | None, Any] | None = None,
     ) -> WorkflowInvoker:
         subworkflow_invocation = self._subworkflow_invocation(step)
         subworkflow_invocation.handler = self.workflow_invocation.handler
@@ -849,6 +850,7 @@ class WorkflowProgress:
             workflow_run_config.param_map,
             subworkflow_collection_info=subworkflow_collection_info,
             when_values=when_values,
+            value_from_values=value_from_values,
         )
         subworkflow_invocation = subworkflow_progress.workflow_invocation
         return WorkflowInvoker(
@@ -865,7 +867,13 @@ class WorkflowProgress:
         param_map: dict,
         subworkflow_collection_info=None,
         when_values=None,
+        value_from_values: dict[str | None, Any] | None = None,
     ) -> "WorkflowProgress":
+        """Build the progress of ``step``'s subworkflow.
+
+        ``value_from_values`` holds the results of ``step``'s input ``value_from`` expressions by
+        input name; they replace what the matching subworkflow inputs would otherwise receive.
+        """
         subworkflow = subworkflow_invocation.workflow
         if disconnected_input_steps := modules.disconnected_required_subworkflow_inputs(step, subworkflow):
             raise modules.FailWorkflowEvaluation(
@@ -898,6 +906,8 @@ class WorkflowProgress:
                 default = modules.subworkflow_input_default(step, input_subworkflow_step)
                 if default is not NO_REPLACEMENT:
                     subworkflow_inputs[subworkflow_step_id] = default
+            if value_from_values and input_subworkflow_step.label in value_from_values:
+                subworkflow_inputs[subworkflow_step_id] = value_from_values[input_subworkflow_step.label]
 
         return WorkflowProgress(
             subworkflow_invocation,

@@ -465,41 +465,41 @@ def from_cwl(value, hda_references, progress: "WorkflowProgress"):
         return value
 
 
-def evaluate_value_from_expressions(progress, step, execution_state, extra_step_state):
-    when_expression = step.when_expression
-    value_from_expressions = {}
+def evaluate_step_expressions(
+    progress: "WorkflowProgress",
+    step: WorkflowStep,
+    step_state: dict[str | None, Any],
+    known_value_from_values: dict[str | None, Any] | None = None,
+) -> tuple[dict[str | None, Any], bool | None]:
+    """Evaluate the ``value_from`` expressions of ``step``'s inputs, then its ``when`` expression.
 
-    if execution_state:
-        for key in execution_state.inputs.keys():
-            step_input = step.inputs_by_name.get(key)
-            if step_input and step_input.value_from is not None:
-                value_from_expressions[key] = step_input.value_from
-
+    ``step_state`` holds the step's input values after connections and defaults, one map-over
+    element at a time. As in CWL, a ``value_from`` sees its input's value as ``self`` and
+    ``step_state`` as ``inputs``, so no ``value_from`` sees another's result; ``when`` sees the
+    values after ``value_from``. ``known_value_from_values`` holds results from an earlier
+    scheduling pass, which are used instead of evaluating those expressions again. Returns the
+    ``value_from`` results by input name and the ``when`` value, or ``None`` when the step has no
+    ``when``.
+    """
+    known = known_value_from_values or {}
+    value_from_expressions = {
+        name: step_input.value_from
+        for name in step_state
+        if name not in known and (step_input := step.inputs_by_name.get(name)) and step_input.value_from is not None
+    }
+    when_expression = cast(str | None, step.when_expression)
     if not value_from_expressions and when_expression is None:
-        return {}
+        return dict(known), None
 
     hda_references: list[model.HistoryDatasetAssociation] = []
+    inputs = {key: to_cwl(value, hda_references=hda_references, step=step) for key, value in step_state.items()}
+    isolation_command = resolve_isolation_command(
+        progress.module_injector.trans.app.config.expression_evaluation_isolation_command
+    )
 
-    step_state = {}
-    for key, value in extra_step_state.items():
-        step_state[key] = to_cwl(value, hda_references=hda_references, step=step)
-    if execution_state:
-        for key, value in execution_state.inputs.items():
-            step_state[key] = to_cwl(value, hda_references=hda_references, step=step)
-
-    if when_expression is not None:
-        if when_expression == "${inputs.when}":
-            # Fallback for workflows defined on 23.0
-            when_expression = "$(inputs.when)"
-        isolation_command = resolve_isolation_command(
-            progress.module_injector.trans.app.config.expression_evaluation_isolation_command
-        )
+    def evaluate(expression, jobinput, details=None, context=None):
         try:
-            as_cwl_value = do_eval(
-                when_expression,
-                step_state,
-                sandbox_command=isolation_command,
-            )
+            return do_eval(expression, jobinput, context=context, sandbox_command=isolation_command)
         except Exception:
             # Exception contains script and traceback, which could be helpful for debugging workflows,
             # but both could conceivably contain secrets.
@@ -510,19 +510,47 @@ def evaluate_value_from_expressions(progress, step, execution_state, extra_step_
             # Complicated stuff, ignore for now.
             raise FailWorkflowEvaluation(
                 InvocationFailureExpressionEvaluationFailed(
-                    reason=FailureReason.expression_evaluation_failed, workflow_step_id=step.id
+                    reason=FailureReason.expression_evaluation_failed, workflow_step_id=step.id, details=details
                 )
             )
-        when_value = from_cwl(as_cwl_value, hda_references=hda_references, progress=progress)
-        if not isinstance(when_value, bool):
+
+    evaluated = {
+        name: evaluate(expression, inputs, details=f"value_from of step input '{name}' failed", context=inputs[name])
+        for name, expression in value_from_expressions.items()
+    }
+    for name, value in evaluated.items():
+        # Only parameter inputs take a value_from, and from_cwl would turn a File into a new dataset.
+        if isinstance(value, (dict, list)):
             raise FailWorkflowEvaluation(
-                InvocationFailureWhenNotBoolean(
-                    reason=FailureReason.when_not_boolean,
+                InvocationFailureExpressionEvaluationFailed(
+                    reason=FailureReason.expression_evaluation_failed,
                     workflow_step_id=step.id,
-                    details=f"Type is: {when_value.__class__.__name__}",
+                    details=f"value_from of step input '{name}' gave an object or a list, not a parameter value",
                 )
             )
-        return when_value
+    replacements = {
+        **known,
+        **{
+            name: from_cwl(value, hda_references=hda_references, progress=progress) for name, value in evaluated.items()
+        },
+    }
+    evaluated.update({name: to_cwl(value, hda_references=hda_references, step=step) for name, value in known.items()})
+    if when_expression is None:
+        return replacements, None
+    if when_expression == "${inputs.when}":
+        # Fallback for workflows defined on 23.0
+        when_expression = "$(inputs.when)"
+    as_cwl_value = evaluate(when_expression, {**inputs, **evaluated})
+    when_value = from_cwl(as_cwl_value, hda_references=hda_references, progress=progress)
+    if not isinstance(when_value, bool):
+        raise FailWorkflowEvaluation(
+            InvocationFailureWhenNotBoolean(
+                reason=FailureReason.when_not_boolean,
+                workflow_step_id=step.id,
+                details=f"Type is: {when_value.__class__.__name__}",
+            )
+        )
+    return replacements, when_value
 
 
 class WorkflowModule:
@@ -1056,15 +1084,19 @@ class SubWorkflowModule(WorkflowModule):
                 assert len(progress.when_values) == 1, "Got more than 1 when value, this shouldn't be possible"
             iteration_elements_iter = [(None, progress.when_values[0] if progress.when_values else None)]
 
+        has_value_from = any(step_input.value_from is not None for step_input in step.inputs)
+        recorded_value_from_values = self._recorded_value_from_values(progress, step) if has_value_from else {}
         when_values: list[bool | None] = []
+        # A subworkflow input takes one value, so a value_from must agree across map-over elements.
+        value_from_values: dict[str | None, Any] = {}
         for iteration_elements, when_value in iteration_elements_iter:
-            if when_value is False or not step.when_expression:
+            if when_value is False or not (step.when_expression or has_value_from):
                 # We're skipping this step (when==False) or we keep
                 # the current when_value if there is no explicit when_expression on this step.
                 when_values.append(when_value)
             else:
-                # Got a conditional step and we could potentially run it,
-                # so we have to build the step state and evaluate the expression
+                # Got a conditional step or one with value_from and we could potentially run it,
+                # so we have to build the step state and evaluate the expressions
                 extra_step_state = {}
                 for step_input in step.inputs:
                     step_input_name = step_input.name
@@ -1082,11 +1114,19 @@ class SubWorkflowModule(WorkflowModule):
                         value = progress.replacement_for_step_input_default(trans, step, step_input_name, is_data=False)
                     extra_step_state[step_input_name] = value
 
-                when_values.append(
-                    evaluate_value_from_expressions(
-                        progress, step, execution_state={}, extra_step_state=extra_step_state
-                    )
+                replacements, evaluated_when = evaluate_step_expressions(
+                    progress, step, extra_step_state, known_value_from_values=recorded_value_from_values
                 )
+                when_values.append(evaluated_when if step.when_expression else when_value)
+                for name, value in replacements.items():
+                    if value_from_values.setdefault(name, value) != value:
+                        raise FailWorkflowEvaluation(
+                            InvocationFailureExpressionEvaluationFailed(
+                                reason=FailureReason.expression_evaluation_failed,
+                                workflow_step_id=step.id,
+                                details=f"value_from of step input '{name}' differs between the elements this subworkflow step maps over",
+                            )
+                        )
         if collection_info:
             collection_info.when_values = when_values
 
@@ -1096,6 +1136,7 @@ class SubWorkflowModule(WorkflowModule):
             use_cached_job=use_cached_job,
             subworkflow_collection_info=collection_info,
             when_values=when_values,
+            value_from_values=value_from_values,
         )
         subworkflow_invoker.invoke()
         subworkflow = subworkflow_invoker.workflow
@@ -1120,6 +1161,29 @@ class SubWorkflowModule(WorkflowModule):
             outputs[workflow_output_label] = replacement
         progress.set_step_outputs(invocation_step, outputs)
         return None
+
+    def _recorded_value_from_values(self, progress: "WorkflowProgress", step: WorkflowStep) -> dict[str | None, Any]:
+        """Return the value_from results the subworkflow invocation recorded for its inputs.
+
+        The step is executed again on every scheduling pass until the subworkflow's steps are
+        scheduled; the recorded values keep later passes from evaluating value_from again.
+        """
+        association = progress.workflow_invocation.get_subworkflow_invocation_association_for_step(step)
+        if association is None:
+            return {}
+        subworkflow_invocation = association.subworkflow_invocation
+        value_from_names = {step_input.name for step_input in step.inputs if step_input.value_from is not None}
+        recorded = {
+            parameter.workflow_step_id: parameter.parameter_value
+            for parameter in subworkflow_invocation.input_step_parameters
+        }
+        return {
+            input_step.label: recorded[input_step.id]
+            for input_step in self.subworkflow.input_steps
+            if input_step.type == "parameter_input"
+            and input_step.label in value_from_names
+            and input_step.id in recorded
+        }
 
     def get_runtime_state(self):
         state = DefaultToolState()
@@ -3310,6 +3374,7 @@ class ToolModule(WorkflowModule):
             iteration_elements_iter = [(None, progress.when_values[0] if progress.when_values else None)]
 
         resource_parameters = invocation.resource_parameters
+        has_value_from = any(step_input.value_from is not None for step_input in step.inputs)
 
         def _resolve_execution_state(iteration_elements):
             """Resolve one execution state from the step.
@@ -3382,7 +3447,7 @@ class ToolModule(WorkflowModule):
                 iteration_elements
             )
 
-            if step.when_expression and when_value is not False:
+            if (step.when_expression or has_value_from) and when_value is not False:
                 extra_step_state = {}
                 for step_input in step.inputs:
                     step_input_name = step_input.name
@@ -3397,17 +3462,22 @@ class ToolModule(WorkflowModule):
                             value = iteration_elements[step_input_name]  # noqa: B023
                         else:
                             value = progress.replacement_for_input(trans, step, all_inputs_by_name[step_input_name])
+                    elif iteration_elements and step_input_name in iteration_elements:  # noqa: B023
+                        value = iteration_elements[step_input_name]  # noqa: B023
+                    elif step_input.connections:
+                        value = progress.replacement_for_connection(step_input.connections[0], is_data=True)
                     else:
-                        if iteration_elements and step_input_name in iteration_elements:  # noqa: B023
-                            value = iteration_elements[step_input_name]  # noqa: B023
-                        else:
-                            value = progress.replacement_for_connection(step_input.connections[0], is_data=True)
+                        value = progress.replacement_for_step_input_default(trans, step, step_input_name, is_data=False)
                     extra_step_state[step_input_name] = value
 
-                if when_value is not False:
-                    when_value = evaluate_value_from_expressions(
-                        progress, step, execution_state=execution_state, extra_step_state=extra_step_state
-                    )
+                replacements, evaluated_when = evaluate_step_expressions(
+                    progress, step, {**extra_step_state, **execution_state.inputs}
+                )
+                for name, value in replacements.items():
+                    if name in execution_state.inputs:
+                        execution_state.inputs[name] = value
+                if step.when_expression:
+                    when_value = evaluated_when
             if when_value is not None:
                 # Track this more formally ?
                 execution_state.inputs["__when_value__"] = when_value
