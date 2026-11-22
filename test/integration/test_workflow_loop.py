@@ -278,6 +278,17 @@ steps:
         step_jobs = self.dataset_populator.history_jobs_for_tool(summary.history_id, "expression_add_int")
         assert len(step_jobs) == 9
 
+    def test_loop_feeds_back_an_unlabelled_output(self):
+        # An unlabelled subworkflow output is named "N:output_name" on the subworkflow step, as the editor offers it.
+        workflow = single_loop_workflow("$(inputs.i1 < 10)")
+        loop_step = workflow["steps"]["1"]
+        loop_step["subworkflow"]["steps"]["1"]["workflow_outputs"] = [{"output_name": "sum", "label": None}]
+        loop_step["workflow_outputs"] = [{"output_name": "1:sum", "label": "o1"}]
+        loop_step["loop"] = {"inputs": {"i1": {"output_source": "1:sum"}}}
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_value(summary, "o1") == 10
+        assert self._outcomes(summary.invocation_id) == ["continue"] * 8 + ["stop"]
+
     def test_loop_single_variable_boolean_feedback(self):
         # The `when` of this loop is a plain reference to a boolean the body computes, no JavaScript.
         workflow = loop_workflow(

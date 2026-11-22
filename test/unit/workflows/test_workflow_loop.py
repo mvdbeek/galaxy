@@ -133,6 +133,16 @@ def test_loop_output_source_must_be_a_subworkflow_output():
 ALL_ITERATIONS_LOOP = {"inputs": {"i1": {"output_source": "o1"}}, "output_method": "all_iterations"}
 
 
+def test_loop_output_source_may_be_an_unlabelled_output():
+    body = ADD_ONE_BODY.replace("{output_name: sum, label: o1}", "{output_name: sum}")
+    validate_workflow_loops(
+        yaml_to_model(loop_step_yaml(loop={"inputs": {"i1": {"output_source": "2:sum"}}}, body=body)), True
+    )
+    assert_refused(
+        yaml_to_model(loop_step_yaml(body=body)), "loop output_source 'o1' is not an output of the subworkflow"
+    )
+
+
 def test_loop_all_iterations():
     validate_workflow_loops(yaml_to_model(loop_step_yaml(loop=ALL_ITERATIONS_LOOP)), True)
 

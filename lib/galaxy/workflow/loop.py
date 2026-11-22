@@ -192,7 +192,8 @@ def _validate_loop_step(step: "WorkflowStep") -> None:
                     "collecting parameters of all iterations is not supported yet."
                 )
     input_labels = {input_step.label for input_step in step.subworkflow.input_steps}
-    output_labels = set(step.subworkflow.workflow_output_labels)
+    # Outputs are named as the subworkflow step and the loop at run time name them: "N:output_name" when unlabelled.
+    output_labels = {subworkflow_output_label(workflow_output) for workflow_output in step.subworkflow.workflow_outputs}
     subworkflow_inputs = {input_step.label: input_step for input_step in step.subworkflow.input_steps}
     for input_name, rule in loop.inputs.items():
         if input_name not in input_labels:
