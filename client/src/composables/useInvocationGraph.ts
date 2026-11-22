@@ -15,7 +15,13 @@ import { computed, type Ref, ref, watch } from "vue";
 
 import { fetchCollectionSummary } from "@/api/datasetCollections";
 import { fetchDatasetDetails } from "@/api/datasets";
-import type { InvocationStep, StepJobSummary, WorkflowInvocationElementView } from "@/api/invocations";
+import type {
+    InvocationState,
+    InvocationStep,
+    InvocationStepIteration,
+    StepJobSummary,
+    WorkflowInvocationElementView,
+} from "@/api/invocations";
 import type { components } from "@/api/schema";
 import type { StoredWorkflowDetailed } from "@/api/workflows";
 import { getContentItemState } from "@/components/History/Content/model/states";
@@ -96,6 +102,65 @@ export const statePlaceholders: Record<string, string> = {
     failed_metadata: "have metadata errors",
     stop: "stopping",
 };
+
+/** Invocation states in which a loop iteration without an outcome will not get one. */
+export const LOOP_ENDED_INVOCATION_STATES: InvocationState[] = [
+    "scheduled",
+    "completed",
+    "cancelled",
+    "cancelling",
+    "failed",
+];
+
+/**
+ * The state of a workflow loop iteration from its `loop_outcome`. An iteration that reached the iteration limit
+ * completed; the loop step failed. Iteration 0 exists from the moment the run is requested, so without an outcome
+ * it may still wait for the loop step's inputs; a later iteration is created when the loop continues and started
+ * in the same pass, so without an outcome it runs. Neither gets an outcome once the invocation has ended.
+ */
+export function loopIterationState(
+    iteration: InvocationStepIteration,
+    invocationState: InvocationState,
+): GraphStepState {
+    switch (iteration.loop_outcome) {
+        case "continue":
+        case "stop":
+        case "limit":
+            return "ok";
+        case "skipped":
+            return "skipped";
+        case "failed":
+            return "error";
+        default:
+            if (invocationState === "failed") {
+                return "error";
+            }
+            if (LOOP_ENDED_INVOCATION_STATES.includes(invocationState)) {
+                return "stopped";
+            }
+            return iteration.iteration === 0 ? "new" : "running";
+    }
+}
+
+/**
+ * The state of a loop step from its newest iteration: that iteration's state, or an error once the loop reached
+ * the iteration limit. Undefined for a step that is not a loop, and while iteration 0 has no outcome and the
+ * invocation has not ended, as the step's state is then that of an ordinary subworkflow step.
+ */
+export function loopStepState(
+    iterations: InvocationStepIteration[],
+    invocationState: InvocationState,
+): GraphStepState | undefined {
+    const newest = iterations[iterations.length - 1];
+    if (!newest) {
+        return undefined;
+    }
+    if (newest.loop_outcome === "limit") {
+        return "error";
+    }
+    const state = loopIterationState(newest, invocationState);
+    return state === "new" ? undefined : state;
+}
 
 /** Only one job needs to be in one of these states for the graph step to be in that state */
 const SINGLE_INSTANCE_STATES: GraphStepState[] = ["error", "running", "paused", "deleting"];
@@ -264,7 +329,10 @@ export function useInvocationGraph(
              * derive the `state` for this invocation graph step) */
             let populatedState;
 
-            if (graphStep.type === "subworkflow") {
+            const loopState = loopStepState(invocationStep.iterations ?? [], invocation.value.state);
+            if (loopState) {
+                newState = loopState;
+            } else if (graphStep.type === "subworkflow") {
                 // if the step is a subworkflow, get the populated state from the invocation step
                 populatedState = invocationStep.state || undefined;
 

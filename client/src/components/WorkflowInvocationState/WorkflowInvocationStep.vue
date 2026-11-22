@@ -8,7 +8,7 @@ import { computed, onUnmounted, ref, watch } from "vue";
 import type { WorkflowInvocationElementView } from "@/api/invocations";
 import type { WorkflowStepTyped } from "@/api/workflows";
 import { useDatatypesMapper } from "@/composables/datatypesMapper";
-import type { GraphStep } from "@/composables/useInvocationGraph";
+import { type GraphStep, LOOP_ENDED_INVOCATION_STATES } from "@/composables/useInvocationGraph";
 import { getAppRoot } from "@/onload/loadConfig";
 import { useInvocationStore } from "@/stores/invocationStore";
 
@@ -17,6 +17,7 @@ import JobStep from "./JobStep.vue";
 import ParameterStep from "./ParameterStep.vue";
 import SubworkflowAlert from "./SubworkflowAlert.vue";
 import WorkflowInvocationStepHeader from "./WorkflowInvocationStepHeader.vue";
+import WorkflowLoopIterations from "./WorkflowLoopIterations.vue";
 import WorkflowStepTitle from "./WorkflowStepTitle.vue";
 import GAlert from "@/components/BaseComponents/GAlert.vue";
 import GTab from "@/components/BaseComponents/GTab.vue";
@@ -112,6 +113,10 @@ const paramInput = computed(() => {
 const stepIsTerminal = computed<boolean | null>(() => {
     if (!stepDetails.value || !stepDetails.value.state) {
         return null;
+    }
+    // A loop step that fails stays new, but once the invocation has ended its iterations do not change.
+    if (stepDetails.value.iterations?.length && LOOP_ENDED_INVOCATION_STATES.includes(props.invocation.state)) {
+        return true;
     }
     const isTerminal =
         ["scheduled", "cancelled", "failed", "completed"].includes(stepDetails.value.state) &&
@@ -266,6 +271,11 @@ onUnmounted(() => {
                                             </ul>
                                         </template>
                                     </div>
+
+                                    <WorkflowLoopIterations
+                                        v-else-if="stepDetails.iterations?.length"
+                                        :iterations="stepDetails.iterations"
+                                        :invocation-state="props.invocation.state" />
 
                                     <SubworkflowAlert v-else :invocation-id="stepDetails.subworkflow_invocation_id" />
                                 </div>

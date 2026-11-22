@@ -5,9 +5,15 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ref, watch } from "vue";
 
 import { HttpResponse, useServerMock } from "@/api/client/__mocks__";
-import type { InvocationStep, StepJobSummary, WorkflowInvocationElementView } from "@/api/invocations";
+import type {
+    InvocationState,
+    InvocationStep,
+    InvocationStepIteration,
+    StepJobSummary,
+    WorkflowInvocationElementView,
+} from "@/api/invocations";
 
-import { stepJobSummaryLookup, useInvocationGraph } from "./useInvocationGraph";
+import { loopIterationState, loopStepState, stepJobSummaryLookup, useInvocationGraph } from "./useInvocationGraph";
 
 const toolStep = { id: 0, type: "tool", position: { left: 0, top: 0 } };
 const workflowSteps = vi.hoisted(() => ({ value: {} as Record<number, object> }));
@@ -182,6 +188,92 @@ describe("useInvocationGraph — step state", () => {
     });
 });
 
+function iteration(iteration: number, loop_outcome: InvocationStepIteration["loop_outcome"]) {
+    return { iteration, subworkflow_invocation_id: `child-${iteration}`, loop_outcome };
+}
+
+describe("loopIterationState", () => {
+    it.each<[number, InvocationStepIteration["loop_outcome"], InvocationState, string]>([
+        [0, "continue", "scheduled", "ok"],
+        [2, "stop", "scheduled", "ok"],
+        [2, "limit", "failed", "ok"],
+        [0, "skipped", "scheduled", "skipped"],
+        [1, "failed", "failed", "error"],
+        [0, null, "new", "new"],
+        [0, null, "ready", "new"],
+        [1, null, "ready", "running"],
+        [1, undefined, "ready", "running"],
+        [1, null, "cancelling", "stopped"],
+        [0, null, "cancelled", "stopped"],
+        [1, null, "scheduled", "stopped"],
+        [1, null, "completed", "stopped"],
+        [1, null, "failed", "error"],
+    ])("is the state of iteration %s with outcome %s in a %s invocation", (number, outcome, invocationState, state) => {
+        expect(loopIterationState(iteration(number, outcome), invocationState)).toBe(state);
+    });
+});
+
+describe("loopStepState", () => {
+    it.each<[InvocationStepIteration[], InvocationState, string | undefined]>([
+        [[], "ready", undefined],
+        [[iteration(0, null)], "ready", undefined],
+        [[iteration(0, null)], "failed", "error"],
+        [[iteration(0, "continue"), iteration(1, null)], "ready", "running"],
+        [[iteration(0, "continue"), iteration(1, "stop")], "scheduled", "ok"],
+        [[iteration(0, "skipped")], "scheduled", "skipped"],
+        [[iteration(0, "continue"), iteration(1, "limit")], "failed", "error"],
+    ])("of iterations %j in a %s invocation is %s", (iterations, invocationState, state) => {
+        expect(loopStepState(iterations, invocationState)).toBe(state);
+    });
+});
+
+describe("useInvocationGraph — loop step state", () => {
+    beforeEach(() => {
+        workflowSteps.value = { 0: { id: 0, type: "subworkflow", position: { left: 0, top: 0 } } };
+    });
+
+    it("is the state of the newest iteration, not that of the scheduled invocation step", async () => {
+        const { steps, load } = setupComposable(
+            { id: "is0", state: "scheduled", iterations: [iteration(0, "continue"), iteration(1, "stop")] },
+            [],
+            false,
+            { state: "scheduled" },
+        );
+        await load();
+        expect(steps.value[0]?.state).toBe("ok");
+    });
+
+    it("is that of an ordinary subworkflow step while iteration 0 has no outcome", async () => {
+        const { steps, load } = setupComposable(
+            { id: "is0", state: "new", iterations: [iteration(0, null)] },
+            [],
+            false,
+            { state: "ready" },
+        );
+        await load();
+        expect(steps.value[0]?.state).toBe("new");
+    });
+
+    it("is stopped when the invocation is cancelled during an iteration", async () => {
+        const { steps, load } = setupComposable(
+            { id: "is0", state: "new", iterations: [iteration(0, "continue"), iteration(1, null)] },
+            [],
+            false,
+            { state: "cancelled" },
+        );
+        await load();
+        expect(steps.value[0]?.state).toBe("stopped");
+    });
+
+    it("leaves an ordinary subworkflow step queued once it is scheduled", async () => {
+        const { steps, load } = setupComposable({ id: "is0", state: "scheduled", iterations: [] }, [], false, {
+            state: "scheduled",
+        });
+        await load();
+        expect(steps.value[0]?.state).toBe("queued");
+    });
+});
+
 // The Overview graph loads onto the editor canvas, the Steps tab and Feedback don't; both must follow the polls.
 describe.each([
     ["Steps tab", false],
@@ -219,6 +311,26 @@ describe.each([
         } as WorkflowInvocationElementView;
         await flushPromises();
         expect(steps.value[0]?.state).toBe("error");
+    });
+
+    it("updates a loop step when its newest iteration gets an outcome", async () => {
+        workflowSteps.value = { 0: { id: 0, type: "subworkflow", position: { left: 0, top: 0 } } };
+        const running = [iteration(0, "continue"), iteration(1, null)];
+        const { steps, invocation, load } = setupComposable(
+            { id: "is0", state: "new", iterations: running },
+            [],
+            loadOntoEditor,
+            { state: "ready" },
+        );
+        await load();
+        expect(steps.value[0]?.state).toBe("running");
+
+        invocation.value = {
+            ...invocation.value,
+            steps: [{ id: "is0", state: "scheduled", iterations: [iteration(0, "continue"), iteration(1, "stop")] }],
+        } as WorkflowInvocationElementView;
+        await flushPromises();
+        expect(steps.value[0]?.state).toBe("ok");
     });
 
     it("updates a step once it is scheduled", async () => {
