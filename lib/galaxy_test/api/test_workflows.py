@@ -6454,6 +6454,102 @@ steps:
         ).strip()
 
     @skip_without_tool("gx_int")
+    def test_run_subworkflow_step_input_default_for_required_input(self, history_id):
+        workflow = """
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_int:
+        default: 5
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_int:
+          type: int
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+"""
+        assert self._run_and_read_echoed_output(workflow, history_id, round_trip_format_conversion=True) == "5"
+
+    @skip_without_tool("gx_int")
+    def test_run_subworkflow_step_input_default_overrides_inner_default(self, history_id):
+        # Like a tool step's input default overrides the tool parameter's own default.
+        workflow = """
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_int:
+        default: 5
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_int:
+          type: int
+          optional: true
+          default: 1
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+"""
+        assert self._run_and_read_echoed_output(workflow, history_id) == "5"
+
+    @skip_without_tool("gx_int")
+    def test_run_subworkflow_step_input_connection_overrides_default(self, history_id):
+        workflow = """
+class: GalaxyWorkflow
+inputs:
+  outer_int:
+    type: int
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_int:
+        source: outer_int
+        default: 5
+    when: $(inputs.inner_int == 7)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_int:
+          type: int
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+test_data:
+  outer_int:
+    value: 7
+    type: raw
+"""
+        assert self._run_and_read_echoed_output(workflow, history_id) == "7"
+
+    @skip_without_tool("gx_int")
     def test_run_subworkflow_step_when_on_step_input_default(self, history_id):
         workflow = """
 class: GalaxyWorkflow
@@ -6480,6 +6576,174 @@ steps:
           tool_id: gx_int
 """
         assert self._run_and_read_echoed_output(workflow, history_id) == "1"
+
+    @skip_without_tool("gx_int")
+    def test_run_mapped_subworkflow_step_input_default(self, history_id):
+        summary = self._run_workflow(
+            """
+class: GalaxyWorkflow
+inputs:
+  input_list:
+    type: collection
+    collection_type: list
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_data: input_list
+      inner_int:
+        default: 5
+    when: $(inputs.inner_int == 5)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_data:
+          type: data
+        inner_int:
+          type: int
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        cat:
+          tool_id: cat1
+          in:
+            input1: inner_data
+        echo:
+          tool_id: gx_int
+          in:
+            parameter: inner_int
+test_data:
+  input_list:
+    collection_type: list
+    elements:
+      - identifier: el1
+        content: "a"
+      - identifier: el2
+        content: "b"
+""",
+            history_id=history_id,
+            wait=True,
+            assert_ok=True,
+        )
+        invocation = self.workflow_populator.get_invocation(summary.invocation_id)
+        echoed = self.dataset_populator.get_history_collection_details(
+            history_id, content_id=invocation["output_collections"]["echoed"]["id"]
+        )
+        assert [element["element_identifier"] for element in echoed["elements"]] == ["el1", "el2"]
+        for element in echoed["elements"]:
+            content = self.dataset_populator.get_history_dataset_content(history_id, content_id=element["object"]["id"])
+            assert content.strip() == "5"
+
+    def test_subworkflow_step_input_default_for_data_input_rejected(self, history_id):
+        # Only parameter defaults are passed into a subworkflow: the subworkflow step is
+        # scheduled again until its steps are, and a data default would add a dataset each time.
+        workflow_id = self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+steps:
+  subworkflow:
+    in:
+      inner_data:
+        default:
+          class: File
+          basename: a file
+          format: txt
+          location: https://example.org/1.bed
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_data:
+          type: data
+      steps: []
+""")
+        self._assert_disconnected_subworkflow_input_rejected(workflow_id, history_id, {}, "subworkflow", "inner_data")
+
+    @pytest.mark.parametrize("parameter_type,default", [("int", 0), ("boolean", False), ("text", "")])
+    def test_run_subworkflow_step_input_falsy_default_for_required_input(self, history_id, parameter_type, default):
+        summary = self._run_workflow(
+            f"""
+class: GalaxyWorkflow
+outputs:
+  passed:
+    outputSource: subworkflow/inner_passed
+steps:
+  subworkflow:
+    in:
+      inner_parameter:
+        default: {json.dumps(default)}
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_parameter:
+          type: {parameter_type}
+      outputs:
+        inner_passed:
+          outputSource: inner_parameter
+      steps: []
+""",
+            history_id=history_id,
+            wait=True,
+            assert_ok=True,
+        )
+        invocation = self.workflow_populator.get_invocation(summary.invocation_id)
+        assert invocation["output_values"]["passed"] == default
+
+    def test_subworkflow_step_input_null_default_for_required_input_rejected(self, history_id):
+        # gxformat2 drops a null default, so set it in the native format.
+        workflow_id = self._upload_yaml_workflow("""
+class: GalaxyWorkflow
+steps:
+  subworkflow:
+    in:
+      inner_int:
+        default: 5
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_int:
+          type: int
+      steps: []
+""")
+        workflow = self.workflow_populator.download_workflow(workflow_id)
+        subworkflow_step = next(step for step in workflow["steps"].values() if step["type"] == "subworkflow")
+        subworkflow_step["in"]["inner_int"]["default"] = None
+        workflow_id = self.workflow_populator.create_workflow(workflow)
+        self._assert_disconnected_subworkflow_input_rejected(workflow_id, history_id, {}, "subworkflow", "inner_int")
+
+    @skip_without_tool("gx_int")
+    def test_run_subworkflow_step_when_sees_no_data_default(self, history_id):
+        # The subworkflow doesn't receive a data default, so its `when` doesn't see one either.
+        workflow = """
+class: GalaxyWorkflow
+outputs:
+  echoed:
+    outputSource: subworkflow/inner_echoed
+steps:
+  subworkflow:
+    in:
+      inner_data:
+        default:
+          class: File
+          basename: a file
+          format: txt
+          location: https://example.org/1.bed
+    when: $(inputs.inner_data === null)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        inner_data:
+          type: data
+          optional: true
+      outputs:
+        inner_echoed:
+          outputSource: echo/output
+      steps:
+        echo:
+          tool_id: gx_int
+"""
+        assert self._echo_job_state(workflow, history_id) == "ok"
 
     def test_subworkflow_validation_error_step_path(self):
         """Test that validation errors from subworkflows include the full step path."""

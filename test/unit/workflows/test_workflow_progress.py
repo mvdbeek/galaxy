@@ -97,6 +97,19 @@ steps:
           "@input_subworkflow_step": 0
 """
 
+TEST_SUBWORKFLOW_PARAMETER_STEP_DEFAULT_YAML = """
+steps:
+  - type: "subworkflow"
+    subworkflow:
+       steps:
+          - type: "parameter_input"
+            label: "inner_text"
+            tool_inputs: {"parameter_type": "text", "optional": false}
+    inputs:
+      inner_text:
+        default: "step default"
+"""
+
 UNSCHEDULED_STEP = object()
 
 
@@ -331,6 +344,23 @@ class TestWorkflowProgress(TestCase):
         with pytest.raises(modules.DelayedWorkflowEvaluation) as exc_info:
             self._recovered_workflow_progress().subworkflow_progress(subworkflow_invocation, subworkflow_step, {})
         assert "could not be read" in exc_info.value.why
+
+    def test_subworkflow_progress_passes_step_input_default(self):
+        self._setup_workflow(TEST_SUBWORKFLOW_PARAMETER_STEP_DEFAULT_YAML)
+        self._set_previous_progress([(100, UNSCHEDULED_STEP)])
+        subworkflow_step = self.invocation.workflow.step_by_index(0)
+        subworkflow_invocation = self.invocation.create_subworkflow_invocation_for_step(subworkflow_step)
+        session = self.app.model.session
+        session.add(self.invocation)
+        session.add(subworkflow_invocation)
+        session.commit()
+        subworkflow = subworkflow_step.subworkflow
+        assert modules.disconnected_required_subworkflow_inputs(subworkflow_step, subworkflow) == []
+
+        subworkflow_progress = self._recovered_workflow_progress().subworkflow_progress(
+            subworkflow_invocation, subworkflow_step, {}
+        )
+        assert subworkflow_progress.inputs_by_step_id == {subworkflow.step_by_index(0).id: "step default"}
 
     def _recovered_workflow_progress(self):
         progress = self._new_workflow_progress()

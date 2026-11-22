@@ -836,6 +836,23 @@ def workflow_step_name(step: WorkflowStep) -> str:
     return str(name or step.order_index + 1)
 
 
+def subworkflow_input_default(step: WorkflowStep, input_step: WorkflowStep) -> Any:
+    """Return the default that subworkflow ``step`` passes to its ``input_step``, or ``NO_REPLACEMENT``.
+
+    Only a parameter input gets one, looked up by the input's label. Data defaults are out of scope.
+    A null default doesn't count for a required input.
+    """
+    step_input = step.inputs_by_name.get(input_step.label)
+    if (
+        input_step.type != "parameter_input"
+        or not step_input
+        or not step_input.default_value_set
+        or (step_input.default_value is None and not input_step.input_optional)
+    ):
+        return NO_REPLACEMENT
+    return step_input.default_value
+
+
 def disconnected_required_subworkflow_inputs(step: WorkflowStep, subworkflow: Workflow) -> list[WorkflowStep]:
     """Return the required input steps of ``subworkflow`` without a default that ``step`` doesn't connect."""
     connected_input_step_ids = {connection.input_subworkflow_step_id for connection in step.input_connections}
@@ -846,6 +863,7 @@ def disconnected_required_subworkflow_inputs(step: WorkflowStep, subworkflow: Wo
         if input_step.id not in connected_input_step_ids
         and not input_step.input_optional
         and input_step.get_input_default_value(default_not_set) is default_not_set
+        and subworkflow_input_default(step, input_step) is NO_REPLACEMENT
     ]
 
 
@@ -1024,6 +1042,9 @@ class SubWorkflowModule(WorkflowModule):
         """
         step = invocation_step.workflow_step
         all_inputs = self.get_all_inputs()
+        all_inputs_by_name: dict[str | None, InputDescription] = {
+            input_dict["name"]: input_dict for input_dict in all_inputs
+        }
         collection_info = self.plan_map_over(progress, step, all_inputs)
 
         if collection_info:
@@ -1051,6 +1072,10 @@ class SubWorkflowModule(WorkflowModule):
                         value = iteration_elements[step_input_name]  # noqa: B023
                     elif step_input.connections:
                         value = progress.replacement_for_connection(step_input.connections[0], is_data=True)
+                    elif input_dict := all_inputs_by_name.get(step_input_name):
+                        # What the subworkflow receives for this input.
+                        input_step = self.subworkflow.step_by_index(input_dict["input_subworkflow_step_id"])
+                        value = subworkflow_input_default(step, input_step)
                     else:
                         # Read raw, so this doesn't materialize a data default. Map-over planning above
                         # already does, as a new dataset on every pass; that is being fixed separately.

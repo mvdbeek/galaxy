@@ -894,6 +894,10 @@ class WorkflowProgress:
                         modules.replace_expression_json_dataset(replacement, step)
                     subworkflow_inputs[subworkflow_step_id] = replacement
                     break
+            else:
+                default = modules.subworkflow_input_default(step, input_subworkflow_step)
+                if default is not NO_REPLACEMENT:
+                    subworkflow_inputs[subworkflow_step_id] = default
 
         return WorkflowProgress(
             subworkflow_invocation,

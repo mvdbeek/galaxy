@@ -114,6 +114,9 @@ def yaml_to_model(has_dict, id_offset=100):
                 for input_name, input_def in value.items():
                     step_input = model.WorkflowStepInput(workflow_step)
                     step_input.name = input_name
+                    if "default" in input_def:
+                        step_input.default_value = input_def["default"]
+                        step_input.default_value_set = True
                     connections = []
                     for conn_dict in input_def.get("connections", []):
                         conn = model.WorkflowStepConnection()
