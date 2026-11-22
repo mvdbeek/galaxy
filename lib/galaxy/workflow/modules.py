@@ -525,6 +525,28 @@ def evaluate_value_from_expressions(progress, step, execution_state, extra_step_
         return when_value
 
 
+def evaluate_loop_value_from(
+    progress: "WorkflowProgress", step: WorkflowStep, expression: str, inputs: dict[str, Any], value: Any
+) -> Any:
+    """Evaluate a loop input's ``value_from``, with ``self`` bound to ``value`` as in CWL v1.3 ``LoopInput``."""
+    hda_references: list[model.HistoryDatasetAssociation] = []
+    step_state = {key: to_cwl(item, hda_references=hda_references, step=step) for key, item in inputs.items()}
+    context = to_cwl(value, hda_references=hda_references, step=step)
+    isolation_command = resolve_isolation_command(
+        progress.module_injector.trans.app.config.expression_evaluation_isolation_command
+    )
+    try:
+        as_cwl_value = do_eval(expression, step_state, context=context, sandbox_command=isolation_command)
+    except Exception:
+        # As for ``when``: the exception may contain the script and secret values, show neither.
+        raise FailWorkflowEvaluation(
+            InvocationFailureExpressionEvaluationFailed(
+                reason=FailureReason.expression_evaluation_failed, workflow_step_id=step.id
+            )
+        )
+    return from_cwl(as_cwl_value, hda_references=hda_references, progress=progress)
+
+
 class WorkflowModule:
     label: str
     type: str

@@ -7,6 +7,7 @@ from typing import (
     Any,
     cast,
 )
+from uuid import uuid4
 
 import pytest
 from sqlalchemy import (
@@ -24,7 +25,12 @@ from galaxy.model.unittest_utils.model_testing_utils import (  # noqa: F401  (ur
 from galaxy.schema.states import InvocationState
 from galaxy.util.bunch import Bunch
 from galaxy.workflow import modules
-from galaxy.workflow.loop import iteration_job_states
+from galaxy.workflow.loop import (
+    iteration_job_states,
+    parse_loop,
+    record_loop_inputs,
+    recorded_loop_inputs,
+)
 from galaxy.workflow.run import (
     ModuleInjector,
     WorkflowProgress,
@@ -70,7 +76,14 @@ def test_allocating_an_existing_iteration_delays(session):
     progress = WorkflowProgress(invocation, {}, cast(ModuleInjector, None), {})
     first_iteration = invocation.iteration_associations(loop_step)[0]
     with pytest.raises(modules.DelayedWorkflowEvaluation):
-        progress._allocate_loop_iteration(cast(Any, Bunch(sa_session=session)), loop_step, first_iteration, 1)
+        progress._allocate_loop_iteration(
+            cast(Any, Bunch(sa_session=session)),
+            loop_step,
+            first_iteration,
+            1,
+            parse_loop({"inputs": {"i1": {"output_source": "o1"}}}),
+            {},
+        )
     # The session stays usable and still holds the two iterations.
     session.refresh(invocation)
     assert [assoc.iteration for assoc in invocation.iteration_associations(loop_step)] == [0, 1]
@@ -156,3 +169,43 @@ def test_cancelled_iteration_cancels_the_loop_whatever_its_jobs(session):
     progress = WorkflowProgress(invocation, {}, cast(ModuleInjector, None), {})
     with pytest.raises(modules.CancelWorkflowEvaluation):
         progress._check_loop_iteration_settled(cast(Any, Bunch(sa_session=session)), loop_step, association)
+
+
+def test_recorded_loop_inputs_read_back(session):
+    history = m.History(user=m.User(email=f"{uuid4()}@example.org", password="password"))
+    workflow = m.Workflow()
+    loop_step = m.WorkflowStep()
+    loop_step.order_index = 0
+    loop_step.type = "subworkflow"
+    loop_step.subworkflow = m.Workflow()
+    workflow.steps.append(loop_step)
+    labels = {
+        "nothing": "parameter_input",
+        "number": "parameter_input",
+        "data": "data_input",
+        "list": "data_collection_input",
+    }
+    for order_index, (label, step_type) in enumerate(labels.items()):
+        input_step = m.WorkflowStep()
+        input_step.order_index = order_index
+        input_step.type = step_type
+        input_step.label = label
+        loop_step.subworkflow.steps.append(input_step)
+    dataset = m.HistoryDatasetAssociation(create_dataset=True, flush=False, history=history)
+    collection = m.HistoryDatasetCollectionAssociation(collection=m.DatasetCollection(collection_type="list"))
+    history.add_dataset_collection(collection, set_hid=False)
+    iteration = m.WorkflowInvocation()
+    iteration.workflow = loop_step.subworkflow
+    iteration.history = history
+    iteration.state = InvocationState.NEW.value
+    session.add_all([workflow, iteration])
+    loop = parse_loop({"inputs": {label: {"output_source": "o"} for label in labels}})
+    record_loop_inputs(loop_step, loop, iteration, {"nothing": None, "number": 7, "data": dataset, "list": collection})
+    session.commit()
+    session.expire_all()
+    assert recorded_loop_inputs(loop_step, loop, iteration) == {
+        "nothing": None,
+        "number": 7,
+        "data": dataset,
+        "list": collection,
+    }

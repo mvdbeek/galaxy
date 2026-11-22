@@ -8,6 +8,7 @@ scheduler side is ``WorkflowProgress.execute_loop`` in ``galaxy.workflow.run``.
 """
 
 import re
+from collections.abc import Callable
 from copy import deepcopy
 from enum import StrEnum
 from typing import (
@@ -20,6 +21,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    model_validator,
     ValidationError,
 )
 from sqlalchemy import (
@@ -41,9 +43,14 @@ from galaxy.schema.invocation import (
     InvocationUnexpectedFailure,
     LoopOutcome,
 )
+from galaxy.tools.expressions.evaluation import (
+    ExpressionTemplateError,
+    validate_expression_template,
+)
 from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.workflow.modules import (
     FailWorkflowEvaluation,
+    replace_expression_json_dataset,
     workflow_step_name,
 )
 
@@ -56,14 +63,29 @@ if TYPE_CHECKING:
     )
 
 MAX_LOOP_NESTING_DEPTH = 4
-# ``inputs.name`` or ``inputs["name"]`` in a ``when`` expression.
-WHEN_INPUT_REFERENCE = re.compile(r"""inputs(?:\.([A-Za-z_]\w*)|\[\s*["']([^"']+)["']\s*\])""")
+# ``inputs.name`` or ``inputs["name"]`` in an expression.
+INPUT_REFERENCE = re.compile(r"""inputs(?:\.([A-Za-z_]\w*)|\[\s*["']([^"']+)["']\s*\])""")
 
 
 class LoopInput(BaseModel):
+    """How a loop input gets its value for the next iteration, as CWL v1.3 ``LoopInput``.
+
+    The value is the output named by ``output_source`` (null without one); ``default``
+    replaces a null or skipped value; then ``value_from`` computes the value, with ``self``
+    bound to that value and ``inputs`` to the input object of the iteration that just ran.
+    """
+
     model_config = ConfigDict(extra="forbid")
 
-    output_source: str = Field(description="Label of the subworkflow output fed back into this input.")
+    output_source: str | None = Field(None, description="Label of the subworkflow output fed back into this input.")
+    default: Any = Field(None, description="Value used when the fed-back value is null or skipped.")
+    value_from: str | None = Field(None, description="Expression that computes the value for the next iteration.")
+
+    @model_validator(mode="after")
+    def _has_a_value(self) -> "LoopInput":
+        if self.output_source is None and self.default is None and self.value_from is None:
+            raise ValueError("a loop input needs output_source, default or value_from")
+        return self
 
 
 class LoopOutputMethod(StrEnum):
@@ -139,30 +161,72 @@ def _validate_loop_step(step: "WorkflowStep") -> None:
             )
     if not step.when_expression:
         raise RequestParameterInvalidException(f"Step {name}: a loop step needs a 'when' expression.")
+    # An expression sees the input object of an iteration; the first one holds only connected inputs.
     connected_inputs = {connection.input_name for connection in step.input_connections}
-    for match in WHEN_INPUT_REFERENCE.finditer(str(step.when_expression)):
-        input_name = match.group(1) or match.group(2)
-        if input_name not in connected_inputs:
-            raise RequestParameterInvalidException(
-                f"Step {name}: the 'when' expression uses input '{input_name}', which is not connected."
-            )
+    if unconnected := _unconnected_reference(str(step.when_expression), connected_inputs):
+        raise RequestParameterInvalidException(
+            f"Step {name}: the 'when' expression uses input '{unconnected}', which is not connected."
+        )
     if loop.output_method != LoopOutputMethod.last_iteration:
         raise RequestParameterInvalidException(
             f"Step {name}: loop output_method '{loop.output_method}' is not supported yet."
         )
     input_labels = {input_step.label for input_step in step.subworkflow.input_steps}
     output_labels = set(step.subworkflow.workflow_output_labels)
+    subworkflow_inputs = {input_step.label: input_step for input_step in step.subworkflow.input_steps}
     for input_name, rule in loop.inputs.items():
         if input_name not in input_labels:
             raise RequestParameterInvalidException(
                 f"Step {name}: loop input '{input_name}' is not an input of the subworkflow."
             )
-        if rule.output_source not in output_labels:
+        if rule.output_source is not None and rule.output_source not in output_labels:
             raise RequestParameterInvalidException(
                 f"Step {name}: loop output_source '{rule.output_source}' is not an output of the subworkflow."
             )
+        if rule.default is not None:
+            _validate_loop_default(name, input_name, subworkflow_inputs[input_name], rule.default)
+        if rule.value_from is not None:
+            try:
+                validate_expression_template(rule.value_from, "loop value_from")
+            except ExpressionTemplateError as e:
+                raise RequestParameterInvalidException(f"Step {name}: loop input '{input_name}': {e}")
+            if unconnected := _unconnected_reference(rule.value_from, connected_inputs):
+                raise RequestParameterInvalidException(
+                    f"Step {name}: the value_from of loop input '{input_name}' uses input '{unconnected}', "
+                    "which is not connected."
+                )
     if _statically_mapped_over(step):
         raise RequestParameterInvalidException(_mapping_message(step))
+
+
+def _unconnected_reference(expression: str, connected_inputs: set[str]) -> str | None:
+    for match in INPUT_REFERENCE.finditer(expression):
+        input_name = match.group(1) or match.group(2)
+        if input_name not in connected_inputs:
+            return input_name
+    return None
+
+
+_PARAMETER_DEFAULT_TYPES: dict[str, tuple[type, ...]] = {
+    "integer": (int,),
+    "float": (int, float),
+    "boolean": (bool,),
+    "text": (str,),
+}
+
+
+def _validate_loop_default(step_name: str, input_name: str, subworkflow_input: "WorkflowStep", default: Any) -> None:
+    if subworkflow_input.type != "parameter_input":
+        raise RequestParameterInvalidException(
+            f"Step {step_name}: a default for loop input '{input_name}', a dataset or collection input, is not supported."
+        )
+    parameter_type = (subworkflow_input.tool_inputs or {}).get("parameter_type")
+    expected = _PARAMETER_DEFAULT_TYPES.get(parameter_type or "")
+    # bool is an int in Python, but not an integer or float parameter value.
+    if expected and (not isinstance(default, expected) or (isinstance(default, bool) and bool not in expected)):
+        raise RequestParameterInvalidException(
+            f"Step {step_name}: the default {default!r} of loop input '{input_name}' is not a valid {parameter_type} value."
+        )
 
 
 def validate_loop_request(workflow: "Workflow", inputs: dict[int, Any]) -> None:
@@ -258,26 +322,83 @@ def iteration_outputs(iteration: model.WorkflowInvocation) -> dict[str, Any]:
 
 
 def next_iteration_inputs(
-    step: "WorkflowStep", loop: WorkflowLoop, first_inputs: dict[str, Any], previous_outputs: dict[str, Any]
+    step: "WorkflowStep",
+    loop: WorkflowLoop,
+    previous_inputs: dict[str, Any],
+    previous_outputs: dict[str, Any],
+    evaluate_value_from: Callable[[str, dict[str, Any], Any], Any],
 ) -> dict[str, Any]:
-    """Return the input object of the next iteration.
+    """Return the input object of the next iteration from that of the iteration that just ran.
 
-    Each looped input takes the previous iteration's output its rule names, null and skipped
-    values included; all other inputs keep their value from the first iteration.
+    For each looped input, in the order of CWL v1.3 ``LoopInput``: the output its rule names
+    (null without one, null and skipped values passed on), the rule's ``default`` if that value
+    is null or skipped, then ``value_from`` with ``self`` bound to the value and ``inputs`` to
+    ``previous_inputs``. Inputs without a rule keep their value.
     """
-    inputs = dict(first_inputs)
+    inputs = dict(previous_inputs)
     for input_name, rule in loop.inputs.items():
-        if rule.output_source not in previous_outputs:
-            raise FailWorkflowEvaluation(
-                why=InvocationFailureOutputNotFound(
-                    reason=FailureReason.output_not_found,
-                    workflow_step_id=step.id,
-                    output_name=rule.output_source,
-                    dependent_workflow_step_id=step.id,
+        value: Any = None
+        if rule.output_source is not None:
+            if rule.output_source not in previous_outputs:
+                raise FailWorkflowEvaluation(
+                    why=InvocationFailureOutputNotFound(
+                        reason=FailureReason.output_not_found,
+                        workflow_step_id=step.id,
+                        output_name=rule.output_source,
+                        dependent_workflow_step_id=step.id,
+                    )
                 )
-            )
-        inputs[input_name] = previous_outputs[rule.output_source]
+            value = previous_outputs[rule.output_source]
+        if rule.default is not None and _is_null(value, step):
+            value = rule.default
+        if rule.value_from is not None:
+            value = evaluate_value_from(rule.value_from, previous_inputs, value)
+        inputs[input_name] = value
     return inputs
+
+
+def _is_null(value: Any, step: "WorkflowStep") -> bool:
+    if value is None or value is NO_REPLACEMENT:
+        return True
+    # A skipped job's outputs are expression.json datasets holding null.
+    return (
+        isinstance(value, model.HistoryDatasetAssociation)
+        and value.extension == "expression.json"
+        and replace_expression_json_dataset(value, step) is None
+    )
+
+
+def recorded_loop_inputs(
+    step: "WorkflowStep", loop: WorkflowLoop, iteration: model.WorkflowInvocation
+) -> dict[str, Any]:
+    """Return the looped inputs recorded for an iteration when it was allocated."""
+    assert step.subworkflow
+    labels = {
+        input_step.id: input_step.label
+        for input_step in step.subworkflow.input_steps
+        if input_step.label in loop.inputs
+    }
+    inputs: dict[str, Any] = dict.fromkeys(loop.inputs, NO_REPLACEMENT)
+    for dataset in iteration.input_datasets:
+        if dataset.workflow_step_id in labels:
+            inputs[labels[dataset.workflow_step_id]] = dataset.dataset
+    for collection in iteration.input_dataset_collections:
+        if collection.workflow_step_id in labels:
+            inputs[labels[collection.workflow_step_id]] = collection.dataset_collection
+    for parameter in iteration.input_step_parameters:
+        if parameter.workflow_step_id in labels:
+            inputs[labels[parameter.workflow_step_id]] = parameter.parameter_value
+    return inputs
+
+
+def record_loop_inputs(
+    step: "WorkflowStep", loop: WorkflowLoop, iteration: model.WorkflowInvocation, inputs: dict[str, Any]
+) -> None:
+    """Record the looped inputs of a new iteration, so later passes read them back instead of recomputing."""
+    assert step.subworkflow
+    for input_step in step.subworkflow.input_steps:
+        if input_step.label in loop.inputs and inputs[input_step.label] is not NO_REPLACEMENT:
+            iteration.add_input(inputs[input_step.label], step=input_step)
 
 
 def check_feedback(

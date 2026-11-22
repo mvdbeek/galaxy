@@ -2423,7 +2423,7 @@ class WorkflowContentsManager(UsesAnnotations):
                     raise exceptions.RequestParameterInvalidException(
                         f"A value_from on input '{input_name}' of a loop step is not supported yet."
                     )
-            step.loop = parse_loop(step_dict["loop"]).model_dump(mode="json")
+            step.loop = parse_loop(step_dict["loop"]).model_dump(mode="json", exclude_none=True)
         if dry_run:
             # expunging doesn't cascade to the step's children, which may have followed it
             # into the session (e.g. a subworkflow step's workflow outputs)

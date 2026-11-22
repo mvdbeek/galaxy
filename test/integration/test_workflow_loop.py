@@ -336,6 +336,167 @@ steps:
         summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}, "i2": {"value": 1, "type": "raw"}})
         assert self._output_value(summary, "o1") == 10
 
+    def test_loop_value_from(self):
+        workflow = loop_workflow(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  i1: int
+  i2: int
+outputs:
+  o1:
+    outputSource: loop/o1
+steps:
+  loop:
+    in:
+      i1: i1
+      i2: i2
+    when: $(inputs.i1 < 10)
+    run:
+{indent(ADD_TWO_BODY, " " * 6)}
+""",
+            {"loop": {"inputs": {"i1": {"value_from": "$(inputs.i1 + 1)"}}}},
+        )
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}, "i2": {"value": 1, "type": "raw"}})
+        assert self._output_value(summary, "o1") == 10
+        assert len(self._iterations(summary.invocation_id)) == 9
+        downloaded = self.workflow_populator.download_workflow(summary.workflow_id, style="ga")
+        assert _step_by_label(downloaded["steps"], "loop")["loop"]["inputs"] == {
+            "i1": {"value_from": "$(inputs.i1 + 1)"}
+        }
+
+    def test_loop_defaultvalue(self):
+        # The feedback part of loop_defaultvalue, with the last iteration's output: the first
+        # iteration's body step is skipped, its null output is fed back as the rule's default 5.
+        body = """
+class: GalaxyWorkflow
+inputs:
+  i1: int
+outputs:
+  o1:
+    outputSource: big_values/sum
+steps:
+  big_values:
+    tool_id: expression_add_int
+    when: $(inputs.a >= 5)
+    state:
+      b: 3
+    in:
+      a: i1
+"""
+        workflow = single_loop_workflow("$(inputs.i1 < 20)", body=body)
+        _step_by_label(workflow["steps"], "loop")["loop"] = {"inputs": {"i1": {"output_source": "o1", "default": 5}}}
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        # 1 (skipped, default 5), 5 -> 8, 8 -> 11, 11 -> 14, 14 -> 17, 17 -> 20.
+        assert self._output_value(summary, "o1") == 20
+        assert len(self._iterations(summary.invocation_id)) == 6
+
+    def test_loop_value_from_with_output_source(self):
+        # self is the body output: o1 = i1 + 1, next i1 = 2 * o1; 1 -> 4 -> 10 stops with o1 = 5.
+        workflow = single_loop_workflow("$(inputs.i1 < 10)")
+        _step_by_label(workflow["steps"], "loop")["loop"] = {
+            "inputs": {"i1": {"output_source": "o1", "value_from": "$(self * 2)"}}
+        }
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_value(summary, "o1") == 5
+        assert len(self._iterations(summary.invocation_id)) == 2
+
+    def test_loop_default_and_value_from(self):
+        # The skipped first output becomes the default 5 before value_from adds 1:
+        # i1 = 1, 6, 10, 14, 18; the last iteration's output is 18 + 3.
+        body = """
+class: GalaxyWorkflow
+inputs:
+  i1: int
+outputs:
+  o1:
+    outputSource: big_values/sum
+steps:
+  big_values:
+    tool_id: expression_add_int
+    when: $(inputs.a >= 5)
+    state:
+      b: 3
+    in:
+      a: i1
+"""
+        workflow = single_loop_workflow("$(inputs.i1 < 20)", body=body)
+        _step_by_label(workflow["steps"], "loop")["loop"] = {
+            "inputs": {"i1": {"output_source": "o1", "default": 5, "value_from": "$(self + 1)"}}
+        }
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_value(summary, "o1") == 21
+        assert len(self._iterations(summary.invocation_id)) == 5
+
+    def test_loop_value_from_reads_other_input(self):
+        # i2 has no rule and keeps its value: i1 = 1, 3, 5, 7, 9; the last output is 9 + 2.
+        workflow = loop_workflow(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  i1: int
+  i2: int
+outputs:
+  o1:
+    outputSource: loop/o1
+steps:
+  loop:
+    in:
+      i1: i1
+      i2: i2
+    when: $(inputs.i1 < 10)
+    run:
+{indent(ADD_TWO_BODY, " " * 6)}
+""",
+            {"loop": {"inputs": {"i1": {"value_from": "$(inputs.i1 + inputs.i2)"}}}},
+        )
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}, "i2": {"value": 2, "type": "raw"}})
+        assert self._output_value(summary, "o1") == 11
+        assert len(self._iterations(summary.invocation_id)) == 5
+
+    def test_loop_fail_value_from_exception_second_iteration(self):
+        workflow = single_loop_workflow("$(inputs.i1 < 10)")
+        value_from = '${ if (inputs.i1 >= 2) { throw new Error("failed"); } return inputs.i1 + 1; }'
+        _step_by_label(workflow["steps"], "loop")["loop"] = {"inputs": {"i1": {"value_from": value_from}}}
+        invocation = self._run_failing(workflow, {"i1": {"value": 1, "type": "raw"}})
+        # The same failure reason as an expression in ``when`` that throws.
+        assert invocation["messages"][0]["reason"] == "expression_evaluation_failed"
+        assert self._outcomes(invocation["id"]) == ["continue", "failed"]
+
+    def test_validate_loop_fail_default_for_dataset_input(self):
+        workflow = loop_workflow(
+            """
+class: GalaxyWorkflow
+inputs:
+  i1:
+    type: collection
+    collection_type: list
+steps:
+  loop:
+    in:
+      i1: i1
+    when: $(true)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        i1:
+          type: collection
+          collection_type: list
+      outputs:
+        o1:
+          outputSource: sort/output
+      steps:
+        sort:
+          tool_id: __SORTLIST__
+          in:
+            input: i1
+""",
+            {"loop": {"inputs": {"i1": {"output_source": "o1", "default": 5}}}},
+        )
+        response = self.workflow_populator.create_workflow_response(workflow)
+        self._assert_status_code_is(response, 400)
+        assert "a dataset or collection input, is not supported" in response.json()["err_msg"]
+
     def test_loop_opt_var(self):
         body = """
 class: GalaxyWorkflow

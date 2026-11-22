@@ -20,7 +20,10 @@ from galaxy.workflow.loop import (
     validate_workflow_loops,
     WorkflowLoop,
 )
-from .workflow_support import yaml_to_model
+from .workflow_support import (
+    expression_json_hda,
+    yaml_to_model,
+)
 
 ADD_ONE_BODY = """
 steps:
@@ -138,7 +141,58 @@ def test_loop_needs_feedback():
 
 def test_loop_unknown_key_refused():
     with pytest.raises(RequestParameterInvalidException):
-        parse_loop({"inputs": {"i1": {"output_source": "o1", "value_from": "$(1)"}}})
+        parse_loop({"inputs": {"i1": {"output_source": "o1", "pick_value": "first_non_null"}}})
+
+
+def test_loop_input_needs_a_value():
+    with pytest.raises(RequestParameterInvalidException) as exc_info:
+        parse_loop({"inputs": {"i1": {}}})
+    assert "needs output_source, default or value_from" in str(exc_info.value)
+
+
+def test_loop_value_from_without_output_source():
+    validate_workflow_loops(
+        yaml_to_model(loop_step_yaml(loop={"inputs": {"i1": {"value_from": "$(inputs.i1 + 1)"}}})), True
+    )
+
+
+def test_loop_value_from_must_use_connected_inputs():
+    # The first value_from sees the first iteration's inputs, which hold only connected inputs.
+    for value_from in ("$(inputs.i2 + 1)", '$(inputs["i2"])'):
+        loop = {"inputs": {"i1": {"value_from": value_from}}}
+        assert_refused(
+            yaml_to_model(loop_step_yaml(loop=loop)),
+            "the value_from of loop input 'i1' uses input 'i2', which is not connected",
+        )
+
+
+def test_loop_value_from_of_unconnected_input_may_not_read_itself():
+    loop = {"inputs": {"i2": {"value_from": "$(inputs.i2 + 1)"}, "i1": {"output_source": "o1"}}}
+    assert_refused(
+        yaml_to_model(loop_step_yaml(loop=loop)),
+        "the value_from of loop input 'i2' uses input 'i2', which is not connected",
+    )
+
+
+def test_loop_value_from_must_parse():
+    workflow = yaml_to_model(loop_step_yaml(loop={"inputs": {"i1": {"value_from": "$(inputs.i1 + 1"}}}))
+    assert_refused(workflow, "loop input 'i1'")
+
+
+def test_loop_default_must_match_parameter_type():
+    for default in (5, -1):
+        loop = {"inputs": {"i1": {"output_source": "o1", "default": default}}}
+        validate_workflow_loops(yaml_to_model(loop_step_yaml(loop=loop)), True)
+    wrong_defaults: list[Any] = ["five", 1.5, True]
+    for wrong_default in wrong_defaults:
+        loop = {"inputs": {"i1": {"output_source": "o1", "default": wrong_default}}}
+        assert_refused(yaml_to_model(loop_step_yaml(loop=loop)), "of loop input 'i1' is not a valid integer value")
+
+
+def test_loop_default_for_dataset_input_refused():
+    loop = {"inputs": {"i1": {"output_source": "o1", "default": 5}}}
+    workflow = yaml_to_model(loop_step_yaml(loop=loop, body=COLLECTION_BODY))
+    assert_refused(workflow, "a default for loop input 'i1', a dataset or collection input, is not supported")
 
 
 def test_map_over_loop_step_refused():
@@ -235,26 +289,65 @@ def _list(identifiers: list[str]) -> model.HistoryDatasetCollectionAssociation:
     return model.HistoryDatasetCollectionAssociation(collection=collection)
 
 
-def _loop_step(body: str = ADD_ONE_BODY) -> tuple[model.WorkflowStep, WorkflowLoop]:
-    step = yaml_to_model(loop_step_yaml(body=body)).steps[1]
+def _loop_step(body: str = ADD_ONE_BODY, loop: dict[str, Any] | None = None) -> tuple[model.WorkflowStep, WorkflowLoop]:
+    step = yaml_to_model(loop_step_yaml(body=body, loop=loop)).steps[1]
     return step, parse_loop(step.loop)
 
 
+def _no_value_from(expression: str, inputs: dict[str, Any], value: Any) -> Any:
+    raise AssertionError("no value_from in this loop")
+
+
+def _next_inputs(
+    rule: dict[str, Any], previous_inputs: dict[str, Any], previous_outputs: dict[str, Any], evaluate=_no_value_from
+):
+    step, loop = _loop_step(loop={"inputs": {"i1": rule}})
+    return next_iteration_inputs(step, loop, previous_inputs, previous_outputs, evaluate)
+
+
 def test_next_iteration_inputs_feed_back_looped_inputs_only():
-    step, loop = _loop_step()
-    assert next_iteration_inputs(step, loop, {"i1": 1, "i2": 5}, {"o1": 2}) == {"i1": 2, "i2": 5}
+    assert _next_inputs({"output_source": "o1"}, {"i1": 1, "i2": 5}, {"o1": 2}) == {"i1": 2, "i2": 5}
 
 
 def test_next_iteration_inputs_pass_skipped_output_on():
-    step, loop = _loop_step()
-    assert next_iteration_inputs(step, loop, {"i1": 1}, {"o1": NO_REPLACEMENT})["i1"] is NO_REPLACEMENT
+    assert _next_inputs({"output_source": "o1"}, {"i1": 1}, {"o1": NO_REPLACEMENT})["i1"] is NO_REPLACEMENT
 
 
 def test_next_iteration_inputs_missing_output_fails():
-    step, loop = _loop_step()
     with pytest.raises(modules.FailWorkflowEvaluation) as exc_info:
-        next_iteration_inputs(step, loop, {"i1": 1}, {})
+        _next_inputs({"output_source": "o1"}, {"i1": 1}, {})
     assert exc_info.value.why.reason == FailureReason.output_not_found
+
+
+def test_default_replaces_null_or_skipped_feedback(tmp_path):
+    skipped = expression_json_hda(tmp_path / "skipped.json", "null")
+    for fed_back in (None, NO_REPLACEMENT, skipped):
+        assert _next_inputs({"output_source": "o1", "default": 5}, {"i1": 1}, {"o1": fed_back})["i1"] == 5
+    assert _next_inputs({"output_source": "o1", "default": 5}, {"i1": 1}, {"o1": 0})["i1"] == 0
+
+
+def test_value_from_sees_previous_inputs_and_value_after_default():
+    calls = []
+
+    def evaluate(expression: str, inputs: dict[str, Any], value: Any) -> Any:
+        calls.append((expression, inputs, value))
+        return 42
+
+    rule = {"output_source": "o1", "default": 5, "value_from": "$(self + inputs.i1)"}
+    assert _next_inputs(rule, {"i1": 1, "i2": 7}, {"o1": None}, evaluate)["i1"] == 42
+    # CWL v1.3 LoopInput: default first, then valueFrom with self and the previous iteration's inputs.
+    assert calls == [("$(self + inputs.i1)", {"i1": 1, "i2": 7}, 5)]
+
+
+def test_value_from_without_output_source_gets_null_self():
+    calls = []
+
+    def evaluate(expression: str, inputs: dict[str, Any], value: Any) -> Any:
+        calls.append(value)
+        return 2
+
+    assert _next_inputs({"value_from": "$(inputs.i1 + 1)"}, {"i1": 1}, {}, evaluate)["i1"] == 2
+    assert calls == [None]
 
 
 def test_iteration_outputs_read_recorded_outputs():

@@ -1,6 +1,7 @@
 import logging
 import uuid
 from collections.abc import MutableMapping
+from functools import partial
 from typing import (
     Any,
     Optional,
@@ -54,6 +55,8 @@ from galaxy.workflow.loop import (
     loop_failure,
     next_iteration_inputs,
     parse_loop,
+    record_loop_inputs,
+    recorded_loop_inputs,
     WorkflowLoop,
 )
 from galaxy.workflow.run_request import (
@@ -953,8 +956,7 @@ class WorkflowProgress:
         if len(associations) == 1:
             inputs = first_inputs
         else:
-            previous_outputs = iteration_outputs(associations[-2].subworkflow_invocation)
-            inputs = next_iteration_inputs(step, loop, first_inputs, previous_outputs)
+            inputs = {**first_inputs, **recorded_loop_inputs(step, loop, association.subworkflow_invocation)}
         while True:
             iteration = association.subworkflow_invocation
             # The test before the first iteration; once it passed, the iteration is no longer new.
@@ -989,7 +991,9 @@ class WorkflowProgress:
             self.record_subworkflow_delays(invoker.progress)
             try:
                 self._check_loop_iteration_settled(trans, step, association)
-                next_inputs = next_iteration_inputs(step, loop, first_inputs, iteration_outputs(iteration))
+                next_inputs = next_iteration_inputs(
+                    step, loop, inputs, iteration_outputs(iteration), partial(self._evaluate_loop_value_from, step)
+                )
                 run_next = self._evaluate_loop_when(step, next_inputs)
             except modules.FailWorkflowEvaluation:
                 association.loop_outcome = LoopOutcome.FAILED
@@ -1011,7 +1015,9 @@ class WorkflowProgress:
                 association.loop_outcome = LoopOutcome.FAILED
                 raise
             association.loop_outcome = LoopOutcome.CONTINUE
-            association = self._allocate_loop_iteration(trans, step, associations[0], association.iteration + 1)
+            association = self._allocate_loop_iteration(
+                trans, step, associations[0], association.iteration + 1, loop, next_inputs
+            )
             inputs = next_inputs
 
     def _loop_first_inputs(self, step: "WorkflowStep") -> dict[str, Any]:
@@ -1031,6 +1037,11 @@ class WorkflowProgress:
             for input_step in step.subworkflow.input_steps
             if input_step.label in loop.inputs and input_step.label in inputs
         }
+
+    def _evaluate_loop_value_from(
+        self, step: "WorkflowStep", expression: str, inputs: dict[str, Any], value: Any
+    ) -> Any:
+        return modules.evaluate_loop_value_from(self, step, expression, inputs, value)
 
     def _evaluate_loop_when(self, step: "WorkflowStep", inputs: dict[str, Any]) -> bool:
         return bool(modules.evaluate_value_from_expressions(self, step, execution_state={}, extra_step_state=inputs))
@@ -1091,6 +1102,8 @@ class WorkflowProgress:
         step: "WorkflowStep",
         first_iteration: model.WorkflowInvocationToSubworkflowInvocationAssociation,
         iteration: int,
+        loop: WorkflowLoop,
+        inputs: dict[str, Any],
     ) -> model.WorkflowInvocationToSubworkflowInvocationAssociation:
         # begin_nested() flushes pending state first; flush it here so that its errors are not
         # taken for an existing iteration.
@@ -1104,6 +1117,7 @@ class WorkflowProgress:
                     step, subworkflow_invocation
                 )
                 association.iteration = iteration
+                record_loop_inputs(step, loop, subworkflow_invocation, inputs)
         except IntegrityError:
             # Another scheduling pass created this iteration; the next pass picks it up.
             raise modules.DelayedWorkflowEvaluation(why=f"Loop iteration {iteration} already exists.")
