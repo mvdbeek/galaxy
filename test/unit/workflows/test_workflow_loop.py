@@ -191,7 +191,7 @@ def test_loop_needs_feedback():
 
 def test_loop_unknown_key_refused():
     with pytest.raises(RequestParameterInvalidException):
-        parse_loop({"inputs": {"i1": {"output_source": "o1", "pick_value": "first_non_null"}}})
+        parse_loop({"inputs": {"i1": {"output_source": "o1", "source": "o2"}}})
 
 
 def test_loop_input_needs_a_value():
@@ -460,3 +460,100 @@ def test_run_request_refuses_collection_mapping_over_loop_step():
         validate_loop_request(workflow, {input_step.id: model.HistoryDatasetCollectionAssociation(collection=nested)})
     assert "mapping over a loop step is not supported" in str(exc_info.value)
     validate_loop_request(workflow, {input_step.id: _list(["a"])})
+
+
+TWO_OUTPUT_BODY = ADD_ONE_BODY + """  - type: tool
+    tool_id: expression_add_int
+    workflow_outputs:
+      - {output_name: sum, label: o2}
+"""
+
+
+def _two_source_loop(rule: dict[str, Any]) -> model.Workflow:
+    return yaml_to_model(loop_step_yaml(loop={"inputs": {"i1": rule}}, body=TWO_OUTPUT_BODY))
+
+
+def test_list_output_source_with_pick_value():
+    for pick_value in ("first_non_null", "the_only_non_null"):
+        validate_workflow_loops(_two_source_loop({"output_source": ["o1", "o2"], "pick_value": pick_value}), True)
+    rule = {"output_source": ["o1", "o2"], "link_merge": "merge_nested", "pick_value": "first_non_null"}
+    validate_workflow_loops(_two_source_loop(rule), True)
+
+
+@pytest.mark.parametrize(
+    "rule,message",
+    [
+        ({"output_source": ["o1", "missing"], "pick_value": "first_non_null"}, "'missing' is not an output"),
+        ({"output_source": ["o1", "o2"]}, "a list output_source needs pick_value"),
+        ({"output_source": ["o1", "o2"], "pick_value": "all_non_null"}, "a list output_source needs pick_value"),
+        (
+            {"output_source": ["o1", "o2"], "link_merge": "merge_flattened", "pick_value": "first_non_null"},
+            "'merge_flattened' is not supported yet",
+        ),
+        ({"output_source": "o1", "link_merge": "merge_nested"}, "link_merge and pick_value need a list output_source"),
+        (
+            {"output_source": "o1", "pick_value": "first_non_null"},
+            "link_merge and pick_value need a list output_source",
+        ),
+        ({"output_source": ["o1", "o2"], "pick_value": "last_non_null"}, "Invalid loop definition"),
+        ({"output_source": ["o1"], "pick_value": "first_non_null"}, "a list output_source needs two or more outputs"),
+        ({"output_source": [], "pick_value": "first_non_null"}, "a list output_source needs two or more outputs"),
+    ],
+)
+def test_list_output_source_refused(rule, message):
+    assert_refused(_two_source_loop(rule), message)
+
+
+THREE_OUTPUT_BODY = TWO_OUTPUT_BODY + """  - type: tool
+    tool_id: expression_add_int
+    workflow_outputs:
+      - {output_name: sum, label: o3}
+"""
+
+
+def _picked(pick_value: str, previous_outputs: dict[str, Any], evaluate=_no_value_from, **rule_fields) -> Any:
+    rule = {"output_source": list(previous_outputs), "pick_value": pick_value, **rule_fields}
+    step, loop = _loop_step(body=THREE_OUTPUT_BODY, loop={"inputs": {"i1": rule}})
+    return next_iteration_inputs(step, loop, {"i1": 1}, previous_outputs, evaluate)["i1"]
+
+
+def test_first_non_null_with_every_output_null_fails_even_with_a_default():
+    # CWL v1.3 and cwltool: pickValue comes before default, and fails when every value is null.
+    for rule_fields in ({}, {"default": 5}):
+        with pytest.raises(modules.FailWorkflowEvaluation) as exc_info:
+            _picked("first_non_null", {"o1": None, "o2": NO_REPLACEMENT}, **rule_fields)
+        assert "every output it is fed from is null" in exc_info.value.why.model_dump()["details"]
+
+
+def test_pick_among_three_outputs():
+    assert _picked("first_non_null", {"o1": None, "o2": 7, "o3": 9}) == 7
+    assert _picked("the_only_non_null", {"o1": None, "o2": None, "o3": 9}) == 9
+    with pytest.raises(modules.FailWorkflowEvaluation):
+        _picked("the_only_non_null", {"o1": 1, "o2": None, "o3": 9})
+
+
+def test_value_from_sees_the_picked_value():
+    calls = []
+
+    def evaluate(expression: str, inputs: dict[str, Any], value: Any) -> Any:
+        calls.append(value)
+        return value + 1
+
+    assert _picked("first_non_null", {"o1": None, "o2": 7}, evaluate, value_from="$(self + 1)") == 8
+    assert calls == [7]
+
+
+def test_first_non_null_picks_the_first_value_that_is_not_null(tmp_path):
+    skipped = expression_json_hda(tmp_path / "skipped.json", "null")
+    assert _picked("first_non_null", {"o1": skipped, "o2": 8}) == 8
+    assert _picked("first_non_null", {"o1": 5, "o2": 8}) == 5
+
+
+def test_the_only_non_null_needs_exactly_one_value():
+    assert _picked("the_only_non_null", {"o1": NO_REPLACEMENT, "o2": 8}) == 8
+    with pytest.raises(modules.FailWorkflowEvaluation) as exc_info:
+        _picked("the_only_non_null", {"o1": 5, "o2": 8})
+    assert "more than one output it is fed from is not null" in exc_info.value.why.model_dump()["details"]
+    with pytest.raises(modules.FailWorkflowEvaluation) as exc_info:
+        _picked("the_only_non_null", {"o1": None, "o2": NO_REPLACEMENT})
+    assert "every output it is fed from is null" in exc_info.value.why.model_dump()["details"]

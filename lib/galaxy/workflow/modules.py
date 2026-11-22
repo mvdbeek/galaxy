@@ -859,6 +859,15 @@ def workflow_step_name(step: WorkflowStep) -> str:
     return str(name or step.order_index + 1)
 
 
+def is_null_or_skipped(value: Any, step: WorkflowStep) -> bool:
+    """Whether a replacement is a skipped or null output: no replacement, or an expression.json dataset holding null."""
+    if value is NO_REPLACEMENT:
+        return True
+    if isinstance(value, model.HistoryDatasetAssociation):
+        return value.is_null_expression(read_value=lambda dataset: read_expression_json(dataset, step=step))
+    return False
+
+
 def subworkflow_output_label(workflow_output: WorkflowOutput) -> str:
     """Return the name of a subworkflow output on the subworkflow step that runs it."""
     return workflow_output.label or f"{workflow_output.workflow_step.order_index}:{workflow_output.output_name}"
@@ -2309,19 +2318,10 @@ class PickValueModule(WorkflowModule):
         state.inputs = {}
         return state
 
-    @staticmethod
-    def _is_null_or_skipped(value, step: WorkflowStep) -> bool:
-        """Check if a replacement value represents a skipped/null output."""
-        if value is NO_REPLACEMENT:
-            return True
-        if isinstance(value, model.HistoryDatasetAssociation):
-            return value.is_null_expression(read_value=lambda dataset: read_expression_json(dataset, step=step))
-        return False
-
     def _pick_from_replacements(self, trans: "ProvidesHistoryContext", invocation_step, mode, replacements):
         """Apply pick logic to a list of replacement values. Returns the picked output."""
         step = invocation_step.workflow_step
-        non_null = [r for r in replacements if not self._is_null_or_skipped(r, step)]
+        non_null = [r for r in replacements if not is_null_or_skipped(r, step)]
 
         if mode == "first_non_null":
             if not non_null:
@@ -2401,7 +2401,7 @@ class PickValueModule(WorkflowModule):
             if (
                 stops_at_first_value
                 and isinstance(replacement, model.HistoryDatasetAssociation)
-                and not self._is_null_or_skipped(replacement, step)
+                and not is_null_or_skipped(replacement, step)
             ):
                 return
 
@@ -2535,7 +2535,7 @@ class PickValueModule(WorkflowModule):
         Uses execute_on_mapped_over which operates on step_outputs dict
         rather than requiring a Job object. Skipped outputs are left untouched.
         """
-        if self._is_null_or_skipped(output, step):
+        if is_null_or_skipped(output, step):
             return
         step_outputs = {"output": output}
         step_inputs: dict[str, Any] = {}

@@ -976,6 +976,156 @@ steps:
         )
         assert self._outcomes(invocation["id"], "outer") == ["failed"]
 
+    def _two_branch_loop(self, rule: dict[str, Any], small_when: str, big_when: str, method: str) -> dict[str, Any]:
+        # Of the two body steps, small adds 1 and big adds 3; each runs only when its test is true.
+        workflow = loop_workflow(
+            f"""
+class: GalaxyWorkflow
+inputs:
+  i1: int
+outputs:
+  osmall:
+    outputSource: loop/osmall
+  obig:
+    outputSource: loop/obig
+steps:
+  loop:
+    in:
+      i1: i1
+    when: $(inputs.i1 < 20)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        i1: int
+      outputs:
+        osmall:
+          outputSource: small_values/sum
+        obig:
+          outputSource: big_values/sum
+      steps:
+        small_values:
+          tool_id: expression_add_int
+          when: {small_when!r}
+          in:
+            a: i1
+        big_values:
+          tool_id: expression_add_int
+          when: {big_when!r}
+          state:
+            b: 3
+          in:
+            a: i1
+""",
+            {"loop": {"inputs": {"i1": rule}, "output_method": method}},
+        )
+        return workflow
+
+    def test_loop_multi_source_input(self):
+        rule = {"output_source": ["osmall", "obig"], "pick_value": "the_only_non_null"}
+        workflow = self._two_branch_loop(rule, "$(inputs.a < 5)", "$(inputs.a >= 5)", "all_iterations")
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        _, small = self._output_list(summary, "osmall")
+        _, big = self._output_list(summary, "obig")
+        # CWL merges the two lists with merge_flattened and all_non_null; one is null in each iteration.
+        assert [s if s is not None else b for s, b in zip(small, big)] == [2, 3, 4, 5, 8, 11, 14, 17, 20]
+        assert all((s is None) != (b is None) for s, b in zip(small, big))
+        downloaded = self.workflow_populator.download_workflow(summary.workflow_id, style="ga")
+        assert _step_by_label(downloaded["steps"], "loop")["loop"]["inputs"]["i1"] == rule
+
+    def test_loop_multi_source_input_first_non_null(self):
+        rule = {"output_source": ["osmall", "obig"], "pick_value": "first_non_null"}
+        workflow = self._two_branch_loop(rule, "$(inputs.a < 5)", "$(inputs.a >= 5)", "last_iteration")
+        summary = self._run(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert self._output_value(summary, "obig") == 20
+        assert len(self._iterations(summary.invocation_id)) == 9
+
+    def test_loop_multi_source_input_the_only_non_null_fails_with_two_values(self):
+        # At i1 = 3 both branches run.
+        rule = {"output_source": ["osmall", "obig"], "pick_value": "the_only_non_null"}
+        workflow = self._two_branch_loop(rule, "$(inputs.a < 5)", "$(inputs.a >= 3)", "last_iteration")
+        invocation = self._run_failing(workflow, {"i1": {"value": 1, "type": "raw"}})
+        assert invocation["messages"][0]["reason"] == "loop_failed"
+        assert invocation["messages"][0]["details"] == (
+            "Loop input 'i1': more than one output it is fed from is not null, the_only_non_null needs one."
+        )
+        assert self._outcomes(invocation["id"]) == ["continue", "continue", "failed"]
+
+    def test_loop_multi_source_input_datasets(self):
+        workflow = loop_workflow(
+            """
+class: GalaxyWorkflow
+inputs:
+  i1: int
+  d: data
+steps:
+  loop:
+    in:
+      i1: i1
+      d: d
+    when: $(inputs.i1 < 5)
+    run:
+      class: GalaxyWorkflow
+      inputs:
+        i1: int
+        d: data
+      outputs:
+        o1:
+          outputSource: count/sum
+        oa:
+          outputSource: small/out_file1
+        ob:
+          outputSource: big/out_file1
+      steps:
+        count:
+          tool_id: expression_add_int
+          in:
+            a: i1
+        small:
+          tool_id: cat1
+          when: $(inputs.n < 3)
+          in:
+            input1: d
+            n: i1
+        big:
+          tool_id: cat1
+          when: $(inputs.n >= 3)
+          in:
+            input1: d
+            n: i1
+""",
+            {
+                "loop": {
+                    "inputs": {
+                        "i1": {"output_source": "o1"},
+                        "d": {"output_source": ["oa", "ob"], "pick_value": "first_non_null"},
+                    }
+                }
+            },
+        )
+        summary = self._run(
+            workflow, {"i1": {"value": 1, "type": "raw"}, "d": {"value": "simple_line.txt", "type": "File"}}
+        )
+        iterations = [
+            self.workflow_populator.get_invocation(iteration["subworkflow_invocation_id"])
+            for iteration in self._iterations(summary.invocation_id)
+        ]
+        assert len(iterations) == 4
+        # Each iteration's d is the dataset of the branch that ran in the iteration before it.
+        for previous, iteration, branch in zip(iterations, iterations[1:], ["oa", "oa", "ob"]):
+            dataset_input = next(item for item in iteration["inputs"].values() if item["label"] == "d")
+            assert dataset_input["id"] == previous["outputs"][branch]["id"]
+
+    def test_validate_loop_fail_list_output_source(self):
+        for rule, message in (
+            ({"output_source": ["osmall", "missing"], "pick_value": "first_non_null"}, "'missing' is not an output"),
+            ({"output_source": "osmall", "link_merge": "merge_nested"}, "need a list output_source"),
+            ({"output_source": ["osmall", "obig"], "pick_value": "any_non_null"}, "Invalid loop definition"),
+        ):
+            workflow = self._two_branch_loop(rule, "$(inputs.a < 5)", "$(inputs.a >= 5)", "last_iteration")
+            response = self.workflow_populator.create_workflow_response(workflow)
+            self._assert_status_code_is(response, 400)
+            assert message in response.json()["err_msg"]
+
     def test_loop_fail_loop_when_exception(self):
         invocation = self._run_failing(
             single_loop_workflow('${ throw new Error("failed"); }'), {"i1": {"value": 1, "type": "raw"}}

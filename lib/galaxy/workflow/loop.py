@@ -50,7 +50,7 @@ from galaxy.tools.expressions.evaluation import (
 from galaxy.tools.parameters.workflow_utils import NO_REPLACEMENT
 from galaxy.workflow.modules import (
     FailWorkflowEvaluation,
-    replace_expression_json_dataset,
+    is_null_or_skipped,
     subworkflow_output_label,
     workflow_step_name,
 )
@@ -68,17 +68,33 @@ MAX_LOOP_NESTING_DEPTH = 4
 INPUT_REFERENCE = re.compile(r"""inputs(?:\.([A-Za-z_]\w*)|\[\s*["']([^"']+)["']\s*\])""")
 
 
+class LoopPickValue(StrEnum):
+    first_non_null = "first_non_null"
+    the_only_non_null = "the_only_non_null"
+    all_non_null = "all_non_null"
+
+
+class LoopLinkMerge(StrEnum):
+    merge_nested = "merge_nested"
+    merge_flattened = "merge_flattened"
+
+
 class LoopInput(BaseModel):
     """How a loop input gets its value for the next iteration, as CWL v1.3 ``LoopInput``.
 
-    The value is the output named by ``output_source`` (null without one); ``default``
-    replaces a null or skipped value; then ``value_from`` computes the value, with ``self``
-    bound to that value and ``inputs`` to the input object of the iteration that just ran.
+    The value is the output named by ``output_source`` (null without one); with a list of
+    outputs, ``pick_value`` picks one of their values; ``default`` replaces a null or skipped
+    value; then ``value_from`` computes the value, with ``self`` bound to that value and
+    ``inputs`` to the input object of the iteration that just ran.
     """
 
     model_config = ConfigDict(extra="forbid")
 
-    output_source: str | None = Field(None, description="Label of the subworkflow output fed back into this input.")
+    output_source: str | list[str] | None = Field(
+        None, description="Label, or list of labels, of the subworkflow outputs fed back into this input."
+    )
+    link_merge: LoopLinkMerge | None = Field(None, description="How the values of a list of outputs are merged.")
+    pick_value: LoopPickValue | None = Field(None, description="How one value is picked among a list of outputs.")
     default: Any = Field(None, description="Value used when the fed-back value is null or skipped.")
     value_from: str | None = Field(None, description="Expression that computes the value for the next iteration.")
 
@@ -183,10 +199,13 @@ def _validate_loop_step(step: "WorkflowStep") -> None:
             raise RequestParameterInvalidException(
                 f"Step {name}: loop input '{input_name}' is not an input of the subworkflow."
             )
-        if rule.output_source is not None and rule.output_source not in output_labels:
-            raise RequestParameterInvalidException(
-                f"Step {name}: loop output_source '{rule.output_source}' is not an output of the subworkflow."
-            )
+        sources = rule.output_source if isinstance(rule.output_source, list) else [rule.output_source]
+        for source in sources:
+            if source is not None and source not in output_labels:
+                raise RequestParameterInvalidException(
+                    f"Step {name}: loop output_source '{source}' is not an output of the subworkflow."
+                )
+        _validate_several_sources(name, input_name, rule)
         if rule.default is not None:
             _validate_loop_default(name, input_name, subworkflow_inputs[input_name], rule.default)
         if rule.value_from is not None:
@@ -223,6 +242,26 @@ def _is_parameter_output(step: "WorkflowStep", output_name: str | None) -> bool:
             for connection in step.input_connections
         )
     return False
+
+
+def _validate_several_sources(step_name: str, input_name: str, rule: LoopInput) -> None:
+    prefix = f"Step {step_name}: loop input '{input_name}'"
+    if not isinstance(rule.output_source, list):
+        if rule.link_merge is not None or rule.pick_value is not None:
+            raise RequestParameterInvalidException(f"{prefix}: link_merge and pick_value need a list output_source.")
+        return
+    if len(rule.output_source) < 2:
+        raise RequestParameterInvalidException(
+            f"{prefix}: a list output_source needs two or more outputs; name a single output without a list."
+        )
+    if rule.link_merge == LoopLinkMerge.merge_flattened:
+        raise RequestParameterInvalidException(f"{prefix}: link_merge 'merge_flattened' is not supported yet.")
+    if rule.pick_value not in (LoopPickValue.first_non_null, LoopPickValue.the_only_non_null):
+        raise RequestParameterInvalidException(
+            f"{prefix}: a list output_source needs pick_value 'first_non_null' or 'the_only_non_null'; "
+            "otherwise the value would be a list of the outputs' values, which no dataset, collection "
+            "or parameter input can take yet."
+        )
 
 
 def _unconnected_reference(expression: str, connected_inputs: set[str]) -> str | None:
@@ -435,17 +474,11 @@ def next_iteration_inputs(
     inputs = dict(previous_inputs)
     for input_name, rule in loop.inputs.items():
         value: Any = None
-        if rule.output_source is not None:
-            if rule.output_source not in previous_outputs:
-                raise FailWorkflowEvaluation(
-                    why=InvocationFailureOutputNotFound(
-                        reason=FailureReason.output_not_found,
-                        workflow_step_id=step.id,
-                        output_name=rule.output_source,
-                        dependent_workflow_step_id=step.id,
-                    )
-                )
-            value = previous_outputs[rule.output_source]
+        if isinstance(rule.output_source, list):
+            values = [_previous_output(step, previous_outputs, source) for source in rule.output_source]
+            value = _pick_value(step, input_name, rule.pick_value, values)
+        elif rule.output_source is not None:
+            value = _previous_output(step, previous_outputs, rule.output_source)
         if rule.default is not None and _is_null(value, step):
             value = rule.default
         if rule.value_from is not None:
@@ -454,15 +487,39 @@ def next_iteration_inputs(
     return inputs
 
 
+def _previous_output(step: "WorkflowStep", previous_outputs: dict[str, Any], source: str) -> Any:
+    if source not in previous_outputs:
+        raise FailWorkflowEvaluation(
+            why=InvocationFailureOutputNotFound(
+                reason=FailureReason.output_not_found,
+                workflow_step_id=step.id,
+                output_name=source,
+                dependent_workflow_step_id=step.id,
+            )
+        )
+    return previous_outputs[source]
+
+
+def _pick_value(step: "WorkflowStep", input_name: str, pick_value: LoopPickValue | None, values: list[Any]) -> Any:
+    """Pick the value of several outputs, as CWL ``pickValue`` on a list of sources merged with ``merge_nested``.
+
+    Null is decided as for a pick_value step, so a collection output is never null: the collection
+    of a skipped mapped-over branch is picked, where CWL would see null.
+    """
+    non_null = [value for value in values if not _is_null(value, step)]
+    if not non_null:
+        raise loop_failure(step, f"Loop input '{input_name}': every output it is fed from is null.")
+    if pick_value == LoopPickValue.the_only_non_null and len(non_null) > 1:
+        raise loop_failure(
+            step,
+            f"Loop input '{input_name}': more than one output it is fed from is not null, the_only_non_null needs one.",
+        )
+    return non_null[0]
+
+
 def _is_null(value: Any, step: "WorkflowStep") -> bool:
-    if value is None or value is NO_REPLACEMENT:
-        return True
-    # A skipped job's outputs are expression.json datasets holding null.
-    return (
-        isinstance(value, model.HistoryDatasetAssociation)
-        and value.extension == "expression.json"
-        and replace_expression_json_dataset(value, step) is None
-    )
+    # A skipped job's outputs are expression.json datasets holding null, as for a pick_value step.
+    return value is None or is_null_or_skipped(value, step)
 
 
 def recorded_loop_inputs(
