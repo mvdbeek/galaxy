@@ -55,6 +55,26 @@ describe("convertOpenConnections", () => {
         expect(stepArray.find((step) => step.type === "data_input")?.position).toEqual({ left: 40, top: 60 });
     });
 
+    it("numbers generated input labels per input type", async () => {
+        const allSteps: Record<number, Step> = {
+            0: {
+                ...mockToolStep(0),
+                outputs: [
+                    { name: "text", type: "text", parameter: true, multiple: false, optional: false },
+                    { name: "data", extensions: ["input"], type: "data", optional: false },
+                ],
+            },
+            1: {
+                ...mockToolStep(1),
+                input_connections: { a: [{ id: 0, output_name: "text" }], b: [{ id: 0, output_name: "data" }] },
+            },
+        };
+
+        const { inputReconnectionMap } = await convertOpenConnections([1], allSteps, searchStore);
+
+        expect(inputReconnectionMap.map(({ label }) => label)).toEqual(["Text Input 1", "Input Dataset 1"]);
+    });
+
     it("creates one input per distinct outside output and reconnects each to its own source", async () => {
         const allSteps: Record<number, Step> = {
             0: toolStepWithOutputs(0, ["a", "b"]),

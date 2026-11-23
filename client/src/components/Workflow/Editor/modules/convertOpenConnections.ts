@@ -49,7 +49,6 @@ function getOpenOutputConnections(selectedKeys: number[], allSteps: Record<numbe
 function prettifyInputName(
     type: "data_input" | "data_collection_input" | "parameter_input",
     subType: undefined | "text" | "integer" | "float" | "boolean" | "color" | "directory_uri",
-    index: number,
     allStepLabels: Set<string>,
 ) {
     const getName = (count: number) => {
@@ -62,18 +61,18 @@ function prettifyInputName(
 
             return match(subType, {
                 boolean: () => `Boolean Input ${count}`,
-                color: () => `Color Inputs ${count}`,
+                color: () => `Color Input ${count}`,
                 directory_uri: () => `Directory Input ${count}`,
                 float: () => `Float Input ${count}`,
-                integer: () => `Integer Inputs ${count}`,
-                text: () => `Text Inputs ${count}`,
+                integer: () => `Integer Input ${count}`,
+                text: () => `Text Input ${count}`,
             });
         } else {
             return `Input ${count}`;
         }
     };
 
-    let currentCount = index + 1;
+    let currentCount = 1;
     let currentName = getName(currentCount);
 
     // increment count to avoid duplicate labels
@@ -93,7 +92,6 @@ async function inputConnectionToStep(
     link: ConnectionOutputLink,
     allSteps: Record<number, Step>,
     searchStore: WorkflowSearchStore,
-    index: number,
     allStepLabels: Set<string>,
     stepId: number,
 ): Promise<Step> {
@@ -112,7 +110,7 @@ async function inputConnectionToStep(
         subType = parameterType;
     }
 
-    const label = prettifyInputName(type, subType, index, allStepLabels);
+    const label = prettifyInputName(type, subType, allStepLabels);
     allStepLabels.add(label);
 
     // only places the new step, so an output that is not rendered falls back to its step's position
@@ -283,14 +281,7 @@ export async function convertOpenConnections(
 
     const inputBaseSteps = await Promise.all(
         uniqueOpenConnections.map((connection, index) =>
-            inputConnectionToStep(
-                connection,
-                allSteps,
-                searchStore,
-                index,
-                allLabelsInSelection,
-                firstInputStepId + index,
-            ),
+            inputConnectionToStep(connection, allSteps, searchStore, allLabelsInSelection, firstInputStepId + index),
         ),
     );
 
