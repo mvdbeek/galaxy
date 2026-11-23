@@ -73,7 +73,10 @@ jobs:
         run: ./run_tests.sh -unit test/unit/data/model/db/test_workflow_invocation_iterations.py
         working-directory: 'galaxy root'
       - name: Run workflow loop scheduling tests
-        run: ./run_tests.sh -unit test/unit/data/model/db/test_workflow_loop_scheduling.py
+        run: ./run_tests.sh -unit test/unit/workflows/db/test_workflow_loop_scheduling.py
+        working-directory: 'galaxy root'
+      - name: Run workflow invocation iteration job tests
+        run: ./run_tests.sh -unit test/unit/workflows/db/test_workflow_invocation_iteration_jobs.py
         working-directory: 'galaxy root'
       - name: Run concurrent HDA copy_from tests
         run: ./run_tests.sh -unit test/unit/data/test_hda_copy_from.py
