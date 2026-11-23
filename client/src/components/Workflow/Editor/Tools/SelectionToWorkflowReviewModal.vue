@@ -238,7 +238,9 @@ defineExpose({
                     <div>
                         Connected To:
                         <ul class="connection-list">
-                            <li v-for="connection in input.connectedTo" :key="connection.to">
+                            <li
+                                v-for="connection in input.connectedTo"
+                                :key="`${connection.to}-${connection.inputName}`">
                                 {{ connection.to + 1 }}:
                                 {{
                                     props.workflow.steps[connection.to]?.label ??
