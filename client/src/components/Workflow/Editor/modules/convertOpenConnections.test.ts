@@ -16,7 +16,9 @@ vi.mock("@/components/Workflow/Editor/modules/services", () => ({
     })),
 }));
 
-const searchStore = { findOutputPosition: () => ({ x: 0, y: 0 }) } as unknown as WorkflowSearchStore;
+const searchStore = {
+    getBoundsForItemCached: () => ({ x: 0, y: 0, width: 0, height: 0 }),
+} as unknown as WorkflowSearchStore;
 
 function toolStepWithOutputs(id: number, outputNames: string[]): Step {
     return {
@@ -39,6 +41,18 @@ describe("convertOpenConnections", () => {
         const copiedStep = stepArray.find((step) => step.id === 1);
         const inputStepId = inputReconnectionMap[0]?.stepId;
         expect(copiedStep?.input_connections.input1).toEqual([{ id: inputStepId, output_name: "output" }]);
+    });
+
+    it("places a generated input at its source step when the source output is not rendered", async () => {
+        const allSteps: Record<number, Step> = {
+            0: { ...mockToolStep(0), position: { left: 40, top: 60 } },
+            1: { ...mockToolStep(1), input_connections: { input1: [{ id: 0, output_name: "out_file1" }] } },
+        };
+        const unrendered = { getBoundsForItemCached: () => null } as unknown as WorkflowSearchStore;
+
+        const { stepArray } = await convertOpenConnections([1], allSteps, unrendered);
+
+        expect(stepArray.find((step) => step.type === "data_input")?.position).toEqual({ left: 40, top: 60 });
     });
 
     it("creates one input per distinct outside output and reconnects each to its own source", async () => {

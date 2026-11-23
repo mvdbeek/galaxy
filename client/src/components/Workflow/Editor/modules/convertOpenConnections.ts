@@ -115,14 +115,16 @@ async function inputConnectionToStep(
     const label = prettifyInputName(type, subType, index, allStepLabels);
     allStepLabels.add(label);
 
-    const position = searchStore.findOutputPosition(link.id, link.output_name);
+    // only places the new step, so an output that is not rendered falls back to its step's position
+    const outputBounds = searchStore.getBoundsForItemCached(link.id, "output", link.output_name);
+    const position = outputBounds
+        ? {
+              left: outputBounds.x + OUTPUT_TO_NODE_POSITION_CORRECTION.left,
+              top: outputBounds.y + OUTPUT_TO_NODE_POSITION_CORRECTION.top,
+          }
+        : (outputStep.position ?? { left: 0, top: 0 });
 
-    assertDefined(position);
-
-    const baseStep = createNewStep(type, type, type, {
-        left: position.x + OUTPUT_TO_NODE_POSITION_CORRECTION.left,
-        top: position.y + OUTPUT_TO_NODE_POSITION_CORRECTION.top,
-    });
+    const baseStep = createNewStep(type, type, type, position);
     // carry over what the source output produces, so the generated input accepts the same thing
     const state: Record<string, unknown> = { optional: outputConnection.optional };
     if (type === "data_collection_input") {

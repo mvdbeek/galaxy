@@ -287,21 +287,11 @@ export const useWorkflowSearchStore = defineScopedStore("workflowSearchStore", (
         return item ? item.bounds : null;
     }
 
-    function findOutputPosition(outputParentNodeId: string | number, outputName: string) {
-        const data = collectSearchDataCached();
-        const id = `node-${outputParentNodeId}-output-${outputName}`;
-
-        const outputSearchData = data.find((searchData) => searchData.id === id);
-
-        return outputSearchData?.bounds;
-    }
-
     return {
         getBoundsForItemCached,
         $reset,
         searchWorkflow,
         searchDataCacheId,
         searchDataCacheData,
-        findOutputPosition,
     };
 });

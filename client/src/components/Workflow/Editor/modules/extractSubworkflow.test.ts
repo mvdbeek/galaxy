@@ -24,7 +24,7 @@ describe("extractSubworkflow", () => {
     beforeEach(() => {
         setActivePinia(createPinia());
         stores = useWorkflowStores(workflowId);
-        vi.spyOn(stores.searchStore, "findOutputPosition").mockReturnValue({ x: 0, y: 0 } as never);
+        vi.spyOn(stores.searchStore, "getBoundsForItemCached").mockReturnValue({ x: 0, y: 0, width: 0, height: 0 });
 
         // input 0 feeds tool 1 (to be moved) and tool 2 (stays outside)
         const fromInput = { input1: [{ id: 0, output_name: "output" }] };
