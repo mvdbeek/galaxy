@@ -637,6 +637,13 @@ export class ExtractSubworkflowAction extends UndoRedoAction {
             commentIds.map((id) => ensureDefined(this.commentStore.commentsRecord[id])),
         );
 
+        // subworkflow outputs are named by label, so the parent keeps these outputs under the same names
+        const parentWorkflowOutputs = stepIds.flatMap((id) =>
+            (this.stepStore.getStep(id)?.workflow_outputs ?? []).flatMap(({ label }) =>
+                label ? [{ output_name: label, label }] : [],
+            ),
+        );
+
         const deleteSelectionSubAction = new DeleteSelectionAction(this.partialWorkflow.id);
 
         const newWf = await this.services.createWorkflow(this.partialWorkflow);
@@ -670,6 +677,7 @@ export class ExtractSubworkflowAction extends UndoRedoAction {
             inputs: response.inputs,
             outputs: response.outputs,
             config_form: response.config_form,
+            workflow_outputs: parentWorkflowOutputs,
         };
 
         this.stepStore.updateStep(updatedStep);

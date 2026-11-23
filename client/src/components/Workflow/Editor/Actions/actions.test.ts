@@ -293,6 +293,26 @@ describe("Workflow Undo Redo Actions", () => {
                 expect(getWorkflowSnapshot(workflow)).toEqual(after);
             });
 
+            it("keeps the parent's workflow outputs of moved steps on the subworkflow step", async () => {
+                stepStore.updateStep({
+                    ...stepStore.steps[2]!,
+                    workflow_outputs: [{ output_name: "out_file1", label: "final" }],
+                });
+                vi.mocked(getModule).mockResolvedValue({
+                    tool_state: {},
+                    inputs: [],
+                    outputs: [{ name: "final", extensions: ["input"], optional: false }],
+                    config_form: {},
+                });
+
+                await applyExtract();
+                expect(stepStore.steps[2]?.workflow_outputs).toEqual([{ output_name: "final", label: "final" }]);
+
+                undoRedoStore.undo();
+                undoRedoStore.redo();
+                expect(stepStore.steps[2]?.workflow_outputs).toEqual([{ output_name: "final", label: "final" }]);
+            });
+
             it("ignores undo while the move is still running", async () => {
                 let finishModule: (value: unknown) => void = () => {};
                 vi.mocked(getModule).mockReturnValue(new Promise((resolve) => (finishModule = resolve)) as never);
