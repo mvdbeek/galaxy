@@ -47,7 +47,8 @@ import {
 
 vi.mock("@/components/Workflow/services", () => ({
     Services: class {
-        createWorkflow = vi.fn(async () => ({ name: "Sub", latest_workflow_id: "sub-id" }));
+        createWorkflow = vi.fn(async () => ({ id: "stored-sub-id", name: "Sub", latest_workflow_id: "sub-id" }));
+        deleteWorkflow = vi.fn(async () => ({}));
     },
 }));
 vi.mock("@/components/Workflow/Editor/modules/services", () => ({ getModule: vi.fn() }));
@@ -357,6 +358,7 @@ describe("Workflow Undo Redo Actions", () => {
                 const action = await applyExtract();
 
                 expect(action.asyncOperationError?.message).toBe("module failed");
+                expect(action.services.deleteWorkflow).toHaveBeenCalledWith("stored-sub-id");
                 expect(getWorkflowSnapshot(workflow)).toEqual(before);
                 undoRedoStore.undo();
                 undoRedoStore.redo();

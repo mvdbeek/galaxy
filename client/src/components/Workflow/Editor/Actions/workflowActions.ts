@@ -474,6 +474,8 @@ export class ExtractSubworkflowAction extends UndoRedoAction {
 
     deleteSelectionSubAction?: DeleteSelectionAction;
     insertSubworkflowSubAction?: InsertStepAction;
+    /** id of the stored workflow `run` created, deleted again if the move fails */
+    createdWorkflowId?: string;
 
     asyncOperationDone: { value: boolean };
     /** Set when `run` fails; the action is then rolled back and undo/redo are no-ops */
@@ -626,6 +628,12 @@ export class ExtractSubworkflowAction extends UndoRedoAction {
         this.deleteSelectionSubAction?.undo();
         this.insertSubworkflowSubAction = undefined;
         this.deleteSelectionSubAction = undefined;
+
+        if (this.createdWorkflowId) {
+            // best effort; the move already failed and the editor is restored
+            this.services.deleteWorkflow(this.createdWorkflowId).catch(() => {});
+            this.createdWorkflowId = undefined;
+        }
     }
 
     async extract() {
@@ -647,6 +655,7 @@ export class ExtractSubworkflowAction extends UndoRedoAction {
         const deleteSelectionSubAction = new DeleteSelectionAction(this.partialWorkflow.id);
 
         const newWf = await this.services.createWorkflow(this.partialWorkflow);
+        this.createdWorkflowId = newWf.id;
 
         const insertSubworkflowSubAction = new InsertStepAction(this.stepStore, this.stateStore, {
             contentId: newWf.latest_workflow_id,
