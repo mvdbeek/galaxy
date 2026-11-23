@@ -351,14 +351,16 @@ describe("Workflow Undo Redo Actions", () => {
                 expect(getWorkflowSnapshot(workflow)).toEqual(duringMove);
             });
 
-            it("rolls back, records the error and ignores undo/redo when it fails", async () => {
+            it("rolls back, records the error and leaves the undo history when it fails", async () => {
                 vi.mocked(getModule).mockRejectedValue(new Error("module failed"));
                 const before = getWorkflowSnapshot(workflow);
+                const undoStackLength = undoRedoStore.undoStackLength;
 
                 const action = await applyExtract();
 
                 expect(action.asyncOperationError?.message).toBe("module failed");
                 expect(action.services.deleteWorkflow).toHaveBeenCalledWith("stored-sub-id");
+                expect(undoRedoStore.undoStackLength).toBe(undoStackLength);
                 expect(getWorkflowSnapshot(workflow)).toEqual(before);
                 undoRedoStore.undo();
                 undoRedoStore.redo();

@@ -8,7 +8,7 @@ import type {
 import type { PartialWorkflow } from "@/components/Workflow/Editor/modules/extractSubworkflow";
 import { getModule } from "@/components/Workflow/Editor/modules/services";
 import { Services } from "@/components/Workflow/services";
-import { LazyUndoRedoAction, UndoRedoAction, type UndoRedoStore } from "@/stores/undoRedoStore";
+import { LazyUndoRedoAction, UndoRedoAction, type UndoRedoStore, useUndoRedoStore } from "@/stores/undoRedoStore";
 import { useConnectionStore } from "@/stores/workflowConnectionStore";
 import {
     useWorkflowCommentStore,
@@ -617,6 +617,8 @@ export class ExtractSubworkflowAction extends UndoRedoAction {
         } catch (error) {
             this.asyncOperationError = error instanceof Error ? error : new Error(String(error));
             this.rollBack();
+            // nothing happened, so the move must not show up in the history
+            useUndoRedoStore(this.partialWorkflow.id).removeAction(this);
         } finally {
             this.asyncOperationDone.value = true;
         }

@@ -1,4 +1,4 @@
-import { computed, ref, watch } from "vue";
+import { computed, ref, toRaw, watch } from "vue";
 
 import { useClamp, useStep } from "@/composables/math";
 import { useUserLocalStorage } from "@/composables/userLocalStorage";
@@ -89,6 +89,13 @@ export const useUndoRedoStore = defineScopedStore("undoRedoStore", () => {
             deletedActions.value.push(action?.name ?? "unnamed action");
             action?.destroy();
         }
+    }
+
+    /** drops an action from the history without undoing it, for an action that rolled itself back */
+    function removeAction(action: UndoRedoAction) {
+        const raw = toRaw(action);
+        undoActionStack.value = undoActionStack.value.filter((stacked) => toRaw(stacked) !== raw);
+        redoActionStack.value = redoActionStack.value.filter((stacked) => toRaw(stacked) !== raw);
     }
 
     function clearRedoStack() {
@@ -221,6 +228,7 @@ export const useUndoRedoStore = defineScopedStore("undoRedoStore", () => {
         undo,
         redo,
         applyAction,
+        removeAction,
         action,
         applyLazyAction,
         clearLazyAction,
