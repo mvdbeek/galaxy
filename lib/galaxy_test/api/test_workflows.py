@@ -971,6 +971,14 @@ steps:
     def test_upload_deprecated(self):
         self.__test_upload(use_deprecated_route=True)
 
+    def test_upload_returns_encoded_latest_workflow_id(self):
+        name = "test_upload_latest_workflow_id"
+        created = self.__test_upload(name=name).json()
+        index_response = self._get("workflows", data={"search": name})
+        self._assert_status_code_is(index_response, 200)
+        (indexed,) = index_response.json()
+        assert created["latest_workflow_id"] == indexed["latest_workflow_id"]
+
     def test_import_tools_requires_admin(self):
         response = self.__test_upload(import_tools=True, assert_ok=False)
         assert response.status_code == 403
