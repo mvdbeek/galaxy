@@ -1,7 +1,7 @@
 import { createPinia, setActivePinia } from "pinia";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { mockToolStep } from "@/components/Workflow/Editor/Actions/mockData";
+import { mockComment, mockToolStep } from "@/components/Workflow/Editor/Actions/mockData";
 import { useWorkflowStores } from "@/composables/workflowStores";
 import type { Step } from "@/stores/workflowStepStore";
 
@@ -51,6 +51,16 @@ describe("extractSubworkflow", () => {
         expect(Object.values(partialWorkflow.steps).map((step) => step.id)).not.toContain(0);
         expect(inputReconnectionMap.map(({ connection }) => connection)).toEqual([{ id: 0, output_name: "output" }]);
         expect(stores.stateStore.multiSelectedStepIds).toEqual([1]);
+    });
+
+    it("copies a selected comment into the partial workflow", async () => {
+        stores.commentStore.addComments([mockComment(0)]);
+        stores.commentStore.setCommentMultiSelected(0, true);
+        stores.stateStore.setStepMultiSelected(1, true);
+
+        const { partialWorkflow } = await extractSubworkflow(workflowId, "Sub");
+
+        expect(partialWorkflow.comments).toEqual([mockComment(0)]);
     });
 
     it("refuses a selection of only input steps", async () => {

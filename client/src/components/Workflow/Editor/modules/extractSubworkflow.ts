@@ -6,6 +6,7 @@ import { useWorkflowStores } from "@/composables/workflowStores";
 import type { WorkflowComment } from "@/stores/workflowEditorCommentStore";
 import type { Step } from "@/stores/workflowStepStore";
 import { ensureDefined } from "@/utils/assertions";
+import { cloneRaw } from "@/utils/toRawDeep";
 
 export interface PartialWorkflow {
     comments: WorkflowComment[];
@@ -37,7 +38,7 @@ export async function extractSubworkflow(workflowId: string, name: string) {
     const expandedSteps = new Set(expandedSelection.filter((id) => !stepIds.includes(id)));
 
     const comments = commentIds.map((id) =>
-        structuredClone(ensureDefined(commentStore.commentsRecord[id])),
+        cloneRaw(ensureDefined(commentStore.commentsRecord[id])),
     ) as WorkflowComment[];
 
     const { stepArray, inputReconnectionMap, outputReconnectionMap } = await convertOpenConnections(

@@ -12,6 +12,7 @@ import { Services } from "@/components/Workflow/services";
 import { useWorkflowStores } from "@/composables/workflowStores";
 import type { WorkflowComment } from "@/stores/workflowEditorCommentStore";
 import { ensureDefined } from "@/utils/assertions";
+import { cloneRaw } from "@/utils/toRawDeep";
 
 import { DeleteSelectionAction, DuplicateSelectionAction, ExtractSubworkflowAction } from "../Actions/workflowActions";
 import { useMultiSelect } from "../composables/multiSelect";
@@ -58,7 +59,7 @@ export function useSelectionOperations() {
         const stepIds = [...stateStore.multiSelectedStepIds];
 
         const comments = commentIds.map((id) =>
-            structuredClone(ensureDefined(commentStore.commentsRecord[id])),
+            cloneRaw(ensureDefined(commentStore.commentsRecord[id])),
         ) as WorkflowComment[];
 
         // incoming connections become input steps; the copy is standalone, so outgoing ones are just dropped
