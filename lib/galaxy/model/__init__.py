@@ -9790,7 +9790,7 @@ class WorkflowStep(Base, RepresentById, UsesCreateAndUpdateTime):
     position: Mapped[bytes | None] = mapped_column(MutableJSONType)
     config: Mapped[bytes | None] = mapped_column(JSONType)
     order_index: Mapped[int]
-    when_expression: Mapped[bytes | None] = mapped_column(JSONType)
+    when_expression: Mapped[str | None] = mapped_column(JSONType)
     uuid: Mapped[UUID | str | None] = mapped_column(UUIDType)
     label: Mapped[str | None] = mapped_column(Unicode(255))
     temp_input_connections = None

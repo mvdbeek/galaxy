@@ -487,7 +487,7 @@ def evaluate_step_expressions(
         for name in step_state
         if name not in known and (step_input := step.inputs_by_name.get(name)) and step_input.value_from is not None
     }
-    when_expression = cast(str | None, step.when_expression)
+    when_expression = step.when_expression
     if not value_from_expressions and when_expression is None:
         return dict(known), None
 
