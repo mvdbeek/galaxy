@@ -725,7 +725,8 @@ class PurgeDeletedUsers(PurgesHDAs, RemovesMetadataFiles, Action):
 class PurgeDeletedUsersGDPR(PurgesHDAs, RemovesMetadataFiles, Action):
     """
     - Perform all steps in the PurgeDeletedUsers/purge_deleted_users action
-    - Obfuscate User.email and User.username for all users purged in this step.
+    - Obfuscate User.email and User.username for all users purged in this step, with the same hash
+      as UserManager.purge: sha512 of the value salted with the epoch time of this action.
     - Clear User.display_name for all users purged in this step.
     - Obfuscate the email in the name and description of the private Role of all users purged in
       this step (private roles created before 24.2 are named after the user's email).
@@ -740,8 +741,8 @@ class PurgeDeletedUsersGDPR(PurgesHDAs, RemovesMetadataFiles, Action):
           AS MATERIALIZED (
                    SELECT id,
                           email,
-                          encode(sha256(convert_to(email || gen_random_uuid()::text, 'UTF8')), 'hex') AS email_hash,
-                          encode(sha256(convert_to(username || gen_random_uuid()::text, 'UTF8')), 'hex') AS username_hash
+                          encode(sha512(convert_to(email || '{epoch_time}', 'UTF8')), 'hex') AS email_hash,
+                          encode(sha512(convert_to(username || '{epoch_time}', 'UTF8')), 'hex') AS username_hash
                      FROM galaxy_user
                     WHERE deleted{force_retry_sql}
                           AND update_time < (NOW() AT TIME ZONE 'utc' - (:days * interval '1 day'))),

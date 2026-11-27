@@ -1,5 +1,6 @@
 import datetime
 import os
+import re
 import string
 import tempfile
 from pathlib import Path
@@ -10,6 +11,7 @@ from sqlalchemy import select
 
 from galaxy import model
 from galaxy.util import now
+from galaxy.util.hash_util import new_secure_hash_v2
 from galaxy_test.base.populators import (
     LibraryPopulator,
     skip_without_tool,
@@ -116,11 +118,16 @@ class TestScriptsPgCleanupIntegration(RunsCachedBamJob, BaseScriptsIntegrationTe
         private_role_id = private_role.id
         delete_response = self._delete(f"users/{user['id']}", admin=True)
         assert delete_response.status_code == 200
-        self._pgcleanup_check_output(["--older-than", "0", "--sequence", "purge_deleted_users_gdpr"])
+        action_log = self._pgcleanup_action_log(
+            ["--older-than", "0", "--sequence", "purge_deleted_users_gdpr"], "purge_deleted_users_gdpr"
+        )
+        epoch_match = re.search(r"^Epoch time for this action: (\d+)$", action_log, re.MULTILINE)
+        assert epoch_match, action_log
+        epoch_time = epoch_match.group(1)
         purged_user = self._db_get(model.User, user["id"])
         assert purged_user.purged
-        assert purged_user.email != email and "@" not in purged_user.email
-        assert purged_user.username != user["username"]
+        assert purged_user.email == new_secure_hash_v2(email + epoch_time)
+        assert purged_user.username == new_secure_hash_v2(user["username"] + epoch_time)
         assert "extra_user_preferences" not in purged_user.preferences
         assert purged_user.display_name is None
         purged_private_role = self._app.model.session.get(model.Role, private_role_id)
